@@ -1,0 +1,5 @@
+CREATE DATABASE IF NOT EXISTS usintellix_hospital_management_system;
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE usintellix_hospital_management_system;
