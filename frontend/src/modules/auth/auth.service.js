@@ -1,7 +1,7 @@
 import { api } from "../../core/api.js";
 
 
-export async function login(username,password)
+export async function login(subdomain,username,password)
 {
     return await api(
         "/login",
@@ -9,6 +9,7 @@ export async function login(username,password)
             method:"POST",
 
             body:JSON.stringify({
+                subdomain,
                 username,
                 password
             })

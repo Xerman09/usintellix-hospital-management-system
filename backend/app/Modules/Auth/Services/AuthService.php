@@ -3,40 +3,68 @@
 namespace App\Modules\Auth\Services;
 
 use App\Core\Session;
+use App\Modules\Tenants\Models\Tenant;
 use App\Modules\Users\Models\User;
 
 class AuthService
 {
     /**
-     * Authenticate a user.
+     * Authenticate a user scoped to their company (tenant).
      */
-    public function login(string $username, string $password): array
+    public function login(string $subdomain, string $username, string $password): array
     {
         // Basic validation
-        if (empty($username) || empty($password)) {
+        $errors = [];
+
+        if (empty($subdomain)) {
+            $errors['subdomain'] = 'Company code is required.';
+        }
+
+        if (empty($username)) {
+            $errors['username'] = 'Username is required.';
+        }
+
+        if (empty($password)) {
+            $errors['password'] = 'Password is required.';
+        }
+
+        if (!empty($errors)) {
             return [
                 'success' => false,
-                'message' => 'Username and password are required.'
+                'message' => 'Please fill in all required fields.',
+                'errors' => $errors
             ];
         }
 
-        // Find user using ORM
+        // Resolve the tenant by subdomain
+        $tenant = (new Tenant())
+            ->where('subdomain', strtolower($subdomain))
+            ->first();
+
+        if (!$tenant) {
+            return [
+                'success' => false,
+                'message' => 'Company not found.',
+                'errors' => ['subdomain' => 'Company not found.']
+            ];
+        }
+
+        // Find user scoped to this tenant. Username/password failures are kept
+        // as one generic error (not split per field) to avoid leaking which
+        // usernames exist within a known tenant.
         $user = (new User())
+            ->where('tenant_id', $tenant['id'])
             ->where('username', $username)
             ->first();
 
-        if (!$user) {
+        if (!$user || !password_verify($password, $user['password'])) {
             return [
                 'success' => false,
-                'message' => 'Invalid username or password.'
-            ];
-        }
-
-        // Verify password
-        if (!password_verify($password, $user['password'])) {
-            return [
-                'success' => false,
-                'message' => 'Invalid username or password.'
+                'message' => 'Invalid username or password.',
+                'errors' => [
+                    'username' => 'Invalid username or password.',
+                    'password' => 'Invalid username or password.'
+                ]
             ];
         }
 
@@ -76,12 +104,12 @@ class AuthService
             ->where('user_id', $user['id'])
             ->first();
 
-        if (!$employee) {
+        if (!$employee || empty($user['role_id'])) {
             return 'patient';
         }
 
         $role = (new \App\Modules\Roles\Models\Role())
-            ->where('id', $employee['role_id'])
+            ->where('id', $user['role_id'])
             ->first();
 
         if (!$role) {

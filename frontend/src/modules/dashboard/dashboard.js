@@ -1,7 +1,7 @@
 import { getUser, clearSession } from "../../core/session.js";
 
 const roleConfig = {
-    "Hospital Admin": {
+    admin: {
         title: "Hospital Administration",
         welcome: "You have full access to hospital operations.",
         menu: ["Dashboard", "Patients", "Appointments", "Billing", "Reports", "Users"],
@@ -12,7 +12,7 @@ const roleConfig = {
         ],
         permissions: ["Manage users", "View billing", "Review reports", "Access all modules"]
     },
-    Doctor: {
+    doctor: {
         title: "Doctor Dashboard",
         welcome: "Review patients and manage appointments.",
         menu: ["Dashboard", "Patients", "Appointments", "Reports"],
@@ -23,7 +23,7 @@ const roleConfig = {
         ],
         permissions: ["View patient records", "Update appointments", "Write reports"]
     },
-    Nurse: {
+    nurse: {
         title: "Nurse Dashboard",
         welcome: "Track patient care and ward activity.",
         menu: ["Dashboard", "Patients", "Appointments"],
@@ -34,7 +34,7 @@ const roleConfig = {
         ],
         permissions: ["View assigned patients", "Update care notes", "Manage ward tasks"]
     },
-    Receptionist: {
+    receptionist: {
         title: "Reception Dashboard",
         welcome: "Coordinate appointments and patient arrivals.",
         menu: ["Dashboard", "Appointments", "Patients"],
@@ -45,7 +45,7 @@ const roleConfig = {
         ],
         permissions: ["Manage appointments", "Register patients", "Answer front desk requests"]
     },
-    "Cashier/Billing": {
+    billing: {
         title: "Billing Dashboard",
         welcome: "Monitor invoices, payments, and receipts.",
         menu: ["Dashboard", "Billing", "Reports"],
@@ -56,7 +56,7 @@ const roleConfig = {
         ],
         permissions: ["Process payments", "Review invoices", "Generate billing reports"]
     },
-    "Laboratory Staff": {
+    lab: {
         title: "Laboratory Dashboard",
         welcome: "Handle samples and lab requests.",
         menu: ["Dashboard", "Patients", "Reports"],
@@ -67,7 +67,7 @@ const roleConfig = {
         ],
         permissions: ["Receive lab samples", "Update test results", "Share reports"]
     },
-    "Pharmacy Staff": {
+    pharmacy: {
         title: "Pharmacy Dashboard",
         welcome: "Manage prescriptions and medication requests.",
         menu: ["Dashboard", "Patients", "Billing"],
@@ -78,7 +78,7 @@ const roleConfig = {
         ],
         permissions: ["Manage prescriptions", "Check inventory", "Support billing requests"]
     },
-    Patient: {
+    patient: {
         title: "Patient Dashboard",
         welcome: "View your appointments and personal health updates.",
         menu: ["Dashboard", "Appointments"],
@@ -92,12 +92,27 @@ const roleConfig = {
 };
 
 function getRoleConfig(role) {
-    return roleConfig[role] || roleConfig.Patient;
+    const key = (role || "patient").toLowerCase();
+    return roleConfig[key] || roleConfig.patient;
+}
+
+function resolveMenuRoute(item, role) {
+    if (item === "Users" && role === "admin") {
+        return "#/employees/create";
+    }
+
+    if (item === "Patients" && role === "receptionist") {
+        return "#/patients/create";
+    }
+
+    return "#/dashboard";
 }
 
 function renderDashboard(user) {
-    const config = getRoleConfig(user.role || "Patient");
-    const menuItems = config.menu.map((item) => `<a href="#/dashboard">${item}</a>`).join("");
+    const config = getRoleConfig(user.role || "patient");
+    const menuItems = config.menu
+        .map((item) => `<a href="${resolveMenuRoute(item, user.role)}">${item}</a>`)
+        .join("");
     const cards = config.cards.map((card) => `
         <div class="dashboard-card">
             <h3>${card.title}</h3>
@@ -129,10 +144,12 @@ function renderDashboard(user) {
                     </div>
 
                     <div class="user-profile">
+                        ${user.role === "admin" ? `<a href="#/employees/create" class="btn-primary-inline">+ Add Employee</a>` : ""}
+                        ${user.role === "receptionist" ? `<a href="#/patients/create" class="btn-primary-inline">+ Register Patient</a>` : ""}
                         <div class="avatar">${(user.username || "U").charAt(0).toUpperCase()}</div>
                         <div>
                             <strong>${user.username}</strong>
-                            <div>${user.role || "Patient"}</div>
+                            <div>${user.role || "patient"}</div>
                         </div>
                     </div>
                 </header>

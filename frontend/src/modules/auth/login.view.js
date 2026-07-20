@@ -22,6 +22,8 @@ export function LoginView()
     </p>
 
 
+<div id="formAlert"></div>
+
 
 <form id="loginForm">
 
@@ -29,13 +31,16 @@ export function LoginView()
 <div class="form-group">
 
 <label>
-Account
+Company Code
 </label>
 
-<input 
+<input
+id="subdomain"
 class="form-input"
-placeholder="e.g Branch / Company code"
+placeholder="e.g intellix"
 >
+
+<span class="form-error" id="err-subdomain"></span>
 
 
 </div>
@@ -48,11 +53,13 @@ placeholder="e.g Branch / Company code"
 Username
 </label>
 
-<input 
+<input
 id="username"
 class="form-input"
 placeholder="your.username"
 >
+
+<span class="form-error" id="err-username"></span>
 
 
 </div>
@@ -65,12 +72,14 @@ placeholder="your.username"
 Password
 </label>
 
-<input 
+<input
 id="password"
 type="password"
 class="form-input"
 placeholder="••••••••"
 >
+
+<span class="form-error" id="err-password"></span>
 
 
 </div>
@@ -114,7 +123,7 @@ Don't have a company account?
 
 
 
-<button class="register-btn">
+<button id="registerCompanyBtn" type="button" class="register-btn">
 
 Register Company
 

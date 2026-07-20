@@ -164,6 +164,51 @@ body {
 }
 
 
+.password-field {
+
+    position: relative;
+
+}
+
+
+.password-field .form-input {
+
+    padding-right: 52px;
+
+}
+
+
+.password-toggle {
+
+    position: absolute;
+
+    top: 50%;
+    right: 16px;
+
+    transform: translateY(-50%);
+
+    background: none;
+    border: none;
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #9aaac4;
+
+    cursor: pointer;
+
+}
+
+
+.password-toggle:hover {
+
+    color: #4f46e5;
+
+}
+
+
 
 .form-input:focus {
 
@@ -645,6 +690,213 @@ body {
 
 
 
+.btn-primary-inline {
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 46px;
+    padding: 0 22px;
+
+    border-radius: 12px;
+
+    background: linear-gradient(90deg, #4f46e5, #2563eb);
+
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+
+    box-shadow: 0 8px 20px rgba(37,99,235,.25);
+
+}
+
+
+/* =========================
+   FORM PAGE (Add Employee, etc.)
+========================= */
+
+.form-page {
+
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+
+    padding: 40px 20px;
+
+    background: #f6f8fc;
+
+}
+
+
+.form-card {
+
+    width: 100%;
+    max-width: 780px;
+
+    height: fit-content;
+
+    background: white;
+
+    padding: 40px;
+
+    border-radius: 24px;
+
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+
+}
+
+
+.form-card h1 {
+
+    margin: 0 0 8px;
+
+    font-size: 26px;
+
+    color: #25324b;
+
+}
+
+
+.form-subtitle {
+
+    margin: 0 0 30px;
+
+    color: #71809b;
+
+}
+
+
+.form-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(2, 1fr);
+
+    gap: 5px 25px;
+
+}
+
+
+.form-grid .form-group.full {
+
+    grid-column: 1 / -1;
+
+}
+
+
+select.form-input {
+
+    background: white;
+
+    cursor: pointer;
+
+}
+
+
+.form-error {
+
+    display: block;
+
+    min-height: 18px;
+
+    margin-top: 6px;
+
+    color: #dc2626;
+
+    font-size: 13px;
+
+}
+
+
+.form-actions {
+
+    display: flex;
+
+    gap: 15px;
+
+    margin-top: 10px;
+
+}
+
+
+.btn-secondary {
+
+    flex: 1;
+
+    height: 54px;
+
+    border-radius: 14px;
+
+    border: 1px solid #d9e1ee;
+
+    background: white;
+
+    color: #34435c;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    text-decoration: none;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+}
+
+
+.btn-secondary:hover {
+
+    background: #f8fafc;
+
+}
+
+
+.form-actions .login-btn {
+
+    flex: 1;
+
+}
+
+
+.form-alert {
+
+    margin-bottom: 20px;
+
+    padding: 14px 18px;
+
+    border-radius: 12px;
+
+    font-size: 14px;
+
+    font-weight: 500;
+
+}
+
+
+.form-alert.error {
+
+    background: #fee2e2;
+
+    color: #b91c1c;
+
+}
+
+
+.form-alert.success {
+
+    background: #dcfce7;
+
+    color: #15803d;
+
+}
+
+
 /* Mobile */
 
 
@@ -661,6 +913,20 @@ body {
 .dashboard-main{
 
     padding:20px;
+
+}
+
+
+.form-grid{
+
+    grid-template-columns: 1fr;
+
+}
+
+
+.form-card{
+
+    padding: 30px 25px;
 
 }
 
