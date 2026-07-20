@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
 
     password VARCHAR(255) NOT NULL,
 
+    role_id INT NULL,
+
     created_at DATETIME NULL,
 
     created_by INT NULL,
@@ -31,6 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
 
     INDEX idx_users_tenant (tenant_id),
 
+    INDEX idx_users_role (role_id),
+
     INDEX idx_users_created_by (created_by),
 
     INDEX idx_users_updated_by (updated_by),
@@ -40,6 +44,12 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT fk_users_tenant
         FOREIGN KEY (tenant_id)
         REFERENCES tenants(id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+
+    CONSTRAINT fk_users_role
+        FOREIGN KEY (role_id)
+        REFERENCES roles(id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
 

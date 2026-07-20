@@ -75,8 +75,6 @@ placeholder="••••••••"
 
 </div>
 
-
-
 <div class="login-options">
 
 <label>

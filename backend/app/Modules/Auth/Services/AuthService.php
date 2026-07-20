@@ -43,11 +43,14 @@ class AuthService
         // Regenerate session ID
         Session::regenerate();
 
+        $resolvedRole = $this->resolveRole($user);
+
         // Store logged-in user
         Session::put('user', [
             'id'        => $user['id'],
             'tenant_id' => $user['tenant_id'],
-            'username'  => $user['username']
+            'username'  => $user['username'],
+            'role'      => $resolvedRole
         ]);
 
         return [
@@ -65,5 +68,26 @@ class AuthService
     public function logout(): void
     {
         Session::destroy();
+    }
+
+    private function resolveRole(array $user): string
+    {
+        $employee = (new \App\Modules\Employees\Models\Employee())
+            ->where('user_id', $user['id'])
+            ->first();
+
+        if (!$employee) {
+            return 'patient';
+        }
+
+        $role = (new \App\Modules\Roles\Models\Role())
+            ->where('id', $employee['role_id'])
+            ->first();
+
+        if (!$role) {
+            return 'patient';
+        }
+
+        return strtolower((string) $role['name']);
     }
 }

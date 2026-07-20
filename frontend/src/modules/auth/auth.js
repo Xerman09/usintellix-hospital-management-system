@@ -26,7 +26,6 @@ export function initLogin()
                 document.getElementById("password").value;
 
 
-
             const result =
                 await login(
                     username,

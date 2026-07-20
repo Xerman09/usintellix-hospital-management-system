@@ -30,8 +30,6 @@ CREATE TABLE IF NOT EXISTS employees (
 
     department_id INT NOT NULL,
 
-    role_id INT NOT NULL,
-
     created_at DATETIME NULL,
 
     created_by INT NULL,
@@ -61,8 +59,6 @@ CREATE TABLE IF NOT EXISTS employees (
 
     INDEX idx_employees_department (department_id),
 
-    INDEX idx_employees_role (role_id),
-
     INDEX idx_employees_created_by (created_by),
 
     INDEX idx_employees_updated_by (updated_by),
@@ -84,12 +80,6 @@ CREATE TABLE IF NOT EXISTS employees (
     CONSTRAINT fk_employees_department
         FOREIGN KEY (department_id)
         REFERENCES departments(id)
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION,
-
-    CONSTRAINT fk_employees_role
-        FOREIGN KEY (role_id)
-        REFERENCES roles(id)
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
 
