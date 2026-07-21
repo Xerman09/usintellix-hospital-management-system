@@ -111,8 +111,10 @@ function resolveMenuRoute(item, role) {
 import { TabManager } from "../../core/tabs.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
-import { AddPatientView } from "../patients/add-patient.view.js";
-import { initAddPatient } from "../patients/add-patient.js";
+import { PatientsListView } from "../patients/patients-list.view.js";
+import { initPatientsList } from "../patients/patients-list.js";
+import { ProceduresView } from "../procedures/procedures.view.js";
+import { initProcedures, setActiveSubtab } from "../procedures/procedures.js";
 import { RegisterCompanyView } from "../tenants/register-company.view.js";
 import { initRegisterCompany } from "../tenants/register-company.js";
 
@@ -185,13 +187,19 @@ export function Dashboard()
             
             if (tabId === 'patients') {
                 tabManager.openTab(tabId, title, () => {
-                    setTimeout(initAddPatient, 0); // Initialize JS after rendering
-                    return AddPatientView();
+                    setTimeout(initPatientsList, 0);
+                    return PatientsListView(user);
                 });
             } else if (tabId === 'employees') {
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initAddEmployee, 0);
                     return AddEmployeeView();
+                });
+            } else if (tabId === 'procedures') {
+                setActiveSubtab(link.getAttribute('data-subtab'));
+                tabManager.openTab(tabId, 'Procedures', () => {
+                    setTimeout(initProcedures, 0);
+                    return ProceduresView();
                 });
             } else if (tabId === 'companies') {
                 tabManager.openTab(tabId, title, () => {

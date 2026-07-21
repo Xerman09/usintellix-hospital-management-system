@@ -101,6 +101,14 @@ export function AddPatientView()
                     <input id="weight" type="number" step="0.01" class="form-input" placeholder="e.g 60.00">
                     <span class="form-error" id="err-weight"></span>
                 </div>
+
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select id="provider_id" class="form-input">
+                        <option value="">Select provider (optional)</option>
+                    </select>
+                    <span class="form-error" id="err-provider_id"></span>
+                </div>
             </div>
 
             <div class="form-actions">

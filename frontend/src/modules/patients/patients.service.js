@@ -10,3 +10,30 @@ export async function createPatient(data)
         }
     );
 }
+
+export async function fetchPatients()
+{
+    return await api("/patients");
+}
+
+export async function deletePatient(id)
+{
+    return await api(
+        "/patients",
+        {
+            method:"DELETE",
+            body:JSON.stringify({ id })
+        }
+    );
+}
+
+export async function updatePatient(id, data)
+{
+    return await api(
+        "/patients",
+        {
+            method:"PUT",
+            body:JSON.stringify({ id, ...data })
+        }
+    );
+}

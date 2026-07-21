@@ -11,6 +11,12 @@ export function DashboardView()
         <div class="navbar-links" id="navbarLinks">
             <a data-tab="patients">Patients</a>
             <a data-tab="employees">Employees</a>
+            <div class="nav-dropdown">
+                <span data-tab="procedures" data-subtab="providers">Procedures</span>
+                <div class="dropdown-content">
+                    <a data-tab="procedures" data-subtab="providers">Providers</a>
+                </div>
+            </div>
             <a data-tab="companies">Companies</a>
         </div>
 

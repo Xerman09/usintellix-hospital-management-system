@@ -23,6 +23,22 @@ class Router
     }
 
     /**
+     * Register a DELETE route.
+     */
+    public function delete(string $uri, callable|array $action, array $middleware = []): void
+    {
+        $this->addRoute('DELETE', $uri, $action, $middleware);
+    }
+
+    /**
+     * Register a PUT route.
+     */
+    public function put(string $uri, callable|array $action, array $middleware = []): void
+    {
+        $this->addRoute('PUT', $uri, $action, $middleware);
+    }
+
+    /**
      * Register a route.
      */
     private function addRoute(string $method, string $uri, callable|array $action, array $middleware = []): void

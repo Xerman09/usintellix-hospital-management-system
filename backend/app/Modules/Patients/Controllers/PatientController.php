@@ -17,6 +17,82 @@ class PatientController extends Controller
     }
 
     /**
+     * List patients for the current tenant (admin-only).
+     */
+    public function index(): void
+    {
+        $user = Session::get('user');
+
+        $patients = $this->patientService->list((int) $user['tenant_id']);
+
+        $this->success($patients, 'Patients retrieved successfully.');
+    }
+
+    /**
+     * Soft-delete a patient (admin-only).
+     */
+    public function destroy(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $id = (int) $request->input('id');
+
+        $result = $this->patientService->remove(
+            $id,
+            (int) $admin['tenant_id'],
+            (int) $admin['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * Update an existing patient's demographic record.
+     */
+    public function update(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $id = (int) $request->input('id');
+
+        $data = $request->only([
+            'provider_id',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'suffix',
+            'sex',
+            'birthdate',
+            'civil_status',
+            'blood_type',
+            'height',
+            'weight'
+        ]);
+
+        $result = $this->patientService->update(
+            $id,
+            $data,
+            (int) $user['tenant_id'],
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $status = isset($result['errors']) ? 422 : 404;
+            $this->error($result['message'], $status, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
      * Register a new patient account (receptionist-only).
      */
     public function register(): void
@@ -27,6 +103,7 @@ class PatientController extends Controller
         $data = $request->only([
             'username',
             'password',
+            'provider_id',
             'first_name',
             'middle_name',
             'last_name',
