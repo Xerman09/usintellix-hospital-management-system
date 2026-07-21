@@ -7,10 +7,38 @@ use App\Modules\Departments\Models\Department;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Roles\Models\Role;
 use App\Modules\Users\Models\User;
+use PDO;
 use Throwable;
 
 class EmployeeService
 {
+    /**
+     * List active (non-deleted) employees for a tenant, optionally filtered by role name.
+     */
+    public function list(int $tenantId, ?string $role = null): array
+    {
+        $sql = "SELECT e.*, r.name AS role_name, d.name AS department_name
+                FROM employees e
+                JOIN users u ON u.id = e.user_id
+                JOIN roles r ON r.id = u.role_id
+                LEFT JOIN departments d ON d.id = e.department_id
+                WHERE e.tenant_id = :tenant_id AND e.deleted_at IS NULL";
+
+        $params = ['tenant_id' => $tenantId];
+
+        if ($role !== null) {
+            $sql .= " AND r.name = :role";
+            $params['role'] = $role;
+        }
+
+        $sql .= " ORDER BY e.last_name, e.first_name";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     /**
      * Register a new employee account (admin-only).
      */
@@ -111,6 +139,12 @@ class EmployeeService
 
         if (!in_array($data['sex'], ['male', 'female'], true)) {
             $errors['sex'] = 'Sex must be male or female.';
+        }
+
+        if (strtotime($data['birthdate']) === false) {
+            $errors['birthdate'] = 'Birthdate is not a valid date.';
+        } elseif ($data['birthdate'] > date('Y-m-d')) {
+            $errors['birthdate'] = 'Birthdate cannot be in the future.';
         }
 
         if ((new User())->where('tenant_id', $tenantId)->where('username', $data['username'])->first()) {

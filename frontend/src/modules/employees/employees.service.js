@@ -20,3 +20,8 @@ export async function fetchDepartments()
 {
     return await api("/departments");
 }
+
+export async function fetchEmployeesByRole(role)
+{
+    return await api(`/employees?role=${encodeURIComponent(role)}`);
+}

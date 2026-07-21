@@ -22,7 +22,9 @@ class Request
 
             $json = file_get_contents('php://input');
 
-            $this->data = json_decode($json, true) ?? [];
+            $body = json_decode($json, true) ?? [];
+
+            $this->data = array_merge($_GET, $body);
 
         } else {
 

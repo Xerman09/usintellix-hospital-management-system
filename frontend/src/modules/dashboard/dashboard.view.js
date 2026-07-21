@@ -1,5 +1,32 @@
+import { getUser } from "../../core/session.js";
+
+const STAFF_NAV_LINKS = `
+    <a data-tab="patients">Patients</a>
+    <a data-tab="employees">Employees</a>
+    <div class="nav-dropdown">
+        <span data-tab="procedures" data-subtab="providers">Procedures</span>
+        <div class="dropdown-content">
+            <a data-tab="procedures" data-subtab="providers">Providers</a>
+        </div>
+    </div>
+    <a data-tab="companies">Companies</a>
+`;
+
+const PATIENT_NAV_LINKS = `
+    <a data-tab="health_records">Patient Health Records</a>
+    <a data-tab="messaging">Messaging</a>
+    <a data-tab="appointments">Appointments</a>
+    <a data-tab="laboratory">Laboratory</a>
+    <a data-tab="medications">Medications</a>
+    <a data-tab="billing">Billing</a>
+    <a data-tab="documents">Documents</a>
+`;
+
 export function DashboardView()
 {
+    const user = getUser();
+    const navLinks = user?.role === "patient" ? PATIENT_NAV_LINKS : STAFF_NAV_LINKS;
+
     return `
 <div class="dashboard-container">
     <nav class="top-navbar">
@@ -7,17 +34,9 @@ export function DashboardView()
             <img src="/assets/logo.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'28\\' height=\\'28\\'><rect width=\\'28\\' height=\\'28\\' fill=\\'%234f46e5\\' rx=\\'4\\'/></svg>'">
             <span>Intellix</span>
         </div>
-        
+
         <div class="navbar-links" id="navbarLinks">
-            <a data-tab="patients">Patients</a>
-            <a data-tab="employees">Employees</a>
-            <div class="nav-dropdown">
-                <span data-tab="procedures" data-subtab="providers">Procedures</span>
-                <div class="dropdown-content">
-                    <a data-tab="procedures" data-subtab="providers">Providers</a>
-                </div>
-            </div>
-            <a data-tab="companies">Companies</a>
+            ${navLinks}
         </div>
 
         <div class="navbar-right">

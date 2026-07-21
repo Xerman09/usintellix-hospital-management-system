@@ -37,19 +37,11 @@ class ProviderController extends Controller
         $request = new Request();
 
         $data = $request->only([
-            'title',
-            'first_name',
-            'middle_name',
-            'last_name',
-            'suffix',
+            'employee_id',
             'specialty',
             'npi_number',
             'license_number',
-            'dea_number',
-            'email',
-            'phone',
-            'department_id',
-            'status'
+            'dea_number'
         ]);
 
         $result = $this->providerService->register(

@@ -4,6 +4,8 @@ namespace App\Modules\Patients\Services;
 
 use App\Core\Database;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Models\PatientContact;
+use App\Modules\Patients\Models\PatientEmergencyContact;
 use App\Modules\Providers\Models\Provider;
 use App\Modules\Users\Models\User;
 use PDO;
@@ -18,10 +20,25 @@ class PatientService
     {
         $stmt = Database::connection()->prepare(
             "SELECT p.*,
-                    pr.first_name AS provider_first_name,
-                    pr.last_name AS provider_last_name
+                    pe.first_name AS provider_first_name,
+                    pe.last_name AS provider_last_name,
+                    pc.address_line AS contact_address_line,
+                    pc.city AS contact_city,
+                    pc.province AS contact_province,
+                    pc.zip_code AS contact_zip_code,
+                    pc.home_phone AS contact_home_phone,
+                    pc.mobile_phone AS contact_mobile_phone,
+                    pc.work_phone AS contact_work_phone,
+                    pc.email AS contact_email,
+                    pec.contact_name AS emergency_contact_name,
+                    pec.relationship AS emergency_relationship,
+                    pec.phone AS emergency_phone,
+                    pec.address AS emergency_address
              FROM patients p
              LEFT JOIN providers pr ON pr.id = p.provider_id
+             LEFT JOIN employees pe ON pe.id = pr.employee_id
+             LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
+             LEFT JOIN patient_emergency_contacts pec ON pec.patient_id = p.id
              WHERE p.tenant_id = :tenant_id AND p.deleted_at IS NULL
              ORDER BY p.last_name, p.first_name"
         );
@@ -104,16 +121,91 @@ class PatientService
             'birthdate'    => $data['birthdate'],
             'civil_status' => $data['civil_status'],
             'blood_type'   => $data['blood_type'],
+            'race'         => $data['race'] ?? null,
+            'ethnicity'    => $data['ethnicity'] ?? null,
+            'religion'     => $data['religion'] ?? null,
+            'language'     => $data['language'] ?? null,
+            'allow_sms'         => $this->normalizeYesNo($data['allow_sms'] ?? null),
+            'allow_voice_calls' => $this->normalizeYesNo($data['allow_voice_calls'] ?? null),
+            'allow_email'       => $this->normalizeYesNo($data['allow_email'] ?? null),
+            'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
             'height'       => $data['height'],
             'weight'       => $data['weight'],
             'updated_at'   => date('Y-m-d H:i:s'),
             'updated_by'   => $updatedBy
         ], $id);
 
+        $this->upsertContact($id, $data, $tenantId, $updatedBy);
+        $this->upsertEmergencyContact($id, $data, $tenantId, $updatedBy);
+
         return [
             'success' => true,
             'message' => 'Patient updated successfully.'
         ];
+    }
+
+    /**
+     * Create or update a patient's contact info record.
+     */
+    private function upsertContact(int $patientId, array $data, int $tenantId, int $userId): void
+    {
+        $existing = (new PatientContact())->where('patient_id', $patientId)->first();
+
+        $payload = [
+            'address_line' => $data['address_line'] ?? null,
+            'city'         => $data['city'] ?? null,
+            'province'     => $data['province'] ?? null,
+            'zip_code'     => $data['zip_code'] ?? null,
+            'home_phone'   => $data['home_phone'] ?? null,
+            'mobile_phone' => $data['mobile_phone'] ?? null,
+            'work_phone'   => $data['work_phone'] ?? null,
+            'email'        => $data['contact_email'] ?? null
+        ];
+
+        if ($existing) {
+            $payload['updated_at'] = date('Y-m-d H:i:s');
+            $payload['updated_by'] = $userId;
+
+            (new PatientContact())->where('patient_id', $patientId)->update($payload);
+            return;
+        }
+
+        $payload['tenant_id']  = $tenantId;
+        $payload['patient_id'] = $patientId;
+        $payload['created_at'] = date('Y-m-d H:i:s');
+        $payload['created_by'] = $userId;
+
+        (new PatientContact())->create($payload);
+    }
+
+    /**
+     * Create or update a patient's emergency contact / guardian record.
+     */
+    private function upsertEmergencyContact(int $patientId, array $data, int $tenantId, int $userId): void
+    {
+        $existing = (new PatientEmergencyContact())->where('patient_id', $patientId)->first();
+
+        $payload = [
+            'contact_name' => $data['emergency_contact_name'] ?? null,
+            'relationship' => $data['emergency_relationship'] ?? null,
+            'phone'        => $data['emergency_phone'] ?? null,
+            'address'      => $data['emergency_address'] ?? null
+        ];
+
+        if ($existing) {
+            $payload['updated_at'] = date('Y-m-d H:i:s');
+            $payload['updated_by'] = $userId;
+
+            (new PatientEmergencyContact())->where('patient_id', $patientId)->update($payload);
+            return;
+        }
+
+        $payload['tenant_id']  = $tenantId;
+        $payload['patient_id'] = $patientId;
+        $payload['created_at'] = date('Y-m-d H:i:s');
+        $payload['created_by'] = $userId;
+
+        (new PatientEmergencyContact())->create($payload);
     }
 
     /**
@@ -162,6 +254,14 @@ class PatientService
                 'birthdate'    => $data['birthdate'],
                 'civil_status' => $data['civil_status'],
                 'blood_type'   => $data['blood_type'],
+                'race'         => $data['race'] ?? null,
+                'ethnicity'    => $data['ethnicity'] ?? null,
+                'religion'     => $data['religion'] ?? null,
+                'language'     => $data['language'] ?? null,
+                'allow_sms'         => $this->normalizeYesNo($data['allow_sms'] ?? null),
+                'allow_voice_calls' => $this->normalizeYesNo($data['allow_voice_calls'] ?? null),
+                'allow_email'       => $this->normalizeYesNo($data['allow_email'] ?? null),
+                'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
                 'height'       => $data['height'],
                 'weight'       => $data['weight'],
                 'created_at'   => date('Y-m-d H:i:s'),
@@ -171,6 +271,9 @@ class PatientService
             if (!$patientId) {
                 throw new \RuntimeException('Failed to create patient record.');
             }
+
+            $this->upsertContact($patientId, $data, $tenantId, $createdBy);
+            $this->upsertEmergencyContact($patientId, $data, $tenantId, $createdBy);
 
             $db->commit();
 
@@ -236,6 +339,12 @@ class PatientService
             $errors['sex'] = 'Sex must be male or female.';
         }
 
+        if (strtotime($data['birthdate']) === false) {
+            $errors['birthdate'] = 'Birthdate is not a valid date.';
+        } elseif ($data['birthdate'] > date('Y-m-d')) {
+            $errors['birthdate'] = 'Birthdate cannot be in the future.';
+        }
+
         if (!is_numeric($data['height'])) {
             $errors['height'] = 'Height must be numeric.';
         }
@@ -277,6 +386,14 @@ class PatientService
         }
 
         return $errors;
+    }
+
+    /**
+     * Normalize a Choices dropdown value to 'yes', 'no', or null (unassigned).
+     */
+    private function normalizeYesNo(?string $value): ?string
+    {
+        return in_array($value, ['yes', 'no'], true) ? $value : null;
     }
 
     /**

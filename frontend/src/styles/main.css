@@ -898,24 +898,6 @@ select.form-input {
     gap: 8px;
 }
 
-.status-pill {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: capitalize;
-}
-
-.status-pill.status-active {
-    background: #dcfce7;
-    color: #15803d;
-}
-
-.status-pill.status-inactive {
-    background: #f3f4f6;
-    color: #6b7280;
-}
 
 /* =========================
    MODAL (Add Provider, etc.)
@@ -935,6 +917,24 @@ select.form-input {
 
 .panel-header-row .form-subtitle {
     margin: 0;
+}
+
+.panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-input {
+    width: auto;
+    min-width: 240px;
+    height: 40px;
+}
+
+.filter-select {
+    width: auto;
+    min-width: 180px;
+    height: 40px;
 }
 
 .modal-overlay {
@@ -987,6 +987,38 @@ select.form-input {
 
 .modal-close:hover {
     color: #25324b;
+}
+
+.modal-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 18px 0 22px;
+    border-bottom: 2px solid #eef1f7;
+}
+
+.modal-tab {
+    padding: 10px 16px;
+    margin-bottom: -2px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #71809b;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.modal-tab.active {
+    color: #4f46e5;
+    border-bottom-color: #4f46e5;
+}
+
+.modal-tab-panel {
+    display: none;
+}
+
+.modal-tab-panel.active {
+    display: block;
 }
 
 /* Mobile */

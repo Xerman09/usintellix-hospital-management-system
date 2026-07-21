@@ -1,12 +1,8 @@
 import { getUser } from "../../core/session.js";
 import { fetchProviders, createProvider, deleteProvider } from "./providers.service.js";
-import { fetchDepartments } from "../employees/employees.service.js";
+import { fetchEmployeesByRole } from "../employees/employees.service.js";
 
-const FIELDS = [
-    "title", "first_name", "middle_name", "last_name", "suffix",
-    "specialty", "npi_number", "license_number", "dea_number",
-    "email", "phone", "department_id", "status"
-];
+const FIELDS = ["employee_id", "specialty", "npi_number", "license_number", "dea_number"];
 
 export async function initProviders()
 {
@@ -17,7 +13,7 @@ export async function initProviders()
         return;
     }
 
-    await loadDepartments();
+    await loadDoctorEmployees();
     await loadProviders();
 
     const modalOverlay = document.getElementById("addProviderModalOverlay");
@@ -79,17 +75,28 @@ export async function initProviders()
     });
 }
 
-async function loadDepartments()
+async function loadDoctorEmployees()
 {
-    const result = await fetchDepartments();
-    const select = document.getElementById("department_id");
+    const result = await fetchEmployeesByRole("doctor");
+    const select = document.getElementById("employee_id");
 
     if (result.success) {
-        result.data.forEach((department) => {
+        if (!result.data.length) {
             const option = document.createElement("option");
 
-            option.value = department.id;
-            option.textContent = department.name;
+            option.value = "";
+            option.textContent = "No employees with the doctor role yet";
+            option.disabled = true;
+
+            select.appendChild(option);
+            return;
+        }
+
+        result.data.forEach((employee) => {
+            const option = document.createElement("option");
+
+            option.value = employee.id;
+            option.textContent = `${employee.first_name} ${employee.last_name} (${employee.employee_no})`;
 
             select.appendChild(option);
         });
@@ -108,12 +115,12 @@ async function loadProviders()
 
     tbody.innerHTML = result.data.map((provider) => `
         <tr>
-            <td>${[provider.title, provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" ")}</td>
+            <td>${[provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" ")}</td>
+            <td>${provider.department_name ?? "-"}</td>
             <td>${provider.specialty}</td>
             <td>${provider.npi_number ?? "-"}</td>
             <td>${provider.email}</td>
             <td>${provider.phone}</td>
-            <td><span class="status-pill status-${provider.status}">${provider.status}</span></td>
             <td><button class="btn-danger" data-id="${provider.id}">Delete</button></td>
         </tr>
     `).join("");

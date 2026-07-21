@@ -1,4 +1,5 @@
 import { getUser, clearSession } from "../../core/session.js";
+import { logout } from "../auth/auth.service.js";
 
 const roleConfig = {
     admin: {
@@ -215,8 +216,9 @@ export function Dashboard()
     // Logout
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
+        logoutBtn.addEventListener('click', async () => {
             if (confirm('Are you sure you want to logout?')) {
+                await logout();
                 clearSession();
                 window.location.hash = "#/login";
             }

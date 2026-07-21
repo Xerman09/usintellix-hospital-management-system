@@ -19,6 +19,8 @@ export async function initAddEmployee()
 
     enablePasswordToggles();
 
+    document.getElementById("birthdate").max = new Date().toISOString().split("T")[0];
+
     await Promise.all([loadRoles(), loadDepartments()]);
 
     const form = document.getElementById("addEmployeeForm");

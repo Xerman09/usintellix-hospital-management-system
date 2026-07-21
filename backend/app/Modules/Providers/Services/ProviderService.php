@@ -3,22 +3,30 @@
 namespace App\Modules\Providers\Services;
 
 use App\Core\Database;
-use App\Modules\Departments\Models\Department;
+use App\Modules\Employees\Models\Employee;
 use App\Modules\Providers\Models\Provider;
+use App\Modules\Roles\Models\Role;
+use App\Modules\Users\Models\User;
 use PDO;
 use Throwable;
 
 class ProviderService
 {
     /**
-     * List all active (non-deleted) providers for a tenant.
+     * List all active (non-deleted) providers for a tenant, with their employee identity.
      */
     public function list(int $tenantId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT * FROM providers
-             WHERE tenant_id = :tenant_id AND deleted_at IS NULL
-             ORDER BY last_name, first_name"
+            "SELECT p.id, p.employee_id, p.specialty, p.npi_number, p.license_number, p.dea_number,
+                    p.created_at, p.deleted_at,
+                    e.first_name, e.middle_name, e.last_name, e.suffix, e.email, e.phone,
+                    d.name AS department_name
+             FROM providers p
+             JOIN employees e ON e.id = p.employee_id
+             LEFT JOIN departments d ON d.id = e.department_id
+             WHERE p.tenant_id = :tenant_id AND p.deleted_at IS NULL
+             ORDER BY e.last_name, e.first_name"
         );
 
         $stmt->execute(['tenant_id' => $tenantId]);
@@ -27,7 +35,7 @@ class ProviderService
     }
 
     /**
-     * Register a new provider (admin-only).
+     * Register a new provider from an existing employee (admin-only).
      */
     public function register(array $data, int $tenantId, int $createdBy): array
     {
@@ -44,19 +52,11 @@ class ProviderService
         try {
             $providerId = (new Provider())->create([
                 'tenant_id'      => $tenantId,
-                'title'          => $data['title'] ?? null,
-                'first_name'     => $data['first_name'],
-                'middle_name'    => $data['middle_name'] ?? null,
-                'last_name'      => $data['last_name'],
-                'suffix'         => $data['suffix'] ?? null,
+                'employee_id'    => (int) $data['employee_id'],
                 'specialty'      => $data['specialty'],
                 'npi_number'     => $data['npi_number'] ?? null,
                 'license_number' => $data['license_number'] ?? null,
                 'dea_number'     => $data['dea_number'] ?? null,
-                'email'          => $data['email'],
-                'phone'          => $data['phone'],
-                'department_id'  => $data['department_id'],
-                'status'         => $data['status'] ?? 'active',
                 'created_at'     => date('Y-m-d H:i:s'),
                 'created_by'     => $createdBy
             ]);
@@ -123,28 +123,42 @@ class ProviderService
     {
         $errors = [];
 
-        $required = ['first_name', 'last_name', 'specialty', 'email', 'phone', 'department_id'];
+        if (empty($data['employee_id'])) {
+            $errors['employee_id'] = 'Employee is required.';
+        }
 
-        foreach ($required as $field) {
-            if (empty($data[$field])) {
-                $errors[$field] = ucfirst(str_replace('_', ' ', $field)) . ' is required.';
-            }
+        if (empty($data['specialty'])) {
+            $errors['specialty'] = 'Specialty is required.';
         }
 
         if (!empty($errors)) {
             return $errors;
         }
 
-        if ((new Provider())->where('tenant_id', $tenantId)->where('email', $data['email'])->first()) {
-            $errors['email'] = 'Email is already registered.';
+        $employee = (new Employee())
+            ->where('id', (int) $data['employee_id'])
+            ->where('tenant_id', $tenantId)
+            ->first();
+
+        if (!$employee || $employee['deleted_at'] !== null) {
+            $errors['employee_id'] = 'Selected employee does not exist.';
+            return $errors;
+        }
+
+        $user = (new User())->find((int) $employee['user_id']);
+        $role = ($user && !empty($user['role_id'])) ? (new Role())->find((int) $user['role_id']) : null;
+
+        if (!$role || strtolower((string) $role['name']) !== 'doctor') {
+            $errors['employee_id'] = 'Selected employee does not have the doctor role.';
+            return $errors;
+        }
+
+        if ((new Provider())->where('employee_id', (int) $data['employee_id'])->first()) {
+            $errors['employee_id'] = 'This employee is already registered as a provider.';
         }
 
         if (!empty($data['npi_number']) && (new Provider())->where('tenant_id', $tenantId)->where('npi_number', $data['npi_number'])->first()) {
             $errors['npi_number'] = 'NPI number is already registered.';
-        }
-
-        if (!(new Department())->find((int) $data['department_id'])) {
-            $errors['department_id'] = 'Selected department does not exist.';
         }
 
         return $errors;

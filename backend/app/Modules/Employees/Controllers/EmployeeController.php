@@ -17,6 +17,21 @@ class EmployeeController extends Controller
     }
 
     /**
+     * List employees for the current tenant, optionally filtered by role (admin-only).
+     */
+    public function index(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $role = $request->input('role');
+
+        $employees = $this->employeeService->list((int) $admin['tenant_id'], $role ?: null);
+
+        $this->success($employees, 'Employees retrieved successfully.');
+    }
+
+    /**
      * Register a new employee account (admin-only).
      */
     public function register(): void

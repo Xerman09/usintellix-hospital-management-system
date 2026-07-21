@@ -6,12 +6,22 @@ import { enablePasswordToggles } from "../../core/password-toggle.js";
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
     "last_name", "suffix", "sex", "birthdate",
-    "civil_status", "blood_type", "height", "weight", "provider_id"
+    "civil_status", "blood_type", "height", "weight",
+    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie",
+    "race", "ethnicity", "religion", "language",
+    "address_line", "city", "province", "zip_code",
+    "home_phone", "mobile_phone", "work_phone", "contact_email",
+    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address"
 ];
 
 const EDIT_FIELDS = [
     "first_name", "middle_name", "last_name", "suffix", "sex",
-    "birthdate", "civil_status", "blood_type", "height", "weight", "provider_id"
+    "birthdate", "civil_status", "blood_type", "height", "weight",
+    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie",
+    "race", "ethnicity", "religion", "language",
+    "address_line", "city", "province", "zip_code",
+    "home_phone", "mobile_phone", "work_phone", "contact_email",
+    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address"
 ];
 
 let patientsCache = [];
@@ -27,21 +37,91 @@ export async function initPatientsList()
 
     await loadPatients(user);
     await setupEditPatientModal(user);
+    setupPatientFilters(user);
 
     if (user.role === "receptionist") {
         await setupAddPatientModal(user);
     }
 }
 
+function setupPatientFilters(user)
+{
+    const searchInput = document.getElementById("patientSearchInput");
+    const providerFilter = document.getElementById("patientProviderFilter");
+
+    const applyFilters = () => renderPatientsTable(getFilteredPatients(searchInput, providerFilter), user);
+
+    searchInput.addEventListener("input", applyFilters);
+    providerFilter.addEventListener("change", applyFilters);
+}
+
+function getFilteredPatients(searchInput, providerFilter)
+{
+    const term = searchInput.value.trim().toLowerCase();
+    const providerScope = providerFilter.value;
+
+    return patientsCache.filter((patient) => {
+        if (providerScope === "unassigned" && patient.provider_id) {
+            return false;
+        }
+
+        if (term === "") {
+            return true;
+        }
+
+        const haystack = [
+            patient.patient_no,
+            patient.first_name,
+            patient.middle_name,
+            patient.last_name,
+            patient.suffix
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return haystack.includes(term);
+    });
+}
+
+function wireModalTabs(modalBox)
+{
+    const tabs = modalBox.querySelectorAll(".modal-tab");
+    const panels = modalBox.querySelectorAll(".modal-tab-panel");
+
+    tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            tabs.forEach((t) => t.classList.remove("active"));
+            panels.forEach((p) => p.classList.remove("active"));
+
+            tab.classList.add("active");
+            modalBox.querySelector(`.modal-tab-panel[data-panel="${tab.getAttribute("data-tab")}"]`).classList.add("active");
+        });
+    });
+}
+
+function resetModalTabs(modalBox)
+{
+    const tabs = modalBox.querySelectorAll(".modal-tab");
+    const panels = modalBox.querySelectorAll(".modal-tab-panel");
+
+    tabs.forEach((t, i) => t.classList.toggle("active", i === 0));
+    panels.forEach((p, i) => p.classList.toggle("active", i === 0));
+}
+
 async function setupAddPatientModal(user)
 {
     enablePasswordToggles();
+    document.getElementById("birthdate").max = new Date().toISOString().split("T")[0];
     await loadProviderOptions("provider_id");
 
     const modalOverlay = document.getElementById("addPatientModalOverlay");
+    const modalBox = modalOverlay.querySelector(".modal-box");
     const form = document.getElementById("addPatientForm");
 
-    const openModal = () => modalOverlay.classList.add("open");
+    wireModalTabs(modalBox);
+
+    const openModal = () => {
+        resetModalTabs(modalBox);
+        modalOverlay.classList.add("open");
+    };
     const closeModal = () => {
         modalOverlay.classList.remove("open");
         form.reset();
@@ -99,10 +179,14 @@ async function setupAddPatientModal(user)
 
 async function setupEditPatientModal(user)
 {
+    document.getElementById("edit_birthdate").max = new Date().toISOString().split("T")[0];
     await loadProviderOptions("edit_provider_id");
 
     const modalOverlay = document.getElementById("editPatientModalOverlay");
+    const modalBox = modalOverlay.querySelector(".modal-box");
     const form = document.getElementById("editPatientForm");
+
+    wireModalTabs(modalBox);
 
     const closeModal = () => {
         modalOverlay.classList.remove("open");
@@ -178,6 +262,11 @@ async function setupEditPatientModal(user)
 
 function openEditModal(patient)
 {
+    const modalOverlay = document.getElementById("editPatientModalOverlay");
+    const modalBox = modalOverlay.querySelector(".modal-box");
+
+    resetModalTabs(modalBox);
+
     document.getElementById("edit_id").value = patient.id;
     document.getElementById("edit_first_name").value = patient.first_name ?? "";
     document.getElementById("edit_middle_name").value = patient.middle_name ?? "";
@@ -190,8 +279,30 @@ function openEditModal(patient)
     document.getElementById("edit_height").value = patient.height ?? "";
     document.getElementById("edit_weight").value = patient.weight ?? "";
     document.getElementById("edit_provider_id").value = patient.provider_id ?? "";
+    document.getElementById("edit_allow_sms").value = patient.allow_sms ?? "";
+    document.getElementById("edit_allow_voice_calls").value = patient.allow_voice_calls ?? "";
+    document.getElementById("edit_allow_email").value = patient.allow_email ?? "";
+    document.getElementById("edit_allow_hie").value = patient.allow_hie ?? "";
+    document.getElementById("edit_race").value = patient.race ?? "";
+    document.getElementById("edit_ethnicity").value = patient.ethnicity ?? "";
+    document.getElementById("edit_religion").value = patient.religion ?? "";
+    document.getElementById("edit_language").value = patient.language ?? "";
 
-    document.getElementById("editPatientModalOverlay").classList.add("open");
+    document.getElementById("edit_address_line").value = patient.contact_address_line ?? "";
+    document.getElementById("edit_city").value = patient.contact_city ?? "";
+    document.getElementById("edit_province").value = patient.contact_province ?? "";
+    document.getElementById("edit_zip_code").value = patient.contact_zip_code ?? "";
+    document.getElementById("edit_home_phone").value = patient.contact_home_phone ?? "";
+    document.getElementById("edit_mobile_phone").value = patient.contact_mobile_phone ?? "";
+    document.getElementById("edit_work_phone").value = patient.contact_work_phone ?? "";
+    document.getElementById("edit_contact_email").value = patient.contact_email ?? "";
+
+    document.getElementById("edit_emergency_contact_name").value = patient.emergency_contact_name ?? "";
+    document.getElementById("edit_emergency_relationship").value = patient.emergency_relationship ?? "";
+    document.getElementById("edit_emergency_phone").value = patient.emergency_phone ?? "";
+    document.getElementById("edit_emergency_address").value = patient.emergency_address ?? "";
+
+    modalOverlay.classList.add("open");
 }
 
 async function loadProviderOptions(selectId)
@@ -213,19 +324,24 @@ async function loadProviderOptions(selectId)
 
 async function loadPatients(user)
 {
-    const tbody = document.getElementById("patientsTableBody");
     const result = await fetchPatients();
+
+    patientsCache = result.success ? result.data : [];
+
+    renderPatientsTable(patientsCache, user);
+}
+
+function renderPatientsTable(patients, user)
+{
+    const tbody = document.getElementById("patientsTableBody");
     const canDelete = user.role === "admin";
 
-    if (!result.success || !result.data.length) {
-        patientsCache = [];
-        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No patients registered yet.</td></tr>`;
+    if (!patients.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No patients found.</td></tr>`;
         return;
     }
 
-    patientsCache = result.data;
-
-    tbody.innerHTML = result.data.map((patient) => `
+    tbody.innerHTML = patients.map((patient) => `
         <tr>
             <td>${patient.patient_no}</td>
             <td>${[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")}</td>

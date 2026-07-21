@@ -72,8 +72,28 @@ class PatientController extends Controller
             'birthdate',
             'civil_status',
             'blood_type',
+            'race',
+            'ethnicity',
+            'religion',
+            'language',
+            'allow_sms',
+            'allow_voice_calls',
+            'allow_email',
+            'allow_hie',
             'height',
-            'weight'
+            'weight',
+            'address_line',
+            'city',
+            'province',
+            'zip_code',
+            'home_phone',
+            'mobile_phone',
+            'work_phone',
+            'contact_email',
+            'emergency_contact_name',
+            'emergency_relationship',
+            'emergency_phone',
+            'emergency_address'
         ]);
 
         $result = $this->patientService->update(
@@ -112,8 +132,28 @@ class PatientController extends Controller
             'birthdate',
             'civil_status',
             'blood_type',
+            'race',
+            'ethnicity',
+            'religion',
+            'language',
+            'allow_sms',
+            'allow_voice_calls',
+            'allow_email',
+            'allow_hie',
             'height',
-            'weight'
+            'weight',
+            'address_line',
+            'city',
+            'province',
+            'zip_code',
+            'home_phone',
+            'mobile_phone',
+            'work_phone',
+            'contact_email',
+            'emergency_contact_name',
+            'emergency_relationship',
+            'emergency_phone',
+            'emergency_address'
         ]);
 
         $result = $this->patientService->register(
