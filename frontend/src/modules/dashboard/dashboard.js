@@ -108,11 +108,16 @@ function resolveMenuRoute(item, role) {
     return "#/dashboard";
 }
 
-function renderDashboard(user) {
+import { TabManager } from "../../core/tabs.js";
+import { AddEmployeeView } from "../employees/add-employee.view.js";
+import { initAddEmployee } from "../employees/add-employee.js";
+import { AddPatientView } from "../patients/add-patient.view.js";
+import { initAddPatient } from "../patients/add-patient.js";
+import { RegisterCompanyView } from "../tenants/register-company.view.js";
+import { initRegisterCompany } from "../tenants/register-company.js";
+
+function renderLegacyDashboard(user) {
     const config = getRoleConfig(user.role || "patient");
-    const menuItems = config.menu
-        .map((item) => `<a href="${resolveMenuRoute(item, user.role)}">${item}</a>`)
-        .join("");
     const cards = config.cards.map((card) => `
         <div class="dashboard-card">
             <h3>${card.title}</h3>
@@ -122,49 +127,34 @@ function renderDashboard(user) {
     const permissions = config.permissions.map((permission) => `<li>${permission}</li>`).join("");
 
     return `
-        <div class="dashboard-container">
-            <aside class="sidebar">
-                <div class="sidebar-logo">
-                    <img src="/assets/logo.png">
-                    <h2>Intellix</h2>
-                </div>
+        <header class="dashboard-header">
+            <div>
+                <h1>${config.title}</h1>
+                <p>${config.welcome}</p>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                ${user.role === "admin" ? `<a href="#/employees/create" class="btn-primary-inline">+ Add Employee</a>` : ""}
+                ${user.role === "receptionist" ? `<a href="#/patients/create" class="btn-primary-inline">+ Register Patient</a>` : ""}
+            </div>
+        </header>
 
-                <nav class="sidebar-menu">
-                    ${menuItems}
-                </nav>
+        <section class="dashboard-cards">
+            ${cards}
+        </section>
 
-                <button class="logout-btn" id="logoutBtn" type="button">Logout</button>
-            </aside>
-
-            <main class="dashboard-main">
-                <header class="dashboard-header">
-                    <div>
-                        <h1>${config.title}</h1>
-                        <p>${config.welcome}</p>
-                    </div>
-
-                    <div class="user-profile">
-                        ${user.role === "admin" ? `<a href="#/employees/create" class="btn-primary-inline">+ Add Employee</a>` : ""}
-                        ${user.role === "receptionist" ? `<a href="#/patients/create" class="btn-primary-inline">+ Register Patient</a>` : ""}
-                        <div class="avatar">${(user.username || "U").charAt(0).toUpperCase()}</div>
-                        <div>
-                            <strong>${user.username}</strong>
-                            <div>${user.role || "patient"}</div>
-                        </div>
-                    </div>
-                </header>
-
-                <section class="dashboard-cards">
-                    ${cards}
-                </section>
-
-                <section class="dashboard-card" style="margin-top: 1.5rem;">
-                    <h3>Permissions</h3>
-                    <ul>${permissions}</ul>
-                </section>
-            </main>
-        </div>
+        <section class="dashboard-card" style="margin-top: 1.5rem;">
+            <h3>Permissions</h3>
+            <ul>${permissions}</ul>
+        </section>
     `;
+}
+
+function renderPlaceholderTab(title) {
+    return `<div style="padding: 20px;">
+        <h2>${title}</h2>
+        <p>This module is currently under development or loading...</p>
+    </div>`;
 }
 
 export function Dashboard()
@@ -178,16 +168,69 @@ export function Dashboard()
 
     const app = document.getElementById("app");
 
-    if (app) {
-        app.innerHTML = renderDashboard(user);
-    }
+    // Initialize the tab manager and expose to window for inline onclicks
+    const tabManager = new TabManager('tabBar', 'tabContent');
+    window.tabManager = tabManager;
 
-    const logoutBtn = document.getElementById("logoutBtn");
+    // Open default dashboard tab
+    tabManager.openTab('dashboard', 'Dashboard', () => renderLegacyDashboard(user));
 
+    // Attach navigation listeners
+    const navLinks = document.querySelectorAll('#navbarLinks a[data-tab]');
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabId = link.getAttribute('data-tab');
+            const title = link.textContent.trim();
+            
+            if (tabId === 'patients') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initAddPatient, 0); // Initialize JS after rendering
+                    return AddPatientView();
+                });
+            } else if (tabId === 'employees') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initAddEmployee, 0);
+                    return AddEmployeeView();
+                });
+            } else if (tabId === 'companies') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initRegisterCompany, 0);
+                    return RegisterCompanyView();
+                });
+            } else {
+                tabManager.openTab(tabId, title, () => renderPlaceholderTab(title));
+            }
+        });
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
-            clearSession();
-            window.location.hash = "#/login";
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                clearSession();
+                window.location.hash = "#/login";
+            }
         });
     }
-}
+
+    // Settings Tab Hook
+    const settingsBtn = document.querySelector('a[data-tab="settings"]');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            tabManager.openTab('settings', 'Settings', () => renderPlaceholderTab('Settings'));
+        });
+    }
+
+    // Set avatar and profile details
+    const avatar = document.getElementById('avatarLetter');
+    if (avatar) avatar.textContent = (user.username || "U").charAt(0).toUpperCase();
+    
+    const profileName = document.getElementById('profileName');
+    if (profileName) profileName.textContent = user.username || "User";
+    
+    const profileRole = document.getElementById('profileRole');
+    if (profileRole) profileRole.textContent = user.role || "patient";
+}
