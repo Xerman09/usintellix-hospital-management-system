@@ -17,16 +17,15 @@ class EmployeeController extends Controller
     }
 
     /**
-     * List employees for the current tenant, optionally filtered by role (admin-only).
+     * List employees, optionally filtered by role (admin-only).
      */
     public function index(): void
     {
-        $admin = Session::get('user');
         $request = new Request();
 
         $role = $request->input('role');
 
-        $employees = $this->employeeService->list((int) $admin['tenant_id'], $role ?: null);
+        $employees = $this->employeeService->list($role ?: null);
 
         $this->success($employees, 'Employees retrieved successfully.');
     }
@@ -56,7 +55,6 @@ class EmployeeController extends Controller
 
         $result = $this->employeeService->register(
             $data,
-            (int) $admin['tenant_id'],
             (int) $admin['id']
         );
 

@@ -39,12 +39,6 @@ export function LoginView()
             <form id="loginForm">
 
                 <div class="form-group">
-                    <label>Company Code</label>
-                    <input id="subdomain" class="form-input" placeholder="e.g intellix">
-                    <span class="form-error" id="err-subdomain"></span>
-                </div>
-
-                <div class="form-group">
                     <label>Username</label>
                     <input id="username" class="form-input" placeholder="your.username">
                     <span class="form-error" id="err-username"></span>
@@ -64,10 +58,6 @@ export function LoginView()
                 <button class="login-btn" type="submit">Sign In</button>
 
             </form>
-
-            <div class="login-divider">or</div>
-
-            <button id="registerCompanyBtn" type="button" class="register-btn">Register Company</button>
 
         </div>
     </div>

@@ -13,18 +13,18 @@ use Throwable;
 class EmployeeService
 {
     /**
-     * List active (non-deleted) employees for a tenant, optionally filtered by role name.
+     * List active (non-deleted) employees, optionally filtered by role name.
      */
-    public function list(int $tenantId, ?string $role = null): array
+    public function list(?string $role = null): array
     {
         $sql = "SELECT e.*, r.name AS role_name, d.name AS department_name
                 FROM employees e
                 JOIN users u ON u.id = e.user_id
                 JOIN roles r ON r.id = u.role_id
                 LEFT JOIN departments d ON d.id = e.department_id
-                WHERE e.tenant_id = :tenant_id AND e.deleted_at IS NULL";
+                WHERE e.deleted_at IS NULL";
 
-        $params = ['tenant_id' => $tenantId];
+        $params = [];
 
         if ($role !== null) {
             $sql .= " AND r.name = :role";
@@ -42,9 +42,9 @@ class EmployeeService
     /**
      * Register a new employee account (admin-only).
      */
-    public function register(array $data, int $tenantId, int $createdBy): array
+    public function register(array $data, int $createdBy): array
     {
-        $errors = $this->validate($data, $tenantId);
+        $errors = $this->validate($data);
 
         if (!empty($errors)) {
             return [
@@ -59,7 +59,6 @@ class EmployeeService
 
         try {
             $userId = (new User())->create([
-                'tenant_id'  => $tenantId,
                 'username'   => $data['username'],
                 'password'   => User::hashPassword($data['password']),
                 'role_id'    => $data['role_id'],
@@ -71,10 +70,9 @@ class EmployeeService
                 throw new \RuntimeException('Failed to create user account.');
             }
 
-            $employeeNo = $this->generateEmployeeNo($tenantId);
+            $employeeNo = $this->generateEmployeeNo();
 
             $employeeId = (new Employee())->create([
-                'tenant_id'     => $tenantId,
                 'user_id'       => $userId,
                 'employee_no'   => $employeeNo,
                 'first_name'    => $data['first_name'],
@@ -118,7 +116,7 @@ class EmployeeService
     /**
      * Validate registration input.
      */
-    private function validate(array $data, int $tenantId): array
+    private function validate(array $data): array
     {
         $errors = [];
 
@@ -147,15 +145,15 @@ class EmployeeService
             $errors['birthdate'] = 'Birthdate cannot be in the future.';
         }
 
-        if ((new User())->where('tenant_id', $tenantId)->where('username', $data['username'])->first()) {
+        if ((new User())->where('username', $data['username'])->first()) {
             $errors['username'] = 'Username is already taken.';
         }
 
-        if ((new Employee())->where('tenant_id', $tenantId)->where('email', $data['email'])->first()) {
+        if ((new Employee())->where('email', $data['email'])->first()) {
             $errors['email'] = 'Email is already registered.';
         }
 
-        if ((new Employee())->where('tenant_id', $tenantId)->where('phone', $data['phone'])->first()) {
+        if ((new Employee())->where('phone', $data['phone'])->first()) {
             $errors['phone'] = 'Phone number is already registered.';
         }
 
@@ -171,11 +169,11 @@ class EmployeeService
     }
 
     /**
-     * Generate a tenant-scoped sequential employee number.
+     * Generate a sequential employee number.
      */
-    private function generateEmployeeNo(int $tenantId): string
+    private function generateEmployeeNo(): string
     {
-        $count = count((new Employee())->where('tenant_id', $tenantId)->get());
+        $count = count((new Employee())->get());
 
         return 'EMP-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
     }

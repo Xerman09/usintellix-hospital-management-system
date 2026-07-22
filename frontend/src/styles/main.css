@@ -888,6 +888,23 @@ body {
 }
 
 
+/* Wider variant for pages whose .modal-tabs row has too many tabs
+   to fit inside the default 780px form-card without wrapping/overflow. */
+.form-card--wide {
+
+    max-width: 920px;
+
+}
+
+/* Wider still — fixed two-column calendar layout (Appointment List +
+   Calendar) needs more room so neither column reflows when populated. */
+.form-card--calendar {
+
+    max-width: 1200px;
+
+}
+
+
 .form-subtitle {
 
     margin: 0 0 30px;
@@ -920,6 +937,19 @@ select.form-input {
     background: white;
 
     cursor: pointer;
+
+}
+
+
+.form-group p {
+
+    margin: 0;
+
+    font-size: 16px;
+
+    color: #25324b;
+
+    font-weight: 500;
 
 }
 
@@ -1195,6 +1225,7 @@ select.form-input {
 
 .modal-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     margin: 18px 0 22px;
     border-bottom: 2px solid #eef1f7;
@@ -1223,6 +1254,191 @@ select.form-input {
 
 .modal-tab-panel.active {
     display: block;
+}
+
+/* =========================
+   APPOINTMENTS CALENDAR
+========================= */
+
+.calendar-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    margin-top: 10px;
+    align-items: start;
+}
+
+.appointment-list-panel {
+    min-width: 0;
+}
+
+.calendar-panel {
+    min-width: 0;
+}
+
+.appointment-list-panel h3 {
+    margin: 0 0 14px;
+    font-size: 16px;
+    color: #25324b;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.calendar-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #25324b;
+}
+
+.calendar-header button {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #4f46e5;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.calendar-header button:hover {
+    background: #f8fafc;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.calendar-dow {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #71809b;
+    padding: 4px 0;
+}
+
+.calendar-day {
+    position: relative;
+    min-height: 84px;
+    border-radius: 10px;
+    border: 1px solid #eef1f7;
+    padding: 6px 6px;
+    font-size: 13px;
+    color: #25324b;
+    cursor: pointer;
+    background: #fbfcfe;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.calendar-day.empty {
+    visibility: hidden;
+    cursor: default;
+}
+
+.calendar-day:hover {
+    border-color: #c7d2fe;
+}
+
+.calendar-day.today {
+    border-color: #4f46e5;
+}
+
+.calendar-day.today .calendar-day-num {
+    color: #4f46e5;
+    font-weight: 700;
+}
+
+.calendar-day.selected {
+    background: #eef2ff;
+    border-color: #4f46e5;
+}
+
+.calendar-day-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: #71809b;
+}
+
+.calendar-day-appts {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.calendar-appt-chip {
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    padding: 2px 5px;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.calendar-appt-chip.completed {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.calendar-appt-chip.cancelled {
+    background: #fee2e2;
+    color: #b91c1c;
+    text-decoration: line-through;
+}
+
+.calendar-appt-chip.no_show {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.calendar-appt-more {
+    font-size: 10px;
+    font-weight: 600;
+    color: #71809b;
+    padding: 0 5px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-badge.scheduled {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.status-badge.completed {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.cancelled {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.status-badge.no_show {
+    background: #fef3c7;
+    color: #92400e;
 }
 
 /* Mobile */

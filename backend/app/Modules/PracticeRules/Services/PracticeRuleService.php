@@ -14,11 +14,11 @@ class PracticeRuleService
     }
 
     /**
-     * Get list of rules for a tenant.
+     * Get list of all rules.
      */
-    public function getRules(int $tenantId): array
+    public function getRules(): array
     {
-        $rules = $this->practiceRuleModel->getRulesByTenant($tenantId);
+        $rules = $this->practiceRuleModel->getRulesByTenant();
 
         return [
             'success' => true,
@@ -29,9 +29,9 @@ class PracticeRuleService
     /**
      * Get detailed summary of a single rule.
      */
-    public function getRule(int $id, int $tenantId): array
+    public function getRule(int $id): array
     {
-        $rule = $this->practiceRuleModel->findRuleById($id, $tenantId);
+        $rule = $this->practiceRuleModel->findRuleById($id);
 
         if (!$rule) {
             return [
@@ -55,7 +55,7 @@ class PracticeRuleService
     /**
      * Create a new practice rule.
      */
-    public function createRule(array $data, int $tenantId, int $userId): array
+    public function createRule(array $data, int $userId): array
     {
         $errors = [];
 
@@ -80,7 +80,6 @@ class PracticeRuleService
         }
 
         $insertData = [
-            'tenant_id' => $tenantId,
             'title' => $title,
             'type' => $type,
             'bibliographic_citation' => !empty($data['bibliographic_citation']) ? trim($data['bibliographic_citation']) : null,
@@ -116,15 +115,15 @@ class PracticeRuleService
             ];
         }
 
-        return $this->getRule($ruleId, $tenantId);
+        return $this->getRule($ruleId);
     }
 
     /**
      * Update an existing rule.
      */
-    public function updateRule(int $id, array $data, int $tenantId, int $userId): array
+    public function updateRule(int $id, array $data, int $userId): array
     {
-        $existing = $this->practiceRuleModel->findRuleById($id, $tenantId);
+        $existing = $this->practiceRuleModel->findRuleById($id);
         if (!$existing) {
             return [
                 'success' => false,
@@ -190,15 +189,15 @@ class PracticeRuleService
             ];
         }
 
-        return $this->getRule($id, $tenantId);
+        return $this->getRule($id);
     }
 
     /**
      * Soft delete a rule.
      */
-    public function softDeleteRule(int $id, int $tenantId, int $userId): array
+    public function softDeleteRule(int $id, int $userId): array
     {
-        $existing = $this->practiceRuleModel->findRuleById($id, $tenantId);
+        $existing = $this->practiceRuleModel->findRuleById($id);
         if (!$existing) {
             return [
                 'success' => false,
@@ -206,7 +205,7 @@ class PracticeRuleService
             ];
         }
 
-        $deleted = $this->practiceRuleModel->softDeleteRule($id, $tenantId, $userId);
+        $deleted = $this->practiceRuleModel->softDeleteRule($id, $userId);
 
         if (!$deleted) {
             return [

@@ -13,13 +13,15 @@ export async function initProviders()
         return;
     }
 
-    await loadDoctorEmployees();
     await loadProviders();
 
     const modalOverlay = document.getElementById("addProviderModalOverlay");
     const form = document.getElementById("addProviderForm");
 
-    const openModal = () => modalOverlay.classList.add("open");
+    const openModal = async () => {
+        await loadDoctorEmployees();
+        modalOverlay.classList.add("open");
+    };
     const closeModal = () => {
         modalOverlay.classList.remove("open");
         form.reset();
@@ -80,6 +82,8 @@ async function loadDoctorEmployees()
     const result = await fetchEmployeesByRole("doctor");
     const select = document.getElementById("employee_id");
 
+    select.querySelectorAll("option[data-dynamic]").forEach((option) => option.remove());
+
     if (result.success) {
         if (!result.data.length) {
             const option = document.createElement("option");
@@ -87,6 +91,7 @@ async function loadDoctorEmployees()
             option.value = "";
             option.textContent = "No employees with the doctor role yet";
             option.disabled = true;
+            option.dataset.dynamic = "true";
 
             select.appendChild(option);
             return;
@@ -96,6 +101,7 @@ async function loadDoctorEmployees()
             const option = document.createElement("option");
 
             option.value = employee.id;
+            option.dataset.dynamic = "true";
             option.textContent = `${employee.first_name} ${employee.last_name} (${employee.employee_no})`;
 
             select.appendChild(option);

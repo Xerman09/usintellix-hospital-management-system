@@ -2,6 +2,9 @@ export function PatientsListView(user)
 {
     const canAdd = user?.role === "receptionist";
     const canDelete = user?.role === "admin";
+    const subtitle = user?.role === "doctor"
+        ? "Patients assigned to you."
+        : "All registered patients for your organization.";
 
     return `
 <div class="form-page">
@@ -9,7 +12,7 @@ export function PatientsListView(user)
         <div class="panel-header-row">
             <div>
                 <h1>Patients</h1>
-                <p class="form-subtitle">All registered patients for your organization.</p>
+                <p class="form-subtitle">${subtitle}</p>
             </div>
             <div class="panel-header-actions">
                 <input type="text" id="patientSearchInput" class="form-input search-input" placeholder="Search by name or patient no...">

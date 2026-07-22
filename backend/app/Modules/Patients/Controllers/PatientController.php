@@ -6,24 +6,33 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Patients\Services\PatientService;
+use App\Modules\Providers\Services\ProviderService;
 
 class PatientController extends Controller
 {
     private PatientService $patientService;
+    private ProviderService $providerService;
 
     public function __construct()
     {
         $this->patientService = new PatientService();
+        $this->providerService = new ProviderService();
     }
 
     /**
-     * List patients for the current tenant (admin-only).
+     * List patients. Doctors only see their own assigned patients.
      */
     public function index(): void
     {
         $user = Session::get('user');
+        $providerId = null;
 
-        $patients = $this->patientService->list((int) $user['tenant_id']);
+        if ($user['role'] === 'doctor') {
+            $provider = $this->providerService->findByUserId((int) $user['id']);
+            $providerId = $provider ? (int) $provider['id'] : 0;
+        }
+
+        $patients = $this->patientService->list($providerId);
 
         $this->success($patients, 'Patients retrieved successfully.');
     }
@@ -40,7 +49,6 @@ class PatientController extends Controller
 
         $result = $this->patientService->remove(
             $id,
-            (int) $admin['tenant_id'],
             (int) $admin['id']
         );
 
@@ -99,7 +107,6 @@ class PatientController extends Controller
         $result = $this->patientService->update(
             $id,
             $data,
-            (int) $user['tenant_id'],
             (int) $user['id']
         );
 
@@ -158,7 +165,6 @@ class PatientController extends Controller
 
         $result = $this->patientService->register(
             $data,
-            (int) $receptionist['tenant_id'],
             (int) $receptionist['id']
         );
 

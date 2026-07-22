@@ -17,13 +17,11 @@ class ProviderController extends Controller
     }
 
     /**
-     * List providers for the current tenant.
+     * List providers.
      */
     public function index(): void
     {
-        $user = Session::get('user');
-
-        $providers = $this->providerService->list((int) $user['tenant_id']);
+        $providers = $this->providerService->list();
 
         $this->success($providers, 'Providers retrieved successfully.');
     }
@@ -46,7 +44,6 @@ class ProviderController extends Controller
 
         $result = $this->providerService->register(
             $data,
-            (int) $admin['tenant_id'],
             (int) $admin['id']
         );
 
@@ -70,7 +67,6 @@ class ProviderController extends Controller
 
         $result = $this->providerService->remove(
             $id,
-            (int) $admin['tenant_id'],
             (int) $admin['id']
         );
 

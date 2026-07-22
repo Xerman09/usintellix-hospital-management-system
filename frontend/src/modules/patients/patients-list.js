@@ -2,6 +2,8 @@ import { getUser } from "../../core/session.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
+import { PatientProfileView } from "./patient-profile.view.js";
+import { initPatientProfile } from "./patient-profile.js";
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
@@ -30,18 +32,31 @@ export async function initPatientsList()
 {
     const user = getUser();
 
-    if (!user || !["admin", "receptionist"].includes(user.role)) {
+    if (!user || !["admin", "receptionist", "doctor"].includes(user.role)) {
         window.location.hash = "#/dashboard";
         return;
     }
 
     await loadPatients(user);
-    await setupEditPatientModal(user);
     setupPatientFilters(user);
+
+    if (user.role !== "doctor") {
+        await setupEditPatientModal(user);
+    }
 
     if (user.role === "receptionist") {
         await setupAddPatientModal(user);
     }
+}
+
+function openPatientProfileTab(patient)
+{
+    const title = [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "Patient";
+
+    window.tabManager.openTab(`patient-profile-${patient.id}`, title, () => {
+        setTimeout(() => initPatientProfile(patient), 0);
+        return PatientProfileView(patient);
+    });
 }
 
 function setupPatientFilters(user)
@@ -335,6 +350,7 @@ function renderPatientsTable(patients, user)
 {
     const tbody = document.getElementById("patientsTableBody");
     const canDelete = user.role === "admin";
+    const canEdit = user.role === "admin" || user.role === "receptionist";
 
     if (!patients.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No patients found.</td></tr>`;
@@ -345,11 +361,13 @@ function renderPatientsTable(patients, user)
         <tr>
             <td>${patient.patient_no}</td>
             <td>${[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")}</td>
-            <td>${patient.sex}</td>
+            <td>${patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "-"}</td>
             <td>${patient.birthdate}</td>
             <td>${patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "-"}</td>
             <td class="table-actions">
-                <button class="btn-edit" data-edit-id="${patient.id}">Edit</button>
+                ${canEdit
+                    ? `<button class="btn-edit" data-edit-id="${patient.id}">Edit</button>`
+                    : `<button class="btn-edit" data-view-id="${patient.id}">View</button>`}
                 ${canDelete ? `<button class="btn-danger" data-id="${patient.id}">Delete</button>` : ""}
             </td>
         </tr>
@@ -361,6 +379,16 @@ function renderPatientsTable(patients, user)
 
             if (patient) {
                 openEditModal(patient);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-view-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const patient = patientsCache.find((p) => String(p.id) === btn.getAttribute("data-view-id"));
+
+            if (patient) {
+                openPatientProfileTab(patient);
             }
         });
     });

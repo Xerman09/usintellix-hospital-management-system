@@ -18,7 +18,7 @@ class PracticeRuleController extends Controller
 
     /**
      * GET /practice-rules
-     * List all rules for current tenant.
+     * List all rules.
      */
     public function index(): void
     {
@@ -28,7 +28,7 @@ class PracticeRuleController extends Controller
             return;
         }
 
-        $result = $this->ruleService->getRules((int) $user['tenant_id']);
+        $result = $this->ruleService->getRules();
         $this->success($result['data']);
     }
 
@@ -45,7 +45,7 @@ class PracticeRuleController extends Controller
         }
 
         $id = (int) ($params['id'] ?? 0);
-        $result = $this->ruleService->getRule($id, (int) $user['tenant_id']);
+        $result = $this->ruleService->getRule($id);
 
         if (!$result['success']) {
             $this->error($result['message'], 404);
@@ -72,7 +72,6 @@ class PracticeRuleController extends Controller
 
         $result = $this->ruleService->createRule(
             $data,
-            (int) $user['tenant_id'],
             (int) $user['id']
         );
 
@@ -103,7 +102,6 @@ class PracticeRuleController extends Controller
         $result = $this->ruleService->updateRule(
             $id,
             $data,
-            (int) $user['tenant_id'],
             (int) $user['id']
         );
 
@@ -131,7 +129,6 @@ class PracticeRuleController extends Controller
 
         $result = $this->ruleService->softDeleteRule(
             $id,
-            (int) $user['tenant_id'],
             (int) $user['id']
         );
 

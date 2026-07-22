@@ -22,11 +22,10 @@ class AuthController extends Controller
     {
         $request = new Request();
 
-        $subdomain = trim($request->input('subdomain', ''));
         $username = trim($request->input('username', ''));
         $password = $request->input('password', '');
 
-        $result = $this->authService->login($subdomain, $username, $password);
+        $result = $this->authService->login($username, $password);
 
         if (!$result['success']) {
             $this->error($result['message'], 401, $result['errors'] ?? null);

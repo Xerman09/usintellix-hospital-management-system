@@ -1,5 +1,5 @@
 import { getUser, clearSession } from "../../core/session.js";
-import { logout } from "../auth/auth.service.js";
+import { logout } from "../auth/auth.service.js?v=2";
 
 const roleConfig = {
     admin: {
@@ -116,8 +116,10 @@ import { PatientsListView } from "../patients/patients-list.view.js";
 import { initPatientsList } from "../patients/patients-list.js";
 import { ProceduresView } from "../procedures/procedures.view.js";
 import { initProcedures, setActiveSubtab } from "../procedures/procedures.js";
-import { RegisterCompanyView } from "../tenants/register-company.view.js";
-import { initRegisterCompany } from "../tenants/register-company.js";
+import { AppointmentsListView } from "../appointments/appointments-list.view.js";
+import { initAppointmentsList } from "../appointments/appointments-list.js";
+import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
+import { initDoctorCalendar } from "../appointments/doctor-calendar.js";
 
 function renderLegacyDashboard(user) {
     const config = getRoleConfig(user.role || "patient");
@@ -202,10 +204,15 @@ export function Dashboard()
                     setTimeout(initProcedures, 0);
                     return ProceduresView();
                 });
-            } else if (tabId === 'companies') {
+            } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
-                    setTimeout(initRegisterCompany, 0);
-                    return RegisterCompanyView();
+                    setTimeout(initDoctorCalendar, 0);
+                    return DoctorCalendarView();
+                });
+            } else if (tabId === 'appointments' && ['admin', 'receptionist'].includes(user.role)) {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initAppointmentsList, 0);
+                    return AppointmentsListView(user);
                 });
             } else {
                 tabManager.openTab(tabId, title, () => renderPlaceholderTab(title));
@@ -239,8 +246,8 @@ export function Dashboard()
     if (avatar) avatar.textContent = (user.username || "U").charAt(0).toUpperCase();
     
     const profileName = document.getElementById('profileName');
-    if (profileName) profileName.textContent = user.username || "User";
+    if (profileName) profileName.textContent = `${user.first_name} ${user.last_name}` || "User";
     
     const profileRole = document.getElementById('profileRole');
     if (profileRole) profileRole.textContent = user.role || "patient";
-}
+}

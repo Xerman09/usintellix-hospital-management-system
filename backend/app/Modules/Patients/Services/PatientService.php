@@ -14,12 +14,12 @@ use Throwable;
 class PatientService
 {
     /**
-     * List all active (non-deleted) patients for a tenant, with their assigned provider.
+     * List all active (non-deleted) patients, with their assigned provider.
+     * Pass $providerId to scope the list to a single provider (e.g. a doctor's own patients).
      */
-    public function list(int $tenantId): array
+    public function list(?int $providerId = null): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT p.*,
+        $sql = "SELECT p.*,
                     pe.first_name AS provider_first_name,
                     pe.last_name AS provider_last_name,
                     pc.address_line AS contact_address_line,
@@ -39,11 +39,19 @@ class PatientService
              LEFT JOIN employees pe ON pe.id = pr.employee_id
              LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
              LEFT JOIN patient_emergency_contacts pec ON pec.patient_id = p.id
-             WHERE p.tenant_id = :tenant_id AND p.deleted_at IS NULL
-             ORDER BY p.last_name, p.first_name"
-        );
+             WHERE p.deleted_at IS NULL";
 
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $params = [];
+
+        if ($providerId !== null) {
+            $sql .= " AND p.provider_id = :provider_id";
+            $params['provider_id'] = $providerId;
+        }
+
+        $sql .= " ORDER BY p.last_name, p.first_name";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -51,11 +59,10 @@ class PatientService
     /**
      * Soft-delete a patient (admin-only).
      */
-    public function remove(int $id, int $tenantId, int $deletedBy): array
+    public function remove(int $id, int $deletedBy): array
     {
         $patient = (new Patient())
             ->where('id', $id)
-            ->where('tenant_id', $tenantId)
             ->first();
 
         if (!$patient || $patient['deleted_at'] !== null) {
@@ -68,14 +75,13 @@ class PatientService
         $stmt = Database::connection()->prepare(
             "UPDATE patients
              SET deleted_at = :deleted_at, deleted_by = :deleted_by
-             WHERE id = :id AND tenant_id = :tenant_id"
+             WHERE id = :id"
         );
 
         $stmt->execute([
             'deleted_at' => date('Y-m-d H:i:s'),
             'deleted_by' => $deletedBy,
-            'id'         => $id,
-            'tenant_id'  => $tenantId
+            'id'         => $id
         ]);
 
         return [
@@ -87,11 +93,10 @@ class PatientService
     /**
      * Update an existing patient's demographic record.
      */
-    public function update(int $id, array $data, int $tenantId, int $updatedBy): array
+    public function update(int $id, array $data, int $updatedBy): array
     {
         $patient = (new Patient())
             ->where('id', $id)
-            ->where('tenant_id', $tenantId)
             ->first();
 
         if (!$patient || $patient['deleted_at'] !== null) {
@@ -101,7 +106,7 @@ class PatientService
             ];
         }
 
-        $errors = $this->validateDemographics($data, $tenantId);
+        $errors = $this->validateDemographics($data);
 
         if (!empty($errors)) {
             return [
@@ -135,8 +140,8 @@ class PatientService
             'updated_by'   => $updatedBy
         ], $id);
 
-        $this->upsertContact($id, $data, $tenantId, $updatedBy);
-        $this->upsertEmergencyContact($id, $data, $tenantId, $updatedBy);
+        $this->upsertContact($id, $data, $updatedBy);
+        $this->upsertEmergencyContact($id, $data, $updatedBy);
 
         return [
             'success' => true,
@@ -147,7 +152,7 @@ class PatientService
     /**
      * Create or update a patient's contact info record.
      */
-    private function upsertContact(int $patientId, array $data, int $tenantId, int $userId): void
+    private function upsertContact(int $patientId, array $data, int $userId): void
     {
         $existing = (new PatientContact())->where('patient_id', $patientId)->first();
 
@@ -170,7 +175,6 @@ class PatientService
             return;
         }
 
-        $payload['tenant_id']  = $tenantId;
         $payload['patient_id'] = $patientId;
         $payload['created_at'] = date('Y-m-d H:i:s');
         $payload['created_by'] = $userId;
@@ -181,7 +185,7 @@ class PatientService
     /**
      * Create or update a patient's emergency contact / guardian record.
      */
-    private function upsertEmergencyContact(int $patientId, array $data, int $tenantId, int $userId): void
+    private function upsertEmergencyContact(int $patientId, array $data, int $userId): void
     {
         $existing = (new PatientEmergencyContact())->where('patient_id', $patientId)->first();
 
@@ -200,7 +204,6 @@ class PatientService
             return;
         }
 
-        $payload['tenant_id']  = $tenantId;
         $payload['patient_id'] = $patientId;
         $payload['created_at'] = date('Y-m-d H:i:s');
         $payload['created_by'] = $userId;
@@ -211,9 +214,9 @@ class PatientService
     /**
      * Register a new patient account (receptionist-only).
      */
-    public function register(array $data, int $tenantId, int $createdBy): array
+    public function register(array $data, int $createdBy): array
     {
-        $errors = $this->validate($data, $tenantId);
+        $errors = $this->validate($data);
 
         if (!empty($errors)) {
             return [
@@ -228,7 +231,6 @@ class PatientService
 
         try {
             $userId = (new User())->create([
-                'tenant_id'  => $tenantId,
                 'username'   => $data['username'],
                 'password'   => User::hashPassword($data['password']),
                 'created_at' => date('Y-m-d H:i:s'),
@@ -239,10 +241,9 @@ class PatientService
                 throw new \RuntimeException('Failed to create user account.');
             }
 
-            $patientNo = $this->generatePatientNo($tenantId);
+            $patientNo = $this->generatePatientNo();
 
             $patientId = (new Patient())->create([
-                'tenant_id'    => $tenantId,
                 'user_id'      => $userId,
                 'provider_id'  => $data['provider_id'] ?? null,
                 'patient_no'   => $patientNo,
@@ -272,8 +273,8 @@ class PatientService
                 throw new \RuntimeException('Failed to create patient record.');
             }
 
-            $this->upsertContact($patientId, $data, $tenantId, $createdBy);
-            $this->upsertEmergencyContact($patientId, $data, $tenantId, $createdBy);
+            $this->upsertContact($patientId, $data, $createdBy);
+            $this->upsertEmergencyContact($patientId, $data, $createdBy);
 
             $db->commit();
 
@@ -299,7 +300,7 @@ class PatientService
     /**
      * Validate registration input.
      */
-    private function validate(array $data, int $tenantId): array
+    private function validate(array $data): array
     {
         $errors = [];
 
@@ -311,13 +312,13 @@ class PatientService
             $errors['password'] = 'Password is required.';
         }
 
-        $errors = array_merge($errors, $this->validateDemographics($data, $tenantId));
+        $errors = array_merge($errors, $this->validateDemographics($data));
 
         if (!empty($errors)) {
             return $errors;
         }
 
-        if ((new User())->where('tenant_id', $tenantId)->where('username', $data['username'])->first()) {
+        if ((new User())->where('username', $data['username'])->first()) {
             $errors['username'] = 'Username is already taken.';
         }
 
@@ -327,7 +328,7 @@ class PatientService
     /**
      * Validate the demographic fields shared by registration and updates.
      */
-    private function validateDemographics(array $data, int $tenantId): array
+    private function validateDemographics(array $data): array
     {
         $errors = $this->missingDemographics($data);
 
@@ -356,7 +357,6 @@ class PatientService
         if (!empty($data['provider_id'])) {
             $provider = (new Provider())
                 ->where('id', (int) $data['provider_id'])
-                ->where('tenant_id', $tenantId)
                 ->first();
 
             if (!$provider || $provider['deleted_at'] !== null) {
@@ -397,11 +397,11 @@ class PatientService
     }
 
     /**
-     * Generate a tenant-scoped sequential patient number.
+     * Generate a sequential patient number.
      */
-    private function generatePatientNo(int $tenantId): string
+    private function generatePatientNo(): string
     {
-        $count = count((new Patient())->where('tenant_id', $tenantId)->get());
+        $count = count((new Patient())->get());
 
         return 'PAT-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
     }

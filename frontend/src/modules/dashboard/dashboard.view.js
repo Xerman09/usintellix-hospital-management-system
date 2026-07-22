@@ -1,16 +1,23 @@
 import { getUser } from "../../core/session.js";
 
-const STAFF_NAV_LINKS = `
-    <a data-tab="patients">Patients</a>
-    <a data-tab="employees">Employees</a>
-    <div class="nav-dropdown">
-        <span data-tab="procedures" data-subtab="providers">Procedures</span>
-        <div class="dropdown-content">
-            <a data-tab="procedures" data-subtab="providers">Providers</a>
+function staffNavLinks(role)
+{
+    const appointmentsLink = ["admin", "receptionist"].includes(role)
+        ? `<a data-tab="appointments">Appointments</a>`
+        : "";
+
+    return `
+        <a data-tab="patients">Patients</a>
+        <a data-tab="employees">Employees</a>
+        <div class="nav-dropdown">
+            <span data-tab="procedures" data-subtab="providers">Procedures</span>
+            <div class="dropdown-content">
+                <a data-tab="procedures" data-subtab="providers">Providers</a>
+            </div>
         </div>
-    </div>
-    <a data-tab="companies">Companies</a>
-`;
+        ${appointmentsLink}
+    `;
+}
 
 const PATIENT_NAV_LINKS = `
     <a data-tab="health_records">Patient Health Records</a>
@@ -22,10 +29,22 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="documents">Documents</a>
 `;
 
+const DOCTOR_NAV_LINKS = `
+    <a data-tab="patients">Patients</a>
+    <a data-tab="appointments">Appointments</a>
+`;
+
+function getNavLinks(role)
+{
+    if (role === "patient") return PATIENT_NAV_LINKS;
+    if (role === "doctor") return DOCTOR_NAV_LINKS;
+    return staffNavLinks(role);
+}
+
 export function DashboardView()
 {
     const user = getUser();
-    const navLinks = user?.role === "patient" ? PATIENT_NAV_LINKS : STAFF_NAV_LINKS;
+    const navLinks = getNavLinks(user?.role);
 
     return `
 <div class="dashboard-container">

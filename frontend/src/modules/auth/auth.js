@@ -1,9 +1,9 @@
 console.log("auth.js loaded");
-import { login } from "./auth.service.js";
+import { login } from "./auth.service.js?v=2";
 import { saveUser } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 
-const FIELDS = ["subdomain", "username", "password"];
+const FIELDS = ["username", "password"];
 
 export function initLogin()
 {
@@ -24,10 +24,6 @@ export function initLogin()
             clearErrors();
 
 
-            const subdomain =
-                document.getElementById("subdomain").value;
-
-
             const username =
                 document.getElementById("username").value;
 
@@ -38,7 +34,6 @@ export function initLogin()
 
             const result =
                 await login(
-                    subdomain,
                     username,
                     password
                 );
@@ -73,20 +68,6 @@ export function initLogin()
 
         }
     );
-
-
-    const registerCompanyBtn =
-        document.getElementById("registerCompanyBtn");
-
-
-    if (registerCompanyBtn) {
-        registerCompanyBtn.addEventListener(
-            "click",
-            () => {
-                window.location.hash = "#/register-company";
-            }
-        );
-    }
 
 }
 

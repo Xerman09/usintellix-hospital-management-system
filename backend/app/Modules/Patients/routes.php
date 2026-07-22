@@ -6,7 +6,7 @@ use App\Modules\Patients\Controllers\PatientController;
 
 $router->get('/patients', [PatientController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/patients', [PatientController::class, 'register'], [

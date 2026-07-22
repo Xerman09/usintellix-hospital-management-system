@@ -13,9 +13,9 @@ use Throwable;
 class ProviderService
 {
     /**
-     * List all active (non-deleted) providers for a tenant, with their employee identity.
+     * List all active (non-deleted) providers, with their employee identity.
      */
-    public function list(int $tenantId): array
+    public function list(): array
     {
         $stmt = Database::connection()->prepare(
             "SELECT p.id, p.employee_id, p.specialty, p.npi_number, p.license_number, p.dea_number,
@@ -25,21 +25,41 @@ class ProviderService
              FROM providers p
              JOIN employees e ON e.id = p.employee_id
              LEFT JOIN departments d ON d.id = e.department_id
-             WHERE p.tenant_id = :tenant_id AND p.deleted_at IS NULL
+             WHERE p.deleted_at IS NULL
              ORDER BY e.last_name, e.first_name"
         );
 
-        $stmt->execute(['tenant_id' => $tenantId]);
+        $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
+     * Find the provider record belonging to a logged-in user (e.g. a doctor), if any.
+     */
+    public function findByUserId(int $userId): ?array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT p.*
+             FROM providers p
+             JOIN employees e ON e.id = p.employee_id
+             WHERE e.user_id = :user_id AND p.deleted_at IS NULL
+             LIMIT 1"
+        );
+
+        $stmt->execute(['user_id' => $userId]);
+
+        $provider = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $provider ?: null;
+    }
+
+    /**
      * Register a new provider from an existing employee (admin-only).
      */
-    public function register(array $data, int $tenantId, int $createdBy): array
+    public function register(array $data, int $createdBy): array
     {
-        $errors = $this->validate($data, $tenantId);
+        $errors = $this->validate($data);
 
         if (!empty($errors)) {
             return [
@@ -51,7 +71,6 @@ class ProviderService
 
         try {
             $providerId = (new Provider())->create([
-                'tenant_id'      => $tenantId,
                 'employee_id'    => (int) $data['employee_id'],
                 'specialty'      => $data['specialty'],
                 'npi_number'     => $data['npi_number'] ?? null,
@@ -83,11 +102,10 @@ class ProviderService
     /**
      * Soft-delete a provider (admin-only).
      */
-    public function remove(int $id, int $tenantId, int $deletedBy): array
+    public function remove(int $id, int $deletedBy): array
     {
         $provider = (new Provider())
             ->where('id', $id)
-            ->where('tenant_id', $tenantId)
             ->first();
 
         if (!$provider || $provider['deleted_at'] !== null) {
@@ -100,14 +118,13 @@ class ProviderService
         $stmt = Database::connection()->prepare(
             "UPDATE providers
              SET deleted_at = :deleted_at, deleted_by = :deleted_by
-             WHERE id = :id AND tenant_id = :tenant_id"
+             WHERE id = :id"
         );
 
         $stmt->execute([
             'deleted_at' => date('Y-m-d H:i:s'),
             'deleted_by' => $deletedBy,
-            'id'         => $id,
-            'tenant_id'  => $tenantId
+            'id'         => $id
         ]);
 
         return [
@@ -119,7 +136,7 @@ class ProviderService
     /**
      * Validate provider input.
      */
-    private function validate(array $data, int $tenantId): array
+    private function validate(array $data): array
     {
         $errors = [];
 
@@ -137,7 +154,6 @@ class ProviderService
 
         $employee = (new Employee())
             ->where('id', (int) $data['employee_id'])
-            ->where('tenant_id', $tenantId)
             ->first();
 
         if (!$employee || $employee['deleted_at'] !== null) {
@@ -157,7 +173,7 @@ class ProviderService
             $errors['employee_id'] = 'This employee is already registered as a provider.';
         }
 
-        if (!empty($data['npi_number']) && (new Provider())->where('tenant_id', $tenantId)->where('npi_number', $data['npi_number'])->first()) {
+        if (!empty($data['npi_number']) && (new Provider())->where('npi_number', $data['npi_number'])->first()) {
             $errors['npi_number'] = 'NPI number is already registered.';
         }
 

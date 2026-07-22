@@ -3,22 +3,20 @@
 namespace App\Modules\Auth\Services;
 
 use App\Core\Session;
-use App\Modules\Tenants\Models\Tenant;
+use App\Modules\Employees\Models\Employee;
+use App\Modules\Patients\Models\Patient;
+use App\Modules\Roles\Models\Role;
 use App\Modules\Users\Models\User;
 
 class AuthService
 {
     /**
-     * Authenticate a user scoped to their company (tenant).
+     * Authenticate a user.
      */
-    public function login(string $subdomain, string $username, string $password): array
+    public function login(string $username, string $password): array
     {
         // Basic validation
         $errors = [];
-
-        if (empty($subdomain)) {
-            $errors['subdomain'] = 'Company code is required.';
-        }
 
         if (empty($username)) {
             $errors['username'] = 'Username is required.';
@@ -36,24 +34,9 @@ class AuthService
             ];
         }
 
-        // Resolve the tenant by subdomain
-        $tenant = (new Tenant())
-            ->where('subdomain', strtolower($subdomain))
-            ->first();
-
-        if (!$tenant) {
-            return [
-                'success' => false,
-                'message' => 'Company not found.',
-                'errors' => ['subdomain' => 'Company not found.']
-            ];
-        }
-
-        // Find user scoped to this tenant. Username/password failures are kept
-        // as one generic error (not split per field) to avoid leaking which
-        // usernames exist within a known tenant.
+        // Username/password failures are kept as one generic error
+        // (not split per field) to avoid leaking which usernames exist.
         $user = (new User())
-            ->where('tenant_id', $tenant['id'])
             ->where('username', $username)
             ->first();
 
@@ -71,14 +54,17 @@ class AuthService
         // Regenerate session ID
         Session::regenerate();
 
-        $resolvedRole = $this->resolveRole($user);
+        $employee = (new Employee())->where('user_id', $user['id'])->first();
+        $resolvedRole = $this->resolveRole($user, $employee);
+        $name = $this->resolveName($user, $employee);
 
         // Store logged-in user
         Session::put('user', [
-            'id'        => $user['id'],
-            'tenant_id' => $user['tenant_id'],
-            'username'  => $user['username'],
-            'role'      => $resolvedRole
+            'id'         => $user['id'],
+            'username'   => $user['username'],
+            'role'       => $resolvedRole,
+            'first_name' => $name['first_name'],
+            'last_name'  => $name['last_name']
         ]);
 
         return [
@@ -98,17 +84,13 @@ class AuthService
         Session::destroy();
     }
 
-    private function resolveRole(array $user): string
+    private function resolveRole(array $user, ?array $employee): string
     {
-        $employee = (new \App\Modules\Employees\Models\Employee())
-            ->where('user_id', $user['id'])
-            ->first();
-
         if (!$employee || empty($user['role_id'])) {
             return 'patient';
         }
 
-        $role = (new \App\Modules\Roles\Models\Role())
+        $role = (new Role())
             ->where('id', $user['role_id'])
             ->first();
 
@@ -117,5 +99,33 @@ class AuthService
         }
 
         return strtolower((string) $role['name']);
+    }
+
+    /**
+     * Resolve the logged-in user's display name from their employee
+     * record, falling back to their patient record.
+     */
+    private function resolveName(array $user, ?array $employee): array
+    {
+        if ($employee) {
+            return [
+                'first_name' => $employee['first_name'],
+                'last_name'  => $employee['last_name']
+            ];
+        }
+
+        $patient = (new Patient())->where('user_id', $user['id'])->first();
+
+        if ($patient) {
+            return [
+                'first_name' => $patient['first_name'],
+                'last_name'  => $patient['last_name']
+            ];
+        }
+
+        return [
+            'first_name' => null,
+            'last_name'  => null
+        ];
     }
 }
