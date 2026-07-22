@@ -1,6 +1,6 @@
 console.log("MAIN FILE LOADED");
 
-import { router } from "./core/router.js?v=5";
+import { router } from "./core/router.js?v=6";
 
 
 document.addEventListener(

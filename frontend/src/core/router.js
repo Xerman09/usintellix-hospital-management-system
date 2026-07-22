@@ -1,4 +1,4 @@
-import { LoginView } from "../modules/auth/login.view.js";
+import { LoginView } from "../modules/auth/login.view.js?v=2";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=5";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=5";
 import { initLogin } from "../modules/auth/auth.js";
