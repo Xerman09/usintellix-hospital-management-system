@@ -10,9 +10,11 @@ function staffNavLinks(role)
         <a data-tab="patients">Patients</a>
         <a data-tab="employees">Employees</a>
         <div class="nav-dropdown">
-            <span data-tab="procedures" data-subtab="providers">Procedures</span>
+            <span>Procedures</span>
             <div class="dropdown-content">
-                <a data-tab="procedures" data-subtab="providers">Providers</a>
+                <a data-tab="providers">Providers</a>
+                <a data-tab="visit_categories">Visit Categories</a>
+                <a data-tab="classes">Classes</a>
             </div>
         </div>
         ${appointmentsLink}

@@ -114,8 +114,12 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { PatientsListView } from "../patients/patients-list.view.js";
 import { initPatientsList } from "../patients/patients-list.js";
-import { ProceduresView } from "../procedures/procedures.view.js";
-import { initProcedures, setActiveSubtab } from "../procedures/procedures.js";
+import { ProvidersView } from "../providers/providers.view.js";
+import { initProviders } from "../providers/providers.js";
+import { VisitCategoriesView } from "../visit-categories/visit-categories.view.js";
+import { initVisitCategories } from "../visit-categories/visit-categories.js";
+import { ClassesView } from "../classes/classes.view.js";
+import { initClasses } from "../classes/classes.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -198,11 +202,20 @@ export function Dashboard()
                     setTimeout(initAddEmployee, 0);
                     return AddEmployeeView();
                 });
-            } else if (tabId === 'procedures') {
-                setActiveSubtab(link.getAttribute('data-subtab'));
-                tabManager.openTab(tabId, 'Procedures', () => {
-                    setTimeout(initProcedures, 0);
-                    return ProceduresView();
+            } else if (tabId === 'providers') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initProviders, 0);
+                    return ProvidersView();
+                });
+            } else if (tabId === 'visit_categories') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initVisitCategories, 0);
+                    return VisitCategoriesView();
+                });
+            } else if (tabId === 'classes') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initClasses, 0);
+                    return ClassesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {

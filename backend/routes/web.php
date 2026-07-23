@@ -19,6 +19,8 @@ require_once __DIR__ . '/../app/Modules/Departments/routes.php';
 require_once __DIR__ . '/../app/Modules/Patients/routes.php';
 require_once __DIR__ . '/../app/Modules/Providers/routes.php';
 require_once __DIR__ . '/../app/Modules/Appointments/routes.php';
+require_once __DIR__ . '/../app/Modules/VisitCategories/routes.php';
+require_once __DIR__ . '/../app/Modules/Classes/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 
