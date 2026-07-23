@@ -126,6 +126,8 @@ import { FacilitiesView } from "../facilities/facilities.view.js";
 import { initFacilities } from "../facilities/facilities.js";
 import { FacilityBillingsView } from "../facility-billings/facility-billings.view.js";
 import { initFacilityBillings } from "../facility-billings/facility-billings.js";
+import { AllergiesView } from "../allergies/allergies.view.js";
+import { initAllergies } from "../allergies/allergies.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -237,6 +239,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initFacilityBillings, 0);
                     return FacilityBillingsView();
+                });
+            } else if (tabId === 'allergies') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initAllergies, 0);
+                    return AllergiesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {

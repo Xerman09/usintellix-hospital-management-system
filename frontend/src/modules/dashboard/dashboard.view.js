@@ -18,6 +18,7 @@ function staffNavLinks(role)
                 <a data-tab="visit_types">Visit Type</a>
                 <a data-tab="facilities">Facility</a>
                 <a data-tab="facility_billings">Facility Billing</a>
+                <a data-tab="allergies">Allergy Management</a>
             </div>
         </div>
         ${appointmentsLink}

@@ -1,0 +1,47 @@
+-- =============================================
+-- Seed: common allergies catalog
+-- Idempotent: relies on the UNIQUE constraint on `name`, so re-running
+-- this file is safe (duplicates are silently skipped).
+-- =============================================
+
+INSERT IGNORE INTO allergies (name, description, created_at) VALUES
+('Penicillin', 'Antibiotic drug allergy; common cause of rash and anaphylaxis', NOW()),
+('Amoxicillin', 'Penicillin-class antibiotic allergy', NOW()),
+('Sulfa Drugs (Sulfonamides)', 'Antibiotic and diuretic drug class allergy', NOW()),
+('Aspirin', 'NSAID allergy; may cause respiratory reactions', NOW()),
+('Ibuprofen', 'NSAID allergy', NOW()),
+('Cephalosporins', 'Antibiotic class allergy; may cross-react with penicillin', NOW()),
+('Codeine', 'Opioid analgesic allergy', NOW()),
+('Morphine', 'Opioid analgesic allergy', NOW()),
+('Local Anesthetics', 'e.g. Lidocaine, Novocaine allergy', NOW()),
+('Contrast Dye (Iodine-based)', 'Reaction to iodinated contrast used in imaging studies', NOW()),
+('Insulin', 'Allergy to insulin formulations', NOW()),
+('Tetracycline', 'Antibiotic allergy', NOW()),
+('Erythromycin', 'Macrolide antibiotic allergy', NOW()),
+('Vancomycin', 'Antibiotic allergy; may cause Red Man Syndrome', NOW()),
+('Latex', 'Natural rubber latex allergy', NOW()),
+('Peanuts', 'Common food allergen', NOW()),
+('Tree Nuts', 'e.g. almonds, walnuts, cashews', NOW()),
+('Shellfish', 'e.g. shrimp, crab, lobster', NOW()),
+('Fish', 'Finned fish allergy', NOW()),
+('Eggs', 'Egg protein allergy', NOW()),
+('Milk', 'Dairy / cow''s milk protein allergy', NOW()),
+('Soy', 'Soybean allergy', NOW()),
+('Wheat/Gluten', 'Wheat protein or gluten sensitivity', NOW()),
+('Sesame', 'Sesame seed allergy', NOW()),
+('Corn', 'Corn allergy', NOW()),
+('Chocolate', 'Cocoa allergy', NOW()),
+('Pollen', 'Seasonal airborne allergen', NOW()),
+('Dust Mites', 'Household allergen', NOW()),
+('Mold', 'Fungal spore allergy', NOW()),
+('Pet Dander (Cat)', 'Cat allergen', NOW()),
+('Pet Dander (Dog)', 'Dog allergen', NOW()),
+('Insect Stings (Bee)', 'Bee venom allergy', NOW()),
+('Insect Stings (Wasp)', 'Wasp venom allergy', NOW()),
+('Nickel', 'Metal contact allergy', NOW()),
+('Perfume/Fragrance', 'Fragrance chemical sensitivity', NOW()),
+('Grass', 'Grass pollen allergy', NOW()),
+('Ragweed', 'Common seasonal pollen allergen', NOW()),
+('Sulfites', 'Food preservative allergy', NOW()),
+('MSG (Monosodium Glutamate)', 'Food additive sensitivity', NOW()),
+('Adhesive Tape/Bandage', 'Adhesive material sensitivity', NOW());
