@@ -122,6 +122,8 @@ import { ClassesView } from "../classes/classes.view.js";
 import { initClasses } from "../classes/classes.js";
 import { VisitTypesView } from "../visit-types/visit-types.view.js";
 import { initVisitTypes } from "../visit-types/visit-types.js";
+import { FacilitiesView } from "../facilities/facilities.view.js";
+import { initFacilities } from "../facilities/facilities.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -223,6 +225,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initVisitTypes, 0);
                     return VisitTypesView();
+                });
+            } else if (tabId === 'facilities') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initFacilities, 0);
+                    return FacilitiesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
