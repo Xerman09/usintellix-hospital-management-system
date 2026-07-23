@@ -1,4 +1,5 @@
 import { getUser } from "../../core/session.js";
+import { showToast } from "../../core/toast.js";
 import {
     fetchVisitTypes,
     createVisitType,
@@ -28,6 +29,7 @@ export async function initVisitTypes()
     const idInput = document.getElementById("visit_type_id");
     const form = document.getElementById("visitTypeForm");
     const searchInput = document.getElementById("visitTypeSearch");
+    const searchClear = document.getElementById("visitTypeSearchClear");
 
     const openModal = (item) => {
         clearErrors();
@@ -67,7 +69,16 @@ export async function initVisitTypes()
 
     searchInput.addEventListener("input", () => {
         searchTerm = searchInput.value.trim().toLowerCase();
+        searchClear.classList.toggle("show", searchInput.value.length > 0);
         renderRows(openModal);
+    });
+
+    searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchTerm = "";
+        searchClear.classList.remove("show");
+        renderRows(openModal);
+        searchInput.focus();
     });
 
     form.addEventListener("submit", async (event) => {
@@ -107,7 +118,7 @@ export async function initVisitTypes()
         }
 
         closeModal();
-        showListAlert(editingId ? "Visit type updated successfully." : "Visit type added successfully.", "success");
+        showToast(editingId ? "Visit type updated successfully." : "Visit type added successfully.", "success");
         await loadVisitTypes(openModal);
     });
 
@@ -181,7 +192,14 @@ function renderRows(openModal)
                 return;
             }
 
-            await deleteVisitType(btn.getAttribute("data-id"));
+            const result = await deleteVisitType(btn.getAttribute("data-id"));
+
+            if (!result.success) {
+                showToast(result.message || "Failed to delete visit type.", "error");
+                return;
+            }
+
+            showToast("Visit type deleted successfully.", "success");
             await loadVisitTypes(openModal);
         });
     });
@@ -230,13 +248,6 @@ function clearErrors()
 function showAlert(message, type)
 {
     const container = document.getElementById("formAlert");
-
-    container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
-}
-
-function showListAlert(message, type)
-{
-    const container = document.getElementById("listAlert");
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
 }

@@ -1,4 +1,5 @@
 import { getUser } from "../../core/session.js";
+import { showToast } from "../../core/toast.js";
 import {
     fetchVisitCategories,
     createVisitCategory,
@@ -28,6 +29,7 @@ export async function initVisitCategories()
     const idInput = document.getElementById("visit_category_id");
     const form = document.getElementById("visitCategoryForm");
     const searchInput = document.getElementById("visitCategorySearch");
+    const searchClear = document.getElementById("visitCategorySearchClear");
 
     const openModal = (category) => {
         clearErrors();
@@ -67,7 +69,16 @@ export async function initVisitCategories()
 
     searchInput.addEventListener("input", () => {
         searchTerm = searchInput.value.trim().toLowerCase();
+        searchClear.classList.toggle("show", searchInput.value.length > 0);
         renderRows(openModal);
+    });
+
+    searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchTerm = "";
+        searchClear.classList.remove("show");
+        renderRows(openModal);
+        searchInput.focus();
     });
 
     form.addEventListener("submit", async (event) => {
@@ -107,7 +118,7 @@ export async function initVisitCategories()
         }
 
         closeModal();
-        showListAlert(editingId ? "Visit category updated successfully." : "Visit category added successfully.", "success");
+        showToast(editingId ? "Visit category updated successfully." : "Visit category added successfully.", "success");
         await loadVisitCategories(openModal);
     });
 
@@ -181,7 +192,14 @@ function renderRows(openModal)
                 return;
             }
 
-            await deleteVisitCategory(btn.getAttribute("data-id"));
+            const result = await deleteVisitCategory(btn.getAttribute("data-id"));
+
+            if (!result.success) {
+                showToast(result.message || "Failed to delete visit category.", "error");
+                return;
+            }
+
+            showToast("Visit category deleted successfully.", "success");
             await loadVisitCategories(openModal);
         });
     });
@@ -230,13 +248,6 @@ function clearErrors()
 function showAlert(message, type)
 {
     const container = document.getElementById("formAlert");
-
-    container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
-}
-
-function showListAlert(message, type)
-{
-    const container = document.getElementById("listAlert");
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
 }

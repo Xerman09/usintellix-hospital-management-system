@@ -128,7 +128,7 @@ export function VisitCategoriesView()
 .vc-search-input {
     width: 100%;
     height: 40px;
-    padding: 0 14px 0 38px;
+    padding: 0 34px 0 38px;
     border-radius: 10px;
     border: 1.5px solid #e2e8f0;
     outline: none;
@@ -144,6 +144,34 @@ export function VisitCategoriesView()
     box-shadow: 0 0 0 4px rgba(79,70,229,.1);
 }
 
+.vc-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: #eef1f7;
+    color: #71809b;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.vc-search-clear.show {
+    display: flex;
+}
+
+.vc-search-clear:hover {
+    background: #e2e8f0;
+    color: #25324b;
+}
+
 .vc-table-wrap {
     overflow-x: auto;
     border: 1px solid #eef1f7;
@@ -154,6 +182,15 @@ export function VisitCategoriesView()
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+}
+
+.vc-table tbody tr {
+    animation: vc-row-in .25s ease both;
+}
+
+@keyframes vc-row-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .vc-table th {
@@ -359,8 +396,6 @@ export function VisitCategoriesView()
             </button>
         </div>
 
-        <div id="listAlert"></div>
-
         <div class="vc-toolbar">
             <span class="vc-stat-pill" id="visitCategoryCountPill">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="1"></rect></svg>
@@ -369,6 +404,7 @@ export function VisitCategoriesView()
             <div class="vc-search-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
                 <input type="text" class="vc-search-input" id="visitCategorySearch" placeholder="Search categories...">
+                <button type="button" class="vc-search-clear" id="visitCategorySearchClear" aria-label="Clear search">&times;</button>
             </div>
         </div>
 

@@ -128,7 +128,7 @@ export function VisitTypesView()
 .vt-search-input {
     width: 100%;
     height: 40px;
-    padding: 0 14px 0 38px;
+    padding: 0 34px 0 38px;
     border-radius: 10px;
     border: 1.5px solid #e2e8f0;
     outline: none;
@@ -144,6 +144,34 @@ export function VisitTypesView()
     box-shadow: 0 0 0 4px rgba(79,70,229,.1);
 }
 
+.vt-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: #eef1f7;
+    color: #71809b;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.vt-search-clear.show {
+    display: flex;
+}
+
+.vt-search-clear:hover {
+    background: #e2e8f0;
+    color: #25324b;
+}
+
 .vt-table-wrap {
     overflow-x: auto;
     border: 1px solid #eef1f7;
@@ -154,6 +182,15 @@ export function VisitTypesView()
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+}
+
+.vt-table tbody tr {
+    animation: vt-row-in .25s ease both;
+}
+
+@keyframes vt-row-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .vt-table th {
@@ -359,8 +396,6 @@ export function VisitTypesView()
             </button>
         </div>
 
-        <div id="listAlert"></div>
-
         <div class="vt-toolbar">
             <span class="vt-stat-pill" id="visitTypeCountPill">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"></path></svg>
@@ -369,6 +404,7 @@ export function VisitTypesView()
             <div class="vt-search-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
                 <input type="text" class="vt-search-input" id="visitTypeSearch" placeholder="Search visit types...">
+                <button type="button" class="vt-search-clear" id="visitTypeSearchClear" aria-label="Clear search">&times;</button>
             </div>
         </div>
 

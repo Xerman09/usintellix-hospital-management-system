@@ -1441,6 +1441,135 @@ select.form-input {
     color: #92400e;
 }
 
+/* =========================
+   TOAST NOTIFICATIONS
+========================= */
+
+.app-toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.app-toast {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 300px;
+    max-width: 380px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: white;
+    border: 1px solid #eef1f7;
+    box-shadow: 0 16px 40px rgba(15,23,42,.16);
+    overflow: hidden;
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform .32s cubic-bezier(.16,1,.3,1), opacity .32s;
+}
+
+.app-toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.app-toast.hide {
+    transform: translateX(16px);
+    opacity: 0;
+}
+
+.app-toast-icon {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.app-toast-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.app-toast.success .app-toast-icon {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.app-toast.error .app-toast-icon {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.app-toast-message {
+    flex: 1;
+    padding-top: 3px;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #25324b;
+}
+
+.app-toast-close {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: #a2aec4;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.app-toast-close:hover {
+    color: #25324b;
+}
+
+.app-toast-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+    transform-origin: left;
+    animation: app-toast-shrink var(--toast-duration, 3.5s) linear forwards;
+}
+
+.app-toast.success .app-toast-progress {
+    background: #22c55e;
+}
+
+.app-toast.error .app-toast-progress {
+    background: #ef4444;
+}
+
+@keyframes app-toast-shrink {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+@media (max-width: 480px) {
+    .app-toast-container {
+        left: 16px;
+        right: 16px;
+        top: 16px;
+    }
+
+    .app-toast {
+        min-width: 0;
+        max-width: none;
+    }
+}
+
 /* Mobile */
 
 

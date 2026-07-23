@@ -1,4 +1,5 @@
 import { getUser } from "../../core/session.js";
+import { showToast } from "../../core/toast.js";
 import {
     fetchClasses,
     createClass,
@@ -28,6 +29,7 @@ export async function initClasses()
     const idInput = document.getElementById("class_id");
     const form = document.getElementById("classForm");
     const searchInput = document.getElementById("classSearch");
+    const searchClear = document.getElementById("classSearchClear");
 
     const openModal = (item) => {
         clearErrors();
@@ -67,7 +69,16 @@ export async function initClasses()
 
     searchInput.addEventListener("input", () => {
         searchTerm = searchInput.value.trim().toLowerCase();
+        searchClear.classList.toggle("show", searchInput.value.length > 0);
         renderRows(openModal);
+    });
+
+    searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchTerm = "";
+        searchClear.classList.remove("show");
+        renderRows(openModal);
+        searchInput.focus();
     });
 
     form.addEventListener("submit", async (event) => {
@@ -107,7 +118,7 @@ export async function initClasses()
         }
 
         closeModal();
-        showListAlert(editingId ? "Class updated successfully." : "Class added successfully.", "success");
+        showToast(editingId ? "Class updated successfully." : "Class added successfully.", "success");
         await loadClasses(openModal);
     });
 
@@ -181,7 +192,14 @@ function renderRows(openModal)
                 return;
             }
 
-            await deleteClass(btn.getAttribute("data-id"));
+            const result = await deleteClass(btn.getAttribute("data-id"));
+
+            if (!result.success) {
+                showToast(result.message || "Failed to delete class.", "error");
+                return;
+            }
+
+            showToast("Class deleted successfully.", "success");
             await loadClasses(openModal);
         });
     });
@@ -230,13 +248,6 @@ function clearErrors()
 function showAlert(message, type)
 {
     const container = document.getElementById("formAlert");
-
-    container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
-}
-
-function showListAlert(message, type)
-{
-    const container = document.getElementById("listAlert");
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
 }
