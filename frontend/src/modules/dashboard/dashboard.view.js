@@ -26,6 +26,7 @@ function staffNavLinks(role)
                 <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
                 <a data-tab="insurances">Insurance Management</a>
                 <a data-tab="organization_types">Organization Type Registration</a>
+                <a data-tab="pos_codes">POS Code Management</a>
             </div>
         </div>
         ${appointmentsLink}

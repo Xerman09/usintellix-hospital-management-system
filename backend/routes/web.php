@@ -32,6 +32,7 @@ require_once __DIR__ . '/../app/Modules/X12Partners/routes.php';
 require_once __DIR__ . '/../app/Modules/CqmSourceOfPayments/routes.php';
 require_once __DIR__ . '/../app/Modules/Insurances/routes.php';
 require_once __DIR__ . '/../app/Modules/OrganizationTypes/routes.php';
+require_once __DIR__ . '/../app/Modules/PosCodes/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 
