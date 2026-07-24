@@ -128,6 +128,10 @@ import { FacilityBillingsView } from "../facility-billings/facility-billings.vie
 import { initFacilityBillings } from "../facility-billings/facility-billings.js";
 import { AllergiesView } from "../allergies/allergies.view.js";
 import { initAllergies } from "../allergies/allergies.js";
+import { MedicalProblemsView } from "../medical-problems/medical-problems.view.js";
+import { initMedicalProblems } from "../medical-problems/medical-problems.js";
+import { MedicationsView } from "../medications/medications.view.js";
+import { initMedications } from "../medications/medications.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -244,6 +248,16 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initAllergies, 0);
                     return AllergiesView();
+                });
+            } else if (tabId === 'medical_problems') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initMedicalProblems, 0);
+                    return MedicalProblemsView();
+                });
+            } else if (tabId === 'medication_management') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initMedications, 0);
+                    return MedicationsView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
