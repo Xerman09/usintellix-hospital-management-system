@@ -232,8 +232,7 @@ export function FacilitiesView()
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: #eef2ff;
-    color: #4338ca;
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -246,26 +245,58 @@ export function FacilitiesView()
     color: #1a2338;
 }
 
-.fac-description, .fac-location {
+.fac-muted {
     color: #71809b;
 }
 
-.fac-description.empty, .fac-location.empty {
+.fac-muted.empty {
     font-style: italic;
     color: #a2aec4;
 }
 
-.fac-location-cell {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.fac-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 12px;
+    font-weight: 600;
 }
 
-.fac-location-cell svg {
-    flex-shrink: 0;
-    width: 13px;
-    height: 13px;
+.fac-tag.empty {
+    background: none;
     color: #a2aec4;
+    font-style: italic;
+    font-weight: 400;
+    padding: 0;
+}
+
+.fac-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.fac-status-badge.active {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.fac-status-badge.inactive {
+    background: #f1f4fa;
+    color: #71809b;
+}
+
+.fac-status-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
 }
 
 .fac-actions {
@@ -379,11 +410,195 @@ export function FacilitiesView()
     color: white;
 }
 
+/* ===== Facility form ===== */
+
+.fac-name-group {
+    margin-bottom: 22px;
+}
+
+.fac-section {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #e5e9f2;
+}
+
+.fac-section:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.fac-section-label {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1a2338;
+    margin: 0 0 2px;
+}
+
+.fac-section-desc {
+    font-size: 12px;
+    color: #8792a6;
+    margin: 0 0 14px;
+}
+
+.fac-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #52627a;
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+
+.fac-checkbox-label input {
+    width: 15px;
+    height: 15px;
+    accent-color: #4f46e5;
+    cursor: pointer;
+}
+
+.fac-mailing-block {
+    margin-top: 12px;
+    padding: 14px 14px 2px;
+    border: 1px dashed #d9e1ee;
+    border-radius: 8px;
+}
+
+.fac-mailing-block[hidden] {
+    display: none;
+}
+
+.fac-color-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fac-color-native {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 2px;
+    border: 1.5px solid #d9e1ee;
+    border-radius: 7px;
+    background: white;
+    cursor: pointer;
+}
+
+.fac-color-hex {
+    flex: 1;
+    max-width: 160px;
+    font-family: "SFMono-Regular", Consolas, "Courier New", monospace;
+    font-size: 13px;
+}
+
+.fac-tax-id-wrap {
+    display: flex;
+    gap: 8px;
+}
+
+.fac-tax-id-wrap select {
+    flex: 0 0 84px;
+}
+
+.fac-tax-id-wrap .form-input {
+    flex: 1;
+}
+
+.fac-check-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+}
+
+.fac-check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 11px;
+    border: 1px solid #e5e9f2;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color .12s, background-color .12s;
+}
+
+.fac-check-item:hover {
+    border-color: #c7d2fe;
+    background: #fafbff;
+}
+
+.fac-check-item input {
+    margin-top: 2px;
+    width: 14px;
+    height: 14px;
+    accent-color: #4f46e5;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.fac-check-item input:disabled {
+    cursor: not-allowed;
+}
+
+.fac-check-text strong {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #25324b;
+    line-height: 1.3;
+}
+
+.fac-check-text em {
+    display: block;
+    font-style: normal;
+    font-size: 11px;
+    color: #a2aec4;
+    margin-top: 1px;
+}
+
+.fac-check-item.is-disabled {
+    opacity: .55;
+}
+
+.fac-check-item.is-disabled:hover {
+    border-color: #e5e9f2;
+    background: none;
+}
+
+.fac-check-item.is-danger-active {
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
+.fac-info-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px 13px;
+    border-radius: 9px;
+    border: 1.5px solid #e2e8f0;
+    outline: none;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: #24324a;
+    background: #fbfcfe;
+    resize: vertical;
+    transition: .15s;
+}
+
+.fac-info-textarea:focus {
+    border-color: #4f46e5;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(79,70,229,.1);
+}
+
 @media (max-width: 640px) {
     .fac-header { flex-direction: column; }
     .fac-add-btn { width: 100%; justify-content: center; }
     .fac-toolbar { flex-direction: column; align-items: stretch; }
     .fac-search-wrap { max-width: none; }
+    .fac-check-grid { grid-template-columns: 1fr; }
 }
 </style>
 
@@ -396,7 +611,7 @@ export function FacilitiesView()
                 </div>
                 <div>
                     <h1>Facilities</h1>
-                    <p class="form-subtitle">Facilities registered here become available for scheduling and resource management across the system.</p>
+                    <p class="form-subtitle">Facilities registered here become available for scheduling, billing, and resource management across the system.</p>
                 </div>
             </div>
             <button type="button" class="fac-add-btn" id="openAddFacilityModal">
@@ -422,15 +637,17 @@ export function FacilitiesView()
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Location</th>
-                        <th>Description</th>
+                        <th>Organization Type</th>
+                        <th>Phone</th>
+                        <th>City</th>
+                        <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="facilitiesTableBody">
-                    <tr class="fac-skeleton-row"><td colspan="4"><div class="fac-skeleton-bar" style="width: 60%;"></div></td></tr>
-                    <tr class="fac-skeleton-row"><td colspan="4"><div class="fac-skeleton-bar" style="width: 45%;"></div></td></tr>
-                    <tr class="fac-skeleton-row"><td colspan="4"><div class="fac-skeleton-bar" style="width: 70%;"></div></td></tr>
+                    <tr class="fac-skeleton-row"><td colspan="6"><div class="fac-skeleton-bar" style="width: 60%;"></div></td></tr>
+                    <tr class="fac-skeleton-row"><td colspan="6"><div class="fac-skeleton-bar" style="width: 45%;"></div></td></tr>
+                    <tr class="fac-skeleton-row"><td colspan="6"><div class="fac-skeleton-bar" style="width: 70%;"></div></td></tr>
                 </tbody>
             </table>
         </div>
@@ -438,7 +655,7 @@ export function FacilitiesView()
 </div>
 
 <div class="modal-overlay" id="facilityModalOverlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 920px;">
         <div class="fac-modal-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"></path></svg>
         </div>
@@ -446,30 +663,207 @@ export function FacilitiesView()
             <h2 id="facilityModalTitle">Add Facility</h2>
             <button type="button" class="modal-close" id="closeFacilityModal">&times;</button>
         </div>
-        <p class="form-subtitle">Define a facility used for scheduling and resource management.</p>
+        <p class="form-subtitle">Register a facility used for scheduling, billing, and resource management.</p>
 
         <div id="formAlert"></div>
 
         <form id="facilityForm">
-            <input type="hidden" id="facility_id">
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label>Name</label>
-                    <input id="name" class="form-input" placeholder="e.g Radiology">
-                    <span class="form-error" id="err-name"></span>
+            <input type="hidden" id="record_id">
+
+            <div class="form-group fac-name-group">
+                <label>Facility Name</label>
+                <input id="name" class="form-input" placeholder="Facility Name">
+                <span class="form-error" id="err-name"></span>
+            </div>
+
+            <div class="fac-section">
+                <p class="fac-section-label">Address</p>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Street Address</label>
+                        <input id="physical_address_line1" class="form-input" placeholder="Street address">
+                    </div>
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="physical_city" class="form-input" placeholder="City">
+                    </div>
+                    <div class="form-group">
+                        <label>State</label>
+                        <input id="physical_state" class="form-input" placeholder="State">
+                    </div>
+                    <div class="form-group">
+                        <label>Zip Code</label>
+                        <input id="physical_zip" class="form-input" placeholder="Zip code">
+                    </div>
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="physical_country" class="form-input" placeholder="Country">
+                    </div>
                 </div>
 
-                <div class="form-group full">
-                    <label>Location</label>
-                    <input id="location" class="form-input" placeholder="e.g Building A, 3rd Floor">
-                    <span class="form-error" id="err-location"></span>
+                <label class="fac-checkbox-label" style="margin-top: 14px;">
+                    <input type="checkbox" id="different_mailing_address">
+                    Mailing address is different from the address above
+                </label>
+
+                <div class="fac-mailing-block" id="mailingAddressBlock" hidden>
+                    <div class="form-grid">
+                        <div class="form-group full">
+                            <label>Mailing Street Address</label>
+                            <input id="mailing_address_line1" class="form-input" placeholder="Street address">
+                        </div>
+                        <div class="form-group">
+                            <label>City</label>
+                            <input id="mailing_city" class="form-input" placeholder="City">
+                        </div>
+                        <div class="form-group">
+                            <label>State</label>
+                            <input id="mailing_state" class="form-input" placeholder="State">
+                        </div>
+                        <div class="form-group">
+                            <label>Zip Code</label>
+                            <input id="mailing_zip" class="form-input" placeholder="Zip code">
+                        </div>
+                        <div class="form-group">
+                            <label>Country</label>
+                            <input id="mailing_country" class="form-input" placeholder="Country">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fac-section">
+                <p class="fac-section-label">Contact</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input id="phone" class="form-input" placeholder="Phone">
+                    </div>
+                    <div class="form-group">
+                        <label>Fax</label>
+                        <input id="fax" class="form-input" placeholder="Fax">
+                    </div>
+                    <div class="form-group">
+                        <label>Website</label>
+                        <input id="website" class="form-input" placeholder="Website">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input id="email" class="form-input" placeholder="Email">
+                    </div>
+                </div>
+            </div>
+
+            <div class="fac-section">
+                <p class="fac-section-label">Classification</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Organization Type</label>
+                        <select id="organization_type_id" class="form-input">
+                            <option value="">-- Select Organization Type --</option>
+                        </select>
+                        <span class="form-error" id="err-organization_type_id"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>POS Code</label>
+                        <select id="pos_code_id" class="form-input">
+                            <option value="">-- Select POS Code --</option>
+                        </select>
+                        <span class="form-error" id="err-pos_code_id"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Facility Taxonomy</label>
+                        <input id="facility_taxonomy" class="form-input" placeholder="Facility Taxonomy">
+                    </div>
                 </div>
 
-                <div class="form-group full">
-                    <label>Description</label>
-                    <input id="description" class="form-input" placeholder="Optional description">
-                    <span class="form-error" id="err-description"></span>
+                <div class="form-group" style="margin-top: 4px;">
+                    <label>Color Tag *</label>
+                    <div class="fac-color-field">
+                        <input type="color" id="color_native" class="fac-color-native" value="#4f46e5">
+                        <input id="color" class="form-input fac-color-hex" placeholder="#4f46e5" value="#4f46e5">
+                    </div>
+                    <span class="form-error" id="err-color"></span>
                 </div>
+            </div>
+
+            <div class="fac-section">
+                <p class="fac-section-label">Billing &amp; Identifiers</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Billing Attn</label>
+                        <input id="billing_attn" class="form-input" placeholder="Billing Attn">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tax ID</label>
+                        <div class="fac-tax-id-wrap">
+                            <select id="tax_id_type" class="form-input">
+                                <option value="EIN">EIN</option>
+                                <option value="SSN">SSN</option>
+                            </select>
+                            <input id="tax_id" class="form-input" placeholder="Tax ID">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>IBAN</label>
+                        <input id="iban" class="form-input" placeholder="IBAN">
+                    </div>
+
+                    <div class="form-group">
+                        <label>OID</label>
+                        <input id="oid" class="form-input" placeholder="OID">
+                    </div>
+
+                    <div class="form-group">
+                        <label>CLIA Number</label>
+                        <input id="clia_number" class="form-input" placeholder="CLIA Number">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Facility Lab Code</label>
+                        <input id="facility_lab_code" class="form-input" placeholder="Facility Lab Code">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Facility NPI</label>
+                        <input id="facility_npi" class="form-input" placeholder="Facility NPI">
+                    </div>
+                </div>
+            </div>
+
+            <div class="fac-section">
+                <p class="fac-section-label">Status</p>
+                <div class="fac-check-grid">
+                    <label class="fac-check-item" id="item_is_billing_location">
+                        <input type="checkbox" id="is_billing_location">
+                        <span class="fac-check-text"><strong>Billing Location</strong></span>
+                    </label>
+                    <label class="fac-check-item is-disabled" id="item_accepts_assignment">
+                        <input type="checkbox" id="accepts_assignment" disabled>
+                        <span class="fac-check-text"><strong>Accepts Assignment</strong><em>Requires Billing Location</em></span>
+                    </label>
+                    <label class="fac-check-item" id="item_is_service_location">
+                        <input type="checkbox" id="is_service_location">
+                        <span class="fac-check-text"><strong>Service Location</strong></span>
+                    </label>
+                    <label class="fac-check-item" id="item_is_primary_business_entity">
+                        <input type="checkbox" id="is_primary_business_entity">
+                        <span class="fac-check-text"><strong>Primary Business Entity</strong></span>
+                    </label>
+                    <label class="fac-check-item" id="item_is_inactive">
+                        <input type="checkbox" id="is_inactive">
+                        <span class="fac-check-text"><strong>Facility Inactive</strong></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="fac-section">
+                <p class="fac-section-label">Notes</p>
+                <textarea id="info" class="fac-info-textarea" placeholder="Additional notes about this facility"></textarea>
             </div>
 
             <div class="form-actions">
