@@ -136,6 +136,10 @@ import { PayerTypesView } from "../payer-types/payer-types.view.js";
 import { initPayerTypes } from "../payer-types/payer-types.js";
 import { X12PartnersView } from "../x12-partners/x12-partners.view.js";
 import { initX12Partners } from "../x12-partners/x12-partners.js";
+import { CqmSourceOfPaymentsView } from "../cqm-source-of-payments/cqm-source-of-payments.view.js";
+import { initCqmSourceOfPayments } from "../cqm-source-of-payments/cqm-source-of-payments.js";
+import { InsurancesView } from "../insurances/insurances.view.js";
+import { initInsurances } from "../insurances/insurances.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -272,6 +276,16 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initX12Partners, 0);
                     return X12PartnersView();
+                });
+            } else if (tabId === 'cqm_source_of_payments') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initCqmSourceOfPayments, 0);
+                    return CqmSourceOfPaymentsView();
+                });
+            } else if (tabId === 'insurances') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initInsurances, 0);
+                    return InsurancesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
