@@ -132,6 +132,8 @@ import { MedicalProblemsView } from "../medical-problems/medical-problems.view.j
 import { initMedicalProblems } from "../medical-problems/medical-problems.js";
 import { MedicationsView } from "../medications/medications.view.js";
 import { initMedications } from "../medications/medications.js";
+import { PayerTypesView } from "../payer-types/payer-types.view.js";
+import { initPayerTypes } from "../payer-types/payer-types.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -258,6 +260,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initMedications, 0);
                     return MedicationsView();
+                });
+            } else if (tabId === 'payer_types') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initPayerTypes, 0);
+                    return PayerTypesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
