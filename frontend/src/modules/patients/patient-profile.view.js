@@ -48,8 +48,26 @@ export function PatientProfileView(patient)
 `;
 }
 
+const OVERVIEW_SECTIONS = [
+    { key: "care_provider", label: "Care Team" },
+    { key: "allergies", label: "Allergies" },
+    { key: "problems", label: "Problems" },
+    { key: "medications", label: "Active Medications" },
+    { key: "prescriptions", label: "Prescriptions" },
+    { key: "clinical_reminders", label: "Clinical Reminders" }
+];
+
 function overviewPanel(patient)
 {
+    const sections = OVERVIEW_SECTIONS.map((section) => `
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e7ebf3;">
+            <h3 style="font-size: 15px; margin: 0 0 10px; color: #25324b;">${section.label}</h3>
+            <div id="overview-${section.key}">
+                <p class="table-empty" style="padding: 10px 0; text-align: left;">Loading...</p>
+            </div>
+        </div>
+    `).join("");
+
     return `
         <div class="form-grid">
             <div class="form-group">
@@ -81,7 +99,7 @@ function overviewPanel(patient)
                 <p>${patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "-"}</p>
             </div>
         </div>
-        <p class="table-empty" style="padding: 20px 0; text-align: left;">Full patient record view (history, contact, insurance, etc.) is under development.</p>
+        ${sections}
     `;
 }
 

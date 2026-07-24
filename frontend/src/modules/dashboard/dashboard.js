@@ -5,8 +5,8 @@ import { DashboardHomeView } from "./dashboard-home.view.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
-import { PatientsListView } from "../patients/patients-list.view.js";
-import { initPatientsList } from "../patients/patients-list.js";
+import { PatientsListView } from "../patients/patients-list.view.js?v=1";
+import { initPatientsList } from "../patients/patients-list.js?v=1";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { VisitCategoriesView } from "../visit-categories/visit-categories.view.js";
@@ -41,6 +41,8 @@ import { AppointmentsListView } from "../appointments/appointments-list.view.js"
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js";
+import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
+import { initHealthSummary } from "../health-records/health-summary.js?v=2";
 
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -172,6 +174,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initAppointmentsList, 0);
                     return AppointmentsListView(user);
+                });
+            } else if (tabId === 'health_records' && user.role === 'patient') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(() => initHealthSummary({}), 0);
+                    return HealthSummaryView();
                 });
             } else {
                 tabManager.openTab(tabId, title, () => renderPlaceholderTab(title));

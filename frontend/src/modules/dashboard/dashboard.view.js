@@ -34,7 +34,12 @@ function staffNavLinks(role)
 }
 
 const PATIENT_NAV_LINKS = `
-    <a data-tab="health_records">Patient Health Records</a>
+    <div class="nav-dropdown">
+        <span>Patient Health Records</span>
+        <div class="dropdown-content">
+            <a data-tab="health_records">Health Records Summary</a>
+        </div>
+    </div>
     <a data-tab="messaging">Messaging</a>
     <a data-tab="appointments">Appointments</a>
     <a data-tab="laboratory">Laboratory</a>

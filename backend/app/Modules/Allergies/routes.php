@@ -6,7 +6,7 @@ use App\Modules\Allergies\Controllers\AllergyController;
 
 $router->get('/allergies', [AllergyController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/allergies', [AllergyController::class, 'register'], [

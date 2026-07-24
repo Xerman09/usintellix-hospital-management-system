@@ -2,8 +2,8 @@ import { getUser } from "../../core/session.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
-import { PatientProfileView } from "./patient-profile.view.js";
-import { initPatientProfile } from "./patient-profile.js";
+import { PatientProfileView } from "./patient-profile.view.js?v=3";
+import { initPatientProfile } from "./patient-profile.js?v=3";
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
