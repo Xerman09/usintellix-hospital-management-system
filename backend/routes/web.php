@@ -28,6 +28,7 @@ require_once __DIR__ . '/../app/Modules/Allergies/routes.php';
 require_once __DIR__ . '/../app/Modules/MedicalProblems/routes.php';
 require_once __DIR__ . '/../app/Modules/Medications/routes.php';
 require_once __DIR__ . '/../app/Modules/PayerTypes/routes.php';
+require_once __DIR__ . '/../app/Modules/X12Partners/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 

@@ -22,6 +22,7 @@ function staffNavLinks(role)
                 <a data-tab="medical_problems">Medical Problem Management</a>
                 <a data-tab="medication_management">Medication Management</a>
                 <a data-tab="payer_types">Payer Type Management</a>
+                <a data-tab="x12_partners">X12 Partner</a>
             </div>
         </div>
         ${appointmentsLink}

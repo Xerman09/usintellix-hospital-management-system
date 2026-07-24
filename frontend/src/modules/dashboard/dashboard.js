@@ -134,6 +134,8 @@ import { MedicationsView } from "../medications/medications.view.js";
 import { initMedications } from "../medications/medications.js";
 import { PayerTypesView } from "../payer-types/payer-types.view.js";
 import { initPayerTypes } from "../payer-types/payer-types.js";
+import { X12PartnersView } from "../x12-partners/x12-partners.view.js";
+import { initX12Partners } from "../x12-partners/x12-partners.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -265,6 +267,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initPayerTypes, 0);
                     return PayerTypesView();
+                });
+            } else if (tabId === 'x12_partners') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initX12Partners, 0);
+                    return X12PartnersView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
