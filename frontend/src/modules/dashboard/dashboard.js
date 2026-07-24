@@ -33,6 +33,8 @@ import { CqmSourceOfPaymentsView } from "../cqm-source-of-payments/cqm-source-of
 import { initCqmSourceOfPayments } from "../cqm-source-of-payments/cqm-source-of-payments.js";
 import { InsurancesView } from "../insurances/insurances.view.js";
 import { initInsurances } from "../insurances/insurances.js";
+import { OrganizationTypesView } from "../organization-types/organization-types.view.js";
+import { initOrganizationTypes } from "../organization-types/organization-types.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js";
 import { initAppointmentsList } from "../appointments/appointments-list.js";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
@@ -148,6 +150,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initInsurances, 0);
                     return InsurancesView();
+                });
+            } else if (tabId === 'organization_types') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initOrganizationTypes, 0);
+                    return OrganizationTypesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
