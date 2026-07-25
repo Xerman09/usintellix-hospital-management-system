@@ -2,8 +2,6 @@ import { getUser } from "../../core/session.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
-import { PatientProfileView } from "./patient-profile.view.js?v=3";
-import { initPatientProfile } from "./patient-profile.js?v=3";
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
@@ -39,6 +37,7 @@ export async function initPatientsList()
 
     await loadPatients(user);
     setupPatientFilters(user);
+    setupPatientDashboardModal();
 
     if (user.role !== "doctor") {
         await setupEditPatientModal(user);
@@ -49,24 +48,68 @@ export async function initPatientsList()
     }
 }
 
-function openPatientProfileTab(patient)
+function setupPatientDashboardModal()
 {
-    const title = [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "Patient";
+    const modalOverlay = document.getElementById("patientDashboardModalOverlay");
 
-    window.tabManager.openTab(`patient-profile-${patient.id}`, title, () => {
-        setTimeout(() => initPatientProfile(patient), 0);
-        return PatientProfileView(patient);
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("closePatientDashboardModal").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
     });
+}
+
+function openPatientDashboardModal(patient)
+{
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const initial = (patient.first_name || "?").charAt(0).toUpperCase();
+    const sex = patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "";
+    const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
+
+    document.getElementById("pdAvatar").textContent = initial;
+    document.getElementById("pdSidebarAvatar").textContent = initial;
+    document.getElementById("pdName").textContent = fullName;
+    document.getElementById("pdSidebarName").textContent = fullName;
+    document.getElementById("pdSubtitle").textContent = `Patient No: ${patient.patient_no}`;
+    document.getElementById("pdSidebarSub").textContent = `Patient No: ${patient.patient_no}`;
+
+    setFact("pdFactSex", sex);
+    setFact("pdFactBirthdate", patient.birthdate);
+    setFact("pdFactBloodType", patient.blood_type);
+    setFact("pdFactProvider", providerName);
+
+    document.getElementById("patientDashboardModalOverlay").classList.add("open");
+}
+
+function setFact(elementId, value)
+{
+    const el = document.getElementById(elementId);
+
+    el.textContent = value || "Not set";
+    el.classList.toggle("empty", !value);
 }
 
 function setupPatientFilters(user)
 {
     const searchInput = document.getElementById("patientSearchInput");
+    const searchClear = document.getElementById("patientSearchClear");
     const providerFilter = document.getElementById("patientProviderFilter");
 
     const applyFilters = () => renderPatientsTable(getFilteredPatients(searchInput, providerFilter), user);
 
-    searchInput.addEventListener("input", applyFilters);
+    searchInput.addEventListener("input", () => {
+        searchClear.classList.toggle("show", searchInput.value.length > 0);
+        applyFilters();
+    });
+    searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchClear.classList.remove("show");
+        applyFilters();
+        searchInput.focus();
+    });
     providerFilter.addEventListener("change", applyFilters);
 }
 
@@ -349,29 +392,64 @@ async function loadPatients(user)
 function renderPatientsTable(patients, user)
 {
     const tbody = document.getElementById("patientsTableBody");
+    const countText = document.getElementById("patientCountText");
     const canDelete = user.role === "admin";
     const canEdit = user.role === "admin" || user.role === "receptionist";
 
+    countText.textContent = `${patientsCache.length} ${patientsCache.length === 1 ? "patient" : "patients"}`;
+
     if (!patients.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No patients found.</td></tr>`;
+        tbody.innerHTML = renderEmptyState(patientsCache.length === 0);
         return;
     }
 
-    tbody.innerHTML = patients.map((patient) => `
+    tbody.innerHTML = patients.map((patient) => {
+        const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+        const sex = (patient.sex || "").toLowerCase();
+        const sexLabel = sex ? sex.charAt(0).toUpperCase() + sex.slice(1) : "Not set";
+        const sexClass = sex === "male" || sex === "female" ? sex : "unset";
+        const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
+
+        return `
         <tr>
-            <td>${patient.patient_no}</td>
-            <td>${[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")}</td>
-            <td>${patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "-"}</td>
-            <td>${patient.birthdate}</td>
-            <td>${patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "-"}</td>
-            <td class="table-actions">
-                ${canEdit
-                    ? `<button class="btn-edit" data-edit-id="${patient.id}">Edit</button>`
-                    : `<button class="btn-edit" data-view-id="${patient.id}">View</button>`}
-                ${canDelete ? `<button class="btn-danger" data-id="${patient.id}">Delete</button>` : ""}
+            <td><span class="pat-patient-no">${escapeHtml(patient.patient_no)}</span></td>
+            <td>
+                <div class="pat-name-cell">
+                    <div class="pat-avatar">${escapeHtml((patient.first_name || "?").charAt(0).toUpperCase())}</div>
+                    <span class="pat-name">${escapeHtml(fullName)}</span>
+                </div>
+            </td>
+            <td><span class="pat-sex-badge ${sexClass}">${escapeHtml(sexLabel)}</span></td>
+            <td class="pat-muted ${patient.birthdate ? "" : "empty"}">${escapeHtml(patient.birthdate || "No birthdate")}</td>
+            <td><span class="pat-tag ${providerName ? "" : "empty"}">${providerName ? escapeHtml(providerName) : "Unassigned"}</span></td>
+            <td>
+                <div class="pat-actions">
+                    <button class="pat-icon-btn view" data-dashboard-id="${patient.id}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        View</button>
+                    ${canEdit
+                        ? `<button class="pat-icon-btn edit" data-edit-id="${patient.id}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                            Edit</button>`
+                        : ""}
+                    ${canDelete ? `<button class="pat-icon-btn delete" data-id="${patient.id}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg>
+                            Delete</button>` : ""}
+                </div>
             </td>
         </tr>
-    `).join("");
+    `;
+    }).join("");
+
+    tbody.querySelectorAll("[data-dashboard-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const patient = patientsCache.find((p) => String(p.id) === btn.getAttribute("data-dashboard-id"));
+
+            if (patient) {
+                openPatientDashboardModal(patient);
+            }
+        });
+    });
 
     tbody.querySelectorAll("[data-edit-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -383,18 +461,8 @@ function renderPatientsTable(patients, user)
         });
     });
 
-    tbody.querySelectorAll("[data-view-id]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            const patient = patientsCache.find((p) => String(p.id) === btn.getAttribute("data-view-id"));
-
-            if (patient) {
-                openPatientProfileTab(patient);
-            }
-        });
-    });
-
     if (canDelete) {
-        tbody.querySelectorAll(".btn-danger").forEach((btn) => {
+        tbody.querySelectorAll(".pat-icon-btn.delete").forEach((btn) => {
             btn.addEventListener("click", async () => {
                 if (!confirm("Delete this patient? This can be reversed by an administrator (soft delete).")) {
                     return;
@@ -405,6 +473,35 @@ function renderPatientsTable(patients, user)
             });
         });
     }
+}
+
+function renderEmptyState(noneAtAll)
+{
+    const heading = noneAtAll ? "No patients yet" : "No matching patients";
+    const message = noneAtAll
+        ? "Registered patients will appear here."
+        : "Try a different search term or filter.";
+
+    return `
+        <tr>
+            <td colspan="6" class="pat-empty-state">
+                <div class="pat-empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <strong>${heading}</strong>
+                <p>${message}</p>
+            </td>
+        </tr>
+    `;
+}
+
+function escapeHtml(value)
+{
+    const div = document.createElement("div");
+
+    div.textContent = value ?? "";
+
+    return div.innerHTML;
 }
 
 function clearErrors(fields, prefix)
