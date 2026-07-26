@@ -47,6 +47,8 @@ import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
+import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
+import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
 
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -173,6 +175,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initIcd10Diagnoses, 0);
                     return Icd10DiagnosesView();
+                });
+            } else if (tabId === 'cqm_valuesets') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initCqmValuesets, 0);
+                    return CqmValuesetsView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
