@@ -411,7 +411,7 @@ function renderPatientsTable(patients, user)
         const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
 
         return `
-        <tr>
+        <tr class="pat-row" data-row-id="${patient.id}">
             <td><span class="pat-patient-no">${escapeHtml(patient.patient_no)}</span></td>
             <td>
                 <div class="pat-name-cell">
@@ -444,6 +444,20 @@ function renderPatientsTable(patients, user)
     tbody.querySelectorAll("[data-dashboard-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
             const patient = patientsCache.find((p) => String(p.id) === btn.getAttribute("data-dashboard-id"));
+
+            if (patient) {
+                openPatientDashboardModal(patient);
+            }
+        });
+    });
+
+    tbody.querySelectorAll(".pat-row").forEach((row) => {
+        row.addEventListener("click", (event) => {
+            if (event.target.closest("button")) {
+                return;
+            }
+
+            const patient = patientsCache.find((p) => String(p.id) === row.getAttribute("data-row-id"));
 
             if (patient) {
                 openPatientDashboardModal(patient);
