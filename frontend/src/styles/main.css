@@ -1,3 +1,16 @@
+:root {
+    --accent-dark: #0a1730;
+    --accent-mid: #0f2557;
+    --accent: #1d4ed8;
+    --accent-rgb: 29,78,216;
+    --accent-hover: #1742b0;
+    --accent-active: #14367e;
+    --accent-light: #eff6ff;
+    --accent-lighter: #dbeafe;
+    --accent-border: #bfdbfe;
+    --accent-text: #1e40af;
+}
+
 * {
     box-sizing: border-box;
     font-family: "Inter", "Segoe UI", sans-serif;
@@ -39,7 +52,7 @@ body {
     flex: 1 1 46%;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(160deg, #0a1730 0%, #0f2557 45%, #1d4ed8 100%);
+    background: linear-gradient(160deg, var(--accent-dark) 0%, var(--accent-mid) 45%, var(--accent) 100%);
     color: white;
     display: flex;
     align-items: center;
@@ -397,7 +410,7 @@ body {
 
 .password-toggle:hover {
 
-    color: #1d4ed8;
+    color: var(--accent);
 
 }
 
@@ -405,12 +418,12 @@ body {
 
 .form-input:focus {
 
-    border-color: #1d4ed8;
+    border-color: var(--accent);
 
     background: white;
 
     box-shadow:
-        0 0 0 4px rgba(29,78,216,.12);
+        0 0 0 4px rgba(var(--accent-rgb),.12);
 
 }
 
@@ -446,7 +459,7 @@ body {
 
     width: 15px;
     height: 15px;
-    accent-color: #1d4ed8;
+    accent-color: var(--accent);
     cursor: pointer;
 
 }
@@ -455,7 +468,7 @@ body {
 
 .forgot-password {
 
-    color: #1d4ed8;
+    color: var(--accent);
 
     text-decoration: none;
 
@@ -483,7 +496,7 @@ body {
     border-radius: 8px;
 
 
-    background: #1d4ed8;
+    background: var(--accent);
 
 
     color: white;
@@ -504,13 +517,13 @@ body {
 
 .login-btn:hover {
 
-    background: #1742b0;
+    background: var(--accent-hover);
 
 }
 
 .login-btn:active {
 
-    background: #14367e;
+    background: var(--accent-active);
 
 }
 
@@ -664,13 +677,13 @@ body {
 }
 
 .navbar-links a:hover, .nav-dropdown:hover > span {
-    color: #1d4ed8;
+    color: var(--accent);
     background: #f9fafb;
 }
 
 .navbar-links a.active {
-    color: #1d4ed8;
-    border-bottom: 3px solid #1d4ed8;
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
 }
 
 /* Dropdown */
@@ -693,7 +706,15 @@ body {
     padding: 8px 0;
 }
 
-.nav-dropdown:hover .dropdown-content {
+.nav-dropdown:not(.nav-profile):hover .dropdown-content {
+    display: flex;
+}
+
+.nav-profile .dropdown-content {
+    display: none;
+}
+
+.nav-profile.open .dropdown-content {
     display: flex;
 }
 
@@ -710,7 +731,7 @@ body {
 
 .dropdown-content a:hover {
     background-color: #f3f4f6;
-    color: #1d4ed8;
+    color: var(--accent);
 }
 
 .dropdown-right {
@@ -771,7 +792,7 @@ body {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: #1d4ed8;
+    background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
@@ -881,13 +902,13 @@ body {
     height: 40px;
     padding: 0 20px;
     border-radius: 8px;
-    background: #1d4ed8;
+    background: var(--accent);
     color: white;
     font-weight: 600;
     text-decoration: none;
     font-size: 14px;
 }
-.btn-primary-inline:hover { background: #1e40af; }
+.btn-primary-inline:hover { background: var(--accent-text); }
 
 /* =========================
    FORM PAGE (Add Employee, etc.)
@@ -1161,8 +1182,8 @@ select.form-input {
 }
 
 .btn-edit {
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--accent-lighter);
+    color: var(--accent-text);
     border: none;
     border-radius: 8px;
     padding: 6px 14px;
@@ -1172,7 +1193,7 @@ select.form-input {
 }
 
 .btn-edit:hover {
-    background: #bfdbfe;
+    background: var(--accent-border);
 }
 
 .table-actions {
@@ -1292,8 +1313,8 @@ select.form-input {
 }
 
 .modal-tab.active {
-    color: #1d4ed8;
-    border-bottom-color: #1d4ed8;
+    color: var(--accent);
+    border-bottom-color: var(--accent);
 }
 
 .modal-tab-panel {
@@ -1349,7 +1370,7 @@ select.form-input {
     border-radius: 8px;
     border: 1px solid #e2e8f0;
     background: white;
-    color: #1d4ed8;
+    color: var(--accent);
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
@@ -1395,21 +1416,21 @@ select.form-input {
 }
 
 .calendar-day:hover {
-    border-color: #bfdbfe;
+    border-color: var(--accent-border);
 }
 
 .calendar-day.today {
-    border-color: #1d4ed8;
+    border-color: var(--accent);
 }
 
 .calendar-day.today .calendar-day-num {
-    color: #1d4ed8;
+    color: var(--accent);
     font-weight: 700;
 }
 
 .calendar-day.selected {
-    background: #eff6ff;
-    border-color: #1d4ed8;
+    background: var(--accent-light);
+    border-color: var(--accent);
 }
 
 .calendar-day-num {
@@ -1433,8 +1454,8 @@ select.form-input {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--accent-lighter);
+    color: var(--accent-text);
 }
 
 .calendar-appt-chip.completed {
@@ -1470,8 +1491,8 @@ select.form-input {
 }
 
 .status-badge.scheduled {
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--accent-lighter);
+    color: var(--accent-text);
 }
 
 .status-badge.completed {
@@ -1653,3 +1674,66 @@ select.form-input {
 
 
 }
+/* =========================
+   APPEARANCE (Theme Picker)
+========================= */
+
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.theme-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.theme-card:hover {
+    border-color: var(--accent-border);
+}
+
+.theme-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .12);
+}
+
+.theme-swatch {
+    width: 100%;
+    height: 56px;
+    border-radius: 8px;
+}
+
+.theme-card-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #25324b;
+}
+
+.theme-card-check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-card-check svg { width: 12px; height: 12px; }
+
+.theme-card.active .theme-card-check { display: flex; }

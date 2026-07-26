@@ -29,11 +29,11 @@ export function PosCodesView()
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
+    background: linear-gradient(135deg, var(--accent), var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 18px rgba(29,78,216,.28);
+    box-shadow: 0 8px 18px rgba(var(--accent-rgb),.28);
 }
 
 .pos-icon-badge svg {
@@ -62,19 +62,19 @@ export function PosCodesView()
     padding: 0 20px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(90deg, #1d4ed8, #1d4ed8);
+    background: linear-gradient(90deg, var(--accent), var(--accent));
     color: white;
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
-    box-shadow: 0 10px 24px rgba(29,78,216,.24);
+    box-shadow: 0 10px 24px rgba(var(--accent-rgb),.24);
     transition: .18s;
     white-space: nowrap;
 }
 
 .pos-add-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(29,78,216,.3);
+    box-shadow: 0 14px 28px rgba(var(--accent-rgb),.3);
 }
 
 .pos-add-btn svg {
@@ -96,8 +96,8 @@ export function PosCodesView()
     gap: 8px;
     padding: 7px 14px;
     border-radius: 999px;
-    background: #eff6ff;
-    color: #1e40af;
+    background: var(--accent-light);
+    color: var(--accent-text);
     font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
@@ -139,9 +139,9 @@ export function PosCodesView()
 }
 
 .pos-search-input:focus {
-    border-color: #1d4ed8;
+    border-color: var(--accent);
     background: white;
-    box-shadow: 0 0 0 4px rgba(29,78,216,.1);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb),.1);
 }
 
 .pos-search-clear {
@@ -232,8 +232,8 @@ export function PosCodesView()
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: #eff6ff;
-    color: #1e40af;
+    background: var(--accent-light);
+    color: var(--accent-text);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -291,12 +291,12 @@ export function PosCodesView()
 }
 
 .pos-icon-btn.edit {
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--accent-lighter);
+    color: var(--accent-text);
 }
 
 .pos-icon-btn.edit:hover {
-    background: #bfdbfe;
+    background: var(--accent-border);
 }
 
 .pos-icon-btn.delete {
@@ -364,7 +364,7 @@ export function PosCodesView()
     width: 40px;
     height: 40px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
+    background: linear-gradient(135deg, var(--accent), var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;

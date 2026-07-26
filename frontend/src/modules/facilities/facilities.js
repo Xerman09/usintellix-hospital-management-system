@@ -290,7 +290,7 @@ function renderRows(openModal)
         <tr>
             <td>
                 <div class="fac-name-cell">
-                    <div class="fac-avatar" style="background:${escapeHtml(item.color || "#1d4ed8")}">${escapeHtml((item.name || "?").charAt(0).toUpperCase())}</div>
+                    <div class="fac-avatar" style="background:${escapeHtml(item.color || "var(--accent)")}">${escapeHtml((item.name || "?").charAt(0).toUpperCase())}</div>
                     <span class="fac-name">${escapeHtml(item.name)}</span>
                 </div>
             </td>

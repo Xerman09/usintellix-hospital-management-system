@@ -354,7 +354,7 @@ async function openSummaryModal(ruleId) {
                 <div style="font-family: inherit; font-size: 14px; line-height: 1.6; color: #1e293b;">
                     <div style="margin-bottom: 20px;">
                         <span style="font-size: 16px; font-weight: 700; color: #0f172a;">Summary</span>
-                        <a style="color: #1d4ed8; text-decoration: underline; cursor: pointer; margin-left: 6px; font-size: 13px;" id="summaryEditBtn">(edit)</a>
+                        <a style="color: var(--accent); text-decoration: underline; cursor: pointer; margin-left: 6px; font-size: 13px;" id="summaryEditBtn">(edit)</a>
                     </div>
 
                     <div style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0;">
@@ -383,7 +383,7 @@ async function openSummaryModal(ruleId) {
                     <!-- Reminder Intervals -->
                     <div style="margin-bottom: 24px;">
                         <div style="font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 8px;">
-                            Reminder intervals <span style="color: #1d4ed8; font-size: 13px; font-weight: normal;">(edit)</span>
+                            Reminder intervals <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(edit)</span>
                         </div>
                         <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
                             <thead>
@@ -408,7 +408,7 @@ async function openSummaryModal(ruleId) {
                     <!-- Demographics Filter Criteria -->
                     <div style="margin-bottom: 24px;">
                         <div style="font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 8px;">
-                            Demographics filter criteria <span style="color: #1d4ed8; font-size: 13px; font-weight: normal;">(add)</span>
+                            Demographics filter criteria <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(add)</span>
                         </div>
                         <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
                             <thead>
@@ -426,7 +426,7 @@ async function openSummaryModal(ruleId) {
                                         <td style="padding: 10px 14px; color: #334155;">${escapeHtml(item.characteristics)}</td>
                                         <td style="padding: 10px 14px; color: #334155;">${escapeHtml(item.requirements)}</td>
                                         <td style="padding: 10px 14px; text-align: center;">
-                                            <span style="color: #1d4ed8; font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
+                                            <span style="color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
                                             <span style="color: #ef4444; font-size: 12px; cursor: pointer;">(delete)</span>
                                         </td>
                                     </tr>
@@ -443,7 +443,7 @@ async function openSummaryModal(ruleId) {
 
                         <div style="margin-bottom: 16px;">
                             <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 8px;">
-                                Clinical targets <span style="color: #1d4ed8; font-size: 13px; font-weight: normal;">(add)</span>
+                                Clinical targets <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(add)</span>
                             </div>
                             <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
                                 <thead>
@@ -461,7 +461,7 @@ async function openSummaryModal(ruleId) {
                                             <td style="padding: 10px 14px; color: #334155; font-size: 13px;">${escapeHtml(item.characteristics)}</td>
                                             <td style="padding: 10px 14px; color: #334155;">${escapeHtml(item.requirements)}</td>
                                             <td style="padding: 10px 14px; text-align: center;">
-                                                <span style="color: #1d4ed8; font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
+                                                <span style="color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
                                                 <span style="color: #ef4444; font-size: 12px; cursor: pointer;">(delete)</span>
                                             </td>
                                         </tr>
@@ -472,7 +472,7 @@ async function openSummaryModal(ruleId) {
 
                         <div>
                             <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 8px;">
-                                Actions <span style="color: #1d4ed8; font-size: 13px; font-weight: normal;">(add)</span>
+                                Actions <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(add)</span>
                             </div>
                             <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
                                 <thead>
@@ -486,7 +486,7 @@ async function openSummaryModal(ruleId) {
                                         <tr>
                                             <td style="padding: 10px 14px; font-weight: 600;">${escapeHtml(item.category_title)}</td>
                                             <td style="padding: 10px 14px; text-align: center;">
-                                                <span style="color: #1d4ed8; font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
+                                                <span style="color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
                                                 <span style="color: #ef4444; font-size: 12px; cursor: pointer;">(delete)</span>
                                             </td>
                                         </tr>

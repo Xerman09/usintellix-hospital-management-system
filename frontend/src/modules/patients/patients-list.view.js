@@ -71,9 +71,9 @@ export function PatientsListView(user)
     gap: 7px;
     height: 34px;
     padding: 0 14px;
-    border: 1px solid #1d4ed8;
+    border: 1px solid var(--accent);
     border-radius: 6px;
-    background: #1d4ed8;
+    background: var(--accent);
     color: white;
     font-weight: 600;
     font-size: 13px;
@@ -158,8 +158,8 @@ export function PatientsListView(user)
 }
 
 .pat-search-input:focus {
-    border-color: #1d4ed8;
-    box-shadow: 0 0 0 3px rgba(29,78,216,.12);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12);
 }
 
 .pat-search-clear {
@@ -205,8 +205,8 @@ export function PatientsListView(user)
 }
 
 .pat-filter-select:focus {
-    border-color: #1d4ed8;
-    box-shadow: 0 0 0 3px rgba(29,78,216,.12);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12);
 }
 
 .pat-table-wrap {
@@ -264,7 +264,7 @@ export function PatientsListView(user)
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    background: #1d4ed8;
+    background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
@@ -322,8 +322,8 @@ export function PatientsListView(user)
 }
 
 .pat-sex-badge.male {
-    border-color: #bfdbfe;
-    color: #1d4ed8;
+    border-color: var(--accent-border);
+    color: var(--accent);
 }
 
 .pat-sex-badge.female {
@@ -371,12 +371,12 @@ export function PatientsListView(user)
 }
 
 .pat-icon-btn.view {
-    color: #1d4ed8;
+    color: var(--accent);
 }
 
 .pat-icon-btn.view:hover {
-    background: #eff6ff;
-    border-color: #bfdbfe;
+    background: var(--accent-light);
+    border-color: var(--accent-border);
 }
 
 .pat-icon-btn.delete {
@@ -466,7 +466,7 @@ export function PatientsListView(user)
     width: 32px;
     height: 32px;
     border-radius: 6px;
-    background: #1d4ed8;
+    background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
@@ -509,7 +509,7 @@ export function PatientsListView(user)
     height: 52px;
     margin: 0 0 10px;
     border-radius: 8px;
-    background: #1d4ed8;
+    background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
@@ -589,8 +589,8 @@ export function PatientsListView(user)
 }
 
 .pd-quick-btn:hover {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--accent-light);
+    color: var(--accent);
 }
 
 .pd-quick-btn svg {
@@ -651,7 +651,7 @@ export function PatientsListView(user)
 .pd-widget-add {
     border: none;
     background: none;
-    color: #1d4ed8;
+    color: var(--accent);
     font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;

@@ -43,20 +43,20 @@ export function DashboardHomeView(user)
     padding: 0 20px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(90deg, #1d4ed8, #1d4ed8);
+    background: linear-gradient(90deg, var(--accent), var(--accent));
     color: white;
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
     text-decoration: none;
-    box-shadow: 0 10px 24px rgba(29,78,216,.24);
+    box-shadow: 0 10px 24px rgba(var(--accent-rgb),.24);
     transition: .18s;
     white-space: nowrap;
 }
 
 .dh-action-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(29,78,216,.3);
+    box-shadow: 0 14px 28px rgba(var(--accent-rgb),.3);
 }
 
 .dh-action-btn svg {
@@ -96,8 +96,8 @@ export function DashboardHomeView(user)
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
-    box-shadow: 0 8px 18px rgba(29,78,216,.24);
+    background: linear-gradient(135deg, var(--accent), var(--accent));
+    box-shadow: 0 8px 18px rgba(var(--accent-rgb),.24);
 }
 
 .dh-stat-icon svg {
@@ -151,12 +151,12 @@ export function DashboardHomeView(user)
 }
 
 .dh-highlight-card {
-    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
+    background: linear-gradient(135deg, var(--accent), var(--accent));
     border-radius: 18px;
     padding: 24px 26px;
     color: white;
     margin-bottom: 28px;
-    box-shadow: 0 16px 40px rgba(29,78,216,.28);
+    box-shadow: 0 16px 40px rgba(var(--accent-rgb),.28);
 }
 
 .dh-highlight-label {

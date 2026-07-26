@@ -43,6 +43,8 @@ import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js";
 import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
 import { initHealthSummary } from "../health-records/health-summary.js?v=2";
+import { AppearanceView } from "../appearance/appearance.view.js";
+import { initAppearance } from "../appearance/appearance.js";
 
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -204,6 +206,43 @@ export function Dashboard()
         settingsBtn.addEventListener('click', (e) => {
             e.preventDefault();
             tabManager.openTab('settings', 'Settings', () => renderPlaceholderTab('Settings'));
+        });
+    }
+
+    // Appearance Tab Hook
+    const appearanceBtn = document.querySelector('a[data-tab="appearance"]');
+    if (appearanceBtn) {
+        appearanceBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            tabManager.openTab('appearance', 'Appearance', () => {
+                setTimeout(initAppearance, 0);
+                return AppearanceView();
+            });
+        });
+    }
+
+    // Profile dropdown: click-to-toggle instead of CSS hover, so moving the
+    // mouse from the avatar down to a menu item can't cause it to close
+    // mid-click (a hover-only dropdown is fragile to real mouse movement).
+    const navProfile = document.querySelector('.nav-profile');
+    const avatarEl = document.getElementById('avatarLetter');
+
+    if (navProfile && avatarEl) {
+        avatarEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navProfile.classList.toggle('open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!navProfile.contains(e.target)) {
+                navProfile.classList.remove('open');
+            }
+        });
+
+        navProfile.querySelectorAll('.dropdown-content a').forEach((link) => {
+            link.addEventListener('click', () => {
+                navProfile.classList.remove('open');
+            });
         });
     }
 
