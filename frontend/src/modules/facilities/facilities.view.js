@@ -29,11 +29,11 @@ export function FacilitiesView()
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 18px rgba(79,70,229,.28);
+    box-shadow: 0 8px 18px rgba(29,78,216,.28);
 }
 
 .fac-icon-badge svg {
@@ -62,19 +62,19 @@ export function FacilitiesView()
     padding: 0 20px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(90deg, #4f46e5, #2563eb);
+    background: linear-gradient(90deg, #1d4ed8, #1d4ed8);
     color: white;
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
-    box-shadow: 0 10px 24px rgba(37,99,235,.24);
+    box-shadow: 0 10px 24px rgba(29,78,216,.24);
     transition: .18s;
     white-space: nowrap;
 }
 
 .fac-add-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(37,99,235,.3);
+    box-shadow: 0 14px 28px rgba(29,78,216,.3);
 }
 
 .fac-add-btn svg {
@@ -96,8 +96,8 @@ export function FacilitiesView()
     gap: 8px;
     padding: 7px 14px;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #4338ca;
+    background: #eff6ff;
+    color: #1e40af;
     font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
@@ -139,9 +139,9 @@ export function FacilitiesView()
 }
 
 .fac-search-input:focus {
-    border-color: #4f46e5;
+    border-color: #1d4ed8;
     background: white;
-    box-shadow: 0 0 0 4px rgba(79,70,229,.1);
+    box-shadow: 0 0 0 4px rgba(29,78,216,.1);
 }
 
 .fac-search-clear {
@@ -258,8 +258,8 @@ export function FacilitiesView()
     display: inline-block;
     padding: 3px 10px;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #4338ca;
+    background: #eff6ff;
+    color: #1e40af;
     font-size: 12px;
     font-weight: 600;
 }
@@ -324,12 +324,12 @@ export function FacilitiesView()
 }
 
 .fac-icon-btn.edit {
-    background: #e0e7ff;
-    color: #4338ca;
+    background: #dbeafe;
+    color: #1e40af;
 }
 
 .fac-icon-btn.edit:hover {
-    background: #c7d2fe;
+    background: #bfdbfe;
 }
 
 .fac-icon-btn.delete {
@@ -397,7 +397,7 @@ export function FacilitiesView()
     width: 40px;
     height: 40px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -455,7 +455,7 @@ export function FacilitiesView()
 .fac-checkbox-label input {
     width: 15px;
     height: 15px;
-    accent-color: #4f46e5;
+    accent-color: #1d4ed8;
     cursor: pointer;
 }
 
@@ -525,7 +525,7 @@ export function FacilitiesView()
 }
 
 .fac-check-item:hover {
-    border-color: #c7d2fe;
+    border-color: #bfdbfe;
     background: #fafbff;
 }
 
@@ -533,7 +533,7 @@ export function FacilitiesView()
     margin-top: 2px;
     width: 14px;
     height: 14px;
-    accent-color: #4f46e5;
+    accent-color: #1d4ed8;
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -588,9 +588,9 @@ export function FacilitiesView()
 }
 
 .fac-info-textarea:focus {
-    border-color: #4f46e5;
+    border-color: #1d4ed8;
     background: white;
-    box-shadow: 0 0 0 4px rgba(79,70,229,.1);
+    box-shadow: 0 0 0 4px rgba(29,78,216,.1);
 }
 
 @media (max-width: 640px) {
@@ -782,8 +782,8 @@ export function FacilitiesView()
                 <div class="form-group" style="margin-top: 4px;">
                     <label>Color Tag *</label>
                     <div class="fac-color-field">
-                        <input type="color" id="color_native" class="fac-color-native" value="#4f46e5">
-                        <input id="color" class="form-input fac-color-hex" placeholder="#4f46e5" value="#4f46e5">
+                        <input type="color" id="color_native" class="fac-color-native" value="#1d4ed8">
+                        <input id="color" class="form-input fac-color-hex" placeholder="#1d4ed8" value="#1d4ed8">
                     </div>
                     <span class="form-error" id="err-color"></span>
                 </div>

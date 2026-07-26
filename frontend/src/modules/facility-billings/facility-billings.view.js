@@ -29,11 +29,11 @@ export function FacilityBillingsView()
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 18px rgba(79,70,229,.28);
+    box-shadow: 0 8px 18px rgba(29,78,216,.28);
 }
 
 .fb-icon-badge svg {
@@ -62,19 +62,19 @@ export function FacilityBillingsView()
     padding: 0 20px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(90deg, #4f46e5, #2563eb);
+    background: linear-gradient(90deg, #1d4ed8, #1d4ed8);
     color: white;
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
-    box-shadow: 0 10px 24px rgba(37,99,235,.24);
+    box-shadow: 0 10px 24px rgba(29,78,216,.24);
     transition: .18s;
     white-space: nowrap;
 }
 
 .fb-add-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(37,99,235,.3);
+    box-shadow: 0 14px 28px rgba(29,78,216,.3);
 }
 
 .fb-add-btn svg {
@@ -96,8 +96,8 @@ export function FacilityBillingsView()
     gap: 8px;
     padding: 7px 14px;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #4338ca;
+    background: #eff6ff;
+    color: #1e40af;
     font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
@@ -139,9 +139,9 @@ export function FacilityBillingsView()
 }
 
 .fb-search-input:focus {
-    border-color: #4f46e5;
+    border-color: #1d4ed8;
     background: white;
-    box-shadow: 0 0 0 4px rgba(79,70,229,.1);
+    box-shadow: 0 0 0 4px rgba(29,78,216,.1);
 }
 
 .fb-search-clear {
@@ -232,8 +232,8 @@ export function FacilityBillingsView()
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: #eef2ff;
-    color: #4338ca;
+    background: #eff6ff;
+    color: #1e40af;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -285,12 +285,12 @@ export function FacilityBillingsView()
 }
 
 .fb-icon-btn.edit {
-    background: #e0e7ff;
-    color: #4338ca;
+    background: #dbeafe;
+    color: #1e40af;
 }
 
 .fb-icon-btn.edit:hover {
-    background: #c7d2fe;
+    background: #bfdbfe;
 }
 
 .fb-icon-btn.delete {
@@ -358,7 +358,7 @@ export function FacilityBillingsView()
     width: 40px;
     height: 40px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    background: linear-gradient(135deg, #1d4ed8, #1d4ed8);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -69,7 +69,7 @@ export function DashboardView()
 <div class="dashboard-container">
     <nav class="top-navbar">
         <div class="navbar-logo">
-            <img src="/assets/logo.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'28\\' height=\\'28\\'><rect width=\\'28\\' height=\\'28\\' fill=\\'%234f46e5\\' rx=\\'4\\'/></svg>'">
+            <img src="./assets/logo.png?v=1" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'28\\' height=\\'28\\'><rect width=\\'28\\' height=\\'28\\' fill=\\'%231d4ed8\\' rx=\\'4\\'/></svg>'">
             <span>Intellix</span>
         </div>
 

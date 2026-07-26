@@ -106,7 +106,7 @@ export async function initFacilities()
             document.getElementById("organization_type_id").value = item.organization_type_id ?? "";
             document.getElementById("pos_code_id").value = item.pos_code_id ?? "";
 
-            const colorValue = item.color || "#4f46e5";
+            const colorValue = item.color || "#1d4ed8";
             colorHex.value = colorValue;
             colorNative.value = colorValue;
 
@@ -123,8 +123,8 @@ export async function initFacilities()
             form.reset();
             differentMailing.checked = false;
             mailingBlock.hidden = true;
-            colorHex.value = "#4f46e5";
-            colorNative.value = "#4f46e5";
+            colorHex.value = "#1d4ed8";
+            colorNative.value = "#1d4ed8";
             document.getElementById("tax_id_type").value = "EIN";
             syncAssignmentState();
             inactiveItem.classList.remove("is-danger-active");
@@ -290,7 +290,7 @@ function renderRows(openModal)
         <tr>
             <td>
                 <div class="fac-name-cell">
-                    <div class="fac-avatar" style="background:${escapeHtml(item.color || "#4f46e5")}">${escapeHtml((item.name || "?").charAt(0).toUpperCase())}</div>
+                    <div class="fac-avatar" style="background:${escapeHtml(item.color || "#1d4ed8")}">${escapeHtml((item.name || "?").charAt(0).toUpperCase())}</div>
                     <span class="fac-name">${escapeHtml(item.name)}</span>
                 </div>
             </td>

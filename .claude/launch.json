@@ -10,7 +10,7 @@
     {
       "name": "frontend",
       "runtimeExecutable": "C:\\xampp\\php\\php.exe",
-      "runtimeArgs": ["-S", "localhost:5500", "-t", "frontend"],
+      "runtimeArgs": ["-S", "localhost:5500", "-t", "frontend", "frontend/router.php"],
       "port": 5500
     }
   ]
