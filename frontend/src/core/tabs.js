@@ -6,6 +6,14 @@ export class TabManager {
         this.activeTabId = null;
     }
 
+    saveState() {
+        const tabIds = Array.from(this.tabs.keys());
+        localStorage.setItem('tabsState', JSON.stringify({
+            tabs: tabIds,
+            active: this.activeTabId
+        }));
+    }
+
     openTab(id, title, renderFn) {
         if (this.tabs.has(id)) {
             this.switchTab(id);
@@ -20,6 +28,7 @@ export class TabManager {
 
         this.renderTabBar();
         this.switchTab(id);
+        this.saveState();
     }
 
     closeTab(id, event) {
@@ -42,6 +51,7 @@ export class TabManager {
         } else {
             this.renderTabBar();
         }
+        this.saveState();
     }
 
     switchTab(id) {
@@ -52,6 +62,7 @@ export class TabManager {
         
         const tab = this.tabs.get(id);
         this.tabContent.innerHTML = tab.renderFn();
+        this.saveState();
     }
 
     renderTabBar() {

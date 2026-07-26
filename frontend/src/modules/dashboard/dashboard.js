@@ -68,6 +68,15 @@ export function Dashboard()
 
     const app = document.getElementById("app");
 
+    // Read saved state BEFORE openTab('dashboard') overwrites it
+    const savedStateStr = localStorage.getItem('tabsState');
+    let savedState = null;
+    if (savedStateStr) {
+        try {
+            savedState = JSON.parse(savedStateStr);
+        } catch(e) {}
+    }
+
     // Initialize the tab manager and expose to window for inline onclicks
     const tabManager = new TabManager('tabBar', 'tabContent');
     window.tabManager = tabManager;
@@ -269,4 +278,27 @@ export function Dashboard()
     
     const profileRole = document.getElementById('profileRole');
     if (profileRole) profileRole.textContent = user.role || "patient";
+
+    // Restore tabs from the state we saved before initialization
+    if (savedState) {
+        try {
+            if (savedState.tabs) {
+                savedState.tabs.forEach(tabId => {
+                    if (tabId === 'dashboard') return;
+                    const link = document.querySelector(`a[data-tab="${tabId}"]`);
+                    if (link) link.click();
+                });
+            }
+            if (savedState.active) {
+                if (savedState.active === 'dashboard') {
+                    tabManager.switchTab('dashboard');
+                } else {
+                    const activeLink = document.querySelector(`a[data-tab="${savedState.active}"]`);
+                    if (activeLink) activeLink.click();
+                }
+            }
+        } catch(e) {
+            console.error('Failed to restore tabs:', e);
+        }
+    }
 }
