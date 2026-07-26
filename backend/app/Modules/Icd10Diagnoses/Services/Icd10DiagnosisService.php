@@ -11,20 +11,52 @@ use Throwable;
 class Icd10DiagnosisService
 {
     /**
-     * List all active (non-deleted) ICD10 diagnosis codes.
+     * List active (non-deleted) ICD10 diagnosis codes, paginated and
+     * optionally filtered by a search term against code/description.
      */
-    public function list(): array
+    public function list(int $page = 1, int $perPage = 50, string $search = ''): array
     {
+        $page = max(1, $page);
+        $perPage = max(1, min(200, $perPage));
+        $offset = ($page - 1) * $perPage;
+
+        $where = 'WHERE deleted_at IS NULL';
+        $params = [];
+
+        if ($search !== '') {
+            $where .= ' AND (code LIKE :search OR description LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+
+        $countStmt = Database::connection()->prepare(
+            "SELECT COUNT(*) AS total FROM icd10_diagnoses {$where}"
+        );
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+
         $stmt = Database::connection()->prepare(
             "SELECT id, code, description, created_at, updated_at
              FROM icd10_diagnoses
-             WHERE deleted_at IS NULL
-             ORDER BY code"
+             {$where}
+             ORDER BY code
+             LIMIT :limit OFFSET :offset"
         );
 
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(":{$key}", $value);
+        }
+
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return [
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $perPage > 0 ? (int) ceil($total / $perPage) : 0
+        ];
     }
 
     /**

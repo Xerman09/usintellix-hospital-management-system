@@ -349,11 +349,71 @@ export function Icd10DiagnosesView()
     font-family: "Courier New", monospace;
 }
 
+.icd-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.icd-pagination-info {
+    font-size: 13px;
+    color: #71809b;
+}
+
+.icd-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.icd-page-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    color: #34435c;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .12s;
+}
+
+.icd-page-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.icd-page-btn:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    color: var(--accent-text);
+}
+
+.icd-page-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.icd-page-indicator {
+    font-size: 13px;
+    font-weight: 600;
+    color: #25324b;
+    white-space: nowrap;
+}
+
 @media (max-width: 640px) {
     .icd-header { flex-direction: column; }
     .icd-add-btn { width: 100%; justify-content: center; }
     .icd-toolbar { flex-direction: column; align-items: stretch; }
     .icd-search-wrap { max-width: none; }
+    .icd-pagination { flex-direction: column; align-items: stretch; }
+    .icd-pagination-controls { justify-content: space-between; }
 }
 </style>
 
@@ -402,6 +462,21 @@ export function Icd10DiagnosesView()
                     <tr class="icd-skeleton-row"><td colspan="3"><div class="icd-skeleton-bar" style="width: 70%;"></div></td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="icd-pagination" id="icd10Pagination">
+            <span class="icd-pagination-info" id="icd10PaginationInfo"></span>
+            <div class="icd-pagination-controls">
+                <button type="button" class="icd-page-btn" id="icd10PrevPage">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+                    Prev
+                </button>
+                <span class="icd-page-indicator" id="icd10PageIndicator">Page 1 of 1</span>
+                <button type="button" class="icd-page-btn" id="icd10NextPage">
+                    Next
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </button>
+            </div>
         </div>
     </div>
 </div>

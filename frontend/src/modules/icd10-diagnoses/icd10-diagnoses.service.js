@@ -1,8 +1,10 @@
 import { api } from "../../core/api.js";
 
-export async function fetchIcd10Diagnoses()
+export async function fetchIcd10Diagnoses(page = 1, perPage = 50, search = "")
 {
-    return await api("/icd10-diagnoses");
+    const query = new URLSearchParams({ page, per_page: perPage, search }).toString();
+
+    return await api(`/icd10-diagnoses?${query}`);
 }
 
 export async function createIcd10Diagnosis(data)

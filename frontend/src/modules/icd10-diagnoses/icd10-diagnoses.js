@@ -8,9 +8,14 @@ import {
 } from "./icd10-diagnoses.service.js";
 
 const FIELDS = ["code", "description"];
+const PER_PAGE = 50;
 
-let icd10Diagnoses = [];
+let currentItems = [];
+let currentPage = 1;
+let totalPages = 1;
+let totalItems = 0;
 let searchTerm = "";
+let searchDebounceTimer = null;
 
 export async function initIcd10Diagnoses()
 {
@@ -21,6 +26,7 @@ export async function initIcd10Diagnoses()
         return;
     }
 
+    currentPage = 1;
     searchTerm = "";
 
     const modalOverlay = document.getElementById("icd10ModalOverlay");
@@ -30,6 +36,8 @@ export async function initIcd10Diagnoses()
     const form = document.getElementById("icd10Form");
     const searchInput = document.getElementById("icd10Search");
     const searchClear = document.getElementById("icd10SearchClear");
+    const prevBtn = document.getElementById("icd10PrevPage");
+    const nextBtn = document.getElementById("icd10NextPage");
 
     const openModal = (item) => {
         clearErrors();
@@ -68,17 +76,38 @@ export async function initIcd10Diagnoses()
     });
 
     searchInput.addEventListener("input", () => {
-        searchTerm = searchInput.value.trim().toLowerCase();
         searchClear.classList.toggle("show", searchInput.value.length > 0);
-        renderRows(openModal);
+
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            searchTerm = searchInput.value.trim();
+            currentPage = 1;
+            loadPage(openModal);
+        }, 300);
     });
 
     searchClear.addEventListener("click", () => {
         searchInput.value = "";
-        searchTerm = "";
         searchClear.classList.remove("show");
-        renderRows(openModal);
+        clearTimeout(searchDebounceTimer);
+        searchTerm = "";
+        currentPage = 1;
+        loadPage(openModal);
         searchInput.focus();
+    });
+
+    prevBtn.addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage -= 1;
+            loadPage(openModal);
+        }
+    });
+
+    nextBtn.addEventListener("click", () => {
+        if (currentPage < totalPages) {
+            currentPage += 1;
+            loadPage(openModal);
+        }
     });
 
     form.addEventListener("submit", async (event) => {
@@ -119,19 +148,29 @@ export async function initIcd10Diagnoses()
 
         closeModal();
         showToast(editingId ? "Diagnosis code updated successfully." : "Diagnosis code added successfully.", "success");
-        await loadIcd10Diagnoses(openModal);
+        await loadPage(openModal);
     });
 
-    await loadIcd10Diagnoses(openModal);
+    await loadPage(openModal);
 }
 
-async function loadIcd10Diagnoses(openModal)
+async function loadPage(openModal)
 {
-    const result = await fetchIcd10Diagnoses();
+    const result = await fetchIcd10Diagnoses(currentPage, PER_PAGE, searchTerm);
 
-    icd10Diagnoses = result.success ? result.data : [];
+    if (result.success) {
+        currentItems = result.data.items;
+        totalItems = result.data.total;
+        totalPages = Math.max(1, result.data.total_pages);
+        currentPage = result.data.page;
+    } else {
+        currentItems = [];
+        totalItems = 0;
+        totalPages = 1;
+    }
 
     renderRows(openModal);
+    renderPagination();
 }
 
 function renderRows(openModal)
@@ -139,20 +178,14 @@ function renderRows(openModal)
     const tbody = document.getElementById("icd10TableBody");
     const countText = document.getElementById("icd10CountText");
 
-    countText.textContent = `${icd10Diagnoses.length} ${icd10Diagnoses.length === 1 ? "code" : "codes"}`;
+    countText.textContent = `${totalItems} ${totalItems === 1 ? "code" : "codes"}`;
 
-    const filtered = searchTerm
-        ? icd10Diagnoses.filter((item) =>
-            item.code.toLowerCase().includes(searchTerm) ||
-            item.description.toLowerCase().includes(searchTerm))
-        : icd10Diagnoses;
-
-    if (!filtered.length) {
-        tbody.innerHTML = renderEmptyState(icd10Diagnoses.length === 0);
+    if (!currentItems.length) {
+        tbody.innerHTML = renderEmptyState(totalItems === 0);
         return;
     }
 
-    tbody.innerHTML = filtered.map((item) => `
+    tbody.innerHTML = currentItems.map((item) => `
         <tr>
             <td><span class="icd-code-badge">${escapeHtml(item.code)}</span></td>
             <td class="icd-description">${escapeHtml(item.description)}</td>
@@ -173,7 +206,7 @@ function renderRows(openModal)
 
     tbody.querySelectorAll("[data-edit-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
-            const item = icd10Diagnoses.find((entry) => String(entry.id) === btn.getAttribute("data-edit-id"));
+            const item = currentItems.find((entry) => String(entry.id) === btn.getAttribute("data-edit-id"));
 
             if (item) {
                 openModal(item);
@@ -195,9 +228,30 @@ function renderRows(openModal)
             }
 
             showToast("Diagnosis code deleted successfully.", "success");
-            await loadIcd10Diagnoses(openModal);
+            await loadPage(openModal);
         });
     });
+}
+
+function renderPagination()
+{
+    const info = document.getElementById("icd10PaginationInfo");
+    const indicator = document.getElementById("icd10PageIndicator");
+    const prevBtn = document.getElementById("icd10PrevPage");
+    const nextBtn = document.getElementById("icd10NextPage");
+
+    if (!totalItems) {
+        info.textContent = "";
+    } else {
+        const start = (currentPage - 1) * PER_PAGE + 1;
+        const end = Math.min(currentPage * PER_PAGE, totalItems);
+
+        info.textContent = `Showing ${start}-${end} of ${totalItems}`;
+    }
+
+    indicator.textContent = `Page ${currentPage} of ${totalPages}`;
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = currentPage >= totalPages;
 }
 
 function renderEmptyState(noneAtAll)

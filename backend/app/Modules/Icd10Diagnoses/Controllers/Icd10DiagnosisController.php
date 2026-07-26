@@ -17,13 +17,19 @@ class Icd10DiagnosisController extends Controller
     }
 
     /**
-     * List ICD10 diagnosis codes.
+     * List ICD10 diagnosis codes, paginated.
      */
     public function index(): void
     {
-        $codes = $this->icd10DiagnosisService->list();
+        $request = new Request();
 
-        $this->success($codes, 'ICD10 diagnosis codes retrieved successfully.');
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 50);
+        $search = trim((string) $request->input('search', ''));
+
+        $result = $this->icd10DiagnosisService->list($page, $perPage, $search);
+
+        $this->success($result, 'ICD10 diagnosis codes retrieved successfully.');
     }
 
     /**
