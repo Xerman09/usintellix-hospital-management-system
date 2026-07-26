@@ -38,8 +38,14 @@ class PatientAllergyController extends Controller
         $this->success($allergies, 'Patient allergies retrieved successfully.');
     }
 
+    private const DETAIL_FIELDS = [
+        'reaction', 'severity', 'begin_date', 'end_date', 'comments', 'coding',
+        'occurrence', 'outcome', 'classification_type', 'verification_status',
+        'referred_by', 'destination'
+    ];
+
     /**
-     * Attach an allergy to a patient (doctor-only, own patients only).
+     * Attach an allergy to a patient (admin, receptionist, or the assigned doctor).
      */
     public function store(): void
     {
@@ -59,7 +65,12 @@ class PatientAllergyController extends Controller
             return;
         }
 
-        $result = $this->patientAllergyService->store($patientId, $allergyId, (int) $user['id']);
+        $result = $this->patientAllergyService->store(
+            $patientId,
+            $allergyId,
+            (int) $user['id'],
+            $request->only(self::DETAIL_FIELDS)
+        );
 
         if (!$result['success']) {
             $this->error($result['message'], 422);
@@ -70,7 +81,37 @@ class PatientAllergyController extends Controller
     }
 
     /**
-     * Remove a recorded patient allergy (doctor-only, own patients only).
+     * Update a recorded patient allergy's clinical details (admin, receptionist, or the assigned doctor).
+     */
+    public function update(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $id = (int) $request->input('id');
+        $record = $this->patientAllergyService->find($id);
+
+        if (!$record || !$this->ownsPatient($user, (int) $record['patient_id'])) {
+            $this->error('Allergy record not found.', 404);
+            return;
+        }
+
+        $result = $this->patientAllergyService->update(
+            $id,
+            $request->only(self::DETAIL_FIELDS),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * Remove a recorded patient allergy (admin, receptionist, or the assigned doctor).
      */
     public function destroy(): void
     {
@@ -97,18 +138,23 @@ class PatientAllergyController extends Controller
     }
 
     /**
-     * Confirm the given patient is assigned to the logged-in doctor.
+     * Confirm the given patient exists and, for doctors, is assigned to them.
+     * Admins and receptionists may manage any active patient's allergies.
      */
     private function ownsPatient(array $user, int $patientId): bool
     {
-        $provider = $this->providerService->findByUserId((int) $user['id']);
-        $providerId = $provider ? (int) $provider['id'] : 0;
-
         $patient = (new Patient())->where('id', $patientId)->first();
 
         if (!$patient || $patient['deleted_at'] !== null) {
             return false;
         }
+
+        if (($user['role'] ?? '') !== 'doctor') {
+            return true;
+        }
+
+        $provider = $this->providerService->findByUserId((int) $user['id']);
+        $providerId = $provider ? (int) $provider['id'] : 0;
 
         return (int) $patient['provider_id'] === $providerId;
     }

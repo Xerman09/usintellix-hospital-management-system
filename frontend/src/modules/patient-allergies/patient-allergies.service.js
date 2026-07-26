@@ -7,13 +7,24 @@ export async function fetchPatientAllergies(patientId)
     return await api(`/patient-allergies?${query}`);
 }
 
-export async function addPatientAllergy(patientId, allergyId)
+export async function addPatientAllergy(patientId, allergyId, details = {})
 {
     return await api(
         "/patient-allergies",
         {
             method: "POST",
-            body: JSON.stringify({ patient_id: patientId, allergy_id: allergyId })
+            body: JSON.stringify({ patient_id: patientId, allergy_id: allergyId, ...details })
+        }
+    );
+}
+
+export async function updatePatientAllergy(id, details)
+{
+    return await api(
+        "/patient-allergies",
+        {
+            method: "PUT",
+            body: JSON.stringify({ id, ...details })
         }
     );
 }

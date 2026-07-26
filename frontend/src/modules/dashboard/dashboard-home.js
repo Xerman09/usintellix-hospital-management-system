@@ -17,6 +17,10 @@ export async function initDashboardHome(user)
 {
     const result = await fetchDashboardStats();
 
+    if (!document.getElementById("dhSubtitle")) {
+        return;
+    }
+
     if (!result.success) {
         document.getElementById("dhSubtitle").textContent = "Unable to load your overview right now.";
         document.getElementById("dhStatsGrid").innerHTML = "";

@@ -901,14 +901,20 @@ body {
     justify-content: center;
     height: 40px;
     padding: 0 20px;
+    border: none;
     border-radius: 8px;
     background: var(--accent);
     color: white;
     font-weight: 600;
     text-decoration: none;
     font-size: 14px;
+    cursor: pointer;
+    transition: background-color .12s;
 }
-.btn-primary-inline:hover { background: var(--accent-text); }
+
+.btn-primary-inline:hover {
+    background: var(--accent-hover);
+}
 
 /* =========================
    FORM PAGE (Add Employee, etc.)

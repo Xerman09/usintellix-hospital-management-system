@@ -685,6 +685,112 @@ export function PatientsListView(user)
     color: #8b98ac;
 }
 
+.pd-allergy-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.pd-allergy-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid #e5e9f0;
+    border-radius: 6px;
+    background: #fbfcfe;
+}
+
+.pd-allergy-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #29323f;
+}
+
+.pd-allergy-remove {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.pd-allergy-remove:hover {
+    text-decoration: underline;
+}
+
+.pd-allergy-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.pd-allergy-form select {
+    flex: 1;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid #d7dee8;
+    font-size: 12px;
+    background: white;
+}
+
+.pd-allergy-form button {
+    flex-shrink: 0;
+    height: 30px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pd-allergy-msg {
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    color: #b91c1c;
+}
+
+.allergy-more-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 18px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.allergy-more-toggle svg {
+    width: 14px;
+    height: 14px;
+    transition: transform .15s ease;
+}
+
+.allergy-more-toggle.expanded svg {
+    transform: rotate(180deg);
+}
+
+.allergy-more-fields {
+    margin-bottom: 18px;
+}
+
+.allergy-more-fields[hidden] {
+    display: none;
+}
+
 @media (max-width: 860px) {
     .pd-widget-grid { grid-template-columns: 1fr; }
     .pd-body { flex-direction: column; }
@@ -1376,7 +1482,7 @@ ${canAdd ? `
                 <div class="pd-widget-grid">
                     ${dashboardWidget("Demographics", '<path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path>', "No demographic details recorded yet.")}
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No provider assigned yet.")}
-                    ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.")}
+                    ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.")}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.")}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.")}
@@ -1389,11 +1495,196 @@ ${canAdd ? `
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="allergyDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Allergies</h2>
+            <button type="button" class="modal-close" id="closeAllergyDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full allergy history for this patient.</p>
+
+        <div id="allergyDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddAllergyBtn">+ Add Allergy</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Allergy</th>
+                        <th>Reaction</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                        <th>Last Modified</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="allergyDetailTableBody">
+                    <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="allergyFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="allergyFormTitle">Add Allergy</h2>
+            <button type="button" class="modal-close" id="closeAllergyFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record allergy details for this patient.</p>
+
+        <div id="allergyFormAlert"></div>
+
+        <form id="allergyForm">
+            <input type="hidden" id="allergy_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Allergy</label>
+                    <select id="allergy_catalog_id" class="form-input">
+                        <option value="">Select allergy...</option>
+                    </select>
+                    <span class="form-error" id="err-allergy_catalog_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="allergy_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="allergy_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group">
+                    <label>Reaction</label>
+                    <select id="allergy_reaction" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Rash">Rash</option>
+                        <option value="Hives">Hives</option>
+                        <option value="Itching">Itching</option>
+                        <option value="Swelling">Swelling</option>
+                        <option value="Nausea/Vomiting">Nausea/Vomiting</option>
+                        <option value="Difficulty Breathing">Difficulty Breathing</option>
+                        <option value="Anaphylaxis">Anaphylaxis</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Severity</label>
+                    <select id="allergy_severity" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Mild">Mild</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Severe">Severe</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="allergy_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="allergyMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="allergyMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding <span style="font-weight: 400; color: #a2aec4;">(temporary — free text for now)</span></label>
+                    <input id="allergy_coding" class="form-input" placeholder="e.g. T78.40XA (optional)">
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="allergy_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="allergy_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="allergy_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Drug Allergy">Drug Allergy</option>
+                        <option value="Food Allergy">Food Allergy</option>
+                        <option value="Environmental Allergy">Environmental Allergy</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="allergy_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="allergy_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="allergy_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelAllergyForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
 `;
 }
 
-function dashboardWidget(title, iconPath, emptyText)
+function dashboardWidget(title, iconPath, emptyText, options = {})
 {
+    const { bodyId, addBtnId, addBtnLabel = "+ Add", addBtnDisabled = true } = options;
+
+    const body = bodyId
+        ? `<div class="pd-widget-body" id="${bodyId}">
+                <div class="pd-widget-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
+                    <p>Loading...</p>
+                </div>
+            </div>`
+        : `<div class="pd-widget-body">
+                <div class="pd-widget-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
+                    <p>${emptyText}</p>
+                </div>
+            </div>`;
+
     return `
     <div class="pd-widget">
         <div class="pd-widget-header">
@@ -1401,14 +1692,9 @@ function dashboardWidget(title, iconPath, emptyText)
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg>
                 <h3>${title}</h3>
             </div>
-            <button type="button" class="pd-widget-add" disabled>+ Add</button>
+            <button type="button" class="pd-widget-add"${addBtnId ? ` id="${addBtnId}"` : ""}${addBtnDisabled ? " disabled" : ""}>${addBtnLabel}</button>
         </div>
-        <div class="pd-widget-body">
-            <div class="pd-widget-empty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
-                <p>${emptyText}</p>
-            </div>
-        </div>
+        ${body}
     </div>
     `;
 }

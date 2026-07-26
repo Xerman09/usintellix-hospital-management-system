@@ -2,6 +2,16 @@ import { getUser } from "../../core/session.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
+import { fetchAllergies } from "../allergies/allergies.service.js";
+import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
+
+const ALLERGY_DETAIL_FIELDS = [
+    "begin_date", "end_date", "reaction", "severity", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+let currentDashboardPatient = null;
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
@@ -38,6 +48,7 @@ export async function initPatientsList()
     await loadPatients(user);
     setupPatientFilters(user);
     setupPatientDashboardModal();
+    setupAllergyModals();
 
     if (user.role !== "doctor") {
         await setupEditPatientModal(user);
@@ -64,6 +75,8 @@ function setupPatientDashboardModal()
 
 function openPatientDashboardModal(patient)
 {
+    currentDashboardPatient = patient;
+
     const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
     const initial = (patient.first_name || "?").charAt(0).toUpperCase();
     const sex = patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "";
@@ -82,6 +95,273 @@ function openPatientDashboardModal(patient)
     setFact("pdFactProvider", providerName);
 
     document.getElementById("patientDashboardModalOverlay").classList.add("open");
+
+    loadDashboardAllergies(patient);
+}
+
+async function loadDashboardAllergies(patient)
+{
+    const body = document.getElementById("pdAllergiesBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientAllergies(patient.id);
+
+        renderDashboardAllergies(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load allergies", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load allergies right now.</p></div>`;
+    }
+}
+
+function renderDashboardAllergies(allergies)
+{
+    const body = document.getElementById("pdAllergiesBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = allergies.length
+        ? `<div class="pd-allergy-list">
+            ${allergies.map((allergy) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(allergy.name)}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
+            <p>No known allergies recorded.</p>
+           </div>`;
+}
+
+function setupAllergyModals()
+{
+    const detailOverlay = document.getElementById("allergyDetailModalOverlay");
+    const formOverlay = document.getElementById("allergyFormModalOverlay");
+    const form = document.getElementById("allergyForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdAllergiesAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openAllergyDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeAllergyDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("allergyMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("allergyMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openAddAllergyBtn").addEventListener("click", () => {
+        openAllergyFormModal(null);
+    });
+
+    document.getElementById("closeAllergyFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelAllergyForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("allergy_record_id").value;
+        const allergyId = document.getElementById("allergy_catalog_id").value;
+        const errEl = document.getElementById("err-allergy_catalog_id");
+
+        errEl.textContent = "";
+
+        if (!recordId && !allergyId) {
+            errEl.textContent = "Select an allergy.";
+            return;
+        }
+
+        const details = {};
+
+        ALLERGY_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`allergy_${field}`).value.trim();
+        });
+
+        const result = recordId
+            ? await updatePatientAllergy(recordId, details)
+            : await addPatientAllergy(currentDashboardPatient.id, allergyId, details);
+
+        if (!result.success) {
+            showAlert("allergyFormAlert", result.message || "Failed to save allergy.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadAllergyDetailTable(currentDashboardPatient);
+        await loadDashboardAllergies(currentDashboardPatient);
+    });
+}
+
+async function openAllergyDetailModal(patient)
+{
+    document.getElementById("allergyDetailAlert").innerHTML = "";
+    document.getElementById("allergyDetailModalOverlay").classList.add("open");
+
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const addBtn = document.getElementById("openAddAllergyBtn");
+
+    addBtn.style.display = canManage ? "" : "none";
+
+    await loadAllergyDetailTable(patient);
+}
+
+async function loadAllergyDetailTable(patient)
+{
+    const tbody = document.getElementById("allergyDetailTableBody");
+
+    try {
+        const result = await fetchPatientAllergies(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="6" class="table-empty">${escapeHtml(result.message || "Unable to load allergies.")}</td></tr>`;
+            return;
+        }
+
+        renderAllergyDetailTable(patient, result.data);
+    } catch (error) {
+        console.error("Failed to load patient allergies", error);
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load allergies right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderAllergyDetailTable(patient, allergies)
+{
+    const tbody = document.getElementById("allergyDetailTableBody");
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
+    if (!allergies.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No allergies recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = allergies.map((allergy) => {
+        const isActive = !allergy.end_date;
+
+        return `
+        <tr>
+            <td>${escapeHtml(allergy.name)}</td>
+            <td>${escapeHtml(allergy.reaction || "-")}</td>
+            <td>${escapeHtml(allergy.severity || "-")}</td>
+            <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
+            <td>${escapeHtml((allergy.updated_at || allergy.created_at || "").slice(0, 10))}</td>
+            <td class="table-actions">
+                ${canManage
+                    ? `<button class="btn-edit" data-edit-allergy="${allergy.id}">Edit</button>
+                       <button class="btn-danger" data-remove-allergy="${allergy.id}">Delete</button>`
+                    : ""}
+            </td>
+        </tr>
+    `;
+    }).join("");
+
+    if (!canManage) {
+        return;
+    }
+
+    tbody.querySelectorAll("[data-edit-allergy]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const allergy = allergies.find((a) => String(a.id) === btn.getAttribute("data-edit-allergy"));
+
+            if (allergy) {
+                openAllergyFormModal(allergy);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-allergy]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this allergy record?")) {
+                return;
+            }
+
+            const result = await removePatientAllergy(btn.getAttribute("data-remove-allergy"));
+
+            if (!result.success) {
+                showAlert("allergyDetailAlert", result.message || "Failed to remove allergy.", "error");
+                return;
+            }
+
+            await loadAllergyDetailTable(currentDashboardPatient);
+            await loadDashboardAllergies(currentDashboardPatient);
+        });
+    });
+}
+
+async function openAllergyFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("allergyFormModalOverlay");
+    const title = document.getElementById("allergyFormTitle");
+    const recordIdInput = document.getElementById("allergy_record_id");
+    const catalogSelect = document.getElementById("allergy_catalog_id");
+
+    document.getElementById("allergyFormAlert").innerHTML = "";
+    document.getElementById("allergyForm").reset();
+    document.getElementById("err-allergy_catalog_id").textContent = "";
+
+    const moreToggle = document.getElementById("allergyMoreToggle");
+    const moreFields = document.getElementById("allergyMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    const catalogResult = await fetchAllergies();
+    const catalog = catalogResult.success ? catalogResult.data : [];
+
+    catalogSelect.innerHTML = `<option value="">Select allergy...</option>` +
+        catalog.map((allergy) => `<option value="${allergy.id}">${escapeHtml(allergy.name)}</option>`).join("");
+
+    if (existingRecord) {
+        title.textContent = "Edit Allergy";
+        recordIdInput.value = existingRecord.id;
+        catalogSelect.value = existingRecord.allergy_id;
+        catalogSelect.disabled = true;
+
+        ALLERGY_DETAIL_FIELDS.forEach((field) => {
+            document.getElementById(`allergy_${field}`).value = existingRecord[field] ?? "";
+        });
+
+        const secondaryFields = ["coding", "occurrence", "outcome", "classification_type", "referred_by", "destination"];
+
+        if (secondaryFields.some((field) => existingRecord[field])) {
+            moreFields.hidden = false;
+            moreToggle.classList.add("expanded");
+            moreToggle.querySelector("span").textContent = "Hide More Fields";
+        }
+    } else {
+        title.textContent = "Add Allergy";
+        recordIdInput.value = "";
+        catalogSelect.disabled = false;
+        document.getElementById("allergy_verification_status").value = "Unconfirmed";
+    }
+
+    formOverlay.classList.add("open");
 }
 
 function setFact(elementId, value)

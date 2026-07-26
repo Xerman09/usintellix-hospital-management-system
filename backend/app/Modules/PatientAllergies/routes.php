@@ -11,10 +11,15 @@ $router->get('/patient-allergies', [PatientAllergyController::class, 'index'], [
 
 $router->post('/patient-allergies', [PatientAllergyController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->put('/patient-allergies', [PatientAllergyController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->delete('/patient-allergies', [PatientAllergyController::class, 'destroy'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
