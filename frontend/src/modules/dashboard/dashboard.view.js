@@ -29,6 +29,13 @@ function staffNavLinks(role)
                 <a data-tab="pos_codes">POS Code Management</a>
             </div>
         </div>
+        <div class="nav-dropdown">
+            <span>File Management</span>
+            <div class="dropdown-content">
+                <div class="dropdown-section-label">Code</div>
+                <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
+            </div>
+        </div>
         ${appointmentsLink}
     `;
 }

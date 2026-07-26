@@ -734,6 +734,15 @@ body {
     color: var(--accent);
 }
 
+.dropdown-section-label {
+    padding: 10px 20px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #9ca3af;
+}
+
 .dropdown-right {
     left: auto;
     right: 0;

@@ -45,6 +45,8 @@ import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2"
 import { initHealthSummary } from "../health-records/health-summary.js?v=2";
 import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
+import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
+import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -166,6 +168,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initPosCodes, 0);
                     return PosCodesView();
+                });
+            } else if (tabId === 'icd10_diagnoses') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initIcd10Diagnoses, 0);
+                    return Icd10DiagnosesView();
                 });
             } else if (tabId === 'appointments' && user.role === 'doctor') {
                 tabManager.openTab(tabId, title, () => {
