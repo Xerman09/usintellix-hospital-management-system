@@ -12,6 +12,69 @@ use Throwable;
 class CqmValuesetCodeService
 {
     /**
+     * Search member codes across all value sets, paginated. Used by the
+     * generic "Select Codes" picker.
+     *
+     * - mode "name": matches against code, description, or the value set's name
+     * - mode "oid":  matches against the value set's OID
+     */
+    public function searchAcrossValuesets(string $search, string $mode = 'name', int $page = 1, int $perPage = 50): array
+    {
+        $page = max(1, $page);
+        $perPage = max(1, min(200, $perPage));
+        $offset = ($page - 1) * $perPage;
+
+        $where = 'WHERE c.deleted_at IS NULL AND v.deleted_at IS NULL';
+        $params = [];
+
+        if ($search !== '') {
+            if ($mode === 'oid') {
+                $where .= ' AND v.oid LIKE :search';
+                $params['search'] = '%' . $search . '%';
+            } else {
+                $where .= ' AND (c.code LIKE :search1 OR c.description LIKE :search2 OR v.name LIKE :search3)';
+                $params['search1'] = '%' . $search . '%';
+                $params['search2'] = '%' . $search . '%';
+                $params['search3'] = '%' . $search . '%';
+            }
+        }
+
+        $countStmt = Database::connection()->prepare(
+            "SELECT COUNT(*) AS total
+             FROM cqm_valueset_codes c
+             JOIN cqm_valuesets v ON v.id = c.valueset_id
+             {$where}"
+        );
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        $stmt = Database::connection()->prepare(
+            "SELECT c.id, c.code, c.code_system, c.description, v.oid AS valueset_oid, v.name AS valueset_name
+             FROM cqm_valueset_codes c
+             JOIN cqm_valuesets v ON v.id = c.valueset_id
+             {$where}
+             ORDER BY c.code
+             LIMIT :limit OFFSET :offset"
+        );
+
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(":{$key}", $value);
+        }
+
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return [
+            'items' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => $perPage > 0 ? (int) ceil($total / $perPage) : 0
+        ];
+    }
+
+    /**
      * List active (non-deleted) member codes for a value set.
      */
     public function list(int $valuesetId): array

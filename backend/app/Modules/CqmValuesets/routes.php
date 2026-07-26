@@ -30,6 +30,11 @@ $router->get('/cqm-valuesets/codes', [CqmValuesetCodeController::class, 'index']
     [RoleMiddleware::class, ['admin']]
 ]);
 
+$router->get('/cqm-valuesets/codes/search', [CqmValuesetCodeController::class, 'search'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/cqm-valuesets/codes', [CqmValuesetCodeController::class, 'register'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]

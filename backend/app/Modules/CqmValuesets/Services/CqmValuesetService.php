@@ -24,8 +24,10 @@ class CqmValuesetService
         $params = [];
 
         if ($search !== '') {
-            $where .= ' AND (oid LIKE :search OR name LIKE :search OR code_system LIKE :search)';
-            $params['search'] = '%' . $search . '%';
+            $where .= ' AND (oid LIKE :search1 OR name LIKE :search2 OR code_system LIKE :search3)';
+            $params['search1'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+            $params['search3'] = '%' . $search . '%';
         }
 
         $countStmt = Database::connection()->prepare(

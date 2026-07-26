@@ -17,6 +17,24 @@ class CqmValuesetCodeController extends Controller
     }
 
     /**
+     * Search member codes across all value sets, paginated.
+     * Used by the "Select Codes" picker (CQM Valueset / OID Valueset sources).
+     */
+    public function search(): void
+    {
+        $request = new Request();
+
+        $search = trim((string) $request->input('search', ''));
+        $mode = (string) $request->input('mode', 'name');
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 50);
+
+        $result = $this->cqmValuesetCodeService->searchAcrossValuesets($search, $mode, $page, $perPage);
+
+        $this->success($result, 'Value set codes retrieved successfully.');
+    }
+
+    /**
      * List member codes for a value set.
      */
     public function index(): void

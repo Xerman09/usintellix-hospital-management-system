@@ -4,6 +4,8 @@ import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
+import { fetchIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.service.js";
+import { searchCqmValuesetCodes } from "../cqm-valuesets/cqm-valuesets.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -12,6 +14,27 @@ const ALLERGY_DETAIL_FIELDS = [
 ];
 
 let currentDashboardPatient = null;
+
+const CODE_SOURCE_LABELS = {
+    ICD10CM: "ICD-10-CM",
+    ICD9CM: "ICD-9-CM",
+    SNOMEDCT: "SNOMED CT",
+    LOINC: "LOINC",
+    RXNORM: "RxNorm",
+    CPT: "CPT",
+    HCPCS: "HCPCS",
+    CVX: "CVX"
+};
+
+let scmSource = "icd10";
+let scmSearchTerm = "";
+let scmCurrentPage = 1;
+let scmTotalPages = 1;
+let scmTotalItems = 0;
+let scmItems = [];
+let scmSelectedIndex = null;
+let scmSearchDebounce = null;
+let scmSort = { field: null, dir: 1 };
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
@@ -49,6 +72,7 @@ export async function initPatientsList()
     setupPatientFilters(user);
     setupPatientDashboardModal();
     setupAllergyModals();
+    setupSelectCodesModal();
 
     if (user.role !== "doctor") {
         await setupEditPatientModal(user);
@@ -175,6 +199,10 @@ function setupAllergyModals()
         openAllergyFormModal(null);
     });
 
+    document.getElementById("openSelectCodesBtn").addEventListener("click", () => {
+        openSelectCodesModal();
+    });
+
     document.getElementById("closeAllergyFormModal").addEventListener("click", closeForm);
     document.getElementById("cancelAllergyForm").addEventListener("click", closeForm);
     formOverlay.addEventListener("click", (event) => {
@@ -216,6 +244,247 @@ function setupAllergyModals()
         await loadAllergyDetailTable(currentDashboardPatient);
         await loadDashboardAllergies(currentDashboardPatient);
     });
+}
+
+let scmSelectedMap = new Map();
+
+function setupSelectCodesModal()
+{
+    const overlay = document.getElementById("selectCodesModalOverlay");
+    const sourceSelect = document.getElementById("scmSourceSelect");
+    const searchInput = document.getElementById("scmSearchInput");
+    const prevBtn = document.getElementById("scmPrevPage");
+    const nextBtn = document.getElementById("scmNextPage");
+    const confirmBtn = document.getElementById("confirmSelectCodes");
+
+    const closeModal = () => overlay.classList.remove("open");
+
+    document.getElementById("closeSelectCodesModal").addEventListener("click", closeModal);
+    document.getElementById("cancelSelectCodes").addEventListener("click", closeModal);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            closeModal();
+        }
+    });
+
+    sourceSelect.addEventListener("change", () => {
+        scmSource = sourceSelect.value;
+        scmCurrentPage = 1;
+        loadScmResults();
+    });
+
+    searchInput.addEventListener("input", () => {
+        clearTimeout(scmSearchDebounce);
+        scmSearchDebounce = setTimeout(() => {
+            scmSearchTerm = searchInput.value.trim();
+            scmCurrentPage = 1;
+            loadScmResults();
+        }, 300);
+    });
+
+    document.getElementById("scmSearchBtn").addEventListener("click", () => {
+        scmSearchTerm = searchInput.value.trim();
+        scmCurrentPage = 1;
+        loadScmResults();
+    });
+
+    document.getElementById("scmClearBtn").addEventListener("click", () => {
+        searchInput.value = "";
+        scmSearchTerm = "";
+        scmCurrentPage = 1;
+        loadScmResults();
+    });
+
+    prevBtn.addEventListener("click", () => {
+        if (scmCurrentPage > 1) {
+            scmCurrentPage -= 1;
+            loadScmResults();
+        }
+    });
+
+    nextBtn.addEventListener("click", () => {
+        if (scmCurrentPage < scmTotalPages) {
+            scmCurrentPage += 1;
+            loadScmResults();
+        }
+    });
+
+    document.querySelectorAll("#selectCodesModalOverlay .scm-table th[data-sort]").forEach((th) => {
+        th.addEventListener("click", () => {
+            const field = th.getAttribute("data-sort");
+            scmSort = { field, dir: scmSort.field === field ? -scmSort.dir : 1 };
+            renderScmTable();
+        });
+    });
+
+    confirmBtn.addEventListener("click", () => {
+        if (!scmSelectedMap.size) {
+            return;
+        }
+
+        const parts = Array.from(scmSelectedMap.values()).map((item) => {
+            const systemLabel = CODE_SOURCE_LABELS[item.code_system] || item.code_system;
+
+            return `${item.code} - ${item.description || ""} (${systemLabel})`.trim();
+        });
+
+        document.getElementById("allergy_coding").value = parts.join("\n");
+
+        closeModal();
+    });
+}
+
+function openSelectCodesModal()
+{
+    scmSource = "icd10";
+    scmSearchTerm = "";
+    scmCurrentPage = 1;
+    scmSort = { field: null, dir: 1 };
+    scmSelectedMap = new Map();
+
+    document.getElementById("scmSourceSelect").value = "icd10";
+    document.getElementById("scmSearchInput").value = "";
+    document.getElementById("selectCodesModalOverlay").classList.add("open");
+
+    loadScmResults();
+}
+
+function updateScmSelectionUI()
+{
+    const count = scmSelectedMap.size;
+
+    document.getElementById("confirmSelectCodes").disabled = count === 0;
+    document.getElementById("scmSelectedCount").textContent = count
+        ? `${count} code${count === 1 ? "" : "s"} selected`
+        : "";
+}
+
+async function loadScmResults()
+{
+    const tbody = document.getElementById("scmTableBody");
+
+    tbody.innerHTML = `<tr><td colspan="2" class="scm-empty">Loading...</td></tr>`;
+
+    let result;
+
+    if (scmSource === "icd10") {
+        result = await fetchIcd10Diagnoses(scmCurrentPage, 50, scmSearchTerm);
+
+        if (result.success) {
+            scmItems = result.data.items.map((row) => ({
+                code: row.code,
+                description: row.description,
+                code_system: "ICD10CM"
+            }));
+            scmTotalItems = result.data.total;
+            scmTotalPages = Math.max(1, result.data.total_pages);
+            scmCurrentPage = result.data.page;
+        }
+    } else {
+        const mode = scmSource === "oid" ? "oid" : "name";
+
+        result = await searchCqmValuesetCodes(scmSearchTerm, mode, scmCurrentPage, 50);
+
+        if (result.success) {
+            scmItems = result.data.items.map((row) => ({
+                code: row.code,
+                description: row.description,
+                code_system: row.code_system
+            }));
+            scmTotalItems = result.data.total;
+            scmTotalPages = Math.max(1, result.data.total_pages);
+            scmCurrentPage = result.data.page;
+        }
+    }
+
+    if (!result.success) {
+        scmItems = [];
+        scmTotalItems = 0;
+        scmTotalPages = 1;
+    }
+
+    renderScmTable();
+    renderScmPagination();
+    updateScmSelectionUI();
+}
+
+function renderScmTable()
+{
+    const tbody = document.getElementById("scmTableBody");
+
+    let items = scmItems;
+
+    if (scmSort.field) {
+        items = [...items].sort((a, b) => {
+            const av = (a[scmSort.field] || "").toString().toLowerCase();
+            const bv = (b[scmSort.field] || "").toString().toLowerCase();
+
+            if (av < bv) return -1 * scmSort.dir;
+            if (av > bv) return 1 * scmSort.dir;
+            return 0;
+        });
+    }
+
+    document.getElementById("scmSortArrowCode").textContent =
+        scmSort.field === "code" ? (scmSort.dir === 1 ? "▲" : "▼") : "";
+    document.getElementById("scmSortArrowDescription").textContent =
+        scmSort.field === "description" ? (scmSort.dir === 1 ? "▲" : "▼") : "";
+
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="2" class="scm-empty">No codes found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = items.map((item) => {
+        const key = `${scmSource}::${item.code}`;
+        const isSelected = scmSelectedMap.has(key);
+
+        return `
+        <tr data-code="${escapeHtml(item.code)}" class="${isSelected ? "selected" : ""}">
+            <td><span class="scm-code-badge">${escapeHtml(item.code)}</span></td>
+            <td>${escapeHtml(item.description || "")}</td>
+        </tr>
+    `;
+    }).join("");
+
+    tbody.querySelectorAll("tr[data-code]").forEach((row) => {
+        row.addEventListener("click", () => {
+            const code = row.getAttribute("data-code");
+            const item = items.find((entry) => entry.code === code);
+            const key = `${scmSource}::${code}`;
+
+            if (scmSelectedMap.has(key)) {
+                scmSelectedMap.delete(key);
+                row.classList.remove("selected");
+            } else {
+                scmSelectedMap.set(key, item);
+                row.classList.add("selected");
+            }
+
+            updateScmSelectionUI();
+        });
+    });
+}
+
+function renderScmPagination()
+{
+    const info = document.getElementById("scmPageInfo");
+    const indicator = document.getElementById("scmPageIndicator");
+    const prevBtn = document.getElementById("scmPrevPage");
+    const nextBtn = document.getElementById("scmNextPage");
+
+    if (!scmTotalItems) {
+        info.textContent = "";
+    } else {
+        const start = (scmCurrentPage - 1) * 50 + 1;
+        const end = Math.min(scmCurrentPage * 50, scmTotalItems);
+
+        info.textContent = `Showing ${start}-${end} of ${scmTotalItems}`;
+    }
+
+    indicator.textContent = `Page ${scmCurrentPage} of ${scmTotalPages}`;
+    prevBtn.disabled = scmCurrentPage <= 1;
+    nextBtn.disabled = scmCurrentPage >= scmTotalPages;
 }
 
 async function openAllergyDetailModal(patient)

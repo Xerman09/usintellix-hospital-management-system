@@ -40,6 +40,13 @@ export async function deleteCqmValueset(id)
     );
 }
 
+export async function searchCqmValuesetCodes(search = "", mode = "name", page = 1, perPage = 50)
+{
+    const query = new URLSearchParams({ search, mode, page, per_page: perPage }).toString();
+
+    return await api(`/cqm-valuesets/codes/search?${query}`);
+}
+
 export async function fetchCqmValuesetCodes(valuesetId)
 {
     const query = new URLSearchParams({ valueset_id: valuesetId }).toString();

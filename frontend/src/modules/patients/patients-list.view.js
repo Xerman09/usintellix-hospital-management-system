@@ -1600,8 +1600,11 @@ ${canAdd ? `
 
             <div class="form-grid allergy-more-fields" id="allergyMoreFields" hidden>
                 <div class="form-group full">
-                    <label>Coding <span style="font-weight: 400; color: #a2aec4;">(temporary — free text for now)</span></label>
-                    <input id="allergy_coding" class="form-input" placeholder="e.g. T78.40XA (optional)">
+                    <label>Coding</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <textarea id="allergy_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtn" style="margin-top: 0;">Select Codes</button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -1662,6 +1665,278 @@ ${canAdd ? `
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+<style>
+.scm-trigger-row {
+    display: flex;
+    gap: 10px;
+}
+
+.scm-trigger-row .form-input {
+    flex: 1;
+    background: #f8fafc;
+    color: #52627a;
+    cursor: default;
+}
+
+.scm-trigger-btn {
+    white-space: nowrap;
+}
+
+.scm-box {
+    max-width: 900px;
+}
+
+.scm-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 18px 0 16px;
+    flex-wrap: wrap;
+}
+
+.scm-source-select {
+    width: auto;
+    min-width: 190px;
+}
+
+.scm-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scm-search-wrap .form-input {
+    width: 260px;
+}
+
+.scm-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 1.5px solid #e2e8f0;
+    background: white;
+    color: #52627a;
+    cursor: pointer;
+    transition: .12s;
+    flex-shrink: 0;
+}
+
+.scm-icon-btn:hover {
+    border-color: var(--accent-border);
+    color: var(--accent-text);
+}
+
+.scm-icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.scm-table-wrap {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid #eef1f7;
+    border-radius: 14px;
+}
+
+.scm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.scm-table th {
+    position: sticky;
+    top: 0;
+    text-align: left;
+    padding: 12px 16px;
+    color: #71809b;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    background: #f8fafc;
+    border-bottom: 1px solid #eef1f7;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.scm-table th .scm-sort-arrow {
+    margin-left: 4px;
+    opacity: .5;
+    font-size: 10px;
+}
+
+.scm-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid #eef1f7;
+    color: #25324b;
+}
+
+.scm-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.scm-table tbody tr {
+    cursor: pointer;
+    transition: background-color .1s;
+}
+
+.scm-table tbody tr:hover {
+    background: #fafbff;
+}
+
+.scm-table tbody tr.selected {
+    background: var(--accent-light);
+    font-weight: 700;
+}
+
+.scm-selected-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-text);
+    white-space: nowrap;
+}
+
+.scm-code-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #f1f4fa;
+    color: #52627a;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: "Courier New", monospace;
+}
+
+.scm-empty {
+    text-align: center !important;
+    padding: 40px 20px !important;
+    color: #71809b;
+}
+
+.scm-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.scm-page-info {
+    font-size: 13px;
+    color: #71809b;
+}
+
+.scm-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.scm-page-btn {
+    height: 32px;
+    padding: 0 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    color: #34435c;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .12s;
+}
+
+.scm-page-btn:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    color: var(--accent-text);
+}
+
+.scm-page-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.scm-page-indicator {
+    font-size: 13px;
+    font-weight: 600;
+    color: #25324b;
+    white-space: nowrap;
+}
+
+#confirmSelectCodes:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .scm-toolbar { flex-direction: column; align-items: stretch; }
+    .scm-search-wrap .form-input { width: 100%; flex: 1; }
+    .scm-source-select { width: 100%; }
+}
+</style>
+
+<div class="modal-overlay" id="selectCodesModalOverlay">
+    <div class="modal-box scm-box">
+        <div class="modal-header">
+            <h2>Select Codes</h2>
+            <button type="button" class="modal-close" id="closeSelectCodesModal">&times;</button>
+        </div>
+
+        <div class="scm-toolbar">
+            <select class="form-input scm-source-select" id="scmSourceSelect">
+                <option value="icd10">ICD10 Diagnosis</option>
+                <option value="cqm">CQM Valueset</option>
+                <option value="oid">OID Valueset</option>
+            </select>
+
+            <div class="scm-search-wrap">
+                <input type="text" class="form-input" id="scmSearchInput" placeholder="Search for code or description...">
+                <button type="button" class="scm-icon-btn" id="scmSearchBtn" title="Search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                </button>
+                <button type="button" class="scm-icon-btn" id="scmClearBtn" title="Clear search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="scm-table-wrap">
+            <table class="scm-table">
+                <thead>
+                    <tr>
+                        <th data-sort="code">Code <span class="scm-sort-arrow" id="scmSortArrowCode"></span></th>
+                        <th data-sort="description">Description <span class="scm-sort-arrow" id="scmSortArrowDescription"></span></th>
+                    </tr>
+                </thead>
+                <tbody id="scmTableBody">
+                    <tr><td colspan="2" class="scm-empty">Search to find codes.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="scm-pagination">
+            <span class="scm-page-info" id="scmPageInfo"></span>
+            <span class="scm-selected-count" id="scmSelectedCount"></span>
+            <div class="scm-page-controls">
+                <button type="button" class="scm-page-btn" id="scmPrevPage">Prev</button>
+                <span class="scm-page-indicator" id="scmPageIndicator">Page 1 of 1</span>
+                <button type="button" class="scm-page-btn" id="scmNextPage">Next</button>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" id="cancelSelectCodes">Cancel</button>
+            <button type="button" class="login-btn" id="confirmSelectCodes" disabled>Ok</button>
+        </div>
     </div>
 </div>
 `;

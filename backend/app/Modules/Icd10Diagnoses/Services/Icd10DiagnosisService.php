@@ -24,8 +24,9 @@ class Icd10DiagnosisService
         $params = [];
 
         if ($search !== '') {
-            $where .= ' AND (code LIKE :search OR description LIKE :search)';
-            $params['search'] = '%' . $search . '%';
+            $where .= ' AND (code LIKE :search1 OR description LIKE :search2)';
+            $params['search1'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
         }
 
         $countStmt = Database::connection()->prepare(
