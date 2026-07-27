@@ -20,6 +20,12 @@ import {
     updatePatientMedication,
     removePatientMedication
 } from "../patient-medications/patient-medications.service.js";
+import {
+    fetchPatientPrescriptions,
+    addPatientPrescription,
+    updatePatientPrescription,
+    removePatientPrescription
+} from "../patient-prescriptions/patient-prescriptions.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -36,6 +42,14 @@ const PROBLEM_DETAIL_FIELDS = [
 const MEDICATION_DETAIL_FIELDS = [
     "title", "begin_date", "end_date", "medication_usage", "request_intent",
     "is_primary_record", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+const PRESCRIPTION_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "quantity", "dosage", "route",
+    "frequency", "refills", "directions", "substitution_allowed", "pharmacy",
+    "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
 ];
@@ -116,6 +130,7 @@ export async function initPatientsList()
     setupAllergyModals();
     setupProblemModals();
     setupMedicationModals();
+    setupPrescriptionModals();
     setupSelectCodesModal();
 
     if (user.role !== "doctor") {
@@ -184,6 +199,7 @@ function openPatientDashboardModal(patient)
     loadDashboardAllergies(patient);
     loadDashboardProblems(patient);
     loadDashboardMedications(patient);
+    loadDashboardPrescriptions(patient);
 }
 
 function renderDemographics(patient)
@@ -409,6 +425,48 @@ function renderDashboardMedications(medications)
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path></svg>
             <p>No active medications recorded.</p>
+           </div>`;
+}
+
+async function loadDashboardPrescriptions(patient)
+{
+    const body = document.getElementById("pdPrescriptionsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientPrescriptions(patient.id);
+
+        renderDashboardPrescriptions(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load prescriptions", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load prescriptions right now.</p></div>`;
+    }
+}
+
+function renderDashboardPrescriptions(prescriptions)
+{
+    const body = document.getElementById("pdPrescriptionsBody");
+
+    if (!body) {
+        return;
+    }
+
+    const active = prescriptions.filter((prescription) => !prescription.end_date);
+
+    body.innerHTML = active.length
+        ? `<div class="pd-allergy-list">
+            ${active.map((prescription) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(prescription.title)}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path></svg>
+            <p>No prescriptions recorded.</p>
            </div>`;
 }
 
@@ -1368,6 +1426,258 @@ async function openMedicationFormModal(existingRecord)
         catalogSelect.disabled = false;
         document.getElementById("medication_verification_status").value = "Unconfirmed";
         document.getElementById("medication_is_primary_record_yes").checked = true;
+    }
+
+    formOverlay.classList.add("open");
+}
+
+function setupPrescriptionModals()
+{
+    const detailOverlay = document.getElementById("prescriptionDetailModalOverlay");
+    const formOverlay = document.getElementById("prescriptionFormModalOverlay");
+    const form = document.getElementById("prescriptionForm");
+    const catalogSelect = document.getElementById("prescription_catalog_id");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdPrescriptionsAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openPrescriptionDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closePrescriptionDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("prescriptionMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("prescriptionMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openAddPrescriptionBtn").addEventListener("click", () => {
+        openPrescriptionFormModal(null);
+    });
+
+    document.getElementById("openSelectCodesBtnPrescription").addEventListener("click", () => {
+        openSelectCodesModal("prescription_coding");
+    });
+
+    catalogSelect.addEventListener("change", () => {
+        const selectedOption = catalogSelect.options[catalogSelect.selectedIndex];
+
+        if (catalogSelect.value && selectedOption) {
+            document.getElementById("prescription_title").value = selectedOption.textContent;
+        }
+    });
+
+    document.getElementById("closePrescriptionFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelPrescriptionForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("prescription_record_id").value;
+        const catalogId = catalogSelect.value;
+        const errEl = document.getElementById("err-prescription_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        PRESCRIPTION_DETAIL_FIELDS.forEach((field) => {
+            if (field === "substitution_allowed") {
+                return;
+            }
+
+            details[field] = document.getElementById(`prescription_${field}`).value.trim();
+        });
+
+        details.substitution_allowed = document.querySelector('input[name="prescription_substitution_allowed"]:checked').value;
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientPrescription(recordId, details)
+            : await addPatientPrescription(currentDashboardPatient.id, catalogId || null, details);
+
+        if (!result.success) {
+            showAlert("prescriptionFormAlert", result.message || "Failed to save prescription.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadPrescriptionDetailTable(currentDashboardPatient);
+        await loadDashboardPrescriptions(currentDashboardPatient);
+    });
+}
+
+async function openPrescriptionDetailModal(patient)
+{
+    document.getElementById("prescriptionDetailAlert").innerHTML = "";
+    document.getElementById("prescriptionDetailModalOverlay").classList.add("open");
+
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const addBtn = document.getElementById("openAddPrescriptionBtn");
+
+    addBtn.style.display = canManage ? "" : "none";
+
+    await loadPrescriptionDetailTable(patient);
+}
+
+async function loadPrescriptionDetailTable(patient)
+{
+    const tbody = document.getElementById("prescriptionDetailTableBody");
+
+    try {
+        const result = await fetchPatientPrescriptions(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load prescriptions.")}</td></tr>`;
+            return;
+        }
+
+        renderPrescriptionDetailTable(patient, result.data);
+    } catch (error) {
+        console.error("Failed to load patient prescriptions", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load prescriptions right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderPrescriptionDetailTable(patient, prescriptions)
+{
+    const tbody = document.getElementById("prescriptionDetailTableBody");
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
+    if (!prescriptions.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No prescriptions recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = prescriptions.map((prescription) => {
+        const isActive = !prescription.end_date;
+
+        return `
+        <tr>
+            <td>${escapeHtml(prescription.title)}</td>
+            <td>${escapeHtml(prescription.dosage || "-")}</td>
+            <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
+            <td>${escapeHtml((prescription.updated_at || prescription.created_at || "").slice(0, 10))}</td>
+            <td class="table-actions">
+                ${canManage
+                    ? `<button class="btn-edit" data-edit-prescription="${prescription.id}">Edit</button>
+                       <button class="btn-danger" data-remove-prescription="${prescription.id}">Delete</button>`
+                    : ""}
+            </td>
+        </tr>
+    `;
+    }).join("");
+
+    if (!canManage) {
+        return;
+    }
+
+    tbody.querySelectorAll("[data-edit-prescription]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const prescription = prescriptions.find((p) => String(p.id) === btn.getAttribute("data-edit-prescription"));
+
+            if (prescription) {
+                openPrescriptionFormModal(prescription);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-prescription]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this prescription record?")) {
+                return;
+            }
+
+            const result = await removePatientPrescription(btn.getAttribute("data-remove-prescription"));
+
+            if (!result.success) {
+                showAlert("prescriptionDetailAlert", result.message || "Failed to remove prescription.", "error");
+                return;
+            }
+
+            await loadPrescriptionDetailTable(currentDashboardPatient);
+            await loadDashboardPrescriptions(currentDashboardPatient);
+        });
+    });
+}
+
+async function openPrescriptionFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("prescriptionFormModalOverlay");
+    const title = document.getElementById("prescriptionFormTitle");
+    const recordIdInput = document.getElementById("prescription_record_id");
+    const catalogSelect = document.getElementById("prescription_catalog_id");
+
+    document.getElementById("prescriptionFormAlert").innerHTML = "";
+    document.getElementById("prescriptionForm").reset();
+    document.getElementById("err-prescription_title").textContent = "";
+
+    const moreToggle = document.getElementById("prescriptionMoreToggle");
+    const moreFields = document.getElementById("prescriptionMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    const catalogResult = await fetchMedications();
+    const catalog = catalogResult.success ? catalogResult.data : [];
+
+    catalogSelect.innerHTML = `<option value="">Custom / type your own...</option>` +
+        catalog.map((medication) => `<option value="${medication.id}">${escapeHtml(medication.name)}</option>`).join("");
+
+    if (existingRecord) {
+        title.textContent = "Edit Prescription";
+        recordIdInput.value = existingRecord.id;
+        catalogSelect.value = existingRecord.medication_id ?? "";
+        catalogSelect.disabled = true;
+
+        PRESCRIPTION_DETAIL_FIELDS.forEach((field) => {
+            if (field === "substitution_allowed") {
+                return;
+            }
+
+            document.getElementById(`prescription_${field}`).value = existingRecord[field] ?? "";
+        });
+
+        document.getElementById(
+            Number(existingRecord.substitution_allowed) ? "prescription_substitution_allowed_yes" : "prescription_substitution_allowed_no"
+        ).checked = true;
+
+        const secondaryFields = ["coding", "occurrence", "outcome", "classification_type", "referred_by", "destination"];
+
+        if (secondaryFields.some((field) => existingRecord[field])) {
+            moreFields.hidden = false;
+            moreToggle.classList.add("expanded");
+            moreToggle.querySelector("span").textContent = "Hide More Fields";
+        }
+    } else {
+        title.textContent = "Add Prescription";
+        recordIdInput.value = "";
+        catalogSelect.disabled = false;
+        document.getElementById("prescription_verification_status").value = "Unconfirmed";
+        document.getElementById("prescription_substitution_allowed_yes").checked = true;
     }
 
     formOverlay.classList.add("open");

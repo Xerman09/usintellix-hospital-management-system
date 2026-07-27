@@ -1737,6 +1737,7 @@ ${canAdd ? `
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.", { bodyId: "pdMedicationsBody", addBtnId: "pdMedicationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.")}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.")}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.")}
@@ -2256,6 +2257,215 @@ ${canAdd ? `
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelMedicationForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="prescriptionDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Prescriptions</h2>
+            <button type="button" class="modal-close" id="closePrescriptionDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full prescription history for this patient.</p>
+
+        <div id="prescriptionDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddPrescriptionBtn">+ Add Prescription</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Drug</th>
+                        <th>Dosage</th>
+                        <th>Status</th>
+                        <th>Last Modified</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="prescriptionDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="prescriptionFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="prescriptionFormTitle">Add Prescription</h2>
+            <button type="button" class="modal-close" id="closePrescriptionFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record a prescription for this patient.</p>
+
+        <div id="prescriptionFormAlert"></div>
+
+        <form id="prescriptionForm">
+            <input type="hidden" id="prescription_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Select from list <span style="font-weight: 400; color: #a2aec4;">(or type your own in Title)</span></label>
+                    <select id="prescription_catalog_id" class="form-input">
+                        <option value="">Custom / type your own...</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Title</label>
+                    <input id="prescription_title" class="form-input" placeholder="e.g. Amoxicillin 500mg">
+                    <span class="form-error" id="err-prescription_title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="prescription_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="prescription_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input id="prescription_quantity" class="form-input" placeholder="e.g. 30">
+                </div>
+
+                <div class="form-group">
+                    <label>Dosage</label>
+                    <input id="prescription_dosage" class="form-input" placeholder="e.g. 500mg">
+                </div>
+
+                <div class="form-group">
+                    <label>Route</label>
+                    <select id="prescription_route" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Oral">Oral</option>
+                        <option value="Topical">Topical</option>
+                        <option value="Intravenous">Intravenous</option>
+                        <option value="Intramuscular">Intramuscular</option>
+                        <option value="Subcutaneous">Subcutaneous</option>
+                        <option value="Inhalation">Inhalation</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Frequency</label>
+                    <input id="prescription_frequency" class="form-input" placeholder="e.g. Twice daily">
+                </div>
+
+                <div class="form-group">
+                    <label>Refills</label>
+                    <input id="prescription_refills" type="number" min="0" class="form-input" placeholder="e.g. 2">
+                </div>
+
+                <div class="form-group">
+                    <label>Pharmacy</label>
+                    <input id="prescription_pharmacy" class="form-input" placeholder="Pharmacy name (optional)">
+                </div>
+
+                <div class="form-group full">
+                    <label>Is Substitution Allowed</label>
+                    <div class="scm-radio-row">
+                        <label class="scm-radio-option">
+                            <input type="radio" name="prescription_substitution_allowed" id="prescription_substitution_allowed_yes" value="1" checked>
+                            Yes
+                        </label>
+                        <label class="scm-radio-option">
+                            <input type="radio" name="prescription_substitution_allowed" id="prescription_substitution_allowed_no" value="0">
+                            No
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group full">
+                    <label>Directions</label>
+                    <textarea id="prescription_directions" class="form-input" style="min-height: 60px;" placeholder="Directions to the patient (sig)"></textarea>
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="prescription_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="prescriptionMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="prescriptionMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <textarea id="prescription_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnPrescription" style="margin-top: 0;">Select Codes</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="prescription_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="prescription_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="prescription_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
+                        <option value="Problem List">Problem List</option>
+                        <option value="Chronic">Chronic</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="prescription_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="prescription_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="prescription_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelPrescriptionForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
