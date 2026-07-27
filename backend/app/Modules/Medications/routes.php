@@ -6,7 +6,7 @@ use App\Modules\Medications\Controllers\MedicationController;
 
 $router->get('/medications', [MedicationController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/medications', [MedicationController::class, 'register'], [

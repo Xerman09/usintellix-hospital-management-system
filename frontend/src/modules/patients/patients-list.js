@@ -13,6 +13,13 @@ import {
     updatePatientMedicalProblem,
     removePatientMedicalProblem
 } from "../patient-medical-problems/patient-medical-problems.service.js";
+import { fetchMedications } from "../medications/medications.service.js";
+import {
+    fetchPatientMedications,
+    addPatientMedication,
+    updatePatientMedication,
+    removePatientMedication
+} from "../patient-medications/patient-medications.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -22,6 +29,13 @@ const ALLERGY_DETAIL_FIELDS = [
 
 const PROBLEM_DETAIL_FIELDS = [
     "title", "begin_date", "end_date", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+const MEDICATION_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "medication_usage", "request_intent",
+    "is_primary_record", "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
 ];
@@ -93,6 +107,7 @@ export async function initPatientsList()
     setupPatientDashboardModal();
     setupAllergyModals();
     setupProblemModals();
+    setupMedicationModals();
     setupSelectCodesModal();
 
     if (user.role !== "doctor") {
@@ -143,6 +158,7 @@ function openPatientDashboardModal(patient)
 
     loadDashboardAllergies(patient);
     loadDashboardProblems(patient);
+    loadDashboardMedications(patient);
 }
 
 async function loadDashboardAllergies(patient)
@@ -224,6 +240,48 @@ function renderDashboardProblems(problems)
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
             <p>No active problems recorded.</p>
+           </div>`;
+}
+
+async function loadDashboardMedications(patient)
+{
+    const body = document.getElementById("pdMedicationsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientMedications(patient.id);
+
+        renderDashboardMedications(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load medications", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load medications right now.</p></div>`;
+    }
+}
+
+function renderDashboardMedications(medications)
+{
+    const body = document.getElementById("pdMedicationsBody");
+
+    if (!body) {
+        return;
+    }
+
+    const active = medications.filter((medication) => !medication.end_date);
+
+    body.innerHTML = active.length
+        ? `<div class="pd-allergy-list">
+            ${active.map((medication) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(medication.title)}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path></svg>
+            <p>No active medications recorded.</p>
            </div>`;
 }
 
@@ -931,6 +989,258 @@ async function openProblemFormModal(existingRecord)
         recordIdInput.value = "";
         catalogSelect.disabled = false;
         document.getElementById("problem_verification_status").value = "Unconfirmed";
+    }
+
+    formOverlay.classList.add("open");
+}
+
+function setupMedicationModals()
+{
+    const detailOverlay = document.getElementById("medicationDetailModalOverlay");
+    const formOverlay = document.getElementById("medicationFormModalOverlay");
+    const form = document.getElementById("medicationForm");
+    const catalogSelect = document.getElementById("medication_catalog_id");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdMedicationsAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openMedicationDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeMedicationDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("medicationMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("medicationMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openAddMedicationBtn").addEventListener("click", () => {
+        openMedicationFormModal(null);
+    });
+
+    document.getElementById("openSelectCodesBtnMedication").addEventListener("click", () => {
+        openSelectCodesModal("medication_coding");
+    });
+
+    catalogSelect.addEventListener("change", () => {
+        const selectedOption = catalogSelect.options[catalogSelect.selectedIndex];
+
+        if (catalogSelect.value && selectedOption) {
+            document.getElementById("medication_title").value = selectedOption.textContent;
+        }
+    });
+
+    document.getElementById("closeMedicationFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelMedicationForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("medication_record_id").value;
+        const catalogId = catalogSelect.value;
+        const errEl = document.getElementById("err-medication_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        MEDICATION_DETAIL_FIELDS.forEach((field) => {
+            if (field === "is_primary_record") {
+                return;
+            }
+
+            details[field] = document.getElementById(`medication_${field}`).value.trim();
+        });
+
+        details.is_primary_record = document.querySelector('input[name="medication_is_primary_record"]:checked').value;
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientMedication(recordId, details)
+            : await addPatientMedication(currentDashboardPatient.id, catalogId || null, details);
+
+        if (!result.success) {
+            showAlert("medicationFormAlert", result.message || "Failed to save medication.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadMedicationDetailTable(currentDashboardPatient);
+        await loadDashboardMedications(currentDashboardPatient);
+    });
+}
+
+async function openMedicationDetailModal(patient)
+{
+    document.getElementById("medicationDetailAlert").innerHTML = "";
+    document.getElementById("medicationDetailModalOverlay").classList.add("open");
+
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const addBtn = document.getElementById("openAddMedicationBtn");
+
+    addBtn.style.display = canManage ? "" : "none";
+
+    await loadMedicationDetailTable(patient);
+}
+
+async function loadMedicationDetailTable(patient)
+{
+    const tbody = document.getElementById("medicationDetailTableBody");
+
+    try {
+        const result = await fetchPatientMedications(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load medications.")}</td></tr>`;
+            return;
+        }
+
+        renderMedicationDetailTable(patient, result.data);
+    } catch (error) {
+        console.error("Failed to load patient medications", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load medications right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderMedicationDetailTable(patient, medications)
+{
+    const tbody = document.getElementById("medicationDetailTableBody");
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
+    if (!medications.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No medications recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = medications.map((medication) => {
+        const isActive = !medication.end_date;
+
+        return `
+        <tr>
+            <td>${escapeHtml(medication.title)}</td>
+            <td>${escapeHtml(medication.occurrence || "-")}</td>
+            <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
+            <td>${escapeHtml((medication.updated_at || medication.created_at || "").slice(0, 10))}</td>
+            <td class="table-actions">
+                ${canManage
+                    ? `<button class="btn-edit" data-edit-medication="${medication.id}">Edit</button>
+                       <button class="btn-danger" data-remove-medication="${medication.id}">Delete</button>`
+                    : ""}
+            </td>
+        </tr>
+    `;
+    }).join("");
+
+    if (!canManage) {
+        return;
+    }
+
+    tbody.querySelectorAll("[data-edit-medication]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const medication = medications.find((m) => String(m.id) === btn.getAttribute("data-edit-medication"));
+
+            if (medication) {
+                openMedicationFormModal(medication);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-medication]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this medication record?")) {
+                return;
+            }
+
+            const result = await removePatientMedication(btn.getAttribute("data-remove-medication"));
+
+            if (!result.success) {
+                showAlert("medicationDetailAlert", result.message || "Failed to remove medication.", "error");
+                return;
+            }
+
+            await loadMedicationDetailTable(currentDashboardPatient);
+            await loadDashboardMedications(currentDashboardPatient);
+        });
+    });
+}
+
+async function openMedicationFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("medicationFormModalOverlay");
+    const title = document.getElementById("medicationFormTitle");
+    const recordIdInput = document.getElementById("medication_record_id");
+    const catalogSelect = document.getElementById("medication_catalog_id");
+
+    document.getElementById("medicationFormAlert").innerHTML = "";
+    document.getElementById("medicationForm").reset();
+    document.getElementById("err-medication_title").textContent = "";
+
+    const moreToggle = document.getElementById("medicationMoreToggle");
+    const moreFields = document.getElementById("medicationMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    const catalogResult = await fetchMedications();
+    const catalog = catalogResult.success ? catalogResult.data : [];
+
+    catalogSelect.innerHTML = `<option value="">Custom / type your own...</option>` +
+        catalog.map((medication) => `<option value="${medication.id}">${escapeHtml(medication.name)}</option>`).join("");
+
+    if (existingRecord) {
+        title.textContent = "Edit Medication";
+        recordIdInput.value = existingRecord.id;
+        catalogSelect.value = existingRecord.medication_id ?? "";
+        catalogSelect.disabled = true;
+
+        MEDICATION_DETAIL_FIELDS.forEach((field) => {
+            if (field === "is_primary_record") {
+                return;
+            }
+
+            document.getElementById(`medication_${field}`).value = existingRecord[field] ?? "";
+        });
+
+        document.getElementById(
+            Number(existingRecord.is_primary_record) ? "medication_is_primary_record_yes" : "medication_is_primary_record_no"
+        ).checked = true;
+
+        const secondaryFields = ["coding", "occurrence", "outcome", "classification_type", "referred_by", "destination"];
+
+        if (secondaryFields.some((field) => existingRecord[field])) {
+            moreFields.hidden = false;
+            moreToggle.classList.add("expanded");
+            moreToggle.querySelector("span").textContent = "Hide More Fields";
+        }
+    } else {
+        title.textContent = "Add Medication";
+        recordIdInput.value = "";
+        catalogSelect.disabled = false;
+        document.getElementById("medication_verification_status").value = "Unconfirmed";
+        document.getElementById("medication_is_primary_record_yes").checked = true;
     }
 
     formOverlay.classList.add("open");
