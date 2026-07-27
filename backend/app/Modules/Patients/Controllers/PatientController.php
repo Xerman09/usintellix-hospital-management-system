@@ -101,7 +101,31 @@ class PatientController extends Controller
             'emergency_contact_name',
             'emergency_relationship',
             'emergency_phone',
-            'emergency_address'
+            'emergency_address',
+            'date_deceased',
+            'reason_deceased',
+            'employer_occupation',
+            'employer_name',
+            'employer_address_line',
+            'employer_address_line2',
+            'employer_city',
+            'employer_state',
+            'employer_postal_code',
+            'employer_country',
+            'employer_industry',
+            'employer_employment_start_date',
+            'employer_employment_end_date',
+            'guardian_name',
+            'guardian_relationship',
+            'guardian_sex',
+            'guardian_address',
+            'guardian_city',
+            'guardian_state',
+            'guardian_postal_code',
+            'guardian_country',
+            'guardian_phone',
+            'guardian_work_phone',
+            'guardian_email'
         ]);
 
         $result = $this->patientService->update(

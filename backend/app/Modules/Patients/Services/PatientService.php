@@ -6,6 +6,8 @@ use App\Core\Database;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Models\PatientContact;
 use App\Modules\Patients\Models\PatientEmergencyContact;
+use App\Modules\Patients\Models\PatientEmployer;
+use App\Modules\Patients\Models\PatientGuardian;
 use App\Modules\Providers\Models\Provider;
 use App\Modules\Users\Models\User;
 use PDO;
@@ -33,12 +35,36 @@ class PatientService
                     pec.contact_name AS emergency_contact_name,
                     pec.relationship AS emergency_relationship,
                     pec.phone AS emergency_phone,
-                    pec.address AS emergency_address
+                    pec.address AS emergency_address,
+                    pemp.occupation AS employer_occupation,
+                    pemp.employer_name AS employer_name,
+                    pemp.address_line AS employer_address_line,
+                    pemp.address_line2 AS employer_address_line2,
+                    pemp.city AS employer_city,
+                    pemp.state AS employer_state,
+                    pemp.postal_code AS employer_postal_code,
+                    pemp.country AS employer_country,
+                    pemp.industry AS employer_industry,
+                    pemp.employment_start_date AS employer_employment_start_date,
+                    pemp.employment_end_date AS employer_employment_end_date,
+                    pg.guardian_name AS guardian_name,
+                    pg.relationship AS guardian_relationship,
+                    pg.sex AS guardian_sex,
+                    pg.address AS guardian_address,
+                    pg.city AS guardian_city,
+                    pg.state AS guardian_state,
+                    pg.postal_code AS guardian_postal_code,
+                    pg.country AS guardian_country,
+                    pg.phone AS guardian_phone,
+                    pg.work_phone AS guardian_work_phone,
+                    pg.email AS guardian_email
              FROM patients p
              LEFT JOIN providers pr ON pr.id = p.provider_id
              LEFT JOIN employees pe ON pe.id = pr.employee_id
              LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
              LEFT JOIN patient_emergency_contacts pec ON pec.patient_id = p.id
+             LEFT JOIN patient_employers pemp ON pemp.patient_id = p.id
+             LEFT JOIN patient_guardians pg ON pg.patient_id = p.id
              WHERE p.deleted_at IS NULL";
 
         $params = [];
@@ -136,12 +162,16 @@ class PatientService
             'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
             'height'       => $data['height'],
             'weight'       => $data['weight'],
+            'date_deceased'   => $data['date_deceased'] ?? null,
+            'reason_deceased' => $data['reason_deceased'] ?? null,
             'updated_at'   => date('Y-m-d H:i:s'),
             'updated_by'   => $updatedBy
         ], $id);
 
         $this->upsertContact($id, $data, $updatedBy);
         $this->upsertEmergencyContact($id, $data, $updatedBy);
+        $this->upsertEmployer($id, $data, $updatedBy);
+        $this->upsertGuardian($id, $data, $updatedBy);
 
         return [
             'success' => true,
@@ -212,6 +242,78 @@ class PatientService
     }
 
     /**
+     * Create or update a patient's employer info record.
+     */
+    private function upsertEmployer(int $patientId, array $data, int $userId): void
+    {
+        $existing = (new PatientEmployer())->where('patient_id', $patientId)->first();
+
+        $payload = [
+            'occupation'             => $data['employer_occupation'] ?? null,
+            'employer_name'          => $data['employer_name'] ?? null,
+            'address_line'           => $data['employer_address_line'] ?? null,
+            'address_line2'          => $data['employer_address_line2'] ?? null,
+            'city'                   => $data['employer_city'] ?? null,
+            'state'                  => $data['employer_state'] ?? null,
+            'postal_code'            => $data['employer_postal_code'] ?? null,
+            'country'                => $data['employer_country'] ?? null,
+            'industry'               => $data['employer_industry'] ?? null,
+            'employment_start_date'  => $data['employer_employment_start_date'] ?? null,
+            'employment_end_date'    => $data['employer_employment_end_date'] ?? null
+        ];
+
+        if ($existing) {
+            $payload['updated_at'] = date('Y-m-d H:i:s');
+            $payload['updated_by'] = $userId;
+
+            (new PatientEmployer())->where('patient_id', $patientId)->update($payload);
+            return;
+        }
+
+        $payload['patient_id'] = $patientId;
+        $payload['created_at'] = date('Y-m-d H:i:s');
+        $payload['created_by'] = $userId;
+
+        (new PatientEmployer())->create($payload);
+    }
+
+    /**
+     * Create or update a patient's guardian/related-person info record.
+     */
+    private function upsertGuardian(int $patientId, array $data, int $userId): void
+    {
+        $existing = (new PatientGuardian())->where('patient_id', $patientId)->first();
+
+        $payload = [
+            'guardian_name' => $data['guardian_name'] ?? null,
+            'relationship'  => $data['guardian_relationship'] ?? null,
+            'sex'           => (($data['guardian_sex'] ?? '') !== '') ? $data['guardian_sex'] : null,
+            'address'       => $data['guardian_address'] ?? null,
+            'city'          => $data['guardian_city'] ?? null,
+            'state'         => $data['guardian_state'] ?? null,
+            'postal_code'   => $data['guardian_postal_code'] ?? null,
+            'country'       => $data['guardian_country'] ?? null,
+            'phone'         => $data['guardian_phone'] ?? null,
+            'work_phone'    => $data['guardian_work_phone'] ?? null,
+            'email'         => $data['guardian_email'] ?? null
+        ];
+
+        if ($existing) {
+            $payload['updated_at'] = date('Y-m-d H:i:s');
+            $payload['updated_by'] = $userId;
+
+            (new PatientGuardian())->where('patient_id', $patientId)->update($payload);
+            return;
+        }
+
+        $payload['patient_id'] = $patientId;
+        $payload['created_at'] = date('Y-m-d H:i:s');
+        $payload['created_by'] = $userId;
+
+        (new PatientGuardian())->create($payload);
+    }
+
+    /**
      * Register a new patient account (receptionist-only).
      */
     public function register(array $data, int $createdBy): array
@@ -275,6 +377,8 @@ class PatientService
 
             $this->upsertContact($patientId, $data, $createdBy);
             $this->upsertEmergencyContact($patientId, $data, $createdBy);
+            $this->upsertEmployer($patientId, $data, $createdBy);
+            $this->upsertGuardian($patientId, $data, $createdBy);
 
             $db->commit();
 

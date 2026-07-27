@@ -666,6 +666,73 @@ export function PatientsListView(user)
     padding: 12px;
 }
 
+.pd-widget-demographics {
+    grid-column: 1 / -1;
+}
+
+.pd-demo-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 8px;
+    border-bottom: 1px solid #e5e9f0;
+    overflow-x: auto;
+}
+
+.pd-demo-tab {
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: #71809b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+}
+
+.pd-demo-tab:hover {
+    color: var(--accent-text);
+}
+
+.pd-demo-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.pd-demo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 28px;
+}
+
+.pd-demo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pd-demo-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #94a3b8;
+}
+
+.pd-demo-value {
+    font-size: 13.5px;
+    color: #25324b;
+}
+
+.pd-demo-value.empty {
+    color: #c3cbd9;
+    font-style: italic;
+}
+
+@media (max-width: 640px) {
+    .pd-demo-grid { grid-template-columns: 1fr; }
+}
+
 .pd-widget-empty {
     display: flex;
     align-items: center;
@@ -875,6 +942,9 @@ export function PatientsListView(user)
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
             <button type="button" class="modal-tab" data-tab="emergency">Emergency Contact</button>
+            <button type="button" class="modal-tab" data-tab="employer">Employer</button>
+            <button type="button" class="modal-tab" data-tab="misc">Misc</button>
+            <button type="button" class="modal-tab" data-tab="related">Related</button>
         </div>
 
         <form id="editPatientForm">
@@ -1124,6 +1194,171 @@ export function PatientsListView(user)
                         <input id="edit_emergency_address" class="form-input" placeholder="Address (optional)">
                         <span class="form-error"></span>
                     </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="employer">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Occupation</label>
+                        <input id="edit_employer_occupation" class="form-input" placeholder="Occupation (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employer Name</label>
+                        <input id="edit_employer_name" class="form-input" placeholder="Employer name (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Employer Address</label>
+                        <input id="edit_employer_address_line" class="form-input" placeholder="Address line">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Employer Address Line 2</label>
+                        <input id="edit_employer_address_line2" class="form-input" placeholder="Address line 2 (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="edit_employer_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>State</label>
+                        <input id="edit_employer_state" class="form-input" placeholder="State/Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input id="edit_employer_postal_code" class="form-input" placeholder="Postal code">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="edit_employer_country" class="form-input" placeholder="Country">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Industry</label>
+                        <input id="edit_employer_industry" class="form-input" placeholder="Industry (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment Start Date</label>
+                        <input id="edit_employer_employment_start_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment End Date</label>
+                        <input id="edit_employer_employment_end_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="misc">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date Deceased</label>
+                        <input id="edit_date_deceased" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Reason Deceased</label>
+                        <input id="edit_reason_deceased" class="form-input" placeholder="Reason (optional)">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="related">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Guardian Name</label>
+                        <input id="edit_guardian_name" class="form-input" placeholder="Full name">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Relationship</label>
+                        <input id="edit_guardian_relationship" class="form-input" placeholder="e.g Parent, Guardian">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Sex</label>
+                        <select id="edit_guardian_sex" class="form-input">
+                            <option value="">Select sex</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Address</label>
+                        <input id="edit_guardian_address" class="form-input" placeholder="Address (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="edit_guardian_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>State</label>
+                        <input id="edit_guardian_state" class="form-input" placeholder="State/Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input id="edit_guardian_postal_code" class="form-input" placeholder="Postal code">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="edit_guardian_country" class="form-input" placeholder="Country">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input id="edit_guardian_phone" class="form-input" placeholder="Phone (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Work Phone</label>
+                        <input id="edit_guardian_work_phone" class="form-input" placeholder="Work phone (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Email</label>
+                        <input id="edit_guardian_email" type="email" class="form-input" placeholder="name@example.com">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 18px;">
+                    <label style="font-weight: 600; font-size: 13px; color: #52627a;">Related Persons</label>
+                    <p class="form-subtitle" style="margin-top: 4px;">None recorded.</p>
                 </div>
             </div>
 
@@ -1480,7 +1715,24 @@ ${canAdd ? `
 
             <div class="pd-main">
                 <div class="pd-widget-grid">
-                    ${dashboardWidget("Demographics", '<path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path>', "No demographic details recorded yet.")}
+                    <div class="pd-widget pd-widget-demographics">
+                        <div class="pd-widget-header">
+                            <div class="pd-widget-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path></svg>
+                                <h3>Demographics</h3>
+                            </div>
+                        </div>
+                        <div class="pd-demo-tabs" id="pdDemoTabs">
+                            <button type="button" class="pd-demo-tab active" data-demo-tab="who">Who</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="contact">Contact</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="choices">Choices</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="employer">Employer</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="stats">Stats</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="misc">Misc</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="related">Related</button>
+                        </div>
+                        <div class="pd-widget-body" id="pdDemoPanels"></div>
+                    </div>
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No provider assigned yet.")}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}

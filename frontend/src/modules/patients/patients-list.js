@@ -41,6 +41,7 @@ const MEDICATION_DETAIL_FIELDS = [
 ];
 
 let currentDashboardPatient = null;
+let activeDemoTab = "who";
 
 const CODE_SOURCE_LABELS = {
     ICD10CM: "ICD-10-CM",
@@ -80,7 +81,14 @@ const EDIT_FIELDS = [
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
-    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address"
+    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address",
+    "employer_occupation", "employer_name", "employer_address_line", "employer_address_line2",
+    "employer_city", "employer_state", "employer_postal_code", "employer_country",
+    "employer_industry", "employer_employment_start_date", "employer_employment_end_date",
+    "date_deceased", "reason_deceased",
+    "guardian_name", "guardian_relationship", "guardian_sex", "guardian_address",
+    "guardian_city", "guardian_state", "guardian_postal_code", "guardian_country",
+    "guardian_phone", "guardian_work_phone", "guardian_email"
 ];
 
 let patientsCache = [];
@@ -131,6 +139,17 @@ function setupPatientDashboardModal()
             closeModal();
         }
     });
+
+    document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            activeDemoTab = btn.getAttribute("data-demo-tab");
+            document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((b) => b.classList.toggle("active", b === btn));
+
+            if (currentDashboardPatient) {
+                renderDemographics(currentDashboardPatient);
+            }
+        });
+    });
 }
 
 function openPatientDashboardModal(patient)
@@ -156,9 +175,117 @@ function openPatientDashboardModal(patient)
 
     document.getElementById("patientDashboardModalOverlay").classList.add("open");
 
+    activeDemoTab = "who";
+    document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-demo-tab") === "who");
+    });
+    renderDemographics(patient);
+
     loadDashboardAllergies(patient);
     loadDashboardProblems(patient);
     loadDashboardMedications(patient);
+}
+
+function renderDemographics(patient)
+{
+    const panels = document.getElementById("pdDemoPanels");
+
+    if (!panels) {
+        return;
+    }
+
+    const field = (label, value) => `
+        <div class="pd-demo-field">
+            <span class="pd-demo-label">${escapeHtml(label)}</span>
+            <span class="pd-demo-value${value ? "" : " empty"}">${escapeHtml(value || "Not set")}</span>
+        </div>
+    `;
+
+    const sexLabel = patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "";
+    const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
+    const yesNo = (value) => (value === "yes" ? "Yes" : value === "no" ? "No" : "");
+
+    const tabRows = {
+        who: [
+            field("First Name", patient.first_name),
+            field("Middle Name", patient.middle_name),
+            field("Last Name", patient.last_name),
+            field("Suffix", patient.suffix),
+            field("Sex", sexLabel),
+            field("Birthdate", patient.birthdate),
+            field("Civil Status", patient.civil_status),
+            field("Blood Type", patient.blood_type),
+            field("Height (cm)", patient.height),
+            field("Weight (kg)", patient.weight)
+        ],
+        contact: [
+            field("Address Line", patient.contact_address_line),
+            field("City", patient.contact_city),
+            field("Province", patient.contact_province),
+            field("Zip Code", patient.contact_zip_code),
+            field("Home Phone", patient.contact_home_phone),
+            field("Mobile Phone", patient.contact_mobile_phone),
+            field("Work Phone", patient.contact_work_phone),
+            field("Contact Email", patient.contact_email),
+            field("Emergency Contact", patient.emergency_contact_name),
+            field("Emergency Relationship", patient.emergency_relationship),
+            field("Emergency Phone", patient.emergency_phone),
+            field("Emergency Address", patient.emergency_address)
+        ],
+        choices: [
+            field("Care Provider", providerName),
+            field("Allow SMS", yesNo(patient.allow_sms)),
+            field("Allow Voice Calls", yesNo(patient.allow_voice_calls)),
+            field("Allow Email", yesNo(patient.allow_email)),
+            field("Allow Health Info Exchange", yesNo(patient.allow_hie))
+        ],
+        stats: [
+            field("Language", patient.language),
+            field("Race", patient.race),
+            field("Ethnicity", patient.ethnicity),
+            field("Religion", patient.religion)
+        ],
+        employer: [
+            field("Occupation", patient.employer_occupation),
+            field("Employer Name", patient.employer_name),
+            field("Employer Address", patient.employer_address_line),
+            field("Employer Address Line 2", patient.employer_address_line2),
+            field("City", patient.employer_city),
+            field("State", patient.employer_state),
+            field("Postal Code", patient.employer_postal_code),
+            field("Country", patient.employer_country),
+            field("Industry", patient.employer_industry),
+            field("Employment Start Date", patient.employer_employment_start_date),
+            field("Employment End Date", patient.employer_employment_end_date)
+        ],
+        misc: [
+            field("Date Deceased", patient.date_deceased),
+            field("Reason Deceased", patient.reason_deceased)
+        ],
+        related: [
+            field("Guardian Name", patient.guardian_name),
+            field("Relationship", patient.guardian_relationship),
+            field("Sex", patient.guardian_sex ? patient.guardian_sex.charAt(0).toUpperCase() + patient.guardian_sex.slice(1) : ""),
+            field("Address", patient.guardian_address),
+            field("City", patient.guardian_city),
+            field("State", patient.guardian_state),
+            field("Postal Code", patient.guardian_postal_code),
+            field("Country", patient.guardian_country),
+            field("Phone", patient.guardian_phone),
+            field("Work Phone", patient.guardian_work_phone),
+            field("Email", patient.guardian_email)
+        ]
+    };
+
+    const rows = tabRows[activeDemoTab] || [];
+    const relatedPersonsNote = activeDemoTab === "related"
+        ? `<div style="margin-top: 14px;">
+                <span class="pd-demo-label">Related Persons</span>
+                <p class="pd-demo-value empty" style="margin-top: 4px;">None recorded.</p>
+           </div>`
+        : "";
+
+    panels.innerHTML = `<div class="pd-demo-grid">${rows.join("")}</div>${relatedPersonsNote}`;
 }
 
 async function loadDashboardAllergies(patient)
@@ -1521,6 +1648,33 @@ function openEditModal(patient)
     document.getElementById("edit_emergency_relationship").value = patient.emergency_relationship ?? "";
     document.getElementById("edit_emergency_phone").value = patient.emergency_phone ?? "";
     document.getElementById("edit_emergency_address").value = patient.emergency_address ?? "";
+
+    document.getElementById("edit_employer_occupation").value = patient.employer_occupation ?? "";
+    document.getElementById("edit_employer_name").value = patient.employer_name ?? "";
+    document.getElementById("edit_employer_address_line").value = patient.employer_address_line ?? "";
+    document.getElementById("edit_employer_address_line2").value = patient.employer_address_line2 ?? "";
+    document.getElementById("edit_employer_city").value = patient.employer_city ?? "";
+    document.getElementById("edit_employer_state").value = patient.employer_state ?? "";
+    document.getElementById("edit_employer_postal_code").value = patient.employer_postal_code ?? "";
+    document.getElementById("edit_employer_country").value = patient.employer_country ?? "";
+    document.getElementById("edit_employer_industry").value = patient.employer_industry ?? "";
+    document.getElementById("edit_employer_employment_start_date").value = patient.employer_employment_start_date ?? "";
+    document.getElementById("edit_employer_employment_end_date").value = patient.employer_employment_end_date ?? "";
+
+    document.getElementById("edit_date_deceased").value = patient.date_deceased ?? "";
+    document.getElementById("edit_reason_deceased").value = patient.reason_deceased ?? "";
+
+    document.getElementById("edit_guardian_name").value = patient.guardian_name ?? "";
+    document.getElementById("edit_guardian_relationship").value = patient.guardian_relationship ?? "";
+    document.getElementById("edit_guardian_sex").value = patient.guardian_sex ?? "";
+    document.getElementById("edit_guardian_address").value = patient.guardian_address ?? "";
+    document.getElementById("edit_guardian_city").value = patient.guardian_city ?? "";
+    document.getElementById("edit_guardian_state").value = patient.guardian_state ?? "";
+    document.getElementById("edit_guardian_postal_code").value = patient.guardian_postal_code ?? "";
+    document.getElementById("edit_guardian_country").value = patient.guardian_country ?? "";
+    document.getElementById("edit_guardian_phone").value = patient.guardian_phone ?? "";
+    document.getElementById("edit_guardian_work_phone").value = patient.guardian_work_phone ?? "";
+    document.getElementById("edit_guardian_email").value = patient.guardian_email ?? "";
 
     modalOverlay.classList.add("open");
 }
