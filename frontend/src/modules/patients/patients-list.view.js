@@ -1483,7 +1483,7 @@ ${canAdd ? `
                     ${dashboardWidget("Demographics", '<path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path>', "No demographic details recorded yet.")}
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No provider assigned yet.")}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
-                    ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.")}
+                    ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.")}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.")}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.")}
@@ -1662,6 +1662,157 @@ ${canAdd ? `
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelAllergyForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="problemDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Medical Problems</h2>
+            <button type="button" class="modal-close" id="closeProblemDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full problem history for this patient.</p>
+
+        <div id="problemDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddProblemBtn">+ Add Problem</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Problem</th>
+                        <th>Occurrence</th>
+                        <th>Status</th>
+                        <th>Last Modified</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="problemDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="problemFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="problemFormTitle">Add Problem</h2>
+            <button type="button" class="modal-close" id="closeProblemFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record a medical problem for this patient.</p>
+
+        <div id="problemFormAlert"></div>
+
+        <form id="problemForm">
+            <input type="hidden" id="problem_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Select from list <span style="font-weight: 400; color: #a2aec4;">(or type your own in Title)</span></label>
+                    <select id="problem_catalog_id" class="form-input">
+                        <option value="">Custom / type your own...</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Title</label>
+                    <input id="problem_title" class="form-input" placeholder="e.g. Hypertension">
+                    <span class="form-error" id="err-problem_title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="problem_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="problem_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="problem_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="problemMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="problemMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <textarea id="problem_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnProblem" style="margin-top: 0;">Select Codes</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="problem_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="problem_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="problem_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
+                        <option value="Problem List">Problem List</option>
+                        <option value="Chronic">Chronic</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="problem_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="problem_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="problem_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelProblemForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

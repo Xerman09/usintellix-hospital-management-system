@@ -833,6 +833,8 @@ body {
     user-select: none;
     border: 1px solid transparent;
     border-bottom: none;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .tab-item.active {

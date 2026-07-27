@@ -6,9 +6,22 @@ import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
 import { fetchIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.service.js";
 import { searchCqmValuesetCodes } from "../cqm-valuesets/cqm-valuesets.service.js";
+import { fetchMedicalProblems } from "../medical-problems/medical-problems.service.js";
+import {
+    fetchPatientMedicalProblems,
+    addPatientMedicalProblem,
+    updatePatientMedicalProblem,
+    removePatientMedicalProblem
+} from "../patient-medical-problems/patient-medical-problems.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+const PROBLEM_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
 ];
@@ -32,7 +45,6 @@ let scmCurrentPage = 1;
 let scmTotalPages = 1;
 let scmTotalItems = 0;
 let scmItems = [];
-let scmSelectedIndex = null;
 let scmSearchDebounce = null;
 let scmSort = { field: null, dir: 1 };
 
@@ -68,10 +80,19 @@ export async function initPatientsList()
         return;
     }
 
+    const pageRoot = document.querySelector(".pat-page");
+
+    if (!pageRoot || pageRoot.dataset.wired === "true") {
+        return;
+    }
+
+    pageRoot.dataset.wired = "true";
+
     await loadPatients(user);
     setupPatientFilters(user);
     setupPatientDashboardModal();
     setupAllergyModals();
+    setupProblemModals();
     setupSelectCodesModal();
 
     if (user.role !== "doctor") {
@@ -121,6 +142,7 @@ function openPatientDashboardModal(patient)
     document.getElementById("patientDashboardModalOverlay").classList.add("open");
 
     loadDashboardAllergies(patient);
+    loadDashboardProblems(patient);
 }
 
 async function loadDashboardAllergies(patient)
@@ -163,6 +185,48 @@ function renderDashboardAllergies(allergies)
            </div>`;
 }
 
+async function loadDashboardProblems(patient)
+{
+    const body = document.getElementById("pdProblemsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientMedicalProblems(patient.id);
+
+        renderDashboardProblems(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load medical problems", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load problems right now.</p></div>`;
+    }
+}
+
+function renderDashboardProblems(problems)
+{
+    const body = document.getElementById("pdProblemsBody");
+
+    if (!body) {
+        return;
+    }
+
+    const active = problems.filter((problem) => !problem.end_date);
+
+    body.innerHTML = active.length
+        ? `<div class="pd-allergy-list">
+            ${active.map((problem) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(problem.title)}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+            <p>No active problems recorded.</p>
+           </div>`;
+}
+
 function setupAllergyModals()
 {
     const detailOverlay = document.getElementById("allergyDetailModalOverlay");
@@ -200,7 +264,7 @@ function setupAllergyModals()
     });
 
     document.getElementById("openSelectCodesBtn").addEventListener("click", () => {
-        openSelectCodesModal();
+        openSelectCodesModal("allergy_coding");
     });
 
     document.getElementById("closeAllergyFormModal").addEventListener("click", closeForm);
@@ -247,6 +311,7 @@ function setupAllergyModals()
 }
 
 let scmSelectedMap = new Map();
+let scmTargetFieldId = "allergy_coding";
 
 function setupSelectCodesModal()
 {
@@ -328,14 +393,15 @@ function setupSelectCodesModal()
             return `${item.code} - ${item.description || ""} (${systemLabel})`.trim();
         });
 
-        document.getElementById("allergy_coding").value = parts.join("\n");
+        document.getElementById(scmTargetFieldId).value = parts.join("\n");
 
         closeModal();
     });
 }
 
-function openSelectCodesModal()
+function openSelectCodesModal(targetFieldId = "allergy_coding")
 {
+    scmTargetFieldId = targetFieldId;
     scmSource = "icd10";
     scmSearchTerm = "";
     scmCurrentPage = 1;
@@ -628,6 +694,243 @@ async function openAllergyFormModal(existingRecord)
         recordIdInput.value = "";
         catalogSelect.disabled = false;
         document.getElementById("allergy_verification_status").value = "Unconfirmed";
+    }
+
+    formOverlay.classList.add("open");
+}
+
+function setupProblemModals()
+{
+    const detailOverlay = document.getElementById("problemDetailModalOverlay");
+    const formOverlay = document.getElementById("problemFormModalOverlay");
+    const form = document.getElementById("problemForm");
+    const catalogSelect = document.getElementById("problem_catalog_id");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdProblemsAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openProblemDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeProblemDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("problemMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("problemMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openAddProblemBtn").addEventListener("click", () => {
+        openProblemFormModal(null);
+    });
+
+    document.getElementById("openSelectCodesBtnProblem").addEventListener("click", () => {
+        openSelectCodesModal("problem_coding");
+    });
+
+    catalogSelect.addEventListener("change", () => {
+        const selectedOption = catalogSelect.options[catalogSelect.selectedIndex];
+
+        if (catalogSelect.value && selectedOption) {
+            document.getElementById("problem_title").value = selectedOption.textContent;
+        }
+    });
+
+    document.getElementById("closeProblemFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelProblemForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("problem_record_id").value;
+        const catalogId = catalogSelect.value;
+        const errEl = document.getElementById("err-problem_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        PROBLEM_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`problem_${field}`).value.trim();
+        });
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientMedicalProblem(recordId, details)
+            : await addPatientMedicalProblem(currentDashboardPatient.id, catalogId || null, details);
+
+        if (!result.success) {
+            showAlert("problemFormAlert", result.message || "Failed to save problem.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadProblemDetailTable(currentDashboardPatient);
+        await loadDashboardProblems(currentDashboardPatient);
+    });
+}
+
+async function openProblemDetailModal(patient)
+{
+    document.getElementById("problemDetailAlert").innerHTML = "";
+    document.getElementById("problemDetailModalOverlay").classList.add("open");
+
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const addBtn = document.getElementById("openAddProblemBtn");
+
+    addBtn.style.display = canManage ? "" : "none";
+
+    await loadProblemDetailTable(patient);
+}
+
+async function loadProblemDetailTable(patient)
+{
+    const tbody = document.getElementById("problemDetailTableBody");
+
+    try {
+        const result = await fetchPatientMedicalProblems(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load problems.")}</td></tr>`;
+            return;
+        }
+
+        renderProblemDetailTable(patient, result.data);
+    } catch (error) {
+        console.error("Failed to load patient medical problems", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load problems right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderProblemDetailTable(patient, problems)
+{
+    const tbody = document.getElementById("problemDetailTableBody");
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
+    if (!problems.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No medical problems recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = problems.map((problem) => {
+        const isActive = !problem.end_date;
+
+        return `
+        <tr>
+            <td>${escapeHtml(problem.title)}</td>
+            <td>${escapeHtml(problem.occurrence || "-")}</td>
+            <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
+            <td>${escapeHtml((problem.updated_at || problem.created_at || "").slice(0, 10))}</td>
+            <td class="table-actions">
+                ${canManage
+                    ? `<button class="btn-edit" data-edit-problem="${problem.id}">Edit</button>
+                       <button class="btn-danger" data-remove-problem="${problem.id}">Delete</button>`
+                    : ""}
+            </td>
+        </tr>
+    `;
+    }).join("");
+
+    if (!canManage) {
+        return;
+    }
+
+    tbody.querySelectorAll("[data-edit-problem]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const problem = problems.find((p) => String(p.id) === btn.getAttribute("data-edit-problem"));
+
+            if (problem) {
+                openProblemFormModal(problem);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-problem]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this problem record?")) {
+                return;
+            }
+
+            const result = await removePatientMedicalProblem(btn.getAttribute("data-remove-problem"));
+
+            if (!result.success) {
+                showAlert("problemDetailAlert", result.message || "Failed to remove problem.", "error");
+                return;
+            }
+
+            await loadProblemDetailTable(currentDashboardPatient);
+            await loadDashboardProblems(currentDashboardPatient);
+        });
+    });
+}
+
+async function openProblemFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("problemFormModalOverlay");
+    const title = document.getElementById("problemFormTitle");
+    const recordIdInput = document.getElementById("problem_record_id");
+    const catalogSelect = document.getElementById("problem_catalog_id");
+
+    document.getElementById("problemFormAlert").innerHTML = "";
+    document.getElementById("problemForm").reset();
+    document.getElementById("err-problem_title").textContent = "";
+
+    const moreToggle = document.getElementById("problemMoreToggle");
+    const moreFields = document.getElementById("problemMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    const catalogResult = await fetchMedicalProblems();
+    const catalog = catalogResult.success ? catalogResult.data : [];
+
+    catalogSelect.innerHTML = `<option value="">Custom / type your own...</option>` +
+        catalog.map((problem) => `<option value="${problem.id}">${escapeHtml(problem.name)}</option>`).join("");
+
+    if (existingRecord) {
+        title.textContent = "Edit Problem";
+        recordIdInput.value = existingRecord.id;
+        catalogSelect.value = existingRecord.problem_id ?? "";
+        catalogSelect.disabled = true;
+
+        PROBLEM_DETAIL_FIELDS.forEach((field) => {
+            document.getElementById(`problem_${field}`).value = existingRecord[field] ?? "";
+        });
+
+        const secondaryFields = ["coding", "occurrence", "outcome", "classification_type", "referred_by", "destination"];
+
+        if (secondaryFields.some((field) => existingRecord[field])) {
+            moreFields.hidden = false;
+            moreToggle.classList.add("expanded");
+            moreToggle.querySelector("span").textContent = "Hide More Fields";
+        }
+    } else {
+        title.textContent = "Add Problem";
+        recordIdInput.value = "";
+        catalogSelect.disabled = false;
+        document.getElementById("problem_verification_status").value = "Unconfirmed";
     }
 
     formOverlay.classList.add("open");

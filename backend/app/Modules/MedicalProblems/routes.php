@@ -6,7 +6,7 @@ use App\Modules\MedicalProblems\Controllers\MedicalProblemController;
 
 $router->get('/medical-problems', [MedicalProblemController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/medical-problems', [MedicalProblemController::class, 'register'], [

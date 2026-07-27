@@ -35,6 +35,7 @@ require_once __DIR__ . '/../app/Modules/OrganizationTypes/routes.php';
 require_once __DIR__ . '/../app/Modules/PosCodes/routes.php';
 require_once __DIR__ . '/../app/Modules/HealthRecords/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientAllergies/routes.php';
+require_once __DIR__ . '/../app/Modules/PatientMedicalProblems/routes.php';
 require_once __DIR__ . '/../app/Modules/Icd10Diagnoses/routes.php';
 require_once __DIR__ . '/../app/Modules/CqmValuesets/routes.php';
 // Future modules
