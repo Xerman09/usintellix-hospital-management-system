@@ -13,7 +13,9 @@ export function AddPatientView()
             <button type="button" class="modal-tab" data-tab="choices">Choices</button>
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
-            <button type="button" class="modal-tab" data-tab="emergency">Emergency Contact</button>
+            <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
+            <button type="button" class="modal-tab" data-tab="employer">Employer</button>
+            <button type="button" class="modal-tab" data-tab="misc">Misc</button>
         </div>
 
         <form id="addPatientForm">
@@ -248,29 +250,91 @@ export function AddPatientView()
                 </div>
             </div>
 
-            <div class="modal-tab-panel" data-panel="emergency">
+            <div class="modal-tab-panel" data-panel="related_persons">
+                <p class="form-subtitle">Save the patient first — you can add related persons afterward from the Edit Patient view.</p>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="employer">
                 <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Contact Name</label>
-                        <input id="emergency_contact_name" class="form-input" placeholder="Full name">
+                    <div class="form-group">
+                        <label>Occupation</label>
+                        <input id="employer_occupation" class="form-input" placeholder="Occupation (optional)">
                         <span class="form-error"></span>
                     </div>
 
                     <div class="form-group">
-                        <label>Relationship</label>
-                        <input id="emergency_relationship" class="form-input" placeholder="e.g Mother, Spouse">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Phone</label>
-                        <input id="emergency_phone" class="form-input" placeholder="09XXXXXXXXX">
+                        <label>Employer Name</label>
+                        <input id="employer_name" class="form-input" placeholder="Employer name (optional)">
                         <span class="form-error"></span>
                     </div>
 
                     <div class="form-group full">
-                        <label>Address</label>
-                        <input id="emergency_address" class="form-input" placeholder="Address (optional)">
+                        <label>Employer Address</label>
+                        <input id="employer_address_line" class="form-input" placeholder="Address line">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Employer Address Line 2</label>
+                        <input id="employer_address_line2" class="form-input" placeholder="Address line 2 (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="employer_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>State</label>
+                        <input id="employer_state" class="form-input" placeholder="State/Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input id="employer_postal_code" class="form-input" placeholder="Postal code">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="employer_country" class="form-input" placeholder="Country">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Industry</label>
+                        <input id="employer_industry" class="form-input" placeholder="Industry (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment Start Date</label>
+                        <input id="employer_employment_start_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment End Date</label>
+                        <input id="employer_employment_end_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="misc">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date Deceased</label>
+                        <input id="date_deceased" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Reason Deceased</label>
+                        <input id="reason_deceased" class="form-input" placeholder="Reason (optional)">
                         <span class="form-error"></span>
                     </div>
                 </div>

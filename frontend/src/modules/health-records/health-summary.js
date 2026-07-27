@@ -41,9 +41,6 @@ function renderAboutContact(d)
     const sex = d.sex ? d.sex.charAt(0).toUpperCase() + d.sex.slice(1) : "-";
     const civilStatus = d.civil_status ? d.civil_status.charAt(0).toUpperCase() + d.civil_status.slice(1) : "-";
     const address = [d.address_line, d.city, d.province, d.zip_code].filter(Boolean).join(", ") || "-";
-    const emergencyContact = d.emergency_contact_name
-        ? `${d.emergency_contact_name} (${d.emergency_relationship ?? "-"}) &mdash; ${d.emergency_phone ?? "-"}`
-        : "-";
 
     container.innerHTML = `
         <div>
@@ -68,7 +65,6 @@ function renderAboutContact(d)
                 <div class="form-group"><label>Home Phone</label><p>${d.home_phone ?? "-"}</p></div>
                 <div class="form-group"><label>Mobile Phone</label><p>${d.mobile_phone ?? "-"}</p></div>
                 <div class="form-group"><label>Work Phone</label><p>${d.work_phone ?? "-"}</p></div>
-                <div class="form-group full"><label>Emergency Contact</label><p>${emergencyContact}</p></div>
             </div>
         </div>
     `;

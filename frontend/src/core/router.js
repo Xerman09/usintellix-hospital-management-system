@@ -4,8 +4,8 @@ import { Dashboard } from "../modules/dashboard/dashboard.js?v=9";
 import { initLogin } from "../modules/auth/auth.js?v=2";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js";
 import { initAddEmployee } from "../modules/employees/add-employee.js";
-import { AddPatientView } from "../modules/patients/add-patient.view.js";
-import { initAddPatient } from "../modules/patients/add-patient.js";
+import { AddPatientView } from "../modules/patients/add-patient.view.js?v=2";
+import { initAddPatient } from "../modules/patients/add-patient.js?v=2";
 
 
 const app = document.getElementById("app");

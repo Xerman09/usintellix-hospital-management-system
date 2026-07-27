@@ -941,10 +941,9 @@ export function PatientsListView(user)
             <button type="button" class="modal-tab" data-tab="choices">Choices</button>
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
-            <button type="button" class="modal-tab" data-tab="emergency">Emergency Contact</button>
+            <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
             <button type="button" class="modal-tab" data-tab="employer">Employer</button>
             <button type="button" class="modal-tab" data-tab="misc">Misc</button>
-            <button type="button" class="modal-tab" data-tab="related">Related</button>
         </div>
 
         <form id="editPatientForm">
@@ -1169,31 +1168,27 @@ export function PatientsListView(user)
                 </div>
             </div>
 
-            <div class="modal-tab-panel" data-panel="emergency">
-                <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Contact Name</label>
-                        <input id="edit_emergency_contact_name" class="form-input" placeholder="Full name">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Relationship</label>
-                        <input id="edit_emergency_relationship" class="form-input" placeholder="e.g Mother, Spouse">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Phone</label>
-                        <input id="edit_emergency_phone" class="form-input" placeholder="09XXXXXXXXX">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group full">
-                        <label>Address</label>
-                        <input id="edit_emergency_address" class="form-input" placeholder="Address (optional)">
-                        <span class="form-error"></span>
-                    </div>
+            <div class="modal-tab-panel" data-panel="related_persons">
+                <div class="rp-toolbar">
+                    <span class="rp-count-text" id="relatedPersonsCountText">0 related persons</span>
+                    <button type="button" class="btn-edit" id="openAddRelatedPersonBtn">+ Add Related Person</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Relationship</th>
+                                <th>Role</th>
+                                <th>Priority</th>
+                                <th>Permissions</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="relatedPersonsTableBody">
+                            <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1283,85 +1278,6 @@ export function PatientsListView(user)
                 </div>
             </div>
 
-            <div class="modal-tab-panel" data-panel="related">
-                <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Guardian Name</label>
-                        <input id="edit_guardian_name" class="form-input" placeholder="Full name">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Relationship</label>
-                        <input id="edit_guardian_relationship" class="form-input" placeholder="e.g Parent, Guardian">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Sex</label>
-                        <select id="edit_guardian_sex" class="form-input">
-                            <option value="">Select sex</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                        </select>
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group full">
-                        <label>Address</label>
-                        <input id="edit_guardian_address" class="form-input" placeholder="Address (optional)">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>City</label>
-                        <input id="edit_guardian_city" class="form-input" placeholder="City">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>State</label>
-                        <input id="edit_guardian_state" class="form-input" placeholder="State/Province">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Postal Code</label>
-                        <input id="edit_guardian_postal_code" class="form-input" placeholder="Postal code">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Country</label>
-                        <input id="edit_guardian_country" class="form-input" placeholder="Country">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Phone</label>
-                        <input id="edit_guardian_phone" class="form-input" placeholder="Phone (optional)">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Work Phone</label>
-                        <input id="edit_guardian_work_phone" class="form-input" placeholder="Work phone (optional)">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group full">
-                        <label>Email</label>
-                        <input id="edit_guardian_email" type="email" class="form-input" placeholder="name@example.com">
-                        <span class="form-error"></span>
-                    </div>
-                </div>
-
-                <div style="margin-top: 18px;">
-                    <label style="font-weight: 600; font-size: 13px; color: #52627a;">Related Persons</label>
-                    <p class="form-subtitle" style="margin-top: 4px;">None recorded.</p>
-                </div>
-            </div>
-
             <div class="form-actions">
                 ${canDelete ? `<button type="button" class="btn-danger" id="deletePatientFromEdit">Delete Patient</button>` : ""}
                 <button type="button" class="btn-secondary" id="cancelEditPatient">Cancel</button>
@@ -1387,7 +1303,9 @@ ${canAdd ? `
             <button type="button" class="modal-tab" data-tab="choices">Choices</button>
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
-            <button type="button" class="modal-tab" data-tab="emergency">Emergency Contact</button>
+            <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
+            <button type="button" class="modal-tab" data-tab="employer">Employer</button>
+            <button type="button" class="modal-tab" data-tab="misc">Misc</button>
         </div>
 
         <form id="addPatientForm">
@@ -1622,29 +1540,91 @@ ${canAdd ? `
                 </div>
             </div>
 
-            <div class="modal-tab-panel" data-panel="emergency">
+            <div class="modal-tab-panel" data-panel="related_persons">
+                <p class="form-subtitle">Save the patient first — you can add related persons afterward from the Edit Patient view.</p>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="employer">
                 <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Contact Name</label>
-                        <input id="emergency_contact_name" class="form-input" placeholder="Full name">
+                    <div class="form-group">
+                        <label>Occupation</label>
+                        <input id="employer_occupation" class="form-input" placeholder="Occupation (optional)">
                         <span class="form-error"></span>
                     </div>
 
                     <div class="form-group">
-                        <label>Relationship</label>
-                        <input id="emergency_relationship" class="form-input" placeholder="e.g Mother, Spouse">
-                        <span class="form-error"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Phone</label>
-                        <input id="emergency_phone" class="form-input" placeholder="09XXXXXXXXX">
+                        <label>Employer Name</label>
+                        <input id="employer_name" class="form-input" placeholder="Employer name (optional)">
                         <span class="form-error"></span>
                     </div>
 
                     <div class="form-group full">
-                        <label>Address</label>
-                        <input id="emergency_address" class="form-input" placeholder="Address (optional)">
+                        <label>Employer Address</label>
+                        <input id="employer_address_line" class="form-input" placeholder="Address line">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Employer Address Line 2</label>
+                        <input id="employer_address_line2" class="form-input" placeholder="Address line 2 (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="employer_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>State</label>
+                        <input id="employer_state" class="form-input" placeholder="State/Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input id="employer_postal_code" class="form-input" placeholder="Postal code">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="employer_country" class="form-input" placeholder="Country">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Industry</label>
+                        <input id="employer_industry" class="form-input" placeholder="Industry (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment Start Date</label>
+                        <input id="employer_employment_start_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment End Date</label>
+                        <input id="employer_employment_end_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="misc">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date Deceased</label>
+                        <input id="date_deceased" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Reason Deceased</label>
+                        <input id="reason_deceased" class="form-input" placeholder="Reason (optional)">
                         <span class="form-error"></span>
                     </div>
                 </div>
@@ -1729,7 +1709,6 @@ ${canAdd ? `
                             <button type="button" class="pd-demo-tab" data-demo-tab="employer">Employer</button>
                             <button type="button" class="pd-demo-tab" data-demo-tab="stats">Stats</button>
                             <button type="button" class="pd-demo-tab" data-demo-tab="misc">Misc</button>
-                            <button type="button" class="pd-demo-tab" data-demo-tab="related">Related</button>
                         </div>
                         <div class="pd-widget-body" id="pdDemoPanels"></div>
                     </div>
@@ -1738,6 +1717,7 @@ ${canAdd ? `
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.", { bodyId: "pdMedicationsBody", addBtnId: "pdMedicationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.")}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.")}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.")}
@@ -2764,6 +2744,301 @@ ${canAdd ? `
             <button type="button" class="btn-secondary" id="cancelSelectCodes">Cancel</button>
             <button type="button" class="login-btn" id="confirmSelectCodes" disabled>Ok</button>
         </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="addRelatedPersonModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Add Related Person</h2>
+            <button type="button" class="modal-close" id="closeAddRelatedPersonModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Enter basic information. You'll add relationship details next.</p>
+
+        <div id="relatedPersonFormAlert"></div>
+
+        <form id="addRelatedPersonForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input id="rp_first_name" class="form-input" placeholder="First name">
+                    <span class="form-error" id="err-rp_first_name"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Middle Name</label>
+                    <input id="rp_middle_name" class="form-input" placeholder="Middle name (optional)">
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input id="rp_last_name" class="form-input" placeholder="Last name">
+                    <span class="form-error" id="err-rp_last_name"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input id="rp_phone" class="form-input" placeholder="09XXXXXXXXX">
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Date of Birth</label>
+                    <input id="rp_date_of_birth" type="date" class="form-input">
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Gender</label>
+                    <select id="rp_gender" class="form-input">
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="unknown">Unknown</option>
+                    </select>
+                    <span class="form-error"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Notes</label>
+                    <textarea id="rp_notes" class="form-input" placeholder="Notes (optional)"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelAddRelatedPerson">Cancel</button>
+                <button class="login-btn" type="submit">Next: Relationship Details</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="relatedPersonDetailModalOverlay">
+    <div class="modal-box rp-detail-box">
+        <div class="modal-header">
+            <h2 id="rpDetailTitle">Related Person</h2>
+            <button type="button" class="modal-close" id="closeRelatedPersonDetailModal">&times;</button>
+        </div>
+
+        <div id="rpDetailAlert"></div>
+
+        <form id="relatedPersonDetailForm">
+            <input type="hidden" id="rpd_id">
+
+            <h3 class="rp-section-title">Relationship Details</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Relationship</label>
+                    <input id="rpd_relationship" class="form-input" placeholder="e.g Mother, Spouse, Friend">
+                </div>
+
+                <div class="form-group">
+                    <label>Role</label>
+                    <input id="rpd_role" class="form-input" placeholder="e.g Caregiver, Next of Kin">
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Priority</label>
+                    <input id="rpd_contact_priority" type="number" min="1" class="form-input" placeholder="e.g 1">
+                </div>
+
+                <div class="form-group">
+                    <label>Relationship Start Date</label>
+                    <input id="rpd_relationship_start_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Relationship End Date</label>
+                    <input id="rpd_relationship_end_date" type="date" class="form-input">
+                </div>
+            </div>
+
+            <div class="rp-permissions">
+                <label class="rp-checkbox"><input type="checkbox" id="rpd_is_primary_contact"> Primary Contact</label>
+                <label class="rp-checkbox"><input type="checkbox" id="rpd_is_emergency_contact"> Emergency Contact</label>
+                <label class="rp-checkbox"><input type="checkbox" id="rpd_can_make_medical_decisions"> Medical Decisions</label>
+                <label class="rp-checkbox"><input type="checkbox" id="rpd_can_receive_medical_info"> Receive Medical Info</label>
+            </div>
+
+        <div class="rp-nested-section">
+            <div class="rp-nested-header">
+                <h3 class="rp-section-title">Telecom Contacts</h3>
+                <button type="button" class="btn-edit" id="rpToggleTelecomFormBtn">+ Telecom Contacts</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Type</th><th>Use</th><th>Value</th><th>Primary</th><th></th></tr>
+                    </thead>
+                    <tbody id="rpTelecomsTableBody">
+                        <tr><td colspan="5" class="table-empty">No telecom contacts yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="rp-inline-form" id="rpTelecomForm" hidden>
+                <input type="hidden" id="rpt_id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="rpt_type" class="form-input">
+                            <option value="">Select type</option>
+                            <option value="phone">Phone</option>
+                            <option value="fax">Fax</option>
+                            <option value="email">Email</option>
+                            <option value="sms">SMS</option>
+                            <option value="pager">Pager</option>
+                            <option value="url">URL</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Use</label>
+                        <select id="rpt_contact_use" class="form-input">
+                            <option value="">Select use</option>
+                            <option value="home">Home</option>
+                            <option value="work">Work</option>
+                            <option value="mobile">Mobile</option>
+                            <option value="temp">Temporary</option>
+                            <option value="old">Old</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Rank</label>
+                        <input id="rpt_rank_order" type="number" min="1" class="form-input" placeholder="e.g 1">
+                    </div>
+
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <label class="rp-checkbox rp-checkbox-inline"><input type="checkbox" id="rpt_is_primary"> Primary</label>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Value</label>
+                        <input id="rpt_value" class="form-input" placeholder="Phone number, email address, etc.">
+                        <span class="form-error" id="err-rpt_value"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Active From</label>
+                        <input id="rpt_active_from" type="date" class="form-input">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Notes</label>
+                        <input id="rpt_notes" class="form-input" placeholder="Notes (optional)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rp-nested-section">
+            <div class="rp-nested-header">
+                <h3 class="rp-section-title">Addresses</h3>
+                <button type="button" class="btn-edit" id="rpToggleAddressFormBtn">+ Addresses</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Use</th><th>Type</th><th>Address</th><th>City</th><th></th></tr>
+                    </thead>
+                    <tbody id="rpAddressesTableBody">
+                        <tr><td colspan="5" class="table-empty">No addresses yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="rp-inline-form" id="rpAddressForm" hidden>
+                <input type="hidden" id="rpa_id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Address Use</label>
+                        <select id="rpa_address_use" class="form-input">
+                            <option value="">Select use</option>
+                            <option value="home">Home</option>
+                            <option value="work">Work</option>
+                            <option value="temp">Temporary</option>
+                            <option value="old">Old</option>
+                            <option value="billing">Billing</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Address Type</label>
+                        <select id="rpa_address_type" class="form-input">
+                            <option value="">Select type</option>
+                            <option value="postal">Postal</option>
+                            <option value="physical">Physical</option>
+                            <option value="both">Both</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input id="rpa_start_date" type="date" class="form-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input id="rpa_end_date" type="date" class="form-input">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Address</label>
+                        <input id="rpa_address_line" class="form-input" placeholder="House/Unit No., Street, Barangay">
+                        <span class="form-error" id="err-rpa_address_line"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="rpa_city" class="form-input" placeholder="City">
+                    </div>
+
+                    <div class="form-group">
+                        <label>County/District</label>
+                        <input id="rpa_county_district" class="form-input" placeholder="County/District (optional)">
+                    </div>
+
+                    <div class="form-group">
+                        <label>State/Province</label>
+                        <input id="rpa_state_province" class="form-input" list="rpaProvinceDatalist" placeholder="State/Province" autocomplete="off">
+                        <datalist id="rpaProvinceDatalist"></datalist>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input id="rpa_postal_code" class="form-input" placeholder="e.g 4200">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="rpa_country" class="form-input" list="rpaCountryDatalist" placeholder="Country" autocomplete="off" value="Philippines">
+                        <datalist id="rpaCountryDatalist"></datalist>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <input id="rpa_priority" type="number" min="1" class="form-input" placeholder="e.g 1">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Notes</label>
+                        <input id="rpa_notes" class="form-input" placeholder="Notes (optional)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <div class="form-actions">
+                <button class="login-btn" type="submit">Save Details</button>
+            </div>
+        </form>
     </div>
 </div>
 `;

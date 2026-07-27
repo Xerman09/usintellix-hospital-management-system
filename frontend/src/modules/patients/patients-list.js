@@ -26,6 +26,12 @@ import {
     updatePatientPrescription,
     removePatientPrescription
 } from "../patient-prescriptions/patient-prescriptions.service.js";
+import {
+    fetchRelatedPersons, addRelatedPerson, updateRelatedPerson, removeRelatedPerson,
+    fetchTelecoms, addTelecom, updateTelecom, removeTelecom,
+    fetchAddresses, addAddress, updateAddress, removeAddress
+} from "../related-persons/related-persons.service.js";
+import { fetchCountries, fetchPhProvinces, isPhilippines } from "../related-persons/geography.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -55,6 +61,7 @@ const PRESCRIPTION_DETAIL_FIELDS = [
 ];
 
 let currentDashboardPatient = null;
+let currentEditPatient = null;
 let activeDemoTab = "who";
 
 const CODE_SOURCE_LABELS = {
@@ -85,7 +92,10 @@ const FIELDS = [
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
-    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address"
+    "employer_occupation", "employer_name", "employer_address_line", "employer_address_line2",
+    "employer_city", "employer_state", "employer_postal_code", "employer_country",
+    "employer_industry", "employer_employment_start_date", "employer_employment_end_date",
+    "date_deceased", "reason_deceased"
 ];
 
 const EDIT_FIELDS = [
@@ -95,14 +105,10 @@ const EDIT_FIELDS = [
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
-    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address",
     "employer_occupation", "employer_name", "employer_address_line", "employer_address_line2",
     "employer_city", "employer_state", "employer_postal_code", "employer_country",
     "employer_industry", "employer_employment_start_date", "employer_employment_end_date",
-    "date_deceased", "reason_deceased",
-    "guardian_name", "guardian_relationship", "guardian_sex", "guardian_address",
-    "guardian_city", "guardian_state", "guardian_postal_code", "guardian_country",
-    "guardian_phone", "guardian_work_phone", "guardian_email"
+    "date_deceased", "reason_deceased"
 ];
 
 let patientsCache = [];
@@ -131,6 +137,7 @@ export async function initPatientsList()
     setupProblemModals();
     setupMedicationModals();
     setupPrescriptionModals();
+    setupRelatedPersonModals();
     setupSelectCodesModal();
 
     if (user.role !== "doctor") {
@@ -164,6 +171,25 @@ function setupPatientDashboardModal()
                 renderDemographics(currentDashboardPatient);
             }
         });
+    });
+
+    // "Edit" on the Related Persons widget jumps straight into the Edit
+    // Patient modal's Related Persons tab, reusing that CRUD instead of
+    // duplicating it inside the (read-only) Patient Dashboard.
+    document.getElementById("pdRelatedPersonsAddBtn").addEventListener("click", () => {
+        if (!currentDashboardPatient) {
+            return;
+        }
+
+        closeModal();
+        openEditModal(currentDashboardPatient);
+
+        const editModalBox = document.getElementById("editPatientModalOverlay").querySelector(".modal-box");
+        const relatedPersonsTab = editModalBox.querySelector('.modal-tab[data-tab="related_persons"]');
+
+        if (relatedPersonsTab) {
+            relatedPersonsTab.click();
+        }
     });
 }
 
@@ -200,6 +226,52 @@ function openPatientDashboardModal(patient)
     loadDashboardProblems(patient);
     loadDashboardMedications(patient);
     loadDashboardPrescriptions(patient);
+    loadDashboardRelatedPersons(patient);
+}
+
+async function loadDashboardRelatedPersons(patient)
+{
+    const body = document.getElementById("pdRelatedPersonsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchRelatedPersons(patient.id);
+
+        renderDashboardRelatedPersons(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load related persons", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load related persons right now.</p></div>`;
+    }
+}
+
+function renderDashboardRelatedPersons(persons)
+{
+    const body = document.getElementById("pdRelatedPersonsBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = persons.length
+        ? `<div class="pd-allergy-list">
+            ${persons.map((person) => {
+                const fullName = [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(" ");
+                const relationship = person.relationship ? ` (${escapeHtml(person.relationship)})` : "";
+
+                return `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(fullName)}${relationship}</span>
+                </div>
+                `;
+            }).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
+            <p>No related persons recorded.</p>
+           </div>`;
 }
 
 function renderDemographics(patient)
@@ -242,11 +314,7 @@ function renderDemographics(patient)
             field("Home Phone", patient.contact_home_phone),
             field("Mobile Phone", patient.contact_mobile_phone),
             field("Work Phone", patient.contact_work_phone),
-            field("Contact Email", patient.contact_email),
-            field("Emergency Contact", patient.emergency_contact_name),
-            field("Emergency Relationship", patient.emergency_relationship),
-            field("Emergency Phone", patient.emergency_phone),
-            field("Emergency Address", patient.emergency_address)
+            field("Contact Email", patient.contact_email)
         ],
         choices: [
             field("Care Provider", providerName),
@@ -277,31 +345,12 @@ function renderDemographics(patient)
         misc: [
             field("Date Deceased", patient.date_deceased),
             field("Reason Deceased", patient.reason_deceased)
-        ],
-        related: [
-            field("Guardian Name", patient.guardian_name),
-            field("Relationship", patient.guardian_relationship),
-            field("Sex", patient.guardian_sex ? patient.guardian_sex.charAt(0).toUpperCase() + patient.guardian_sex.slice(1) : ""),
-            field("Address", patient.guardian_address),
-            field("City", patient.guardian_city),
-            field("State", patient.guardian_state),
-            field("Postal Code", patient.guardian_postal_code),
-            field("Country", patient.guardian_country),
-            field("Phone", patient.guardian_phone),
-            field("Work Phone", patient.guardian_work_phone),
-            field("Email", patient.guardian_email)
         ]
     };
 
     const rows = tabRows[activeDemoTab] || [];
-    const relatedPersonsNote = activeDemoTab === "related"
-        ? `<div style="margin-top: 14px;">
-                <span class="pd-demo-label">Related Persons</span>
-                <p class="pd-demo-value empty" style="margin-top: 4px;">None recorded.</p>
-           </div>`
-        : "";
 
-    panels.innerHTML = `<div class="pd-demo-grid">${rows.join("")}</div>${relatedPersonsNote}`;
+    panels.innerHTML = `<div class="pd-demo-grid">${rows.join("")}</div>`;
 }
 
 async function loadDashboardAllergies(patient)
@@ -1917,6 +1966,589 @@ async function setupEditPatientModal(user)
     });
 }
 
+let currentRelatedPersonPatientId = null;
+let relatedPersonsCache = [];
+let telecomsCache = [];
+let addressesCache = [];
+let geographyLoaded = false;
+
+function setupRelatedPersonModals()
+{
+    const addOverlay = document.getElementById("addRelatedPersonModalOverlay");
+    const addForm = document.getElementById("addRelatedPersonForm");
+    const detailOverlay = document.getElementById("relatedPersonDetailModalOverlay");
+    const detailForm = document.getElementById("relatedPersonDetailForm");
+
+    document.getElementById("openAddRelatedPersonBtn").addEventListener("click", () => {
+        if (!currentEditPatient) {
+            return;
+        }
+
+        addForm.reset();
+        document.getElementById("relatedPersonFormAlert").innerHTML = "";
+        clearRelatedPersonBasicErrors();
+        addOverlay.classList.add("open");
+    });
+
+    document.getElementById("closeAddRelatedPersonModal").addEventListener("click", closeAddRelatedPersonModal);
+    document.getElementById("cancelAddRelatedPerson").addEventListener("click", closeAddRelatedPersonModal);
+    addOverlay.addEventListener("click", (event) => {
+        if (event.target === addOverlay) {
+            closeAddRelatedPersonModal();
+        }
+    });
+
+    addForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        clearRelatedPersonBasicErrors();
+
+        const data = {
+            first_name: document.getElementById("rp_first_name").value.trim(),
+            middle_name: document.getElementById("rp_middle_name").value.trim(),
+            last_name: document.getElementById("rp_last_name").value.trim(),
+            phone: document.getElementById("rp_phone").value.trim(),
+            date_of_birth: document.getElementById("rp_date_of_birth").value,
+            gender: document.getElementById("rp_gender").value,
+            notes: document.getElementById("rp_notes").value.trim()
+        };
+
+        const result = await addRelatedPerson(currentEditPatient.id, data);
+
+        if (!result.success) {
+            showAlert("relatedPersonFormAlert", result.message || "Failed to add related person.", "error");
+
+            if (result.errors) {
+                Object.entries(result.errors).forEach(([field, message]) => {
+                    const errorEl = document.getElementById(`err-rp_${field}`);
+
+                    if (errorEl) {
+                        errorEl.textContent = message;
+                    }
+                });
+            }
+
+            return;
+        }
+
+        closeAddRelatedPersonModal();
+        await loadRelatedPersons(currentEditPatient.id);
+
+        const newPerson = relatedPersonsCache.find((p) => String(p.id) === String(result.data.id))
+            || { id: result.data.id, first_name: data.first_name, last_name: data.last_name };
+
+        await openRelatedPersonDetailModal(newPerson);
+    });
+
+    document.getElementById("closeRelatedPersonDetailModal").addEventListener("click", closeRelatedPersonDetailModal);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeRelatedPersonDetailModal();
+        }
+    });
+
+    detailForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const id = document.getElementById("rpd_id").value;
+
+        const data = {
+            relationship: document.getElementById("rpd_relationship").value.trim(),
+            role: document.getElementById("rpd_role").value.trim(),
+            contact_priority: document.getElementById("rpd_contact_priority").value,
+            relationship_start_date: document.getElementById("rpd_relationship_start_date").value,
+            relationship_end_date: document.getElementById("rpd_relationship_end_date").value,
+            is_primary_contact: document.getElementById("rpd_is_primary_contact").checked ? 1 : 0,
+            is_emergency_contact: document.getElementById("rpd_is_emergency_contact").checked ? 1 : 0,
+            can_make_medical_decisions: document.getElementById("rpd_can_make_medical_decisions").checked ? 1 : 0,
+            can_receive_medical_info: document.getElementById("rpd_can_receive_medical_info").checked ? 1 : 0
+        };
+
+        const result = await updateRelatedPerson(id, data);
+
+        if (!result.success) {
+            showAlert("rpDetailAlert", result.message || "Failed to save relationship details.", "error");
+            return;
+        }
+
+        // Also save an in-progress telecom/address entry if that inline
+        // form is open and actually has something filled in — an open but
+        // untouched form is left alone rather than erroring on save.
+        const telecomFormOpen = !document.getElementById("rpTelecomForm").hidden;
+        const addressFormOpen = !document.getElementById("rpAddressForm").hidden;
+
+        if (telecomFormOpen && document.getElementById("rpt_value").value.trim() !== "") {
+            const telecomResult = await saveTelecomFromForm(id);
+
+            if (!telecomResult.success) {
+                if (telecomResult.errors && telecomResult.errors.value) {
+                    document.getElementById("err-rpt_value").textContent = telecomResult.errors.value;
+                }
+
+                showAlert("rpDetailAlert", telecomResult.message || "Relationship details saved, but the telecom contact failed to save.", "error");
+                await loadRelatedPersons(currentRelatedPersonPatientId);
+                return;
+            }
+
+            hideTelecomForm();
+            await loadTelecomsTable(id);
+        }
+
+        if (addressFormOpen && document.getElementById("rpa_address_line").value.trim() !== "") {
+            const addressResult = await saveAddressFromForm(id);
+
+            if (!addressResult.success) {
+                if (addressResult.errors && addressResult.errors.address_line) {
+                    document.getElementById("err-rpa_address_line").textContent = addressResult.errors.address_line;
+                }
+
+                showAlert("rpDetailAlert", addressResult.message || "Relationship details saved, but the address failed to save.", "error");
+                await loadRelatedPersons(currentRelatedPersonPatientId);
+                return;
+            }
+
+            hideAddressForm();
+            await loadAddressesTable(id);
+        }
+
+        showAlert("rpDetailAlert", "Details saved.", "success");
+        await loadRelatedPersons(currentRelatedPersonPatientId);
+    });
+
+    setupTelecomInlineForm();
+    setupAddressInlineForm();
+}
+
+function closeAddRelatedPersonModal()
+{
+    document.getElementById("addRelatedPersonModalOverlay").classList.remove("open");
+    document.getElementById("addRelatedPersonForm").reset();
+}
+
+function closeRelatedPersonDetailModal()
+{
+    document.getElementById("relatedPersonDetailModalOverlay").classList.remove("open");
+    hideTelecomForm();
+    hideAddressForm();
+}
+
+function clearRelatedPersonBasicErrors()
+{
+    ["first_name", "last_name"].forEach((field) => {
+        const el = document.getElementById(`err-rp_${field}`);
+
+        if (el) {
+            el.textContent = "";
+        }
+    });
+}
+
+async function loadRelatedPersons(patientId)
+{
+    currentRelatedPersonPatientId = patientId;
+
+    const result = await fetchRelatedPersons(patientId);
+
+    relatedPersonsCache = result.success ? result.data : [];
+
+    renderRelatedPersonsTable();
+}
+
+function renderRelatedPersonsTable()
+{
+    const tbody = document.getElementById("relatedPersonsTableBody");
+    const countText = document.getElementById("relatedPersonsCountText");
+
+    countText.textContent = `${relatedPersonsCache.length} ${relatedPersonsCache.length === 1 ? "related person" : "related persons"}`;
+
+    if (!relatedPersonsCache.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No related persons recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = relatedPersonsCache.map((person) => {
+        const fullName = [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(" ");
+
+        const tags = [];
+
+        if (Number(person.is_primary_contact)) tags.push("Primary");
+        if (Number(person.is_emergency_contact)) tags.push("Emergency");
+        if (Number(person.can_make_medical_decisions)) tags.push("Medical Decisions");
+        if (Number(person.can_receive_medical_info)) tags.push("Receives Info");
+
+        return `
+        <tr>
+            <td>${escapeHtml(fullName)}</td>
+            <td>${escapeHtml(person.relationship || "-")}</td>
+            <td>${escapeHtml(person.role || "-")}</td>
+            <td>${person.contact_priority ?? "-"}</td>
+            <td>
+                <div class="rp-permission-tags">
+                    ${tags.length ? tags.map((t) => `<span class="rp-permission-tag">${t}</span>`).join("") : "-"}
+                </div>
+            </td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn-edit" data-edit-rp="${person.id}">Edit</button>
+                    <button class="btn-danger" data-remove-rp="${person.id}">Delete</button>
+                </div>
+            </td>
+        </tr>
+        `;
+    }).join("");
+
+    tbody.querySelectorAll("[data-edit-rp]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const person = relatedPersonsCache.find((p) => String(p.id) === btn.getAttribute("data-edit-rp"));
+
+            if (person) {
+                openRelatedPersonDetailModal(person);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-rp]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this related person?")) {
+                return;
+            }
+
+            const result = await removeRelatedPerson(btn.getAttribute("data-remove-rp"));
+
+            if (!result.success) {
+                showListAlert(result.message || "Failed to remove related person.", "error");
+                return;
+            }
+
+            await loadRelatedPersons(currentRelatedPersonPatientId);
+        });
+    });
+}
+
+async function openRelatedPersonDetailModal(person)
+{
+    document.getElementById("rpDetailAlert").innerHTML = "";
+    document.getElementById("rpd_id").value = person.id;
+    document.getElementById("rpDetailTitle").textContent =
+        [person.first_name, person.last_name].filter(Boolean).join(" ") || "Related Person";
+
+    document.getElementById("rpd_relationship").value = person.relationship ?? "";
+    document.getElementById("rpd_role").value = person.role ?? "";
+    document.getElementById("rpd_contact_priority").value = person.contact_priority ?? "";
+    document.getElementById("rpd_relationship_start_date").value = person.relationship_start_date ?? "";
+    document.getElementById("rpd_relationship_end_date").value = person.relationship_end_date ?? "";
+    document.getElementById("rpd_is_primary_contact").checked = Boolean(Number(person.is_primary_contact));
+    document.getElementById("rpd_is_emergency_contact").checked = Boolean(Number(person.is_emergency_contact));
+    document.getElementById("rpd_can_make_medical_decisions").checked = Boolean(Number(person.can_make_medical_decisions));
+    document.getElementById("rpd_can_receive_medical_info").checked = Boolean(Number(person.can_receive_medical_info));
+
+    hideTelecomForm();
+    hideAddressForm();
+
+    document.getElementById("relatedPersonDetailModalOverlay").classList.add("open");
+
+    await Promise.all([
+        loadTelecomsTable(person.id),
+        loadAddressesTable(person.id)
+    ]);
+}
+
+
+// ---- Telecom Contacts (nested under a related person) ----
+
+function setupTelecomInlineForm()
+{
+    const formBox = document.getElementById("rpTelecomForm");
+
+    document.getElementById("rpToggleTelecomFormBtn").addEventListener("click", () => {
+        if (formBox.hidden) {
+            openTelecomForm(null);
+        } else {
+            hideTelecomForm();
+        }
+    });
+
+}
+
+/**
+ * Save whatever is currently in the telecom inline form. Shared by its own
+ * Save button and by the main "Save Details" submit so one click can save
+ * relationship details + an in-progress telecom entry together.
+ */
+async function saveTelecomFromForm(relatedPersonId)
+{
+    document.getElementById("err-rpt_value").textContent = "";
+
+    const id = document.getElementById("rpt_id").value;
+
+    const data = {
+        type: document.getElementById("rpt_type").value,
+        contact_use: document.getElementById("rpt_contact_use").value,
+        rank_order: document.getElementById("rpt_rank_order").value,
+        is_primary: document.getElementById("rpt_is_primary").checked ? 1 : 0,
+        value: document.getElementById("rpt_value").value.trim(),
+        active_from: document.getElementById("rpt_active_from").value,
+        notes: document.getElementById("rpt_notes").value.trim()
+    };
+
+    return id
+        ? await updateTelecom(id, data)
+        : await addTelecom(relatedPersonId, data);
+}
+
+function openTelecomForm(existing)
+{
+    const formBox = document.getElementById("rpTelecomForm");
+
+    document.getElementById("rpt_id").value = existing?.id ?? "";
+    document.getElementById("rpt_type").value = existing?.type ?? "";
+    document.getElementById("rpt_contact_use").value = existing?.contact_use ?? "";
+    document.getElementById("rpt_rank_order").value = existing?.rank_order ?? "";
+    document.getElementById("rpt_is_primary").checked = Boolean(Number(existing?.is_primary));
+    document.getElementById("rpt_value").value = existing?.value ?? "";
+    document.getElementById("rpt_active_from").value = existing?.active_from ?? "";
+    document.getElementById("rpt_notes").value = existing?.notes ?? "";
+    document.getElementById("err-rpt_value").textContent = "";
+
+    formBox.hidden = false;
+}
+
+function hideTelecomForm()
+{
+    document.getElementById("rpTelecomForm").hidden = true;
+}
+
+async function loadTelecomsTable(relatedPersonId)
+{
+    const result = await fetchTelecoms(relatedPersonId);
+
+    telecomsCache = result.success ? result.data : [];
+
+    renderTelecomsTable();
+}
+
+function renderTelecomsTable()
+{
+    const tbody = document.getElementById("rpTelecomsTableBody");
+
+    if (!telecomsCache.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No telecom contacts yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = telecomsCache.map((t) => `
+        <tr>
+            <td>${escapeHtml(t.type || "-")}</td>
+            <td>${escapeHtml(t.contact_use || "-")}</td>
+            <td>${escapeHtml(t.value)}</td>
+            <td>${Number(t.is_primary) ? "Yes" : "No"}</td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn-edit" data-edit-telecom="${t.id}">Edit</button>
+                    <button class="btn-danger" data-remove-telecom="${t.id}">Delete</button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-edit-telecom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const t = telecomsCache.find((entry) => String(entry.id) === btn.getAttribute("data-edit-telecom"));
+
+            if (t) {
+                openTelecomForm(t);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-telecom]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this telecom contact?")) {
+                return;
+            }
+
+            const result = await removeTelecom(btn.getAttribute("data-remove-telecom"));
+
+            if (!result.success) {
+                showAlert("rpDetailAlert", result.message || "Failed to remove telecom contact.", "error");
+                return;
+            }
+
+            await loadTelecomsTable(document.getElementById("rpd_id").value);
+        });
+    });
+}
+
+
+// ---- Addresses (nested under a related person) ----
+
+function setupAddressInlineForm()
+{
+    const formBox = document.getElementById("rpAddressForm");
+
+    document.getElementById("rpToggleAddressFormBtn").addEventListener("click", () => {
+        if (formBox.hidden) {
+            openAddressForm(null);
+        } else {
+            hideAddressForm();
+        }
+    });
+
+    document.getElementById("rpa_country").addEventListener("input", updateProvinceOptionsForCountry);
+}
+
+/**
+ * Save whatever is currently in the address inline form. Shared by its own
+ * Save button and by the main "Save Details" submit so one click can save
+ * relationship details + an in-progress address together.
+ */
+async function saveAddressFromForm(relatedPersonId)
+{
+    document.getElementById("err-rpa_address_line").textContent = "";
+
+    const id = document.getElementById("rpa_id").value;
+
+    const data = {
+        address_use: document.getElementById("rpa_address_use").value,
+        address_type: document.getElementById("rpa_address_type").value,
+        start_date: document.getElementById("rpa_start_date").value,
+        end_date: document.getElementById("rpa_end_date").value,
+        address_line: document.getElementById("rpa_address_line").value.trim(),
+        city: document.getElementById("rpa_city").value.trim(),
+        county_district: document.getElementById("rpa_county_district").value.trim(),
+        state_province: document.getElementById("rpa_state_province").value.trim(),
+        postal_code: document.getElementById("rpa_postal_code").value.trim(),
+        country: document.getElementById("rpa_country").value.trim(),
+        priority: document.getElementById("rpa_priority").value,
+        notes: document.getElementById("rpa_notes").value.trim()
+    };
+
+    return id
+        ? await updateAddress(id, data)
+        : await addAddress(relatedPersonId, data);
+}
+
+async function openAddressForm(existing)
+{
+    const formBox = document.getElementById("rpAddressForm");
+
+    document.getElementById("rpa_id").value = existing?.id ?? "";
+    document.getElementById("rpa_address_use").value = existing?.address_use ?? "";
+    document.getElementById("rpa_address_type").value = existing?.address_type ?? "";
+    document.getElementById("rpa_start_date").value = existing?.start_date ?? "";
+    document.getElementById("rpa_end_date").value = existing?.end_date ?? "";
+    document.getElementById("rpa_address_line").value = existing?.address_line ?? "";
+    document.getElementById("rpa_city").value = existing?.city ?? "";
+    document.getElementById("rpa_county_district").value = existing?.county_district ?? "";
+    document.getElementById("rpa_state_province").value = existing?.state_province ?? "";
+    document.getElementById("rpa_postal_code").value = existing?.postal_code ?? "";
+    document.getElementById("rpa_country").value = existing?.country ?? "Philippines";
+    document.getElementById("rpa_priority").value = existing?.priority ?? "";
+    document.getElementById("rpa_notes").value = existing?.notes ?? "";
+    document.getElementById("err-rpa_address_line").textContent = "";
+
+    formBox.hidden = false;
+
+    await loadGeographyOptions();
+    await updateProvinceOptionsForCountry();
+}
+
+function hideAddressForm()
+{
+    document.getElementById("rpAddressForm").hidden = true;
+}
+
+async function loadGeographyOptions()
+{
+    if (geographyLoaded) {
+        return;
+    }
+
+    const countries = await fetchCountries();
+    const countryDatalist = document.getElementById("rpaCountryDatalist");
+
+    countryDatalist.innerHTML = countries.map((c) => `<option value="${escapeHtml(c)}"></option>`).join("");
+
+    geographyLoaded = true;
+}
+
+async function updateProvinceOptionsForCountry()
+{
+    const countryValue = document.getElementById("rpa_country").value;
+    const provinceDatalist = document.getElementById("rpaProvinceDatalist");
+
+    if (!isPhilippines(countryValue)) {
+        provinceDatalist.innerHTML = "";
+        return;
+    }
+
+    const provinces = await fetchPhProvinces();
+
+    provinceDatalist.innerHTML = provinces.map((p) => `<option value="${escapeHtml(p)}"></option>`).join("");
+}
+
+async function loadAddressesTable(relatedPersonId)
+{
+    const result = await fetchAddresses(relatedPersonId);
+
+    addressesCache = result.success ? result.data : [];
+
+    renderAddressesTable();
+}
+
+function renderAddressesTable()
+{
+    const tbody = document.getElementById("rpAddressesTableBody");
+
+    if (!addressesCache.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No addresses yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = addressesCache.map((a) => `
+        <tr>
+            <td>${escapeHtml(a.address_use || "-")}</td>
+            <td>${escapeHtml(a.address_type || "-")}</td>
+            <td>${escapeHtml(a.address_line || "-")}</td>
+            <td>${escapeHtml(a.city || "-")}</td>
+            <td>
+                <div class="table-actions">
+                    <button class="btn-edit" data-edit-address="${a.id}">Edit</button>
+                    <button class="btn-danger" data-remove-address="${a.id}">Delete</button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-edit-address]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const a = addressesCache.find((entry) => String(entry.id) === btn.getAttribute("data-edit-address"));
+
+            if (a) {
+                openAddressForm(a);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-address]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this address?")) {
+                return;
+            }
+
+            const result = await removeAddress(btn.getAttribute("data-remove-address"));
+
+            if (!result.success) {
+                showAlert("rpDetailAlert", result.message || "Failed to remove address.", "error");
+                return;
+            }
+
+            await loadAddressesTable(document.getElementById("rpd_id").value);
+        });
+    });
+}
+
+
 function openEditModal(patient)
 {
     const modalOverlay = document.getElementById("editPatientModalOverlay");
@@ -1954,10 +2586,8 @@ function openEditModal(patient)
     document.getElementById("edit_work_phone").value = patient.contact_work_phone ?? "";
     document.getElementById("edit_contact_email").value = patient.contact_email ?? "";
 
-    document.getElementById("edit_emergency_contact_name").value = patient.emergency_contact_name ?? "";
-    document.getElementById("edit_emergency_relationship").value = patient.emergency_relationship ?? "";
-    document.getElementById("edit_emergency_phone").value = patient.emergency_phone ?? "";
-    document.getElementById("edit_emergency_address").value = patient.emergency_address ?? "";
+    currentEditPatient = patient;
+    loadRelatedPersons(patient.id);
 
     document.getElementById("edit_employer_occupation").value = patient.employer_occupation ?? "";
     document.getElementById("edit_employer_name").value = patient.employer_name ?? "";
@@ -1973,18 +2603,6 @@ function openEditModal(patient)
 
     document.getElementById("edit_date_deceased").value = patient.date_deceased ?? "";
     document.getElementById("edit_reason_deceased").value = patient.reason_deceased ?? "";
-
-    document.getElementById("edit_guardian_name").value = patient.guardian_name ?? "";
-    document.getElementById("edit_guardian_relationship").value = patient.guardian_relationship ?? "";
-    document.getElementById("edit_guardian_sex").value = patient.guardian_sex ?? "";
-    document.getElementById("edit_guardian_address").value = patient.guardian_address ?? "";
-    document.getElementById("edit_guardian_city").value = patient.guardian_city ?? "";
-    document.getElementById("edit_guardian_state").value = patient.guardian_state ?? "";
-    document.getElementById("edit_guardian_postal_code").value = patient.guardian_postal_code ?? "";
-    document.getElementById("edit_guardian_country").value = patient.guardian_country ?? "";
-    document.getElementById("edit_guardian_phone").value = patient.guardian_phone ?? "";
-    document.getElementById("edit_guardian_work_phone").value = patient.guardian_work_phone ?? "";
-    document.getElementById("edit_guardian_email").value = patient.guardian_email ?? "";
 
     modalOverlay.classList.add("open");
 }

@@ -5,7 +5,6 @@ namespace App\Modules\Patients\Services;
 use App\Core\Database;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Models\PatientContact;
-use App\Modules\Patients\Models\PatientEmergencyContact;
 use App\Modules\Patients\Models\PatientEmployer;
 use App\Modules\Patients\Models\PatientGuardian;
 use App\Modules\Providers\Models\Provider;
@@ -32,10 +31,6 @@ class PatientService
                     pc.mobile_phone AS contact_mobile_phone,
                     pc.work_phone AS contact_work_phone,
                     pc.email AS contact_email,
-                    pec.contact_name AS emergency_contact_name,
-                    pec.relationship AS emergency_relationship,
-                    pec.phone AS emergency_phone,
-                    pec.address AS emergency_address,
                     pemp.occupation AS employer_occupation,
                     pemp.employer_name AS employer_name,
                     pemp.address_line AS employer_address_line,
@@ -62,7 +57,6 @@ class PatientService
              LEFT JOIN providers pr ON pr.id = p.provider_id
              LEFT JOIN employees pe ON pe.id = pr.employee_id
              LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
-             LEFT JOIN patient_emergency_contacts pec ON pec.patient_id = p.id
              LEFT JOIN patient_employers pemp ON pemp.patient_id = p.id
              LEFT JOIN patient_guardians pg ON pg.patient_id = p.id
              WHERE p.deleted_at IS NULL";
@@ -169,7 +163,6 @@ class PatientService
         ], $id);
 
         $this->upsertContact($id, $data, $updatedBy);
-        $this->upsertEmergencyContact($id, $data, $updatedBy);
         $this->upsertEmployer($id, $data, $updatedBy);
         $this->upsertGuardian($id, $data, $updatedBy);
 
@@ -210,35 +203,6 @@ class PatientService
         $payload['created_by'] = $userId;
 
         (new PatientContact())->create($payload);
-    }
-
-    /**
-     * Create or update a patient's emergency contact / guardian record.
-     */
-    private function upsertEmergencyContact(int $patientId, array $data, int $userId): void
-    {
-        $existing = (new PatientEmergencyContact())->where('patient_id', $patientId)->first();
-
-        $payload = [
-            'contact_name' => $data['emergency_contact_name'] ?? null,
-            'relationship' => $data['emergency_relationship'] ?? null,
-            'phone'        => $data['emergency_phone'] ?? null,
-            'address'      => $data['emergency_address'] ?? null
-        ];
-
-        if ($existing) {
-            $payload['updated_at'] = date('Y-m-d H:i:s');
-            $payload['updated_by'] = $userId;
-
-            (new PatientEmergencyContact())->where('patient_id', $patientId)->update($payload);
-            return;
-        }
-
-        $payload['patient_id'] = $patientId;
-        $payload['created_at'] = date('Y-m-d H:i:s');
-        $payload['created_by'] = $userId;
-
-        (new PatientEmergencyContact())->create($payload);
     }
 
     /**
@@ -367,6 +331,8 @@ class PatientService
                 'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
                 'height'       => $data['height'],
                 'weight'       => $data['weight'],
+                'date_deceased'   => $data['date_deceased'] ?? null,
+                'reason_deceased' => $data['reason_deceased'] ?? null,
                 'created_at'   => date('Y-m-d H:i:s'),
                 'created_by'   => $createdBy
             ]);
@@ -376,7 +342,6 @@ class PatientService
             }
 
             $this->upsertContact($patientId, $data, $createdBy);
-            $this->upsertEmergencyContact($patientId, $data, $createdBy);
             $this->upsertEmployer($patientId, $data, $createdBy);
             $this->upsertGuardian($patientId, $data, $createdBy);
 

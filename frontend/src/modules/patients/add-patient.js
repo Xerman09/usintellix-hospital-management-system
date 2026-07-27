@@ -11,7 +11,10 @@ const FIELDS = [
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
-    "emergency_contact_name", "emergency_relationship", "emergency_phone", "emergency_address"
+    "employer_occupation", "employer_name", "employer_address_line", "employer_address_line2",
+    "employer_city", "employer_state", "employer_postal_code", "employer_country",
+    "employer_industry", "employer_employment_start_date", "employer_employment_end_date",
+    "date_deceased", "reason_deceased"
 ];
 
 export async function initAddPatient()

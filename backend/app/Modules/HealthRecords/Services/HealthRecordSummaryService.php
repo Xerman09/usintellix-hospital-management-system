@@ -54,11 +54,7 @@ class HealthRecordSummaryService
                 'home_phone'   => $patient['contact_home_phone'],
                 'mobile_phone' => $patient['contact_mobile_phone'],
                 'work_phone'   => $patient['contact_work_phone'],
-                'email'        => $patient['contact_email'],
-                'emergency_contact_name' => $patient['emergency_contact_name'],
-                'emergency_relationship' => $patient['emergency_relationship'],
-                'emergency_phone'        => $patient['emergency_phone'],
-                'emergency_address'      => $patient['emergency_address']
+                'email'        => $patient['contact_email']
             ],
             'care_provider' => $patient['provider_id'] ? [
                 'first_name'      => $patient['provider_first_name'],
@@ -104,7 +100,7 @@ class HealthRecordSummaryService
     }
 
     /**
-     * Fetch a single patient with contact, emergency contact, and care provider details.
+     * Fetch a single patient with contact and care provider details.
      */
     public function fetchPatient(int $patientId): ?array
     {
@@ -131,17 +127,12 @@ class HealthRecordSummaryService
                     pc.home_phone AS contact_home_phone,
                     pc.mobile_phone AS contact_mobile_phone,
                     pc.work_phone AS contact_work_phone,
-                    pc.email AS contact_email,
-                    pec.contact_name AS emergency_contact_name,
-                    pec.relationship AS emergency_relationship,
-                    pec.phone AS emergency_phone,
-                    pec.address AS emergency_address
+                    pc.email AS contact_email
              FROM patients p
              LEFT JOIN providers pr ON pr.id = p.provider_id
              LEFT JOIN employees pe ON pe.id = pr.employee_id
              LEFT JOIN departments d ON d.id = pe.department_id
              LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
-             LEFT JOIN patient_emergency_contacts pec ON pec.patient_id = p.id
              WHERE {$column} = :value AND p.deleted_at IS NULL"
         );
 

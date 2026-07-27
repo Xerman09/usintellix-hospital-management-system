@@ -40,6 +40,8 @@ require_once __DIR__ . '/../app/Modules/PatientMedications/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientPrescriptions/routes.php';
 require_once __DIR__ . '/../app/Modules/Icd10Diagnoses/routes.php';
 require_once __DIR__ . '/../app/Modules/CqmValuesets/routes.php';
+require_once __DIR__ . '/../app/Modules/Messaging/routes.php';
+require_once __DIR__ . '/../app/Modules/RelatedPersons/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 
