@@ -5,6 +5,8 @@ import { DashboardHomeView } from "./dashboard-home.view.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
+import { RoleManagementView } from "../role-management/role-management.view.js";
+import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=6";
 import { initPatientsList } from "../patients/patients-list.js?v=6";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -108,6 +110,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initAddEmployee, 0);
                     return AddEmployeeView();
+                });
+            } else if (tabId === 'role_management') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initRoleManagement, 0);
+                    return RoleManagementView();
                 });
             } else if (tabId === 'providers') {
                 tabManager.openTab(tabId, title, () => {
