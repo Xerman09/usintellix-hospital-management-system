@@ -32,6 +32,7 @@ import {
     fetchAddresses, addAddress, updateAddress, removeAddress
 } from "../related-persons/related-persons.service.js";
 import { fetchCountries, fetchPhProvinces, isPhilippines } from "../related-persons/geography.service.js";
+import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure } from "../disclosures/disclosures.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -137,6 +138,7 @@ export async function initPatientsList()
     setupProblemModals();
     setupMedicationModals();
     setupPrescriptionModals();
+    setupDisclosureModals();
     setupRelatedPersonModals();
     setupSelectCodesModal();
 
@@ -300,6 +302,47 @@ function openPatientDashboardModal(patient)
     loadDashboardMedications(patient);
     loadDashboardPrescriptions(patient);
     loadDashboardRelatedPersons(patient);
+    loadDashboardDisclosures(patient);
+}
+
+async function loadDashboardDisclosures(patient)
+{
+    const body = document.getElementById("pdDisclosuresBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientDisclosures(patient.id);
+
+        renderDashboardDisclosures(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load disclosures", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load disclosures right now.</p></div>`;
+    }
+}
+
+function renderDashboardDisclosures(disclosures)
+{
+    const body = document.getElementById("pdDisclosuresBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = disclosures.length
+        ? `<div class="pd-allergy-list">
+            ${disclosures.map((disclosure) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(disclosure.recipient)}${disclosure.disclosure_type ? ` &middot; ${escapeHtml(disclosure.disclosure_type)}` : ""}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path></svg>
+            <p>No disclosures recorded for this patient.</p>
+           </div>`;
 }
 
 async function loadDashboardRelatedPersons(patient)
@@ -1800,6 +1843,180 @@ async function openPrescriptionFormModal(existingRecord)
         catalogSelect.disabled = false;
         document.getElementById("prescription_verification_status").value = "Unconfirmed";
         document.getElementById("prescription_substitution_allowed_yes").checked = true;
+    }
+
+    formOverlay.classList.add("open");
+}
+
+const DISCLOSURE_DETAIL_FIELDS = ["disclosure_date", "disclosure_type", "recipient", "description"];
+
+function setupDisclosureModals()
+{
+    const detailOverlay = document.getElementById("disclosureDetailModalOverlay");
+    const formOverlay = document.getElementById("disclosureFormModalOverlay");
+    const form = document.getElementById("disclosureForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdDisclosuresAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openDisclosureDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeDisclosureDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("openAddDisclosureBtn").addEventListener("click", () => {
+        openDisclosureFormModal(null);
+    });
+
+    document.getElementById("closeDisclosureFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelDisclosureForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("disclosure_record_id").value;
+        const errEl = document.getElementById("err-disclosure_recipient");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        DISCLOSURE_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`disclosure_${field}`).value.trim();
+        });
+
+        if (!details.recipient) {
+            errEl.textContent = "Recipient is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updateDisclosure(recordId, details)
+            : await addDisclosure(currentDashboardPatient.id, details);
+
+        if (!result.success) {
+            showAlert("disclosureFormAlert", result.message || "Failed to save disclosure.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadDisclosureDetailTable(currentDashboardPatient);
+        await loadDashboardDisclosures(currentDashboardPatient);
+    });
+}
+
+async function openDisclosureDetailModal(patient)
+{
+    document.getElementById("disclosureDetailAlert").innerHTML = "";
+    document.getElementById("disclosureDetailModalOverlay").classList.add("open");
+
+    await loadDisclosureDetailTable(patient);
+}
+
+async function loadDisclosureDetailTable(patient)
+{
+    const tbody = document.getElementById("disclosureDetailTableBody");
+
+    try {
+        const result = await fetchPatientDisclosures(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load disclosures.")}</td></tr>`;
+            return;
+        }
+
+        renderDisclosureDetailTable(result.data);
+    } catch (error) {
+        console.error("Failed to load patient disclosures", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load disclosures right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderDisclosureDetailTable(disclosures)
+{
+    const tbody = document.getElementById("disclosureDetailTableBody");
+
+    if (!disclosures.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No disclosures recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = disclosures.map((disclosure) => `
+        <tr>
+            <td>${escapeHtml((disclosure.disclosure_date || "").slice(0, 10) || "-")}</td>
+            <td>${escapeHtml(disclosure.disclosure_type || "-")}</td>
+            <td>${escapeHtml(disclosure.recipient)}</td>
+            <td>${escapeHtml(disclosure.provider_name || "-")}</td>
+            <td class="table-actions">
+                <button class="btn-edit" data-edit-disclosure="${disclosure.id}">Edit</button>
+                <button class="btn-danger" data-remove-disclosure="${disclosure.id}">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-edit-disclosure]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const disclosure = disclosures.find((d) => String(d.id) === btn.getAttribute("data-edit-disclosure"));
+
+            if (disclosure) {
+                openDisclosureFormModal(disclosure);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-disclosure]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this disclosure record?")) {
+                return;
+            }
+
+            const result = await removeDisclosure(btn.getAttribute("data-remove-disclosure"));
+
+            if (!result.success) {
+                showAlert("disclosureDetailAlert", result.message || "Failed to remove disclosure.", "error");
+                return;
+            }
+
+            await loadDisclosureDetailTable(currentDashboardPatient);
+            await loadDashboardDisclosures(currentDashboardPatient);
+        });
+    });
+}
+
+function openDisclosureFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("disclosureFormModalOverlay");
+    const title = document.getElementById("disclosureFormTitle");
+    const recordIdInput = document.getElementById("disclosure_record_id");
+
+    document.getElementById("disclosureFormAlert").innerHTML = "";
+    document.getElementById("disclosureForm").reset();
+    document.getElementById("err-disclosure_recipient").textContent = "";
+
+    if (existingRecord) {
+        title.textContent = "Edit Disclosure";
+        recordIdInput.value = existingRecord.id;
+        document.getElementById("disclosure_disclosure_date").value = (existingRecord.disclosure_date || "").slice(0, 10);
+        document.getElementById("disclosure_disclosure_type").value = existingRecord.disclosure_type || "Treatment";
+        document.getElementById("disclosure_recipient").value = existingRecord.recipient || "";
+        document.getElementById("disclosure_description").value = existingRecord.description || "";
+    } else {
+        title.textContent = "Record Disclosure";
+        recordIdInput.value = "";
+        document.getElementById("disclosure_disclosure_type").value = "Treatment";
     }
 
     formOverlay.classList.add("open");

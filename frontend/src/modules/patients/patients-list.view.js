@@ -1882,6 +1882,7 @@ ${canAdd ? `
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.")}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.")}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { widgetId: "pdWidget-documents" })}
+                    ${dashboardWidget("Disclosures", '<path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path>', "No disclosures recorded for this patient.", { bodyId: "pdDisclosuresBody", addBtnId: "pdDisclosuresAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                 </div>
 
                 <div class="pd-chart-placeholder" id="pdChartPlaceholder" style="display: none;">
@@ -2613,6 +2614,89 @@ ${canAdd ? `
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelPrescriptionForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="disclosureDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Disclosures</h2>
+            <button type="button" class="modal-close" id="closeDisclosureDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full disclosure history for this patient.</p>
+
+        <div id="disclosureDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddDisclosureBtn">+ Add Disclosure</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Recipient</th>
+                        <th>Recorded By</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="disclosureDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="disclosureFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="disclosureFormTitle">Record Disclosure</h2>
+            <button type="button" class="modal-close" id="closeDisclosureFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record a disclosure of this patient's information.</p>
+
+        <div id="disclosureFormAlert"></div>
+
+        <form id="disclosureForm">
+            <input type="hidden" id="disclosure_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Date</label>
+                    <input id="disclosure_disclosure_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group full">
+                    <label>Type of Disclosure</label>
+                    <select id="disclosure_disclosure_type" class="form-input">
+                        <option value="Treatment">Treatment</option>
+                        <option value="Payment">Payment</option>
+                        <option value="Health Care Operations">Health Care Operations</option>
+                        <option value="Required by Law">Required by Law</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Recipient of the Disclosure</label>
+                    <input id="disclosure_recipient" class="form-input" placeholder="Who received this information">
+                    <span class="form-error" id="err-disclosure_recipient"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Description of the Disclosure</label>
+                    <textarea id="disclosure_description" class="form-input" style="min-height: 90px;" placeholder="What was disclosed and why"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelDisclosureForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
