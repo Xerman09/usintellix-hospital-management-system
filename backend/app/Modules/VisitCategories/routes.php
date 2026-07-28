@@ -6,7 +6,7 @@ use App\Modules\VisitCategories\Controllers\VisitCategoryController;
 
 $router->get('/visit-categories', [VisitCategoryController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/visit-categories', [VisitCategoryController::class, 'register'], [

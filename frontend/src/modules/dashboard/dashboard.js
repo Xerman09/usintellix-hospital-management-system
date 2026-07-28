@@ -7,8 +7,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=6";
-import { initPatientsList } from "../patients/patients-list.js?v=6";
+import { PatientsListView } from "../patients/patients-list.view.js?v=7";
+import { initPatientsList } from "../patients/patients-list.js?v=7";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { ProviderCategoriesView } from "../provider-categories/provider-categories.view.js";
@@ -43,10 +43,10 @@ import { OrganizationTypesView } from "../organization-types/organization-types.
 import { initOrganizationTypes } from "../organization-types/organization-types.js";
 import { PosCodesView } from "../pos-codes/pos-codes.view.js";
 import { initPosCodes } from "../pos-codes/pos-codes.js";
-import { AppointmentsListView } from "../appointments/appointments-list.view.js";
-import { initAppointmentsList } from "../appointments/appointments-list.js";
-import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js";
-import { initDoctorCalendar } from "../appointments/doctor-calendar.js";
+import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=7";
+import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
+import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
+import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
 import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
 import { initHealthSummary } from "../health-records/health-summary.js?v=2";
 import { AppearanceView } from "../appearance/appearance.view.js";
@@ -55,6 +55,8 @@ import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
+import { MessagesView } from "../messages/messages.view.js?v=2";
+import { initMessages } from "../messages/messages.js";
 
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -220,6 +222,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initAppointmentsList, 0);
                     return AppointmentsListView(user);
+                });
+            } else if (tabId === 'messaging') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initMessages, 0);
+                    return MessagesView();
                 });
             } else if (tabId === 'health_records' && user.role === 'patient') {
                 tabManager.openTab(tabId, title, () => {

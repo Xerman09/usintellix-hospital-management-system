@@ -63,8 +63,21 @@ class AppointmentController extends Controller
         $data = $request->only([
             'patient_id',
             'provider_id',
+            'is_provider_block',
+            'title',
+            'visit_category_id',
+            'provider_category_id',
+            'facility_id',
+            'billing_facility_id',
+            'room_id',
             'appointment_date',
             'appointment_time',
+            'is_all_day',
+            'recurrence_mode',
+            'recurrence_position',
+            'recurrence_day_type',
+            'recurrence_days_of_week',
+            'recurrence_until_date',
             'reason',
             'notes',
             'status'
@@ -108,8 +121,21 @@ class AppointmentController extends Controller
         $data = $request->only([
             'patient_id',
             'provider_id',
+            'is_provider_block',
+            'title',
+            'visit_category_id',
+            'provider_category_id',
+            'facility_id',
+            'billing_facility_id',
+            'room_id',
             'appointment_date',
             'appointment_time',
+            'is_all_day',
+            'recurrence_mode',
+            'recurrence_position',
+            'recurrence_day_type',
+            'recurrence_days_of_week',
+            'recurrence_until_date',
             'reason',
             'notes',
             'status'
@@ -119,11 +145,18 @@ class AppointmentController extends Controller
             $data['provider_id'] = $restrictProviderId;
         }
 
-        $result = $this->appointmentService->update(
+        $scope = (string) $request->input('scope', 'this');
+
+        if (!in_array($scope, ['this', 'future', 'all'], true)) {
+            $scope = 'this';
+        }
+
+        $result = $this->appointmentService->updateWithScope(
             $id,
             $data,
             (int) $user['id'],
-            $restrictProviderId
+            $restrictProviderId,
+            $scope
         );
 
         if (!$result['success']) {
@@ -159,6 +192,35 @@ class AppointmentController extends Controller
         }
 
         $this->success(null, $result['message']);
+    }
+
+    /**
+     * Search a provider's fixed business-hours window for free slots
+     * across a range of days. Query: ?provider_id=&start_date=&days=
+     */
+    public function availableSlots(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        // A doctor searches their own schedule regardless of what (if
+        // anything) the frontend sent — same restriction used for
+        // store/update/destroy.
+        $restrictProviderId = $this->resolveProviderId($user);
+        $providerId = $restrictProviderId ?? (int) $request->input('provider_id');
+        $startDate = (string) $request->input('start_date');
+        $days = (int) $request->input('days', 7);
+
+        if ($providerId <= 0 || $startDate === '') {
+            $this->error('provider_id and start_date are required.', 422);
+            return;
+        }
+
+        $days = max(1, min(60, $days));
+
+        $slots = $this->appointmentService->findAvailableSlots($providerId, $startDate, $days);
+
+        $this->success($slots, 'Available slots retrieved successfully.');
     }
 
     /**

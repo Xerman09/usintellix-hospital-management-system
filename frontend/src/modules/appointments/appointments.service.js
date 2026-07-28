@@ -39,3 +39,10 @@ export async function deleteAppointment(id)
         }
     );
 }
+
+export async function fetchAvailableSlots({ provider_id, start_date, days })
+{
+    const query = new URLSearchParams({ provider_id, start_date, days }).toString();
+
+    return await api(`/appointments/available-slots?${query}`);
+}

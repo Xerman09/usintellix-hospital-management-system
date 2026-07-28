@@ -3,12 +3,14 @@ import { getUser } from "../../core/session.js";
 function staffNavLinks(role)
 {
     const appointmentsLink = ["admin", "receptionist"].includes(role)
-        ? `<a data-tab="appointments">Appointments</a>`
+        ? `<a data-tab="appointments">Calendar</a>`
         : "";
 
     return `
+        ${appointmentsLink}
         <a data-tab="patients">Patients</a>
         <a data-tab="employees">Employees</a>
+        <a data-tab="messaging">Messaging</a>
         ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
         <div class="nav-dropdown">
             <span>Procedures</span>
@@ -40,11 +42,12 @@ function staffNavLinks(role)
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
             </div>
         </div>
-        ${appointmentsLink}
+        
     `;
 }
 
 const PATIENT_NAV_LINKS = `
+    <a data-tab="appointments">Calendar</a>
     <div class="nav-dropdown">
         <span>Patient Health Records</span>
         <div class="dropdown-content">
@@ -52,7 +55,7 @@ const PATIENT_NAV_LINKS = `
         </div>
     </div>
     <a data-tab="messaging">Messaging</a>
-    <a data-tab="appointments">Appointments</a>
+    
     <a data-tab="laboratory">Laboratory</a>
     <a data-tab="medications">Medications</a>
     <a data-tab="billing">Billing</a>
@@ -61,7 +64,8 @@ const PATIENT_NAV_LINKS = `
 
 const DOCTOR_NAV_LINKS = `
     <a data-tab="patients">Patients</a>
-    <a data-tab="appointments">Appointments</a>
+    <a data-tab="appointments">Calendar</a>
+    <a data-tab="messaging">Messaging</a>
 `;
 
 function getNavLinks(role)

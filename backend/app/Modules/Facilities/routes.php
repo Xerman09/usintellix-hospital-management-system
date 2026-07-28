@@ -6,7 +6,7 @@ use App\Modules\Facilities\Controllers\FacilityController;
 
 $router->get('/facilities', [FacilityController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/facilities', [FacilityController::class, 'register'], [

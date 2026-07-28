@@ -1,4 +1,4 @@
-import { fetchAppointments } from "../appointments/appointments.service.js";
+import { fetchAppointments } from "../appointments/appointments.service.js?v=1";
 import { formatApptDate, formatApptTime, statusLabel } from "../appointments/appointment-format.js";
 import { fetchHealthSummary } from "../health-records/health-records.service.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";

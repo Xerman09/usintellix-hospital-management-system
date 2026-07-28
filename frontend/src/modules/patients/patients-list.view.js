@@ -849,6 +849,41 @@ export function PatientsListView(user)
     .pd-demo-grid { grid-template-columns: 1fr; }
 }
 
+.pd-related-card {
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
+.pd-related-card:last-child {
+    margin-bottom: 0;
+}
+
+.pd-related-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.pd-related-card-header strong {
+    font-size: 13px;
+    color: #29323f;
+}
+
+.pd-related-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: var(--accent);
+    background: var(--accent-bg, #eef2ff);
+    border-radius: 4px;
+    padding: 2px 7px;
+}
+
 .pd-widget-empty {
     display: flex;
     align-items: center;
@@ -1868,6 +1903,7 @@ ${canAdd ? `
                             <button type="button" class="pd-demo-tab" data-demo-tab="employer">Employer</button>
                             <button type="button" class="pd-demo-tab" data-demo-tab="stats">Stats</button>
                             <button type="button" class="pd-demo-tab" data-demo-tab="misc">Misc</button>
+                            <button type="button" class="pd-demo-tab" data-demo-tab="related">Related</button>
                         </div>
                         <div class="pd-widget-body" id="pdDemoPanels"></div>
                     </div>

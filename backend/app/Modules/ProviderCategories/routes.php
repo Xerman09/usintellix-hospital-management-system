@@ -6,7 +6,7 @@ use App\Modules\ProviderCategories\Controllers\ProviderCategoryController;
 
 $router->get('/provider-categories', [ProviderCategoryController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/provider-categories', [ProviderCategoryController::class, 'register'], [

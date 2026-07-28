@@ -1,6 +1,305 @@
 export function MessagesView()
 {
     return `
+<style>
+.msg-page {
+    width: 100%;
+    font-size: 13.5px;
+}
+
+.msg-card {
+    width: 100%;
+}
+
+.msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 4px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.msg-header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.msg-icon-badge {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
+    border: 1px solid #dbe1ea;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.msg-icon-badge svg {
+    width: 18px;
+    height: 18px;
+    color: #42536b;
+}
+
+.msg-header h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #14181f;
+    letter-spacing: -.2px;
+}
+
+.msg-header .form-subtitle {
+    margin: 1px 0 0;
+    font-size: 12.5px;
+    max-width: 480px;
+}
+
+.msg-panel-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 16px 0 12px;
+}
+
+.msg-panel-header-row h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.msg-filter-select {
+    padding: 7px 10px;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: #29323f;
+    background: white;
+}
+
+.msg-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.msg-stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #42536b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.msg-stat-pill svg {
+    width: 13px;
+    height: 13px;
+}
+
+.msg-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.msg-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.msg-add-btn:hover {
+    opacity: .92;
+}
+
+.msg-add-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.msg-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+}
+
+.msg-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.msg-table th,
+.msg-table td {
+    font-size: 12.5px;
+    padding: 9px 14px;
+}
+
+.msg-table th {
+    text-align: left;
+    color: #6b7787;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #eef1f5;
+}
+
+.msg-table td {
+    border-bottom: 1px solid #eef1f5;
+    color: #29323f;
+    vertical-align: middle;
+}
+
+.msg-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.msg-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.msg-th-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.msg-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.msg-filter-input {
+    padding: 4px 6px;
+    border: 1px solid #dbe1ea;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 400;
+}
+
+.msg-empty-state {
+    text-align: center;
+    padding: 30px 10px;
+    color: #8b98ac;
+}
+
+.msg-empty-state strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #42536b;
+}
+
+.msg-empty-state p {
+    margin: 0;
+    font-size: 12px;
+}
+
+.msg-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.msg-badge.neutral {
+    background: #eef2ff;
+    color: var(--accent-text, #3730a3);
+}
+
+.msg-badge.inactive {
+    background: #f1f5f9;
+    color: #8b98ac;
+}
+
+tr.unread {
+    font-weight: 700;
+}
+
+.msg-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 50px 10px;
+    color: #8b98ac;
+    text-align: center;
+}
+
+.msg-placeholder svg {
+    width: 30px;
+    height: 30px;
+    color: #c3cbd9;
+}
+
+.msg-placeholder strong {
+    color: #42536b;
+    font-size: 13.5px;
+}
+
+.msg-placeholder p {
+    margin: 0;
+    font-size: 12px;
+}
+
+.msg-to-label {
+    font-weight: 600;
+}
+
+.msg-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.msg-search-wrap {
+    position: relative;
+    flex: 1;
+}
+
+.msg-search-wrap svg {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.msg-search-input {
+    padding-left: 30px !important;
+}
+
+.msg-picker-clear {
+    flex-shrink: 0;
+}
+</style>
 <div class="msg-page">
     <div class="msg-card">
         <div class="msg-header">
@@ -47,7 +346,7 @@ export function MessagesView()
                 </div>
             </div>
 
-            <div class="table-wrap">
+            <div class="msg-table-wrap">
                 <table class="msg-table">
                     <thead>
                         <tr>

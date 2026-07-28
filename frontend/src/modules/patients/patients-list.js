@@ -64,6 +64,7 @@ const PRESCRIPTION_DETAIL_FIELDS = [
 let currentDashboardPatient = null;
 let currentEditPatient = null;
 let activeDemoTab = "who";
+let dashboardRelatedPersons = [];
 
 const CODE_SOURCE_LABELS = {
     ICD10CM: "ICD-10-CM",
@@ -292,6 +293,7 @@ function openPatientDashboardModal(patient)
     resetChartNav();
 
     activeDemoTab = "who";
+    dashboardRelatedPersons = [];
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.classList.toggle("active", btn.getAttribute("data-demo-tab") === "who");
     });
@@ -356,9 +358,15 @@ async function loadDashboardRelatedPersons(patient)
     try {
         const result = await fetchRelatedPersons(patient.id);
 
-        renderDashboardRelatedPersons(result.success ? result.data : []);
+        dashboardRelatedPersons = result.success ? result.data : [];
+        renderDashboardRelatedPersons(dashboardRelatedPersons);
+
+        if (activeDemoTab === "related" && currentDashboardPatient === patient) {
+            renderDemographics(patient);
+        }
     } catch (error) {
         console.error("Failed to load related persons", error);
+        dashboardRelatedPersons = [];
         body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load related persons right now.</p></div>`;
     }
 }
@@ -395,6 +403,11 @@ function renderDemographics(patient)
     const panels = document.getElementById("pdDemoPanels");
 
     if (!panels) {
+        return;
+    }
+
+    if (activeDemoTab === "related") {
+        panels.innerHTML = renderRelatedPersonsPanel(dashboardRelatedPersons);
         return;
     }
 
@@ -467,6 +480,50 @@ function renderDemographics(patient)
     const rows = tabRows[activeDemoTab] || [];
 
     panels.innerHTML = `<div class="pd-demo-grid">${rows.join("")}</div>`;
+}
+
+function renderRelatedPersonsPanel(persons)
+{
+    if (!persons.length) {
+        return `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
+            <p>No related persons recorded.</p>
+           </div>`;
+    }
+
+    const field = (label, value) => `
+        <div class="pd-demo-field">
+            <span class="pd-demo-label">${escapeHtml(label)}</span>
+            <span class="pd-demo-value${value ? "" : " empty"}">${escapeHtml(value || "Not set")}</span>
+        </div>
+    `;
+
+    const yesNo = (value) => (Number(value) ? "Yes" : "No");
+
+    return persons.map((person) => {
+        const fullName = [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(" ");
+        const genderLabel = person.gender ? person.gender.charAt(0).toUpperCase() + person.gender.slice(1) : "";
+
+        return `
+        <div class="pd-related-card">
+            <div class="pd-related-card-header">
+                <strong>${escapeHtml(fullName)}</strong>
+                ${person.relationship ? `<span class="pd-related-badge">${escapeHtml(person.relationship)}</span>` : ""}
+            </div>
+            <div class="pd-demo-grid">
+                ${field("Role", person.role)}
+                ${field("Phone", person.phone)}
+                ${field("Date of Birth", person.date_of_birth)}
+                ${field("Gender", genderLabel)}
+                ${field("Primary Contact", yesNo(person.is_primary_contact))}
+                ${field("Emergency Contact", yesNo(person.is_emergency_contact))}
+                ${field("Can Make Medical Decisions", yesNo(person.can_make_medical_decisions))}
+                ${field("Can Receive Medical Info", yesNo(person.can_receive_medical_info))}
+                ${field("Notes", person.notes)}
+            </div>
+        </div>
+        `;
+    }).join("");
 }
 
 async function loadDashboardAllergies(patient)
