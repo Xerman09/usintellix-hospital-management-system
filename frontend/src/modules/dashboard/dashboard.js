@@ -11,6 +11,8 @@ import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { VisitCategoriesView } from "../visit-categories/visit-categories.view.js";
 import { initVisitCategories } from "../visit-categories/visit-categories.js";
+import { PrescriptionCategoriesView } from "../prescription-categories/prescription-categories.view.js";
+import { initPrescriptionCategories } from "../prescription-categories/prescription-categories.js";
 import { ClassesView } from "../classes/classes.view.js";
 import { initClasses } from "../classes/classes.js";
 import { VisitTypesView } from "../visit-types/visit-types.view.js";
@@ -149,6 +151,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initMedications, 0);
                     return MedicationsView();
+                });
+            } else if (tabId === 'prescription_categories') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initPrescriptionCategories, 0);
+                    return PrescriptionCategoriesView();
                 });
             } else if (tabId === 'payer_types') {
                 tabManager.openTab(tabId, title, () => {

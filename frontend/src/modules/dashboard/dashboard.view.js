@@ -21,6 +21,7 @@ function staffNavLinks(role)
                 <a data-tab="allergies">Allergy Management</a>
                 <a data-tab="medical_problems">Medical Problem Management</a>
                 <a data-tab="medication_management">Medication Management</a>
+                <a data-tab="prescription_categories">Prescription Categories</a>
                 <a data-tab="payer_types">Payer Type Management</a>
                 <a data-tab="x12_partners">X12 Partner</a>
                 <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
