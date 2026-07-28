@@ -46,5 +46,6 @@ require_once __DIR__ . '/../app/Modules/RelatedPersons/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 require_once __DIR__ . '/../app/Modules/PracticeRules/routes.php';
+require_once __DIR__ . '/../app/Modules/ProviderCategories/routes.php';
 
 return $router;

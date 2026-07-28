@@ -9,6 +9,8 @@ import { PatientsListView } from "../patients/patients-list.view.js?v=6";
 import { initPatientsList } from "../patients/patients-list.js?v=6";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
+import { ProviderCategoriesView } from "../provider-categories/provider-categories.view.js";
+import { initProviderCategories } from "../provider-categories/provider-categories.js";
 import { VisitCategoriesView } from "../visit-categories/visit-categories.view.js";
 import { initVisitCategories } from "../visit-categories/visit-categories.js";
 import { PrescriptionCategoriesView } from "../prescription-categories/prescription-categories.view.js";
@@ -111,6 +113,11 @@ export function Dashboard()
                 tabManager.openTab(tabId, title, () => {
                     setTimeout(initProviders, 0);
                     return ProvidersView();
+                });
+            } else if (tabId === 'provider_categories') {
+                tabManager.openTab(tabId, title, () => {
+                    setTimeout(initProviderCategories, 0);
+                    return ProviderCategoriesView();
                 });
             } else if (tabId === 'visit_categories') {
                 tabManager.openTab(tabId, title, () => {
