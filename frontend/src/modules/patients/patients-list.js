@@ -173,6 +173,8 @@ function setupPatientDashboardModal()
         });
     });
 
+    setupChartNav();
+
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
     // duplicating it inside the (read-only) Patient Dashboard.
@@ -191,6 +193,75 @@ function setupPatientDashboardModal()
             relatedPersonsTab.click();
         }
     });
+}
+
+const CHART_NAV_LABELS = {
+    dashboard: "Dashboard",
+    history: "History",
+    assessments: "Assessments",
+    report: "Report",
+    documents: "Documents",
+    transactions: "Transactions",
+    issues: "Issues",
+    ledger: "Ledger",
+    external_data: "External Data"
+};
+
+// Sections with an existing widget on the dashboard grid scroll straight to
+// it; everything else (no backend/UI built yet) shows the placeholder panel.
+const CHART_NAV_WIDGET_TARGETS = {
+    documents: "pdWidget-documents",
+    issues: "pdWidget-issues"
+};
+
+function setupChartNav()
+{
+    document.querySelectorAll("#pdChartNav .pd-chart-nav-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const key = btn.getAttribute("data-chart-nav");
+
+            if (key === "assessments") {
+                const expanded = btn.classList.toggle("expanded");
+                document.getElementById("pdAssessmentsSubmenu").classList.toggle("expanded", expanded);
+                return;
+            }
+
+            document.querySelectorAll("#pdChartNav .pd-chart-nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
+
+            const widgetGrid = document.getElementById("pdWidgetGrid");
+            const placeholder = document.getElementById("pdChartPlaceholder");
+            const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
+
+            if (key === "dashboard" || widgetTarget) {
+                widgetGrid.style.display = "";
+                placeholder.style.display = "none";
+
+                const pdMain = document.querySelector(".pd-main");
+                const target = widgetTarget ? document.getElementById(widgetTarget) : null;
+
+                if (target && pdMain) {
+                    pdMain.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
+                } else if (pdMain) {
+                    pdMain.scrollTo({ top: 0, behavior: "smooth" });
+                }
+            } else {
+                widgetGrid.style.display = "none";
+                document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
+                placeholder.style.display = "flex";
+            }
+        });
+    });
+}
+
+function resetChartNav()
+{
+    document.querySelectorAll("#pdChartNav .pd-chart-nav-btn").forEach((b) => {
+        b.classList.toggle("active", b.getAttribute("data-chart-nav") === "dashboard");
+        b.classList.remove("expanded");
+    });
+    document.getElementById("pdAssessmentsSubmenu").classList.remove("expanded");
+    document.getElementById("pdWidgetGrid").style.display = "";
+    document.getElementById("pdChartPlaceholder").style.display = "none";
 }
 
 function openPatientDashboardModal(patient)
@@ -215,6 +286,8 @@ function openPatientDashboardModal(patient)
     setFact("pdFactProvider", providerName);
 
     document.getElementById("patientDashboardModalOverlay").classList.add("open");
+
+    resetChartNav();
 
     activeDemoTab = "who";
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {

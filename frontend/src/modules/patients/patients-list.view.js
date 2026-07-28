@@ -600,6 +600,122 @@ export function PatientsListView(user)
     color: #8b98ac;
 }
 
+.pd-chart-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e9f0;
+}
+
+.pd-chart-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: none;
+    color: #3b475a;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color .1s;
+}
+
+.pd-chart-nav-btn:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.pd-chart-nav-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.pd-chart-nav-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #8b98ac;
+}
+
+.pd-chart-nav-btn.active svg {
+    color: var(--accent);
+}
+
+.pd-chart-nav-label {
+    flex: 1;
+}
+
+.pd-chart-nav-chevron {
+    width: 12px !important;
+    height: 12px !important;
+    transition: transform .15s;
+}
+
+.pd-chart-nav-expandable.expanded .pd-chart-nav-chevron {
+    transform: rotate(180deg);
+}
+
+.pd-chart-nav-submenu {
+    display: none;
+    flex-direction: column;
+    padding: 2px 0 4px 30px;
+}
+
+.pd-chart-nav-submenu.expanded {
+    display: flex;
+}
+
+.pd-chart-nav-empty {
+    margin: 4px 0;
+    font-size: 12px;
+    font-style: italic;
+    color: #a3adbd;
+}
+
+.pd-chart-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 80px 20px;
+    color: #6b7787;
+}
+
+.pd-chart-placeholder-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+    background: #f1f4fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pd-chart-placeholder-icon svg {
+    width: 22px;
+    height: 22px;
+    color: #a2aec4;
+}
+
+.pd-chart-placeholder strong {
+    font-size: 14px;
+    color: #29323f;
+    margin-bottom: 4px;
+}
+
+.pd-chart-placeholder p {
+    margin: 0;
+    font-size: 13px;
+}
+
 .pd-main {
     flex: 1;
     overflow-y: auto;
@@ -1691,10 +1807,53 @@ ${canAdd ? `
                         New Document
                     </button>
                 </div>
+
+                <div class="pd-chart-nav" id="pdChartNav">
+                    <button type="button" class="pd-chart-nav-btn active" data-chart-nav="dashboard">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+                        Dashboard
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="history">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+                        History
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn pd-chart-nav-expandable" data-chart-nav="assessments">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 3v2h6V3M9 11h6M9 15h4"></path></svg>
+                        <span class="pd-chart-nav-label">Assessments</span>
+                        <svg class="pd-chart-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+                    </button>
+                    <div class="pd-chart-nav-submenu" id="pdAssessmentsSubmenu">
+                        <p class="pd-chart-nav-empty">No assessments yet.</p>
+                    </div>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="report">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 13h6M9 17h6"></path></svg>
+                        Report
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="documents">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
+                        Documents
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="transactions">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="m7 22-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                        Transactions
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="issues">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+                        Issues
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="ledger">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path></svg>
+                        Ledger
+                    </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="external_data">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.44-8.76A6 6 0 1 0 6 16"></path></svg>
+                        External Data
+                    </button>
+                </div>
             </div>
 
             <div class="pd-main">
-                <div class="pd-widget-grid">
+                <div class="pd-widget-grid" id="pdWidgetGrid">
                     <div class="pd-widget pd-widget-demographics">
                         <div class="pd-widget-header">
                             <div class="pd-widget-header-title">
@@ -1714,7 +1873,7 @@ ${canAdd ? `
                     </div>
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No provider assigned yet.")}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
-                    ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.", { bodyId: "pdMedicationsBody", addBtnId: "pdMedicationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
@@ -1722,7 +1881,15 @@ ${canAdd ? `
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.")}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.")}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.")}
-                    ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.")}
+                    ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { widgetId: "pdWidget-documents" })}
+                </div>
+
+                <div class="pd-chart-placeholder" id="pdChartPlaceholder" style="display: none;">
+                    <div class="pd-chart-placeholder-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+                    </div>
+                    <strong id="pdChartPlaceholderTitle">Section</strong>
+                    <p>This section is under development.</p>
                 </div>
             </div>
         </div>
@@ -3046,7 +3213,7 @@ ${canAdd ? `
 
 function dashboardWidget(title, iconPath, emptyText, options = {})
 {
-    const { bodyId, addBtnId, addBtnLabel = "+ Add", addBtnDisabled = true } = options;
+    const { bodyId, addBtnId, addBtnLabel = "+ Add", addBtnDisabled = true, widgetId } = options;
 
     const body = bodyId
         ? `<div class="pd-widget-body" id="${bodyId}">
@@ -3063,7 +3230,7 @@ function dashboardWidget(title, iconPath, emptyText, options = {})
             </div>`;
 
     return `
-    <div class="pd-widget">
+    <div class="pd-widget"${widgetId ? ` id="${widgetId}"` : ""}>
         <div class="pd-widget-header">
             <div class="pd-widget-header-title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg>
