@@ -14,9 +14,9 @@ export class TabManager {
         }));
     }
 
-    openTab(id, title, renderFn) {
+    openTab(id, title, renderFn, activate = true) {
         if (this.tabs.has(id)) {
-            this.switchTab(id);
+            if (activate) this.switchTab(id);
             return;
         }
 
@@ -27,7 +27,11 @@ export class TabManager {
         });
 
         this.renderTabBar();
-        this.switchTab(id);
+
+        if (activate) {
+            this.switchTab(id);
+        }
+
         this.saveState();
     }
 

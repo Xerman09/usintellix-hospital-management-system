@@ -1920,6 +1920,7 @@ ${canAdd ? `
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { widgetId: "pdWidget-documents" })}
                     ${dashboardWidget("Disclosures", '<path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path>', "No disclosures recorded for this patient.", { bodyId: "pdDisclosuresBody", addBtnId: "pdDisclosuresAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Messages", '<path d="M4 4h16v16H4z"></path><path d="m4 6 8 7 8-7"></path>', "No messages recorded for this patient.", { bodyId: "pdMessagesBody", addBtnId: "pdMessagesAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
+                    ${dashboardWidget("Amendments", '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>', "No amendment requests available.", { bodyId: "pdAmendmentsBody", addBtnId: "pdAmendmentsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                 </div>
 
                 <div class="pd-chart-placeholder" id="pdChartPlaceholder" style="display: none;">
@@ -2817,6 +2818,95 @@ ${canAdd ? `
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelMessageForm">Cancel</button>
                 <button class="login-btn" type="submit">Send Message</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="amendmentDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Amendments</h2>
+            <button type="button" class="modal-close" id="closeAmendmentDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full amendment request history for this patient.</p>
+
+        <div id="amendmentDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddAmendmentBtn">+ Add Amendment</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Requested Date</th>
+                        <th>Request Description</th>
+                        <th>Requested By</th>
+                        <th>Request Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="amendmentDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="amendmentFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="amendmentFormTitle">Add Amendment</h2>
+            <button type="button" class="modal-close" id="closeAmendmentFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record a request to amend this patient's record.</p>
+
+        <div id="amendmentFormAlert"></div>
+
+        <form id="amendmentForm">
+            <input type="hidden" id="amendment_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Requested Date</label>
+                    <input id="amendment_requested_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group full">
+                    <label>Requested By</label>
+                    <select id="amendment_requested_by" class="form-input">
+                        <option value="Patient">Patient</option>
+                        <option value="Insurance">Insurance</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Request Description</label>
+                    <textarea id="amendment_description" class="form-input" style="min-height: 90px;" placeholder="What change is being requested"></textarea>
+                    <span class="form-error" id="err-amendment_description"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Request Status</label>
+                    <select id="amendment_status" class="form-input">
+                        <option value="">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="amendment_comments" class="form-input" style="min-height: 90px;" placeholder="Notes about this request"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelAmendmentForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
     </div>

@@ -37,3 +37,10 @@ export async function updatePatient(id, data)
         }
     );
 }
+
+export async function fetchPatientDashboardSummary(patientId)
+{
+    const query = new URLSearchParams({ patient_id: patientId }).toString();
+
+    return await api(`/patients/dashboard-summary?${query}`);
+}

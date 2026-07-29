@@ -7,6 +7,14 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Patients\Services\PatientService;
 use App\Modules\Providers\Services\ProviderService;
+use App\Modules\PatientAllergies\Services\PatientAllergyService;
+use App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService;
+use App\Modules\PatientMedications\Services\PatientMedicationService;
+use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
+use App\Modules\RelatedPersons\Services\RelatedPersonService;
+use App\Modules\Disclosures\Services\DisclosureService;
+use App\Modules\Messaging\Services\MessagingService;
+use App\Modules\Amendments\Services\AmendmentService;
 
 class PatientController extends Controller
 {
@@ -35,6 +43,54 @@ class PatientController extends Controller
         $patients = $this->patientService->list($providerId);
 
         $this->success($patients, 'Patients retrieved successfully.');
+    }
+
+    /**
+     * Everything the patient dashboard's widget grid needs, gathered into
+     * one response. Widgets used to each fire their own GET request; on a
+     * remote database that meant paying a fresh connection round-trip
+     * (network handshake + auth) eight-plus times per dashboard open,
+     * serialized by PHP's single-threaded built-in dev server. Batching
+     * them into one request pays that round-trip once.
+     */
+    public function dashboardSummary(): void
+    {
+        $request = new Request();
+        $patientId = (int) $request->input('patient_id');
+
+        if (!$patientId) {
+            $this->error('Patient is required.', 422);
+            return;
+        }
+
+        // Each section is fetched independently: a broken table or
+        // failing query in any one section (e.g. a migration that hasn't
+        // been run yet) shouldn't crash the whole response and blank out
+        // every other widget on the dashboard, so failures here degrade
+        // to an empty section rather than propagating.
+        $sections = [
+            'allergies' => fn () => (new PatientAllergyService())->list($patientId),
+            'problems' => fn () => (new PatientMedicalProblemService())->list($patientId),
+            'medications' => fn () => (new PatientMedicationService())->list($patientId),
+            'prescriptions' => fn () => (new PatientPrescriptionService())->list($patientId),
+            'related_persons' => fn () => (new RelatedPersonService())->list($patientId),
+            'disclosures' => fn () => (new DisclosureService())->list($patientId),
+            'messages' => fn () => (new MessagingService())->listPatientMessages($patientId),
+            'amendments' => fn () => (new AmendmentService())->list($patientId),
+        ];
+
+        $result = [];
+
+        foreach ($sections as $key => $fetch) {
+            try {
+                $result[$key] = $fetch();
+            } catch (\Throwable $e) {
+                error_log("dashboardSummary: failed to load '{$key}' for patient {$patientId}: " . $e->getMessage());
+                $result[$key] = [];
+            }
+        }
+
+        $this->success($result, 'Patient dashboard summary retrieved successfully.');
     }
 
     /**

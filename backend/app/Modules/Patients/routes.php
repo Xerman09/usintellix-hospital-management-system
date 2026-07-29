@@ -9,6 +9,11 @@ $router->get('/patients', [PatientController::class, 'index'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/patients/dashboard-summary', [PatientController::class, 'dashboardSummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/patients', [PatientController::class, 'register'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['receptionist']]

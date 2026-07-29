@@ -45,6 +45,7 @@ require_once __DIR__ . '/../app/Modules/CqmValuesets/routes.php';
 require_once __DIR__ . '/../app/Modules/Messaging/routes.php';
 require_once __DIR__ . '/../app/Modules/RelatedPersons/routes.php';
 require_once __DIR__ . '/../app/Modules/Disclosures/routes.php';
+require_once __DIR__ . '/../app/Modules/Amendments/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 require_once __DIR__ . '/../app/Modules/PracticeRules/routes.php';

@@ -1,5 +1,5 @@
 import { getUser } from "../../core/session.js";
-import { fetchPatients, deletePatient, createPatient, updatePatient } from "./patients.service.js";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
@@ -36,6 +36,7 @@ import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclos
 import {
     fetchPatientMessages, sendPatientMessage, fetchMessageTypes, fetchMessageStatuses, fetchRecipientOptions
 } from "../messages/messages.service.js";
+import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -144,6 +145,7 @@ export async function initPatientsList()
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
+    setupAmendmentModals();
     setupRelatedPersonModals();
     setupSelectCodesModal();
 
@@ -303,13 +305,104 @@ function openPatientDashboardModal(patient)
     });
     renderDemographics(patient);
 
-    loadDashboardAllergies(patient);
-    loadDashboardProblems(patient);
-    loadDashboardMedications(patient);
-    loadDashboardPrescriptions(patient);
-    loadDashboardRelatedPersons(patient);
-    loadDashboardDisclosures(patient);
-    loadDashboardMessages(patient);
+    loadPatientDashboardWidgets(patient);
+}
+
+// The widgets used to each fire their own request when the dashboard
+// opened (8 separate GETs). Against a remote database, each one pays a
+// fresh connection round-trip, and PHP's single-threaded built-in dev
+// server processes them one at a time -- so opening the dashboard could
+// take several seconds. Fetching everything in one batched request
+// (see PatientController::dashboardSummary) cuts that to a single
+// round-trip; render functions are unchanged and reused as-is.
+async function loadPatientDashboardWidgets(patient)
+{
+    const widgetBodyIds = [
+        "pdAllergiesBody", "pdProblemsBody", "pdMedicationsBody", "pdPrescriptionsBody",
+        "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody"
+    ];
+
+    try {
+        const result = await fetchPatientDashboardSummary(patient.id);
+
+        if (!result.success) {
+            widgetBodyIds.forEach((id) => {
+                const body = document.getElementById(id);
+                if (body) body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load this section right now.")}</p></div>`;
+            });
+            return;
+        }
+
+        const data = result.data || {};
+
+        renderDashboardAllergies(data.allergies || []);
+        renderDashboardProblems(data.problems || []);
+        renderDashboardMedications(data.medications || []);
+        renderDashboardPrescriptions(data.prescriptions || []);
+        renderDashboardDisclosures(data.disclosures || []);
+        renderDashboardMessages(data.messages || []);
+        renderDashboardAmendments(data.amendments || []);
+
+        dashboardRelatedPersons = data.related_persons || [];
+        renderDashboardRelatedPersons(dashboardRelatedPersons);
+
+        if (activeDemoTab === "related" && currentDashboardPatient === patient) {
+            renderDemographics(patient);
+        }
+    } catch (error) {
+        console.error("Failed to load patient dashboard summary", error);
+        widgetBodyIds.forEach((id) => {
+            const body = document.getElementById(id);
+            if (body) body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load this section right now.</p></div>`;
+        });
+    }
+}
+
+async function loadDashboardAmendments(patient)
+{
+    const body = document.getElementById("pdAmendmentsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientAmendments(patient.id);
+
+        renderDashboardAmendments(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load amendments", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load amendments right now.</p></div>`;
+    }
+}
+
+function renderDashboardAmendments(amendments)
+{
+    const body = document.getElementById("pdAmendmentsBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = amendments.length
+        ? `<div class="pd-allergy-list">
+            ${amendments.map((amendment) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(truncate(amendment.description, 60))}${amendment.status ? ` &middot; ${escapeHtml(amendment.status)}` : ""}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+            <p>No amendment requests available.</p>
+           </div>`;
+}
+
+function truncate(text, length)
+{
+    const value = text || "";
+
+    return value.length > length ? `${value.slice(0, length)}...` : value;
 }
 
 async function loadDashboardMessages(patient)
@@ -390,30 +483,6 @@ function renderDashboardDisclosures(disclosures)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path></svg>
             <p>No disclosures recorded for this patient.</p>
            </div>`;
-}
-
-async function loadDashboardRelatedPersons(patient)
-{
-    const body = document.getElementById("pdRelatedPersonsBody");
-
-    if (!body) {
-        return;
-    }
-
-    try {
-        const result = await fetchRelatedPersons(patient.id);
-
-        dashboardRelatedPersons = result.success ? result.data : [];
-        renderDashboardRelatedPersons(dashboardRelatedPersons);
-
-        if (activeDemoTab === "related" && currentDashboardPatient === patient) {
-            renderDemographics(patient);
-        }
-    } catch (error) {
-        console.error("Failed to load related persons", error);
-        dashboardRelatedPersons = [];
-        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load related persons right now.</p></div>`;
-    }
 }
 
 function renderDashboardRelatedPersons(persons)
@@ -2119,6 +2188,183 @@ function openDisclosureFormModal(existingRecord)
         title.textContent = "Record Disclosure";
         recordIdInput.value = "";
         document.getElementById("disclosure_disclosure_type").value = "Treatment";
+    }
+
+    formOverlay.classList.add("open");
+}
+
+const AMENDMENT_DETAIL_FIELDS = ["requested_date", "requested_by", "description", "status", "comments"];
+
+function setupAmendmentModals()
+{
+    const detailOverlay = document.getElementById("amendmentDetailModalOverlay");
+    const formOverlay = document.getElementById("amendmentFormModalOverlay");
+    const form = document.getElementById("amendmentForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdAmendmentsAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openAmendmentDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeAmendmentDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("openAddAmendmentBtn").addEventListener("click", () => {
+        openAmendmentFormModal(null);
+    });
+
+    document.getElementById("closeAmendmentFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelAmendmentForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("amendment_record_id").value;
+        const errEl = document.getElementById("err-amendment_description");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        AMENDMENT_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`amendment_${field}`).value.trim();
+        });
+
+        if (!details.description) {
+            errEl.textContent = "Request description is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updateAmendment(recordId, details)
+            : await addAmendment(currentDashboardPatient.id, details);
+
+        if (!result.success) {
+            showAlert("amendmentFormAlert", result.message || "Failed to save amendment request.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadAmendmentDetailTable(currentDashboardPatient);
+        await loadDashboardAmendments(currentDashboardPatient);
+    });
+}
+
+async function openAmendmentDetailModal(patient)
+{
+    document.getElementById("amendmentDetailAlert").innerHTML = "";
+    document.getElementById("amendmentDetailModalOverlay").classList.add("open");
+
+    await loadAmendmentDetailTable(patient);
+}
+
+async function loadAmendmentDetailTable(patient)
+{
+    const tbody = document.getElementById("amendmentDetailTableBody");
+
+    try {
+        const result = await fetchPatientAmendments(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load amendments.")}</td></tr>`;
+            return;
+        }
+
+        renderAmendmentDetailTable(result.data);
+    } catch (error) {
+        console.error("Failed to load patient amendments", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load amendments right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderAmendmentDetailTable(amendments)
+{
+    const tbody = document.getElementById("amendmentDetailTableBody");
+
+    if (!amendments.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No amendment requests available.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = amendments.map((amendment) => `
+        <tr>
+            <td>${escapeHtml((amendment.requested_date || "").slice(0, 10) || "-")}</td>
+            <td>${escapeHtml(amendment.description)}</td>
+            <td>${escapeHtml(amendment.requested_by || "-")}</td>
+            <td>${escapeHtml(amendment.status || "Pending")}</td>
+            <td class="table-actions">
+                <button class="btn-edit" data-edit-amendment="${amendment.id}">Edit</button>
+                <button class="btn-danger" data-remove-amendment="${amendment.id}">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-edit-amendment]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const amendment = amendments.find((a) => String(a.id) === btn.getAttribute("data-edit-amendment"));
+
+            if (amendment) {
+                openAmendmentFormModal(amendment);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-amendment]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this amendment request?")) {
+                return;
+            }
+
+            const result = await removeAmendment(btn.getAttribute("data-remove-amendment"));
+
+            if (!result.success) {
+                showAlert("amendmentDetailAlert", result.message || "Failed to remove amendment request.", "error");
+                return;
+            }
+
+            await loadAmendmentDetailTable(currentDashboardPatient);
+            await loadDashboardAmendments(currentDashboardPatient);
+        });
+    });
+}
+
+function openAmendmentFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("amendmentFormModalOverlay");
+    const title = document.getElementById("amendmentFormTitle");
+    const recordIdInput = document.getElementById("amendment_record_id");
+
+    document.getElementById("amendmentFormAlert").innerHTML = "";
+    document.getElementById("amendmentForm").reset();
+    document.getElementById("err-amendment_description").textContent = "";
+
+    if (existingRecord) {
+        title.textContent = "Edit Amendment";
+        recordIdInput.value = existingRecord.id;
+        document.getElementById("amendment_requested_date").value = (existingRecord.requested_date || "").slice(0, 10);
+        document.getElementById("amendment_requested_by").value = existingRecord.requested_by || "Patient";
+        document.getElementById("amendment_description").value = existingRecord.description || "";
+        document.getElementById("amendment_status").value = existingRecord.status || "";
+        document.getElementById("amendment_comments").value = existingRecord.comments || "";
+    } else {
+        title.textContent = "Add Amendment";
+        recordIdInput.value = "";
+        document.getElementById("amendment_requested_date").value = new Date().toISOString().slice(0, 10);
+        document.getElementById("amendment_requested_by").value = "Patient";
+        document.getElementById("amendment_status").value = "";
     }
 
     formOverlay.classList.add("open");

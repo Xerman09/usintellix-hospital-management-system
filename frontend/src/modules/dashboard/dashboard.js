@@ -1,6 +1,6 @@
 import { getUser, clearSession } from "../../core/session.js";
 import { logout } from "../auth/auth.service.js?v=2";
-import { TabManager } from "../../core/tabs.js";
+import { TabManager } from "../../core/tabs.js?v=2";
 import { DashboardHomeView } from "./dashboard-home.view.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
@@ -8,7 +8,7 @@ import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=7";
-import { initPatientsList } from "../patients/patients-list.js?v=7";
+import { initPatientsList } from "../patients/patients-list.js?v=8";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { ProviderCategoriesView } from "../provider-categories/provider-categories.view.js";
@@ -95,6 +95,149 @@ export function Dashboard()
         return DashboardHomeView(user);
     });
 
+    // Opens (or, when restoring saved tabs, merely registers) a dashboard
+    // tab by id. `activate` controls whether it's actually rendered into
+    // the shared tab-content area right now: TabManager.switchTab() swaps
+    // that single container's innerHTML synchronously, so restoring
+    // several saved tabs must only activate the one that ends up visible
+    // -- activating each of them in turn would render, then immediately
+    // clobber, every earlier tab's DOM before its deferred init() runs.
+    function openDashboardTab(tabId, title, activate = true) {
+        if (tabId === 'patients') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientsList, 0);
+                return PatientsListView(user);
+            }, activate);
+        } else if (tabId === 'employees') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAddEmployee, 0);
+                return AddEmployeeView();
+            }, activate);
+        } else if (tabId === 'role_management') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initRoleManagement, 0);
+                return RoleManagementView();
+            }, activate);
+        } else if (tabId === 'providers') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initProviders, 0);
+                return ProvidersView();
+            }, activate);
+        } else if (tabId === 'provider_categories') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initProviderCategories, 0);
+                return ProviderCategoriesView();
+            }, activate);
+        } else if (tabId === 'visit_categories') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initVisitCategories, 0);
+                return VisitCategoriesView();
+            }, activate);
+        } else if (tabId === 'classes') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initClasses, 0);
+                return ClassesView();
+            }, activate);
+        } else if (tabId === 'visit_types') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initVisitTypes, 0);
+                return VisitTypesView();
+            }, activate);
+        } else if (tabId === 'facilities') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initFacilities, 0);
+                return FacilitiesView();
+            }, activate);
+        } else if (tabId === 'facility_billings') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initFacilityBillings, 0);
+                return FacilityBillingsView();
+            }, activate);
+        } else if (tabId === 'allergies') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAllergies, 0);
+                return AllergiesView();
+            }, activate);
+        } else if (tabId === 'medical_problems') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initMedicalProblems, 0);
+                return MedicalProblemsView();
+            }, activate);
+        } else if (tabId === 'medication_management') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initMedications, 0);
+                return MedicationsView();
+            }, activate);
+        } else if (tabId === 'prescription_categories') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPrescriptionCategories, 0);
+                return PrescriptionCategoriesView();
+            }, activate);
+        } else if (tabId === 'payer_types') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPayerTypes, 0);
+                return PayerTypesView();
+            }, activate);
+        } else if (tabId === 'x12_partners') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initX12Partners, 0);
+                return X12PartnersView();
+            }, activate);
+        } else if (tabId === 'cqm_source_of_payments') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initCqmSourceOfPayments, 0);
+                return CqmSourceOfPaymentsView();
+            }, activate);
+        } else if (tabId === 'insurances') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initInsurances, 0);
+                return InsurancesView();
+            }, activate);
+        } else if (tabId === 'organization_types') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initOrganizationTypes, 0);
+                return OrganizationTypesView();
+            }, activate);
+        } else if (tabId === 'pos_codes') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPosCodes, 0);
+                return PosCodesView();
+            }, activate);
+        } else if (tabId === 'icd10_diagnoses') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initIcd10Diagnoses, 0);
+                return Icd10DiagnosesView();
+            }, activate);
+        } else if (tabId === 'cqm_valuesets') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initCqmValuesets, 0);
+                return CqmValuesetsView();
+            }, activate);
+        } else if (tabId === 'appointments' && user.role === 'doctor') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initDoctorCalendar, 0);
+                return DoctorCalendarView();
+            }, activate);
+        } else if (tabId === 'appointments' && ['admin', 'receptionist'].includes(user.role)) {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAppointmentsList, 0);
+                return AppointmentsListView(user);
+            }, activate);
+        } else if (tabId === 'messaging') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initMessages, 0);
+                return MessagesView();
+            }, activate);
+        } else if (tabId === 'health_records' && user.role === 'patient') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(() => initHealthSummary({}), 0);
+                return HealthSummaryView();
+            }, activate);
+        } else {
+            tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
+        }
+    }
+
     // Attach navigation listeners
     const navLinks = document.querySelectorAll('#navbarLinks a[data-tab]');
     navLinks.forEach(link => {
@@ -102,140 +245,8 @@ export function Dashboard()
             e.preventDefault();
             const tabId = link.getAttribute('data-tab');
             const title = link.textContent.trim();
-            
-            if (tabId === 'patients') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initPatientsList, 0);
-                    return PatientsListView(user);
-                });
-            } else if (tabId === 'employees') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initAddEmployee, 0);
-                    return AddEmployeeView();
-                });
-            } else if (tabId === 'role_management') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initRoleManagement, 0);
-                    return RoleManagementView();
-                });
-            } else if (tabId === 'providers') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initProviders, 0);
-                    return ProvidersView();
-                });
-            } else if (tabId === 'provider_categories') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initProviderCategories, 0);
-                    return ProviderCategoriesView();
-                });
-            } else if (tabId === 'visit_categories') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initVisitCategories, 0);
-                    return VisitCategoriesView();
-                });
-            } else if (tabId === 'classes') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initClasses, 0);
-                    return ClassesView();
-                });
-            } else if (tabId === 'visit_types') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initVisitTypes, 0);
-                    return VisitTypesView();
-                });
-            } else if (tabId === 'facilities') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initFacilities, 0);
-                    return FacilitiesView();
-                });
-            } else if (tabId === 'facility_billings') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initFacilityBillings, 0);
-                    return FacilityBillingsView();
-                });
-            } else if (tabId === 'allergies') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initAllergies, 0);
-                    return AllergiesView();
-                });
-            } else if (tabId === 'medical_problems') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initMedicalProblems, 0);
-                    return MedicalProblemsView();
-                });
-            } else if (tabId === 'medication_management') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initMedications, 0);
-                    return MedicationsView();
-                });
-            } else if (tabId === 'prescription_categories') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initPrescriptionCategories, 0);
-                    return PrescriptionCategoriesView();
-                });
-            } else if (tabId === 'payer_types') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initPayerTypes, 0);
-                    return PayerTypesView();
-                });
-            } else if (tabId === 'x12_partners') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initX12Partners, 0);
-                    return X12PartnersView();
-                });
-            } else if (tabId === 'cqm_source_of_payments') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initCqmSourceOfPayments, 0);
-                    return CqmSourceOfPaymentsView();
-                });
-            } else if (tabId === 'insurances') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initInsurances, 0);
-                    return InsurancesView();
-                });
-            } else if (tabId === 'organization_types') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initOrganizationTypes, 0);
-                    return OrganizationTypesView();
-                });
-            } else if (tabId === 'pos_codes') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initPosCodes, 0);
-                    return PosCodesView();
-                });
-            } else if (tabId === 'icd10_diagnoses') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initIcd10Diagnoses, 0);
-                    return Icd10DiagnosesView();
-                });
-            } else if (tabId === 'cqm_valuesets') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initCqmValuesets, 0);
-                    return CqmValuesetsView();
-                });
-            } else if (tabId === 'appointments' && user.role === 'doctor') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initDoctorCalendar, 0);
-                    return DoctorCalendarView();
-                });
-            } else if (tabId === 'appointments' && ['admin', 'receptionist'].includes(user.role)) {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initAppointmentsList, 0);
-                    return AppointmentsListView(user);
-                });
-            } else if (tabId === 'messaging') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(initMessages, 0);
-                    return MessagesView();
-                });
-            } else if (tabId === 'health_records' && user.role === 'patient') {
-                tabManager.openTab(tabId, title, () => {
-                    setTimeout(() => initHealthSummary({}), 0);
-                    return HealthSummaryView();
-                });
-            } else {
-                tabManager.openTab(tabId, title, () => renderPlaceholderTab(title));
-            }
+
+            openDashboardTab(tabId, title);
         });
     });
 
@@ -307,14 +318,16 @@ export function Dashboard()
     const profileRole = document.getElementById('profileRole');
     if (profileRole) profileRole.textContent = user.role || "patient";
 
-    // Restore tabs from the state we saved before initialization
+    // Restore tabs from the state we saved before initialization. Only the
+    // tab that ends up active is actually rendered+initialized; the rest
+    // are just re-registered in the tab bar (see openDashboardTab above).
     if (savedState) {
         try {
             if (savedState.tabs) {
                 savedState.tabs.forEach(tabId => {
                     if (tabId === 'dashboard') return;
                     const link = document.querySelector(`a[data-tab="${tabId}"]`);
-                    if (link) link.click();
+                    if (link) openDashboardTab(tabId, link.textContent.trim(), false);
                 });
             }
             if (savedState.active) {
@@ -322,7 +335,7 @@ export function Dashboard()
                     tabManager.switchTab('dashboard');
                 } else {
                     const activeLink = document.querySelector(`a[data-tab="${savedState.active}"]`);
-                    if (activeLink) activeLink.click();
+                    if (activeLink) openDashboardTab(savedState.active, activeLink.textContent.trim(), true);
                 }
             }
         } catch(e) {
