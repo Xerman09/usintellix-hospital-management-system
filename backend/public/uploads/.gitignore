@@ -1,2 +1,4 @@
 avatars/*
 !avatars/.gitkeep
+business/*
+!business/.gitkeep
