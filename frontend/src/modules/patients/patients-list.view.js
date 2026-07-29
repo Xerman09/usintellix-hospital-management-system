@@ -1236,6 +1236,16 @@ export function PatientsListView(user)
                         </select>
                         <span class="form-error"></span>
                     </div>
+
+                    <div class="form-group">
+                        <label>Allow Postcard</label>
+                        <select id="edit_allow_postcard" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
                 </div>
             </div>
 
@@ -1602,6 +1612,16 @@ ${canAdd ? `
                     <div class="form-group">
                         <label>Allow Health Information Exchange (HIE)</label>
                         <select id="allow_hie" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allow Postcard</label>
+                        <select id="allow_postcard" class="form-input">
                             <option value="">Unassigned</option>
                             <option value="yes">Yes</option>
                             <option value="no">No</option>

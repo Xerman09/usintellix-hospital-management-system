@@ -1,4 +1,5 @@
 import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment, fetchAvailableSlots } from "./appointments.service.js?v=1";
+import { consumePendingAppointmentPatient } from "../../core/pending-appointment.js";
 import { fetchPatients } from "../patients/patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
@@ -84,6 +85,17 @@ export async function initAppointmentCalendarPage({ showProvider: withProvider =
 
     setupAppointmentModal();
     setupFindAvailableModal();
+
+    const pending = consumePendingAppointmentPatient();
+
+    if (pending) {
+        document.getElementById("openAddAppointmentModal").click();
+        document.getElementById("p_patient_id").value = pending.patientId;
+
+        if (showProvider && pending.providerId) {
+            document.getElementById("p_provider_id").value = pending.providerId;
+        }
+    }
 }
 
 function wireToolbar()

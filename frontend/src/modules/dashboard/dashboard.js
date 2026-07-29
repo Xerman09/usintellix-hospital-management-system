@@ -57,6 +57,8 @@ import { ProfileView } from "../profile/profile.view.js";
 import { initProfile } from "../profile/profile.js";
 import { BusinessSettingsView } from "../business-settings/business-settings.view.js";
 import { initBusinessSettings } from "../business-settings/business-settings.js";
+import { RecallsView } from "../recalls/recalls.view.js";
+import { initRecalls } from "../recalls/recalls.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -235,6 +237,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initMessages, 0);
                 return MessagesView();
+            }, activate);
+        } else if (tabId === 'recalls') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initRecalls, 0);
+                return RecallsView();
             }, activate);
         } else if (tabId === 'profile') {
             tabManager.openTab(tabId, title, () => {

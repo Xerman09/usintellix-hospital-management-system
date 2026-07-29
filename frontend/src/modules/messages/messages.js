@@ -1,9 +1,14 @@
 import { getUser } from "../../core/session.js";
 import { fetchPatients } from "../patients/patients.service.js";
+import { fetchProviders } from "../providers/providers.service.js";
+import { fetchFacilities } from "../facilities/facilities.service.js";
 import {
     fetchMyMessages, fetchRecipientOptions, createConversation, sendMessage, deleteMessage,
     fetchMessageTypes, fetchMessageStatuses
 } from "./messages.service.js";
+import { fetchMyRecalls, createRecall } from "../recalls/recalls.service.js";
+import { RecallsView } from "../recalls/recalls.view.js";
+import { initRecalls } from "../recalls/recalls.js";
 
 let messagesCache = [];
 let selectedIds = new Set();
@@ -11,6 +16,9 @@ let typeOptions = [];
 let statusOptions = [];
 let recipientLookup = new Map();
 let patientLookup = new Map();
+
+let recallsCache = [];
+let recallPatientLookup = new Map();
 
 export async function initMessages()
 {
@@ -28,6 +36,7 @@ export async function initMessages()
     setupFilters();
     setupSelection();
     await setupAddMessageModal();
+    await setupRecalls();
 
     document.getElementById("msgScopeFilter").addEventListener("change", loadMyMessages);
 
@@ -452,4 +461,287 @@ function showListAlert(message, type)
     const container = document.getElementById("listAlert");
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+}
+
+
+async function setupRecalls()
+{
+    const user = getUser();
+    const isStaff = user?.role !== "patient";
+
+    document.getElementById("recallAddBtnWrap").style.display = isStaff ? "" : "none";
+    document.getElementById("recallPatientFieldGroup").style.display = isStaff ? "" : "none";
+
+    await Promise.all([
+        loadRecallFacilityOptions(),
+        loadRecallProviderOptions(),
+        isStaff ? loadRecallPatientOptions() : Promise.resolve()
+    ]);
+
+    setupSearchClear("recall_patient_search", "recallPatientClear");
+    setupRecallFormModal();
+
+    document.getElementById("goToRecallBoard").addEventListener("click", goToRecallBoard);
+
+    await loadRecalls();
+}
+
+async function loadRecallFacilityOptions()
+{
+    const formSelect = document.getElementById("recall_facility_id");
+
+    const result = await fetchFacilities();
+    const facilities = result.success ? result.data : [];
+
+    const options = facilities.map((facility) => `<option value="${facility.id}">${escapeHtml(facility.name)}</option>`).join("");
+
+    formSelect.innerHTML = `<option value="">Select facility</option>` + options;
+}
+
+async function loadRecallProviderOptions()
+{
+    const formSelect = document.getElementById("recall_provider_id");
+
+    const result = await fetchProviders();
+    const providers = result.success ? result.data : [];
+
+    const options = providers.map((provider) => {
+        const label = [provider.first_name, provider.last_name].filter(Boolean).join(" ");
+        return `<option value="${provider.id}">${escapeHtml(label)}</option>`;
+    }).join("");
+
+    formSelect.innerHTML = `<option value="">Select provider</option>` + options;
+}
+
+async function loadRecallPatientOptions()
+{
+    const datalist = document.getElementById("recallPatientDatalist");
+
+    datalist.innerHTML = "";
+    recallPatientLookup = new Map();
+
+    const result = await fetchPatients();
+
+    if (!result.success) {
+        return;
+    }
+
+    result.data.forEach((patient) => {
+        const fullName = [patient.first_name, patient.last_name].filter(Boolean).join(" ");
+        const label = `${fullName} (${patient.patient_no})`;
+
+        recallPatientLookup.set(label, { id: String(patient.id), birthdate: patient.birthdate });
+
+        const option = document.createElement("option");
+
+        option.value = label;
+
+        datalist.appendChild(option);
+    });
+}
+
+function calculateAge(birthdate)
+{
+    if (!birthdate) {
+        return null;
+    }
+
+    const dob = new Date(birthdate);
+    const today = new Date();
+
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+
+    return age;
+}
+
+function renderPatientDobAge(birthdate)
+{
+    const el = document.getElementById("recall_patient_dob_age");
+
+    if (!birthdate) {
+        el.textContent = "—";
+        return;
+    }
+
+    const age = calculateAge(birthdate);
+
+    el.textContent = `${birthdate} (${age} ${age === 1 ? "yr" : "yrs"} old)`;
+}
+
+function setupRecallFormModal()
+{
+    const modalOverlay = document.getElementById("recallFormModalOverlay");
+    const form = document.getElementById("recallForm");
+
+    const resetForm = () => {
+        form.reset();
+        document.getElementById("recall_id").value = "";
+        document.getElementById("recall_patient_search").value = "";
+        document.getElementById("recall_status").value = "pending";
+        document.getElementById("recallFormAlert").innerHTML = "";
+        document.getElementById("err-patient_id").textContent = "";
+        document.getElementById("err-recall_date").textContent = "";
+        document.getElementById("err-provider_id").textContent = "";
+        document.getElementById("err-facility_id").textContent = "";
+        document.getElementById("err-reason").textContent = "";
+        renderPatientDobAge(null);
+    };
+
+    const openAddModal = () => {
+        resetForm();
+        document.getElementById("recallFormModalTitle").textContent = "New Recall";
+        modalOverlay.classList.add("open");
+    };
+
+    const closeModal = () => {
+        modalOverlay.classList.remove("open");
+    };
+
+    document.getElementById("openAddRecallModal").addEventListener("click", openAddModal);
+    document.getElementById("closeRecallFormModal").addEventListener("click", closeModal);
+    document.getElementById("cancelRecallForm").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    document.getElementById("recall_patient_search").addEventListener("input", (event) => {
+        const patient = recallPatientLookup.get(event.target.value.trim());
+
+        renderPatientDobAge(patient ? patient.birthdate : null);
+    });
+
+    document.querySelectorAll('input[name="recall_date_quickpick"]').forEach((radio) => {
+        radio.addEventListener("change", () => {
+            const years = Number(radio.value);
+            const target = new Date();
+
+            target.setFullYear(target.getFullYear() + years);
+
+            document.getElementById("recall_date").value = target.toISOString().slice(0, 10);
+        });
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("err-patient_id").textContent = "";
+        document.getElementById("err-recall_date").textContent = "";
+        document.getElementById("err-provider_id").textContent = "";
+        document.getElementById("err-facility_id").textContent = "";
+        document.getElementById("err-reason").textContent = "";
+
+        const patient = recallPatientLookup.get(document.getElementById("recall_patient_search").value.trim());
+        const facilityId = document.getElementById("recall_facility_id").value;
+        const providerId = document.getElementById("recall_provider_id").value;
+        const recallDate = document.getElementById("recall_date").value;
+
+        const data = {
+            facility_id: facilityId || null,
+            provider_id: providerId || null,
+            recall_date: recallDate || null,
+            reason: document.getElementById("recall_reason").value.trim() || null,
+            status: document.getElementById("recall_status").value,
+            notes: document.getElementById("recall_notes").value.trim() || null
+        };
+
+        let hasError = false;
+
+        if (!patient) {
+            document.getElementById("err-patient_id").textContent = "Choose a patient.";
+            hasError = true;
+        }
+
+        if (!recallDate) {
+            document.getElementById("err-recall_date").textContent = "Recall date is required.";
+            hasError = true;
+        }
+
+        if (!providerId) {
+            document.getElementById("err-provider_id").textContent = "Provider is required.";
+            hasError = true;
+        }
+
+        if (!facilityId) {
+            document.getElementById("err-facility_id").textContent = "Facility is required.";
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        const result = await createRecall({ ...data, patient_id: patient.id });
+
+        if (!result.success) {
+            showAlert("recallFormAlert", result.message || "Failed to save recall.", "error");
+
+            if (result.errors) {
+                Object.entries(result.errors).forEach(([field, message]) => {
+                    const errorEl = document.getElementById(`err-${field}`);
+
+                    if (errorEl) {
+                        errorEl.textContent = message;
+                    }
+                });
+            }
+
+            return;
+        }
+
+        closeModal();
+        showListAlert("Recall scheduled successfully.", "success");
+        await loadRecalls();
+    });
+}
+
+async function loadRecalls()
+{
+    const result = await fetchMyRecalls();
+
+    recallsCache = result.success ? result.data : [];
+
+    renderRecallsMiniList();
+}
+
+function renderRecallsMiniList()
+{
+    const container = document.getElementById("recallsMiniList");
+
+    const upcoming = recallsCache.filter((recall) => recall.status === "pending").slice(0, 5);
+
+    if (!upcoming.length) {
+        container.innerHTML = `<p class="table-empty">No recalls registered yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = upcoming.map((recall) => {
+        const patientName = escapeHtml([recall.patient_first_name, recall.patient_last_name].filter(Boolean).join(" ") || "—");
+
+        return `
+        <div class="rec-mini-item">
+            <div class="rec-mini-info">
+                <strong>${patientName}</strong>
+                <span>${escapeHtml(recall.reason || "No reason specified")}</span>
+            </div>
+            <div class="rec-mini-date">
+                <span>${escapeHtml(recall.recall_date || "—")}</span>
+            </div>
+        </div>
+        `;
+    }).join("");
+}
+
+function goToRecallBoard()
+{
+    window.tabManager.openTab("recalls", "Recalls", () => {
+        setTimeout(initRecalls, 0);
+        return RecallsView();
+    }, true);
 }
