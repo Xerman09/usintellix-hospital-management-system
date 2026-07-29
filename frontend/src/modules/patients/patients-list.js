@@ -13,6 +13,12 @@ import {
     updatePatientMedicalProblem,
     removePatientMedicalProblem
 } from "../patient-medical-problems/patient-medical-problems.service.js";
+import {
+    fetchPatientHealthConcerns,
+    addPatientHealthConcern,
+    updatePatientHealthConcern,
+    removePatientHealthConcern
+} from "../patient-health-concerns/patient-health-concerns.service.js";
 import { fetchMedications } from "../medications/medications.service.js";
 import {
     fetchPatientMedications,
@@ -141,6 +147,7 @@ export async function initPatientsList()
     setupPatientDashboardModal();
     setupAllergyModals();
     setupProblemModals();
+    setupHealthConcernModals();
     setupMedicationModals();
     setupPrescriptionModals();
     setupDisclosureModals();
@@ -318,7 +325,7 @@ function openPatientDashboardModal(patient)
 async function loadPatientDashboardWidgets(patient)
 {
     const widgetBodyIds = [
-        "pdAllergiesBody", "pdProblemsBody", "pdMedicationsBody", "pdPrescriptionsBody",
+        "pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody",
         "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody"
     ];
 
@@ -337,6 +344,7 @@ async function loadPatientDashboardWidgets(patient)
 
         renderDashboardAllergies(data.allergies || []);
         renderDashboardProblems(data.problems || []);
+        renderDashboardHealthConcerns(data.health_concerns || []);
         renderDashboardMedications(data.medications || []);
         renderDashboardPrescriptions(data.prescriptions || []);
         renderDashboardDisclosures(data.disclosures || []);
@@ -722,6 +730,30 @@ function renderDashboardProblems(problems)
            </div>`;
 }
 
+function renderDashboardHealthConcerns(concerns)
+{
+    const body = document.getElementById("pdHealthConcernsBody");
+
+    if (!body) {
+        return;
+    }
+
+    const active = concerns.filter((concern) => !concern.end_date);
+
+    body.innerHTML = active.length
+        ? `<div class="pd-allergy-list">
+            ${active.map((concern) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(concern.title)}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>
+            <p>No health concerns recorded.</p>
+           </div>`;
+}
+
 async function loadDashboardMedications(patient)
 {
     const body = document.getElementById("pdMedicationsBody");
@@ -891,6 +923,7 @@ function setupAllergyModals()
 
 let scmSelectedMap = new Map();
 let scmTargetFieldId = "allergy_coding";
+let scmTitleFieldId = null;
 
 function setupSelectCodesModal()
 {
@@ -974,13 +1007,23 @@ function setupSelectCodesModal()
 
         document.getElementById(scmTargetFieldId).value = parts.join("\n");
 
+        if (scmTitleFieldId) {
+            const firstSelected = Array.from(scmSelectedMap.values())[0];
+            const titleField = document.getElementById(scmTitleFieldId);
+
+            if (firstSelected && titleField) {
+                titleField.value = firstSelected.description || firstSelected.code;
+            }
+        }
+
         closeModal();
     });
 }
 
-function openSelectCodesModal(targetFieldId = "allergy_coding")
+function openSelectCodesModal(targetFieldId = "allergy_coding", titleFieldId = null)
 {
     scmTargetFieldId = targetFieldId;
+    scmTitleFieldId = titleFieldId;
     scmSource = "icd10";
     scmSearchTerm = "";
     scmCurrentPage = 1;
@@ -1510,6 +1553,247 @@ async function openProblemFormModal(existingRecord)
         recordIdInput.value = "";
         catalogSelect.disabled = false;
         document.getElementById("problem_verification_status").value = "Unconfirmed";
+    }
+
+    formOverlay.classList.add("open");
+}
+
+const HEALTH_CONCERN_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+function setupHealthConcernModals()
+{
+    const detailOverlay = document.getElementById("healthConcernDetailModalOverlay");
+    const formOverlay = document.getElementById("healthConcernFormModalOverlay");
+    const form = document.getElementById("healthConcernForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdHealthConcernsAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openHealthConcernDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeHealthConcernDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("healthConcernMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("healthConcernMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openAddHealthConcernBtn").addEventListener("click", () => {
+        openHealthConcernFormModal(null);
+    });
+
+    document.getElementById("openSelectCodesBtnHealthConcern").addEventListener("click", () => {
+        openSelectCodesModal("healthconcern_coding", "healthconcern_title");
+    });
+
+    document.getElementById("closeHealthConcernFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelHealthConcernForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("healthconcern_record_id").value;
+        const errEl = document.getElementById("err-healthconcern_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        HEALTH_CONCERN_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`healthconcern_${field}`).value.trim();
+        });
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientHealthConcern(recordId, details)
+            : await addPatientHealthConcern(currentDashboardPatient.id, details);
+
+        if (!result.success) {
+            showAlert("healthConcernFormAlert", result.message || "Failed to save health concern.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadHealthConcernDetailTable(currentDashboardPatient);
+        await loadDashboardHealthConcerns(currentDashboardPatient);
+    });
+}
+
+async function openHealthConcernDetailModal(patient)
+{
+    document.getElementById("healthConcernDetailAlert").innerHTML = "";
+    document.getElementById("healthConcernDetailModalOverlay").classList.add("open");
+
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const addBtn = document.getElementById("openAddHealthConcernBtn");
+
+    addBtn.style.display = canManage ? "" : "none";
+
+    await loadHealthConcernDetailTable(patient);
+}
+
+async function loadDashboardHealthConcerns(patient)
+{
+    const body = document.getElementById("pdHealthConcernsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientHealthConcerns(patient.id);
+
+        renderDashboardHealthConcerns(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load health concerns", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load health concerns right now.</p></div>`;
+    }
+}
+
+async function loadHealthConcernDetailTable(patient)
+{
+    const tbody = document.getElementById("healthConcernDetailTableBody");
+
+    try {
+        const result = await fetchPatientHealthConcerns(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load health concerns.")}</td></tr>`;
+            return;
+        }
+
+        renderHealthConcernDetailTable(patient, result.data);
+    } catch (error) {
+        console.error("Failed to load patient health concerns", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load health concerns right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderHealthConcernDetailTable(patient, concerns)
+{
+    const tbody = document.getElementById("healthConcernDetailTableBody");
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
+    if (!concerns.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No health concerns recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = concerns.map((concern) => {
+        const isActive = !concern.end_date;
+
+        return `
+        <tr>
+            <td>${escapeHtml(concern.title)}</td>
+            <td>${escapeHtml(concern.occurrence || "-")}</td>
+            <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
+            <td>${escapeHtml((concern.updated_at || concern.created_at || "").slice(0, 10))}</td>
+            <td class="table-actions">
+                ${canManage
+                    ? `<button class="btn-edit" data-edit-healthconcern="${concern.id}">Edit</button>
+                       <button class="btn-danger" data-remove-healthconcern="${concern.id}">Delete</button>`
+                    : ""}
+            </td>
+        </tr>
+    `;
+    }).join("");
+
+    if (!canManage) {
+        return;
+    }
+
+    tbody.querySelectorAll("[data-edit-healthconcern]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const concern = concerns.find((c) => String(c.id) === btn.getAttribute("data-edit-healthconcern"));
+
+            if (concern) {
+                openHealthConcernFormModal(concern);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-healthconcern]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this health concern record?")) {
+                return;
+            }
+
+            const result = await removePatientHealthConcern(btn.getAttribute("data-remove-healthconcern"));
+
+            if (!result.success) {
+                showAlert("healthConcernDetailAlert", result.message || "Failed to remove health concern.", "error");
+                return;
+            }
+
+            await loadHealthConcernDetailTable(currentDashboardPatient);
+            await loadDashboardHealthConcerns(currentDashboardPatient);
+        });
+    });
+}
+
+function openHealthConcernFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("healthConcernFormModalOverlay");
+    const title = document.getElementById("healthConcernFormTitle");
+    const recordIdInput = document.getElementById("healthconcern_record_id");
+
+    document.getElementById("healthConcernFormAlert").innerHTML = "";
+    document.getElementById("healthConcernForm").reset();
+    document.getElementById("err-healthconcern_title").textContent = "";
+
+    const moreToggle = document.getElementById("healthConcernMoreToggle");
+    const moreFields = document.getElementById("healthConcernMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    if (existingRecord) {
+        title.textContent = "Edit Health Concern";
+        recordIdInput.value = existingRecord.id;
+
+        HEALTH_CONCERN_DETAIL_FIELDS.forEach((field) => {
+            document.getElementById(`healthconcern_${field}`).value = existingRecord[field] ?? "";
+        });
+
+        const secondaryFields = ["coding", "occurrence", "outcome", "classification_type", "referred_by", "destination"];
+
+        if (secondaryFields.some((field) => existingRecord[field])) {
+            moreFields.hidden = false;
+            moreToggle.classList.add("expanded");
+            moreToggle.querySelector("span").textContent = "Hide More Fields";
+        }
+    } else {
+        title.textContent = "Add Health Concern";
+        recordIdInput.value = "";
+        document.getElementById("healthconcern_verification_status").value = "Unconfirmed";
     }
 
     formOverlay.classList.add("open");

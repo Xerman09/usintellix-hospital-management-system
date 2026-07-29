@@ -9,6 +9,7 @@ use App\Modules\Patients\Services\PatientService;
 use App\Modules\Providers\Services\ProviderService;
 use App\Modules\PatientAllergies\Services\PatientAllergyService;
 use App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService;
+use App\Modules\PatientHealthConcerns\Services\PatientHealthConcernService;
 use App\Modules\PatientMedications\Services\PatientMedicationService;
 use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
 use App\Modules\RelatedPersons\Services\RelatedPersonService;
@@ -71,6 +72,7 @@ class PatientController extends Controller
         $sections = [
             'allergies' => fn () => (new PatientAllergyService())->list($patientId),
             'problems' => fn () => (new PatientMedicalProblemService())->list($patientId),
+            'health_concerns' => fn () => (new PatientHealthConcernService())->list($patientId),
             'medications' => fn () => (new PatientMedicationService())->list($patientId),
             'prescriptions' => fn () => (new PatientPrescriptionService())->list($patientId),
             'related_persons' => fn () => (new RelatedPersonService())->list($patientId),

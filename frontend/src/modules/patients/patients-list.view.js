@@ -1910,6 +1910,7 @@ ${canAdd ? `
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No provider assigned yet.")}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}
+                    ${dashboardWidget("Health Concerns", '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path>', "No health concerns recorded.", { bodyId: "pdHealthConcernsBody", addBtnId: "pdHealthConcernsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.", { bodyId: "pdMedicationsBody", addBtnId: "pdMedicationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
@@ -2252,6 +2253,150 @@ ${canAdd ? `
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelProblemForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="healthConcernDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Health Concerns</h2>
+            <button type="button" class="modal-close" id="closeHealthConcernDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full health concern history for this patient.</p>
+
+        <div id="healthConcernDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddHealthConcernBtn">+ Add</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Health Concern</th>
+                        <th>Occurrence</th>
+                        <th>Status</th>
+                        <th>Last Modified</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="healthConcernDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="healthConcernFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="healthConcernFormTitle">Add/Edit Issue</h2>
+            <button type="button" class="modal-close" id="closeHealthConcernFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Type: Health Concern</p>
+
+        <div id="healthConcernFormAlert"></div>
+
+        <form id="healthConcernForm">
+            <input type="hidden" id="healthconcern_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Title</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <input id="healthconcern_title" class="form-input" placeholder="Search or type a title">
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnHealthConcern" style="margin-top: 0;">Select Codes</button>
+                    </div>
+                    <span class="form-error" id="err-healthconcern_title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="healthconcern_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="healthconcern_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="healthconcern_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="healthConcernMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="healthConcernMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding</label>
+                    <textarea id="healthconcern_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="healthconcern_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="healthconcern_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="healthconcern_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
+                        <option value="Problem List">Problem List</option>
+                        <option value="Chronic">Chronic</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="healthconcern_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="healthconcern_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="healthconcern_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelHealthConcernForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

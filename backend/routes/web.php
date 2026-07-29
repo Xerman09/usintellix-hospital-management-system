@@ -37,6 +37,7 @@ require_once __DIR__ . '/../app/Modules/PosCodes/routes.php';
 require_once __DIR__ . '/../app/Modules/HealthRecords/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientAllergies/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedicalProblems/routes.php';
+require_once __DIR__ . '/../app/Modules/PatientHealthConcerns/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedications/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientPrescriptions/routes.php';
 require_once __DIR__ . '/../app/Modules/PrescriptionCategories/routes.php';
