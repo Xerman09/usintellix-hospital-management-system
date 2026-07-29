@@ -43,6 +43,28 @@ export async function deleteMessage(messageId)
     );
 }
 
+export async function fetchPatientMessages(patientId)
+{
+    const query = new URLSearchParams({ patient_id: patientId }).toString();
+
+    return await api(`/messages/patient?${query}`);
+}
+
+export async function sendPatientMessage(patientId, recipientId, body, extra = {})
+{
+    const conversationResult = await createConversation({ participant_ids: [Number(recipientId)] });
+
+    if (!conversationResult.success) {
+        return conversationResult;
+    }
+
+    return await sendMessage(
+        conversationResult.data.conversation_id,
+        body,
+        { patient_id: patientId, ...extra }
+    );
+}
+
 export async function fetchMessageTypes()
 {
     return await api("/messages/types");

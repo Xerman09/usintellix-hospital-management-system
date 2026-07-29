@@ -152,3 +152,12 @@ $router->post('/messages/conversation/read', [
 ], [
     AuthMiddleware::class
 ]);
+
+// List a patient's recorded messages (patient dashboard widget). Query: ?patient_id=
+$router->get('/messages/patient', [
+    MessagingController::class,
+    'patientMessages'
+], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

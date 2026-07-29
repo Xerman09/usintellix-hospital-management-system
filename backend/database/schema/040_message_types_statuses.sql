@@ -1,8 +1,9 @@
 -- =============================================
 -- Tables: message_types, message_statuses
 -- Admin-managed catalogs for classifying messages (mirrors the
--- allergies catalog pattern) + the columns on `messages` that
--- reference them.
+-- allergies catalog pattern). The `messages` table itself (with its
+-- type_id/status_id/patient_id columns) is created afterwards, in
+-- 051_conversations_messages.sql.
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS message_types (
@@ -66,35 +67,3 @@ CREATE TABLE IF NOT EXISTS message_statuses (
     INDEX idx_message_statuses_deleted_by (deleted_by)
 
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
-
-ALTER TABLE messages
-
-ADD COLUMN type_id INT NULL AFTER conversation_id,
-
-ADD COLUMN status_id INT NULL AFTER type_id,
-
-ADD COLUMN patient_id INT NULL AFTER status_id,
-
-ADD CONSTRAINT fk_messages_type
-    FOREIGN KEY (type_id)
-    REFERENCES message_types(id)
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION,
-
-ADD CONSTRAINT fk_messages_status
-    FOREIGN KEY (status_id)
-    REFERENCES message_statuses(id)
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION,
-
-ADD CONSTRAINT fk_messages_patient
-    FOREIGN KEY (patient_id)
-    REFERENCES patients(id)
-    ON UPDATE NO ACTION
-    ON DELETE NO ACTION,
-
-ADD INDEX idx_messages_type (type_id),
-
-ADD INDEX idx_messages_status (status_id),
-
-ADD INDEX idx_messages_patient (patient_id);

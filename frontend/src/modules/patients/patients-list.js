@@ -33,6 +33,9 @@ import {
 } from "../related-persons/related-persons.service.js";
 import { fetchCountries, fetchPhProvinces, isPhilippines } from "../related-persons/geography.service.js";
 import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure } from "../disclosures/disclosures.service.js";
+import {
+    fetchPatientMessages, sendPatientMessage, fetchMessageTypes, fetchMessageStatuses, fetchRecipientOptions
+} from "../messages/messages.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -140,6 +143,7 @@ export async function initPatientsList()
     setupMedicationModals();
     setupPrescriptionModals();
     setupDisclosureModals();
+    setupMessageModals();
     setupRelatedPersonModals();
     setupSelectCodesModal();
 
@@ -305,6 +309,47 @@ function openPatientDashboardModal(patient)
     loadDashboardPrescriptions(patient);
     loadDashboardRelatedPersons(patient);
     loadDashboardDisclosures(patient);
+    loadDashboardMessages(patient);
+}
+
+async function loadDashboardMessages(patient)
+{
+    const body = document.getElementById("pdMessagesBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientMessages(patient.id);
+
+        renderDashboardMessages(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load messages", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load messages right now.</p></div>`;
+    }
+}
+
+function renderDashboardMessages(messages)
+{
+    const body = document.getElementById("pdMessagesBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = messages.length
+        ? `<div class="pd-allergy-list">
+            ${messages.slice(0, 5).map((message) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(message.sender_name || "Unknown")}${message.type_name ? ` &middot; ${escapeHtml(message.type_name)}` : ""}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="m4 6 8 7 8-7"></path></svg>
+            <p>No messages recorded for this patient.</p>
+           </div>`;
 }
 
 async function loadDashboardDisclosures(patient)
@@ -2077,6 +2122,182 @@ function openDisclosureFormModal(existingRecord)
     }
 
     formOverlay.classList.add("open");
+}
+
+let messageCatalogsLoaded = false;
+let messageTypeOptions = [];
+let messageStatusOptions = [];
+let messageRecipientOptions = [];
+
+function setupMessageModals()
+{
+    const detailOverlay = document.getElementById("messageDetailModalOverlay");
+    const formOverlay = document.getElementById("messageFormModalOverlay");
+    const form = document.getElementById("messageForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdMessagesAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openMessageDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeMessageDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("openAddMessageModalPd").addEventListener("click", () => {
+        openMessageFormModal();
+    });
+
+    document.getElementById("closeMessageFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelMessageForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recipientErrEl = document.getElementById("err-message_recipient_id");
+        const bodyErrEl = document.getElementById("err-message_body");
+
+        recipientErrEl.textContent = "";
+        bodyErrEl.textContent = "";
+
+        const recipientId = document.getElementById("message_recipient_id").value;
+        const typeId = document.getElementById("message_type_id").value;
+        const statusId = document.getElementById("message_status_id").value;
+        const body = document.getElementById("message_body").value.trim();
+
+        if (!recipientId) {
+            recipientErrEl.textContent = "Choose a recipient.";
+            return;
+        }
+
+        if (!body) {
+            bodyErrEl.textContent = "Message body is required.";
+            return;
+        }
+
+        const result = await sendPatientMessage(currentDashboardPatient.id, recipientId, body, {
+            type_id: typeId || null,
+            status_id: statusId || null
+        });
+
+        if (!result.success) {
+            showAlert("messageFormAlert", result.message || "Failed to send message.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadMessageDetailTable(currentDashboardPatient);
+        await loadDashboardMessages(currentDashboardPatient);
+    });
+}
+
+async function openMessageDetailModal(patient)
+{
+    document.getElementById("messageDetailAlert").innerHTML = "";
+    document.getElementById("messageDetailModalOverlay").classList.add("open");
+
+    await loadMessageDetailTable(patient);
+}
+
+async function loadMessageDetailTable(patient)
+{
+    const tbody = document.getElementById("messageDetailTableBody");
+
+    try {
+        const result = await fetchPatientMessages(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load messages.")}</td></tr>`;
+            return;
+        }
+
+        renderMessageDetailTable(result.data);
+    } catch (error) {
+        console.error("Failed to load patient messages", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load messages right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderMessageDetailTable(messages)
+{
+    const tbody = document.getElementById("messageDetailTableBody");
+
+    if (!messages.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No messages recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = messages.map((message) => `
+        <tr>
+            <td>${escapeHtml((message.created_at || "").slice(0, 16).replace("T", " ") || "-")}</td>
+            <td>${escapeHtml(message.sender_name || "-")}</td>
+            <td>${escapeHtml(message.type_name || "-")}</td>
+            <td>${escapeHtml(message.status_name || "-")}</td>
+            <td>${escapeHtml(message.body || "-")}</td>
+        </tr>
+    `).join("");
+}
+
+async function loadMessageCatalogsIfNeeded()
+{
+    if (messageCatalogsLoaded) {
+        return;
+    }
+
+    const [typesResult, statusesResult, recipientsResult] = await Promise.all([
+        fetchMessageTypes(),
+        fetchMessageStatuses(),
+        fetchRecipientOptions()
+    ]);
+
+    messageTypeOptions = typesResult.success ? typesResult.data : [];
+    messageStatusOptions = statusesResult.success ? statusesResult.data : [];
+    messageRecipientOptions = recipientsResult.success ? recipientsResult.data : [];
+    messageCatalogsLoaded = true;
+}
+
+async function openMessageFormModal()
+{
+    document.getElementById("messageFormAlert").innerHTML = "";
+    document.getElementById("messageForm").reset();
+    document.getElementById("err-message_recipient_id").textContent = "";
+    document.getElementById("err-message_body").textContent = "";
+
+    await loadMessageCatalogsIfNeeded();
+
+    const typeSelect = document.getElementById("message_type_id");
+    const statusSelect = document.getElementById("message_status_id");
+    const recipientSelect = document.getElementById("message_recipient_id");
+
+    typeSelect.innerHTML = `<option value="">Select type</option>` +
+        messageTypeOptions.map((type) => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join("");
+
+    statusSelect.innerHTML = `<option value="">Select status</option>` +
+        messageStatusOptions.map((status) => `<option value="${status.id}">${escapeHtml(status.name)}</option>`).join("");
+
+    recipientSelect.innerHTML = `<option value="">Select recipient</option>` +
+        messageRecipientOptions.map((recipient) => `<option value="${recipient.id}">${escapeHtml(recipient.display_name)} (${escapeHtml(capitalize(recipient.role))})</option>`).join("");
+
+    document.getElementById("messageFormModalOverlay").classList.add("open");
+}
+
+function capitalize(value)
+{
+    const text = value || "";
+
+    return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function setFact(elementId, value)

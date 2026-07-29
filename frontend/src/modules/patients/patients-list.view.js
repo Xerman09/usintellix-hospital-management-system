@@ -1919,6 +1919,7 @@ ${canAdd ? `
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.")}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { widgetId: "pdWidget-documents" })}
                     ${dashboardWidget("Disclosures", '<path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path>', "No disclosures recorded for this patient.", { bodyId: "pdDisclosuresBody", addBtnId: "pdDisclosuresAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Messages", '<path d="M4 4h16v16H4z"></path><path d="m4 6 8 7 8-7"></path>', "No messages recorded for this patient.", { bodyId: "pdMessagesBody", addBtnId: "pdMessagesAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
                 </div>
 
                 <div class="pd-chart-placeholder" id="pdChartPlaceholder" style="display: none;">
@@ -2734,6 +2735,88 @@ ${canAdd ? `
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelDisclosureForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="messageDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Messages</h2>
+            <button type="button" class="modal-close" id="closeMessageDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full message history for this patient.</p>
+
+        <div id="messageDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddMessageModalPd">+ Add Message</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>From</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody id="messageDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="messageFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>New Message</h2>
+            <button type="button" class="modal-close" id="closeMessageFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Send a message about this patient to another user in the system.</p>
+
+        <div id="messageFormAlert"></div>
+
+        <form id="messageForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="message_type_id" class="form-input">
+                        <option value="">Select type</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="message_status_id" class="form-input">
+                        <option value="">Select status</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group full">
+                <label>To</label>
+                <select id="message_recipient_id" class="form-input">
+                    <option value="">Select recipient</option>
+                </select>
+                <span class="form-error" id="err-message_recipient_id"></span>
+            </div>
+
+            <div class="form-group full">
+                <label>Message</label>
+                <textarea id="message_body" class="form-input" style="min-height: 120px;" placeholder="Type your message"></textarea>
+                <span class="form-error" id="err-message_body"></span>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelMessageForm">Cancel</button>
+                <button class="login-btn" type="submit">Send Message</button>
             </div>
         </form>
     </div>
