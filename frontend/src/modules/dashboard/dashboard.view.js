@@ -102,6 +102,7 @@ export function DashboardView()
                         <div id="profileRole" style="text-transform: capitalize;">Role</div>
                     </div>
                     <hr>
+                    <a data-tab="profile" style="cursor: pointer;">Profile</a>
                     <a data-tab="appearance" style="cursor: pointer;">Appearance</a>
                     <a data-tab="settings" style="cursor: pointer;">Settings</a>
                     <a id="logoutBtn" style="cursor: pointer; color: #dc2626;">Logout</a>
