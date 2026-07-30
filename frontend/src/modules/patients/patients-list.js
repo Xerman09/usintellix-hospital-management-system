@@ -43,6 +43,15 @@ import {
     fetchPatientMessages, sendPatientMessage, fetchMessageTypes, fetchMessageStatuses, fetchRecipientOptions
 } from "../messages/messages.service.js";
 import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js";
+import {
+    fetchPatientEncounters, fetchLinkableIssues, addEncounter, updateEncounter, removeEncounter,
+    fetchDischargeDispositions
+} from "../encounters/encounters.service.js";
+import { fetchCareTeam, fetchCareTeamOptions, saveCareTeam } from "../care-team/care-team.service.js";
+import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
+import { fetchClasses } from "../classes/classes.service.js";
+import { fetchVisitTypes } from "../visit-types/visit-types.service.js";
+import { fetchFacilities } from "../facilities/facilities.service.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -153,6 +162,8 @@ export async function initPatientsList()
     setupDisclosureModals();
     setupMessageModals();
     setupAmendmentModals();
+    setupEncounterModals();
+    setupCareTeamModal();
     setupRelatedPersonModals();
     setupSelectCodesModal();
 
@@ -326,7 +337,8 @@ async function loadPatientDashboardWidgets(patient)
 {
     const widgetBodyIds = [
         "pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody",
-        "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody"
+        "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody", "pdEncountersBody",
+        "pdCareTeamBody"
     ];
 
     try {
@@ -350,6 +362,8 @@ async function loadPatientDashboardWidgets(patient)
         renderDashboardDisclosures(data.disclosures || []);
         renderDashboardMessages(data.messages || []);
         renderDashboardAmendments(data.amendments || []);
+        renderDashboardEncounters(data.encounters || []);
+        renderDashboardCareTeam(data.care_team || null);
 
         dashboardRelatedPersons = data.related_persons || [];
         renderDashboardRelatedPersons(dashboardRelatedPersons);
@@ -403,6 +417,28 @@ function renderDashboardAmendments(amendments)
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
             <p>No amendment requests available.</p>
+           </div>`;
+}
+
+function renderDashboardEncounters(encounters)
+{
+    const body = document.getElementById("pdEncountersBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = encounters.length
+        ? `<div class="pd-allergy-list">
+            ${encounters.slice(0, 5).map((encounter) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml((encounter.date_of_service || "").slice(0, 16).replace("T", " "))}${encounter.visit_category_name ? ` &middot; ${escapeHtml(encounter.visit_category_name)}` : ""}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path></svg>
+            <p>No visits recorded for this patient.</p>
            </div>`;
 }
 
@@ -2652,6 +2688,627 @@ function openAmendmentFormModal(existingRecord)
     }
 
     formOverlay.classList.add("open");
+}
+
+let encounterCatalogsLoaded = false;
+let encounterVisitCategories = [];
+let encounterClasses = [];
+let encounterVisitTypes = [];
+let encounterProviders = [];
+let encounterFacilities = [];
+let encounterDischargeDispositions = [];
+let encounterLinkableIssues = [];
+
+const ENCOUNTER_DETAIL_FIELDS = [
+    "visit_category_id", "class_id", "visit_type_id", "sensitivity",
+    "encounter_provider_id", "referring_provider_id", "facility_id",
+    "billing_facility_id", "onset_date", "in_collection", "discharge_disposition_id",
+    "reason_for_visit"
+];
+
+const ENCOUNTER_ISSUE_TAGS = {
+    allergy: "A",
+    problem: "P",
+    medication: "M",
+    health_concern: "H"
+};
+
+function setupEncounterModals()
+{
+    const detailOverlay = document.getElementById("encounterDetailModalOverlay");
+    const formOverlay = document.getElementById("encounterFormModalOverlay");
+    const form = document.getElementById("encounterForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdEncountersAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openEncounterDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("pdNewEncounterBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openEncounterFormModal(null);
+        }
+    });
+
+    document.getElementById("closeEncounterDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("openAddEncounterBtn").addEventListener("click", () => {
+        openEncounterFormModal(null);
+    });
+
+    document.getElementById("closeEncounterFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelEncounterForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("encounter_record_id").value;
+        const categoryErrEl = document.getElementById("err-encounter_visit_category_id");
+        const dateErrEl = document.getElementById("err-encounter_date_of_service");
+
+        categoryErrEl.textContent = "";
+        dateErrEl.textContent = "";
+
+        const details = {};
+
+        ENCOUNTER_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`encounter_${field}`).value;
+        });
+
+        const dateOfServiceRaw = document.getElementById("encounter_date_of_service").value;
+
+        details.date_of_service = dateOfServiceRaw ? `${dateOfServiceRaw.replace("T", " ")}:00` : "";
+
+        if (!details.visit_category_id) {
+            categoryErrEl.textContent = "Visit category is required.";
+            return;
+        }
+
+        if (!details.date_of_service) {
+            dateErrEl.textContent = "Date of service is required.";
+            return;
+        }
+
+        const issues = Array.from(document.querySelectorAll("#encounterIssuesList input[type=checkbox]:checked"))
+            .map((box) => ({ issue_type: box.dataset.issueType, issue_id: Number(box.value) }));
+
+        const result = recordId
+            ? await updateEncounter(recordId, details, issues)
+            : await addEncounter(currentDashboardPatient.id, details, issues);
+
+        if (!result.success) {
+            showAlert("encounterFormAlert", result.message || "Failed to save encounter.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadEncounterDetailTable(currentDashboardPatient);
+        await loadDashboardEncounters(currentDashboardPatient);
+    });
+}
+
+async function openEncounterDetailModal(patient)
+{
+    document.getElementById("encounterDetailAlert").innerHTML = "";
+    document.getElementById("encounterDetailModalOverlay").classList.add("open");
+
+    await loadEncounterDetailTable(patient);
+}
+
+async function loadDashboardEncounters(patient)
+{
+    const body = document.getElementById("pdEncountersBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientEncounters(patient.id);
+
+        renderDashboardEncounters(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load encounters", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load visits right now.</p></div>`;
+    }
+}
+
+async function loadEncounterDetailTable(patient)
+{
+    const tbody = document.getElementById("encounterDetailTableBody");
+
+    try {
+        const result = await fetchPatientEncounters(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load visits.")}</td></tr>`;
+            return;
+        }
+
+        renderEncounterDetailTable(result.data);
+    } catch (error) {
+        console.error("Failed to load patient encounters", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load visits right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderEncounterDetailTable(encounters)
+{
+    const tbody = document.getElementById("encounterDetailTableBody");
+
+    if (!encounters.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No visits recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = encounters.map((encounter) => `
+        <tr>
+            <td>${escapeHtml((encounter.date_of_service || "").slice(0, 16).replace("T", " "))}</td>
+            <td>${escapeHtml(encounter.visit_category_name || "-")}</td>
+            <td>${escapeHtml(encounter.encounter_provider_name || "-")}</td>
+            <td>${escapeHtml(encounter.facility_name || "-")}</td>
+            <td class="table-actions">
+                <button class="btn-edit" data-edit-encounter="${encounter.id}">Edit</button>
+                <button class="btn-danger" data-remove-encounter="${encounter.id}">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-edit-encounter]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const encounter = encounters.find((e) => String(e.id) === btn.getAttribute("data-edit-encounter"));
+
+            if (encounter) {
+                openEncounterFormModal(encounter);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-encounter]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this visit record?")) {
+                return;
+            }
+
+            const result = await removeEncounter(btn.getAttribute("data-remove-encounter"));
+
+            if (!result.success) {
+                showAlert("encounterDetailAlert", result.message || "Failed to remove visit.", "error");
+                return;
+            }
+
+            await loadEncounterDetailTable(currentDashboardPatient);
+            await loadDashboardEncounters(currentDashboardPatient);
+        });
+    });
+}
+
+async function loadEncounterCatalogsIfNeeded()
+{
+    if (encounterCatalogsLoaded) {
+        return;
+    }
+
+    const [categoriesResult, classesResult, typesResult, providersResult, facilitiesResult, dispositionsResult] = await Promise.all([
+        fetchVisitCategories(),
+        fetchClasses(),
+        fetchVisitTypes(),
+        fetchProviders(),
+        fetchFacilities(),
+        fetchDischargeDispositions()
+    ]);
+
+    encounterVisitCategories = categoriesResult.success ? categoriesResult.data : [];
+    encounterClasses = classesResult.success ? classesResult.data : [];
+    encounterVisitTypes = typesResult.success ? typesResult.data : [];
+    encounterProviders = providersResult.success ? providersResult.data : [];
+    encounterFacilities = facilitiesResult.success ? facilitiesResult.data : [];
+    encounterDischargeDispositions = dispositionsResult.success ? dispositionsResult.data : [];
+    encounterCatalogsLoaded = true;
+}
+
+function fillEncounterSelect(selectId, items, labelFn, placeholder)
+{
+    const select = document.getElementById(selectId);
+    const current = select.value;
+
+    select.innerHTML = `<option value="">${placeholder}</option>` +
+        items.map((item) => `<option value="${item.id}">${escapeHtml(labelFn(item))}</option>`).join("");
+
+    select.value = current;
+}
+
+function providerLabel(provider)
+{
+    return `${provider.first_name} ${provider.last_name}${provider.specialty ? ` — ${provider.specialty}` : ""}`;
+}
+
+async function openEncounterFormModal(existingRecord)
+{
+    document.getElementById("encounterFormAlert").innerHTML = "";
+    document.getElementById("encounterForm").reset();
+    document.getElementById("err-encounter_visit_category_id").textContent = "";
+    document.getElementById("err-encounter_date_of_service").textContent = "";
+
+    await loadEncounterCatalogsIfNeeded();
+
+    fillEncounterSelect("encounter_visit_category_id", encounterVisitCategories, (c) => c.name, "-- Select One --");
+    fillEncounterSelect("encounter_class_id", encounterClasses, (c) => c.name, "-- Select One --");
+    fillEncounterSelect("encounter_visit_type_id", encounterVisitTypes, (t) => t.type, "-- Select One --");
+    fillEncounterSelect("encounter_encounter_provider_id", encounterProviders, providerLabel, "-- Select One --");
+    fillEncounterSelect(
+        "encounter_referring_provider_id", encounterProviders, providerLabel,
+        encounterProviders.length ? "-- Select One --" : "No available providers"
+    );
+    fillEncounterSelect("encounter_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
+    fillEncounterSelect("encounter_billing_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
+    fillEncounterSelect("encounter_discharge_disposition_id", encounterDischargeDispositions, (d) => d.name, "-- Select One --");
+
+    const issuesResult = await fetchLinkableIssues(currentDashboardPatient.id);
+
+    encounterLinkableIssues = issuesResult.success ? issuesResult.data : [];
+
+    const linkedKeys = existingRecord && existingRecord.linked_issues
+        ? existingRecord.linked_issues.split(",")
+        : [];
+
+    renderEncounterIssuesList(linkedKeys);
+
+    const title = document.getElementById("encounterFormTitle");
+    const recordIdInput = document.getElementById("encounter_record_id");
+
+    if (existingRecord) {
+        title.textContent = "Edit Encounter";
+        recordIdInput.value = existingRecord.id;
+
+        document.getElementById("encounter_visit_category_id").value = existingRecord.visit_category_id ?? "";
+        document.getElementById("encounter_class_id").value = existingRecord.class_id ?? "";
+        document.getElementById("encounter_visit_type_id").value = existingRecord.visit_type_id ?? "";
+        document.getElementById("encounter_sensitivity").value = existingRecord.sensitivity || "normal";
+        document.getElementById("encounter_encounter_provider_id").value = existingRecord.encounter_provider_id ?? "";
+        document.getElementById("encounter_referring_provider_id").value = existingRecord.referring_provider_id ?? "";
+        document.getElementById("encounter_facility_id").value = existingRecord.facility_id ?? "";
+        document.getElementById("encounter_billing_facility_id").value = existingRecord.billing_facility_id ?? "";
+        document.getElementById("encounter_date_of_service").value = (existingRecord.date_of_service || "").slice(0, 16).replace(" ", "T");
+        document.getElementById("encounter_onset_date").value = (existingRecord.onset_date || "").slice(0, 10);
+        document.getElementById("encounter_in_collection").value = Number(existingRecord.in_collection) ? "1" : "0";
+        document.getElementById("encounter_discharge_disposition_id").value = existingRecord.discharge_disposition_id ?? "";
+        document.getElementById("encounter_reason_for_visit").value = existingRecord.reason_for_visit || "";
+    } else {
+        title.textContent = "New Encounter Form";
+        recordIdInput.value = "";
+        document.getElementById("encounter_sensitivity").value = "normal";
+        document.getElementById("encounter_in_collection").value = "0";
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+
+        document.getElementById("encounter_date_of_service").value =
+            `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+
+    document.getElementById("encounterFormModalOverlay").classList.add("open");
+}
+
+function renderEncounterIssuesList(linkedKeys)
+{
+    const container = document.getElementById("encounterIssuesList");
+
+    if (!encounterLinkableIssues.length) {
+        container.innerHTML = `<p class="pd-chart-nav-empty">No allergies, problems, medications, or health concerns recorded yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = encounterLinkableIssues.map((issue) => {
+        const key = `${issue.issue_type}:${issue.issue_id}`;
+        const checked = linkedKeys.includes(key) ? "checked" : "";
+        const tag = ENCOUNTER_ISSUE_TAGS[issue.issue_type] || "?";
+
+        return `
+        <label class="encounter-issue-item">
+            <input type="checkbox" value="${issue.issue_id}" data-issue-type="${issue.issue_type}" ${checked}>
+            <span class="encounter-issue-tag">${tag}</span>
+            <span>${escapeHtml(issue.label)}</span>
+        </label>
+        `;
+    }).join("");
+}
+
+let careTeamOptions = { members: [], roles: [], facilities: [], related_persons: [] };
+let careTeamRows = [];
+let careTeamRowUidCounter = 0;
+
+function renderDashboardCareTeam(careTeam)
+{
+    const body = document.getElementById("pdCareTeamBody");
+
+    if (!body) {
+        return;
+    }
+
+    const members = (careTeam && careTeam.members) || [];
+    const isActive = !careTeam || careTeam.status !== "inactive";
+
+    if (!careTeam || !careTeam.id) {
+        body.innerHTML = `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path></svg>
+            <p>No care team recorded yet.</p>
+           </div>`;
+        return;
+    }
+
+    body.innerHTML = `
+        <div class="pd-allergy-list">
+            <div class="pd-allergy-item">
+                <span class="pd-allergy-name">${escapeHtml(careTeam.name || "Care Team")}</span>
+                <span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span>
+            </div>
+            ${members.length
+                ? members.map((member) => `
+                    <div class="pd-allergy-item">
+                        <span class="pd-allergy-name">${escapeHtml(
+                            member.member_type === "provider"
+                                ? (member.user_name || "Unassigned provider")
+                                : (member.related_person_name || "Unassigned related person")
+                        )}${member.role_name ? ` &middot; ${escapeHtml(member.role_name)}` : ""}</span>
+                    </div>
+                `).join("")
+                : `<div class="pd-allergy-item"><span class="pd-allergy-name">No team members added yet.</span></div>`
+            }
+        </div>
+    `;
+}
+
+async function loadDashboardCareTeam(patient)
+{
+    const body = document.getElementById("pdCareTeamBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchCareTeam(patient.id);
+
+        renderDashboardCareTeam(result.success ? result.data : null);
+    } catch (error) {
+        console.error("Failed to load care team", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load care team right now.</p></div>`;
+    }
+}
+
+function newCareTeamRow(memberType)
+{
+    careTeamRowUidCounter += 1;
+
+    return {
+        _uid: careTeamRowUidCounter,
+        member_type: memberType,
+        user_id: "",
+        related_person_id: "",
+        role_id: "",
+        facility_id: "",
+        member_since: "",
+        status: "active",
+        note: ""
+    };
+}
+
+function renderCareTeamRows()
+{
+    const tbody = document.getElementById("careTeamMembersBody");
+
+    if (!tbody) {
+        return;
+    }
+
+    if (!careTeamRows.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No team members added yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = careTeamRows.map((row) => {
+        const memberValue = row.member_type === "provider" ? row.user_id : row.related_person_id;
+
+        const memberOptions = row.member_type === "provider"
+            ? careTeamOptions.members.map((m) => `<option value="${m.user_id}"${String(m.user_id) === memberValue ? " selected" : ""}>${escapeHtml(m.name)}${m.role_name ? ` (${escapeHtml(m.role_name)})` : ""}</option>`).join("")
+            : careTeamOptions.related_persons.map((p) => `<option value="${p.id}"${String(p.id) === memberValue ? " selected" : ""}>${escapeHtml(p.name)}</option>`).join("");
+
+        const roleOptions = careTeamOptions.roles.map((r) => `<option value="${r.id}"${String(r.id) === row.role_id ? " selected" : ""}>${escapeHtml(r.name)}</option>`).join("");
+        const facilityOptions = careTeamOptions.facilities.map((f) => `<option value="${f.id}"${String(f.id) === row.facility_id ? " selected" : ""}>${escapeHtml(f.name)}</option>`).join("");
+
+        return `
+            <tr>
+                <td><span class="status-badge completed">${row.member_type === "provider" ? "Provider" : "Related Person"}</span></td>
+                <td>
+                    <select class="form-input" data-field="member" data-uid="${row._uid}" required>
+                        <option value="">-- Select One --</option>
+                        ${memberOptions}
+                    </select>
+                </td>
+                <td>
+                    <select class="form-input" data-field="role_id" data-uid="${row._uid}">
+                        <option value="">-- Select One --</option>
+                        ${roleOptions}
+                    </select>
+                </td>
+                <td>
+                    <select class="form-input" data-field="facility_id" data-uid="${row._uid}">
+                        <option value="">-- Select One --</option>
+                        ${facilityOptions}
+                    </select>
+                </td>
+                <td><input type="date" class="form-input" data-field="member_since" data-uid="${row._uid}" value="${row.member_since || ""}"></td>
+                <td>
+                    <select class="form-input" data-field="status" data-uid="${row._uid}">
+                        <option value="active"${row.status === "active" ? " selected" : ""}>Active</option>
+                        <option value="inactive"${row.status === "inactive" ? " selected" : ""}>Inactive</option>
+                    </select>
+                </td>
+                <td><input type="text" class="form-input" data-field="note" data-uid="${row._uid}" value="${escapeHtml(row.note || "")}"></td>
+                <td><button type="button" class="btn-danger" data-remove-care-team-row="${row._uid}">Remove</button></td>
+            </tr>
+        `;
+    }).join("");
+}
+
+async function openCareTeamModal(patient)
+{
+    document.getElementById("careTeamAlert").innerHTML = "";
+    document.getElementById("careTeamModalOverlay").classList.add("open");
+    document.getElementById("careTeamName").value = "";
+    document.getElementById("careTeamStatus").value = "active";
+    document.getElementById("careTeamMembersBody").innerHTML = `<tr><td colspan="8" class="table-empty">Loading...</td></tr>`;
+
+    const [optionsResult, careTeamResult] = await Promise.all([
+        fetchCareTeamOptions(patient.id),
+        fetchCareTeam(patient.id)
+    ]);
+
+    careTeamOptions = optionsResult.success
+        ? optionsResult.data
+        : { members: [], roles: [], facilities: [], related_persons: [] };
+
+    const careTeam = careTeamResult.success ? careTeamResult.data : null;
+
+    document.getElementById("careTeamName").value = (careTeam && careTeam.name) || "";
+    document.getElementById("careTeamStatus").value = (careTeam && careTeam.status) || "active";
+
+    careTeamRows = ((careTeam && careTeam.members) || []).map((member) => {
+        careTeamRowUidCounter += 1;
+
+        return {
+            _uid: careTeamRowUidCounter,
+            member_type: member.member_type,
+            user_id: member.user_id ? String(member.user_id) : "",
+            related_person_id: member.related_person_id ? String(member.related_person_id) : "",
+            role_id: member.role_id ? String(member.role_id) : "",
+            facility_id: member.facility_id ? String(member.facility_id) : "",
+            member_since: (member.member_since || "").slice(0, 10),
+            status: member.status || "active",
+            note: member.note || ""
+        };
+    });
+
+    renderCareTeamRows();
+}
+
+function setupCareTeamModal()
+{
+    const modalOverlay = document.getElementById("careTeamModalOverlay");
+    const form = document.getElementById("careTeamForm");
+    const tbody = document.getElementById("careTeamMembersBody");
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("pdCareTeamAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openCareTeamModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeCareTeamModal").addEventListener("click", closeModal);
+    document.getElementById("cancelCareTeamForm").addEventListener("click", closeModal);
+
+    document.getElementById("addCareTeamMemberBtn").addEventListener("click", () => {
+        careTeamRows.push(newCareTeamRow("provider"));
+        renderCareTeamRows();
+    });
+
+    document.getElementById("addCareTeamRelatedPersonBtn").addEventListener("click", () => {
+        careTeamRows.push(newCareTeamRow("related_person"));
+        renderCareTeamRows();
+    });
+
+    tbody.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-remove-care-team-row]");
+
+        if (!btn) {
+            return;
+        }
+
+        const uid = btn.getAttribute("data-remove-care-team-row");
+        careTeamRows = careTeamRows.filter((row) => String(row._uid) !== uid);
+        renderCareTeamRows();
+    });
+
+    tbody.addEventListener("change", (event) => {
+        const field = event.target.getAttribute("data-field");
+        const uid = event.target.getAttribute("data-uid");
+
+        if (!field || !uid) {
+            return;
+        }
+
+        const row = careTeamRows.find((r) => String(r._uid) === uid);
+
+        if (!row) {
+            return;
+        }
+
+        if (field === "member") {
+            if (row.member_type === "provider") {
+                row.user_id = event.target.value;
+            } else {
+                row.related_person_id = event.target.value;
+            }
+            return;
+        }
+
+        row[field] = event.target.value;
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!currentDashboardPatient) {
+            return;
+        }
+
+        const members = careTeamRows
+            .filter((row) => (row.member_type === "provider" ? row.user_id : row.related_person_id))
+            .map((row) => ({
+                member_type: row.member_type,
+                user_id: row.member_type === "provider" ? row.user_id : null,
+                related_person_id: row.member_type === "related_person" ? row.related_person_id : null,
+                role_id: row.role_id || null,
+                facility_id: row.facility_id || null,
+                member_since: row.member_since || null,
+                status: row.status || "active",
+                note: row.note || ""
+            }));
+
+        const result = await saveCareTeam(
+            currentDashboardPatient.id,
+            {
+                name: document.getElementById("careTeamName").value.trim(),
+                status: document.getElementById("careTeamStatus").value
+            },
+            members
+        );
+
+        if (!result.success) {
+            showAlert("careTeamAlert", result.message || "Failed to save care team.", "error");
+            return;
+        }
+
+        closeModal();
+        await loadDashboardCareTeam(currentDashboardPatient);
+    });
 }
 
 let messageCatalogsLoaded = false;

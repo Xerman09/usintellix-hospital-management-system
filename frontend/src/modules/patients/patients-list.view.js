@@ -1829,6 +1829,10 @@ ${canAdd ? `
                 </div>
 
                 <div class="pd-quick-actions">
+                    <button type="button" class="pd-quick-btn" id="pdNewEncounterBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path></svg>
+                        Create Visit
+                    </button>
                     <button type="button" class="pd-quick-btn" disabled>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
                         Edit Demographics
@@ -1907,7 +1911,7 @@ ${canAdd ? `
                         </div>
                         <div class="pd-widget-body" id="pdDemoPanels"></div>
                     </div>
-                    ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No provider assigned yet.")}
+                    ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No care team recorded yet.", { bodyId: "pdCareTeamBody", addBtnId: "pdCareTeamAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}
                     ${dashboardWidget("Health Concerns", '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path>', "No health concerns recorded.", { bodyId: "pdHealthConcernsBody", addBtnId: "pdHealthConcernsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
@@ -1922,6 +1926,7 @@ ${canAdd ? `
                     ${dashboardWidget("Disclosures", '<path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path>', "No disclosures recorded for this patient.", { bodyId: "pdDisclosuresBody", addBtnId: "pdDisclosuresAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Messages", '<path d="M4 4h16v16H4z"></path><path d="m4 6 8 7 8-7"></path>', "No messages recorded for this patient.", { bodyId: "pdMessagesBody", addBtnId: "pdMessagesAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
                     ${dashboardWidget("Amendments", '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>', "No amendment requests available.", { bodyId: "pdAmendmentsBody", addBtnId: "pdAmendmentsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Visits", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path>', "No visits recorded for this patient.", { bodyId: "pdEncountersBody", addBtnId: "pdEncountersAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
                 </div>
 
                 <div class="pd-chart-placeholder" id="pdChartPlaceholder" style="display: none;">
@@ -2886,6 +2891,65 @@ ${canAdd ? `
     </div>
 </div>
 
+<div class="modal-overlay" id="careTeamModalOverlay">
+    <div class="modal-box" style="max-width: 1100px;">
+        <div class="modal-header">
+            <h2>Care Team</h2>
+            <button type="button" class="modal-close" id="closeCareTeamModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Manage this patient's care team and its members.</p>
+
+        <div id="careTeamAlert"></div>
+
+        <form id="careTeamForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Care Team Name</label>
+                    <input id="careTeamName" class="form-input" placeholder="e.g. Primary Care Team">
+                </div>
+
+                <div class="form-group">
+                    <label>Care Team Status</label>
+                    <select id="careTeamStatus" class="form-input">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Member</th>
+                            <th>Role</th>
+                            <th>Facility</th>
+                            <th>Since</th>
+                            <th>Status</th>
+                            <th>Note</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="careTeamMembersBody">
+                        <tr><td colspan="8" class="table-empty">No team members added yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin: 14px 0;">
+                <button type="button" class="btn-edit" id="addCareTeamMemberBtn">+ Add Team Member</button>
+                <button type="button" class="btn-edit" id="addCareTeamRelatedPersonBtn">+ Add Related Person</button>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelCareTeamForm">Cancel</button>
+                <button class="login-btn" type="submit">Save Care Team</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal-overlay" id="messageDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
@@ -3056,6 +3120,192 @@ ${canAdd ? `
         </form>
     </div>
 </div>
+
+<div class="modal-overlay" id="encounterDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Visits</h2>
+            <button type="button" class="modal-close" id="closeEncounterDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full visit history for this patient.</p>
+
+        <div id="encounterDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddEncounterBtn">+ New Encounter</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date of Service</th>
+                        <th>Visit Category</th>
+                        <th>Provider</th>
+                        <th>Facility</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="encounterDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="encounterFormModalOverlay">
+    <div class="modal-box" style="max-width: 720px;">
+        <div class="modal-header">
+            <h2 id="encounterFormTitle">New Encounter Form</h2>
+            <button type="button" class="modal-close" id="closeEncounterFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record a visit for this patient.</p>
+
+        <div id="encounterFormAlert"></div>
+
+        <form id="encounterForm">
+            <input type="hidden" id="encounter_record_id">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Visit Category</label>
+                    <select id="encounter_visit_category_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                    <span class="form-error" id="err-encounter_visit_category_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Class</label>
+                    <select id="encounter_class_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="encounter_visit_type_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Sensitivity</label>
+                    <select id="encounter_sensitivity" class="form-input">
+                        <option value="normal">Normal</option>
+                        <option value="sensitive">Sensitive</option>
+                        <option value="very sensitive">Very Sensitive</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Encounter Provider</label>
+                    <select id="encounter_encounter_provider_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referring Provider</label>
+                    <select id="encounter_referring_provider_id" class="form-input">
+                        <option value="">No available providers</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Facility</label>
+                    <select id="encounter_facility_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Billing Facility</label>
+                    <select id="encounter_billing_facility_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Date of Service</label>
+                    <input id="encounter_date_of_service" type="datetime-local" class="form-input">
+                    <span class="form-error" id="err-encounter_date_of_service"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Onset/hosp. date</label>
+                    <input id="encounter_onset_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>In Collection</label>
+                    <select id="encounter_in_collection" class="form-input">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Discharge Disposition</label>
+                    <select id="encounter_discharge_disposition_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Reason for Visit</label>
+                    <textarea id="encounter_reason_for_visit" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+
+                <div class="form-group full">
+                    <label>Link Issues to This Visit</label>
+                    <div id="encounterIssuesList" class="encounter-issues-list">
+                        <p class="pd-chart-nav-empty">No allergies, problems, medications, or health concerns recorded yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelEncounterForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.encounter-issues-list {
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.encounter-issue-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12.5px;
+    color: #29323f;
+}
+
+.encounter-issue-item .encounter-issue-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: var(--accent-text, #3730a3);
+    font-size: 10.5px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+</style>
 
 <style>
 .scm-trigger-row {

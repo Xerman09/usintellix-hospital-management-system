@@ -38,6 +38,8 @@ require_once __DIR__ . '/../app/Modules/HealthRecords/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientAllergies/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedicalProblems/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientHealthConcerns/routes.php';
+require_once __DIR__ . '/../app/Modules/Encounters/routes.php';
+require_once __DIR__ . '/../app/Modules/DischargeDispositions/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedications/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientPrescriptions/routes.php';
 require_once __DIR__ . '/../app/Modules/PrescriptionCategories/routes.php';
@@ -47,6 +49,7 @@ require_once __DIR__ . '/../app/Modules/Messaging/routes.php';
 require_once __DIR__ . '/../app/Modules/RelatedPersons/routes.php';
 require_once __DIR__ . '/../app/Modules/Disclosures/routes.php';
 require_once __DIR__ . '/../app/Modules/Amendments/routes.php';
+require_once __DIR__ . '/../app/Modules/CareTeams/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 require_once __DIR__ . '/../app/Modules/PracticeRules/routes.php';

@@ -16,6 +16,8 @@ use App\Modules\RelatedPersons\Services\RelatedPersonService;
 use App\Modules\Disclosures\Services\DisclosureService;
 use App\Modules\Messaging\Services\MessagingService;
 use App\Modules\Amendments\Services\AmendmentService;
+use App\Modules\Encounters\Services\EncounterService;
+use App\Modules\CareTeams\Services\CareTeamService;
 
 class PatientController extends Controller
 {
@@ -79,6 +81,8 @@ class PatientController extends Controller
             'disclosures' => fn () => (new DisclosureService())->list($patientId),
             'messages' => fn () => (new MessagingService())->listPatientMessages($patientId),
             'amendments' => fn () => (new AmendmentService())->list($patientId),
+            'encounters' => fn () => (new EncounterService())->list($patientId),
+            'care_team' => fn () => (new CareTeamService())->show($patientId),
         ];
 
         $result = [];
