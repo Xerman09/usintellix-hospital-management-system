@@ -1,4 +1,5 @@
 import { getUser } from "../../core/session.js";
+import { consumePendingPatientView } from "../../core/pending-patient-view.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
@@ -154,6 +155,7 @@ export async function initPatientsList()
     await loadPatients(user);
     setupPatientFilters(user);
     setupPatientDashboardModal();
+    openPendingPatientView();
     setupAllergyModals();
     setupProblemModals();
     setupHealthConcernModals();
@@ -289,6 +291,24 @@ function resetChartNav()
     document.getElementById("pdAssessmentsSubmenu").classList.remove("expanded");
     document.getElementById("pdWidgetGrid").style.display = "";
     document.getElementById("pdChartPlaceholder").style.display = "none";
+}
+
+// Consumes a chart-open request handed off by another module (currently
+// only the Flow board's "open patient chart" link), so it works whether
+// the Patients tab was already open or just got activated for this.
+function openPendingPatientView()
+{
+    const patientNo = consumePendingPatientView();
+
+    if (!patientNo) {
+        return;
+    }
+
+    const patient = patientsCache.find((p) => p.patient_no === patientNo);
+
+    if (patient) {
+        openPatientDashboardModal(patient);
+    }
 }
 
 function openPatientDashboardModal(patient)
