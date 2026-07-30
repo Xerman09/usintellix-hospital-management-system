@@ -2,6 +2,7 @@ console.log("auth.js loaded");
 import { login } from "./auth.service.js?v=2";
 import { saveUser } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
+import { initBranding } from "../../core/branding.js";
 
 const FIELDS = ["username", "password"];
 let heroSlideInterval = null;
@@ -12,6 +13,7 @@ export function initLogin()
 
     enablePasswordToggles();
     initHeroSlides();
+    initBranding();
 
     const form =
         document.getElementById("loginForm");

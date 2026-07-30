@@ -14,9 +14,9 @@ export function LoginView()
         <div class="login-visual-content">
             <div class="brand-mark">
                 <div class="brand-icon">
-                    <img src="./assets/logo.png?v=1" alt="Intellix">
+                    <img data-app-logo src="./assets/logo.png?v=1" alt="Business logo">
                 </div>
-                <span>Intellix</span>
+                <span data-app-name>Intellix</span>
             </div>
 
             <div class="hero-slides" id="heroSlides">
@@ -64,9 +64,9 @@ export function LoginView()
 
             <div class="login-brand">
                 <div class="login-logo">
-                    <img src="./assets/logo.png?v=1" alt="Intellix">
+                    <img data-app-logo src="./assets/logo.png?v=1" alt="Business logo">
                 </div>
-                <span>Intellix</span>
+                <span data-app-name>Intellix</span>
             </div>
 
             <h1>Welcome back</h1>

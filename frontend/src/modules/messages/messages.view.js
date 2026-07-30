@@ -239,6 +239,51 @@ tr.unread {
     font-weight: 700;
 }
 
+.rec-mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.rec-mini-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: white;
+}
+
+.rec-mini-info strong {
+    display: block;
+    font-size: 13.5px;
+    color: #25324b;
+}
+
+.rec-mini-info span {
+    display: block;
+    font-size: 12px;
+    color: #8b98ac;
+    margin-top: 2px;
+}
+
+.rec-mini-date {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.rec-mini-date span {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #42536b;
+}
+
 .msg-placeholder {
     display: flex;
     flex-direction: column;
@@ -298,6 +343,60 @@ tr.unread {
 
 .msg-picker-clear {
     flex-shrink: 0;
+}
+
+.rec-readonly-field {
+    margin: 0;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #42536b;
+    font-size: 13.5px;
+}
+
+.rec-quickpicks {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.rec-quickpick {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #52627a;
+    cursor: pointer;
+}
+
+.rec-quickpick input {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.msg-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    background: white;
+    color: #3b475a;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color .12s, border-color .12s;
+    white-space: nowrap;
+}
+
+.msg-clear-btn:hover {
+    background: #f1f5f9;
+    border-color: #c8d2e0;
 }
 </style>
 <div class="msg-page">
@@ -419,12 +518,118 @@ tr.unread {
         </div>
 
         <div class="modal-tab-panel" data-section-panel="recalls">
-            <div class="msg-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                <strong>Recalls</strong>
-                <p>This module is currently under development.</p>
+            <div class="msg-panel-header-row">
+                <h2>Upcoming Recalls</h2>
+                <div class="msg-toolbar-actions" id="recallAddBtnWrap">
+                    <button type="button" class="msg-clear-btn" id="goToRecallBoard">Recall Board</button>
+                    <button type="button" class="msg-add-btn" id="openAddRecallModal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                        Add Recall
+                    </button>
+                </div>
+            </div>
+
+            <div class="rec-mini-list" id="recallsMiniList">
+                <p class="table-empty">Loading recalls...</p>
             </div>
         </div>
+
+    </div>
+</div>
+
+<div class="modal-overlay" id="recallFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="recallFormModalTitle">New Recall</h2>
+            <button type="button" class="modal-close" id="closeRecallFormModal">&times;</button>
+        </div>
+
+        <div id="recallFormAlert"></div>
+
+        <form id="recallForm">
+            <input type="hidden" id="recall_id">
+
+            <div class="form-group full" id="recallPatientFieldGroup">
+                <label>Patient</label>
+                <div class="msg-picker-row">
+                    <div class="msg-search-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                        <input type="text" class="form-input msg-search-input" id="recall_patient_search" list="recallPatientDatalist" placeholder="Search patient...">
+                        <datalist id="recallPatientDatalist"></datalist>
+                    </div>
+                    <button type="button" class="msg-clear-btn msg-picker-clear" id="recallPatientClear">Clear</button>
+                </div>
+                <span class="form-error" id="err-patient_id"></span>
+            </div>
+
+            <div class="form-group full">
+                <label>Date of Birth / Age</label>
+                <p id="recall_patient_dob_age" class="rec-readonly-field">—</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Facility *</label>
+                    <select id="recall_facility_id" class="form-input">
+                        <option value="">Select facility</option>
+                    </select>
+                    <span class="form-error" id="err-facility_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Provider *</label>
+                    <select id="recall_provider_id" class="form-input">
+                        <option value="">Select provider</option>
+                    </select>
+                    <span class="form-error" id="err-provider_id"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Recall Date *</label>
+                    <input id="recall_date" type="date" class="form-input">
+                    <div class="rec-quickpicks">
+                        <label class="rec-quickpick">
+                            <input type="radio" name="recall_date_quickpick" value="1">
+                            +1 Year
+                        </label>
+                        <label class="rec-quickpick">
+                            <input type="radio" name="recall_date_quickpick" value="2">
+                            +2 Years
+                        </label>
+                        <label class="rec-quickpick">
+                            <input type="radio" name="recall_date_quickpick" value="3">
+                            +3 Years
+                        </label>
+                    </div>
+                    <span class="form-error" id="err-recall_date"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="recall_status" class="form-input">
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Reason</label>
+                    <input id="recall_reason" class="form-input" placeholder="e.g. Annual physical follow-up">
+                    <span class="form-error" id="err-reason"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Notes</label>
+                    <textarea id="recall_notes" class="form-input" style="min-height: 90px;" placeholder="Optional"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelRecallForm">Cancel</button>
+                <button class="login-btn" type="submit">Save Recall</button>
+            </div>
+        </form>
     </div>
 </div>
 

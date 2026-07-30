@@ -11,7 +11,9 @@ function staffNavLinks(role)
         <a data-tab="patients">Patients</a>
         <a data-tab="employees">Employees</a>
         <a data-tab="messaging">Messaging</a>
+        <a data-tab="recalls">Recalls</a>
         ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
+        ${role === "admin" ? `<a data-tab="business_settings">Business Information</a>` : ""}
         <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
@@ -55,7 +57,8 @@ const PATIENT_NAV_LINKS = `
         </div>
     </div>
     <a data-tab="messaging">Messaging</a>
-    
+    <a data-tab="recalls">Recalls</a>
+
     <a data-tab="laboratory">Laboratory</a>
     <a data-tab="medications">Medications</a>
     <a data-tab="billing">Billing</a>
@@ -66,6 +69,7 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="patients">Patients</a>
     <a data-tab="appointments">Calendar</a>
     <a data-tab="messaging">Messaging</a>
+    <a data-tab="recalls">Recalls</a>
 `;
 
 function getNavLinks(role)
@@ -84,8 +88,8 @@ export function DashboardView()
 <div class="dashboard-container">
     <nav class="top-navbar">
         <div class="navbar-logo">
-            <img src="./assets/logo.png?v=1" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'28\\' height=\\'28\\'><rect width=\\'28\\' height=\\'28\\' fill=\\'%231d4ed8\\' rx=\\'4\\'/></svg>'">
-            <span>Intellix</span>
+            <img data-app-logo src="./assets/logo.png?v=1" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'28\\' height=\\'28\\'><rect width=\\'28\\' height=\\'28\\' fill=\\'%231d4ed8\\' rx=\\'4\\'/></svg>'">
+            <span data-app-name>Intellix</span>
         </div>
 
         <div class="navbar-links" id="navbarLinks">
@@ -102,6 +106,7 @@ export function DashboardView()
                         <div id="profileRole" style="text-transform: capitalize;">Role</div>
                     </div>
                     <hr>
+                    <a data-tab="profile" style="cursor: pointer;">Profile</a>
                     <a data-tab="appearance" style="cursor: pointer;">Appearance</a>
                     <a data-tab="settings" style="cursor: pointer;">Settings</a>
                     <a id="logoutBtn" style="cursor: pointer; color: #dc2626;">Logout</a>

@@ -109,7 +109,7 @@ const FIELDS = [
     "username", "password", "first_name", "middle_name",
     "last_name", "suffix", "sex", "birthdate",
     "civil_status", "blood_type", "height", "weight",
-    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie",
+    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie", "allow_postcard",
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
@@ -122,7 +122,7 @@ const FIELDS = [
 const EDIT_FIELDS = [
     "first_name", "middle_name", "last_name", "suffix", "sex",
     "birthdate", "civil_status", "blood_type", "height", "weight",
-    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie",
+    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie", "allow_postcard",
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
@@ -608,7 +608,8 @@ function renderDemographics(patient)
             field("Allow SMS", yesNo(patient.allow_sms)),
             field("Allow Voice Calls", yesNo(patient.allow_voice_calls)),
             field("Allow Email", yesNo(patient.allow_email)),
-            field("Allow Health Info Exchange", yesNo(patient.allow_hie))
+            field("Allow Health Info Exchange", yesNo(patient.allow_hie)),
+            field("Allow Postcard", yesNo(patient.allow_postcard))
         ],
         stats: [
             field("Language", patient.language),
@@ -4327,6 +4328,7 @@ function openEditModal(patient)
     document.getElementById("edit_allow_voice_calls").value = patient.allow_voice_calls ?? "";
     document.getElementById("edit_allow_email").value = patient.allow_email ?? "";
     document.getElementById("edit_allow_hie").value = patient.allow_hie ?? "";
+    document.getElementById("edit_allow_postcard").value = patient.allow_postcard ?? "";
     document.getElementById("edit_race").value = patient.race ?? "";
     document.getElementById("edit_ethnicity").value = patient.ethnicity ?? "";
     document.getElementById("edit_religion").value = patient.religion ?? "";

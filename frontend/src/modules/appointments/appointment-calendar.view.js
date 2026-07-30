@@ -332,6 +332,7 @@ export function AppointmentCalendarView({ subtitle, showProviderField })
 .appt-form-actions .btn-danger {
     flex: 0 0 auto;
     min-width: 120px;
+    height: 54px;
 }
 
 .appt-form-actions .login-btn {

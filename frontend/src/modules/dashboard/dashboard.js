@@ -1,4 +1,6 @@
 import { getUser, clearSession } from "../../core/session.js";
+import { renderAvatar } from "../../core/avatar.js";
+import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=2";
 import { DashboardHomeView } from "./dashboard-home.view.js";
@@ -51,6 +53,12 @@ import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2"
 import { initHealthSummary } from "../health-records/health-summary.js?v=2";
 import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
+import { ProfileView } from "../profile/profile.view.js";
+import { initProfile } from "../profile/profile.js";
+import { BusinessSettingsView } from "../business-settings/business-settings.view.js";
+import { initBusinessSettings } from "../business-settings/business-settings.js";
+import { RecallsView } from "../recalls/recalls.view.js";
+import { initRecalls } from "../recalls/recalls.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -75,6 +83,8 @@ export function Dashboard()
     }
 
     const app = document.getElementById("app");
+
+    initBranding();
 
     // Read saved state BEFORE openTab('dashboard') overwrites it
     const savedStateStr = localStorage.getItem('tabsState');
@@ -228,6 +238,21 @@ export function Dashboard()
                 setTimeout(initMessages, 0);
                 return MessagesView();
             }, activate);
+        } else if (tabId === 'recalls') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initRecalls, 0);
+                return RecallsView();
+            }, activate);
+        } else if (tabId === 'profile') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initProfile, 0);
+                return ProfileView();
+            }, activate);
+        } else if (tabId === 'business_settings' && user.role === 'admin') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initBusinessSettings, 0);
+                return BusinessSettingsView();
+            }, activate);
         } else if (tabId === 'health_records' && user.role === 'patient') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(() => initHealthSummary({}), 0);
@@ -259,6 +284,15 @@ export function Dashboard()
                 clearSession();
                 window.location.hash = "#/login";
             }
+        });
+    }
+
+    // Profile Tab Hook
+    const profileBtn = document.querySelector('a[data-tab="profile"]');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openDashboardTab('profile', 'Profile');
         });
     }
 
@@ -309,8 +343,7 @@ export function Dashboard()
     }
 
     // Set avatar and profile details
-    const avatar = document.getElementById('avatarLetter');
-    if (avatar) avatar.textContent = (user.username || "U").charAt(0).toUpperCase();
+    renderAvatar(document.getElementById('avatarLetter'), user);
     
     const profileName = document.getElementById('profileName');
     if (profileName) profileName.textContent = `${user.first_name} ${user.last_name}` || "User";
