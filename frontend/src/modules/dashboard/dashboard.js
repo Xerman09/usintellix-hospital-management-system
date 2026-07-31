@@ -63,6 +63,8 @@ import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
+import { PreferenceTypesView } from "../preference-types/preference-types.view.js";
+import { initPreferenceTypes } from "../preference-types/preference-types.js";
 import { MessagesView } from "../messages/messages.view.js?v=2";
 import { initMessages } from "../messages/messages.js";
 
@@ -222,6 +224,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCqmValuesets, 0);
                 return CqmValuesetsView();
+            }, activate);
+        } else if (tabId === 'preference_types') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPreferenceTypes, 0);
+                return PreferenceTypesView();
             }, activate);
         } else if (tabId === 'appointments' && user.role === 'doctor') {
             tabManager.openTab(tabId, title, () => {
