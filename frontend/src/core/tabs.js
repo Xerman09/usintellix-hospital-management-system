@@ -35,6 +35,26 @@ export class TabManager {
         this.saveState();
     }
 
+    // Like openTab, but always overwrites an existing tab's title/renderFn
+    // and re-renders it in place instead of no-op-switching. Used for tabs
+    // that show a single shared "current item" (e.g. the patient chart tab)
+    // whose content must refresh even when the tab id already exists.
+    openOrReplaceTab(id, title, renderFn, activate = true) {
+        this.tabs.set(id, {
+            id,
+            title,
+            renderFn
+        });
+
+        this.renderTabBar();
+
+        if (activate) {
+            this.switchTab(id);
+        }
+
+        this.saveState();
+    }
+
     closeTab(id, event) {
         if (event) event.stopPropagation();
 

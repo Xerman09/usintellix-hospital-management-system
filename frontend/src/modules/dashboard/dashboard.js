@@ -11,6 +11,8 @@ import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=9";
 import { initPatientsList } from "../patients/patients-list.js?v=10";
+import { PatientFinderView } from "../patients/patient-finder.view.js";
+import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { ProviderCategoriesView } from "../provider-categories/provider-categories.view.js";
@@ -120,6 +122,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientsList, 0);
                 return PatientsListView(user);
+            }, activate);
+        } else if (tabId === 'patient_finder') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientFinder, 0);
+                return PatientFinderView();
             }, activate);
         } else if (tabId === 'employees') {
             tabManager.openTab(tabId, title, () => {

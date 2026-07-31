@@ -1,5 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView } from "../../core/pending-patient-view.js";
+import { PatientChartView } from "./patients-list.view.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
@@ -154,20 +155,6 @@ export async function initPatientsList()
 
     await loadPatients(user);
     setupPatientFilters(user);
-    setupPatientDashboardModal();
-    openPendingPatientView();
-    setupAllergyModals();
-    setupProblemModals();
-    setupHealthConcernModals();
-    setupMedicationModals();
-    setupPrescriptionModals();
-    setupDisclosureModals();
-    setupMessageModals();
-    setupAmendmentModals();
-    setupEncounterModals();
-    setupCareTeamModal();
-    setupRelatedPersonModals();
-    setupSelectCodesModal();
 
     if (user.role !== "doctor") {
         await setupEditPatientModal(user);
@@ -176,52 +163,8 @@ export async function initPatientsList()
     if (user.role === "receptionist") {
         await setupAddPatientModal(user);
     }
-}
 
-function setupPatientDashboardModal()
-{
-    const modalOverlay = document.getElementById("patientDashboardModalOverlay");
-
-    const closeModal = () => modalOverlay.classList.remove("open");
-
-    document.getElementById("closePatientDashboardModal").addEventListener("click", closeModal);
-    modalOverlay.addEventListener("click", (event) => {
-        if (event.target === modalOverlay) {
-            closeModal();
-        }
-    });
-
-    document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            activeDemoTab = btn.getAttribute("data-demo-tab");
-            document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((b) => b.classList.toggle("active", b === btn));
-
-            if (currentDashboardPatient) {
-                renderDemographics(currentDashboardPatient);
-            }
-        });
-    });
-
-    setupChartNav();
-
-    // "Edit" on the Related Persons widget jumps straight into the Edit
-    // Patient modal's Related Persons tab, reusing that CRUD instead of
-    // duplicating it inside the (read-only) Patient Dashboard.
-    document.getElementById("pdRelatedPersonsAddBtn").addEventListener("click", () => {
-        if (!currentDashboardPatient) {
-            return;
-        }
-
-        closeModal();
-        openEditModal(currentDashboardPatient);
-
-        const editModalBox = document.getElementById("editPatientModalOverlay").querySelector(".modal-box");
-        const relatedPersonsTab = editModalBox.querySelector('.modal-tab[data-tab="related_persons"]');
-
-        if (relatedPersonsTab) {
-            relatedPersonsTab.click();
-        }
-    });
+    openPendingPatientView();
 }
 
 const CHART_NAV_LABELS = {
@@ -307,12 +250,31 @@ function openPendingPatientView()
     const patient = patientsCache.find((p) => p.patient_no === patientNo);
 
     if (patient) {
-        openPatientDashboardModal(patient);
+        openPatientChartTab(patient);
     }
 }
 
-function openPatientDashboardModal(patient)
+// Opens (or replaces) the single shared Patient Chart tab for the given
+// patient. Exported so other entry points into a patient's chart -- the
+// Finder, the Flow board hand-off -- can reuse it instead of duplicating
+// the tab-opening logic.
+export function openPatientChartTab(patient)
 {
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    window.tabManager.openOrReplaceTab('patient_chart', fullName || 'Patient Chart', () => {
+        setTimeout(() => initPatientChartTab(patient), 0);
+        return PatientChartView(getUser());
+    });
+}
+
+// Populates and wires up the Patient Chart tab for the given patient. Called
+// (via setTimeout, so the tab's markup is mounted first) whenever the chart
+// tab is opened or replaced with a different patient.
+export async function initPatientChartTab(patient)
+{
+    const user = getUser();
+
     currentDashboardPatient = patient;
 
     const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
@@ -332,8 +294,6 @@ function openPatientDashboardModal(patient)
     setFact("pdFactBloodType", patient.blood_type);
     setFact("pdFactProvider", providerName);
 
-    document.getElementById("patientDashboardModalOverlay").classList.add("open");
-
     resetChartNav();
 
     activeDemoTab = "who";
@@ -344,6 +304,54 @@ function openPatientDashboardModal(patient)
     renderDemographics(patient);
 
     loadPatientDashboardWidgets(patient);
+
+    document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            activeDemoTab = btn.getAttribute("data-demo-tab");
+            document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((b) => b.classList.toggle("active", b === btn));
+
+            if (currentDashboardPatient) {
+                renderDemographics(currentDashboardPatient);
+            }
+        });
+    });
+
+    setupChartNav();
+
+    // "Edit" on the Related Persons widget jumps straight into the Edit
+    // Patient modal's Related Persons tab, reusing that CRUD instead of
+    // duplicating it inside the (read-only) Patient Dashboard.
+    document.getElementById("pdRelatedPersonsAddBtn").addEventListener("click", () => {
+        if (!currentDashboardPatient) {
+            return;
+        }
+
+        openEditModal(currentDashboardPatient);
+
+        const editModalBox = document.getElementById("editPatientModalOverlay").querySelector(".modal-box");
+        const relatedPersonsTab = editModalBox.querySelector('.modal-tab[data-tab="related_persons"]');
+
+        if (relatedPersonsTab) {
+            relatedPersonsTab.click();
+        }
+    });
+
+    setupAllergyModals();
+    setupProblemModals();
+    setupHealthConcernModals();
+    setupMedicationModals();
+    setupPrescriptionModals();
+    setupDisclosureModals();
+    setupMessageModals();
+    setupAmendmentModals();
+    setupEncounterModals();
+    setupCareTeamModal();
+    setupRelatedPersonModals();
+    setupSelectCodesModal();
+
+    if (user.role !== "doctor") {
+        await setupEditPatientModal(user);
+    }
 }
 
 // The widgets used to each fire their own request when the dashboard
@@ -4414,6 +4422,11 @@ function renderPatientsTable(patients, user)
 {
     const tbody = document.getElementById("patientsTableBody");
     const countText = document.getElementById("patientCountText");
+
+    if (!tbody || !countText) {
+        return;
+    }
+
     const canDelete = user.role === "admin";
     const canEdit = user.role === "admin" || user.role === "receptionist";
 
@@ -4467,7 +4480,7 @@ function renderPatientsTable(patients, user)
             const patient = patientsCache.find((p) => String(p.id) === btn.getAttribute("data-dashboard-id"));
 
             if (patient) {
-                openPatientDashboardModal(patient);
+                openPatientChartTab(patient);
             }
         });
     });
@@ -4481,7 +4494,7 @@ function renderPatientsTable(patients, user)
             const patient = patientsCache.find((p) => String(p.id) === row.getAttribute("data-row-id"));
 
             if (patient) {
-                openPatientDashboardModal(patient);
+                openPatientChartTab(patient);
             }
         });
     });
@@ -4560,6 +4573,10 @@ function showAlert(containerId, message, type)
 function showListAlert(message, type)
 {
     const container = document.getElementById("listAlert");
+
+    if (!container) {
+        return;
+    }
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
 }

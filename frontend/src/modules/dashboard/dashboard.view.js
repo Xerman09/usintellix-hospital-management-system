@@ -8,6 +8,7 @@ function staffNavLinks(role)
 
     return `
         ${appointmentsLink}
+        <a data-tab="patient_finder">Finder</a>
         <a data-tab="patients">Patients</a>
         <a data-tab="employees">Employees</a>
         <a data-tab="messaging">Messaging</a>
@@ -67,6 +68,7 @@ const PATIENT_NAV_LINKS = `
 `;
 
 const DOCTOR_NAV_LINKS = `
+    <a data-tab="patient_finder">Finder</a>
     <a data-tab="patients">Patients</a>
     <a data-tab="appointments">Calendar</a>
     <a data-tab="messaging">Messaging</a>

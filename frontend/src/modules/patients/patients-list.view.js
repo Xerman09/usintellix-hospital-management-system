@@ -1810,8 +1810,1030 @@ ${canAdd ? `
 </div>
 ` : ""}
 
-<div class="modal-overlay" id="patientDashboardModalOverlay">
-    <div class="modal-box pd-modal-box">
+`;
+}
+
+export function PatientChartView(user)
+{
+    const canDelete = user?.role === "admin";
+
+    return `
+<style>
+.pat-page {
+    width: 100%;
+    font-size: 13.5px;
+}
+
+.pat-card {
+    width: 100%;
+}
+
+.pat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 4px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pat-header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pat-icon-badge {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
+    border: 1px solid #dbe1ea;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pat-icon-badge svg {
+    width: 18px;
+    height: 18px;
+    color: #42536b;
+}
+
+.pat-header h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #14181f;
+    letter-spacing: -.2px;
+}
+
+.pat-header .form-subtitle {
+    margin: 1px 0 0;
+    font-size: 12.5px;
+    max-width: 480px;
+}
+
+.pat-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color .12s;
+    white-space: nowrap;
+}
+
+.pat-add-btn:hover {
+    background: #1742b0;
+    border-color: #1742b0;
+}
+
+.pat-add-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.pat-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 16px 0 14px;
+    flex-wrap: wrap;
+}
+
+.pat-stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #55647c;
+    white-space: nowrap;
+}
+
+.pat-stat-pill svg {
+    width: 13px;
+    height: 13px;
+    color: #8b98ac;
+}
+
+.pat-toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.pat-search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 280px;
+    min-width: 190px;
+}
+
+.pat-search-wrap svg {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: #96a2b8;
+    pointer-events: none;
+}
+
+.pat-search-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 30px 0 32px;
+    border-radius: 6px;
+    border: 1px solid #d7dee8;
+    outline: none;
+    font-size: 13px;
+    color: #1c2534;
+    background: white;
+    transition: border-color .12s;
+}
+
+.pat-search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12);
+}
+
+.pat-search-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #8b98ac;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.pat-search-clear.show {
+    display: flex;
+}
+
+.pat-search-clear:hover {
+    background: #eef1f6;
+    color: #38455a;
+}
+
+.pat-filter-select {
+    height: 32px;
+    min-width: 170px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid #d7dee8;
+    outline: none;
+    font-size: 13px;
+    color: #1c2534;
+    background: white;
+    cursor: pointer;
+    transition: border-color .12s;
+}
+
+.pat-filter-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12);
+}
+
+.pat-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+}
+
+.pat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.pat-table th {
+    text-align: left;
+    padding: 9px 14px;
+    color: #6b7787;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e9f0;
+    white-space: nowrap;
+}
+
+.pat-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #eef1f5;
+    color: #29323f;
+    vertical-align: middle;
+}
+
+.pat-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.pat-table tbody tr.pat-row {
+    cursor: pointer;
+}
+
+.pat-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.pat-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pat-avatar {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.pat-name {
+    font-weight: 600;
+    color: #14181f;
+}
+
+.pat-patient-no {
+    font-family: "SFMono-Regular", Consolas, "Courier New", monospace;
+    font-size: 12px;
+    color: #55647c;
+}
+
+.pat-muted {
+    color: #6b7787;
+}
+
+.pat-muted.empty {
+    color: #a3adbd;
+}
+
+.pat-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #3b475a;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.pat-tag.empty {
+    background: none;
+    border-color: transparent;
+    color: #a3adbd;
+    font-weight: 400;
+    padding: 2px 0;
+}
+
+.pat-sex-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.pat-sex-badge.male {
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+
+.pat-sex-badge.female {
+    border-color: #f9c9de;
+    color: #be185d;
+}
+
+.pat-sex-badge.unset {
+    border-color: #e2e8f0;
+    color: #8b98ac;
+}
+
+.pat-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.pat-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: none;
+    padding: 5px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .1s, border-color .1s;
+}
+
+.pat-icon-btn svg {
+    width: 13px;
+    height: 13px;
+}
+
+.pat-icon-btn.edit {
+    color: #3b475a;
+}
+
+.pat-icon-btn.edit:hover {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+.pat-icon-btn.view {
+    color: var(--accent);
+}
+
+.pat-icon-btn.view:hover {
+    background: var(--accent-light);
+    border-color: var(--accent-border);
+}
+
+.pat-icon-btn.delete {
+    color: #b91c1c;
+}
+
+.pat-icon-btn.delete:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.pat-empty-state {
+    text-align: left;
+    padding: 32px 20px !important;
+}
+
+.pat-empty-state .pat-empty-icon {
+    display: none;
+}
+
+.pat-empty-state p {
+    margin: 2px 0 0;
+    color: #6b7787;
+    font-size: 13px;
+}
+
+.pat-empty-state strong {
+    display: block;
+    color: #29323f;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.pat-skeleton-row td {
+    padding: 12px 14px;
+}
+
+.pat-skeleton-bar {
+    height: 12px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #eef1f5 25%, #e4e8ee 37%, #eef1f5 63%);
+    background-size: 400% 100%;
+    animation: pat-shimmer 1.4s ease infinite;
+}
+
+@keyframes pat-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+@media (max-width: 640px) {
+    .pat-header { flex-direction: column; align-items: stretch; }
+    .pat-add-btn { width: 100%; justify-content: center; }
+    .pat-toolbar { flex-direction: column; align-items: stretch; }
+    .pat-toolbar-controls { justify-content: stretch; }
+    .pat-search-wrap { max-width: none; }
+}
+
+/* ===== Patient Dashboard modal (OpenEMR-style) ===== */
+
+.pd-modal-box {
+    max-width: 1120px;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 92vh;
+}
+
+.pd-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e5e9f0;
+    flex-shrink: 0;
+}
+
+.pd-topbar-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pd-topbar-avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.pd-topbar h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #14181f;
+}
+
+.pd-topbar p {
+    margin: 1px 0 0;
+    font-size: 12px;
+    color: #6b7787;
+}
+
+.pd-body {
+    display: flex;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.pd-sidebar {
+    width: 232px;
+    flex-shrink: 0;
+    padding: 18px 16px;
+    border-right: 1px solid #e5e9f0;
+    background: #fbfcfe;
+    overflow-y: auto;
+}
+
+.pd-sidebar-avatar {
+    width: 52px;
+    height: 52px;
+    margin: 0 0 10px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 19px;
+}
+
+.pd-sidebar-name {
+    text-align: left;
+    font-size: 14px;
+    font-weight: 700;
+    color: #14181f;
+    margin: 0 0 1px;
+}
+
+.pd-sidebar-sub {
+    text-align: left;
+    font-size: 12px;
+    color: #6b7787;
+    margin: 0 0 16px;
+}
+
+.pd-fact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pd-fact {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pd-fact-label {
+    font-size: 11.5px;
+    color: #8b98ac;
+}
+
+.pd-fact-value {
+    font-size: 12.5px;
+    color: #29323f;
+    font-weight: 600;
+    text-align: right;
+}
+
+.pd-fact-value.empty {
+    font-weight: 400;
+    color: #a3adbd;
+}
+
+.pd-quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pd-quick-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: none;
+    color: #3b475a;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .1s;
+}
+
+.pd-quick-btn:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.pd-quick-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #8b98ac;
+}
+
+.pd-chart-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e9f0;
+}
+
+.pd-chart-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: none;
+    color: #3b475a;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color .1s;
+}
+
+.pd-chart-nav-btn:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.pd-chart-nav-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.pd-chart-nav-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #8b98ac;
+}
+
+.pd-chart-nav-btn.active svg {
+    color: var(--accent);
+}
+
+.pd-chart-nav-label {
+    flex: 1;
+}
+
+.pd-chart-nav-chevron {
+    width: 12px !important;
+    height: 12px !important;
+    transition: transform .15s;
+}
+
+.pd-chart-nav-expandable.expanded .pd-chart-nav-chevron {
+    transform: rotate(180deg);
+}
+
+.pd-chart-nav-submenu {
+    display: none;
+    flex-direction: column;
+    padding: 2px 0 4px 30px;
+}
+
+.pd-chart-nav-submenu.expanded {
+    display: flex;
+}
+
+.pd-chart-nav-empty {
+    margin: 4px 0;
+    font-size: 12px;
+    font-style: italic;
+    color: #a3adbd;
+}
+
+.pd-chart-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 80px 20px;
+    color: #6b7787;
+}
+
+.pd-chart-placeholder-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+    background: #f1f4fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pd-chart-placeholder-icon svg {
+    width: 22px;
+    height: 22px;
+    color: #a2aec4;
+}
+
+.pd-chart-placeholder strong {
+    font-size: 14px;
+    color: #29323f;
+    margin-bottom: 4px;
+}
+
+.pd-chart-placeholder p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.pd-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px;
+}
+
+.pd-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.pd-widget {
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.pd-widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pd-widget-header-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.pd-widget-header-title svg {
+    width: 14px;
+    height: 14px;
+    color: #6b7787;
+    flex-shrink: 0;
+}
+
+.pd-widget-header h3 {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.pd-widget-add {
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.pd-widget-add:hover {
+    text-decoration: underline;
+}
+
+.pd-widget-body {
+    padding: 12px;
+}
+
+.pd-widget-demographics {
+    grid-column: 1 / -1;
+}
+
+.pd-demo-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 8px;
+    border-bottom: 1px solid #e5e9f0;
+    overflow-x: auto;
+}
+
+.pd-demo-tab {
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: #71809b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+}
+
+.pd-demo-tab:hover {
+    color: var(--accent-text);
+}
+
+.pd-demo-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.pd-demo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 28px;
+}
+
+.pd-demo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pd-demo-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #94a3b8;
+}
+
+.pd-demo-value {
+    font-size: 13.5px;
+    color: #25324b;
+}
+
+.pd-demo-value.empty {
+    color: #c3cbd9;
+    font-style: italic;
+}
+
+@media (max-width: 640px) {
+    .pd-demo-grid { grid-template-columns: 1fr; }
+}
+
+.pd-related-card {
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
+.pd-related-card:last-child {
+    margin-bottom: 0;
+}
+
+.pd-related-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.pd-related-card-header strong {
+    font-size: 13px;
+    color: #29323f;
+}
+
+.pd-related-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: var(--accent);
+    background: var(--accent-bg, #eef2ff);
+    border-radius: 4px;
+    padding: 2px 7px;
+}
+
+.pd-widget-empty {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.pd-widget-empty svg {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    color: #b7c0cf;
+}
+
+.pd-widget-empty p {
+    margin: 0;
+    font-size: 12px;
+    color: #8b98ac;
+}
+
+.pd-allergy-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.pd-allergy-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid #e5e9f0;
+    border-radius: 6px;
+    background: #fbfcfe;
+}
+
+.pd-allergy-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #29323f;
+}
+
+.pd-allergy-remove {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.pd-allergy-remove:hover {
+    text-decoration: underline;
+}
+
+.pd-allergy-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.pd-allergy-form select {
+    flex: 1;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid #d7dee8;
+    font-size: 12px;
+    background: white;
+}
+
+.pd-allergy-form button {
+    flex-shrink: 0;
+    height: 30px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pd-allergy-msg {
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    color: #b91c1c;
+}
+
+.allergy-more-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 18px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.allergy-more-toggle svg {
+    width: 14px;
+    height: 14px;
+    transition: transform .15s ease;
+}
+
+.allergy-more-toggle.expanded svg {
+    transform: rotate(180deg);
+}
+
+.allergy-more-fields {
+    margin-bottom: 18px;
+}
+
+.allergy-more-fields[hidden] {
+    display: none;
+}
+
+@media (max-width: 860px) {
+    .pd-widget-grid { grid-template-columns: 1fr; }
+    .pd-body { flex-direction: column; }
+    .pd-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e9f0; }
+}
+</style>
+<style>
+.pd-chart-panel {
+    display: flex;
+    flex-direction: column;
+}
+</style>
+
+<div class="pd-chart-panel">
         <div class="pd-topbar">
             <div class="pd-topbar-title">
                 <div class="pd-topbar-avatar" id="pdAvatar">?</div>
@@ -1820,7 +2842,6 @@ ${canAdd ? `
                     <p id="pdSubtitle">&nbsp;</p>
                 </div>
             </div>
-            <button type="button" class="modal-close" id="closePatientDashboardModal">&times;</button>
         </div>
 
         <div class="pd-body">
@@ -1959,7 +2980,6 @@ ${canAdd ? `
             </div>
         </div>
     </div>
-</div>
 
 <div class="modal-overlay" id="allergyDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
@@ -3916,6 +4936,378 @@ ${canAdd ? `
         </form>
     </div>
 </div>
+
+<div class="modal-overlay" id="editPatientModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Edit Patient</h2>
+            <button type="button" class="modal-close" id="closeEditPatientModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Update this patient's demographic record.</p>
+
+        <div id="editFormAlert"></div>
+
+        <div class="modal-tabs">
+            <button type="button" class="modal-tab active" data-tab="basic">Basic Info</button>
+            <button type="button" class="modal-tab" data-tab="choices">Choices</button>
+            <button type="button" class="modal-tab" data-tab="stats">Stats</button>
+            <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
+            <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
+            <button type="button" class="modal-tab" data-tab="employer">Employer</button>
+            <button type="button" class="modal-tab" data-tab="misc">Misc</button>
+        </div>
+
+        <form id="editPatientForm">
+            <input type="hidden" id="edit_id">
+
+            <div class="modal-tab-panel active" data-panel="basic">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input id="edit_first_name" class="form-input" placeholder="First name">
+                        <span class="form-error" id="err-edit_first_name"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Middle Name</label>
+                        <input id="edit_middle_name" class="form-input" placeholder="Middle name (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input id="edit_last_name" class="form-input" placeholder="Last name">
+                        <span class="form-error" id="err-edit_last_name"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Suffix</label>
+                        <input id="edit_suffix" class="form-input" placeholder="Jr, Sr, III (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Sex</label>
+                        <select id="edit_sex" class="form-input">
+                            <option value="">Select sex</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                        <span class="form-error" id="err-edit_sex"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Birthdate</label>
+                        <input id="edit_birthdate" type="date" class="form-input">
+                        <span class="form-error" id="err-edit_birthdate"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Civil Status</label>
+                        <select id="edit_civil_status" class="form-input">
+                            <option value="">Select civil status</option>
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Widowed">Widowed</option>
+                            <option value="Separated">Separated</option>
+                        </select>
+                        <span class="form-error" id="err-edit_civil_status"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Blood Type</label>
+                        <select id="edit_blood_type" class="form-input">
+                            <option value="">Select blood type</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                        <span class="form-error" id="err-edit_blood_type"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Height (cm)</label>
+                        <input id="edit_height" type="number" step="0.01" class="form-input" placeholder="e.g 165.50">
+                        <span class="form-error" id="err-edit_height"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Weight (kg)</label>
+                        <input id="edit_weight" type="number" step="0.01" class="form-input" placeholder="e.g 60.00">
+                        <span class="form-error" id="err-edit_weight"></span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="choices">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Provider</label>
+                        <select id="edit_provider_id" class="form-input">
+                            <option value="">Select provider (optional)</option>
+                        </select>
+                        <span class="form-error" id="err-edit_provider_id"></span>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Allow SMS Communication</label>
+                        <select id="edit_allow_sms" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allow Voice Call Communication</label>
+                        <select id="edit_allow_voice_calls" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allow Email Communication</label>
+                        <select id="edit_allow_email" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allow Health Information Exchange (HIE)</label>
+                        <select id="edit_allow_hie" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allow Postcard</label>
+                        <select id="edit_allow_postcard" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="stats">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Race</label>
+                        <input id="edit_race" class="form-input" placeholder="Race (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ethnicity</label>
+                        <input id="edit_ethnicity" class="form-input" placeholder="Ethnicity (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Religion</label>
+                        <input id="edit_religion" class="form-input" placeholder="Religion (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Language</label>
+                        <input id="edit_language" class="form-input" placeholder="Language spoken (optional)">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="contact">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Address</label>
+                        <input id="edit_address_line" class="form-input" placeholder="House/Unit No., Street, Barangay">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="edit_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Province</label>
+                        <input id="edit_province" class="form-input" placeholder="Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Zip Code</label>
+                        <input id="edit_zip_code" class="form-input" placeholder="e.g 4200">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input id="edit_contact_email" type="email" class="form-input" placeholder="name@example.com">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Home Phone</label>
+                        <input id="edit_home_phone" class="form-input" placeholder="Landline (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mobile Phone</label>
+                        <input id="edit_mobile_phone" class="form-input" placeholder="09XXXXXXXXX">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Work Phone</label>
+                        <input id="edit_work_phone" class="form-input" placeholder="Work phone (optional)">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="related_persons">
+                <div class="rp-toolbar">
+                    <span class="rp-count-text" id="relatedPersonsCountText">0 related persons</span>
+                    <button type="button" class="btn-edit" id="openAddRelatedPersonBtn">+ Add Related Person</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Relationship</th>
+                                <th>Role</th>
+                                <th>Priority</th>
+                                <th>Permissions</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="relatedPersonsTableBody">
+                            <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="employer">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Occupation</label>
+                        <input id="edit_employer_occupation" class="form-input" placeholder="Occupation (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employer Name</label>
+                        <input id="edit_employer_name" class="form-input" placeholder="Employer name (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Employer Address</label>
+                        <input id="edit_employer_address_line" class="form-input" placeholder="Address line">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Employer Address Line 2</label>
+                        <input id="edit_employer_address_line2" class="form-input" placeholder="Address line 2 (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input id="edit_employer_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>State</label>
+                        <input id="edit_employer_state" class="form-input" placeholder="State/Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input id="edit_employer_postal_code" class="form-input" placeholder="Postal code">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input id="edit_employer_country" class="form-input" placeholder="Country">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Industry</label>
+                        <input id="edit_employer_industry" class="form-input" placeholder="Industry (optional)">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment Start Date</label>
+                        <input id="edit_employer_employment_start_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Employment End Date</label>
+                        <input id="edit_employer_employment_end_date" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="misc">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date Deceased</label>
+                        <input id="edit_date_deceased" type="date" class="form-input">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Reason Deceased</label>
+                        <input id="edit_reason_deceased" class="form-input" placeholder="Reason (optional)">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                ${canDelete ? `<button type="button" class="btn-danger" id="deletePatientFromEdit">Delete Patient</button>` : ""}
+                <button type="button" class="btn-secondary" id="cancelEditPatient">Cancel</button>
+                <button class="login-btn" type="submit">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 `;
 }
 
