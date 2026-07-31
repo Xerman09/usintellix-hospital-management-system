@@ -59,6 +59,9 @@ import { BusinessSettingsView } from "../business-settings/business-settings.vie
 import { initBusinessSettings } from "../business-settings/business-settings.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
+import { PatientFlowView } from "../patient-flow/patient-flow.view.js";
+import { initPatientFlow } from "../patient-flow/patient-flow.js";
+import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -250,6 +253,11 @@ export function Dashboard()
                 setTimeout(initRecalls, 0);
                 return RecallsView();
             }, activate);
+        } else if (tabId === 'patient_flow') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientFlow, 0);
+                return PatientFlowView();
+            }, activate);
         } else if (tabId === 'profile') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initProfile, 0);
@@ -381,5 +389,12 @@ export function Dashboard()
         } catch(e) {
             console.error('Failed to restore tabs:', e);
         }
+    }
+
+    // A Flow-board "open patient in new window" click leaves a pending
+    // patient chart request for this fresh window to pick up -- jump
+    // straight to the Patients tab so its own init can consume it.
+    if (hasPendingPatientView()) {
+        openDashboardTab('patients', 'Patients');
     }
 }

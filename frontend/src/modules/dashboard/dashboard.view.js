@@ -12,6 +12,7 @@ function staffNavLinks(role)
         <a data-tab="employees">Employees</a>
         <a data-tab="messaging">Messaging</a>
         <a data-tab="recalls">Recalls</a>
+        <a data-tab="patient_flow">Flow</a>
         ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
         ${role === "admin" ? `<a data-tab="business_settings">Business Information</a>` : ""}
         <div class="nav-dropdown">
@@ -71,6 +72,7 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
     <a data-tab="messaging">Messaging</a>
     <a data-tab="recalls">Recalls</a>
+    <a data-tab="patient_flow">Flow</a>
 `;
 
 function getNavLinks(role)
