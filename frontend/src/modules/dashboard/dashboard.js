@@ -72,6 +72,8 @@ import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
 import { PreferenceTypesView } from "../preference-types/preference-types.view.js";
 import { initPreferenceTypes } from "../preference-types/preference-types.js";
+import { CodesView } from "../codes/codes.view.js";
+import { initCodes } from "../codes/codes.js";
 import { MessagesView } from "../messages/messages.view.js?v=2";
 import { initMessages } from "../messages/messages.js";
 
@@ -246,6 +248,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPreferenceTypes, 0);
                 return PreferenceTypesView();
+            }, activate);
+        } else if (tabId === 'codes') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initCodes, 0);
+                return CodesView();
             }, activate);
         } else if (tabId === 'appointments' && user.role === 'doctor') {
             tabManager.openTab(tabId, title, () => {

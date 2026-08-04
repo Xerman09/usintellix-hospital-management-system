@@ -46,6 +46,7 @@ function staffNavLinks(role)
                 <a data-tab="cvx_codes">CVX Immunization Codes</a>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
                 <a data-tab="preference_types">Preference Type</a>
+                <a data-tab="codes">Codes</a>
             </div>
         </div>
         
