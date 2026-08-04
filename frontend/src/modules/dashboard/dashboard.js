@@ -76,6 +76,8 @@ import { AdministrationSitesView } from "../administration-sites/administration-
 import { initAdministrationSites } from "../administration-sites/administration-sites.js";
 import { AmountUnitsView } from "../amount-units/amount-units.view.js";
 import { initAmountUnits } from "../amount-units/amount-units.js";
+import { InformationSourcesView } from "../information-sources/information-sources.view.js";
+import { initInformationSources } from "../information-sources/information-sources.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
 import { PreferenceTypesView } from "../preference-types/preference-types.view.js";
@@ -266,6 +268,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAmountUnits, 0);
                 return AmountUnitsView();
+            }, activate);
+        } else if (tabId === 'information_sources') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initInformationSources, 0);
+                return InformationSourcesView();
             }, activate);
         } else if (tabId === 'cqm_valuesets') {
             tabManager.openTab(tabId, title, () => {

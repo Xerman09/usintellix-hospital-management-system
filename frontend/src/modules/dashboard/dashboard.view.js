@@ -54,6 +54,7 @@ function staffNavLinks(role)
                         <a data-tab="administration_routes">Routes Management</a>
                         <a data-tab="administration_sites">Administration Site Management</a>
                         <a data-tab="amount_units">Amount Units</a>
+                        <a data-tab="information_sources">Information Sources Management</a>
                     </div>
                 </div>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
