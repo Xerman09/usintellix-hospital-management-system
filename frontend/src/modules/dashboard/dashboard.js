@@ -72,6 +72,8 @@ import { ImmunizationsView } from "../immunizations/immunizations.view.js";
 import { initImmunizations } from "../immunizations/immunizations.js";
 import { AdministrationRoutesView } from "../administration-routes/administration-routes.view.js";
 import { initAdministrationRoutes } from "../administration-routes/administration-routes.js";
+import { AdministrationSitesView } from "../administration-sites/administration-sites.view.js";
+import { initAdministrationSites } from "../administration-sites/administration-sites.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
 import { PreferenceTypesView } from "../preference-types/preference-types.view.js";
@@ -252,6 +254,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAdministrationRoutes, 0);
                 return AdministrationRoutesView();
+            }, activate);
+        } else if (tabId === 'administration_sites') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAdministrationSites, 0);
+                return AdministrationSitesView();
             }, activate);
         } else if (tabId === 'cqm_valuesets') {
             tabManager.openTab(tabId, title, () => {

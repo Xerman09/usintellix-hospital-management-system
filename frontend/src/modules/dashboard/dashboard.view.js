@@ -52,6 +52,7 @@ function staffNavLinks(role)
                     <div class="dropdown-submenu-content">
                         <a data-tab="immunizations">Immunizations</a>
                         <a data-tab="administration_routes">Routes Management</a>
+                        <a data-tab="administration_sites">Administration Site Management</a>
                     </div>
                 </div>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
