@@ -1275,7 +1275,7 @@ select.form-input {
 
     flex: 1;
 
-    height: 24px;
+    height: 46px;
 
     border-radius: 14px;
 
@@ -1284,6 +1284,8 @@ select.form-input {
     background: white;
 
     color: #34435c;
+
+    font-size: 14.5px;
 
     font-weight: 600;
 
