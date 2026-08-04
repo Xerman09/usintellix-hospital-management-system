@@ -717,6 +717,7 @@ body {
 
 /* Top Navbar */
 .top-navbar {
+    position: relative;
     display: flex;
     align-items: center;
     background: white;
@@ -830,6 +831,70 @@ body {
     text-transform: uppercase;
     letter-spacing: .5px;
     color: #9ca3af;
+}
+
+.dropdown-submenu {
+    position: relative;
+}
+
+.dropdown-submenu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #374151;
+    padding: 12px 20px;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.dropdown-submenu-trigger svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #9ca3af;
+}
+
+.dropdown-submenu:hover > .dropdown-submenu-trigger {
+    background-color: #f3f4f6;
+    color: var(--accent);
+}
+
+.dropdown-submenu:hover > .dropdown-submenu-trigger svg {
+    color: var(--accent);
+}
+
+.dropdown-submenu-content {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 100%;
+    background-color: white;
+    min-width: 200px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1);
+    z-index: 102;
+    border-radius: 8px;
+    flex-direction: column;
+    padding: 8px 0;
+}
+
+.dropdown-submenu:hover > .dropdown-submenu-content {
+    display: flex;
+}
+
+.dropdown-submenu-content a {
+    color: #374151;
+    padding: 12px 20px;
+    text-decoration: none;
+    display: block;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.dropdown-submenu-content a:hover {
+    background-color: #f3f4f6;
+    color: var(--accent);
 }
 
 .dropdown-right {
