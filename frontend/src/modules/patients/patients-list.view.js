@@ -2527,6 +2527,111 @@ export function PatientChartView(user)
     font-size: 13px;
 }
 
+.pd-history-panel {
+    border: 1px solid #e5e9f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.pd-history-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    background: var(--accent);
+    overflow-x: auto;
+}
+
+.pd-history-tab {
+    flex: 0 0 auto;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: rgba(255,255,255,.78);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color .12s, color .12s;
+}
+
+.pd-history-tab:hover {
+    background: rgba(255,255,255,.14);
+    color: white;
+}
+
+.pd-history-tab.active {
+    background: var(--accent-light);
+    color: var(--accent-text);
+}
+
+.pd-history-content {
+    padding: 16px 20px 8px;
+    background: white;
+}
+
+.pd-history-category {
+    display: none;
+}
+
+.pd-history-category.active {
+    display: block;
+}
+
+.pd-history-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pd-history-section-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.pd-history-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 20px;
+    color: #6b7787;
+}
+
+.pd-history-empty-icon {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: #f1f4fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pd-history-empty-icon svg {
+    width: 20px;
+    height: 20px;
+    color: #a2aec4;
+}
+
+.pd-history-empty strong {
+    font-size: 13.5px;
+    color: #29323f;
+    margin-bottom: 4px;
+}
+
+.pd-history-empty p {
+    margin: 0;
+    font-size: 12.5px;
+    max-width: 32ch;
+}
+
 .pd-main {
     flex: 1;
     overflow-y: auto;
@@ -2587,6 +2692,11 @@ export function PatientChartView(user)
 
 .pd-widget-add:hover {
     text-decoration: underline;
+}
+
+.pd-widget-add:disabled {
+    color: #b7c0cf;
+    cursor: not-allowed;
 }
 
 .pd-widget-body {
@@ -2976,6 +3086,83 @@ export function PatientChartView(user)
                     </div>
                     <strong id="pdChartPlaceholderTitle">Section</strong>
                     <p>This section is under development.</p>
+                </div>
+
+                <div class="pd-history-panel" id="pdHistoryPanel" style="display: none;">
+                    <div class="pd-history-tabs" id="pdHistoryTabs">
+                        <button type="button" class="pd-history-tab active" data-history-tab="general">General</button>
+                        <button type="button" class="pd-history-tab" data-history-tab="family_history">Family History</button>
+                        <button type="button" class="pd-history-tab" data-history-tab="relatives">Relatives</button>
+                        <button type="button" class="pd-history-tab" data-history-tab="lifestyle">Lifestyle</button>
+                        <button type="button" class="pd-history-tab" data-history-tab="other">Other</button>
+                    </div>
+                    <div class="pd-history-content">
+                        <div class="pd-history-category active" data-history-category="general">
+                            <div class="pd-history-category-header">
+                                <div class="pd-history-section-label">Risk Factors</div>
+                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
+                            </div>
+                            <div class="pd-history-empty">
+                                <div class="pd-history-empty-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                                </div>
+                                <strong>No risk factors recorded</strong>
+                                <p>Risk factors identified for this patient will appear here.</p>
+                            </div>
+                        </div>
+                        <div class="pd-history-category" data-history-category="family_history">
+                            <div class="pd-history-category-header">
+                                <div class="pd-history-section-label">Family History</div>
+                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
+                            </div>
+                            <div class="pd-history-empty">
+                                <div class="pd-history-empty-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                </div>
+                                <strong>No family history recorded</strong>
+                                <p>Conditions that run in this patient's family will appear here.</p>
+                            </div>
+                        </div>
+                        <div class="pd-history-category" data-history-category="relatives">
+                            <div class="pd-history-category-header">
+                                <div class="pd-history-section-label">Relatives</div>
+                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
+                            </div>
+                            <div class="pd-history-empty">
+                                <div class="pd-history-empty-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M15 8h2M15 12h2M7 16h10"></path></svg>
+                                </div>
+                                <strong>No relatives recorded</strong>
+                                <p>This patient's relatives will appear here once added.</p>
+                            </div>
+                        </div>
+                        <div class="pd-history-category" data-history-category="lifestyle">
+                            <div class="pd-history-category-header">
+                                <div class="pd-history-section-label">Lifestyle</div>
+                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
+                            </div>
+                            <div class="pd-history-empty">
+                                <div class="pd-history-empty-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                                </div>
+                                <strong>No lifestyle information recorded</strong>
+                                <p>Habits and lifestyle factors for this patient will appear here.</p>
+                            </div>
+                        </div>
+                        <div class="pd-history-category" data-history-category="other">
+                            <div class="pd-history-category-header">
+                                <div class="pd-history-section-label">Other</div>
+                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
+                            </div>
+                            <div class="pd-history-empty">
+                                <div class="pd-history-empty-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                </div>
+                                <strong>No additional history recorded</strong>
+                                <p>Anything else worth noting for this patient will appear here.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

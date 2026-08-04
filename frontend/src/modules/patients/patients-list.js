@@ -220,11 +220,13 @@ function setupChartNav()
 
             const widgetGrid = document.getElementById("pdWidgetGrid");
             const placeholder = document.getElementById("pdChartPlaceholder");
+            const historyPanel = document.getElementById("pdHistoryPanel");
             const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
             if (key === "dashboard" || widgetTarget) {
                 widgetGrid.style.display = "";
                 placeholder.style.display = "none";
+                historyPanel.style.display = "none";
 
                 const pdMain = document.querySelector(".pd-main");
                 const target = widgetTarget ? document.getElementById(widgetTarget) : null;
@@ -234,11 +236,30 @@ function setupChartNav()
                 } else if (pdMain) {
                     pdMain.scrollTo({ top: 0, behavior: "smooth" });
                 }
+            } else if (key === "history") {
+                widgetGrid.style.display = "none";
+                placeholder.style.display = "none";
+                historyPanel.style.display = "block";
             } else {
                 widgetGrid.style.display = "none";
+                historyPanel.style.display = "none";
                 document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
                 placeholder.style.display = "flex";
             }
+        });
+    });
+}
+
+function setupHistoryTabs()
+{
+    document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const key = tab.getAttribute("data-history-tab");
+
+            document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => t.classList.toggle("active", t === tab));
+            document.querySelectorAll(".pd-history-category").forEach((panel) => {
+                panel.classList.toggle("active", panel.getAttribute("data-history-category") === key);
+            });
         });
     });
 }
@@ -252,6 +273,14 @@ function resetChartNav()
     document.getElementById("pdAssessmentsSubmenu").classList.remove("expanded");
     document.getElementById("pdWidgetGrid").style.display = "";
     document.getElementById("pdChartPlaceholder").style.display = "none";
+    document.getElementById("pdHistoryPanel").style.display = "none";
+
+    document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => {
+        t.classList.toggle("active", t.getAttribute("data-history-tab") === "general");
+    });
+    document.querySelectorAll(".pd-history-category").forEach((panel) => {
+        panel.classList.toggle("active", panel.getAttribute("data-history-category") === "general");
+    });
 }
 
 // Consumes a chart-open request handed off by another module (currently
@@ -335,6 +364,7 @@ export async function initPatientChartTab(patient)
     });
 
     setupChartNav();
+    setupHistoryTabs();
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
