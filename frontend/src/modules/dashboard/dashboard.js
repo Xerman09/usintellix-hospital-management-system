@@ -66,6 +66,8 @@ import { initPatientFlow } from "../patient-flow/patient-flow.js";
 import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
+import { CvxCodesView } from "../cvx-codes/cvx-codes.view.js";
+import { initCvxCodes } from "../cvx-codes/cvx-codes.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
 import { PreferenceTypesView } from "../preference-types/preference-types.view.js";
@@ -229,6 +231,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initIcd10Diagnoses, 0);
                 return Icd10DiagnosesView();
+            }, activate);
+        } else if (tabId === 'cvx_codes') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initCvxCodes, 0);
+                return CvxCodesView();
             }, activate);
         } else if (tabId === 'cqm_valuesets') {
             tabManager.openTab(tabId, title, () => {

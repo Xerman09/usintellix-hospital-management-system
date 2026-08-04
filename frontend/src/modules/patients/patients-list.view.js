@@ -2959,7 +2959,7 @@ export function PatientChartView(user)
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.", { bodyId: "pdMedicationsBody", addBtnId: "pdMedicationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
-                    ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.")}
+                    ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.", { bodyId: "pdImmunizationsBody", addBtnId: "pdImmunizationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.")}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.")}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.")}
@@ -3634,6 +3634,260 @@ export function PatientChartView(user)
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelMedicationForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="immunizationDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Immunizations</h2>
+            <button type="button" class="modal-close" id="closeImmunizationDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full immunization history for this patient.</p>
+
+        <div id="immunizationDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddImmunizationBtn">+ Add Immunization</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Vaccine</th>
+                        <th>Date Administered</th>
+                        <th>Status</th>
+                        <th>Administered By</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="immunizationDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="immunizationFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="immunizationFormTitle">Add Immunization</h2>
+            <button type="button" class="modal-close" id="closeImmunizationFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record an immunization for this patient.</p>
+
+        <div id="immunizationFormAlert"></div>
+
+        <form id="immunizationForm">
+            <input type="hidden" id="immunization_record_id">
+            <input type="hidden" id="immunization_cvx_code_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Immunization (CVX Code)</label>
+                    <div class="scm-trigger-row">
+                        <input id="immunization_cvx_code" class="form-input icd-code-input" placeholder="e.g 03">
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openImmunizationFinderBtn">Finder</button>
+                    </div>
+                    <span class="form-error" id="err-immunization_cvx_code"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Vaccine Description</label>
+                    <input id="immunization_vaccine_name" class="form-input" placeholder="Filled in automatically from Finder, or type your own">
+                </div>
+
+                <div class="form-group">
+                    <label>Date &amp; Time Administered</label>
+                    <input id="immunization_administered_at" type="datetime-local" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Completion Status</label>
+                    <select id="immunization_completion_status" class="form-input">
+                        <option value="completed">completed</option>
+                        <option value="Refused">Refused</option>
+                        <option value="Not Administered">Not Administered</option>
+                        <option value="Partially Administered">Partially Administered</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount Administered</label>
+                    <input id="immunization_amount_administered" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Amount Unit</label>
+                    <select id="immunization_amount_unit" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="mg">mg</option>
+                        <option value="mg/1cc">mg/1cc</option>
+                        <option value="mg/2cc">mg/2cc</option>
+                        <option value="mg/3cc">mg/3cc</option>
+                        <option value="mg/4cc">mg/4cc</option>
+                        <option value="mg/5cc">mg/5cc</option>
+                        <option value="mcg">mcg</option>
+                        <option value="grams">grams</option>
+                        <option value="mL">mL</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Immunization Expiration Date</label>
+                    <input id="immunization_expiration_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Immunization Manufacturer</label>
+                    <input id="immunization_manufacturer" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Immunization Lot Number</label>
+                    <input id="immunization_lot_number" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Route</label>
+                    <select id="immunization_route" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="By Mouth">By Mouth</option>
+                        <option value="Per Oris">Per Oris</option>
+                        <option value="Per Rectum">Per Rectum</option>
+                        <option value="To Skin">To Skin</option>
+                        <option value="To Affected Area">To Affected Area</option>
+                        <option value="Sublingual">Sublingual</option>
+                        <option value="Left Eye">Left Eye</option>
+                        <option value="Right Eye">Right Eye</option>
+                        <option value="Each Eye">Each Eye</option>
+                        <option value="Subcutaneous">Subcutaneous</option>
+                        <option value="IM">IM</option>
+                        <option value="IV">IV</option>
+                        <option value="Per Nostril">Per Nostril</option>
+                        <option value="Both Ears">Both Ears</option>
+                        <option value="Left Ear">Left Ear</option>
+                        <option value="Right Ear">Right Ear</option>
+                        <option value="Inhale">Inhale</option>
+                        <option value="Intradermal">Intradermal</option>
+                        <option value="Intramuscular">Intramuscular</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Administration Site</label>
+                    <select id="immunization_administration_site" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="Left Thigh">Left Thigh</option>
+                        <option value="Left Arm">Left Arm</option>
+                        <option value="Left Deltoid">Left Deltoid</option>
+                        <option value="Left Gluteus Medius">Left Gluteus Medius</option>
+                        <option value="Left Vastus Lateralis">Left Vastus Lateralis</option>
+                        <option value="Left Lower Forearm">Left Lower Forearm</option>
+                        <option value="Nose">Nose</option>
+                        <option value="Right Arm">Right Arm</option>
+                        <option value="Right Thigh">Right Thigh</option>
+                        <option value="Right Vastus Lateralis">Right Vastus Lateralis</option>
+                        <option value="Right Gluteus Medius">Right Gluteus Medius</option>
+                        <option value="Right Deltoid">Right Deltoid</option>
+                        <option value="Right Lower Forearm">Right Lower Forearm</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Notes</label>
+                    <textarea id="immunization_notes" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="immunizationMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="immunizationMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Name and Title of Immunization Administrator</label>
+                    <div class="scm-trigger-row">
+                        <input id="immunization_administered_by" class="form-input" placeholder="Type a name...">
+                        <select id="immunization_administered_by_provider_id" class="form-input" style="max-width: 240px;">
+                            <option value="">or choose...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Date Immunization Information Statements Given</label>
+                    <input id="immunization_vis_date_given" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Date of VIS Statement</label>
+                    <input id="immunization_vis_date_document" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Information Source</label>
+                    <select id="immunization_information_source" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="New Immunization Record">New Immunization Record</option>
+                        <option value="Historical information -source unspecified">Historical information -source unspecified</option>
+                        <option value="Other Provider">Other Provider</option>
+                        <option value="Parent Written Record">Parent Written Record</option>
+                        <option value="Parent Recall">Parent Recall</option>
+                        <option value="Other Registry">Other Registry</option>
+                        <option value="Birth Certificate">Birth Certificate</option>
+                        <option value="School Record">School Record</option>
+                        <option value="Public Agency">Public Agency</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Substance Refusal Reason</label>
+                    <select id="immunization_refusal_reason" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="Patient decision">Patient decision</option>
+                        <option value="Religious exemption">Religious exemption</option>
+                        <option value="Other">Other</option>
+                        <option value="Parental decision">Parental decision</option>
+                        <option value="Financial Problem">Financial Problem</option>
+                        <option value="Financial circumstances change">Financial circumstances change</option>
+                        <option value="Alternative Treatment Requested">Alternative Treatment Requested</option>
+                        <option value="Patient declined procedure">Patient declined procedure</option>
+                        <option value="Patient declined drug">Patient declined drug</option>
+                        <option value="Patient declined drug - side effects">Patient declined drug - side effects</option>
+                        <option value="Patient declined drug - patient beliefs">Patient declined drug - patient beliefs</option>
+                        <option value="Patient declined drug - cannot pay script">Patient declined drug - cannot pay script</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Reason Code</label>
+                    <input id="immunization_reason_code" class="form-input" placeholder="Select a reason code">
+                </div>
+
+                <div class="form-group">
+                    <label>Immunization Ordering Provider</label>
+                    <select id="immunization_ordering_provider_id" class="form-input">
+                        <option value="">-- Select --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Encounter</label>
+                    <select id="immunization_encounter_id" class="form-input">
+                        <option value="">-- Select Encounter --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelImmunizationForm">Cancel</button>
+                <button class="login-btn" type="submit">Save Immunization</button>
             </div>
         </form>
     </div>
@@ -4596,6 +4850,7 @@ export function PatientChartView(user)
         <div class="scm-toolbar">
             <select class="form-input scm-source-select" id="scmSourceSelect">
                 <option value="icd10">ICD10 Diagnosis</option>
+                <option value="cvx">CVX Immunization</option>
                 <option value="cqm">CQM Valueset</option>
                 <option value="oid">OID Valueset</option>
             </select>

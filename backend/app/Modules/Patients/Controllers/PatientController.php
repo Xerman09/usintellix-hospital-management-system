@@ -11,6 +11,7 @@ use App\Modules\PatientAllergies\Services\PatientAllergyService;
 use App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService;
 use App\Modules\PatientHealthConcerns\Services\PatientHealthConcernService;
 use App\Modules\PatientMedications\Services\PatientMedicationService;
+use App\Modules\PatientImmunizations\Services\PatientImmunizationService;
 use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
 use App\Modules\RelatedPersons\Services\RelatedPersonService;
 use App\Modules\Disclosures\Services\DisclosureService;
@@ -76,6 +77,7 @@ class PatientController extends Controller
             'problems' => fn () => (new PatientMedicalProblemService())->list($patientId),
             'health_concerns' => fn () => (new PatientHealthConcernService())->list($patientId),
             'medications' => fn () => (new PatientMedicationService())->list($patientId),
+            'immunizations' => fn () => (new PatientImmunizationService())->list($patientId),
             'prescriptions' => fn () => (new PatientPrescriptionService())->list($patientId),
             'related_persons' => fn () => (new RelatedPersonService())->list($patientId),
             'disclosures' => fn () => (new DisclosureService())->list($patientId),

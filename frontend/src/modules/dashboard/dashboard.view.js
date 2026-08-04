@@ -43,6 +43,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <div class="dropdown-section-label">Code</div>
                 <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
+                <a data-tab="cvx_codes">CVX Immunization Codes</a>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
                 <a data-tab="preference_types">Preference Type</a>
             </div>

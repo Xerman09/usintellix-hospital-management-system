@@ -7,6 +7,7 @@ import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
 import { fetchIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.service.js";
+import { fetchCvxCodes } from "../cvx-codes/cvx-codes.service.js";
 import { searchCqmValuesetCodes } from "../cqm-valuesets/cqm-valuesets.service.js";
 import { fetchMedicalProblems } from "../medical-problems/medical-problems.service.js";
 import {
@@ -34,6 +35,12 @@ import {
     updatePatientPrescription,
     removePatientPrescription
 } from "../patient-prescriptions/patient-prescriptions.service.js";
+import {
+    fetchPatientImmunizations,
+    addPatientImmunization,
+    updatePatientImmunization,
+    removePatientImmunization
+} from "../patient-immunizations/patient-immunizations.service.js";
 import {
     fetchRelatedPersons, addRelatedPerson, updateRelatedPerson, removeRelatedPerson,
     fetchTelecoms, addTelecom, updateTelecom, removeTelecom,
@@ -82,6 +89,15 @@ const PRESCRIPTION_DETAIL_FIELDS = [
     "referred_by", "destination"
 ];
 
+const IMMUNIZATION_DETAIL_FIELDS = [
+    "vaccine_name", "administered_at", "amount_administered", "amount_unit",
+    "expiration_date", "manufacturer", "lot_number", "administered_by",
+    "administered_by_provider_id", "vis_date_given", "vis_date_document",
+    "route", "administration_site", "notes", "information_source",
+    "completion_status", "refusal_reason", "reason_code",
+    "ordering_provider_id", "encounter_id"
+];
+
 let currentDashboardPatient = null;
 let currentEditPatient = null;
 let activeDemoTab = "who";
@@ -106,6 +122,8 @@ let scmTotalItems = 0;
 let scmItems = [];
 let scmSearchDebounce = null;
 let scmSort = { field: null, dir: 1 };
+let scmCodeOnly = false;
+let scmIdFieldId = null;
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
@@ -340,6 +358,7 @@ export async function initPatientChartTab(patient)
     setupProblemModals();
     setupHealthConcernModals();
     setupMedicationModals();
+    setupImmunizationModals();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -366,7 +385,7 @@ async function loadPatientDashboardWidgets(patient)
     const widgetBodyIds = [
         "pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody",
         "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody", "pdEncountersBody",
-        "pdCareTeamBody"
+        "pdCareTeamBody", "pdImmunizationsBody"
     ];
 
     try {
@@ -392,6 +411,7 @@ async function loadPatientDashboardWidgets(patient)
         renderDashboardAmendments(data.amendments || []);
         renderDashboardEncounters(data.encounters || []);
         renderDashboardCareTeam(data.care_team || null);
+        renderDashboardImmunizations(data.immunizations || []);
 
         dashboardRelatedPersons = data.related_persons || [];
         renderDashboardRelatedPersons(dashboardRelatedPersons);
@@ -861,6 +881,46 @@ function renderDashboardMedications(medications)
            </div>`;
 }
 
+async function loadDashboardImmunizations(patient)
+{
+    const body = document.getElementById("pdImmunizationsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientImmunizations(patient.id);
+
+        renderDashboardImmunizations(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load immunizations", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load immunizations right now.</p></div>`;
+    }
+}
+
+function renderDashboardImmunizations(immunizations)
+{
+    const body = document.getElementById("pdImmunizationsBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = immunizations.length
+        ? `<div class="pd-allergy-list">
+            ${immunizations.map((immunization) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(immunization.vaccine_name || immunization.cvx_code)}${immunization.administered_at ? ` &middot; ${escapeHtml(immunization.administered_at.slice(0, 10))}` : ""}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path></svg>
+            <p>No immunization records yet.</p>
+           </div>`;
+}
+
 async function loadDashboardPrescriptions(patient)
 {
     const body = document.getElementById("pdPrescriptionsBody");
@@ -1064,20 +1124,33 @@ function setupSelectCodesModal()
             return;
         }
 
-        const parts = Array.from(scmSelectedMap.values()).map((item) => {
-            const systemLabel = CODE_SOURCE_LABELS[item.code_system] || item.code_system;
+        const selectedItems = Array.from(scmSelectedMap.values());
 
-            return `${item.code} - ${item.description || ""} (${systemLabel})`.trim();
-        });
+        if (scmCodeOnly) {
+            document.getElementById(scmTargetFieldId).value = selectedItems[0].code;
 
-        document.getElementById(scmTargetFieldId).value = parts.join("\n");
+            if (scmIdFieldId) {
+                const idField = document.getElementById(scmIdFieldId);
+
+                if (idField) {
+                    idField.value = selectedItems[0].id ?? "";
+                }
+            }
+        } else {
+            const parts = selectedItems.map((item) => {
+                const systemLabel = CODE_SOURCE_LABELS[item.code_system] || item.code_system;
+
+                return `${item.code} - ${item.description || ""} (${systemLabel})`.trim();
+            });
+
+            document.getElementById(scmTargetFieldId).value = parts.join("\n");
+        }
 
         if (scmTitleFieldId) {
-            const firstSelected = Array.from(scmSelectedMap.values())[0];
             const titleField = document.getElementById(scmTitleFieldId);
 
-            if (firstSelected && titleField) {
-                titleField.value = firstSelected.description || firstSelected.code;
+            if (selectedItems[0] && titleField) {
+                titleField.value = selectedItems[0].description || selectedItems[0].code;
             }
         }
 
@@ -1085,17 +1158,19 @@ function setupSelectCodesModal()
     });
 }
 
-function openSelectCodesModal(targetFieldId = "allergy_coding", titleFieldId = null)
+function openSelectCodesModal(targetFieldId = "allergy_coding", titleFieldId = null, options = {})
 {
     scmTargetFieldId = targetFieldId;
     scmTitleFieldId = titleFieldId;
-    scmSource = "icd10";
+    scmIdFieldId = options.idFieldId || null;
+    scmCodeOnly = !!options.codeOnly;
+    scmSource = options.defaultSource || "icd10";
     scmSearchTerm = "";
     scmCurrentPage = 1;
     scmSort = { field: null, dir: 1 };
     scmSelectedMap = new Map();
 
-    document.getElementById("scmSourceSelect").value = "icd10";
+    document.getElementById("scmSourceSelect").value = scmSource;
     document.getElementById("scmSearchInput").value = "";
     document.getElementById("selectCodesModalOverlay").classList.add("open");
 
@@ -1128,6 +1203,20 @@ async function loadScmResults()
                 code: row.code,
                 description: row.description,
                 code_system: "ICD10CM"
+            }));
+            scmTotalItems = result.data.total;
+            scmTotalPages = Math.max(1, result.data.total_pages);
+            scmCurrentPage = result.data.page;
+        }
+    } else if (scmSource === "cvx") {
+        result = await fetchCvxCodes(scmCurrentPage, 50, scmSearchTerm);
+
+        if (result.success) {
+            scmItems = result.data.items.map((row) => ({
+                id: row.id,
+                code: row.code,
+                description: row.short_description,
+                code_system: "CVX"
             }));
             scmTotalItems = result.data.total;
             scmTotalPages = Math.max(1, result.data.total_pages);
@@ -2111,6 +2200,264 @@ async function openMedicationFormModal(existingRecord)
         catalogSelect.disabled = false;
         document.getElementById("medication_verification_status").value = "Unconfirmed";
         document.getElementById("medication_is_primary_record_yes").checked = true;
+    }
+
+    formOverlay.classList.add("open");
+}
+
+function setupImmunizationModals()
+{
+    const detailOverlay = document.getElementById("immunizationDetailModalOverlay");
+    const formOverlay = document.getElementById("immunizationFormModalOverlay");
+    const form = document.getElementById("immunizationForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdImmunizationsAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openImmunizationDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeImmunizationDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("immunizationMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("immunizationMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openAddImmunizationBtn").addEventListener("click", () => {
+        openImmunizationFormModal(null);
+    });
+
+    document.getElementById("openImmunizationFinderBtn").addEventListener("click", () => {
+        openSelectCodesModal("immunization_cvx_code", "immunization_vaccine_name", {
+            defaultSource: "cvx",
+            codeOnly: true,
+            idFieldId: "immunization_cvx_code_id"
+        });
+    });
+
+    document.getElementById("closeImmunizationFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelImmunizationForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    loadProviderOptions("immunization_administered_by_provider_id");
+    loadProviderOptions("immunization_ordering_provider_id");
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("immunization_record_id").value;
+        const cvxCodeId = document.getElementById("immunization_cvx_code_id").value;
+        const errEl = document.getElementById("err-immunization_cvx_code");
+
+        errEl.textContent = "";
+
+        const details = { cvx_code: document.getElementById("immunization_cvx_code").value.trim() };
+
+        IMMUNIZATION_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`immunization_${field}`).value.trim();
+        });
+
+        const administeredAtRaw = details.administered_at;
+
+        details.administered_at = administeredAtRaw ? `${administeredAtRaw.replace("T", " ")}:00` : "";
+
+        if (!details.cvx_code) {
+            errEl.textContent = "Immunization (CVX code) is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientImmunization(recordId, details)
+            : await addPatientImmunization(currentDashboardPatient.id, cvxCodeId || null, details);
+
+        if (!result.success) {
+            showAlert("immunizationFormAlert", result.message || "Failed to save immunization.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadImmunizationDetailTable(currentDashboardPatient);
+        await loadDashboardImmunizations(currentDashboardPatient);
+    });
+}
+
+async function openImmunizationDetailModal(patient)
+{
+    document.getElementById("immunizationDetailAlert").innerHTML = "";
+    document.getElementById("immunizationDetailModalOverlay").classList.add("open");
+
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const addBtn = document.getElementById("openAddImmunizationBtn");
+
+    addBtn.style.display = canManage ? "" : "none";
+
+    await loadImmunizationDetailTable(patient);
+}
+
+async function loadImmunizationDetailTable(patient)
+{
+    const tbody = document.getElementById("immunizationDetailTableBody");
+
+    try {
+        const result = await fetchPatientImmunizations(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load immunizations.")}</td></tr>`;
+            return;
+        }
+
+        renderImmunizationDetailTable(patient, result.data);
+    } catch (error) {
+        console.error("Failed to load patient immunizations", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load immunizations right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderImmunizationDetailTable(patient, immunizations)
+{
+    const tbody = document.getElementById("immunizationDetailTableBody");
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
+    if (!immunizations.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No immunizations recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = immunizations.map((immunization) => {
+        const status = immunization.completion_status || "completed";
+
+        return `
+        <tr>
+            <td>${escapeHtml(immunization.vaccine_name || immunization.cvx_code)}</td>
+            <td>${escapeHtml((immunization.administered_at || "").slice(0, 16).replace("T", " ")) || "-"}</td>
+            <td><span class="status-badge ${status === "completed" ? "completed" : "cancelled"}">${escapeHtml(status)}</span></td>
+            <td>${escapeHtml(immunization.administered_by || immunization.administered_by_provider_name || "-")}</td>
+            <td class="table-actions">
+                ${canManage
+                    ? `<button class="btn-edit" data-edit-immunization="${immunization.id}">Edit</button>
+                       <button class="btn-danger" data-remove-immunization="${immunization.id}">Delete</button>`
+                    : ""}
+            </td>
+        </tr>
+    `;
+    }).join("");
+
+    if (!canManage) {
+        return;
+    }
+
+    tbody.querySelectorAll("[data-edit-immunization]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const immunization = immunizations.find((i) => String(i.id) === btn.getAttribute("data-edit-immunization"));
+
+            if (immunization) {
+                openImmunizationFormModal(immunization);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-immunization]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this immunization record?")) {
+                return;
+            }
+
+            const result = await removePatientImmunization(btn.getAttribute("data-remove-immunization"));
+
+            if (!result.success) {
+                showAlert("immunizationDetailAlert", result.message || "Failed to remove immunization.", "error");
+                return;
+            }
+
+            await loadImmunizationDetailTable(patient);
+            await loadDashboardImmunizations(patient);
+        });
+    });
+}
+
+async function openImmunizationFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("immunizationFormModalOverlay");
+    const title = document.getElementById("immunizationFormTitle");
+    const recordIdInput = document.getElementById("immunization_record_id");
+    const encounterSelect = document.getElementById("immunization_encounter_id");
+
+    document.getElementById("immunizationFormAlert").innerHTML = "";
+    document.getElementById("immunizationForm").reset();
+    document.getElementById("err-immunization_cvx_code").textContent = "";
+    document.getElementById("immunization_cvx_code_id").value = "";
+
+    const moreToggle = document.getElementById("immunizationMoreToggle");
+    const moreFields = document.getElementById("immunizationMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    encounterSelect.innerHTML = `<option value="">-- Select Encounter --</option>`;
+
+    if (currentDashboardPatient) {
+        const encountersResult = await fetchPatientEncounters(currentDashboardPatient.id);
+        const encounters = encountersResult.success ? encountersResult.data : [];
+
+        encounters.forEach((encounter) => {
+            const option = document.createElement("option");
+            const dateLabel = (encounter.date_of_service || "").slice(0, 16).replace("T", " ");
+
+            option.value = encounter.id;
+            option.textContent = `${dateLabel}${encounter.visit_category_name ? ` — ${encounter.visit_category_name}` : ""}`;
+
+            encounterSelect.appendChild(option);
+        });
+    }
+
+    if (existingRecord) {
+        title.textContent = "Edit Immunization";
+        recordIdInput.value = existingRecord.id;
+        document.getElementById("immunization_cvx_code_id").value = existingRecord.cvx_code_id ?? "";
+        document.getElementById("immunization_cvx_code").value = existingRecord.cvx_code ?? "";
+
+        IMMUNIZATION_DETAIL_FIELDS.forEach((field) => {
+            if (field === "administered_at") {
+                document.getElementById(`immunization_${field}`).value = (existingRecord.administered_at || "").slice(0, 16).replace(" ", "T");
+                return;
+            }
+
+            document.getElementById(`immunization_${field}`).value = existingRecord[field] ?? "";
+        });
+
+        const secondaryFields = [
+            "administered_by", "administered_by_provider_id", "vis_date_given", "vis_date_document",
+            "information_source", "refusal_reason", "reason_code", "ordering_provider_id", "encounter_id"
+        ];
+
+        if (secondaryFields.some((field) => existingRecord[field])) {
+            moreFields.hidden = false;
+            moreToggle.classList.add("expanded");
+            moreToggle.querySelector("span").textContent = "Hide More Fields";
+        }
+    } else {
+        title.textContent = "Add Immunization";
+        recordIdInput.value = "";
+        document.getElementById("immunization_completion_status").value = "completed";
     }
 
     formOverlay.classList.add("open");

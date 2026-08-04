@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+// The frontend expects every response from this API to be valid JSON.
+// PHP warnings/notices/deprecations print as raw HTML ("<br />\n<b>
+// Warning</b>: ...") straight into the response body when display_errors
+// is on, which breaks JSON.parse() on the frontend. Route them to the
+// log instead so they never corrupt a response -- actual fatal errors
+// are still handled by the try/catch below.
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
+set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+    error_log("PHP error [{$errno}]: {$errstr} in {$errfile}:{$errline}");
+    return true;
+});
+
 require_once __DIR__ . '/../app/Core/Autoload.php';
 
 
