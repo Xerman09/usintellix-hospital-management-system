@@ -44,6 +44,8 @@ function staffNavLinks(role)
                 <div class="dropdown-section-label">Code</div>
                 <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
                 <a data-tab="cvx_codes">CVX Immunization Codes</a>
+                <a data-tab="immunizations">Immunizations</a>
+                <a data-tab="administration_routes">Routes Management</a>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
                 <a data-tab="preference_types">Preference Type</a>
                 <a data-tab="codes">Codes</a>

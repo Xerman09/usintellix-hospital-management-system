@@ -45,6 +45,8 @@ require_once __DIR__ . '/../app/Modules/PatientPrescriptions/routes.php';
 require_once __DIR__ . '/../app/Modules/PrescriptionCategories/routes.php';
 require_once __DIR__ . '/../app/Modules/Icd10Diagnoses/routes.php';
 require_once __DIR__ . '/../app/Modules/CvxCodes/routes.php';
+require_once __DIR__ . '/../app/Modules/Immunizations/routes.php';
+require_once __DIR__ . '/../app/Modules/AdministrationRoutes/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientImmunizations/routes.php';
 require_once __DIR__ . '/../app/Modules/CqmValuesets/routes.php';
 require_once __DIR__ . '/../app/Modules/Messaging/routes.php';

@@ -731,16 +731,19 @@ body {
     align-items: center;
     gap: 8px;
     margin-right: 20px;
+    flex-shrink: 0;
 }
 
 .navbar-logo img {
     height: 28px;
+    flex-shrink: 0;
 }
 
 .navbar-logo span {
     font-weight: 700;
     color: #25324b;
     font-size: 16px;
+    white-space: nowrap;
 }
 
 .navbar-links {
