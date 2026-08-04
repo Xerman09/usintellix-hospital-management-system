@@ -56,6 +56,7 @@ function staffNavLinks(role)
                         <a data-tab="amount_units">Amount Units</a>
                         <a data-tab="information_sources">Information Sources Management</a>
                         <a data-tab="refusal_reasons">Refusal Reason Management</a>
+                        <a data-tab="completion_statuses">Completion Status Management</a>
                     </div>
                 </div>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
