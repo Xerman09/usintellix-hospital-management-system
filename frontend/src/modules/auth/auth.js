@@ -5,14 +5,12 @@ import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
 
 const FIELDS = ["username", "password"];
-let heroSlideInterval = null;
 
 export function initLogin()
 {
      console.log("initLogin called");
 
     enablePasswordToggles();
-    initHeroSlides();
     initBranding();
 
     const form =
@@ -73,41 +71,6 @@ export function initLogin()
         }
     );
 
-}
-
-function initHeroSlides()
-{
-    const slides = document.querySelectorAll(".hero-slide");
-    const dots = document.querySelectorAll(".hero-dot");
-    const bgs = document.querySelectorAll(".hero-bg");
-
-    clearInterval(heroSlideInterval);
-
-    if (!slides.length) {
-        return;
-    }
-
-    let current = 0;
-
-    const goTo = (index) => {
-        slides[current].classList.remove("active");
-        dots[current].classList.remove("active");
-        bgs[current]?.classList.remove("active");
-
-        current = index;
-
-        slides[current].classList.add("active");
-        dots[current].classList.add("active");
-        bgs[current]?.classList.add("active");
-    };
-
-    dots.forEach((dot, index) => {
-        dot.addEventListener("click", () => goTo(index));
-    });
-
-    heroSlideInterval = setInterval(() => {
-        goTo((current + 1) % slides.length);
-    }, 6000);
 }
 
 function clearErrors()
