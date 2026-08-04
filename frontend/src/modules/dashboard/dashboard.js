@@ -78,6 +78,8 @@ import { AmountUnitsView } from "../amount-units/amount-units.view.js";
 import { initAmountUnits } from "../amount-units/amount-units.js";
 import { InformationSourcesView } from "../information-sources/information-sources.view.js";
 import { initInformationSources } from "../information-sources/information-sources.js";
+import { RefusalReasonsView } from "../refusal-reasons/refusal-reasons.view.js";
+import { initRefusalReasons } from "../refusal-reasons/refusal-reasons.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
 import { initCqmValuesets } from "../cqm-valuesets/cqm-valuesets.js";
 import { PreferenceTypesView } from "../preference-types/preference-types.view.js";
@@ -273,6 +275,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initInformationSources, 0);
                 return InformationSourcesView();
+            }, activate);
+        } else if (tabId === 'refusal_reasons') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initRefusalReasons, 0);
+                return RefusalReasonsView();
             }, activate);
         } else if (tabId === 'cqm_valuesets') {
             tabManager.openTab(tabId, title, () => {

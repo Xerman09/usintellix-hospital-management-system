@@ -50,6 +50,7 @@ require_once __DIR__ . '/../app/Modules/AdministrationRoutes/routes.php';
 require_once __DIR__ . '/../app/Modules/AdministrationSites/routes.php';
 require_once __DIR__ . '/../app/Modules/AmountUnits/routes.php';
 require_once __DIR__ . '/../app/Modules/InformationSources/routes.php';
+require_once __DIR__ . '/../app/Modules/RefusalReasons/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientImmunizations/routes.php';
 require_once __DIR__ . '/../app/Modules/CqmValuesets/routes.php';
 require_once __DIR__ . '/../app/Modules/Messaging/routes.php';
