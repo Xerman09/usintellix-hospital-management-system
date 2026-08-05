@@ -1,8 +1,8 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView } from "../../core/pending-patient-view.js";
 import { PatientChartView } from "./patients-list.view.js";
-import { initGeneralHistory } from "./patient-general-history.js";
-import { initFamilyHistory } from "./patient-family-history.js";
+import { initGeneralHistory } from "./patient-general-history.js?v=2";
+import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";

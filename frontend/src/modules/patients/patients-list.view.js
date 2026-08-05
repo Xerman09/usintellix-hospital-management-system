@@ -2659,6 +2659,11 @@ export function PatientChartView(user)
     background: var(--accent-hover);
 }
 
+.pd-gh-edit-btn:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+}
+
 .pd-gh-edit-btn svg {
     width: 13px;
     height: 13px;
@@ -2987,6 +2992,33 @@ export function PatientChartView(user)
     color: #8b98ac;
     font-style: italic;
     padding: 20px !important;
+}
+
+.pd-loading-inline {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #8b98ac;
+    font-size: 13px;
+    padding: 14px 0;
+}
+
+.pd-fh-grid .pd-loading-inline {
+    grid-column: 1 / -1;
+}
+
+.pd-loading-spinner {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    border: 2px solid #e2e8f0;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: pd-spin .7s linear infinite;
+}
+
+@keyframes pd-spin {
+    to { transform: rotate(360deg); }
 }
 
 .pd-main {
@@ -3498,7 +3530,7 @@ export function PatientChartView(user)
                             <form class="pd-fh-form" id="pdFamilyHistoryForm">
                                 <div class="pd-fh-grid" id="pdFamilyHistoryRows"></div>
                                 <div class="form-actions pd-fh-actions">
-                                    <button type="submit" class="login-btn">Save</button>
+                                    <button type="submit" class="login-btn" id="pdFamilyHistorySaveBtn" disabled>Save</button>
                                 </div>
                             </form>
                         </div>

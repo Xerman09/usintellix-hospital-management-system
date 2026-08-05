@@ -608,6 +608,17 @@ body {
 
 
 
+.login-btn:disabled {
+
+    background: #cbd5e1;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+
+}
+
+
+
 .login-page .login-btn {
 
     background: rgba(248,250,255,.95);

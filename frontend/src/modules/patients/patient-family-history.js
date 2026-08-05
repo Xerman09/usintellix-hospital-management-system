@@ -16,14 +16,29 @@ export async function initFamilyHistory(patientId)
 {
     currentPatientId = patientId;
 
-    renderRows();
+    renderLoading();
 
     document.getElementById("pdFamilyHistoryForm").addEventListener("submit", handleSave);
 
     const result = await fetchFamilyHistory(patientId);
     const entries = result.success ? result.data : [];
 
+    renderRows();
     populateRows(entries);
+
+    document.getElementById("pdFamilyHistorySaveBtn").disabled = false;
+}
+
+function renderLoading()
+{
+    const container = document.getElementById("pdFamilyHistoryRows");
+
+    container.innerHTML = `
+        <div class="pd-loading-inline">
+            <span class="pd-loading-spinner"></span>
+            Loading family history...
+        </div>
+    `;
 }
 
 function renderRows()

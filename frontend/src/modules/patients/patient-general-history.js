@@ -54,9 +54,12 @@ export async function initGeneralHistory(patientId)
 
     renderChecklist();
     renderExamRows();
-    renderView();
+    renderLoading();
 
-    document.getElementById("pdGeneralHistoryEditBtn").addEventListener("click", enterEditMode);
+    const editBtn = document.getElementById("pdGeneralHistoryEditBtn");
+
+    editBtn.disabled = true;
+    editBtn.addEventListener("click", enterEditMode);
     document.getElementById("pdGeneralHistoryCancelBtn").addEventListener("click", exitEditMode);
     document.getElementById("pdGeneralHistoryEdit").addEventListener("submit", handleSave);
 
@@ -64,7 +67,21 @@ export async function initGeneralHistory(patientId)
 
     currentData = result.success ? result.data : { risk_factors: [], exams: [] };
 
+    editBtn.disabled = false;
     renderView();
+}
+
+function renderLoading()
+{
+    const loadingHtml = `
+        <div class="pd-loading-inline">
+            <span class="pd-loading-spinner"></span>
+            Loading...
+        </div>
+    `;
+
+    document.getElementById("pdGeneralHistoryRiskFactorsView").innerHTML = loadingHtml;
+    document.getElementById("pdGeneralHistoryExamsView").innerHTML = loadingHtml;
 }
 
 function renderChecklist()
