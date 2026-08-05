@@ -56,6 +56,7 @@ require_once __DIR__ . '/../app/Modules/PatientImmunizations/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientGeneralHistory/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientFamilyHistory/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientRelativesHistory/routes.php';
+require_once __DIR__ . '/../app/Modules/PatientLifestyle/routes.php';
 require_once __DIR__ . '/../app/Modules/CqmValuesets/routes.php';
 require_once __DIR__ . '/../app/Modules/Messaging/routes.php';
 require_once __DIR__ . '/../app/Modules/RelatedPersons/routes.php';

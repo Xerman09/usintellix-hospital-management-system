@@ -8,8 +8,8 @@ import {
 } from "./patient-flow.service.js";
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
 import { getUser } from "../../core/session.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=16";
-import { initPatientsList } from "../patients/patients-list.js?v=15";
+import { PatientsListView } from "../patients/patients-list.view.js?v=17";
+import { initPatientsList } from "../patients/patients-list.js?v=16";
 
 const STAGES = ["waiting", "roomed", "with_provider", "checked_out"];
 

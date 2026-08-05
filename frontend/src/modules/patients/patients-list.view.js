@@ -2899,6 +2899,112 @@ export function PatientChartView(user)
     }
 }
 
+.pd-life-row {
+    display: flex;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid #f1f4f9;
+}
+
+.pd-life-row:last-child {
+    border-bottom: none;
+}
+
+.pd-life-label {
+    flex: 0 0 160px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+    padding-top: 10px;
+}
+
+.pd-life-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pd-life-notes {
+    max-width: 320px;
+}
+
+.pd-life-tobacco-status {
+    max-width: 260px;
+}
+
+.pd-life-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+}
+
+.pd-life-status-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+    flex-shrink: 0;
+}
+
+.pd-life-radio {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    color: #25324b;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pd-life-radio input[type="radio"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.pd-life-quit-date {
+    width: 120px;
+    height: 32px;
+}
+
+.pd-life-pack-years {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 6px;
+    border-top: 1px dashed #eef1f7;
+}
+
+.pd-life-pack-years span {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #52627a;
+    max-width: 320px;
+}
+
+.pd-life-pack-years .form-input {
+    width: 90px;
+}
+
+.pd-life-pack-years-view {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f4f9;
+}
+
+@media (max-width: 720px) {
+    .pd-life-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .pd-life-label {
+        padding-top: 0;
+    }
+}
+
 @media (max-width: 720px) {
     .pd-fh-grid {
         grid-template-columns: 1fr;
@@ -3585,17 +3691,25 @@ export function PatientChartView(user)
                             </form>
                         </div>
                         <div class="pd-history-category" data-history-category="lifestyle">
-                            <div class="pd-history-category-header">
-                                <div class="pd-history-section-label">Lifestyle</div>
-                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
-                            </div>
-                            <div class="pd-history-empty">
-                                <div class="pd-history-empty-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                            <div class="pd-gh-view" id="pdLifestyleView">
+                                <div class="pd-gh-view-header">
+                                    <button type="button" class="pd-gh-edit-btn" id="pdLifestyleEditBtn" disabled>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                        Edit
+                                    </button>
                                 </div>
-                                <strong>No lifestyle information recorded</strong>
-                                <p>Habits and lifestyle factors for this patient will appear here.</p>
+                                <div id="pdLifestyleViewContent">
+                                    <p class="pd-chart-nav-empty">Loading...</p>
+                                </div>
                             </div>
+
+                            <form class="pd-life-form" id="pdLifestyleEdit" style="display: none;">
+                                <div id="pdLifestyleFields"></div>
+                                <div class="form-actions pd-fh-actions">
+                                    <button type="button" class="btn-secondary" id="pdLifestyleCancelBtn">Cancel</button>
+                                    <button type="submit" class="login-btn">Save</button>
+                                </div>
+                            </form>
                         </div>
                         <div class="pd-history-category" data-history-category="other">
                             <div class="pd-history-category-header">
