@@ -2826,6 +2826,169 @@ export function PatientChartView(user)
     }
 }
 
+.pd-fh-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr 130px 1fr;
+    gap: 10px 14px;
+    align-items: center;
+}
+
+.pd-fh-row {
+    display: contents;
+}
+
+.pd-fh-cell {
+    padding: 6px 0;
+}
+
+.pd-fh-cell-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+    white-space: nowrap;
+}
+
+.pd-fh-code-cell {
+    position: relative;
+}
+
+.pd-fh-code-input {
+    background: #f1f4f9;
+    color: #25324b;
+    cursor: pointer;
+}
+
+.pd-fh-code-input:hover {
+    border-color: #cbd5e1;
+}
+
+.pd-fh-actions {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+}
+
+@media (max-width: 720px) {
+    .pd-fh-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-fh-row {
+        display: block;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f4f9;
+        margin-bottom: 6px;
+    }
+}
+
+.code-picker-box {
+    max-width: 480px;
+    position: relative;
+}
+
+.code-picker-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+
+.code-picker-box select#codePickerType {
+    margin-bottom: 12px;
+}
+
+.code-picker-search-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.code-picker-search-row .form-input {
+    flex: 1;
+}
+
+.code-picker-search-btn, .code-picker-clear-btn {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: .12s;
+}
+
+.code-picker-search-btn svg, .code-picker-clear-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.code-picker-search-btn {
+    background: var(--accent);
+    color: white;
+}
+
+.code-picker-search-btn:hover {
+    background: var(--accent-hover);
+}
+
+.code-picker-clear-btn {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.code-picker-clear-btn:hover {
+    background: #fecaca;
+}
+
+.code-picker-table-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #eef1f7;
+    border-radius: 10px;
+}
+
+.code-picker-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.code-picker-table th {
+    position: sticky;
+    top: 0;
+    text-align: left;
+    padding: 10px 14px;
+    color: #71809b;
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    background: #f8fafc;
+    border-bottom: 1px solid #eef1f7;
+}
+
+.code-picker-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #f1f4f9;
+    color: #25324b;
+}
+
+.code-picker-table tr[data-code] {
+    cursor: pointer;
+}
+
+.code-picker-table tr[data-code]:hover {
+    background: #fafbff;
+}
+
+.code-picker-status {
+    text-align: center;
+    color: #8b98ac;
+    font-style: italic;
+    padding: 20px !important;
+}
+
 .pd-main {
     flex: 1;
     overflow-y: auto;
@@ -3332,17 +3495,12 @@ export function PatientChartView(user)
                             </form>
                         </div>
                         <div class="pd-history-category" data-history-category="family_history">
-                            <div class="pd-history-category-header">
-                                <div class="pd-history-section-label">Family History</div>
-                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
-                            </div>
-                            <div class="pd-history-empty">
-                                <div class="pd-history-empty-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            <form class="pd-fh-form" id="pdFamilyHistoryForm">
+                                <div class="pd-fh-grid" id="pdFamilyHistoryRows"></div>
+                                <div class="form-actions pd-fh-actions">
+                                    <button type="submit" class="login-btn">Save</button>
                                 </div>
-                                <strong>No family history recorded</strong>
-                                <p>Conditions that run in this patient's family will appear here.</p>
-                            </div>
+                            </form>
                         </div>
                         <div class="pd-history-category" data-history-category="relatives">
                             <div class="pd-history-category-header">
@@ -3388,6 +3546,30 @@ export function PatientChartView(user)
             </div>
         </div>
     </div>
+
+<div class="modal-overlay" id="codePickerModalOverlay">
+    <div class="modal-box code-picker-box">
+        <button type="button" class="modal-close code-picker-close" id="closeCodePickerModal">&times;</button>
+        <select class="form-input" id="codePickerType"></select>
+        <div class="code-picker-search-row">
+            <input type="text" class="form-input" id="codePickerSearch" placeholder="Search for">
+            <button type="button" class="code-picker-search-btn" id="codePickerSearchBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            </button>
+            <button type="button" class="code-picker-clear-btn" id="codePickerClearBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg>
+            </button>
+        </div>
+        <div class="code-picker-table-wrap">
+            <table class="code-picker-table">
+                <thead>
+                    <tr><th>Code</th><th>Description</th></tr>
+                </thead>
+                <tbody id="codePickerTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
 <div class="modal-overlay" id="allergyDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
