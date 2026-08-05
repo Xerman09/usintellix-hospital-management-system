@@ -2632,14 +2632,13 @@ export function PatientChartView(user)
     max-width: 32ch;
 }
 
-.pd-gh-view {
-    position: relative;
+.pd-gh-view-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
 }
 
 .pd-gh-edit-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -2824,11 +2823,6 @@ export function PatientChartView(user)
     .pd-gh-view-label, .pd-gh-edit-label {
         flex: none;
     }
-
-    .pd-gh-edit-btn {
-        position: static;
-        margin-bottom: 12px;
-    }
 }
 
 .pd-fh-grid {
@@ -2870,6 +2864,39 @@ export function PatientChartView(user)
 .pd-fh-actions {
     grid-column: 1 / -1;
     margin-top: 6px;
+}
+
+.pd-rel-grid {
+    column-count: 2;
+    column-gap: 40px;
+    margin-bottom: 6px;
+}
+
+.pd-rel-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    break-inside: avoid;
+    margin-bottom: 12px;
+}
+
+.pd-rel-label {
+    flex: 0 0 150px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+    white-space: nowrap;
+}
+
+.pd-rel-row .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .pd-rel-grid {
+        column-count: 1;
+    }
 }
 
 @media (max-width: 720px) {
@@ -3488,10 +3515,12 @@ export function PatientChartView(user)
                     <div class="pd-history-content">
                         <div class="pd-history-category active" data-history-category="general">
                             <div class="pd-gh-view" id="pdGeneralHistoryView">
-                                <button type="button" class="pd-gh-edit-btn" id="pdGeneralHistoryEditBtn">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                                    Edit
-                                </button>
+                                <div class="pd-gh-view-header">
+                                    <button type="button" class="pd-gh-edit-btn" id="pdGeneralHistoryEditBtn">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                        Edit
+                                    </button>
+                                </div>
                                 <div class="pd-gh-view-row">
                                     <div class="pd-gh-view-label">Risk Factors:</div>
                                     <div class="pd-gh-view-value" id="pdGeneralHistoryRiskFactorsView">
@@ -3535,17 +3564,25 @@ export function PatientChartView(user)
                             </form>
                         </div>
                         <div class="pd-history-category" data-history-category="relatives">
-                            <div class="pd-history-category-header">
-                                <div class="pd-history-section-label">Relatives</div>
-                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
-                            </div>
-                            <div class="pd-history-empty">
-                                <div class="pd-history-empty-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M15 8h2M15 12h2M7 16h10"></path></svg>
+                            <div class="pd-gh-view" id="pdRelativesHistoryView">
+                                <div class="pd-gh-view-header">
+                                    <button type="button" class="pd-gh-edit-btn" id="pdRelativesHistoryEditBtn" disabled>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                        Edit
+                                    </button>
                                 </div>
-                                <strong>No relatives recorded</strong>
-                                <p>This patient's relatives will appear here once added.</p>
+                                <div id="pdRelativesHistoryViewContent">
+                                    <p class="pd-chart-nav-empty">Loading...</p>
+                                </div>
                             </div>
+
+                            <form class="pd-fh-form" id="pdRelativesHistoryEdit" style="display: none;">
+                                <div class="pd-rel-grid" id="pdRelativesHistoryFields"></div>
+                                <div class="form-actions pd-fh-actions">
+                                    <button type="button" class="btn-secondary" id="pdRelativesHistoryCancelBtn">Cancel</button>
+                                    <button type="submit" class="login-btn">Save</button>
+                                </div>
+                            </form>
                         </div>
                         <div class="pd-history-category" data-history-category="lifestyle">
                             <div class="pd-history-category-header">
