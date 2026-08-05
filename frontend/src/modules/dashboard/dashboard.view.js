@@ -15,7 +15,6 @@ function staffNavLinks(role)
         <a data-tab="recalls">Recalls</a>
         <a data-tab="patient_flow">Flow</a>
         ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
-        ${role === "admin" ? `<a data-tab="business_settings">Business Information</a>` : ""}
         <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
@@ -70,6 +69,7 @@ function staffNavLinks(role)
                     </div>
                 </div>
                 <a data-tab="preference_types">Preference Type</a>
+                ${role === "admin" ? `<a data-tab="business_settings">Business Information</a>` : ""}
             </div>
         </div>
         
