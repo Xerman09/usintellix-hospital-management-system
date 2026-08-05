@@ -3005,6 +3005,53 @@ export function PatientChartView(user)
     }
 }
 
+.pd-other-grid {
+    display: grid;
+    grid-template-columns: 130px 1fr 130px 1fr;
+    gap: 14px 16px;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.pd-other-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+    padding-top: 10px;
+}
+
+.pd-other-pair {
+    display: flex;
+    gap: 10px;
+}
+
+.pd-other-pair .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.pd-other-textarea {
+    grid-column: 2 / -1;
+    height: auto;
+    min-height: 90px;
+    padding: 10px 16px;
+    resize: vertical;
+}
+
+@media (max-width: 720px) {
+    .pd-other-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-other-label {
+        padding-top: 0;
+    }
+
+    .pd-other-textarea {
+        grid-column: 1;
+    }
+}
+
 @media (max-width: 720px) {
     .pd-fh-grid {
         grid-template-columns: 1fr;
@@ -3712,17 +3759,38 @@ export function PatientChartView(user)
                             </form>
                         </div>
                         <div class="pd-history-category" data-history-category="other">
-                            <div class="pd-history-category-header">
-                                <div class="pd-history-section-label">Other</div>
-                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
-                            </div>
-                            <div class="pd-history-empty">
-                                <div class="pd-history-empty-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            <div class="pd-gh-view" id="pdOtherHistoryView">
+                                <div class="pd-gh-view-header">
+                                    <button type="button" class="pd-gh-edit-btn" id="pdOtherHistoryEditBtn" disabled>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                        Edit
+                                    </button>
                                 </div>
-                                <strong>No additional history recorded</strong>
-                                <p>Anything else worth noting for this patient will appear here.</p>
+                                <div id="pdOtherHistoryViewContent">
+                                    <p class="pd-chart-nav-empty">Loading...</p>
+                                </div>
                             </div>
+
+                            <form class="pd-other-form" id="pdOtherHistoryEdit" style="display: none;">
+                                <div class="pd-other-grid">
+                                    <div class="pd-other-label">Name/Value:</div>
+                                    <div class="pd-other-pair">
+                                        <input type="text" class="form-input" id="pdOther_name_1" placeholder="Name">
+                                        <input type="text" class="form-input" id="pdOther_value_1" placeholder="Value">
+                                    </div>
+                                    <div class="pd-other-label">Name/Value:</div>
+                                    <div class="pd-other-pair">
+                                        <input type="text" class="form-input" id="pdOther_name_2" placeholder="Name">
+                                        <input type="text" class="form-input" id="pdOther_value_2" placeholder="Value">
+                                    </div>
+                                    <div class="pd-other-label">Additional History:</div>
+                                    <textarea class="form-input pd-other-textarea" id="pdOther_additional_history" rows="4"></textarea>
+                                </div>
+                                <div class="form-actions pd-fh-actions">
+                                    <button type="button" class="btn-secondary" id="pdOtherHistoryCancelBtn">Cancel</button>
+                                    <button type="submit" class="login-btn">Save</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>

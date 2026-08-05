@@ -5,6 +5,7 @@ import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
 import { initLifestyle } from "./patient-lifestyle.js";
+import { initOtherHistory } from "./patient-other-history.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
@@ -373,6 +374,7 @@ export async function initPatientChartTab(patient)
     initFamilyHistory(patient.id);
     initRelativesHistory(patient.id);
     initLifestyle(patient.id);
+    initOtherHistory(patient.id);
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
