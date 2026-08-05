@@ -4,8 +4,8 @@
     {
       "name": "backend",
       "runtimeExecutable": "C:\\xampp\\php\\php.exe",
-      "runtimeArgs": ["-S", "127.0.0.1:8000", "-t", "backend/public"],
-      "port": 8000
+      "runtimeArgs": ["-S", "127.0.0.1:8001", "-t", "backend/public"],
+      "port": 8001
     },
     {
       "name": "frontend",

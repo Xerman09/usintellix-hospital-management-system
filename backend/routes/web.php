@@ -70,6 +70,7 @@ require_once __DIR__ . '/../app/Modules/BusinessSettings/routes.php';
 require_once __DIR__ . '/../app/Modules/Recalls/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientFlow/routes.php';
 require_once __DIR__ . '/../app/Modules/Codes/routes.php';
+require_once __DIR__ . '/../app/Modules/Pharmacies/routes.php';
 // Future modules
 // require_once __DIR__ . '/../app/Modules/Doctors/routes.php';
 require_once __DIR__ . '/../app/Modules/PracticeRules/routes.php';

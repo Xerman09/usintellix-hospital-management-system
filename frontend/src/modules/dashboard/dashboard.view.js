@@ -69,10 +69,26 @@ function staffNavLinks(role)
                     </div>
                 </div>
                 <a data-tab="preference_types">Preference Type</a>
-                ${role === "admin" ? `<a data-tab="business_settings">Business Information</a>` : ""}
             </div>
         </div>
-        
+        ${role === "admin" ? `
+        <div class="nav-dropdown">
+            <span>Admin</span>
+            <div class="dropdown-content">
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Practice
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="business_settings">Practice Settings</a>
+                        <a data-tab="pharmacies">Pharmacies</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ` : ""}
+
     `;
 }
 
