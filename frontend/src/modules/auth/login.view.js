@@ -18,7 +18,7 @@ export function LoginView()
             <div class="login-logo">
                 <img data-app-logo src="./assets/logo.png?v=1" alt="Business logo">
             </div>
-            <span data-app-name>Intellix Hospital System</span>
+            <span data-app-name>Intellix</span>
         </div>
 
         <h1>Login</h1>

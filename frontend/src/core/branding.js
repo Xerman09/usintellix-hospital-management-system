@@ -1,7 +1,7 @@
 import { API_URL } from "./api.js";
 import { fetchBusinessSettings } from "../modules/business-settings/business-settings.service.js";
 
-const DEFAULT_BRANDING = { name: "Intellix Hospital System", logo: null };
+const DEFAULT_BRANDING = { name: "Intellix", logo: null };
 
 let cached = null;
 

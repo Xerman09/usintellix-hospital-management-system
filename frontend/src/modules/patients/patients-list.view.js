@@ -2632,6 +2632,200 @@ export function PatientChartView(user)
     max-width: 32ch;
 }
 
+.pd-gh-view {
+    position: relative;
+}
+
+.pd-gh-edit-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .12s;
+}
+
+.pd-gh-edit-btn:hover {
+    background: var(--accent-hover);
+}
+
+.pd-gh-edit-btn svg {
+    width: 13px;
+    height: 13px;
+}
+
+.pd-gh-view-row {
+    display: flex;
+    gap: 20px;
+    padding: 14px 0;
+    border-bottom: 1px solid #f1f4f9;
+}
+
+.pd-gh-view-row:last-child {
+    border-bottom: none;
+}
+
+.pd-gh-view-label {
+    flex: 0 0 140px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.pd-gh-view-value {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pd-gh-view-item {
+    font-size: 13.5px;
+    color: #25324b;
+}
+
+.pd-gh-edit-row {
+    display: flex;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px solid #f1f4f9;
+}
+
+.pd-gh-edit-row-table {
+    align-items: flex-start;
+}
+
+.pd-gh-edit-label {
+    flex: 0 0 140px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+    padding-top: 2px;
+}
+
+.pd-gh-checklist {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pd-gh-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    color: #25324b;
+    cursor: pointer;
+}
+
+.pd-gh-check input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.pd-gh-specify-input {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1.5px solid #e2e8f0;
+    font-size: 12.5px;
+    outline: none;
+    max-width: 220px;
+}
+
+.pd-gh-specify-input:focus {
+    border-color: var(--accent);
+}
+
+.pd-gh-exam-table-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    border: 1px solid #eef1f7;
+    border-radius: 10px;
+}
+
+.pd-gh-exam-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.pd-gh-exam-table th {
+    text-align: left;
+    padding: 10px 14px;
+    color: #71809b;
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    background: #f8fafc;
+    border-bottom: 1px solid #eef1f7;
+    white-space: nowrap;
+}
+
+.pd-gh-exam-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #f1f4f9;
+    color: #25324b;
+    vertical-align: middle;
+}
+
+.pd-gh-exam-table tr:last-child td {
+    border-bottom: none;
+}
+
+.pd-gh-radio-cell {
+    text-align: center;
+    width: 46px;
+}
+
+.pd-gh-radio-cell input[type="radio"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.pd-gh-exam-notes {
+    height: 32px;
+    min-width: 160px;
+}
+
+.pd-gh-actions {
+    padding-top: 16px;
+}
+
+@media (max-width: 720px) {
+    .pd-gh-view-row, .pd-gh-edit-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .pd-gh-view-label, .pd-gh-edit-label {
+        flex: none;
+    }
+
+    .pd-gh-edit-btn {
+        position: static;
+        margin-bottom: 12px;
+    }
+}
+
 .pd-main {
     flex: 1;
     overflow-y: auto;
@@ -3098,17 +3292,44 @@ export function PatientChartView(user)
                     </div>
                     <div class="pd-history-content">
                         <div class="pd-history-category active" data-history-category="general">
-                            <div class="pd-history-category-header">
-                                <div class="pd-history-section-label">Risk Factors</div>
-                                <button type="button" class="pd-widget-add" disabled>+ Add</button>
-                            </div>
-                            <div class="pd-history-empty">
-                                <div class="pd-history-empty-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                            <div class="pd-gh-view" id="pdGeneralHistoryView">
+                                <button type="button" class="pd-gh-edit-btn" id="pdGeneralHistoryEditBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                    Edit
+                                </button>
+                                <div class="pd-gh-view-row">
+                                    <div class="pd-gh-view-label">Risk Factors:</div>
+                                    <div class="pd-gh-view-value" id="pdGeneralHistoryRiskFactorsView">
+                                        <p class="pd-chart-nav-empty">Loading...</p>
+                                    </div>
                                 </div>
-                                <strong>No risk factors recorded</strong>
-                                <p>Risk factors identified for this patient will appear here.</p>
+                                <div class="pd-gh-view-row">
+                                    <div class="pd-gh-view-label">Exams/Tests:</div>
+                                    <div class="pd-gh-view-value" id="pdGeneralHistoryExamsView"></div>
+                                </div>
                             </div>
+
+                            <form class="pd-gh-edit" id="pdGeneralHistoryEdit" style="display: none;">
+                                <div class="pd-gh-edit-row">
+                                    <div class="pd-gh-edit-label">Risk Factors:</div>
+                                    <div class="pd-gh-checklist" id="pdGeneralHistoryRiskFactorsEdit"></div>
+                                </div>
+                                <div class="pd-gh-edit-row pd-gh-edit-row-table">
+                                    <div class="pd-gh-edit-label">Exams/Tests:</div>
+                                    <div class="pd-gh-exam-table-wrap">
+                                        <table class="pd-gh-exam-table">
+                                            <thead>
+                                                <tr><th>Exam or Test</th><th>N/A</th><th>Nor</th><th>Abn</th><th>Date/Notes</th></tr>
+                                            </thead>
+                                            <tbody id="pdGeneralHistoryExamsEdit"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="form-actions pd-gh-actions">
+                                    <button type="button" class="btn-secondary" id="pdGeneralHistoryCancelBtn">Cancel</button>
+                                    <button type="submit" class="login-btn" id="pdGeneralHistorySaveBtn">Save</button>
+                                </div>
+                            </form>
                         </div>
                         <div class="pd-history-category" data-history-category="family_history">
                             <div class="pd-history-category-header">

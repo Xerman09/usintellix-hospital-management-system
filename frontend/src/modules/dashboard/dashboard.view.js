@@ -51,12 +51,12 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="immunizations">Immunizations</a>
-                        <a data-tab="administration_routes">Routes Management</a>
-                        <a data-tab="administration_sites">Administration Site Management</a>
+                        <a data-tab="administration_routes">Routes</a>
+                        <a data-tab="administration_sites">Administration Sites</a>
                         <a data-tab="amount_units">Amount Units</a>
-                        <a data-tab="information_sources">Information Sources Management</a>
-                        <a data-tab="refusal_reasons">Refusal Reason Management</a>
-                        <a data-tab="completion_statuses">Completion Status Management</a>
+                        <a data-tab="information_sources">Information Sources</a>
+                        <a data-tab="refusal_reasons">Refusal Reasons</a>
+                        <a data-tab="completion_statuses">Completion Statuses</a>
                     </div>
                 </div>
                 <a data-tab="cqm_valuesets">CQM Valueset</a>
