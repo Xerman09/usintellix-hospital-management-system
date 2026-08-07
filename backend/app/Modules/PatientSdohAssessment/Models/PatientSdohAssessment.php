@@ -6,7 +6,7 @@ use App\Core\QueryBuilder;
 
 class PatientSdohAssessment extends QueryBuilder
 {
-    protected string $table = 'patient_sdoh_assessment';
+    protected string $table = 'patient_sdoh_assessments';
 
     protected string $primaryKey = 'id';
 }

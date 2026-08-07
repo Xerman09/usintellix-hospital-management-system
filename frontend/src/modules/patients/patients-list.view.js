@@ -2581,6 +2581,158 @@ export function PatientChartView(user)
     background: white;
 }
 
+.pd-sdoh-content h4 {
+    margin: 18px 0 10px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #29323f;
+    padding-top: 12px;
+    border-top: 1px solid #f1f4f9;
+}
+
+.pd-sdoh-content h4:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.pd-sdoh-loinc {
+    font-weight: 500;
+    font-size: 11.5px;
+    color: #8b98ac;
+}
+
+.pd-sdoh-helper {
+    display: block;
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: #8b98ac;
+}
+
+.pd-sdoh-readonly {
+    background: #f1f4f9;
+    color: #52627a;
+}
+
+.pd-sdoh-summary-meta {
+    font-size: 12.5px;
+    color: #52627a;
+    margin-bottom: 10px;
+}
+
+.pd-sdoh-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.pd-sdoh-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    background: #29323f;
+    color: white;
+}
+
+.pd-sdoh-badge-disability {
+    background: #0f8a8a;
+}
+
+.pd-sdoh-status-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.pd-sdoh-status-positive {
+    background: #fde2e1;
+    color: #b3261e;
+}
+
+.pd-sdoh-status-negative {
+    background: #dff3e3;
+    color: #1e7d32;
+}
+
+.pd-sdoh-status-none {
+    background: #eef1f7;
+    color: #8b98ac;
+}
+
+.pd-sdoh-domain-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.pd-sdoh-domain-box {
+    border: 1px solid #eef1f7;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.pd-sdoh-domain-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+    margin-bottom: 8px;
+}
+
+.pd-sdoh-disability-fields {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 16px;
+}
+
+.pd-sdoh-social-context-grid, .pd-sdoh-pregnancy-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.pd-sdoh-list-actions {
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pd-sdoh-concerns-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+}
+
+.pd-sdoh-concern-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    border: 1px solid #eef1f7;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: #25324b;
+    cursor: pointer;
+}
+
+.pd-sdoh-concern-item input {
+    margin-top: 2px;
+    accent-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+    .pd-sdoh-domain-grid, .pd-sdoh-disability-fields, .pd-sdoh-concerns-list {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-sdoh-social-context-grid, .pd-sdoh-pregnancy-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 .pd-history-tabs {
     display: flex;
     gap: 4px;
@@ -3848,25 +4000,263 @@ export function PatientChartView(user)
                         <h3>SDOH Assessment</h3>
                     </div>
                     <div class="pd-sdoh-content">
-                        <div class="pd-gh-view" id="pdSdohAssessmentView">
-                            <div class="pd-gh-view-header">
-                                <button type="button" class="pd-gh-edit-btn" id="pdSdohAssessmentEditBtn" disabled>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                                    Edit
-                                </button>
+
+                        <!-- STATE 1: Summary -->
+                        <div id="pdSdohSummaryState">
+                            <p class="pd-chart-nav-empty" id="pdSdohSummaryEmpty" style="display:none;">
+                                No SDOH assessments found.
+                            </p>
+                            <div id="pdSdohSummaryBody" style="display:none;">
+                                <div class="pd-sdoh-summary-meta" id="pdSdohSummaryMeta"></div>
+                                <div class="pd-sdoh-badges">
+                                    <span class="pd-sdoh-badge" id="pdSdohTotalPositivesBadge"></span>
+                                    <span class="pd-sdoh-badge pd-sdoh-badge-disability" id="pdSdohDisabilityBadge"></span>
+                                </div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead><tr><th>Domain</th><th>Status</th></tr></thead>
+                                        <tbody id="pdSdohSummaryDomainTableBody"></tbody>
+                                    </table>
+                                </div>
                             </div>
-                            <div id="pdSdohAssessmentViewContent">
-                                <p class="pd-chart-nav-empty">Loading...</p>
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" id="pdSdohViewAllBtn">View All</button>
+                                <button type="button" class="btn-secondary" id="pdSdohEditBtn" style="display:none;">Edit</button>
+                                <button type="button" class="login-btn" id="pdSdohNewBtn">+ New Assessment</button>
                             </div>
                         </div>
 
-                        <form class="pd-life-form" id="pdSdohAssessmentEdit" style="display: none;">
-                            <div id="pdSdohAssessmentFields"></div>
+                        <!-- STATE 2: Form (New or Edit) -->
+                        <form id="pdSdohForm" style="display:none;">
+                            <input type="hidden" id="pdSdoh_record_id">
+                            <div id="pdSdohFormAlert"></div>
+
+                            <h4>Assessment Information</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Assessment Date *</label>
+                                    <input type="date" class="form-input" id="pdSdoh_assessment_date">
+                                </div>
+                                <div class="form-group">
+                                    <label>Screening Tool</label>
+                                    <select class="form-input" id="pdSdoh_screening_tool_id">
+                                        <option value="">-- Select One --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Assessor</label>
+                                    <select class="form-input" id="pdSdoh_assessor_provider_id">
+                                        <option value="">-- Select One --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Score</label>
+                                    <input type="text" class="form-input pd-sdoh-readonly" id="pdSdoh_score_display" value="0" readonly>
+                                    <span class="pd-sdoh-helper">Auto-calculated</span>
+                                </div>
+                            </div>
+
+                            <h4>Hunger Vital Signs <span class="pd-sdoh-loinc">LOINC 88121-9 (Required)</span></h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Food Insecurity Status</label>
+                                    <select class="form-input" id="pdSdoh_food_insecurity_status">
+                                        <option value="auto_determined">Auto-determined</option>
+                                        <option value="at_risk">At risk</option>
+                                        <option value="no_risk">No risk</option>
+                                        <option value="declined">Declined</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Additional Notes</label>
+                                    <input type="text" class="form-input" id="pdSdoh_food_insecurity_notes">
+                                </div>
+                                <div class="form-group full">
+                                    <label>Within the past 12 months, we worried whether our food would run out before we got money to buy more <span class="pd-sdoh-loinc">LOINC 88122-7</span></label>
+                                    <select class="form-input" id="pdSdoh_hvs_worried_food">
+                                        <option value="">-- Select One --</option>
+                                        <option value="often_true">Often true</option>
+                                        <option value="sometimes_true">Sometimes true</option>
+                                        <option value="never_true">Never true</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full">
+                                    <label>Within the past 12 months, the food we bought just didn't last and we didn't have money to get more <span class="pd-sdoh-loinc">LOINC 88123-5</span></label>
+                                    <select class="form-input" id="pdSdoh_hvs_food_didnt_last">
+                                        <option value="">-- Select One --</option>
+                                        <option value="often_true">Often true</option>
+                                        <option value="sometimes_true">Sometimes true</option>
+                                        <option value="never_true">Never true</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Hunger Score</label>
+                                    <input type="text" class="form-input pd-sdoh-readonly" id="pdSdoh_hunger_score_display" value="0" readonly>
+                                    <span class="pd-sdoh-helper">0 = No risk, &ge;1 = At risk</span>
+                                </div>
+                            </div>
+
+                            <h4>Disability Status <span class="pd-sdoh-loinc">ACS 6-item set</span></h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Overall Disability Status</label>
+                                    <select class="form-input" id="pdSdoh_disability_overall_status">
+                                        <option value="">-- Select One --</option>
+                                        <option value="safe">I'm Safe.</option>
+                                        <option value="vulnerable">I'm Vulnerable.</option>
+                                        <option value="at_risk">I'm at risk.</option>
+                                        <option value="in_crisis">I'm in crisis.</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Additional Notes</label>
+                                    <input type="text" class="form-input" id="pdSdoh_disability_notes">
+                                </div>
+                                <div id="pdSdohDisabilityFields" class="form-group full pd-sdoh-disability-fields"></div>
+                            </div>
+
+                            <div id="pdSdohDomainFields" class="pd-sdoh-domain-grid"></div>
+
+                            <h4>Social Context</h4>
+                            <div class="form-grid pd-sdoh-social-context-grid">
+                                <div class="form-group">
+                                    <label>Employment Status</label>
+                                    <select class="form-input" id="pdSdoh_employment_status">
+                                        <option value="">-- Select One --</option>
+                                        <option value="unemployed">Unemployed</option>
+                                        <option value="part_time_temporary">Part-time / temporary</option>
+                                        <option value="full_time">Full-time</option>
+                                        <option value="otherwise_unemployed">Otherwise unemployed (student/retired/disabled/caregiver)</option>
+                                        <option value="declined">Declined</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Education Level</label>
+                                    <select class="form-input" id="pdSdoh_education_level">
+                                        <option value="">-- Select One --</option>
+                                        <option value="less_than_hs">&lt; High school</option>
+                                        <option value="hs_graduate">High school graduate</option>
+                                        <option value="ged">GED or equivalent</option>
+                                        <option value="some_college">Some college, no degree</option>
+                                        <option value="associate_degree">Associate degree</option>
+                                        <option value="bachelors_degree">Bachelor's degree</option>
+                                        <option value="masters_degree">Master's degree</option>
+                                        <option value="professional_school_degree">Professional school degree</option>
+                                        <option value="doctoral_degree">Doctoral degree</option>
+                                        <option value="declined">Declined</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Caregiver Status</label>
+                                    <select class="form-input" id="pdSdoh_caregiver_status">
+                                        <option value="">-- Select One --</option>
+                                        <option value="yes">Yes</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Veteran Status</label>
+                                    <select class="form-input" id="pdSdoh_veteran_status">
+                                        <option value="">-- Select One --</option>
+                                        <option value="yes">Yes</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <h4>Pregnancy / Postpartum Status</h4>
+                            <div class="form-grid pd-sdoh-pregnancy-grid">
+                                <div class="form-group">
+                                    <label>Pregnancy Status</label>
+                                    <select class="form-input" id="pdSdoh_pregnancy_status">
+                                        <option value="">-- Select One --</option>
+                                        <option value="pregnant">Pregnant</option>
+                                        <option value="not_pregnant">Not pregnant</option>
+                                        <option value="possible_pregnancy">Possible pregnancy</option>
+                                        <option value="not_yet_confirmed">Pregnancy not yet confirmed</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Estimated Due Date</label>
+                                    <input type="date" class="form-input" id="pdSdoh_estimated_due_date">
+                                </div>
+                                <div class="form-group">
+                                    <label>Postpartum Status</label>
+                                    <select class="form-input" id="pdSdoh_postpartum_status">
+                                        <option value="">-- Select One --</option>
+                                        <option value="not_postpartum">Not postpartum</option>
+                                        <option value="postpartum_under_6wk">Postpartum &lt;6 weeks</option>
+                                        <option value="postpartum_6wk_1yr">Postpartum 6wk&ndash;1yr</option>
+                                        <option value="declined">Declined</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Postpartum End Date</label>
+                                    <input type="date" class="form-input" id="pdSdoh_postpartum_end_date">
+                                </div>
+                                <div class="form-group">
+                                    <label>Pregnancy intention in the next year</label>
+                                    <select class="form-input" id="pdSdoh_pregnancy_intention">
+                                        <option value="">-- Select One --</option>
+                                        <option value="not_sure">Not sure of desire to become pregnant (finding)</option>
+                                        <option value="ambivalent">Ambivalent about becoming pregnant (finding)</option>
+                                        <option value="no_desire">No desire to become pregnant (finding)</option>
+                                        <option value="wants_pregnant">Wants to become pregnant (finding)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <h4>Care Planning</h4>
+                            <div class="form-grid">
+                                <div class="form-group full">
+                                    <label>Generated Goals</label>
+                                    <textarea class="form-input pd-sdoh-readonly" id="pdSdoh_generated_goals_display" rows="4" readonly></textarea>
+                                    <span class="pd-sdoh-helper">Goals are automatically generated based on positive SDOH findings</span>
+                                </div>
+                                <div class="form-group full">
+                                    <label>Generated Interventions</label>
+                                    <textarea class="form-input pd-sdoh-readonly" id="pdSdoh_generated_interventions_display" rows="4" readonly></textarea>
+                                    <span class="pd-sdoh-helper">Interventions are automatically generated based on positive SDOH findings</span>
+                                </div>
+                                <div class="form-group full">
+                                    <label>Additional Interventions (Manual)</label>
+                                    <textarea class="form-input" id="pdSdoh_additional_interventions" rows="3" placeholder="Enter any additional interventions, one per line"></textarea>
+                                </div>
+                            </div>
+
                             <div class="form-actions pd-fh-actions">
-                                <button type="button" class="btn-secondary" id="pdSdohAssessmentCancelBtn">Cancel</button>
-                                <button type="submit" class="login-btn">Save</button>
+                                <button type="button" class="btn-secondary" id="pdSdohCancelBtn">Cancel</button>
+                                <button type="submit" class="login-btn">Save Assessment</button>
                             </div>
                         </form>
+
+                        <!-- STATE 3: List (View All) -->
+                        <div id="pdSdohListState" style="display:none;">
+                            <div class="form-actions pd-sdoh-list-actions">
+                                <a href="#" id="pdSdohBackToSummaryBtn">&larr; Back to Summary</a>
+                                <button type="button" class="btn-primary-inline" id="pdSdohListNewBtn">+ New Assessment</button>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead><tr><th>Date</th><th>Screening Tool</th><th>Assessor</th><th>Score</th><th></th></tr></thead>
+                                    <tbody id="pdSdohListTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- STATE 4: post-save "Add Related Health Concerns" -->
+                        <div id="pdSdohConcernsState" style="display:none;">
+                            <h4>Add Related Health Concerns</h4>
+                            <p class="form-subtitle">Based on the SDOH assessment, the following health concerns may be relevant for this patient. Select any that apply:</p>
+                            <div id="pdSdohConcernsAlert"></div>
+                            <div id="pdSdohConcernsList" class="pd-sdoh-concerns-list"></div>
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" id="pdSdohSkipConcernsBtn">Skip - No Concerns</button>
+                                <button type="button" class="login-btn" id="pdSdohAddSelectedConcernsBtn">+ Add Selected Concerns</button>
+                            </div>
+                            <p class="pd-sdoh-helper">Selected health concerns will be added as active conditions for this patient and linked to this SDOH assessment.</p>
+                        </div>
+
                     </div>
                 </div>
             </div>

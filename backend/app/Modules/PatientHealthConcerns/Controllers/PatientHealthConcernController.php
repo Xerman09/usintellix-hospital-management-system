@@ -17,7 +17,7 @@ class PatientHealthConcernController extends Controller
     private const DETAIL_FIELDS = [
         'title', 'begin_date', 'end_date', 'comments', 'coding',
         'occurrence', 'outcome', 'classification_type', 'verification_status',
-        'referred_by', 'destination'
+        'referred_by', 'destination', 'sdoh_assessment_id'
     ];
 
     public function __construct()

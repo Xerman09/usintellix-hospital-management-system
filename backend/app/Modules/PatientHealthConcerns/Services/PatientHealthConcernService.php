@@ -15,7 +15,7 @@ class PatientHealthConcernService
     private const DETAIL_FIELDS = [
         'title', 'begin_date', 'end_date', 'comments', 'coding',
         'occurrence', 'outcome', 'classification_type', 'verification_status',
-        'referred_by', 'destination'
+        'referred_by', 'destination', 'sdoh_assessment_id'
     ];
 
     /**
@@ -24,7 +24,7 @@ class PatientHealthConcernService
     public function list(int $patientId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, patient_id, title, begin_date, end_date, comments, coding,
+            "SELECT id, patient_id, sdoh_assessment_id, title, begin_date, end_date, comments, coding,
                     occurrence, outcome, classification_type, verification_status,
                     referred_by, destination, created_at
              FROM patient_health_concerns
