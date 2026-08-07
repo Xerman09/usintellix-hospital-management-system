@@ -404,8 +404,20 @@ function recomputeLivePreview()
     const hasDisability = DISABILITY_ITEMS.some((item) => document.getElementById(`pdSdoh_${item.key}`).value === "yes");
     const date = document.getElementById("pdSdoh_assessment_date").value || "";
 
-    document.getElementById("pdSdoh_generated_goals_display").value = buildCarePlanText(positives, hasDisability, date, "goal");
-    document.getElementById("pdSdoh_generated_interventions_display").value = buildCarePlanText(positives, hasDisability, date, "intervention");
+    const goalsEl = document.getElementById("pdSdoh_generated_goals_display");
+    const interventionsEl = document.getElementById("pdSdoh_generated_interventions_display");
+
+    goalsEl.value = buildCarePlanText(positives, hasDisability, date, "goal");
+    interventionsEl.value = buildCarePlanText(positives, hasDisability, date, "intervention");
+
+    autoGrowTextarea(goalsEl);
+    autoGrowTextarea(interventionsEl);
+}
+
+function autoGrowTextarea(el)
+{
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
 }
 
 function buildCarePlanText(positives, hasDisability, date, key)

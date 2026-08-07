@@ -6,7 +6,7 @@ import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
-import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=1";
+import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";

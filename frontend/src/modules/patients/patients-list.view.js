@@ -2614,6 +2614,12 @@ export function PatientChartView(user)
     color: #52627a;
 }
 
+textarea.pd-sdoh-readonly {
+    overflow-y: hidden;
+    resize: none;
+    min-height: 60px;
+}
+
 .pd-sdoh-summary-meta {
     font-size: 12.5px;
     color: #52627a;
