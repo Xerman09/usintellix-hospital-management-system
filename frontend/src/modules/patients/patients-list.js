@@ -249,12 +249,14 @@ function showChartSection(key)
     const placeholder = document.getElementById("pdChartPlaceholder");
     const historyPanel = document.getElementById("pdHistoryPanel");
     const sdohPanel = document.getElementById("pdSdohPanel");
+    const reportPanel = document.getElementById("pdReportPanel");
     const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
     widgetGrid.style.display = "none";
     placeholder.style.display = "none";
     historyPanel.style.display = "none";
     sdohPanel.style.display = "none";
+    reportPanel.style.display = "none";
 
     if (key === "dashboard" || widgetTarget) {
         widgetGrid.style.display = "";
@@ -271,6 +273,8 @@ function showChartSection(key)
         historyPanel.style.display = "block";
     } else if (key === "sdoh_assessment") {
         sdohPanel.style.display = "block";
+    } else if (key === "report") {
+        reportPanel.style.display = "block";
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
         placeholder.style.display = "flex";
@@ -302,6 +306,7 @@ function resetChartNav()
     document.getElementById("pdChartPlaceholder").style.display = "none";
     document.getElementById("pdHistoryPanel").style.display = "none";
     document.getElementById("pdSdohPanel").style.display = "none";
+    document.getElementById("pdReportPanel").style.display = "none";
 
     document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => {
         t.classList.toggle("active", t.getAttribute("data-history-tab") === "general");

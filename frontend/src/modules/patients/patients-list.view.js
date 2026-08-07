@@ -2558,6 +2558,24 @@ export function PatientChartView(user)
     overflow: hidden;
 }
 
+.pd-report-panel {
+    border: 1px solid #e5e9f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.pd-report-header {
+    padding: 14px 20px;
+    background: var(--accent);
+    color: white;
+}
+
+.pd-report-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
 .pd-sdoh-panel {
     border: 1px solid #e5e9f0;
     border-radius: 12px;
@@ -4263,6 +4281,19 @@ textarea.pd-sdoh-readonly {
                             <p class="pd-sdoh-helper">Selected health concerns will be added as active conditions for this patient and linked to this SDOH assessment.</p>
                         </div>
 
+                    </div>
+                </div>
+
+                <div class="pd-report-panel" id="pdReportPanel" style="display: none;">
+                    <div class="pd-report-header">
+                        <h3>Report</h3>
+                    </div>
+                    <div class="pd-report-content pd-chart-placeholder">
+                        <div class="pd-chart-placeholder-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 13h6M9 17h6"></path></svg>
+                        </div>
+                        <strong>Report</strong>
+                        <p>This section is under development.</p>
                     </div>
                 </div>
             </div>
