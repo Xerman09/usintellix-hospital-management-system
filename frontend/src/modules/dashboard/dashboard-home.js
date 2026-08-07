@@ -63,9 +63,9 @@ function renderHeaderActions(user)
     const addIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>`;
 
     if (user.role === "admin") {
-        container.innerHTML = `<a href="#/employees/create" class="dh-action-btn">${addIcon} Add Employee</a>`;
+        container.innerHTML = ``;
     } else if (user.role === "receptionist") {
-        container.innerHTML = `<a href="#/patients/create" class="dh-action-btn">${addIcon} Register Patient</a>`;
+        container.innerHTML = `<a href="#/patients/create" class="dh-action-btn primary">${addIcon} Register Patient</a>`;
     } else {
         container.innerHTML = "";
     }
@@ -73,25 +73,34 @@ function renderHeaderActions(user)
 
 function renderStaffStats(stats)
 {
+    const layout = document.querySelector(".dh-layout-grid");
+    if (layout) layout.style.gridTemplateColumns = "1fr";
+
     setStatsGrid([
-        { icon: "patients", variant: "", value: stats.patients_total, label: "Active Patients" },
-        { icon: "staff", variant: "alt", value: stats.staff_total, label: "Total Staff" },
-        { icon: "calendarToday", variant: "warn", value: stats.appointments_today, label: "Today's Appointments" },
-        { icon: "calendarWeek", variant: "", value: stats.appointments_this_week, label: "This Week's Appointments" }
+        { icon: "patients", variant: "", value: stats.patients_total, label: "Total Patients", trend: 12 },
+        { icon: "staff", variant: "alt", value: stats.staff_total, label: "Active Staff", trend: 2 },
+        { icon: "calendarToday", variant: "warn", value: stats.appointments_today, label: "Today's Volume" },
+        { icon: "calendarWeek", variant: "", value: stats.appointments_this_week, label: "Weekly Volume", trend: 15 }
     ]);
 }
 
 function renderDoctorStats(stats)
 {
+    const layout = document.querySelector(".dh-layout-grid");
+    if (layout) layout.style.gridTemplateColumns = "1fr";
+
     setStatsGrid([
-        { icon: "patients", variant: "", value: stats.patients_total, label: "My Patients" },
-        { icon: "calendarToday", variant: "warn", value: stats.appointments_today, label: "Today's Appointments" },
-        { icon: "upcoming", variant: "alt", value: stats.appointments_upcoming, label: "Upcoming Appointments" }
+        { icon: "patients", variant: "", value: stats.patients_total, label: "My Patients", trend: 4 },
+        { icon: "calendarToday", variant: "warn", value: stats.appointments_today, label: "Today's Volume" },
+        { icon: "upcoming", variant: "alt", value: stats.appointments_upcoming, label: "Upcoming Appts" }
     ]);
 }
 
 function renderPatientStats(stats)
 {
+    const layout = document.querySelector(".dh-layout-grid");
+    if (layout) layout.style.gridTemplateColumns = "1fr";
+
     setStatsGrid([
         { icon: "upcoming", variant: "alt", value: stats.appointments_upcoming, label: "Upcoming Appointments" }
     ]);
@@ -109,9 +118,11 @@ function renderPatientStats(stats)
 
     slot.innerHTML = `
         <div class="dh-highlight-card">
-            <div class="dh-highlight-label">Next Appointment</div>
-            <div class="dh-highlight-main">${escapeHtml(when)}</div>
-            <div class="dh-highlight-sub">${providerName ? `with Dr. ${escapeHtml(providerName)}` : ""}${next.reason ? ` &middot; ${escapeHtml(next.reason)}` : ""}</div>
+            <div class="dh-highlight-info">
+                <div class="dh-highlight-label">Next Appointment</div>
+                <div class="dh-highlight-main">${escapeHtml(when)}</div>
+                <div class="dh-highlight-sub">${providerName ? `with Dr. ${escapeHtml(providerName)}` : ""}${next.reason ? ` &middot; ${escapeHtml(next.reason)}` : ""}</div>
+            </div>
         </div>
     `;
 }
@@ -120,15 +131,24 @@ function setStatsGrid(cards)
 {
     const grid = document.getElementById("dhStatsGrid");
 
-    grid.innerHTML = cards.map((card) => `
-        <div class="dh-stat-card">
-            <div class="dh-stat-icon ${card.variant}">${icon(card.icon)}</div>
+    grid.innerHTML = cards.map((card) => {
+        const trendHtml = card.trend !== undefined
+            ? `<div class="dh-stat-trend ${card.trend > 0 ? '' : card.trend < 0 ? 'negative' : 'neutral'}">${card.trend > 0 ? '+' : ''}${card.trend}%</div>`
+            : '';
+
+        return `
+        <div class="dh-stat-card ${card.variant || ''}">
+            <div class="dh-stat-header">
+                <div class="dh-stat-label">${escapeHtml(card.label)}</div>
+                <div class="dh-stat-icon">${icon(card.icon)}</div>
+            </div>
             <div class="dh-stat-body">
                 <div class="dh-stat-value">${card.value}</div>
-                <div class="dh-stat-label">${escapeHtml(card.label)}</div>
+                ${trendHtml}
             </div>
         </div>
-    `).join("");
+        `;
+    }).join("");
 }
 
 function renderActivityTable(scope, rows, title)
