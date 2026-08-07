@@ -10,7 +10,7 @@ import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=24";
-import { initPatientsList } from "../patients/patients-list.js?v=22";
+import { initPatientsList, restorePatientChartTab } from "../patients/patients-list.js?v=23";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -458,6 +458,10 @@ export function Dashboard()
             if (savedState.tabs) {
                 savedState.tabs.forEach(tabId => {
                     if (tabId === 'dashboard') return;
+                    if (tabId === 'patient_chart') {
+                        if (savedState.active !== 'patient_chart') restorePatientChartTab(false);
+                        return;
+                    }
                     const link = document.querySelector(`a[data-tab="${tabId}"]`);
                     if (link) openDashboardTab(tabId, link.textContent.trim(), false);
                 });
@@ -465,6 +469,8 @@ export function Dashboard()
             if (savedState.active) {
                 if (savedState.active === 'dashboard') {
                     tabManager.switchTab('dashboard');
+                } else if (savedState.active === 'patient_chart') {
+                    restorePatientChartTab(true);
                 } else {
                     const activeLink = document.querySelector(`a[data-tab="${savedState.active}"]`);
                     if (activeLink) openDashboardTab(savedState.active, activeLink.textContent.trim(), true);

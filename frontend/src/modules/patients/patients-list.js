@@ -1,5 +1,5 @@
 import { getUser } from "../../core/session.js";
-import { consumePendingPatientView } from "../../core/pending-patient-view.js";
+import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { PatientChartView } from "./patients-list.view.js";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
@@ -236,6 +236,251 @@ function setupChartNav()
     });
 }
 
+function setupReports()
+{
+    const cb = document.getElementById("pdCcrUseDateRange");
+    const dateRangeContainer = document.getElementById("pdCcrDateRangeContainer");
+    const generateBtn = document.getElementById("pdCcrGenerateBtn");
+
+    if (cb) {
+        const newCb = cb.cloneNode(true);
+        cb.parentNode.replaceChild(newCb, cb);
+        newCb.addEventListener("change", () => {
+            dateRangeContainer.style.display = newCb.checked ? "flex" : "none";
+        });
+    }
+
+    if (generateBtn) {
+        const newGenerateBtn = generateBtn.cloneNode(true);
+        generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
+        newGenerateBtn.addEventListener("click", async () => {
+            if (!currentDashboardPatient) return;
+            
+            newGenerateBtn.disabled = true;
+            newGenerateBtn.textContent = "Generating...";
+            
+            const result = await fetchPatientDashboardSummary(currentDashboardPatient.id);
+            newGenerateBtn.disabled = false;
+            newGenerateBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:5px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate Report';
+            
+            if (!result.success) {
+                alert("Failed to load patient data for report.");
+                return;
+            }
+            
+            const useDateRange = document.getElementById("pdCcrUseDateRange").checked;
+            const startDate = useDateRange ? document.getElementById("pdCcrStartDate").value : null;
+            const endDate = useDateRange ? document.getElementById("pdCcrEndDate").value : null;
+
+            const html = generateCcrReportHtml(currentDashboardPatient, result.data || {}, startDate, endDate);
+            
+            const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+            if (reportWindow) {
+                reportWindow.document.open();
+                reportWindow.document.write(html);
+                reportWindow.document.close();
+            } else {
+                alert("Please enable pop-ups to view the report.");
+            }
+        });
+    }
+}
+
+function generateCcrReportHtml(patient, data, startDate, endDate) {
+    const filterByDate = (items, dateField) => {
+        if (!items) return [];
+        return items.filter(item => {
+            if (!item[dateField]) return true;
+            const itemDate = new Date(item[dateField]);
+            if (startDate && itemDate < new Date(startDate)) return false;
+            if (endDate && itemDate > new Date(endDate)) return false;
+            return true;
+        });
+    };
+
+    const allergies = filterByDate(data.allergies, 'begin_date');
+    const problems = filterByDate(data.problems, 'begin_date');
+    const medications = filterByDate(data.medications, 'begin_date');
+    const immunizations = filterByDate(data.immunizations, 'administered_at');
+
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const patientDob = patient.birthdate ? new Date(patient.birthdate).toLocaleDateString() : "";
+    const address = [patient.address_line, patient.city, patient.province, patient.zip_code].filter(Boolean).join(", ");
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Continuity of Care Record</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
+        h1 { font-size: 18px; margin-bottom: 10px; color: #000; }
+        h2 { font-size: 14px; margin-top: 20px; margin-bottom: 5px; color: #000; }
+        .header-box { background-color: #ffffcc; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 20px; width: 60%; }
+        .header-box table { width: 100%; border-collapse: collapse; }
+        .header-box td { padding: 2px 5px; vertical-align: top; }
+        .header-box td:first-child { font-weight: bold; width: 100px; }
+        table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        table.data-table th { background-color: #0055a4; color: white; text-align: left; padding: 5px; font-size: 11px; border: 1px solid #ccc; }
+        table.data-table td { padding: 5px; border: 1px solid #ccc; font-size: 11px; }
+        .footer { margin-top: 40px; font-size: 10px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Continuity of Care Record</h1>
+    <div class="header-box">
+        <table>
+            <tr><td>Date Created:</td><td>${new Date().toUTCString()}</td></tr>
+            <tr><td>From:</td><td>Motol University Hospital - II (Facility) (author)</td></tr>
+            <tr><td>To:</td><td>${escapeHtml(fullName)} (patient)</td></tr>
+            <tr><td>Purpose:</td><td>Summary of patient information</td></tr>
+        </table>
+    </div>
+
+    <h2>Patient Demographics</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Date of Birth</th><th>Gender</th><th>Identification Numbers</th><th>Address / Phone</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>${escapeHtml(fullName)}</td>
+                <td>${escapeHtml(patientDob)}</td>
+                <td>${escapeHtml(patient.sex || '')}</td>
+                <td>Patient ID ${escapeHtml(patient.patient_no)}</td>
+                <td>H: ${escapeHtml(patient.home_phone || '')}<br/>${escapeHtml(address)}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Alerts</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Type</th><th>Date</th><th>Code</th><th>Description</th><th>Reaction</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+            ${allergies.length ? allergies.map(a => \`
+                <tr>
+                    <td>Allergy</td>
+                    <td>\${escapeHtml((a.begin_date || '').substring(0, 10))}</td>
+                    <td>\${escapeHtml(a.coding || '')}</td>
+                    <td>\${escapeHtml(a.title || '')}</td>
+                    <td>\${escapeHtml(a.reaction || '')}</td>
+                    <td></td>
+                </tr>
+            \`).join('') : \`<tr><td colspan="6">No alerts recorded.</td></tr>\`}
+        </tbody>
+    </table>
+
+    <h2>Problems</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Type</th><th>Date</th><th>Code</th><th>Description</th><th>Status</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+            ${problems.length ? problems.map(p => \`
+                <tr>
+                    <td>Problem</td>
+                    <td>\${escapeHtml((p.begin_date || '').substring(0, 10))}</td>
+                    <td>\${escapeHtml(p.coding || '')}</td>
+                    <td>\${escapeHtml(p.title || '')}</td>
+                    <td>\${escapeHtml(p.verification_status || 'Active')}</td>
+                    <td></td>
+                </tr>
+            \`).join('') : \`<tr><td colspan="6">No problems recorded.</td></tr>\`}
+        </tbody>
+    </table>
+
+    <h2>Medications</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Medication</th><th>RxNorm Code</th><th>Date</th><th>Status</th><th>Form</th><th>Strength</th><th>Quantity</th><th>SIG</th><th>Indications</th><th>Instruction</th><th>Refills</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+            ${medications.length ? medications.map(m => \`
+                <tr>
+                    <td>\${escapeHtml(m.title || '')}</td>
+                    <td>\${escapeHtml(m.coding || '')}</td>
+                    <td>\${escapeHtml((m.begin_date || '').substring(0, 10))}</td>
+                    <td>\${escapeHtml(m.verification_status || 'Active')}</td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+            \`).join('') : \`<tr><td colspan="12">No medications recorded.</td></tr>\`}
+        </tbody>
+    </table>
+
+    <h2>Immunizations</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Code</th><th>Vaccine</th><th>Date</th><th>Route</th><th>Site</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+            ${immunizations.length ? immunizations.map(i => \`
+                <tr>
+                    <td>\${escapeHtml(i.vaccine_name || '')}</td>
+                    <td>\${escapeHtml(i.vaccine_name || '')}</td>
+                    <td>\${escapeHtml((i.administered_at || '').substring(0, 10))}</td>
+                    <td>\${escapeHtml(i.route || '')}</td>
+                    <td>\${escapeHtml(i.administration_site || '')}</td>
+                    <td></td>
+                </tr>
+            \`).join('') : \`<tr><td colspan="6">No immunizations recorded.</td></tr>\`}
+        </tbody>
+    </table>
+
+    <h2>Additional Information About People & Organizations</h2>
+    <h3>People</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Specialty</th><th>Relation</th><th>Identification Numbers</th><th>Phone</th><th>Address/ E-mail</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>${escapeHtml(fullName)}</td>
+                <td></td>
+                <td></td>
+                <td>Patient ID ${escapeHtml(patient.patient_no)}</td>
+                <td>H: ${escapeHtml(patient.home_phone || '')}</td>
+                <td>${escapeHtml(address)}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Information Systems</h3>
+    <table class="data-table">
+        <thead>
+            <tr><th>Name</th><th>Type</th><th>Version</th><th>Identification Numbers</th><th>Phone</th><th>Address/ E-mail</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Motol University Hospital - II</td>
+                <td>Facility</td>
+                <td></td>
+                <td></td>
+                <td>224431111</td>
+                <td>V &Uacute;valu 84, 150 06 Praha 5<br/>PRG, CZ 15006</td>
+            </tr>
+            <tr>
+                <td>OEMR</td>
+                <td>OpenEMR</td>
+                <td>4.x</td>
+                <td>Certification # EHRX-OEMRXXXXX-2011</td>
+                <td>000-000-0000</td>
+                <td>2365 Springs Rd. NE<br/>Hickory, NC 28601</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer">
+        The stylesheet used to generate this view of the CCR was provided by OEMR.<br/>
+        Powered by the ASTM E2369-05 Specification for the Continuity of Care Record (CCR)
+    </div>
+</body>
+</html>
+    `;
+}
+
+
 function activateChartNavButton(activeBtn)
 {
     document.querySelectorAll("#pdChartNav .pd-chart-nav-btn, #pdChartNav .pd-chart-nav-submenu-item").forEach((b) => {
@@ -338,14 +583,46 @@ function openPendingPatientView()
 // patient. Exported so other entry points into a patient's chart -- the
 // Finder, the Flow board hand-off -- can reuse it instead of duplicating
 // the tab-opening logic.
-export function openPatientChartTab(patient)
+export function openPatientChartTab(patient, activate = true)
 {
     const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    setLastActivePatientChart(patient.patient_no);
 
     window.tabManager.openOrReplaceTab('patient_chart', fullName || 'Patient Chart', () => {
         setTimeout(() => initPatientChartTab(patient), 0);
         return PatientChartView(getUser());
-    });
+    }, activate);
+}
+
+// Reopens the Patient Chart tab for whichever patient was last shown in it,
+// so a page refresh doesn't lose it (TabManager persists which tab ids were
+// open, but not the patient data behind a dynamic tab like this one).
+// Returns true if a chart was restored, false if there was nothing to
+// restore (no last-active patient, or that patient couldn't be found).
+export async function restorePatientChartTab(activate = true)
+{
+    const patientNo = getLastActivePatientChart();
+
+    if (!patientNo) {
+        return false;
+    }
+
+    const result = await fetchPatients();
+
+    if (!result.success) {
+        return false;
+    }
+
+    const patient = result.data.find((p) => p.patient_no === patientNo);
+
+    if (!patient) {
+        return false;
+    }
+
+    openPatientChartTab(patient, activate);
+
+    return true;
 }
 
 // Populates and wires up the Patient Chart tab for the given patient. Called
@@ -397,6 +674,7 @@ export async function initPatientChartTab(patient)
     });
 
     setupChartNav();
+    setupReports();
     setupHistoryTabs();
     initGeneralHistory(patient.id);
     initFamilyHistory(patient.id);

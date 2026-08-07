@@ -1,4 +1,4 @@
-﻿export function PatientsListView(user)
+export function PatientsListView(user)
 {
     const canAdd = user?.role === "receptionist";
     const canDelete = user?.role === "admin";
@@ -4422,7 +4422,7 @@ textarea.pd-sdoh-readonly {
                         <h3>Report</h3>
                     </div>
                     <div class="pd-report-content">
-                        <p class="pd-report-unavailable-note">Report generation is not yet available &mdash; shown below for layout reference.</p>
+                        <p class="pd-report-unavailable-note" id="pdReportUnavailableNote">Report generation is not yet available &mdash; shown below for layout reference.</p>
 
                         <div class="pd-report-card">
                             <div class="pd-report-card-header">
@@ -4430,12 +4430,20 @@ textarea.pd-sdoh-readonly {
                                 <span class="pd-report-note">(Pop ups need to be enabled to see these reports)</span>
                             </div>
                             <label class="pd-report-checkbox-inline">
-                                <input type="checkbox" disabled>
+                                <input type="checkbox" id="pdCcrUseDateRange">
                                 Use Date Range
                             </label>
+                            
+                            <div id="pdCcrDateRangeContainer" style="display: none; align-items: center; gap: 10px; margin-top: 12px; margin-bottom: 12px; font-size: 13px;">
+                                <label style="font-weight: 600; color: #1c2534;">Start Date:</label>
+                                <input type="date" id="pdCcrStartDate" style="width: 140px; height: 28px; border: 1px solid #d7dee8; border-radius: 4px; padding: 0 8px;">
+                                <label style="font-weight: 600; color: #1c2534; margin-left: 10px;">End Date:</label>
+                                <input type="date" id="pdCcrEndDate" style="width: 140px; height: 28px; border: 1px solid #d7dee8; border-radius: 4px; padding: 0 8px;">
+                            </div>
+
                             <div class="pd-report-actions">
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download</button>
+                                <button type="button" class="pd-report-btn" id="pdCcrGenerateBtn">${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" id="pdCcrDownloadBtn">${reportIcon("download")} Download</button>
                             </div>
                         </div>
 

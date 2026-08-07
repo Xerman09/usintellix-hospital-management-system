@@ -9,7 +9,7 @@ import {
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
 import { getUser } from "../../core/session.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=23";
-import { initPatientsList } from "../patients/patients-list.js?v=21";
+import { initPatientsList } from "../patients/patients-list.js?v=22";
 
 const STAGES = ["waiting", "roomed", "with_provider", "checked_out"];
 
