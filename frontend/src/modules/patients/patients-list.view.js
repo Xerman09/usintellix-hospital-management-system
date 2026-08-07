@@ -1,4 +1,4 @@
-export function PatientsListView(user)
+﻿export function PatientsListView(user)
 {
     const canAdd = user?.role === "receptionist";
     const canDelete = user?.role === "admin";
@@ -2489,6 +2489,31 @@ export function PatientChartView(user)
     color: #a3adbd;
 }
 
+.pd-chart-nav-submenu-item {
+    display: flex;
+    align-items: center;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: #52627a;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color .12s, color .12s;
+}
+
+.pd-chart-nav-submenu-item:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.pd-chart-nav-submenu-item.active {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
 .pd-chart-placeholder {
     display: flex;
     flex-direction: column;
@@ -2531,6 +2556,29 @@ export function PatientChartView(user)
     border: 1px solid #e5e9f0;
     border-radius: 12px;
     overflow: hidden;
+}
+
+.pd-sdoh-panel {
+    border: 1px solid #e5e9f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.pd-sdoh-header {
+    padding: 14px 20px;
+    background: var(--accent);
+    color: white;
+}
+
+.pd-sdoh-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.pd-sdoh-content {
+    padding: 16px 20px 8px;
+    background: white;
 }
 
 .pd-history-tabs {
@@ -3582,7 +3630,7 @@ export function PatientChartView(user)
                         <svg class="pd-chart-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
                     </button>
                     <div class="pd-chart-nav-submenu" id="pdAssessmentsSubmenu">
-                        <p class="pd-chart-nav-empty">No assessments yet.</p>
+                        <button type="button" class="pd-chart-nav-submenu-item" data-chart-nav="sdoh_assessment">SDOH Assessment</button>
                     </div>
                     <button type="button" class="pd-chart-nav-btn" data-chart-nav="report">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 13h6M9 17h6"></path></svg>
@@ -3792,6 +3840,33 @@ export function PatientChartView(user)
                                 </div>
                             </form>
                         </div>
+                    </div>
+                </div>
+
+                <div class="pd-sdoh-panel" id="pdSdohPanel" style="display: none;">
+                    <div class="pd-sdoh-header">
+                        <h3>SDOH Assessment</h3>
+                    </div>
+                    <div class="pd-sdoh-content">
+                        <div class="pd-gh-view" id="pdSdohAssessmentView">
+                            <div class="pd-gh-view-header">
+                                <button type="button" class="pd-gh-edit-btn" id="pdSdohAssessmentEditBtn" disabled>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                    Edit
+                                </button>
+                            </div>
+                            <div id="pdSdohAssessmentViewContent">
+                                <p class="pd-chart-nav-empty">Loading...</p>
+                            </div>
+                        </div>
+
+                        <form class="pd-life-form" id="pdSdohAssessmentEdit" style="display: none;">
+                            <div id="pdSdohAssessmentFields"></div>
+                            <div class="form-actions pd-fh-actions">
+                                <button type="button" class="btn-secondary" id="pdSdohAssessmentCancelBtn">Cancel</button>
+                                <button type="submit" class="login-btn">Save</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>

@@ -6,6 +6,7 @@ import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
+import { initSdohAssessment } from "./patient-sdoh-assessment.js";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
@@ -194,6 +195,7 @@ const CHART_NAV_LABELS = {
     dashboard: "Dashboard",
     history: "History",
     assessments: "Assessments",
+    sdoh_assessment: "SDOH Assessment",
     report: "Report",
     documents: "Documents",
     transactions: "Transactions",
@@ -221,38 +223,58 @@ function setupChartNav()
                 return;
             }
 
-            document.querySelectorAll("#pdChartNav .pd-chart-nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
-
-            const widgetGrid = document.getElementById("pdWidgetGrid");
-            const placeholder = document.getElementById("pdChartPlaceholder");
-            const historyPanel = document.getElementById("pdHistoryPanel");
-            const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
-
-            if (key === "dashboard" || widgetTarget) {
-                widgetGrid.style.display = "";
-                placeholder.style.display = "none";
-                historyPanel.style.display = "none";
-
-                const pdMain = document.querySelector(".pd-main");
-                const target = widgetTarget ? document.getElementById(widgetTarget) : null;
-
-                if (target && pdMain) {
-                    pdMain.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
-                } else if (pdMain) {
-                    pdMain.scrollTo({ top: 0, behavior: "smooth" });
-                }
-            } else if (key === "history") {
-                widgetGrid.style.display = "none";
-                placeholder.style.display = "none";
-                historyPanel.style.display = "block";
-            } else {
-                widgetGrid.style.display = "none";
-                historyPanel.style.display = "none";
-                document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
-                placeholder.style.display = "flex";
-            }
+            activateChartNavButton(btn);
+            showChartSection(key);
         });
     });
+
+    document.querySelectorAll("#pdAssessmentsSubmenu .pd-chart-nav-submenu-item").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            activateChartNavButton(btn);
+            showChartSection(btn.getAttribute("data-chart-nav"));
+        });
+    });
+}
+
+function activateChartNavButton(activeBtn)
+{
+    document.querySelectorAll("#pdChartNav .pd-chart-nav-btn, #pdChartNav .pd-chart-nav-submenu-item").forEach((b) => {
+        b.classList.toggle("active", b === activeBtn);
+    });
+}
+
+function showChartSection(key)
+{
+    const widgetGrid = document.getElementById("pdWidgetGrid");
+    const placeholder = document.getElementById("pdChartPlaceholder");
+    const historyPanel = document.getElementById("pdHistoryPanel");
+    const sdohPanel = document.getElementById("pdSdohPanel");
+    const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
+
+    widgetGrid.style.display = "none";
+    placeholder.style.display = "none";
+    historyPanel.style.display = "none";
+    sdohPanel.style.display = "none";
+
+    if (key === "dashboard" || widgetTarget) {
+        widgetGrid.style.display = "";
+
+        const pdMain = document.querySelector(".pd-main");
+        const target = widgetTarget ? document.getElementById(widgetTarget) : null;
+
+        if (target && pdMain) {
+            pdMain.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
+        } else if (pdMain) {
+            pdMain.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    } else if (key === "history") {
+        historyPanel.style.display = "block";
+    } else if (key === "sdoh_assessment") {
+        sdohPanel.style.display = "block";
+    } else {
+        document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
+        placeholder.style.display = "flex";
+    }
 }
 
 function setupHistoryTabs()
@@ -271,7 +293,7 @@ function setupHistoryTabs()
 
 function resetChartNav()
 {
-    document.querySelectorAll("#pdChartNav .pd-chart-nav-btn").forEach((b) => {
+    document.querySelectorAll("#pdChartNav .pd-chart-nav-btn, #pdChartNav .pd-chart-nav-submenu-item").forEach((b) => {
         b.classList.toggle("active", b.getAttribute("data-chart-nav") === "dashboard");
         b.classList.remove("expanded");
     });
@@ -279,6 +301,7 @@ function resetChartNav()
     document.getElementById("pdWidgetGrid").style.display = "";
     document.getElementById("pdChartPlaceholder").style.display = "none";
     document.getElementById("pdHistoryPanel").style.display = "none";
+    document.getElementById("pdSdohPanel").style.display = "none";
 
     document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => {
         t.classList.toggle("active", t.getAttribute("data-history-tab") === "general");
@@ -375,6 +398,7 @@ export async function initPatientChartTab(patient)
     initRelativesHistory(patient.id);
     initLifestyle(patient.id);
     initOtherHistory(patient.id);
+    initSdohAssessment(patient.id);
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
