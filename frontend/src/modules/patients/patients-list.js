@@ -359,16 +359,16 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
             <tr><th>Type</th><th>Date</th><th>Code</th><th>Description</th><th>Reaction</th><th>Source</th></tr>
         </thead>
         <tbody>
-            ${allergies.length ? allergies.map(a => \`
+            ${allergies.length ? allergies.map(a => `
                 <tr>
                     <td>Allergy</td>
-                    <td>\${escapeHtml((a.begin_date || '').substring(0, 10))}</td>
-                    <td>\${escapeHtml(a.coding || '')}</td>
-                    <td>\${escapeHtml(a.title || '')}</td>
-                    <td>\${escapeHtml(a.reaction || '')}</td>
+                    <td>${escapeHtml((a.begin_date || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(a.coding || '')}</td>
+                    <td>${escapeHtml(a.title || '')}</td>
+                    <td>${escapeHtml(a.reaction || '')}</td>
                     <td></td>
                 </tr>
-            \`).join('') : \`<tr><td colspan="6">No alerts recorded.</td></tr>\`}
+            `).join('') : `<tr><td colspan="6">No alerts recorded.</td></tr>`}
         </tbody>
     </table>
 
@@ -378,16 +378,16 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
             <tr><th>Type</th><th>Date</th><th>Code</th><th>Description</th><th>Status</th><th>Source</th></tr>
         </thead>
         <tbody>
-            ${problems.length ? problems.map(p => \`
+            ${problems.length ? problems.map(p => `
                 <tr>
                     <td>Problem</td>
-                    <td>\${escapeHtml((p.begin_date || '').substring(0, 10))}</td>
-                    <td>\${escapeHtml(p.coding || '')}</td>
-                    <td>\${escapeHtml(p.title || '')}</td>
-                    <td>\${escapeHtml(p.verification_status || 'Active')}</td>
+                    <td>${escapeHtml((p.begin_date || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(p.coding || '')}</td>
+                    <td>${escapeHtml(p.title || '')}</td>
+                    <td>${escapeHtml(p.verification_status || 'Active')}</td>
                     <td></td>
                 </tr>
-            \`).join('') : \`<tr><td colspan="6">No problems recorded.</td></tr>\`}
+            `).join('') : `<tr><td colspan="6">No problems recorded.</td></tr>`}
         </tbody>
     </table>
 
@@ -397,15 +397,15 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
             <tr><th>Medication</th><th>RxNorm Code</th><th>Date</th><th>Status</th><th>Form</th><th>Strength</th><th>Quantity</th><th>SIG</th><th>Indications</th><th>Instruction</th><th>Refills</th><th>Source</th></tr>
         </thead>
         <tbody>
-            ${medications.length ? medications.map(m => \`
+            ${medications.length ? medications.map(m => `
                 <tr>
-                    <td>\${escapeHtml(m.title || '')}</td>
-                    <td>\${escapeHtml(m.coding || '')}</td>
-                    <td>\${escapeHtml((m.begin_date || '').substring(0, 10))}</td>
-                    <td>\${escapeHtml(m.verification_status || 'Active')}</td>
+                    <td>${escapeHtml(m.title || '')}</td>
+                    <td>${escapeHtml(m.coding || '')}</td>
+                    <td>${escapeHtml((m.begin_date || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(m.verification_status || 'Active')}</td>
                     <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                 </tr>
-            \`).join('') : \`<tr><td colspan="12">No medications recorded.</td></tr>\`}
+            `).join('') : `<tr><td colspan="12">No medications recorded.</td></tr>`}
         </tbody>
     </table>
 
@@ -415,16 +415,16 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
             <tr><th>Code</th><th>Vaccine</th><th>Date</th><th>Route</th><th>Site</th><th>Source</th></tr>
         </thead>
         <tbody>
-            ${immunizations.length ? immunizations.map(i => \`
+            ${immunizations.length ? immunizations.map(i => `
                 <tr>
-                    <td>\${escapeHtml(i.vaccine_name || '')}</td>
-                    <td>\${escapeHtml(i.vaccine_name || '')}</td>
-                    <td>\${escapeHtml((i.administered_at || '').substring(0, 10))}</td>
-                    <td>\${escapeHtml(i.route || '')}</td>
-                    <td>\${escapeHtml(i.administration_site || '')}</td>
+                    <td>${escapeHtml(i.vaccine_name || '')}</td>
+                    <td>${escapeHtml(i.vaccine_name || '')}</td>
+                    <td>${escapeHtml((i.administered_at || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(i.route || '')}</td>
+                    <td>${escapeHtml(i.administration_site || '')}</td>
                     <td></td>
                 </tr>
-            \`).join('') : \`<tr><td colspan="6">No immunizations recorded.</td></tr>\`}
+            `).join('') : `<tr><td colspan="6">No immunizations recorded.</td></tr>`}
         </tbody>
     </table>
 

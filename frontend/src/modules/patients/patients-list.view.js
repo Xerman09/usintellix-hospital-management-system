@@ -2670,6 +2670,11 @@ export function PatientChartView(user)
     color: white;
     font-size: 12.5px;
     font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s;
+}
+
+.pd-report-btn:disabled {
     cursor: not-allowed;
     opacity: .55;
 }
