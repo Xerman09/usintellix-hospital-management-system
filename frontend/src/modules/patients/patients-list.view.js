@@ -2576,6 +2576,139 @@ export function PatientChartView(user)
     font-weight: 700;
 }
 
+.pd-report-content {
+    padding: 16px 20px 8px;
+    background: white;
+}
+
+.pd-report-unavailable-note {
+    margin: 0 0 14px;
+    font-size: 12px;
+    font-style: italic;
+    color: #a3adbd;
+}
+
+.pd-report-card {
+    border: 1px solid #eef1f7;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.pd-report-card h4 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.pd-report-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 14px;
+    margin-bottom: 10px;
+}
+
+.pd-report-note {
+    font-size: 12px;
+    color: #8b98ac;
+}
+
+.pd-report-checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #25324b;
+    margin-bottom: 14px;
+}
+
+.pd-report-checkbox-inline input {
+    accent-color: var(--accent);
+}
+
+.pd-report-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.pd-report-checklist {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 18px;
+    margin-bottom: 14px;
+}
+
+.pd-report-checklist label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #25324b;
+}
+
+.pd-report-checklist input {
+    accent-color: var(--accent);
+}
+
+.pd-report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pd-report-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: not-allowed;
+    opacity: .55;
+}
+
+.pd-report-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.pd-report-btn-secondary {
+    background: white;
+    color: #52627a;
+    border: 1px solid #d9e1ee;
+}
+
+.pd-report-split {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.pd-report-split-col h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+@media (max-width: 720px) {
+    .pd-report-checklist {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .pd-report-split {
+        grid-template-columns: 1fr;
+    }
+}
+
 .pd-sdoh-panel {
     border: 1px solid #e5e9f0;
     border-radius: 12px;
@@ -4288,12 +4421,95 @@ textarea.pd-sdoh-readonly {
                     <div class="pd-report-header">
                         <h3>Report</h3>
                     </div>
-                    <div class="pd-report-content pd-chart-placeholder">
-                        <div class="pd-chart-placeholder-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 13h6M9 17h6"></path></svg>
+                    <div class="pd-report-content">
+                        <p class="pd-report-unavailable-note">Report generation is not yet available &mdash; shown below for layout reference.</p>
+
+                        <div class="pd-report-card">
+                            <div class="pd-report-card-header">
+                                <h4>Continuity of Care Record (CCR)</h4>
+                                <span class="pd-report-note">(Pop ups need to be enabled to see these reports)</span>
+                            </div>
+                            <label class="pd-report-checkbox-inline">
+                                <input type="checkbox" disabled>
+                                Use Date Range
+                            </label>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download</button>
+                            </div>
                         </div>
-                        <strong>Report</strong>
-                        <p>This section is under development.</p>
+
+                        <div class="pd-report-card">
+                            <div class="pd-report-card-header">
+                                <h4>Continuity of Care Document (CCD)</h4>
+                                <span class="pd-report-note">(Pop ups need to be enabled to see these reports)</span>
+                            </div>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate New Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download</button>
+                            </div>
+                        </div>
+
+                        <div class="pd-report-card">
+                            <div class="pd-report-card-header">
+                                <h4>Patient Report</h4>
+                                <div class="pd-report-header-actions">
+                                    <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>${reportIcon("check")} Check All</button>
+                                    <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>${reportIcon("refresh")} Clear All</button>
+                                </div>
+                            </div>
+                            <div class="pd-report-checklist">
+                                <label><input type="checkbox" disabled> Demographics</label>
+                                <label><input type="checkbox" disabled> Immunizations</label>
+                                <label><input type="checkbox" disabled> Recurrent Appointments</label>
+                                <label><input type="checkbox" disabled> History</label>
+                                <label><input type="checkbox" disabled> Patient Notes</label>
+                                <label><input type="checkbox" disabled> Insurance</label>
+                                <label><input type="checkbox" disabled> Transactions</label>
+                                <label><input type="checkbox" disabled> Billing</label>
+                                <label><input type="checkbox" disabled> Communications</label>
+                            </div>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                            </div>
+                        </div>
+
+                        <div class="pd-report-split">
+                            <div class="pd-report-split-col"><h4>Issues:</h4></div>
+                            <div class="pd-report-split-col"><h4>Encounters &amp; Forms:</h4></div>
+                        </div>
+
+                        <div class="pd-report-card">
+                            <h4>Health Concerns:</h4>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                            </div>
+                        </div>
+
+                        <div class="pd-report-card">
+                            <h4>Procedures:</h4>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead><tr><th>Order Date</th><th>Encounter Date</th><th>Order Descriptions</th></tr></thead>
+                                    <tbody><tr><td colspan="3" class="pd-chart-nav-empty">No procedures recorded.</td></tr></tbody>
+                                </table>
+                            </div>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                            </div>
+                        </div>
+
+                        <div class="pd-report-card">
+                            <h4>Documents:</h4>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6939,4 +7155,15 @@ function dashboardWidget(title, iconPath, emptyText, options = {})
         ${body}
     </div>
     `;
+}
+
+const REPORT_ICON_PATHS = {
+    check: '<polyline points="20 6 9 17 4 12"></polyline>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>',
+    refresh: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path>'
+};
+
+function reportIcon(name)
+{
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${REPORT_ICON_PATHS[name] || ""}</svg>`;
 }
