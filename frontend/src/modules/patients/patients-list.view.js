@@ -4427,8 +4427,6 @@ textarea.pd-sdoh-readonly {
                         <h3>Report</h3>
                     </div>
                     <div class="pd-report-content">
-                        <p class="pd-report-unavailable-note" id="pdReportUnavailableNote">Report generation is not yet available &mdash; shown below for layout reference.</p>
-
                         <div class="pd-report-card">
                             <div class="pd-report-card-header">
                                 <h4>Continuity of Care Record (CCR)</h4>
@@ -4466,24 +4464,24 @@ textarea.pd-sdoh-readonly {
                             <div class="pd-report-card-header">
                                 <h4>Patient Report</h4>
                                 <div class="pd-report-header-actions">
-                                    <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>${reportIcon("check")} Check All</button>
-                                    <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>${reportIcon("refresh")} Clear All</button>
+                                    <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdReportCheckAllBtn">${reportIcon("check")} Check All</button>
+                                    <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdReportClearAllBtn">${reportIcon("refresh")} Clear All</button>
                                 </div>
                             </div>
-                            <div class="pd-report-checklist">
-                                <label><input type="checkbox" disabled> Demographics</label>
-                                <label><input type="checkbox" disabled> Immunizations</label>
-                                <label><input type="checkbox" disabled> Recurrent Appointments</label>
-                                <label><input type="checkbox" disabled> History</label>
-                                <label><input type="checkbox" disabled> Patient Notes</label>
-                                <label><input type="checkbox" disabled> Insurance</label>
-                                <label><input type="checkbox" disabled> Transactions</label>
-                                <label><input type="checkbox" disabled> Billing</label>
-                                <label><input type="checkbox" disabled> Communications</label>
+                            <div class="pd-report-checklist" id="pdReportChecklist">
+                                <label><input type="checkbox" data-report-section="demographics" checked> Demographics</label>
+                                <label><input type="checkbox" data-report-section="immunizations" checked> Immunizations</label>
+                                <label><input type="checkbox" data-report-section="recurrent_appointments" checked> Recurrent Appointments</label>
+                                <label><input type="checkbox" data-report-section="history" checked> History</label>
+                                <label><input type="checkbox" data-report-section="patient_notes" checked> Patient Notes</label>
+                                <label><input type="checkbox" data-report-section="insurance" checked> Insurance</label>
+                                <label><input type="checkbox" data-report-section="transactions" checked> Transactions</label>
+                                <label><input type="checkbox" data-report-section="billing" checked> Billing</label>
+                                <label><input type="checkbox" data-report-section="communications" checked> Communications</label>
                             </div>
                             <div class="pd-report-actions">
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                                <button type="button" class="pd-report-btn" id="pdReportGenerateBtn">${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" id="pdReportDownloadBtn">${reportIcon("download")} Download PDF</button>
                             </div>
                         </div>
 
@@ -4493,10 +4491,10 @@ textarea.pd-sdoh-readonly {
                         </div>
 
                         <div class="pd-report-card">
-                            <h4>Health Concerns:</h4>
+                            <h4>Issues:</h4>
                             <div class="pd-report-actions">
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                                <button type="button" class="pd-report-btn" id="pdIssuesGenerateBtn">${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" id="pdIssuesDownloadBtn">${reportIcon("download")} Download PDF</button>
                             </div>
                         </div>
 
@@ -4509,16 +4507,16 @@ textarea.pd-sdoh-readonly {
                                 </table>
                             </div>
                             <div class="pd-report-actions">
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                                <button type="button" class="pd-report-btn" id="pdProceduresGenerateBtn">${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" id="pdProceduresDownloadBtn">${reportIcon("download")} Download PDF</button>
                             </div>
                         </div>
 
                         <div class="pd-report-card">
                             <h4>Documents:</h4>
                             <div class="pd-report-actions">
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download PDF</button>
+                                <button type="button" class="pd-report-btn" id="pdDocumentsGenerateBtn">${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" id="pdDocumentsDownloadBtn">${reportIcon("download")} Download PDF</button>
                             </div>
                         </div>
                     </div>

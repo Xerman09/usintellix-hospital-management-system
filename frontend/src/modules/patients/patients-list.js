@@ -398,13 +398,19 @@ function setupReports()
             await runCcdReport(newCcdDownloadBtn, lastCcdReportType, "Preparing PDF...", true);
         });
     }
+
+    setupPatientReportCard();
+    setupSimplePatientReportCard("pdIssues", "Generating Issues report...", generateIssuesReportHtml);
+    setupSimplePatientReportCard("pdProcedures", "Generating Procedures report...", generateProceduresReportHtml);
+    setupSimplePatientReportCard("pdDocuments", "Generating Documents report...", generateDocumentsReportHtml);
 }
 
 // Opens a popup synchronously (to dodge popup blockers), shows a loading
-// placeholder while patient data is fetched, then renders one of the two
-// CCD layouts into it. `autoPrint` is used by the Download button to
-// trigger the browser's print/save-as-PDF dialog once the report is ready.
-async function runCcdReport(triggerBtn, reportType, loadingMessage, autoPrint = false)
+// placeholder while patient data is fetched, then renders the report built
+// by `buildHtml(patient, dashboardSummaryData)` into it. `autoPrint` is used
+// by Download buttons to trigger the browser's print/save-as-PDF dialog once
+// the report is ready.
+async function runPatientReportWindow(triggerBtn, buildHtml, loadingMessage, autoPrint = false)
 {
     if (!currentDashboardPatient) return;
 
@@ -447,11 +453,7 @@ async function runCcdReport(triggerBtn, reportType, loadingMessage, autoPrint = 
         return;
     }
 
-    lastCcdReportType = reportType;
-
-    const html = reportType === "ccd_detailed"
-        ? generateCcdDetailedReportHtml(currentDashboardPatient, result.data || {})
-        : generateCcdReportHtml(currentDashboardPatient, result.data || {});
+    const html = buildHtml(currentDashboardPatient, result.data || {});
 
     reportWindow.document.open();
     reportWindow.document.write(html);
@@ -459,6 +461,100 @@ async function runCcdReport(triggerBtn, reportType, loadingMessage, autoPrint = 
         reportWindow.document.write('<script>window.onload = function() { window.print(); }</script>');
     }
     reportWindow.document.close();
+}
+
+// Same "loading popup -> fetch -> render" flow as the two CCD buttons, plus
+// the extra bookkeeping (lastCcdReportType) needed because CCD has two
+// interchangeable layouts and Download must reuse whichever was last shown.
+async function runCcdReport(triggerBtn, reportType, loadingMessage, autoPrint = false)
+{
+    lastCcdReportType = reportType;
+
+    await runPatientReportWindow(
+        triggerBtn,
+        (patient, data) => reportType === "ccd_detailed"
+            ? generateCcdDetailedReportHtml(patient, data)
+            : generateCcdReportHtml(patient, data),
+        loadingMessage,
+        autoPrint
+    );
+}
+
+// Wires the main checklist-driven "Patient Report" card: Check All / Clear
+// All toggle every section checkbox, and Generate/Download render only the
+// sections the user left checked.
+function setupPatientReportCard()
+{
+    const checkAllBtn = document.getElementById("pdReportCheckAllBtn");
+    const clearAllBtn = document.getElementById("pdReportClearAllBtn");
+    const checklist = document.getElementById("pdReportChecklist");
+
+    if (checkAllBtn) {
+        const newCheckAllBtn = checkAllBtn.cloneNode(true);
+        checkAllBtn.parentNode.replaceChild(newCheckAllBtn, checkAllBtn);
+        newCheckAllBtn.addEventListener("click", () => {
+            checklist.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
+        });
+    }
+
+    if (clearAllBtn) {
+        const newClearAllBtn = clearAllBtn.cloneNode(true);
+        clearAllBtn.parentNode.replaceChild(newClearAllBtn, clearAllBtn);
+        newClearAllBtn.addEventListener("click", () => {
+            checklist.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+        });
+    }
+
+    const buildHtml = (patient, data) => {
+        const sections = Array.from(checklist.querySelectorAll('input[type="checkbox"]'))
+            .filter((cb) => cb.checked)
+            .map((cb) => cb.getAttribute('data-report-section'));
+
+        return generatePatientReportHtml(patient, data, sections);
+    };
+
+    const generateBtn = document.getElementById("pdReportGenerateBtn");
+    if (generateBtn) {
+        const newGenerateBtn = generateBtn.cloneNode(true);
+        generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
+        newGenerateBtn.addEventListener("click", async () => {
+            await runPatientReportWindow(newGenerateBtn, buildHtml, "Generating Patient Report...");
+        });
+    }
+
+    const downloadBtn = document.getElementById("pdReportDownloadBtn");
+    if (downloadBtn) {
+        const newDownloadBtn = downloadBtn.cloneNode(true);
+        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+        newDownloadBtn.addEventListener("click", async () => {
+            await runPatientReportWindow(newDownloadBtn, buildHtml, "Preparing PDF...", true);
+        });
+    }
+}
+
+// Wires a report card that has a plain Generate/Download button pair with
+// no options to gather first (Issues, Procedures, Documents), given the id
+// prefix used on its buttons (e.g. "pdIssues" -> pdIssuesGenerateBtn) and
+// the html-builder function for its report.
+function setupSimplePatientReportCard(idPrefix, loadingMessage, buildHtml)
+{
+    const generateBtn = document.getElementById(`${idPrefix}GenerateBtn`);
+    if (generateBtn) {
+        const newGenerateBtn = generateBtn.cloneNode(true);
+        generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
+        newGenerateBtn.addEventListener("click", async () => {
+            await runPatientReportWindow(newGenerateBtn, buildHtml, loadingMessage);
+        });
+    }
+
+    const downloadBtn = document.getElementById(`${idPrefix}DownloadBtn`);
+    if (downloadBtn) {
+        const newDownloadBtn = downloadBtn.cloneNode(true);
+        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+        newDownloadBtn.addEventListener("click", async () => {
+            await runPatientReportWindow(newDownloadBtn, buildHtml, "Preparing PDF...", true);
+        });
+    }
 }
 
 function generateCcrReportHtml(patient, data, startDate, endDate) {
@@ -1110,6 +1206,198 @@ function generateCcdDetailedReportHtml(patient, data) {
             </p>
         </div>
     </div>
+</body>
+</html>
+    `;
+}
+
+// Shared styling for the plain, non-CCD report cards below (Patient Report,
+// Issues, Procedures, Documents) -- an OpenEMR-style printable page: black
+// section headings over a light background, reusing the same Download PDF
+// button/print-header-suppression trick as the CCD reports.
+const PATIENT_REPORT_STYLE = `
+        body { font-family: Arial, sans-serif; font-size: 13px; margin: 20px; color: #1c2534; }
+        h1 { font-size: 18px; color: #2563eb; margin-bottom: 4px; }
+        h2 { font-size: 14px; margin-top: 22px; margin-bottom: 6px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+        table.data-table { width: 100%; border-collapse: collapse; margin: 6px 0 14px; }
+        table.data-table th { background-color: #eef1f6; text-align: left; padding: 5px; font-size: 12px; border: 1px solid #dde2ea; }
+        table.data-table td { padding: 5px; border: 1px solid #dde2ea; font-size: 12px; }
+        .pr-empty { color: #888; font-style: italic; }
+        .pr-issue-item { margin-bottom: 6px; }
+        ${CCD_PRINT_BUTTON_STYLE}`;
+
+function renderPatientDataTable(patient) {
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const patientDob = patient.birthdate ? new Date(patient.birthdate).toLocaleDateString() : "";
+
+    return `
+        <table class="data-table">
+            <tr><th>Name</th><td>${escapeHtml(fullName)}</td><th>External ID</th><td>${escapeHtml(patient.patient_no)}</td></tr>
+            <tr><th>Date of Birth</th><td>${escapeHtml(patientDob)}</td><th>Sex</th><td>${escapeHtml(patient.sex || '')}</td></tr>
+            <tr><th>Marital Status</th><td>${escapeHtml(patient.civil_status || '')}</td><th>Blood Type</th><td>${escapeHtml(patient.blood_type || '')}</td></tr>
+        </table>`;
+}
+
+function renderIssuesBlock(data) {
+    const healthConcerns = data.health_concerns || [];
+    const problems = data.problems || [];
+    const medications = data.medications || [];
+
+    if (!healthConcerns.length && !problems.length && !medications.length) {
+        return `<p class="pr-empty">No issues recorded.</p>`;
+    }
+
+    return `
+        ${healthConcerns.length ? `
+            <h3>Health Concerns</h3>
+            ${healthConcerns.map(h => `
+                <div class="pr-issue-item"><strong>${escapeHtml(h.title || '')}:</strong> ${escapeHtml((h.begin_date || '').substring(0, 10))} &mdash; ${escapeHtml(h.verification_status || 'active')}${h.coding ? `<br/>Code: ${escapeHtml(h.coding)}` : ''}</div>
+            `).join('')}
+        ` : ''}
+        ${problems.length ? `
+            <h3>Medical Problems</h3>
+            ${problems.map(p => `
+                <div class="pr-issue-item"><strong>${escapeHtml(p.title || '')}:</strong> ${escapeHtml((p.begin_date || '').substring(0, 10))} &mdash; ${escapeHtml(p.verification_status || 'Active')}</div>
+            `).join('')}
+        ` : ''}
+        ${medications.length ? `
+            <h3>Medications</h3>
+            ${medications.map(m => `
+                <div class="pr-issue-item"><strong>${escapeHtml(m.title || '')}:</strong> ${escapeHtml((m.begin_date || '').substring(0, 10))} &mdash; ${escapeHtml(m.verification_status || 'Active')}</div>
+            `).join('')}
+        ` : ''}`;
+}
+
+// The main, checklist-driven "Patient Report": only the sections named in
+// `sections` (the checked boxes' data-report-section values) are rendered.
+// Issues (health concerns/problems/medications) isn't one of the checkbox
+// options -- it's always appended, mirroring OpenEMR's own patient_report.php
+// where the same Issues widget appears below the customizable report.
+function generatePatientReportHtml(patient, data, sections) {
+    const has = (key) => sections.includes(key);
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const immunizations = data.immunizations || [];
+    const messages = data.messages || [];
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient Report</title>
+    <style>${PATIENT_REPORT_STYLE}</style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Patient Report</h1>
+    <p>${escapeHtml(fullName)}</p>
+
+    ${has('demographics') ? `<h2>Patient Data</h2>${renderPatientDataTable(patient)}` : ''}
+
+    ${has('history') ? `<h2>History Data</h2><p class="pr-empty">Not Available</p>` : ''}
+
+    ${has('insurance') ? `<h2>Insurance Data</h2><p class="pr-empty">Not Available</p>` : ''}
+
+    ${has('billing') ? `<h2>Billing Information</h2><p class="pr-empty">Not Available</p>` : ''}
+
+    ${has('immunizations') ? `
+        <h2>Patient Immunization</h2>
+        ${immunizations.length ? `
+            <table class="data-table">
+                <thead><tr><th>Vaccine</th><th>Date</th><th>Route</th></tr></thead>
+                <tbody>
+                    ${immunizations.map(i => `
+                        <tr><td>${escapeHtml(i.vaccine_name || '')}</td><td>${escapeHtml((i.administered_at || '').substring(0, 10))}</td><td>${escapeHtml(i.route || '')}</td></tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : `<p class="pr-empty">Not Available</p>`}
+    ` : ''}
+
+    ${has('patient_notes') ? `<h2>Patient Notes</h2><p class="pr-empty">Not Available</p>` : ''}
+
+    ${has('transactions') ? `<h2>Patient Transactions</h2><p class="pr-empty">Not Available</p>` : ''}
+
+    ${has('communications') ? `
+        <h2>Patient Communication Sent</h2>
+        ${messages.length ? `
+            <table class="data-table">
+                <thead><tr><th>Date</th><th>Subject</th></tr></thead>
+                <tbody>
+                    ${messages.map(m => `
+                        <tr><td>${escapeHtml((m.created_at || m.sent_at || '').substring(0, 10))}</td><td>${escapeHtml(m.subject || m.body || '')}</td></tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        ` : `<p class="pr-empty">Not Available</p>`}
+    ` : ''}
+
+    ${has('recurrent_appointments') ? `<h2>Recurrent Appointments</h2><p class="pr-empty">None</p>` : ''}
+
+    <h2>Issues</h2>
+    ${renderIssuesBlock(data)}
+</body>
+</html>
+    `;
+}
+
+function generateIssuesReportHtml(patient, data) {
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Issues Report</title>
+    <style>${PATIENT_REPORT_STYLE}</style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Issues Report</h1>
+    <p>${escapeHtml(fullName)}</p>
+    ${renderIssuesBlock(data)}
+</body>
+</html>
+    `;
+}
+
+function generateProceduresReportHtml(patient, data) {
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Procedures Report</title>
+    <style>${PATIENT_REPORT_STYLE}</style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Procedures Report</h1>
+    <p>${escapeHtml(fullName)}</p>
+    <table class="data-table">
+        <thead><tr><th>Order Date</th><th>Encounter Date</th><th>Order Descriptions</th></tr></thead>
+        <tbody><tr><td colspan="3" class="pr-empty">No procedures recorded.</td></tr></tbody>
+    </table>
+</body>
+</html>
+    `;
+}
+
+function generateDocumentsReportHtml(patient, data) {
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Documents Report</title>
+    <style>${PATIENT_REPORT_STYLE}</style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Documents Report</h1>
+    <p>${escapeHtml(fullName)}</p>
+    <p class="pr-empty">No documents recorded.</p>
 </body>
 </html>
     `;
