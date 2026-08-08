@@ -109,6 +109,11 @@ let currentEditPatient = null;
 let activeDemoTab = "who";
 let dashboardRelatedPersons = [];
 
+// Which CCD report layout ("ccd" or "ccd_detailed") was generated most
+// recently, so the Download button can re-render and print the same one
+// the user was just looking at instead of always defaulting to one format.
+let lastCcdReportType = "ccd";
+
 const CODE_SOURCE_LABELS = {
     ICD10CM: "ICD-10-CM",
     ICD9CM: "ICD-9-CM",
@@ -366,6 +371,94 @@ function setupReports()
             reportWindow.document.close();
         });
     }
+
+    const ccdGenerateBtn = document.getElementById("pdCcdGenerateBtn");
+    if (ccdGenerateBtn) {
+        const newCcdGenerateBtn = ccdGenerateBtn.cloneNode(true);
+        ccdGenerateBtn.parentNode.replaceChild(newCcdGenerateBtn, ccdGenerateBtn);
+        newCcdGenerateBtn.addEventListener("click", async () => {
+            await runCcdReport(newCcdGenerateBtn, "ccd", "Generating Continuity of Care Document...");
+        });
+    }
+
+    const ccdGenerateNewBtn = document.getElementById("pdCcdGenerateNewBtn");
+    if (ccdGenerateNewBtn) {
+        const newCcdGenerateNewBtn = ccdGenerateNewBtn.cloneNode(true);
+        ccdGenerateNewBtn.parentNode.replaceChild(newCcdGenerateNewBtn, ccdGenerateNewBtn);
+        newCcdGenerateNewBtn.addEventListener("click", async () => {
+            await runCcdReport(newCcdGenerateNewBtn, "ccd_detailed", "Generating Continuity of Care Document...");
+        });
+    }
+
+    const ccdDownloadBtn = document.getElementById("pdCcdDownloadBtn");
+    if (ccdDownloadBtn) {
+        const newCcdDownloadBtn = ccdDownloadBtn.cloneNode(true);
+        ccdDownloadBtn.parentNode.replaceChild(newCcdDownloadBtn, ccdDownloadBtn);
+        newCcdDownloadBtn.addEventListener("click", async () => {
+            await runCcdReport(newCcdDownloadBtn, lastCcdReportType, "Preparing PDF...", true);
+        });
+    }
+}
+
+// Opens a popup synchronously (to dodge popup blockers), shows a loading
+// placeholder while patient data is fetched, then renders one of the two
+// CCD layouts into it. `autoPrint` is used by the Download button to
+// trigger the browser's print/save-as-PDF dialog once the report is ready.
+async function runCcdReport(triggerBtn, reportType, loadingMessage, autoPrint = false)
+{
+    if (!currentDashboardPatient) return;
+
+    const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+    if (!reportWindow) {
+        alert("Please enable pop-ups to view the report.");
+        return;
+    }
+    reportWindow.document.open();
+    reportWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Loading Report...</title>
+        <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+        </head>
+        <body><h2>${escapeHtml(loadingMessage)}</h2><p>Please wait while we gather the patient's data.</p></body>
+        </html>
+    `);
+
+    const originalLabel = triggerBtn.innerHTML;
+    triggerBtn.disabled = true;
+    triggerBtn.textContent = autoPrint ? "Preparing..." : "Generating...";
+
+    const result = await fetchPatientDashboardSummary(currentDashboardPatient.id);
+    triggerBtn.disabled = false;
+    triggerBtn.innerHTML = originalLabel;
+
+    if (!result.success) {
+        reportWindow.document.open();
+        reportWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Error</title>
+            <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #d32f2f; }</style>
+            </head>
+            <body><h2>Failed to load patient data for report.</h2></body>
+            </html>
+        `);
+        reportWindow.document.close();
+        return;
+    }
+
+    lastCcdReportType = reportType;
+
+    const html = reportType === "ccd_detailed"
+        ? generateCcdDetailedReportHtml(currentDashboardPatient, result.data || {})
+        : generateCcdReportHtml(currentDashboardPatient, result.data || {});
+
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    if (autoPrint) {
+        reportWindow.document.write('<script>window.onload = function() { window.print(); }</script>');
+    }
+    reportWindow.document.close();
 }
 
 function generateCcrReportHtml(patient, data, startDate, endDate) {
@@ -572,6 +665,450 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
     <div class="footer">
         The stylesheet used to generate this view of the CCR was provided by OEMR.<br/>
         Powered by the ASTM E2369-05 Specification for the Continuity of Care Record (CCR)
+    </div>
+</body>
+</html>
+    `;
+}
+
+// Shared by both CCD layouts below: an on-page "Download PDF" button (backed
+// by window.print()) that hides itself when printing, plus the @page rule
+// that stops the browser from drawing its own date/title/page-number header
+// and footer in the margin area (see the same trick in the CCR report above).
+const CCD_PRINT_BUTTON_STYLE = `
+        .pd-ccd-download-btn {
+            position: fixed; top: 16px; right: 16px; z-index: 100;
+            background-color: #0055a4; color: #fff; border: none; border-radius: 4px;
+            padding: 8px 14px; font-family: Arial, sans-serif; font-size: 12px; cursor: pointer;
+        }
+        .pd-ccd-download-btn:hover { background-color: #003f7d; }
+        @media print {
+            .pd-ccd-download-btn { display: none; }
+            @page { size: auto; margin: 0; }
+            body { margin: 20px; }
+        }`;
+const CCD_PRINT_BUTTON_HTML = '<button type="button" class="pd-ccd-download-btn" onclick="window.print()">Download PDF</button>';
+
+function generateCcdReportHtml(patient, data) {
+    const allergies = data.allergies || [];
+    const problems = data.problems || [];
+    const medications = data.medications || [];
+    const immunizations = data.immunizations || [];
+
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const patientDob = patient.birthdate ? new Date(patient.birthdate).toLocaleString() : "";
+    const address = [patient.address_line, patient.city, patient.province, patient.zip_code].filter(Boolean).join(", ");
+    const documentId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Continuity of Care Document</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
+        h1 { font-size: 16px; text-align: center; margin-bottom: 20px; color: #000; }
+        h2 { font-size: 14px; margin-top: 20px; margin-bottom: 5px; color: #000; }
+        table.ccd-info { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+        table.ccd-info td { padding: 4px 8px; vertical-align: top; background-color: #e6e6fa; border: 1px solid #d8d8f0; }
+        table.ccd-info td.ccd-label { font-weight: bold; width: 140px; }
+        table.ccd-doc td { background-color: #4a90d9; color: #fff; }
+        table.ccd-author td { background-color: #e6e6fa; }
+        .ccd-toc { background-color: #f5f5f5; padding: 10px 20px; margin-bottom: 20px; }
+        .ccd-toc li { margin-bottom: 2px; }
+        table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        table.data-table th { background-color: #fce98f; text-align: left; padding: 5px; font-size: 11px; border: 1px solid #e0c94f; }
+        table.data-table td { padding: 5px; border: 1px solid #e0c94f; font-size: 11px; background-color: #fffceb; }
+        ${CCD_PRINT_BUTTON_STYLE}
+    </style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Continuity of Care Document from Motol University Hospital - II</h1>
+
+    <table class="ccd-info">
+        <tr><td class="ccd-label">Patient</td><td>${escapeHtml(fullName)}</td></tr>
+        <tr>
+            <td class="ccd-label">Date of birth</td><td>${escapeHtml(patientDob)}</td>
+            <td class="ccd-label">Sex</td><td>${escapeHtml(patient.sex || '')}</td>
+        </tr>
+        <tr>
+            <td class="ccd-label">Contact info</td>
+            <td>Home: ${escapeHtml(patient.home_phone || '')}<br/>${escapeHtml(address)}</td>
+            <td class="ccd-label">Patient IDs</td><td>${escapeHtml(patient.patient_no)} Patient ID</td>
+        </tr>
+    </table>
+
+    <table class="ccd-info ccd-doc">
+        <tr><td class="ccd-label">Document Id</td><td>${escapeHtml(documentId)}</td></tr>
+        <tr><td class="ccd-label">Document Created</td><td>${new Date().toUTCString()}</td></tr>
+    </table>
+
+    <table class="ccd-info ccd-author">
+        <tr><td class="ccd-label">Author</td><td></td></tr>
+        <tr>
+            <td class="ccd-label">Contact info</td>
+            <td>Work Place: Motol University Hospital - II<br/>V &Uacute;valu 84, 150 06 Praha 5, PRG, CZ 15006<br/>Tel: +1-224431111</td>
+        </tr>
+    </table>
+
+    <div class="ccd-toc">
+        <strong>Table of Contents</strong>
+        <ul>
+            <li><a href="#ccd-purpose">Purpose</a></li>
+            <li><a href="#ccd-alerts">Alerts</a></li>
+            <li><a href="#ccd-problems">Problems</a></li>
+            <li><a href="#ccd-medications">Medications</a></li>
+            <li><a href="#ccd-immunizations">Immunizations</a></li>
+            <li><a href="#ccd-results">Results</a></li>
+            <li><a href="#ccd-people">Additional Information About People &amp; Organizations</a></li>
+        </ul>
+    </div>
+
+    <h2 id="ccd-purpose">Purpose</h2>
+    <p>Summary of patient information</p>
+
+    <h2 id="ccd-alerts">Alerts</h2>
+    <table class="data-table">
+        <thead><tr><th>Type</th><th>Date</th><th>Code</th><th>Description</th><th>Reaction</th><th>Source</th></tr></thead>
+        <tbody>
+            ${allergies.length ? allergies.map(a => `
+                <tr>
+                    <td>Allergy</td>
+                    <td>${escapeHtml((a.begin_date || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(a.coding || '')}</td>
+                    <td>${escapeHtml(a.title || '')}</td>
+                    <td>${escapeHtml(a.reaction || '')}</td>
+                    <td></td>
+                </tr>
+            `).join('') : `<tr><td colspan="6">No alerts recorded.</td></tr>`}
+        </tbody>
+    </table>
+
+    <h2 id="ccd-problems">Problems</h2>
+    <table class="data-table">
+        <thead><tr><th>Type</th><th>Date</th><th>Code</th><th>Description</th><th>Status</th><th>Source</th></tr></thead>
+        <tbody>
+            ${problems.length ? problems.map(p => `
+                <tr>
+                    <td>Problem</td>
+                    <td>${escapeHtml((p.begin_date || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(p.coding || '')}</td>
+                    <td>${escapeHtml(p.title || '')}</td>
+                    <td>${escapeHtml(p.verification_status || 'Active')}</td>
+                    <td></td>
+                </tr>
+            `).join('') : `<tr><td colspan="6">No problems recorded.</td></tr>`}
+        </tbody>
+    </table>
+
+    <h2 id="ccd-medications">Medications</h2>
+    <table class="data-table">
+        <thead><tr><th>Medication</th><th>Date</th><th>Status</th><th>Form</th><th>Strength</th><th>Quantity</th><th>SIG</th><th>Indications</th><th>Instruction</th><th>Refills</th><th>Source</th></tr></thead>
+        <tbody>
+            ${medications.length ? medications.map(m => `
+                <tr>
+                    <td>${escapeHtml(m.title || '')}</td>
+                    <td>${escapeHtml((m.begin_date || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(m.verification_status || 'Active')}</td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+            `).join('') : `<tr><td colspan="11">No medications recorded.</td></tr>`}
+        </tbody>
+    </table>
+
+    <h2 id="ccd-immunizations">Immunizations</h2>
+    <table class="data-table">
+        <thead><tr><th>Code</th><th>Vaccine</th><th>Date</th><th>Route</th><th>Site</th><th>Source</th></tr></thead>
+        <tbody>
+            ${immunizations.length ? immunizations.map(i => `
+                <tr>
+                    <td>${escapeHtml(i.vaccine_name || '')}</td>
+                    <td>${escapeHtml(i.vaccine_name || '')}</td>
+                    <td>${escapeHtml((i.administered_at || '').substring(0, 10))}</td>
+                    <td>${escapeHtml(i.route || '')}</td>
+                    <td>${escapeHtml(i.administration_site || '')}</td>
+                    <td></td>
+                </tr>
+            `).join('') : `<tr><td colspan="6">No immunizations recorded.</td></tr>`}
+        </tbody>
+    </table>
+
+    <h2 id="ccd-results">Results</h2>
+    <table class="data-table">
+        <thead><tr><th>Test</th><th>Date</th><th>Result</th><th>Source</th></tr></thead>
+        <tbody><tr><td colspan="4">Not Available</td></tr></tbody>
+    </table>
+
+    <h2 id="ccd-people">Additional Information About People &amp; Organizations</h2>
+    <table class="data-table">
+        <thead><tr><th>Name</th><th>Specialty</th><th>Relation</th><th>Identification Numbers</th><th>Phone</th><th>Address/ E-mail</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>${escapeHtml(fullName)}</td>
+                <td></td>
+                <td></td>
+                <td>Patient ID ${escapeHtml(patient.patient_no)}</td>
+                <td>H: ${escapeHtml(patient.home_phone || '')}</td>
+                <td>${escapeHtml(address)}</td>
+            </tr>
+            <tr>
+                <td>Motol University Hospital - II</td>
+                <td>Facility</td>
+                <td></td>
+                <td></td>
+                <td>224431111</td>
+                <td>V &Uacute;valu 84, 150 06 Praha 5<br/>PRG, CZ 15006</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
+    `;
+}
+
+// The "Generate New Report" layout: a sidebar-navigated summarization of
+// the patient's episode note. Sections without a backing data source in
+// this system yet (Payers, Vital Signs, Goals, Treatment Plan, Functional/
+// Mental Status, Medical Equipment, Advance Directives, Reason for Referral,
+// Relevant Dx Tests/Lab Data, History of Procedures, Social History,
+// Assessments) render "Not Available", matching how OpenEMR itself renders
+// an empty C-CDA section rather than hiding it from the navigation.
+function generateCcdDetailedReportHtml(patient, data) {
+    const allergies = data.allergies || [];
+    const problems = data.problems || [];
+    const medications = data.medications || [];
+    const immunizations = data.immunizations || [];
+    const encounters = data.encounters || [];
+    const healthConcerns = data.health_concerns || [];
+    const careTeam = data.care_team || null;
+
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const patientDob = patient.birthdate ? new Date(patient.birthdate).toLocaleDateString() : "";
+    const address = [patient.address_line, patient.city, patient.province, patient.zip_code].filter(Boolean).join(", ");
+    const documentId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const notAvailable = () => `<p class="ccd-not-available">Not Available</p>`;
+
+    const navItems = [
+        ['ccdd-demographics', 'Demographics'],
+        ['ccdd-authoring', 'Authoring Details'],
+        ['ccdd-careteams', 'Patient Care Teams'],
+        ['ccdd-allergies', 'Allergies, Adverse Reactions, Alerts'],
+        ['ccdd-medication-use', 'History of Medication Use'],
+        ['ccdd-problems', 'Problem List'],
+        ['ccdd-procedures', 'History of Procedures'],
+        ['ccdd-labs', 'Relevant Dx Tests/Lab Data'],
+        ['ccdd-directives', 'Advance Directives'],
+        ['ccdd-functional', 'Functional Status'],
+        ['ccdd-encounters', 'Encounters'],
+        ['ccdd-immunizations', 'Immunizations'],
+        ['ccdd-payers', 'Payers'],
+        ['ccdd-assessments', 'Assessments'],
+        ['ccdd-treatment-plan', 'Treatment Plan'],
+        ['ccdd-goals', 'Goals'],
+        ['ccdd-health-concerns', 'Health Concerns Document'],
+        ['ccdd-referral', 'Reason for Referral'],
+        ['ccdd-mental', 'Mental Status'],
+        ['ccdd-social', 'Social History'],
+        ['ccdd-vitals', 'Vital Signs'],
+        ['ccdd-equipment', 'Medical Equipment'],
+        ['ccdd-maintained-by', 'Document Maintained By'],
+        ['ccdd-doc-info', 'Document Information']
+    ];
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Summarization of Episode Note</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; color: #1c2534; }
+        .ccdd-layout { display: flex; }
+        .ccdd-nav { width: 220px; flex-shrink: 0; background-color: #f5f6f8; border-right: 1px solid #e0e0e0; padding: 16px 0; position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; }
+        .ccdd-nav-header { padding: 0 16px 12px; font-weight: bold; color: #b5651d; font-size: 11px; }
+        .ccdd-nav a { display: block; padding: 4px 16px; color: #2563eb; text-decoration: none; font-size: 11px; }
+        .ccdd-nav a:hover { text-decoration: underline; }
+        .ccdd-main { flex: 1; padding: 20px 30px; }
+        h1 { font-size: 16px; margin: 0 0 20px; color: #b5651d; }
+        h2 { font-size: 13px; color: #b5651d; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-top: 24px; }
+        .ccd-not-available { color: #888; font-style: italic; }
+        table.data-table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
+        table.data-table th { background-color: #eef1f6; text-align: left; padding: 5px; font-size: 11px; border: 1px solid #dde2ea; }
+        table.data-table td { padding: 5px; border: 1px solid #dde2ea; font-size: 11px; }
+        ${CCD_PRINT_BUTTON_STYLE}
+        @media print { .ccdd-nav { display: none; } .ccdd-main { padding: 10px; } }
+    </style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <div class="ccdd-layout">
+        <div class="ccdd-nav">
+            <div class="ccdd-nav-header">${escapeHtml(fullName)}<br/>SUMMARIZATION OF EPISODE NOTE</div>
+            <a href="#top">BACK TO TOP</a>
+            ${navItems.map(([id, label]) => `<a href="#${id}">${escapeHtml(label.toUpperCase())}</a>`).join('')}
+        </div>
+        <div class="ccdd-main" id="top">
+            <h1>Summarization of Episode Note</h1>
+
+            <h2 id="ccdd-demographics">Demographics</h2>
+            <p>
+                <strong>Date of Birth:</strong> ${escapeHtml(patientDob)}<br/>
+                <strong>Sex:</strong> ${escapeHtml(patient.sex || '')}<br/>
+                <strong>Patient ID:</strong> ${escapeHtml(patient.patient_no)}<br/>
+                <strong>Contact:</strong> ${escapeHtml(address)} ${escapeHtml(patient.home_phone || '')}
+            </p>
+
+            <h2 id="ccdd-authoring">Authoring Details</h2>
+            <p>
+                <strong>Author:</strong> ${escapeHtml(getUser()?.first_name || '')} ${escapeHtml(getUser()?.last_name || '')}<br/>
+                <strong>Document Created:</strong> ${new Date().toUTCString()}
+            </p>
+
+            <h2 id="ccdd-careteams">Patient Care Teams</h2>
+            ${careTeam && careTeam.members && careTeam.members.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Member Since</th></tr></thead>
+                    <tbody>
+                        ${careTeam.members.map(m => `
+                            <tr>
+                                <td>${escapeHtml(m.user_name || m.related_person_name || '')}</td>
+                                <td>${escapeHtml(m.role_name || '')}</td>
+                                <td>${escapeHtml(m.status || '')}</td>
+                                <td>${escapeHtml(m.member_since || '')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : `<p>A Care Team is not assigned.</p>`}
+
+            <h2 id="ccdd-allergies">Allergies, Adverse Reactions, Alerts</h2>
+            ${allergies.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Allergy</th><th>Reaction</th><th>Date</th></tr></thead>
+                    <tbody>
+                        ${allergies.map(a => `
+                            <tr><td>${escapeHtml(a.title || '')}</td><td>${escapeHtml(a.reaction || '')}</td><td>${escapeHtml((a.begin_date || '').substring(0, 10))}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : `<p>No known Allergies and Intolerances</p>`}
+
+            <h2 id="ccdd-medication-use">History of Medication Use</h2>
+            ${medications.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Medication</th><th>Date</th><th>Status</th></tr></thead>
+                    <tbody>
+                        ${medications.map(m => `
+                            <tr><td>${escapeHtml(m.title || '')}</td><td>${escapeHtml((m.begin_date || '').substring(0, 10))}</td><td>${escapeHtml(m.verification_status || 'Active')}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : notAvailable()}
+
+            <h2 id="ccdd-problems">Problem List</h2>
+            ${problems.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Concern</th><th>Last Observation</th><th>Reported</th></tr></thead>
+                    <tbody>
+                        ${problems.map(p => `
+                            <tr><td>${escapeHtml(p.title || '')}</td><td>${escapeHtml(p.verification_status || 'Unassigned')}</td><td>${escapeHtml((p.begin_date || '').substring(0, 10))}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : notAvailable()}
+
+            <h2 id="ccdd-procedures">History of Procedures</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-labs">Relevant Dx Tests/Lab Data</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-directives">Advance Directives</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-functional">Functional Status</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-encounters">Encounters</h2>
+            ${encounters.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Provider</th></tr></thead>
+                    <tbody>
+                        ${encounters.map(e => `
+                            <tr><td>${escapeHtml((e.encounter_date || e.date || '').substring(0, 10))}</td><td>${escapeHtml(e.encounter_type || e.type || '')}</td><td>${escapeHtml(e.provider_name || '')}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : notAvailable()}
+
+            <h2 id="ccdd-immunizations">Immunizations</h2>
+            ${immunizations.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Vaccine</th><th>Date</th><th>Route</th><th>Site</th></tr></thead>
+                    <tbody>
+                        ${immunizations.map(i => `
+                            <tr><td>${escapeHtml(i.vaccine_name || '')}</td><td>${escapeHtml((i.administered_at || '').substring(0, 10))}</td><td>${escapeHtml(i.route || '')}</td><td>${escapeHtml(i.administration_site || '')}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : notAvailable()}
+
+            <h2 id="ccdd-payers">Payers</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-assessments">Assessments</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-treatment-plan">Treatment Plan</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-goals">Goals</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-health-concerns">Health Concerns Document</h2>
+            ${healthConcerns.length ? `
+                <table class="data-table">
+                    <thead><tr><th>Assessment</th><th>Concern (Narrative)</th><th>Concern (Description)</th><th>Code</th><th>Status</th><th>Onset (Low)</th></tr></thead>
+                    <tbody>
+                        ${healthConcerns.map(h => `
+                            <tr>
+                                <td>${escapeHtml(h.classification_type || 'SDOH')}</td>
+                                <td>${escapeHtml(h.title || '')}</td>
+                                <td>${escapeHtml(h.title || '')}</td>
+                                <td>${escapeHtml(h.coding || '')}</td>
+                                <td>${escapeHtml(h.verification_status || 'active')}</td>
+                                <td>${escapeHtml((h.begin_date || '').substring(0, 10))}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            ` : notAvailable()}
+
+            <h2 id="ccdd-referral">Reason for Referral</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-mental">Mental Status</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-social">Social History</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-vitals">Vital Signs</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-equipment">Medical Equipment</h2>
+            ${notAvailable()}
+
+            <h2 id="ccdd-maintained-by">Document Maintained By</h2>
+            <p>Motol University Hospital - II<br/>Tel: +1-224431111</p>
+
+            <h2 id="ccdd-doc-info">Document Information</h2>
+            <p>
+                <strong>Document Identifier:</strong> ${escapeHtml(documentId)}<br/>
+                <strong>Document Created:</strong> ${new Date().toUTCString()}
+            </p>
+        </div>
     </div>
 </body>
 </html>

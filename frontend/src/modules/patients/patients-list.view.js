@@ -4456,9 +4456,9 @@ textarea.pd-sdoh-readonly {
                                 <h4>Continuity of Care Document (CCD)</h4>
                             </div>
                             <div class="pd-report-actions">
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate New Report</button>
-                                <button type="button" class="pd-report-btn" disabled>${reportIcon("download")} Download</button>
+                                <button type="button" class="pd-report-btn" id="pdCcdGenerateBtn">${reportIcon("check")} Generate Report</button>
+                                <button type="button" class="pd-report-btn" id="pdCcdGenerateNewBtn">${reportIcon("check")} Generate New Report</button>
+                                <button type="button" class="pd-report-btn" id="pdCcdDownloadBtn">${reportIcon("download")} Download</button>
                             </div>
                         </div>
 
