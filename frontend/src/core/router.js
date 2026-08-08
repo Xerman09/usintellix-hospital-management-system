@@ -1,5 +1,5 @@
 import { LoginView } from "../modules/auth/login.view.js?v=4";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=15";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=16";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=36";
 import { initLogin } from "../modules/auth/auth.js?v=2";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js";

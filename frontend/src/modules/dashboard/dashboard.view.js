@@ -145,7 +145,10 @@ export function DashboardView()
         </div>
 
         <div class="navbar-right">
-            <input type="text" class="nav-search" placeholder="Search by any demographic...">
+            <div class="nav-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <input type="text" class="nav-search" placeholder="Search by any demographic...">
+            </div>
             <div class="nav-profile nav-dropdown">
                 <div class="avatar" id="avatarLetter">A</div>
                 <div class="dropdown-content dropdown-right profile-dropdown">
