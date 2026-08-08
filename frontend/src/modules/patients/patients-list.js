@@ -256,6 +256,24 @@ function setupReports()
         newGenerateBtn.addEventListener("click", async () => {
             if (!currentDashboardPatient) return;
             
+            // Open window synchronously to avoid popup blockers
+            const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+            if (reportWindow) {
+                reportWindow.document.open();
+                reportWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Loading Report...</title>
+                    <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+                    </head>
+                    <body><h2>Generating Continuity of Care Record...</h2><p>Please wait while we gather the patient's data.</p></body>
+                    </html>
+                `);
+            } else {
+                alert("Please enable pop-ups to view the report.");
+                return;
+            }
+            
             newGenerateBtn.disabled = true;
             newGenerateBtn.textContent = "Generating...";
             
@@ -264,7 +282,17 @@ function setupReports()
             newGenerateBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:5px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate Report';
             
             if (!result.success) {
-                alert("Failed to load patient data for report.");
+                reportWindow.document.open();
+                reportWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Error</title>
+                    <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #d32f2f; }</style>
+                    </head>
+                    <body><h2>Failed to load patient data for report.</h2></body>
+                    </html>
+                `);
+                reportWindow.document.close();
                 return;
             }
             
@@ -274,14 +302,9 @@ function setupReports()
 
             const html = generateCcrReportHtml(currentDashboardPatient, result.data || {}, startDate, endDate);
             
-            const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
-            if (reportWindow) {
-                reportWindow.document.open();
-                reportWindow.document.write(html);
-                reportWindow.document.close();
-            } else {
-                alert("Please enable pop-ups to view the report.");
-            }
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
         });
     }
 }

@@ -4432,7 +4432,6 @@ textarea.pd-sdoh-readonly {
                         <div class="pd-report-card">
                             <div class="pd-report-card-header">
                                 <h4>Continuity of Care Record (CCR)</h4>
-                                <span class="pd-report-note">(Pop ups need to be enabled to see these reports)</span>
                             </div>
                             <label class="pd-report-checkbox-inline">
                                 <input type="checkbox" id="pdCcrUseDateRange">
@@ -4455,7 +4454,6 @@ textarea.pd-sdoh-readonly {
                         <div class="pd-report-card">
                             <div class="pd-report-card-header">
                                 <h4>Continuity of Care Document (CCD)</h4>
-                                <span class="pd-report-note">(Pop ups need to be enabled to see these reports)</span>
                             </div>
                             <div class="pd-report-actions">
                                 <button type="button" class="pd-report-btn" disabled>${reportIcon("check")} Generate Report</button>
