@@ -406,9 +406,21 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
         table.data-table th { background-color: #0055a4; color: white; text-align: left; padding: 5px; font-size: 11px; border: 1px solid #ccc; }
         table.data-table td { padding: 5px; border: 1px solid #ccc; font-size: 11px; }
         .footer { margin-top: 40px; font-size: 10px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }
+        .pd-ccr-download-btn {
+            position: fixed; top: 16px; right: 16px; z-index: 100;
+            background-color: #0055a4; color: #fff; border: none; border-radius: 4px;
+            padding: 8px 14px; font-family: Arial, sans-serif; font-size: 12px; cursor: pointer;
+        }
+        .pd-ccr-download-btn:hover { background-color: #003f7d; }
+        @media print {
+            .pd-ccr-download-btn { display: none; }
+            @page { size: auto; margin: 0; }
+            body { margin: 20px; }
+        }
     </style>
 </head>
 <body>
+    <button type="button" class="pd-ccr-download-btn" onclick="window.print()">Download PDF</button>
     <h1>Continuity of Care Record</h1>
     <div class="header-box">
         <table>
