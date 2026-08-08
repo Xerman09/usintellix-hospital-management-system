@@ -21,6 +21,8 @@ import { VisitCategoriesView } from "../visit-categories/visit-categories.view.j
 import { initVisitCategories } from "../visit-categories/visit-categories.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
+import { SurgeriesView } from "../surgeries/surgeries.view.js";
+import { initSurgeries } from "../surgeries/surgeries.js";
 import { PrescriptionCategoriesView } from "../prescription-categories/prescription-categories.view.js";
 import { initPrescriptionCategories } from "../prescription-categories/prescription-categories.js";
 import { ClassesView } from "../classes/classes.view.js";
@@ -181,6 +183,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initScreeningTools, 0);
                 return ScreeningToolsView();
+            }, activate);
+        } else if (tabId === 'surgeries') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSurgeries, 0);
+                return SurgeriesView();
             }, activate);
         } else if (tabId === 'classes') {
             tabManager.openTab(tabId, title, () => {

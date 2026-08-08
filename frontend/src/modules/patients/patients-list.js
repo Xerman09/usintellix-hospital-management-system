@@ -307,6 +307,65 @@ function setupReports()
             reportWindow.document.close();
         });
     }
+
+    const downloadBtn = document.getElementById("pdCcrDownloadBtn");
+    if (downloadBtn) {
+        const newDownloadBtn = downloadBtn.cloneNode(true);
+        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+        newDownloadBtn.addEventListener("click", async () => {
+            if (!currentDashboardPatient) return;
+            
+            const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+            if (reportWindow) {
+                reportWindow.document.open();
+                reportWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Loading Report for Download...</title>
+                    <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+                    </head>
+                    <body><h2>Preparing PDF...</h2><p>Please wait while we gather the patient's data.</p></body>
+                    </html>
+                `);
+            } else {
+                alert("Please enable pop-ups to view the report.");
+                return;
+            }
+            
+            newDownloadBtn.disabled = true;
+            newDownloadBtn.textContent = "Preparing...";
+            
+            const result = await fetchPatientDashboardSummary(currentDashboardPatient.id);
+            newDownloadBtn.disabled = false;
+            newDownloadBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+            
+            if (!result.success) {
+                reportWindow.document.open();
+                reportWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Error</title>
+                    <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #d32f2f; }</style>
+                    </head>
+                    <body><h2>Failed to load patient data for report.</h2></body>
+                    </html>
+                `);
+                reportWindow.document.close();
+                return;
+            }
+            
+            const useDateRange = document.getElementById("pdCcrUseDateRange").checked;
+            const startDate = useDateRange ? document.getElementById("pdCcrStartDate").value : null;
+            const endDate = useDateRange ? document.getElementById("pdCcrEndDate").value : null;
+
+            const html = generateCcrReportHtml(currentDashboardPatient, result.data || {}, startDate, endDate);
+            
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.write('<script>window.onload = function() { window.print(); }</script>');
+            reportWindow.document.close();
+        });
+    }
 }
 
 function generateCcrReportHtml(patient, data, startDate, endDate) {

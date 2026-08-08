@@ -21,6 +21,7 @@ require_once __DIR__ . '/../app/Modules/Providers/routes.php';
 require_once __DIR__ . '/../app/Modules/Appointments/routes.php';
 require_once __DIR__ . '/../app/Modules/VisitCategories/routes.php';
 require_once __DIR__ . '/../app/Modules/ScreeningTools/routes.php';
+require_once __DIR__ . '/../app/Modules/Surgeries/routes.php';
 require_once __DIR__ . '/../app/Modules/Classes/routes.php';
 require_once __DIR__ . '/../app/Modules/VisitTypes/routes.php';
 require_once __DIR__ . '/../app/Modules/Facilities/routes.php';
