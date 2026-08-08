@@ -369,13 +369,17 @@ function setupReports()
 }
 
 function generateCcrReportHtml(patient, data, startDate, endDate) {
+    const rangeStart = startDate ? new Date(startDate) : null;
+    const rangeEnd = endDate ? new Date(endDate) : null;
+    if (rangeEnd) rangeEnd.setHours(23, 59, 59, 999);
+
     const filterByDate = (items, dateField) => {
         if (!items) return [];
         return items.filter(item => {
             if (!item[dateField]) return true;
             const itemDate = new Date(item[dateField]);
-            if (startDate && itemDate < new Date(startDate)) return false;
-            if (endDate && itemDate > new Date(endDate)) return false;
+            if (rangeStart && itemDate < rangeStart) return false;
+            if (rangeEnd && itemDate > rangeEnd) return false;
             return true;
         });
     };
