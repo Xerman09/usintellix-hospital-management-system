@@ -27,6 +27,12 @@ import {
     removePatientSurgery
 } from "../patient-surgeries/patient-surgeries.service.js";
 import { fetchSurgeries } from "../surgeries/surgeries.service.js";
+import {
+    fetchPatientDentalIssues,
+    addPatientDentalIssue,
+    updatePatientDentalIssue,
+    removePatientDentalIssue
+} from "../patient-dental-issues/patient-dental-issues.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
@@ -112,6 +118,12 @@ const DEVICE_DETAIL_FIELDS = [
 ];
 
 const SURGERY_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+const DENTAL_ISSUE_DETAIL_FIELDS = [
     "title", "begin_date", "end_date", "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
@@ -2110,6 +2122,7 @@ export async function initPatientChartTab(patient)
     setupMedicationModals();
     setupDeviceModal();
     setupSurgeryModal();
+    setupDentalIssueModal();
     setupImmunizationModals();
     setupPrescriptionModals();
     setupDisclosureModals();
@@ -3662,6 +3675,105 @@ async function openSurgeryFormModal(existingRecord)
     formOverlay.classList.add("open");
 }
 
+// Dental Issues has no pre-existing dashboard widget/detail modal either --
+// like Medical Devices and Surgeries, it only exists as an Issues panel
+// section, so +Add and each row's Edit both open this form modal directly.
+function setupDentalIssueModal()
+{
+    const formOverlay = document.getElementById("dentalIssueFormModalOverlay");
+    const form = document.getElementById("dentalIssueForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeDentalIssueFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelDentalIssueForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    document.getElementById("dentalIssueMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("dentalIssueMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openSelectCodesBtnDentalIssue").addEventListener("click", () => {
+        openSelectCodesModal("dentalissue_coding");
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("dentalissue_record_id").value;
+        const errEl = document.getElementById("err-dentalissue_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        DENTAL_ISSUE_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`dentalissue_${field}`).value.trim();
+        });
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientDentalIssue(recordId, details)
+            : await addPatientDentalIssue(currentDashboardPatient.id, details);
+
+        if (!result.success) {
+            showAlert("dentalIssueFormAlert", result.message || "Failed to save dental issue.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadIssuesSection(ISSUES_SECTIONS.dentalIssues, currentDashboardPatient);
+    });
+}
+
+function openDentalIssueFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("dentalIssueFormModalOverlay");
+    const title = document.getElementById("dentalIssueFormTitle");
+    const recordIdInput = document.getElementById("dentalissue_record_id");
+
+    document.getElementById("dentalIssueFormAlert").innerHTML = "";
+    document.getElementById("dentalIssueForm").reset();
+    document.getElementById("err-dentalissue_title").textContent = "";
+
+    const moreToggle = document.getElementById("dentalIssueMoreToggle");
+    const moreFields = document.getElementById("dentalIssueMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    if (existingRecord) {
+        title.textContent = "Edit Dental Issue";
+        recordIdInput.value = existingRecord.id;
+
+        DENTAL_ISSUE_DETAIL_FIELDS.forEach((field) => {
+            const el = document.getElementById(`dentalissue_${field}`);
+
+            if (el) el.value = existingRecord[field] ?? "";
+        });
+    } else {
+        title.textContent = "Add Dental Issue";
+        recordIdInput.value = "";
+    }
+
+    formOverlay.classList.add("open");
+}
+
 // The Issues panel is a second entry point onto records that already have
 // their own dashboard widget + detail modal + form modal elsewhere in this
 // file (Problems, Health Concerns) -- each section here just points at
@@ -3722,6 +3834,15 @@ const ISSUES_SECTIONS = {
         fetch: fetchPatientSurgeries,
         remove: removePatientSurgery,
         openForm: (record) => openSurgeryFormModal(record)
+    },
+    dentalIssues: {
+        addBtnId: "pdIssuesDentalAddBtn",
+        deleteBtnId: "pdIssuesDentalDeleteBtn",
+        listBodyId: "pdIssuesDentalListBody",
+        recordLabel: "dental issue",
+        fetch: fetchPatientDentalIssues,
+        remove: removePatientDentalIssue,
+        openForm: (record) => openDentalIssueFormModal(record)
     }
 };
 

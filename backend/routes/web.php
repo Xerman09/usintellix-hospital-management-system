@@ -43,6 +43,7 @@ require_once __DIR__ . '/../app/Modules/PatientHealthConcerns/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientTransactions/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedicalDevices/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientSurgeries/routes.php';
+require_once __DIR__ . '/../app/Modules/PatientDentalIssues/routes.php';
 require_once __DIR__ . '/../app/Modules/Encounters/routes.php';
 require_once __DIR__ . '/../app/Modules/DischargeDispositions/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedications/routes.php';

@@ -4695,6 +4695,19 @@ textarea.pd-sdoh-readonly {
                             <p class="pd-chart-nav-empty">Loading...</p>
                         </div>
                     </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Dental Issues</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdIssuesDentalAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesDentalDeleteBtn" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdIssuesDentalListBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pd-report-panel" id="pdReportPanel" style="display: none;">
@@ -5379,6 +5392,117 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelSurgeryForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="dentalIssueFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="dentalIssueFormTitle">Add/Edit Dental Issue</h2>
+            <button type="button" class="modal-close" id="closeDentalIssueFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Type: Dental</p>
+
+        <div id="dentalIssueFormAlert"></div>
+
+        <form id="dentalIssueForm">
+            <input type="hidden" id="dentalissue_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Title</label>
+                    <input id="dentalissue_title" class="form-input" placeholder="e.g. Cavity">
+                    <span class="form-error" id="err-dentalissue_title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="dentalissue_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="dentalissue_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="dentalissue_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="dentalIssueMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="dentalIssueMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <textarea id="dentalissue_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnDentalIssue" style="margin-top: 0;">Select Codes</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="dentalissue_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="dentalissue_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="dentalissue_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
+                        <option value="Problem List">Problem List</option>
+                        <option value="Chronic">Chronic</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="dentalissue_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="dentalissue_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="dentalissue_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelDentalIssueForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
