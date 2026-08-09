@@ -3423,6 +3423,15 @@ const ISSUES_SECTIONS = {
         fetch: fetchPatientAllergies,
         remove: removePatientAllergy,
         openForm: (record) => openAllergyFormModal(record)
+    },
+    medications: {
+        addBtnId: "pdIssuesMedicationsAddBtn",
+        deleteBtnId: "pdIssuesMedicationsDeleteBtn",
+        listBodyId: "pdIssuesMedicationsListBody",
+        recordLabel: "medication",
+        fetch: fetchPatientMedications,
+        remove: removePatientMedication,
+        openForm: (record) => openMedicationFormModal(record)
     }
 };
 
@@ -3895,6 +3904,7 @@ function setupMedicationModals()
         closeForm();
         await loadMedicationDetailTable(currentDashboardPatient);
         await loadDashboardMedications(currentDashboardPatient);
+        await loadIssuesSection(ISSUES_SECTIONS.medications, currentDashboardPatient);
     });
 }
 
@@ -3988,6 +3998,7 @@ function renderMedicationDetailTable(patient, medications)
 
             await loadMedicationDetailTable(currentDashboardPatient);
             await loadDashboardMedications(currentDashboardPatient);
+            await loadIssuesSection(ISSUES_SECTIONS.medications, currentDashboardPatient);
         });
     });
 }
