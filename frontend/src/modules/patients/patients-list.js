@@ -2768,6 +2768,7 @@ function setupAllergyModals()
         closeForm();
         await loadAllergyDetailTable(currentDashboardPatient);
         await loadDashboardAllergies(currentDashboardPatient);
+        await loadIssuesSection(ISSUES_SECTIONS.allergies, currentDashboardPatient);
     });
 }
 
@@ -3145,6 +3146,7 @@ function renderAllergyDetailTable(patient, allergies)
 
             await loadAllergyDetailTable(currentDashboardPatient);
             await loadDashboardAllergies(currentDashboardPatient);
+            await loadIssuesSection(ISSUES_SECTIONS.allergies, currentDashboardPatient);
         });
     });
 }
@@ -3411,6 +3413,16 @@ const ISSUES_SECTIONS = {
         fetch: fetchPatientHealthConcerns,
         remove: removePatientHealthConcern,
         openForm: (record) => openHealthConcernFormModal(record)
+    },
+    allergies: {
+        addBtnId: "pdIssuesAllergiesAddBtn",
+        deleteBtnId: "pdIssuesAllergiesDeleteBtn",
+        listBodyId: "pdIssuesAllergiesListBody",
+        recordLabel: "allergy",
+        titleField: "name",
+        fetch: fetchPatientAllergies,
+        remove: removePatientAllergy,
+        openForm: (record) => openAllergyFormModal(record)
     }
 };
 
@@ -3469,10 +3481,12 @@ async function loadIssuesSection(section, patient)
         return;
     }
 
+    const titleField = section.titleField || "title";
+
     listBody.innerHTML = records.map((r) => `
         <div class="pd-issue-row">
             <input type="checkbox" class="pd-issue-checkbox" data-id="${r.id}">
-            <span class="pd-issue-title">${escapeHtml(r.title)}${r.end_date ? '' : ' <span class="status-badge completed">Active</span>'}</span>
+            <span class="pd-issue-title">${escapeHtml(r[titleField])}${r.end_date ? '' : ' <span class="status-badge completed">Active</span>'}</span>
             <button type="button" class="pd-issue-edit-btn" data-id="${r.id}">Edit</button>
         </div>
     `).join('');

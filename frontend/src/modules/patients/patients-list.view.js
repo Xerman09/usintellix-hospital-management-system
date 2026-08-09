@@ -4629,6 +4629,19 @@ textarea.pd-sdoh-readonly {
                             <p class="pd-chart-nav-empty">Loading...</p>
                         </div>
                     </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Allergies</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdIssuesAllergiesAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesAllergiesDeleteBtn" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdIssuesAllergiesListBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pd-report-panel" id="pdReportPanel" style="display: none;">
