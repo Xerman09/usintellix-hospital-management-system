@@ -3849,6 +3849,12 @@ const ISSUES_SECTIONS = {
 function setupIssuesPanel(patient)
 {
     Object.values(ISSUES_SECTIONS).forEach((section) => setupIssuesSection(section, patient));
+
+    // Reloads every Issues section's data in place -- the Issues tab only,
+    // not the rest of the patient dashboard.
+    document.getElementById("pdIssuesRefreshBtn").addEventListener("click", () => {
+        Object.values(ISSUES_SECTIONS).forEach((section) => loadIssuesSection(section, patient));
+    });
 }
 
 function setupIssuesSection(section, patient)

@@ -4618,6 +4618,11 @@ textarea.pd-sdoh-readonly {
                 </div>
 
                 <div class="pd-transactions-panel" id="pdIssuesPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <h2>Issues</h2>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesRefreshBtn">${reportIcon("refresh")} Refresh</button>
+                    </div>
+
                     <div class="pd-report-card">
                         <div class="pd-report-card-header">
                             <h3>Medical Problems</h3>

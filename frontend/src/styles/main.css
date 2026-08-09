@@ -1122,6 +1122,24 @@ body {
     color: #dc2626;
 }
 
+.tab-item .refresh-tab {
+    color: #9aa4b2;
+    font-size: 12.5px;
+    border-radius: 4px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color .12s, color .12s, transform .12s;
+}
+
+.tab-item .refresh-tab:hover {
+    background: rgba(15,23,42,.08);
+    color: var(--accent);
+    transform: rotate(90deg);
+}
+
 .tab-content-area {
     flex: 1;
     background: white;

@@ -80,30 +80,44 @@ export class TabManager {
 
     switchTab(id) {
         if (!this.tabs.has(id)) return;
-        
+
         this.activeTabId = id;
         this.renderTabBar();
-        
+
         const tab = this.tabs.get(id);
         this.tabContent.innerHTML = tab.renderFn();
         this.saveState();
     }
 
+    // Re-renders just this one tab's content (re-running its renderFn, same
+    // as switchTab already does) without touching any other open tab's
+    // state. If the tab isn't the active one, this also switches to it --
+    // tabContent is a single shared container, so a background tab has no
+    // rendered content to refresh in place.
+    refreshTab(id, event) {
+        if (event) event.stopPropagation();
+
+        if (!this.tabs.has(id)) return;
+
+        this.switchTab(id);
+    }
+
     renderTabBar() {
         this.tabBar.innerHTML = '';
-        
+
         for (const [id, tab] of this.tabs.entries()) {
             const isActive = this.activeTabId === id;
-            
+
             const tabEl = document.createElement('div');
             tabEl.className = `tab-item ${isActive ? 'active' : ''}`;
             tabEl.onclick = () => this.switchTab(id);
-            
+
             tabEl.innerHTML = `
                 <span>${tab.title}</span>
+                <div class="refresh-tab" title="Refresh" onclick="event.stopPropagation(); window.tabManager.refreshTab('${id}', event)">⟳</div>
                 <div class="close-tab" title="Close" onclick="event.stopPropagation(); window.tabManager.closeTab('${id}', event)">✕</div>
             `;
-            
+
             this.tabBar.appendChild(tabEl);
         }
     }
