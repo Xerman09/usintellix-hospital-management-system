@@ -1460,7 +1460,7 @@ function showChartSection(key)
     } else if (key === "issues") {
         issuesPanel.style.display = "block";
         if (currentDashboardPatient) {
-            loadIssuesList(currentDashboardPatient);
+            Object.values(ISSUES_SECTIONS).forEach((section) => loadIssuesSection(section, currentDashboardPatient));
         }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
@@ -3289,7 +3289,7 @@ function setupProblemModals()
         closeForm();
         await loadProblemDetailTable(currentDashboardPatient);
         await loadDashboardProblems(currentDashboardPatient);
-        await loadIssuesList(currentDashboardPatient);
+        await loadIssuesSection(ISSUES_SECTIONS.problems, currentDashboardPatient);
     });
 }
 
@@ -3383,46 +3383,70 @@ function renderProblemDetailTable(patient, problems)
 
             await loadProblemDetailTable(currentDashboardPatient);
             await loadDashboardProblems(currentDashboardPatient);
-            await loadIssuesList(currentDashboardPatient);
+            await loadIssuesSection(ISSUES_SECTIONS.problems, currentDashboardPatient);
         });
     });
 }
 
-// Wires the Issues panel's own +Add / Delete controls, reusing the same
-// Add Problem modal and patient-medical-problems data/service functions as
-// the dashboard's Problems widget -- this is a second entry point onto the
-// same records, not a parallel system.
+// The Issues panel is a second entry point onto records that already have
+// their own dashboard widget + detail modal + form modal elsewhere in this
+// file (Problems, Health Concerns) -- each section here just points at
+// that same data/service functions and reuses the same Add/Edit modal,
+// rather than duplicating storage or a form.
+const ISSUES_SECTIONS = {
+    problems: {
+        addBtnId: "pdIssuesProblemsAddBtn",
+        deleteBtnId: "pdIssuesProblemsDeleteBtn",
+        listBodyId: "pdIssuesProblemsListBody",
+        recordLabel: "problem",
+        fetch: fetchPatientMedicalProblems,
+        remove: removePatientMedicalProblem,
+        openForm: (record) => openProblemFormModal(record)
+    },
+    healthConcerns: {
+        addBtnId: "pdIssuesHealthConcernsAddBtn",
+        deleteBtnId: "pdIssuesHealthConcernsDeleteBtn",
+        listBodyId: "pdIssuesHealthConcernsListBody",
+        recordLabel: "health concern",
+        fetch: fetchPatientHealthConcerns,
+        remove: removePatientHealthConcern,
+        openForm: (record) => openHealthConcernFormModal(record)
+    }
+};
+
 function setupIssuesPanel(patient)
 {
-    document.getElementById("pdIssuesAddBtn").addEventListener("click", () => {
-        openProblemFormModal(null);
+    Object.values(ISSUES_SECTIONS).forEach((section) => setupIssuesSection(section, patient));
+}
+
+function setupIssuesSection(section, patient)
+{
+    document.getElementById(section.addBtnId).addEventListener("click", () => {
+        section.openForm(null);
     });
 
-    document.getElementById("pdIssuesDeleteBtn").addEventListener("click", async () => {
-        const checked = Array.from(document.querySelectorAll("#pdIssuesListBody .pd-issue-checkbox:checked"));
+    document.getElementById(section.deleteBtnId).addEventListener("click", async () => {
+        const checked = Array.from(document.querySelectorAll(`#${section.listBodyId} .pd-issue-checkbox:checked`));
 
         if (!checked.length) {
             return;
         }
 
-        if (!confirm(`Remove ${checked.length} selected problem${checked.length === 1 ? '' : 's'}?`)) {
+        if (!confirm(`Remove ${checked.length} selected ${section.recordLabel}${checked.length === 1 ? '' : 's'}?`)) {
             return;
         }
 
-        await Promise.all(checked.map((cb) => removePatientMedicalProblem(cb.getAttribute("data-id"))));
-
-        await loadIssuesList(patient);
-        await loadProblemDetailTable(patient);
-        await loadDashboardProblems(patient);
+        await Promise.all(checked.map((cb) => section.remove(cb.getAttribute("data-id"))));
+        await loadIssuesSection(section, patient);
     });
 
-    loadIssuesList(patient);
+    loadIssuesSection(section, patient);
 }
 
-async function loadIssuesList(patient)
+async function loadIssuesSection(section, patient)
 {
-    const listBody = document.getElementById("pdIssuesListBody");
-    const deleteBtn = document.getElementById("pdIssuesDeleteBtn");
+    const listBody = document.getElementById(section.listBodyId);
+    const deleteBtn = document.getElementById(section.deleteBtnId);
 
     if (!listBody) {
         return;
@@ -3431,25 +3455,25 @@ async function loadIssuesList(patient)
     listBody.innerHTML = `<p class="pd-chart-nav-empty">Loading...</p>`;
     deleteBtn.disabled = true;
 
-    const result = await fetchPatientMedicalProblems(patient.id);
+    const result = await section.fetch(patient.id);
 
     if (!result.success) {
-        listBody.innerHTML = `<p class="pd-chart-nav-empty">Failed to load medical problems.</p>`;
+        listBody.innerHTML = `<p class="pd-chart-nav-empty">Failed to load ${section.recordLabel}s.</p>`;
         return;
     }
 
-    const problems = result.data || [];
+    const records = result.data || [];
 
-    if (!problems.length) {
+    if (!records.length) {
         listBody.innerHTML = `<p class="pd-chart-nav-empty">None</p>`;
         return;
     }
 
-    listBody.innerHTML = problems.map((p) => `
+    listBody.innerHTML = records.map((r) => `
         <div class="pd-issue-row">
-            <input type="checkbox" class="pd-issue-checkbox" data-id="${p.id}">
-            <span class="pd-issue-title">${escapeHtml(p.title)}${p.end_date ? '' : ' <span class="status-badge completed">Active</span>'}</span>
-            <button type="button" class="pd-issue-edit-btn" data-id="${p.id}">Edit</button>
+            <input type="checkbox" class="pd-issue-checkbox" data-id="${r.id}">
+            <span class="pd-issue-title">${escapeHtml(r.title)}${r.end_date ? '' : ' <span class="status-badge completed">Active</span>'}</span>
+            <button type="button" class="pd-issue-edit-btn" data-id="${r.id}">Edit</button>
         </div>
     `).join('');
 
@@ -3461,9 +3485,9 @@ async function loadIssuesList(patient)
 
     listBody.querySelectorAll(".pd-issue-edit-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
-            const problem = problems.find((p) => String(p.id) === btn.getAttribute("data-id"));
+            const record = records.find((r) => String(r.id) === btn.getAttribute("data-id"));
 
-            if (problem) openProblemFormModal(problem);
+            if (record) section.openForm(record);
         });
     });
 }
@@ -3604,6 +3628,7 @@ function setupHealthConcernModals()
         closeForm();
         await loadHealthConcernDetailTable(currentDashboardPatient);
         await loadDashboardHealthConcerns(currentDashboardPatient);
+        await loadIssuesSection(ISSUES_SECTIONS.healthConcerns, currentDashboardPatient);
     });
 }
 
@@ -3715,6 +3740,7 @@ function renderHealthConcernDetailTable(patient, concerns)
 
             await loadHealthConcernDetailTable(currentDashboardPatient);
             await loadDashboardHealthConcerns(currentDashboardPatient);
+            await loadIssuesSection(ISSUES_SECTIONS.healthConcerns, currentDashboardPatient);
         });
     });
 }

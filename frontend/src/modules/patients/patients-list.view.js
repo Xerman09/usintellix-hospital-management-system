@@ -4604,15 +4604,30 @@ textarea.pd-sdoh-readonly {
                 </div>
 
                 <div class="pd-transactions-panel" id="pdIssuesPanel" style="display: none;">
-                    <div class="pd-report-card-header">
-                        <h3>Medical Problems</h3>
-                        <div class="pd-report-header-actions">
-                            <button type="button" class="pd-report-btn" id="pdIssuesAddBtn">+ Add</button>
-                            <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesDeleteBtn" disabled>Delete</button>
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Medical Problems</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdIssuesProblemsAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesProblemsDeleteBtn" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdIssuesProblemsListBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
                         </div>
                     </div>
-                    <div id="pdIssuesListBody">
-                        <p class="pd-chart-nav-empty">Loading...</p>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Health Concerns</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdIssuesHealthConcernsAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesHealthConcernsDeleteBtn" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdIssuesHealthConcernsListBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
+                        </div>
                     </div>
                 </div>
 
