@@ -20,6 +20,13 @@ import {
     updatePatientMedicalDevice,
     removePatientMedicalDevice
 } from "../patient-medical-devices/patient-medical-devices.service.js";
+import {
+    fetchPatientSurgeries,
+    addPatientSurgery,
+    updatePatientSurgery,
+    removePatientSurgery
+} from "../patient-surgeries/patient-surgeries.service.js";
+import { fetchSurgeries } from "../surgeries/surgeries.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
@@ -100,6 +107,12 @@ const MEDICATION_DETAIL_FIELDS = [
 
 const DEVICE_DETAIL_FIELDS = [
     "title", "begin_date", "end_date", "udi", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+const SURGERY_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
 ];
@@ -2096,6 +2109,7 @@ export async function initPatientChartTab(patient)
     setupHealthConcernModals();
     setupMedicationModals();
     setupDeviceModal();
+    setupSurgeryModal();
     setupImmunizationModals();
     setupPrescriptionModals();
     setupDisclosureModals();
@@ -3528,6 +3542,126 @@ function openDeviceFormModal(existingRecord)
     formOverlay.classList.add("open");
 }
 
+// Surgeries has no pre-existing dashboard widget/detail modal either --
+// like Medical Devices, it only exists as an Issues panel section, so
+// +Add and each row's Edit both open this form modal directly. Reuses the
+// existing surgeries catalog (fetchSurgeries) for the "Select from list"
+// dropdown, same as Problems does with the medical_problems catalog.
+function setupSurgeryModal()
+{
+    const formOverlay = document.getElementById("surgeryFormModalOverlay");
+    const form = document.getElementById("surgeryForm");
+    const catalogSelect = document.getElementById("surgery_catalog_id");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeSurgeryFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelSurgeryForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    document.getElementById("surgeryMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("surgeryMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openSelectCodesBtnSurgery").addEventListener("click", () => {
+        openSelectCodesModal("surgery_coding");
+    });
+
+    catalogSelect.addEventListener("change", () => {
+        const selectedOption = catalogSelect.options[catalogSelect.selectedIndex];
+
+        if (catalogSelect.value && selectedOption) {
+            document.getElementById("surgery_title").value = selectedOption.textContent;
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("surgery_record_id").value;
+        const catalogId = catalogSelect.value;
+        const errEl = document.getElementById("err-surgery_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        SURGERY_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`surgery_${field}`).value.trim();
+        });
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientSurgery(recordId, details)
+            : await addPatientSurgery(currentDashboardPatient.id, catalogId || null, details);
+
+        if (!result.success) {
+            showAlert("surgeryFormAlert", result.message || "Failed to save surgery.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadIssuesSection(ISSUES_SECTIONS.surgeries, currentDashboardPatient);
+    });
+}
+
+async function openSurgeryFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("surgeryFormModalOverlay");
+    const title = document.getElementById("surgeryFormTitle");
+    const recordIdInput = document.getElementById("surgery_record_id");
+    const catalogSelect = document.getElementById("surgery_catalog_id");
+
+    document.getElementById("surgeryFormAlert").innerHTML = "";
+    document.getElementById("surgeryForm").reset();
+    document.getElementById("err-surgery_title").textContent = "";
+
+    const moreToggle = document.getElementById("surgeryMoreToggle");
+    const moreFields = document.getElementById("surgeryMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    const catalogResult = await fetchSurgeries();
+    const catalog = catalogResult.success ? catalogResult.data : [];
+
+    catalogSelect.innerHTML = `<option value="">Custom / type your own...</option>` +
+        catalog.map((surgery) => `<option value="${surgery.id}">${escapeHtml(surgery.name)}</option>`).join("");
+
+    if (existingRecord) {
+        title.textContent = "Edit Surgery";
+        recordIdInput.value = existingRecord.id;
+        catalogSelect.value = existingRecord.surgery_id ?? "";
+
+        SURGERY_DETAIL_FIELDS.forEach((field) => {
+            const el = document.getElementById(`surgery_${field}`);
+
+            if (el) el.value = existingRecord[field] ?? "";
+        });
+    } else {
+        title.textContent = "Add Surgery";
+        recordIdInput.value = "";
+        catalogSelect.value = "";
+    }
+
+    formOverlay.classList.add("open");
+}
+
 // The Issues panel is a second entry point onto records that already have
 // their own dashboard widget + detail modal + form modal elsewhere in this
 // file (Problems, Health Concerns) -- each section here just points at
@@ -3579,6 +3713,15 @@ const ISSUES_SECTIONS = {
         fetch: fetchPatientMedicalDevices,
         remove: removePatientMedicalDevice,
         openForm: (record) => openDeviceFormModal(record)
+    },
+    surgeries: {
+        addBtnId: "pdIssuesSurgeriesAddBtn",
+        deleteBtnId: "pdIssuesSurgeriesDeleteBtn",
+        listBodyId: "pdIssuesSurgeriesListBody",
+        recordLabel: "surgery",
+        fetch: fetchPatientSurgeries,
+        remove: removePatientSurgery,
+        openForm: (record) => openSurgeryFormModal(record)
     }
 };
 

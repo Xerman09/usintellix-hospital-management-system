@@ -4682,6 +4682,19 @@ textarea.pd-sdoh-readonly {
                             <p class="pd-chart-nav-empty">Loading...</p>
                         </div>
                     </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Surgeries</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdIssuesSurgeriesAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesSurgeriesDeleteBtn" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdIssuesSurgeriesListBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pd-report-panel" id="pdReportPanel" style="display: none;">
@@ -5248,6 +5261,124 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelDeviceForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="surgeryFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="surgeryFormTitle">Add Surgery</h2>
+            <button type="button" class="modal-close" id="closeSurgeryFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Type: Surgery</p>
+
+        <div id="surgeryFormAlert"></div>
+
+        <form id="surgeryForm">
+            <input type="hidden" id="surgery_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Select from list <span style="font-weight: 400; color: #a2aec4;">(or type your own in Title)</span></label>
+                    <select id="surgery_catalog_id" class="form-input">
+                        <option value="">Custom / type your own...</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Title</label>
+                    <input id="surgery_title" class="form-input" placeholder="e.g. Appendectomy">
+                    <span class="form-error" id="err-surgery_title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="surgery_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="surgery_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="surgery_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="surgeryMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="surgeryMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <textarea id="surgery_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnSurgery" style="margin-top: 0;">Select Codes</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="surgery_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="surgery_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="surgery_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
+                        <option value="Problem List">Problem List</option>
+                        <option value="Chronic">Chronic</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="surgery_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="surgery_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="surgery_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelSurgeryForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
