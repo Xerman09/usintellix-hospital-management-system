@@ -9,6 +9,11 @@ import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
+import {
+    fetchPatientTransactions,
+    addPatientTransaction,
+    updatePatientTransaction
+} from "../patient-transactions/patient-transactions.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
@@ -1418,6 +1423,7 @@ function showChartSection(key)
     const historyPanel = document.getElementById("pdHistoryPanel");
     const sdohPanel = document.getElementById("pdSdohPanel");
     const reportPanel = document.getElementById("pdReportPanel");
+    const transactionsPanel = document.getElementById("pdTransactionsPanel");
     const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
     widgetGrid.style.display = "none";
@@ -1425,6 +1431,7 @@ function showChartSection(key)
     historyPanel.style.display = "none";
     sdohPanel.style.display = "none";
     reportPanel.style.display = "none";
+    transactionsPanel.style.display = "none";
 
     if (key === "dashboard" || widgetTarget) {
         widgetGrid.style.display = "";
@@ -1443,6 +1450,11 @@ function showChartSection(key)
         sdohPanel.style.display = "block";
     } else if (key === "report") {
         reportPanel.style.display = "block";
+    } else if (key === "transactions") {
+        transactionsPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            loadTransactionsList(currentDashboardPatient);
+        }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
         placeholder.style.display = "flex";
@@ -1475,6 +1487,7 @@ function resetChartNav()
     document.getElementById("pdHistoryPanel").style.display = "none";
     document.getElementById("pdSdohPanel").style.display = "none";
     document.getElementById("pdReportPanel").style.display = "none";
+    document.getElementById("pdTransactionsPanel").style.display = "none";
 
     document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => {
         t.classList.toggle("active", t.getAttribute("data-history-tab") === "general");
@@ -1482,6 +1495,284 @@ function resetChartNav()
     document.querySelectorAll(".pd-history-category").forEach((panel) => {
         panel.classList.toggle("active", panel.getAttribute("data-history-category") === "general");
     });
+}
+
+let patientTransactionsCache = [];
+let editingTransactionId = null;
+
+// Wires the Transactions panel's static controls (New/Cancel, the Referral/
+// Counter-Referral tabs, the "Sent Summary" checkbox dependency, and the
+// form submit) and kicks off the dropdown + list loads. Called once per
+// chart tab render (see initPatientChartTab), same as the other init*
+// calls it sits alongside.
+function setupTransactionsPanel(patient)
+{
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    document.getElementById("pdTransactionsListTitle").textContent = `Patient Transactions - ${fullName}`;
+    document.getElementById("pdTransactionsFormTitle").textContent = `Add/Edit Patient Transaction - ${fullName}`;
+
+    populateTransactionDropdowns();
+
+    document.getElementById("pdTransactionsNewBtn").addEventListener("click", () => {
+        openTransactionForm(null);
+    });
+
+    document.getElementById("pdTransactionsCancelBtn").addEventListener("click", () => {
+        closeTransactionForm();
+    });
+
+    document.getElementById("pdTransactionsBlankFormBtn").addEventListener("click", () => {
+        printBlankReferralForm(patient);
+    });
+
+    document.querySelectorAll("#pdTxnTabs .pd-history-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const key = tab.getAttribute("data-tx-tab");
+
+            document.querySelectorAll("#pdTxnTabs .pd-history-tab").forEach((t) => t.classList.toggle("active", t === tab));
+            document.querySelectorAll(".pd-tx-tab-content").forEach((panel) => {
+                panel.classList.toggle("active", panel.getAttribute("data-tx-tab-panel") === key);
+            });
+        });
+    });
+
+    const sentSummaryEl = document.getElementById("pdTxnSentSummary");
+    const sentElectronicallyEl = document.getElementById("pdTxnSentSummaryElectronically");
+    const confirmedReceivedEl = document.getElementById("pdTxnConfirmedReceived");
+
+    sentSummaryEl.addEventListener("change", () => {
+        sentElectronicallyEl.disabled = !sentSummaryEl.checked;
+        confirmedReceivedEl.disabled = !sentSummaryEl.checked;
+
+        if (!sentSummaryEl.checked) {
+            sentElectronicallyEl.checked = false;
+            confirmedReceivedEl.checked = false;
+        }
+    });
+
+    document.getElementById("pdTransactionsForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await saveTransactionForm(patient);
+    });
+
+    loadTransactionsList(patient);
+}
+
+// Fills the Refer By / Refer To (providers) and Patient Billing Facility
+// (facilities) dropdowns from the same lookups those modules already expose.
+async function populateTransactionDropdowns()
+{
+    const referByEl = document.getElementById("pdTxnReferBy");
+    const referToEl = document.getElementById("pdTxnReferTo");
+    const billingFacilityEl = document.getElementById("pdTxnBillingFacility");
+
+    const [providersResult, facilitiesResult] = await Promise.all([fetchProviders(), fetchFacilities()]);
+
+    if (providersResult.success) {
+        const options = providersResult.data.map((p) => {
+            const name = [p.first_name, p.last_name].filter(Boolean).join(" ");
+            return `<option value="${p.id}">${escapeHtml(name)}</option>`;
+        }).join("");
+
+        referByEl.innerHTML = `<option value="">Unassigned</option>${options}`;
+        referToEl.innerHTML = `<option value="">Unassigned</option>${options}`;
+    }
+
+    if (facilitiesResult.success) {
+        const options = facilitiesResult.data.map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join("");
+
+        billingFacilityEl.innerHTML = `<option value="">-- Unspecified --</option>${options}`;
+    }
+}
+
+async function loadTransactionsList(patient)
+{
+    const listBody = document.getElementById("pdTransactionsListBody");
+    listBody.innerHTML = `<p class="pd-chart-nav-empty">Loading...</p>`;
+
+    const result = await fetchPatientTransactions(patient.id);
+
+    if (!result.success) {
+        listBody.innerHTML = `<p class="pd-chart-nav-empty">Failed to load transactions.</p>`;
+        return;
+    }
+
+    patientTransactionsCache = result.data || [];
+
+    if (!patientTransactionsCache.length) {
+        listBody.innerHTML = `<p class="pd-chart-nav-empty">There are no transactions on file for this patient.</p>`;
+        return;
+    }
+
+    listBody.innerHTML = `
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Type</th><th>Referral Date</th><th>Refer By</th><th>Refer To</th><th>Reason</th><th></th></tr></thead>
+                <tbody>
+                    ${patientTransactionsCache.map((t) => `
+                        <tr>
+                            <td>${escapeHtml(t.transaction_type ? t.transaction_type.charAt(0).toUpperCase() + t.transaction_type.slice(1) : '')}</td>
+                            <td>${escapeHtml((t.referral_date || '').substring(0, 10))}</td>
+                            <td>${escapeHtml(t.refer_by_name || '')}</td>
+                            <td>${escapeHtml(t.refer_to_name || '')}</td>
+                            <td>${escapeHtml((t.reason || '').slice(0, 60))}</td>
+                            <td><button type="button" class="pd-report-btn pd-report-btn-secondary pd-tx-edit-btn" data-tx-id="${t.id}">Edit</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    listBody.querySelectorAll(".pd-tx-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = Number(btn.getAttribute("data-tx-id"));
+            const record = patientTransactionsCache.find((t) => t.id === id);
+
+            if (record) openTransactionForm(record);
+        });
+    });
+}
+
+// Opens the Add/Edit form. `record` is null for a new transaction, or the
+// cached list row (already carrying refer_by_name/refer_to_name for
+// display -- the ids are what actually populate the selects) when editing.
+function openTransactionForm(record)
+{
+    editingTransactionId = record ? record.id : null;
+
+    document.getElementById("pdTransactionsListState").style.display = "none";
+    document.getElementById("pdTransactionsForm").style.display = "block";
+
+    document.querySelectorAll("#pdTxnTabs .pd-history-tab").forEach((t) => {
+        t.classList.toggle("active", t.getAttribute("data-tx-tab") === "referral");
+    });
+    document.querySelectorAll(".pd-tx-tab-content").forEach((panel) => {
+        panel.classList.toggle("active", panel.getAttribute("data-tx-tab-panel") === "referral");
+    });
+
+    const set = (id, value) => { document.getElementById(id).value = value ?? ""; };
+    const setChecked = (id, value) => { document.getElementById(id).checked = !!value; };
+
+    setChecked("pdTxnSentSummary", record?.sent_summary_of_care);
+    setChecked("pdTxnSentSummaryElectronically", record?.sent_summary_of_care_electronically);
+    setChecked("pdTxnConfirmedReceived", record?.confirmed_recipient_received_summary);
+    document.getElementById("pdTxnSentSummaryElectronically").disabled = !record?.sent_summary_of_care;
+    document.getElementById("pdTxnConfirmedReceived").disabled = !record?.sent_summary_of_care;
+
+    set("pdTxnReferralDate", record?.referral_date ? record.referral_date.substring(0, 10) : new Date().toISOString().substring(0, 10));
+    set("pdTxnExternalReferral", record?.external_referral || "unassigned");
+    set("pdTxnReason", record?.reason);
+    set("pdTxnRiskLevel", record?.risk_level || "unassigned");
+    set("pdTxnRequestedService", record?.requested_service);
+    set("pdTxnReferBy", record?.refer_by_provider_id || "");
+    set("pdTxnReferTo", record?.refer_to_provider_id || "");
+    set("pdTxnReferrerDiagnosis", record?.referrer_diagnosis);
+    set("pdTxnIncludeVitals", record?.include_vitals || "unassigned");
+    set("pdTxnBillingFacility", record?.billing_facility_id || "");
+
+    set("pdTxnReplyDate", record?.reply_date ? record.reply_date.substring(0, 10) : "");
+    set("pdTxnReplyFrom", record?.reply_from);
+    set("pdTxnPresumedDiagnosis", record?.presumed_diagnosis);
+    set("pdTxnFinalDiagnosis", record?.final_diagnosis);
+    set("pdTxnDocuments", record?.documents);
+    set("pdTxnFindings", record?.findings);
+    set("pdTxnServicesProvided", record?.services_provided);
+    set("pdTxnRecommendations", record?.recommendations);
+    set("pdTxnPrescriptionsReferrals", record?.prescriptions_referrals);
+}
+
+function closeTransactionForm()
+{
+    editingTransactionId = null;
+    document.getElementById("pdTransactionsForm").style.display = "none";
+    document.getElementById("pdTransactionsListState").style.display = "block";
+}
+
+async function saveTransactionForm(patient)
+{
+    const val = (id) => document.getElementById(id).value;
+    const checked = (id) => document.getElementById(id).checked;
+
+    const details = {
+        transaction_type: "referral",
+        sent_summary_of_care: checked("pdTxnSentSummary"),
+        sent_summary_of_care_electronically: checked("pdTxnSentSummaryElectronically"),
+        confirmed_recipient_received_summary: checked("pdTxnConfirmedReceived"),
+        referral_date: val("pdTxnReferralDate"),
+        external_referral: val("pdTxnExternalReferral"),
+        reason: val("pdTxnReason"),
+        risk_level: val("pdTxnRiskLevel"),
+        requested_service: val("pdTxnRequestedService"),
+        refer_by_provider_id: val("pdTxnReferBy"),
+        refer_to_provider_id: val("pdTxnReferTo"),
+        referrer_diagnosis: val("pdTxnReferrerDiagnosis"),
+        include_vitals: val("pdTxnIncludeVitals"),
+        billing_facility_id: val("pdTxnBillingFacility"),
+        reply_date: val("pdTxnReplyDate"),
+        reply_from: val("pdTxnReplyFrom"),
+        presumed_diagnosis: val("pdTxnPresumedDiagnosis"),
+        final_diagnosis: val("pdTxnFinalDiagnosis"),
+        documents: val("pdTxnDocuments"),
+        findings: val("pdTxnFindings"),
+        services_provided: val("pdTxnServicesProvided"),
+        recommendations: val("pdTxnRecommendations"),
+        prescriptions_referrals: val("pdTxnPrescriptionsReferrals")
+    };
+
+    const result = editingTransactionId
+        ? await updatePatientTransaction(editingTransactionId, details)
+        : await addPatientTransaction(patient.id, details);
+
+    if (!result.success) {
+        alert(result.message || "Failed to save transaction.");
+        return;
+    }
+
+    closeTransactionForm();
+    await loadTransactionsList(patient);
+}
+
+// A blank, unfilled version of the Referral tab's fields, opened in a print-
+// ready popup -- mirrors the CCD/report popups' Download PDF button so it
+// can be saved as a PDF the same way.
+function printBlankReferralForm(patient)
+{
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+
+    const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+    if (!reportWindow) {
+        alert("Please enable pop-ups to view the form.");
+        return;
+    }
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blank Referral Form</title>
+    <style>${PATIENT_REPORT_STYLE}</style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Referral Form</h1>
+    <p>${escapeHtml(fullName)}</p>
+    <table class="data-table">
+        <tr><th>Referral Date</th><td></td><th>Refer By</th><td></td></tr>
+        <tr><th>External Referral</th><td></td><th>Refer To</th><td></td></tr>
+        <tr><th>Reason</th><td colspan="3"></td></tr>
+        <tr><th>Risk Level</th><td></td><th>Include Vitals</th><td></td></tr>
+        <tr><th>Requested Service</th><td></td><th>Patient Billing Facility</th><td></td></tr>
+        <tr><th>Referrer Diagnosis</th><td colspan="3"></td></tr>
+    </table>
+</body>
+</html>
+    `;
+
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    reportWindow.document.close();
 }
 
 // Consumes a chart-open request handed off by another module (currently
@@ -1605,6 +1896,7 @@ export async function initPatientChartTab(patient)
     initLifestyle(patient.id);
     initOtherHistory(patient.id);
     initSdohAssessment(patient.id);
+    setupTransactionsPanel(patient);
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
