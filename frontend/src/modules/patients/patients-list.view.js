@@ -2791,6 +2791,20 @@ export function PatientChartView(user)
     cursor: pointer;
 }
 
+.pd-udi-status {
+    margin: 6px 0 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #e8f4fb;
+    color: #2b6e8f;
+    font-size: 12.5px;
+}
+
+.pd-udi-status.valid {
+    background: #e6f6ec;
+    color: #1f7a44;
+}
+
 .pd-sdoh-panel {
     border: 1px solid #e5e9f0;
     border-radius: 12px;
@@ -4655,6 +4669,19 @@ textarea.pd-sdoh-readonly {
                             <p class="pd-chart-nav-empty">Loading...</p>
                         </div>
                     </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Medical Devices</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdIssuesDevicesAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesDevicesDeleteBtn" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdIssuesDevicesListBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pd-report-panel" id="pdReportPanel" style="display: none;">
@@ -5101,6 +5128,126 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelProblemForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deviceFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="deviceFormTitle">Add/Edit Medical Device</h2>
+            <button type="button" class="modal-close" id="closeDeviceFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Type: Device</p>
+
+        <div id="deviceFormAlert"></div>
+
+        <form id="deviceForm">
+            <input type="hidden" id="device_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Title</label>
+                    <input id="device_title" class="form-input" placeholder="e.g. Insulin Pump">
+                    <span class="form-error" id="err-device_title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Begin Date</label>
+                    <input id="device_begin_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input id="device_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                </div>
+
+                <div class="form-group full">
+                    <label>UDI</label>
+                    <div class="scm-trigger-row">
+                        <input id="device_udi" class="form-input" placeholder="Scan or type the device's Unique Device Identifier">
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="processUdiBtn" style="white-space: nowrap;">Process UDI</button>
+                    </div>
+                    <p class="pd-udi-status" id="deviceUdiStatus">A valid UDI has not been processed yet</p>
+                </div>
+
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="device_comments" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <button type="button" class="allergy-more-toggle" id="deviceMoreToggle">
+                <span>Show More Fields</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+
+            <div class="form-grid allergy-more-fields" id="deviceMoreFields" hidden>
+                <div class="form-group full">
+                    <label>Coding</label>
+                    <div class="scm-trigger-row" style="align-items: flex-start;">
+                        <textarea id="device_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
+                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnDevice" style="margin-top: 0;">Select Codes</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Occurrence</label>
+                    <select id="device_occurrence" class="form-input">
+                        <option value="">Unknown or N/A</option>
+                        <option value="First Time">First Time</option>
+                        <option value="Recurrence">Recurrence</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="device_outcome" class="form-input">
+                        <option value="">Unassigned</option>
+                        <option value="Recovered">Recovered</option>
+                        <option value="Recovering">Recovering</option>
+                        <option value="Not Recovered">Not Recovered</option>
+                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
+                        <option value="Fatal">Fatal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Classification Type</label>
+                    <select id="device_classification_type" class="form-input">
+                        <option value="">NA</option>
+                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
+                        <option value="Problem List">Problem List</option>
+                        <option value="Chronic">Chronic</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Verification Status</label>
+                    <select id="device_verification_status" class="form-input">
+                        <option value="Unconfirmed">Unconfirmed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Refuted">Refuted</option>
+                        <option value="Entered in Error">Entered in Error</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Referred By</label>
+                    <input id="device_referred_by" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input id="device_destination" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelDeviceForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

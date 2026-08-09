@@ -14,6 +14,12 @@ import {
     addPatientTransaction,
     updatePatientTransaction
 } from "../patient-transactions/patient-transactions.service.js";
+import {
+    fetchPatientMedicalDevices,
+    addPatientMedicalDevice,
+    updatePatientMedicalDevice,
+    removePatientMedicalDevice
+} from "../patient-medical-devices/patient-medical-devices.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
@@ -88,6 +94,12 @@ const PROBLEM_DETAIL_FIELDS = [
 const MEDICATION_DETAIL_FIELDS = [
     "title", "begin_date", "end_date", "medication_usage", "request_intent",
     "is_primary_record", "comments", "coding",
+    "occurrence", "outcome", "classification_type", "verification_status",
+    "referred_by", "destination"
+];
+
+const DEVICE_DETAIL_FIELDS = [
+    "title", "begin_date", "end_date", "udi", "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
 ];
@@ -2083,6 +2095,7 @@ export async function initPatientChartTab(patient)
     setupProblemModals();
     setupHealthConcernModals();
     setupMedicationModals();
+    setupDeviceModal();
     setupImmunizationModals();
     setupPrescriptionModals();
     setupDisclosureModals();
@@ -3390,6 +3403,131 @@ function renderProblemDetailTable(patient, problems)
     });
 }
 
+// Medical Devices has no pre-existing dashboard widget/detail modal like
+// Problems, Allergies, etc. do -- it only exists as an Issues panel
+// section, so +Add and each row's Edit both open this form modal directly.
+function setupDeviceModal()
+{
+    const formOverlay = document.getElementById("deviceFormModalOverlay");
+    const form = document.getElementById("deviceForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeDeviceFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelDeviceForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    document.getElementById("deviceMoreToggle").addEventListener("click", (event) => {
+        const toggle = event.currentTarget;
+        const moreFields = document.getElementById("deviceMoreFields");
+        const isHidden = moreFields.hidden;
+
+        moreFields.hidden = !isHidden;
+        toggle.classList.toggle("expanded", isHidden);
+        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
+    });
+
+    document.getElementById("openSelectCodesBtnDevice").addEventListener("click", () => {
+        openSelectCodesModal("device_coding");
+    });
+
+    // Lightweight, client-side UDI check (does the barcode look like a
+    // plausible identifier) rather than full GS1 Application Identifier
+    // parsing -- this just gives the same "processed" feedback the mockup
+    // shows, without pretending to extract lot/expiration data from it.
+    document.getElementById("processUdiBtn").addEventListener("click", () => {
+        const udi = document.getElementById("device_udi").value.trim();
+        const statusEl = document.getElementById("deviceUdiStatus");
+        const looksValid = udi.length >= 10;
+
+        statusEl.textContent = udi === ""
+            ? "A valid UDI has not been processed yet"
+            : (looksValid ? "UDI processed and recorded." : "This doesn't look like a complete UDI -- check the value and try again.");
+        statusEl.classList.toggle("valid", looksValid);
+    });
+
+    document.getElementById("device_udi").addEventListener("input", () => {
+        const statusEl = document.getElementById("deviceUdiStatus");
+
+        statusEl.textContent = "A valid UDI has not been processed yet";
+        statusEl.classList.remove("valid");
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("device_record_id").value;
+        const errEl = document.getElementById("err-device_title");
+
+        errEl.textContent = "";
+
+        const details = {};
+
+        DEVICE_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`device_${field}`).value.trim();
+        });
+
+        if (!details.title) {
+            errEl.textContent = "Title is required.";
+            return;
+        }
+
+        const result = recordId
+            ? await updatePatientMedicalDevice(recordId, details)
+            : await addPatientMedicalDevice(currentDashboardPatient.id, details);
+
+        if (!result.success) {
+            showAlert("deviceFormAlert", result.message || "Failed to save medical device.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadIssuesSection(ISSUES_SECTIONS.medicalDevices, currentDashboardPatient);
+    });
+}
+
+function openDeviceFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("deviceFormModalOverlay");
+    const title = document.getElementById("deviceFormTitle");
+    const recordIdInput = document.getElementById("device_record_id");
+
+    document.getElementById("deviceFormAlert").innerHTML = "";
+    document.getElementById("deviceForm").reset();
+    document.getElementById("err-device_title").textContent = "";
+
+    const moreToggle = document.getElementById("deviceMoreToggle");
+    const moreFields = document.getElementById("deviceMoreFields");
+
+    moreFields.hidden = true;
+    moreToggle.classList.remove("expanded");
+    moreToggle.querySelector("span").textContent = "Show More Fields";
+
+    const statusEl = document.getElementById("deviceUdiStatus");
+    statusEl.textContent = "A valid UDI has not been processed yet";
+    statusEl.classList.remove("valid");
+
+    if (existingRecord) {
+        title.textContent = "Edit Medical Device";
+        recordIdInput.value = existingRecord.id;
+
+        DEVICE_DETAIL_FIELDS.forEach((field) => {
+            const el = document.getElementById(`device_${field}`);
+
+            if (el) el.value = existingRecord[field] ?? "";
+        });
+    } else {
+        title.textContent = "Add Medical Device";
+        recordIdInput.value = "";
+    }
+
+    formOverlay.classList.add("open");
+}
+
 // The Issues panel is a second entry point onto records that already have
 // their own dashboard widget + detail modal + form modal elsewhere in this
 // file (Problems, Health Concerns) -- each section here just points at
@@ -3432,6 +3570,15 @@ const ISSUES_SECTIONS = {
         fetch: fetchPatientMedications,
         remove: removePatientMedication,
         openForm: (record) => openMedicationFormModal(record)
+    },
+    medicalDevices: {
+        addBtnId: "pdIssuesDevicesAddBtn",
+        deleteBtnId: "pdIssuesDevicesDeleteBtn",
+        listBodyId: "pdIssuesDevicesListBody",
+        recordLabel: "medical device",
+        fetch: fetchPatientMedicalDevices,
+        remove: removePatientMedicalDevice,
+        openForm: (record) => openDeviceFormModal(record)
     }
 };
 
