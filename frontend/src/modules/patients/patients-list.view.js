@@ -2760,6 +2760,37 @@ export function PatientChartView(user)
     }
 }
 
+.pd-issue-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #eef1f7;
+    font-size: 13.5px;
+    color: #25324b;
+}
+
+.pd-issue-row:last-child {
+    border-bottom: none;
+}
+
+.pd-issue-row input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+.pd-issue-title {
+    flex: 1;
+}
+
+.pd-issue-edit-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .pd-sdoh-panel {
     border: 1px solid #e5e9f0;
     border-radius: 12px;
@@ -4570,6 +4601,19 @@ textarea.pd-sdoh-readonly {
                             </div>
                         </div>
                     </form>
+                </div>
+
+                <div class="pd-transactions-panel" id="pdIssuesPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <h3>Medical Problems</h3>
+                        <div class="pd-report-header-actions">
+                            <button type="button" class="pd-report-btn" id="pdIssuesAddBtn">+ Add</button>
+                            <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdIssuesDeleteBtn" disabled>Delete</button>
+                        </div>
+                    </div>
+                    <div id="pdIssuesListBody">
+                        <p class="pd-chart-nav-empty">Loading...</p>
+                    </div>
                 </div>
 
                 <div class="pd-report-panel" id="pdReportPanel" style="display: none;">

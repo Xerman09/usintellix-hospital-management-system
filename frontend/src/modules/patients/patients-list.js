@@ -216,9 +216,9 @@ const CHART_NAV_LABELS = {
 
 // Sections with an existing widget on the dashboard grid scroll straight to
 // it; everything else (no backend/UI built yet) shows the placeholder panel.
+// "issues" has its own dedicated panel instead (see showChartSection).
 const CHART_NAV_WIDGET_TARGETS = {
-    documents: "pdWidget-documents",
-    issues: "pdWidget-issues"
+    documents: "pdWidget-documents"
 };
 
 function setupChartNav()
@@ -1424,6 +1424,7 @@ function showChartSection(key)
     const sdohPanel = document.getElementById("pdSdohPanel");
     const reportPanel = document.getElementById("pdReportPanel");
     const transactionsPanel = document.getElementById("pdTransactionsPanel");
+    const issuesPanel = document.getElementById("pdIssuesPanel");
     const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
     widgetGrid.style.display = "none";
@@ -1432,6 +1433,7 @@ function showChartSection(key)
     sdohPanel.style.display = "none";
     reportPanel.style.display = "none";
     transactionsPanel.style.display = "none";
+    issuesPanel.style.display = "none";
 
     if (key === "dashboard" || widgetTarget) {
         widgetGrid.style.display = "";
@@ -1454,6 +1456,11 @@ function showChartSection(key)
         transactionsPanel.style.display = "block";
         if (currentDashboardPatient) {
             loadTransactionsList(currentDashboardPatient);
+        }
+    } else if (key === "issues") {
+        issuesPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            loadIssuesList(currentDashboardPatient);
         }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
@@ -1488,6 +1495,7 @@ function resetChartNav()
     document.getElementById("pdSdohPanel").style.display = "none";
     document.getElementById("pdReportPanel").style.display = "none";
     document.getElementById("pdTransactionsPanel").style.display = "none";
+    document.getElementById("pdIssuesPanel").style.display = "none";
 
     document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => {
         t.classList.toggle("active", t.getAttribute("data-history-tab") === "general");
@@ -2051,6 +2059,7 @@ export async function initPatientChartTab(patient)
     initOtherHistory(patient.id);
     initSdohAssessment(patient.id);
     setupTransactionsPanel(patient);
+    setupIssuesPanel(patient);
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
@@ -3280,6 +3289,7 @@ function setupProblemModals()
         closeForm();
         await loadProblemDetailTable(currentDashboardPatient);
         await loadDashboardProblems(currentDashboardPatient);
+        await loadIssuesList(currentDashboardPatient);
     });
 }
 
@@ -3373,6 +3383,87 @@ function renderProblemDetailTable(patient, problems)
 
             await loadProblemDetailTable(currentDashboardPatient);
             await loadDashboardProblems(currentDashboardPatient);
+            await loadIssuesList(currentDashboardPatient);
+        });
+    });
+}
+
+// Wires the Issues panel's own +Add / Delete controls, reusing the same
+// Add Problem modal and patient-medical-problems data/service functions as
+// the dashboard's Problems widget -- this is a second entry point onto the
+// same records, not a parallel system.
+function setupIssuesPanel(patient)
+{
+    document.getElementById("pdIssuesAddBtn").addEventListener("click", () => {
+        openProblemFormModal(null);
+    });
+
+    document.getElementById("pdIssuesDeleteBtn").addEventListener("click", async () => {
+        const checked = Array.from(document.querySelectorAll("#pdIssuesListBody .pd-issue-checkbox:checked"));
+
+        if (!checked.length) {
+            return;
+        }
+
+        if (!confirm(`Remove ${checked.length} selected problem${checked.length === 1 ? '' : 's'}?`)) {
+            return;
+        }
+
+        await Promise.all(checked.map((cb) => removePatientMedicalProblem(cb.getAttribute("data-id"))));
+
+        await loadIssuesList(patient);
+        await loadProblemDetailTable(patient);
+        await loadDashboardProblems(patient);
+    });
+
+    loadIssuesList(patient);
+}
+
+async function loadIssuesList(patient)
+{
+    const listBody = document.getElementById("pdIssuesListBody");
+    const deleteBtn = document.getElementById("pdIssuesDeleteBtn");
+
+    if (!listBody) {
+        return;
+    }
+
+    listBody.innerHTML = `<p class="pd-chart-nav-empty">Loading...</p>`;
+    deleteBtn.disabled = true;
+
+    const result = await fetchPatientMedicalProblems(patient.id);
+
+    if (!result.success) {
+        listBody.innerHTML = `<p class="pd-chart-nav-empty">Failed to load medical problems.</p>`;
+        return;
+    }
+
+    const problems = result.data || [];
+
+    if (!problems.length) {
+        listBody.innerHTML = `<p class="pd-chart-nav-empty">None</p>`;
+        return;
+    }
+
+    listBody.innerHTML = problems.map((p) => `
+        <div class="pd-issue-row">
+            <input type="checkbox" class="pd-issue-checkbox" data-id="${p.id}">
+            <span class="pd-issue-title">${escapeHtml(p.title)}${p.end_date ? '' : ' <span class="status-badge completed">Active</span>'}</span>
+            <button type="button" class="pd-issue-edit-btn" data-id="${p.id}">Edit</button>
+        </div>
+    `).join('');
+
+    listBody.querySelectorAll(".pd-issue-checkbox").forEach((cb) => {
+        cb.addEventListener("change", () => {
+            deleteBtn.disabled = !listBody.querySelector(".pd-issue-checkbox:checked");
+        });
+    });
+
+    listBody.querySelectorAll(".pd-issue-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const problem = problems.find((p) => String(p.id) === btn.getAttribute("data-id"));
+
+            if (problem) openProblemFormModal(problem);
         });
     });
 }
