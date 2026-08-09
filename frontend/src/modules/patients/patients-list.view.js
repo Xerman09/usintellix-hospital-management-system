@@ -4493,67 +4493,80 @@ textarea.pd-sdoh-readonly {
 
                         <div class="form-group">
                             <label>Transaction Type:</label>
-                            <select class="form-input" id="pdTxnType" disabled>
+                            <select class="form-input" id="pdTxnType">
                                 <option value="referral" selected>Referral</option>
+                                <option value="billing">Billing</option>
+                                <option value="legal">Legal</option>
+                                <option value="patient_request">Patient Request</option>
+                                <option value="physical_request">Physical Request</option>
                             </select>
                         </div>
 
-                        <div class="pd-tx-checklist">
-                            <label><input type="checkbox" id="pdTxnSentSummary"> Sent Summary of Care?</label>
-                            <label><input type="checkbox" id="pdTxnSentSummaryElectronically" disabled> Sent Summary of Care Electronically?</label>
-                            <label><input type="checkbox" id="pdTxnConfirmedReceived" disabled> Confirmed Recipient Received Summary of Care?</label>
-                        </div>
+                        <div id="pdTxnReferralSection">
+                            <div class="pd-tx-checklist">
+                                <label><input type="checkbox" id="pdTxnSentSummary"> Sent Summary of Care?</label>
+                                <label><input type="checkbox" id="pdTxnSentSummaryElectronically" disabled> Sent Summary of Care Electronically?</label>
+                                <label><input type="checkbox" id="pdTxnConfirmedReceived" disabled> Confirmed Recipient Received Summary of Care?</label>
+                            </div>
 
-                        <div class="pd-history-tabs" id="pdTxnTabs">
-                            <button type="button" class="pd-history-tab active" data-tx-tab="referral">Referral</button>
-                            <button type="button" class="pd-history-tab" data-tx-tab="counter_referral">Counter-Referral</button>
-                        </div>
+                            <div class="pd-history-tabs" id="pdTxnTabs">
+                                <button type="button" class="pd-history-tab active" data-tx-tab="referral">Referral</button>
+                                <button type="button" class="pd-history-tab" data-tx-tab="counter_referral">Counter-Referral</button>
+                            </div>
 
-                        <div class="pd-tx-tab-content active" data-tx-tab-panel="referral">
-                            <div class="pd-tx-grid">
-                                <div class="form-group"><label>Referral Date:</label><input type="date" class="form-input" id="pdTxnReferralDate"></div>
-                                <div class="form-group"><label>Refer By:</label><select class="form-input" id="pdTxnReferBy"><option value="">Unassigned</option></select></div>
-                                <div class="form-group"><label>External Referral:</label>
-                                    <select class="form-input" id="pdTxnExternalReferral">
-                                        <option value="unassigned">Unassigned</option>
-                                        <option value="no">No</option>
-                                        <option value="yes">Yes</option>
-                                    </select>
+                            <div class="pd-tx-tab-content active" data-tx-tab-panel="referral">
+                                <div class="pd-tx-grid">
+                                    <div class="form-group"><label>Referral Date:</label><input type="date" class="form-input" id="pdTxnReferralDate"></div>
+                                    <div class="form-group"><label>Refer By:</label><select class="form-input" id="pdTxnReferBy"><option value="">Unassigned</option></select></div>
+                                    <div class="form-group"><label>External Referral:</label>
+                                        <select class="form-input" id="pdTxnExternalReferral">
+                                            <option value="unassigned">Unassigned</option>
+                                            <option value="no">No</option>
+                                            <option value="yes">Yes</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group"><label>Refer To:</label><select class="form-input" id="pdTxnReferTo"><option value="">Unassigned</option></select></div>
+                                    <div class="form-group pd-tx-span2"><label>Reason:</label><textarea class="form-input" id="pdTxnReason" rows="3"></textarea></div>
+                                    <div class="form-group"><label>Referrer Diagnosis:</label><input type="text" class="form-input" id="pdTxnReferrerDiagnosis"></div>
+                                    <div class="form-group"><label>Risk Level:</label>
+                                        <select class="form-input" id="pdTxnRiskLevel">
+                                            <option value="unassigned">Unassigned</option>
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group"><label>Include Vitals:</label>
+                                        <select class="form-input" id="pdTxnIncludeVitals">
+                                            <option value="unassigned">Unassigned</option>
+                                            <option value="no">No</option>
+                                            <option value="yes">Yes</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group"><label>Requested Service:</label><input type="text" class="form-input" id="pdTxnRequestedService"></div>
+                                    <div class="form-group"><label>Patient Billing Facility:</label><select class="form-input" id="pdTxnBillingFacility"><option value="">-- Unspecified --</option></select></div>
                                 </div>
-                                <div class="form-group"><label>Refer To:</label><select class="form-input" id="pdTxnReferTo"><option value="">Unassigned</option></select></div>
-                                <div class="form-group pd-tx-span2"><label>Reason:</label><textarea class="form-input" id="pdTxnReason" rows="3"></textarea></div>
-                                <div class="form-group"><label>Referrer Diagnosis:</label><input type="text" class="form-input" id="pdTxnReferrerDiagnosis"></div>
-                                <div class="form-group"><label>Risk Level:</label>
-                                    <select class="form-input" id="pdTxnRiskLevel">
-                                        <option value="unassigned">Unassigned</option>
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                    </select>
+                            </div>
+
+                            <div class="pd-tx-tab-content" data-tx-tab-panel="counter_referral">
+                                <div class="pd-tx-grid">
+                                    <div class="form-group"><label>Reply Date:</label><input type="date" class="form-input" id="pdTxnReplyDate"></div>
+                                    <div class="form-group"><label>Reply From:</label><input type="text" class="form-input" id="pdTxnReplyFrom"></div>
+                                    <div class="form-group"><label>Presumed Diagnosis:</label><input type="text" class="form-input" id="pdTxnPresumedDiagnosis"></div>
+                                    <div class="form-group"><label>Final Diagnosis:</label><input type="text" class="form-input" id="pdTxnFinalDiagnosis"></div>
+                                    <div class="form-group"><label>Documents:</label><input type="text" class="form-input" id="pdTxnDocuments"></div>
+                                    <div class="form-group pd-tx-span2"><label>Findings:</label><textarea class="form-input" id="pdTxnFindings" rows="3"></textarea></div>
+                                    <div class="form-group pd-tx-span2"><label>Services Provided:</label><textarea class="form-input" id="pdTxnServicesProvided" rows="3"></textarea></div>
+                                    <div class="form-group pd-tx-span2"><label>Recommendations:</label><textarea class="form-input" id="pdTxnRecommendations" rows="3"></textarea></div>
+                                    <div class="form-group pd-tx-span2"><label>Prescriptions/Referrals:</label><textarea class="form-input" id="pdTxnPrescriptionsReferrals" rows="3"></textarea></div>
                                 </div>
-                                <div class="form-group"><label>Include Vitals:</label>
-                                    <select class="form-input" id="pdTxnIncludeVitals">
-                                        <option value="unassigned">Unassigned</option>
-                                        <option value="no">No</option>
-                                        <option value="yes">Yes</option>
-                                    </select>
-                                </div>
-                                <div class="form-group"><label>Requested Service:</label><input type="text" class="form-input" id="pdTxnRequestedService"></div>
-                                <div class="form-group"><label>Patient Billing Facility:</label><select class="form-input" id="pdTxnBillingFacility"><option value="">-- Unspecified --</option></select></div>
                             </div>
                         </div>
 
-                        <div class="pd-tx-tab-content" data-tx-tab-panel="counter_referral">
-                            <div class="pd-tx-grid">
-                                <div class="form-group"><label>Reply Date:</label><input type="date" class="form-input" id="pdTxnReplyDate"></div>
-                                <div class="form-group"><label>Reply From:</label><input type="text" class="form-input" id="pdTxnReplyFrom"></div>
-                                <div class="form-group"><label>Presumed Diagnosis:</label><input type="text" class="form-input" id="pdTxnPresumedDiagnosis"></div>
-                                <div class="form-group"><label>Final Diagnosis:</label><input type="text" class="form-input" id="pdTxnFinalDiagnosis"></div>
-                                <div class="form-group"><label>Documents:</label><input type="text" class="form-input" id="pdTxnDocuments"></div>
-                                <div class="form-group pd-tx-span2"><label>Findings:</label><textarea class="form-input" id="pdTxnFindings" rows="3"></textarea></div>
-                                <div class="form-group pd-tx-span2"><label>Services Provided:</label><textarea class="form-input" id="pdTxnServicesProvided" rows="3"></textarea></div>
-                                <div class="form-group pd-tx-span2"><label>Recommendations:</label><textarea class="form-input" id="pdTxnRecommendations" rows="3"></textarea></div>
-                                <div class="form-group pd-tx-span2"><label>Prescriptions/Referrals:</label><textarea class="form-input" id="pdTxnPrescriptionsReferrals" rows="3"></textarea></div>
+                        <div id="pdTxnDetailsSection" style="display:none;">
+                            <div class="form-group">
+                                <label>Details:</label>
+                                <textarea class="form-input" id="pdTxnDetails" rows="6"></textarea>
                             </div>
                         </div>
                     </form>

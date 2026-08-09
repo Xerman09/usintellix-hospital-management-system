@@ -15,7 +15,7 @@ class PatientTransactionController extends Controller
     private ProviderService $providerService;
 
     private const DETAIL_FIELDS = [
-        'transaction_type', 'sent_summary_of_care', 'sent_summary_of_care_electronically',
+        'transaction_type', 'details', 'sent_summary_of_care', 'sent_summary_of_care_electronically',
         'confirmed_recipient_received_summary', 'referral_date', 'external_referral',
         'reason', 'risk_level', 'requested_service', 'refer_by_provider_id',
         'refer_to_provider_id', 'referrer_diagnosis', 'include_vitals', 'billing_facility_id',

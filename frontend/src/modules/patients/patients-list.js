@@ -1537,6 +1537,8 @@ function setupTransactionsPanel(patient)
         });
     });
 
+    document.getElementById("pdTxnType").addEventListener("change", toggleTransactionTypeSections);
+
     const sentSummaryEl = document.getElementById("pdTxnSentSummary");
     const sentElectronicallyEl = document.getElementById("pdTxnSentSummaryElectronically");
     const confirmedReceivedEl = document.getElementById("pdTxnConfirmedReceived");
@@ -1554,6 +1556,14 @@ function setupTransactionsPanel(patient)
     document.getElementById("pdTransactionsForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         await saveTransactionForm(patient);
+    });
+
+    // Grow any of the form's textareas (Details, Reason, Findings, etc.) to
+    // fit their content as the user types, instead of scrolling internally.
+    document.getElementById("pdTransactionsForm").addEventListener("input", (e) => {
+        if (e.target.tagName === "TEXTAREA") {
+            autoGrowTextarea(e.target);
+        }
     });
 
     loadTransactionsList(patient);
@@ -1608,15 +1618,15 @@ async function loadTransactionsList(patient)
     listBody.innerHTML = `
         <div class="table-wrap">
             <table class="data-table">
-                <thead><tr><th>Type</th><th>Referral Date</th><th>Refer By</th><th>Refer To</th><th>Reason</th><th></th></tr></thead>
+                <thead><tr><th>Type</th><th>Referral Date</th><th>Refer By</th><th>Refer To</th><th>Reason / Details</th><th></th></tr></thead>
                 <tbody>
                     ${patientTransactionsCache.map((t) => `
                         <tr>
-                            <td>${escapeHtml(t.transaction_type ? t.transaction_type.charAt(0).toUpperCase() + t.transaction_type.slice(1) : '')}</td>
+                            <td>${escapeHtml(formatTransactionType(t.transaction_type))}</td>
                             <td>${escapeHtml((t.referral_date || '').substring(0, 10))}</td>
                             <td>${escapeHtml(t.refer_by_name || '')}</td>
                             <td>${escapeHtml(t.refer_to_name || '')}</td>
-                            <td>${escapeHtml((t.reason || '').slice(0, 60))}</td>
+                            <td>${escapeHtml((t.reason || t.details || '').slice(0, 60))}</td>
                             <td><button type="button" class="pd-report-btn pd-report-btn-secondary pd-tx-edit-btn" data-tx-id="${t.id}">Edit</button></td>
                         </tr>
                     `).join('')}
@@ -1633,6 +1643,33 @@ async function loadTransactionsList(patient)
             if (record) openTransactionForm(record);
         });
     });
+}
+
+// "patient_request" -> "Patient Request".
+function formatTransactionType(type)
+{
+    if (!type) return "";
+
+    return type.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
+// Only the Referral type uses the checklist/tabs/Referral+Counter-Referral
+// fields; every other type (Billing, Legal, Patient Request, Physical
+// Request) is just a single free-text Details box.
+function toggleTransactionTypeSections()
+{
+    const isReferral = document.getElementById("pdTxnType").value === "referral";
+    const referralSection = document.getElementById("pdTxnReferralSection");
+    const detailsSection = document.getElementById("pdTxnDetailsSection");
+
+    referralSection.style.display = isReferral ? "block" : "none";
+    detailsSection.style.display = isReferral ? "none" : "block";
+
+    // The section that just became visible may hold textareas that were
+    // never sized (or were sized to 0 by an autoGrowTextarea call while
+    // still hidden -- scrollHeight reads 0 for a display:none element) --
+    // re-grow them now that they're actually visible.
+    (isReferral ? referralSection : detailsSection).querySelectorAll("textarea").forEach(autoGrowTextarea);
 }
 
 // Opens the Add/Edit form. `record` is null for a new transaction, or the
@@ -1654,6 +1691,10 @@ function openTransactionForm(record)
 
     const set = (id, value) => { document.getElementById(id).value = value ?? ""; };
     const setChecked = (id, value) => { document.getElementById(id).checked = !!value; };
+
+    set("pdTxnType", record?.transaction_type || "referral");
+    set("pdTxnDetails", record?.details);
+    toggleTransactionTypeSections();
 
     setChecked("pdTxnSentSummary", record?.sent_summary_of_care);
     setChecked("pdTxnSentSummaryElectronically", record?.sent_summary_of_care_electronically);
@@ -1681,6 +1722,23 @@ function openTransactionForm(record)
     set("pdTxnServicesProvided", record?.services_provided);
     set("pdTxnRecommendations", record?.recommendations);
     set("pdTxnPrescriptionsReferrals", record?.prescriptions_referrals);
+
+    document.querySelectorAll("#pdTransactionsForm textarea").forEach(autoGrowTextarea);
+}
+
+// Grows a textarea to fit its content instead of scrolling internally.
+// Reset height to "auto" first so shrinking (e.g. after clearing text, or
+// opening a fresh blank form) is reflected too, not just growth.
+function autoGrowTextarea(el)
+{
+    // scrollHeight reads 0 for an element hidden by a display:none
+    // ancestor, which would otherwise collapse it to a 0px-tall box the
+    // moment it's later revealed (see toggleTransactionTypeSections, which
+    // re-grows a section's textareas itself once it becomes visible).
+    if (el.offsetParent === null) return;
+
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
 }
 
 function closeTransactionForm()
@@ -1696,7 +1754,8 @@ async function saveTransactionForm(patient)
     const checked = (id) => document.getElementById(id).checked;
 
     const details = {
-        transaction_type: "referral",
+        transaction_type: val("pdTxnType"),
+        details: val("pdTxnDetails"),
         sent_summary_of_care: checked("pdTxnSentSummary"),
         sent_summary_of_care_electronically: checked("pdTxnSentSummaryElectronically"),
         confirmed_recipient_received_summary: checked("pdTxnConfirmedReceived"),
