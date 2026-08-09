@@ -1793,13 +1793,74 @@ async function saveTransactionForm(patient)
     await loadTransactionsList(patient);
 }
 
-// A blank, unfilled version of the Referral tab's fields, opened in a print-
-// ready popup -- mirrors the CCD/report popups' Download PDF button so it
-// can be saved as a PDF the same way.
+// Renders one "Referral Form" / "Counter Referral Form" header block: the
+// form title on the left, the facility's name/address and a Client ID/Date
+// box on the right -- reused by both copies on page 1 and the Counter
+// Referral Form on page 2.
+function renderReferralFormHeader(title)
+{
+    return `
+        <div class="ref-header">
+            <div class="ref-title">${escapeHtml(title)}</div>
+            <div class="ref-facility">
+                <strong>Motol University Hospital - II</strong><br/>
+                V &Uacute;valu 84<br/>
+                150 06 Praha 5, PRG, CZ<br/>
+                Tel: +1-224431111
+                <table class="ref-idbox">
+                    <tr><td>Client ID</td><td></td></tr>
+                    <tr><td>Date</td><td></td></tr>
+                </table>
+            </div>
+        </div>`;
+}
+
+// A field row: one or more label+blank-line pairs on the same line, e.g.
+// renderReferralFormRow([['Blood pressure', '/'], ['Height'], ['Weight']]).
+// A second element in a pair (like the '/' above) is a short inline
+// separator printed right after the label instead of a blank line.
+function renderReferralFormRow(fields)
+{
+    return `
+        <div class="ref-row">
+            ${fields.map(([label, sep]) => `
+                <span class="ref-field">
+                    <span class="ref-label">${escapeHtml(label)}</span>
+                    ${sep ? `<span class="ref-sep">${escapeHtml(sep)}</span>` : ''}
+                    <span class="ref-line"></span>
+                </span>
+            `).join('')}
+        </div>`;
+}
+
+const REFERRAL_FORM_STYLE = `
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
+        .ref-box { border: 1.5px solid #333; padding: 20px 24px; margin-bottom: 24px; page-break-inside: avoid; }
+        .ref-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 8px; }
+        .ref-title { font-size: 19px; font-weight: 700; }
+        .ref-facility { text-align: right; font-size: 11.5px; color: #2563eb; line-height: 1.5; }
+        .ref-facility strong { color: #000; font-size: 12.5px; }
+        table.ref-idbox { margin-top: 6px; border-collapse: collapse; margin-left: auto; }
+        table.ref-idbox td { border: 1px solid #888; padding: 2px 8px; font-size: 10.5px; }
+        table.ref-idbox td:first-child { color: #2563eb; text-align: left; }
+        table.ref-idbox td:last-child { width: 90px; }
+        .ref-copy-label { font-weight: 700; color: #8a3324; margin: 6px 0 14px; }
+        .ref-section-label { font-weight: 700; color: #8a3324; margin: 14px 0 10px; }
+        .ref-row { display: flex; flex-wrap: wrap; gap: 6px 26px; margin-bottom: 14px; }
+        .ref-field { display: flex; align-items: baseline; gap: 6px; flex: 1 1 auto; }
+        .ref-field.ref-field-wide { flex-basis: 100%; }
+        .ref-label { color: #8a3324; white-space: nowrap; }
+        .ref-sep { color: #333; }
+        .ref-line { border-bottom: 1px solid #333; flex: 1; min-width: 40px; height: 14px; }
+        ${CCD_PRINT_BUTTON_STYLE}
+        @media print { .ref-box { break-inside: avoid; } }`;
+
+// The OpenEMR-style blank Referral / Counter Referral paperwork: a Clinic
+// Copy and Client Copy of the Referral Form on page 1, and a Counter
+// Referral Form on page 2, all left blank for hand-filling (unlike the
+// data-entry fields in the Add/Edit Transaction form this mirrors).
 function printBlankReferralForm(patient)
 {
-    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
-
     const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
     if (!reportWindow) {
         alert("Please enable pop-ups to view the form.");
@@ -1810,21 +1871,55 @@ function printBlankReferralForm(patient)
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Blank Referral Form</title>
-    <style>${PATIENT_REPORT_STYLE}</style>
+    <title>Referral Form</title>
+    <style>${REFERRAL_FORM_STYLE}</style>
 </head>
 <body>
     ${CCD_PRINT_BUTTON_HTML}
-    <h1>Referral Form</h1>
-    <p>${escapeHtml(fullName)}</p>
-    <table class="data-table">
-        <tr><th>Referral Date</th><td></td><th>Refer By</th><td></td></tr>
-        <tr><th>External Referral</th><td></td><th>Refer To</th><td></td></tr>
-        <tr><th>Reason</th><td colspan="3"></td></tr>
-        <tr><th>Risk Level</th><td></td><th>Include Vitals</th><td></td></tr>
-        <tr><th>Requested Service</th><td></td><th>Patient Billing Facility</th><td></td></tr>
-        <tr><th>Referrer Diagnosis</th><td colspan="3"></td></tr>
-    </table>
+
+    <div class="ref-box">
+        ${renderReferralFormHeader('Referral Form')}
+        <div class="ref-copy-label">Clinic Copy</div>
+        <div class="ref-section-label">Client medical history summary:</div>
+        ${renderReferralFormRow([['Blood pressure', '/'], ['Height'], ['Weight']])}
+        ${renderReferralFormRow([['Name'], ['DOB'], ['Age'], ['Gender']])}
+        ${renderReferralFormRow([['Insurance'], ['Plan'], ['Policy'], ['Group'], ['Effective Date']])}
+        ${renderReferralFormRow([['Address'], ['Postal'], ['Phone']])}
+        ${renderReferralFormRow([['Reference Reason']])}
+        ${renderReferralFormRow([['Diagnosis']])}
+        ${renderReferralFormRow([['Reference classification (risk level)']])}
+        ${renderReferralFormRow([["Doctor's name and signature"]])}
+        ${renderReferralFormRow([['Referred to', '/']])}
+    </div>
+
+    <div class="ref-box">
+        ${renderReferralFormHeader('Referral Form')}
+        <div class="ref-copy-label">Client Copy</div>
+        ${renderReferralFormRow([['Name'], ['Age'], ['Gender']])}
+        ${renderReferralFormRow([['Insurance'], ['Plan'], ['Policy'], ['Group'], ['Effective Date']])}
+        ${renderReferralFormRow([['Health centre/clinic']])}
+        ${renderReferralFormRow([['Address'], ['Postal'], ['Phone']])}
+        ${renderReferralFormRow([['Reference Reason']])}
+        <div class="ref-section-label">Client medical history summary:</div>
+        ${renderReferralFormRow([['Blood pressure', '/'], ['Height'], ['Weight']])}
+        ${renderReferralFormRow([['Referer name and signature']])}
+        ${renderReferralFormRow([['Specialist name and signature']])}
+    </div>
+
+    <div class="ref-box" style="page-break-before: always;">
+        ${renderReferralFormHeader('Counter Referral Form')}
+        <div class="ref-copy-label">For Referred Organization/Practitioner</div>
+        ${renderReferralFormRow([['Name'], ['Age'], ['Gender']])}
+        ${renderReferralFormRow([['Insurance'], ['Plan'], ['Policy'], ['Group'], ['Effective Date']])}
+        ${renderReferralFormRow([['Health centre/clinic']])}
+        ${renderReferralFormRow([['Diagnosis']])}
+        ${renderReferralFormRow([['Findings']])}
+        ${renderReferralFormRow([['Final Diagnosis']])}
+        ${renderReferralFormRow([['Services provided']])}
+        ${renderReferralFormRow([['Recommendations and treatment']])}
+        ${renderReferralFormRow([['Prescriptions and other referrals']])}
+        ${renderReferralFormRow([['Specialist name and signature']])}
+    </div>
 </body>
 </html>
     `;
