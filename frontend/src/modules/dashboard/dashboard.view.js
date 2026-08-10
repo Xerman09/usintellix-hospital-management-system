@@ -185,5 +185,19 @@ export function DashboardView()
         <!-- Active tab content goes here -->
     </main>
 </div>
+
+<div class="modal-overlay" id="logoutConfirmModalOverlay">
+    <div class="modal-box" style="max-width: 400px; text-align: center;">
+        <div class="modal-header">
+            <h2>Log Out</h2>
+            <button type="button" class="modal-close" id="closeLogoutConfirmModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Are you sure you want to logout?</p>
+        <div class="form-actions" style="justify-content: center; margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="cancelLogoutBtn">Cancel</button>
+            <button type="button" class="btn-danger" id="confirmLogoutBtn">Logout</button>
+        </div>
+    </div>
+</div>
 `;
 }

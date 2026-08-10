@@ -404,13 +404,27 @@ export function Dashboard()
 
     // Logout
     const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-            if (confirm('Are you sure you want to logout?')) {
-                await logout();
-                clearSession();
-                window.location.hash = "#/login";
+    const logoutModalOverlay = document.getElementById('logoutConfirmModalOverlay');
+
+    if (logoutBtn && logoutModalOverlay) {
+        const closeLogoutModal = () => logoutModalOverlay.classList.remove('open');
+
+        logoutBtn.addEventListener('click', () => {
+            logoutModalOverlay.classList.add('open');
+        });
+
+        document.getElementById('closeLogoutConfirmModal').addEventListener('click', closeLogoutModal);
+        document.getElementById('cancelLogoutBtn').addEventListener('click', closeLogoutModal);
+        logoutModalOverlay.addEventListener('click', (event) => {
+            if (event.target === logoutModalOverlay) {
+                closeLogoutModal();
             }
+        });
+
+        document.getElementById('confirmLogoutBtn').addEventListener('click', async () => {
+            await logout();
+            clearSession();
+            window.location.hash = "#/login";
         });
     }
 
