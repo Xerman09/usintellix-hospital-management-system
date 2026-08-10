@@ -14,24 +14,24 @@ export async function fetchLinkableIssues(patientId)
     return await api(`/encounters/issues?${query}`);
 }
 
-export async function addEncounter(patientId, details = {}, issues = [])
+export async function addEncounter(patientId, details = {}, issues = [], billingCodes = [])
 {
     return await api(
         "/encounters",
         {
             method: "POST",
-            body: JSON.stringify({ patient_id: patientId, issues, ...details })
+            body: JSON.stringify({ patient_id: patientId, issues, billing_codes: billingCodes, ...details })
         }
     );
 }
 
-export async function updateEncounter(id, details, issues = [])
+export async function updateEncounter(id, details, issues = [], billingCodes = [])
 {
     return await api(
         "/encounters",
         {
             method: "PUT",
-            body: JSON.stringify({ id, issues, ...details })
+            body: JSON.stringify({ id, issues, billing_codes: billingCodes, ...details })
         }
     );
 }

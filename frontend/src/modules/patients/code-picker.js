@@ -99,7 +99,7 @@ async function runSearch()
     }
 
     tbody.innerHTML = items.map((item) => `
-        <tr data-code="${escapeHtml(item.code)}" data-description="${escapeHtml(item.description)}">
+        <tr data-code="${escapeHtml(item.code)}" data-description="${escapeHtml(item.description)}" data-code-type="${escapeHtml(item.code_type || type)}" data-fee="${item.fee_standard ?? ""}">
             <td>${escapeHtml(item.code)}</td>
             <td>${escapeHtml(item.short_description || item.description)}</td>
         </tr>
@@ -108,9 +108,13 @@ async function runSearch()
     tbody.querySelectorAll("tr[data-code]").forEach((row) => {
         row.addEventListener("click", () => {
             if (onSelectCallback) {
+                const feeRaw = row.getAttribute("data-fee");
+
                 onSelectCallback({
                     code: row.getAttribute("data-code"),
-                    description: row.getAttribute("data-description")
+                    description: row.getAttribute("data-description"),
+                    code_type: row.getAttribute("data-code-type"),
+                    fee: feeRaw ? feeRaw : null
                 });
             }
 

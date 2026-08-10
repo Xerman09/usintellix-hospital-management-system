@@ -4,6 +4,7 @@ namespace App\Modules\Encounters\Services;
 
 use App\Core\Database;
 use App\Modules\Encounters\Models\Encounter;
+use App\Modules\Encounters\Models\EncounterBillingCode;
 use App\Modules\Encounters\Models\EncounterIssue;
 use PDO;
 
@@ -35,7 +36,13 @@ class EncounterService
                 e.reason_for_visit, e.created_at, e.updated_at,
                 (SELECT GROUP_CONCAT(CONCAT(ei.issue_type, ':', ei.issue_id) SEPARATOR ',')
                  FROM encounter_issues ei
-                 WHERE ei.encounter_id = e.id) AS linked_issues
+                 WHERE ei.encounter_id = e.id) AS linked_issues,
+                (SELECT GROUP_CONCAT(CONCAT(ebc.code_type, ':', ebc.code, ':', ebc.description) SEPARATOR '||')
+                 FROM encounter_billing_codes ebc
+                 WHERE ebc.encounter_id = e.id) AS billing_codes_summary,
+                (SELECT SUM(ebc.fee)
+                 FROM encounter_billing_codes ebc
+                 WHERE ebc.encounter_id = e.id) AS billing_fee_total
          FROM encounters e
          LEFT JOIN visit_categories vc ON vc.id = e.visit_category_id
          LEFT JOIN classes cl ON cl.id = e.class_id
@@ -113,7 +120,7 @@ class EncounterService
     /**
      * Record an encounter for a patient, along with any linked issues.
      */
-    public function store(int $patientId, int $createdBy, array $details, array $issueLinks = []): array
+    public function store(int $patientId, int $createdBy, array $details, array $issueLinks = [], array $billingCodes = []): array
     {
         $errors = $this->validate($details);
 
@@ -140,6 +147,7 @@ class EncounterService
         }
 
         $this->syncIssues($id, $issueLinks);
+        $this->syncBillingCodes($id, $billingCodes);
 
         return [
             'success' => true,
@@ -149,9 +157,9 @@ class EncounterService
     }
 
     /**
-     * Update an existing encounter's details and linked issues.
+     * Update an existing encounter's details, linked issues, and billing codes.
      */
-    public function update(int $id, array $details, int $updatedBy, array $issueLinks = []): array
+    public function update(int $id, array $details, int $updatedBy, array $issueLinks = [], array $billingCodes = []): array
     {
         $record = (new Encounter())->where('id', $id)->first();
 
@@ -179,6 +187,7 @@ class EncounterService
         (new Encounter())->update($data, $id);
 
         $this->syncIssues($id, $issueLinks);
+        $this->syncBillingCodes($id, $billingCodes);
 
         return [
             'success' => true,
@@ -238,6 +247,39 @@ class EncounterService
                 'encounter_id' => $encounterId,
                 'issue_type' => $type,
                 'issue_id' => $issueId,
+                'created_at' => $now
+            ]);
+        }
+    }
+
+    /**
+     * Replace an encounter's billing codes with the given set. Codes are
+     * captured as a snapshot (type/code/description/fee) rather than
+     * referencing the codes catalog by id, so edits to the catalog later
+     * don't retroactively change what was billed.
+     */
+    private function syncBillingCodes(int $encounterId, array $billingCodes): void
+    {
+        (new EncounterBillingCode())->where('encounter_id', $encounterId)->delete();
+
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($billingCodes as $entry) {
+            $codeType = trim((string) ($entry['code_type'] ?? ''));
+            $code = trim((string) ($entry['code'] ?? ''));
+
+            if ($codeType === '' || $code === '') {
+                continue;
+            }
+
+            $fee = $entry['fee'] ?? null;
+
+            (new EncounterBillingCode())->create([
+                'encounter_id' => $encounterId,
+                'code_type' => $codeType,
+                'code' => $code,
+                'description' => $entry['description'] ?? null,
+                'fee' => ($fee === '' || $fee === null) ? null : $fee,
                 'created_at' => $now
             ]);
         }

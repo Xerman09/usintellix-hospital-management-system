@@ -4053,6 +4053,10 @@ textarea.pd-sdoh-readonly {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
                         Issues
                     </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="encounter">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path></svg>
+                        Encounter
+                    </button>
                     <button type="button" class="pd-chart-nav-btn" data-chart-nav="ledger">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path></svg>
                         Ledger
@@ -4093,7 +4097,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.", { bodyId: "pdImmunizationsBody", addBtnId: "pdImmunizationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.")}
-                    ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.")}
+                    ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.", { bodyId: "pdInsuranceBody", addBtnId: "pdInsuranceAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.")}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { widgetId: "pdWidget-documents" })}
                     ${dashboardWidget("Disclosures", '<path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path>', "No disclosures recorded for this patient.", { bodyId: "pdDisclosuresBody", addBtnId: "pdDisclosuresAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
@@ -4712,6 +4716,37 @@ textarea.pd-sdoh-readonly {
                         <div id="pdIssuesDentalListBody">
                             <p class="pd-chart-nav-empty">Loading...</p>
                         </div>
+                    </div>
+                </div>
+
+                <div class="pd-transactions-panel" id="pdVisitHistoryPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <h2>Visit History</h2>
+                        <div class="pd-report-header-actions">
+                            <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdVisitHistoryToggleViewBtn">To Billing View</button>
+                            <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdVisitHistoryPrintBtn">${reportIcon("download")} Print page</button>
+                            <button type="button" class="pd-report-btn" id="pdVisitHistoryNewBtn">+ New Encounter</button>
+                        </div>
+                    </div>
+
+                    <div id="pdVisitHistoryAlert"></div>
+
+                    <div class="table-wrap">
+                        <table class="data-table" id="pdVisitHistoryTable">
+                            <thead id="pdVisitHistoryTableHead">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Issue</th>
+                                    <th>Reason/Form</th>
+                                    <th>Provider</th>
+                                    <th>Billing</th>
+                                    <th>Insurance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdVisitHistoryTableBody">
+                                <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -5849,6 +5884,104 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="insuranceDetailModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Insurance</h2>
+            <button type="button" class="modal-close" id="closeInsuranceDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Insurance on file for this patient.</p>
+
+        <div id="insuranceDetailAlert"></div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
+            <button type="button" class="btn-primary-inline" id="openAddInsuranceBtn">+ Add Insurance</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Insurance</th>
+                        <th>Policy Number</th>
+                        <th>Effective Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="insuranceDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="insuranceFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="insuranceFormTitle">Add Insurance</h2>
+            <button type="button" class="modal-close" id="closeInsuranceFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record an insurance policy for this patient.</p>
+
+        <div id="insuranceFormAlert"></div>
+
+        <form id="insuranceForm">
+            <input type="hidden" id="insurance_record_id">
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Insurance</label>
+                    <select id="insurance_insurance_id" class="form-input">
+                        <option value="">-- Select One --</option>
+                    </select>
+                    <span class="form-error" id="err-insurance_insurance_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="insurance_insurance_type" class="form-input">
+                        <option value="primary">Primary</option>
+                        <option value="secondary">Secondary</option>
+                        <option value="tertiary">Tertiary</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Policy Number</label>
+                    <input id="insurance_policy_number" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Group Number</label>
+                    <input id="insurance_group_number" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Subscriber Name</label>
+                    <input id="insurance_subscriber_name" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Effective Date</label>
+                    <input id="insurance_effective_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Term Date</label>
+                    <input id="insurance_term_date" type="date" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelInsuranceForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal-overlay" id="immunizationDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
@@ -6767,6 +6900,14 @@ textarea.pd-sdoh-readonly {
                     <div id="encounterIssuesList" class="encounter-issues-list">
                         <p class="pd-chart-nav-empty">No allergies, problems, medications, or health concerns recorded yet.</p>
                     </div>
+                </div>
+
+                <div class="form-group full">
+                    <label>Billing Codes</label>
+                    <div id="encounterBillingCodesList" class="encounter-issues-list">
+                        <p class="pd-chart-nav-empty">No billing codes attached yet.</p>
+                    </div>
+                    <button type="button" class="btn-secondary" id="addEncounterBillingCodeBtn" style="margin-top: 8px;">+ Add Code</button>
                 </div>
             </div>
 

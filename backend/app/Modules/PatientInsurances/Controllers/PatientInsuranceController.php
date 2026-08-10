@@ -1,34 +1,32 @@
 <?php
 
-namespace App\Modules\Encounters\Controllers;
+namespace App\Modules\PatientInsurances\Controllers;
 
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
-use App\Modules\Encounters\Services\EncounterService;
+use App\Modules\PatientInsurances\Services\PatientInsuranceService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Providers\Services\ProviderService;
 
-class EncounterController extends Controller
+class PatientInsuranceController extends Controller
 {
-    private EncounterService $encounterService;
+    private PatientInsuranceService $patientInsuranceService;
     private ProviderService $providerService;
 
     private const DETAIL_FIELDS = [
-        'visit_category_id', 'class_id', 'visit_type_id', 'sensitivity',
-        'encounter_provider_id', 'referring_provider_id', 'facility_id',
-        'billing_facility_id', 'date_of_service', 'onset_date', 'in_collection',
-        'discharge_disposition_id', 'reason_for_visit'
+        'insurance_type', 'policy_number', 'group_number', 'subscriber_name',
+        'effective_date', 'term_date'
     ];
 
     public function __construct()
     {
-        $this->encounterService = new EncounterService();
+        $this->patientInsuranceService = new PatientInsuranceService();
         $this->providerService = new ProviderService();
     }
 
     /**
-     * List a patient's recorded encounters.
+     * List a patient's recorded insurances.
      */
     public function index(): void
     {
@@ -40,33 +38,13 @@ class EncounterController extends Controller
             return;
         }
 
-        $encounters = $this->encounterService->list($patientId);
+        $insurances = $this->patientInsuranceService->list($patientId);
 
-        $this->success($encounters, 'Patient encounters retrieved successfully.');
+        $this->success($insurances, 'Patient insurances retrieved successfully.');
     }
 
     /**
-     * The patient's existing allergies/problems/medications/health
-     * concerns, for the "Link Issues to This Visit" picker.
-     */
-    public function issuesIndex(): void
-    {
-        $request = new Request();
-        $patientId = (int) $request->input('patient_id');
-
-        if (!$patientId) {
-            $this->error('Patient is required.', 422);
-            return;
-        }
-
-        $issues = $this->encounterService->listLinkableIssues($patientId);
-
-        $this->success($issues, 'Linkable issues retrieved successfully.');
-    }
-
-    /**
-     * Record an encounter for a patient (admin, receptionist, or the assigned doctor).
-     * Body: { patient_id, ...detail fields, issues?: [{ issue_type, issue_id }] }
+     * Record an insurance for a patient (admin, receptionist, or the assigned doctor).
      */
     public function store(): void
     {
@@ -74,9 +52,15 @@ class EncounterController extends Controller
         $user = Session::get('user');
 
         $patientId = (int) $request->input('patient_id');
+        $insuranceId = (int) $request->input('insurance_id');
 
         if (!$patientId) {
             $this->error('Patient is required.', 422);
+            return;
+        }
+
+        if (!$insuranceId) {
+            $this->error('Insurance is required.', 422);
             return;
         }
 
@@ -85,16 +69,15 @@ class EncounterController extends Controller
             return;
         }
 
-        $result = $this->encounterService->store(
+        $result = $this->patientInsuranceService->store(
             $patientId,
+            $insuranceId,
             (int) $user['id'],
-            $request->only(self::DETAIL_FIELDS),
-            (array) $request->input('issues', []),
-            (array) $request->input('billing_codes', [])
+            $request->only(self::DETAIL_FIELDS)
         );
 
         if (!$result['success']) {
-            $this->error($result['message'], 422, $result['errors'] ?? null);
+            $this->error($result['message'], 422);
             return;
         }
 
@@ -102,7 +85,7 @@ class EncounterController extends Controller
     }
 
     /**
-     * Update a recorded encounter's details and linked issues (admin, receptionist, or the assigned doctor).
+     * Update a recorded patient insurance's details (admin, receptionist, or the assigned doctor).
      */
     public function update(): void
     {
@@ -110,23 +93,21 @@ class EncounterController extends Controller
         $user = Session::get('user');
 
         $id = (int) $request->input('id');
-        $record = $this->encounterService->find($id);
+        $record = $this->patientInsuranceService->find($id);
 
         if (!$record || !$this->ownsPatient($user, (int) $record['patient_id'])) {
-            $this->error('Encounter record not found.', 404);
+            $this->error('Insurance record not found.', 404);
             return;
         }
 
-        $result = $this->encounterService->update(
+        $result = $this->patientInsuranceService->update(
             $id,
             $request->only(self::DETAIL_FIELDS),
-            (int) $user['id'],
-            (array) $request->input('issues', []),
-            (array) $request->input('billing_codes', [])
+            (int) $user['id']
         );
 
         if (!$result['success']) {
-            $this->error($result['message'], 422, $result['errors'] ?? null);
+            $this->error($result['message'], 422);
             return;
         }
 
@@ -134,7 +115,7 @@ class EncounterController extends Controller
     }
 
     /**
-     * Remove a recorded encounter (admin, receptionist, or the assigned doctor).
+     * Remove a recorded patient insurance (admin, receptionist, or the assigned doctor).
      */
     public function destroy(): void
     {
@@ -143,14 +124,14 @@ class EncounterController extends Controller
 
         $id = (int) $request->input('id');
 
-        $record = $this->encounterService->find($id);
+        $record = $this->patientInsuranceService->find($id);
 
         if (!$record || !$this->ownsPatient($user, (int) $record['patient_id'])) {
-            $this->error('Encounter record not found.', 404);
+            $this->error('Insurance record not found.', 404);
             return;
         }
 
-        $result = $this->encounterService->remove($id, (int) $user['id']);
+        $result = $this->patientInsuranceService->remove($id, (int) $user['id']);
 
         if (!$result['success']) {
             $this->error($result['message'], 404);
@@ -162,7 +143,7 @@ class EncounterController extends Controller
 
     /**
      * Confirm the given patient exists and, for doctors, is assigned to them.
-     * Admins and receptionists may manage any active patient's encounters.
+     * Admins and receptionists may manage any active patient's insurances.
      */
     private function ownsPatient(array $user, int $patientId): bool
     {

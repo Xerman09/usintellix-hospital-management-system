@@ -91,6 +91,11 @@ import { fetchVisitCategories } from "../visit-categories/visit-categories.servi
 import { fetchClasses } from "../classes/classes.service.js";
 import { fetchVisitTypes } from "../visit-types/visit-types.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
+import { fetchInsurances } from "../insurances/insurances.service.js";
+import {
+    fetchPatientInsurances, addPatientInsurance, updatePatientInsurance, removePatientInsurance
+} from "../patient-insurances/patient-insurances.service.js";
+import { openCodePicker } from "./code-picker.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -247,6 +252,7 @@ const CHART_NAV_LABELS = {
     documents: "Documents",
     transactions: "Transactions",
     issues: "Issues",
+    encounter: "Encounter",
     ledger: "Ledger",
     external_data: "External Data"
 };
@@ -1462,6 +1468,7 @@ function showChartSection(key)
     const reportPanel = document.getElementById("pdReportPanel");
     const transactionsPanel = document.getElementById("pdTransactionsPanel");
     const issuesPanel = document.getElementById("pdIssuesPanel");
+    const visitHistoryPanel = document.getElementById("pdVisitHistoryPanel");
     const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
     widgetGrid.style.display = "none";
@@ -1471,6 +1478,7 @@ function showChartSection(key)
     reportPanel.style.display = "none";
     transactionsPanel.style.display = "none";
     issuesPanel.style.display = "none";
+    visitHistoryPanel.style.display = "none";
 
     if (key === "dashboard" || widgetTarget) {
         widgetGrid.style.display = "";
@@ -1498,6 +1506,11 @@ function showChartSection(key)
         issuesPanel.style.display = "block";
         if (currentDashboardPatient) {
             Object.values(ISSUES_SECTIONS).forEach((section) => loadIssuesSection(section, currentDashboardPatient));
+        }
+    } else if (key === "encounter") {
+        visitHistoryPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            loadVisitHistoryList(currentDashboardPatient);
         }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
@@ -2074,6 +2087,7 @@ export async function initPatientChartTab(patient)
     renderDemographics(patient);
 
     loadPatientDashboardWidgets(patient);
+    loadDashboardInsurance(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2097,6 +2111,7 @@ export async function initPatientChartTab(patient)
     initSdohAssessment(patient.id);
     setupTransactionsPanel(patient);
     setupIssuesPanel(patient);
+    setupVisitHistoryPanel();
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
@@ -2120,6 +2135,7 @@ export async function initPatientChartTab(patient)
     setupProblemModals();
     setupHealthConcernModals();
     setupMedicationModals();
+    setupInsuranceModals();
     setupDeviceModal();
     setupSurgeryModal();
     setupDentalIssueModal();
@@ -4480,6 +4496,238 @@ async function openMedicationFormModal(existingRecord)
     formOverlay.classList.add("open");
 }
 
+let insuranceCatalog = [];
+let insuranceCatalogLoaded = false;
+
+const INSURANCE_DETAIL_FIELDS = [
+    "insurance_type", "policy_number", "group_number", "subscriber_name",
+    "effective_date", "term_date"
+];
+
+async function loadDashboardInsurance(patient)
+{
+    const body = document.getElementById("pdInsuranceBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientInsurances(patient.id);
+
+        renderDashboardInsurance(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load insurance", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load insurance right now.</p></div>`;
+    }
+}
+
+function renderDashboardInsurance(insurances)
+{
+    const body = document.getElementById("pdInsuranceBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = insurances.length
+        ? `<div class="pd-allergy-list">
+            ${insurances.map((insurance) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml(insurance.insurance_type)}: ${escapeHtml(insurance.insurance_name)}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path></svg>
+            <p>No insurance on file.</p>
+           </div>`;
+}
+
+function setupInsuranceModals()
+{
+    const detailOverlay = document.getElementById("insuranceDetailModalOverlay");
+    const formOverlay = document.getElementById("insuranceFormModalOverlay");
+    const form = document.getElementById("insuranceForm");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdInsuranceAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openInsuranceDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeInsuranceDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
+
+    document.getElementById("openAddInsuranceBtn").addEventListener("click", () => {
+        openInsuranceFormModal(null);
+    });
+
+    document.getElementById("closeInsuranceFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelInsuranceForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("insurance_record_id").value;
+        const insuranceId = document.getElementById("insurance_insurance_id").value;
+        const errEl = document.getElementById("err-insurance_insurance_id");
+
+        errEl.textContent = "";
+
+        if (!insuranceId) {
+            errEl.textContent = "Insurance is required.";
+            return;
+        }
+
+        const details = {};
+
+        INSURANCE_DETAIL_FIELDS.forEach((field) => {
+            details[field] = document.getElementById(`insurance_${field}`).value;
+        });
+
+        const result = recordId
+            ? await updatePatientInsurance(recordId, details)
+            : await addPatientInsurance(currentDashboardPatient.id, insuranceId, details);
+
+        if (!result.success) {
+            showAlert("insuranceFormAlert", result.message || "Failed to save insurance.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadInsuranceDetailTable(currentDashboardPatient);
+        await loadDashboardInsurance(currentDashboardPatient);
+        await loadVisitHistoryList(currentDashboardPatient);
+    });
+}
+
+async function openInsuranceDetailModal(patient)
+{
+    document.getElementById("insuranceDetailAlert").innerHTML = "";
+    document.getElementById("insuranceDetailModalOverlay").classList.add("open");
+    await loadInsuranceDetailTable(patient);
+}
+
+async function loadInsuranceDetailTable(patient)
+{
+    const tbody = document.getElementById("insuranceDetailTableBody");
+
+    try {
+        const result = await fetchPatientInsurances(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load insurance.")}</td></tr>`;
+            return;
+        }
+
+        renderInsuranceDetailTable(result.data);
+    } catch (error) {
+        console.error("Failed to load patient insurance", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load insurance right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderInsuranceDetailTable(insurances)
+{
+    const tbody = document.getElementById("insuranceDetailTableBody");
+
+    if (!insurances.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No insurance recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = insurances.map((insurance) => `
+        <tr>
+            <td>${escapeHtml(insurance.insurance_type)}</td>
+            <td>${escapeHtml(insurance.insurance_name)}</td>
+            <td>${escapeHtml(insurance.policy_number || "-")}</td>
+            <td>${escapeHtml(insurance.effective_date || "-")}</td>
+            <td class="table-actions">
+                <button class="btn-edit" data-edit-insurance="${insurance.id}">Edit</button>
+                <button class="btn-danger" data-remove-insurance="${insurance.id}">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-edit-insurance]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const insurance = insurances.find((i) => String(i.id) === btn.getAttribute("data-edit-insurance"));
+
+            if (insurance) {
+                openInsuranceFormModal(insurance);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-insurance]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Remove this insurance record?")) {
+                return;
+            }
+
+            const result = await removePatientInsurance(btn.getAttribute("data-remove-insurance"));
+
+            if (!result.success) {
+                showAlert("insuranceDetailAlert", result.message || "Failed to remove insurance.", "error");
+                return;
+            }
+
+            await loadInsuranceDetailTable(currentDashboardPatient);
+            await loadDashboardInsurance(currentDashboardPatient);
+            await loadVisitHistoryList(currentDashboardPatient);
+        });
+    });
+}
+
+async function openInsuranceFormModal(existingRecord)
+{
+    document.getElementById("insuranceFormAlert").innerHTML = "";
+    document.getElementById("insuranceForm").reset();
+    document.getElementById("err-insurance_insurance_id").textContent = "";
+
+    if (!insuranceCatalogLoaded) {
+        const catalogResult = await fetchInsurances();
+        insuranceCatalog = catalogResult.success ? catalogResult.data : [];
+        insuranceCatalogLoaded = true;
+    }
+
+    fillEncounterSelect("insurance_insurance_id", insuranceCatalog, (i) => i.name, "-- Select One --");
+
+    const title = document.getElementById("insuranceFormTitle");
+    const recordIdInput = document.getElementById("insurance_record_id");
+
+    if (existingRecord) {
+        title.textContent = "Edit Insurance";
+        recordIdInput.value = existingRecord.id;
+        document.getElementById("insurance_insurance_id").value = existingRecord.insurance_id ?? "";
+        document.getElementById("insurance_insurance_type").value = existingRecord.insurance_type || "primary";
+        document.getElementById("insurance_policy_number").value = existingRecord.policy_number || "";
+        document.getElementById("insurance_group_number").value = existingRecord.group_number || "";
+        document.getElementById("insurance_subscriber_name").value = existingRecord.subscriber_name || "";
+        document.getElementById("insurance_effective_date").value = (existingRecord.effective_date || "").slice(0, 10);
+        document.getElementById("insurance_term_date").value = (existingRecord.term_date || "").slice(0, 10);
+    } else {
+        title.textContent = "Add Insurance";
+        recordIdInput.value = "";
+        document.getElementById("insurance_insurance_type").value = "primary";
+    }
+
+    document.getElementById("insuranceFormModalOverlay").classList.add("open");
+}
+
 function setupImmunizationModals()
 {
     const detailOverlay = document.getElementById("immunizationDetailModalOverlay");
@@ -5364,6 +5612,8 @@ const ENCOUNTER_ISSUE_TAGS = {
     health_concern: "H"
 };
 
+let encounterBillingCodesDraft = [];
+
 function setupEncounterModals()
 {
     const detailOverlay = document.getElementById("encounterDetailModalOverlay");
@@ -5394,6 +5644,16 @@ function setupEncounterModals()
 
     document.getElementById("openAddEncounterBtn").addEventListener("click", () => {
         openEncounterFormModal(null);
+    });
+
+    document.getElementById("addEncounterBillingCodeBtn").addEventListener("click", () => {
+        openCodePicker({
+            defaultType: "CPT4",
+            onSelect: ({ code, description, code_type, fee }) => {
+                encounterBillingCodesDraft.push({ code, description, code_type, fee });
+                renderEncounterBillingCodesList();
+            }
+        });
     });
 
     document.getElementById("closeEncounterFormModal").addEventListener("click", closeForm);
@@ -5438,8 +5698,8 @@ function setupEncounterModals()
             .map((box) => ({ issue_type: box.dataset.issueType, issue_id: Number(box.value) }));
 
         const result = recordId
-            ? await updateEncounter(recordId, details, issues)
-            : await addEncounter(currentDashboardPatient.id, details, issues);
+            ? await updateEncounter(recordId, details, issues, encounterBillingCodesDraft)
+            : await addEncounter(currentDashboardPatient.id, details, issues, encounterBillingCodesDraft);
 
         if (!result.success) {
             showAlert("encounterFormAlert", result.message || "Failed to save encounter.", "error");
@@ -5449,6 +5709,7 @@ function setupEncounterModals()
         closeForm();
         await loadEncounterDetailTable(currentDashboardPatient);
         await loadDashboardEncounters(currentDashboardPatient);
+        await loadVisitHistoryList(currentDashboardPatient);
     });
 }
 
@@ -5544,6 +5805,7 @@ function renderEncounterDetailTable(encounters)
 
             await loadEncounterDetailTable(currentDashboardPatient);
             await loadDashboardEncounters(currentDashboardPatient);
+            await loadVisitHistoryList(currentDashboardPatient);
         });
     });
 }
@@ -5619,6 +5881,15 @@ async function openEncounterFormModal(existingRecord)
 
     renderEncounterIssuesList(linkedKeys);
 
+    encounterBillingCodesDraft = existingRecord && existingRecord.billing_codes_summary
+        ? existingRecord.billing_codes_summary.split("||").map((entry) => {
+            const parts = entry.split(":");
+            return { code_type: parts[0], code: parts[1], description: parts.slice(2).join(":"), fee: null };
+        })
+        : [];
+
+    renderEncounterBillingCodesList();
+
     const title = document.getElementById("encounterFormTitle");
     const recordIdInput = document.getElementById("encounter_record_id");
 
@@ -5677,6 +5948,232 @@ function renderEncounterIssuesList(linkedKeys)
         </label>
         `;
     }).join("");
+}
+
+function renderEncounterBillingCodesList()
+{
+    const container = document.getElementById("encounterBillingCodesList");
+
+    if (!encounterBillingCodesDraft.length) {
+        container.innerHTML = `<p class="pd-chart-nav-empty">No billing codes attached yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = encounterBillingCodesDraft.map((entry, index) => `
+        <div class="encounter-issue-item">
+            <strong>${escapeHtml(entry.code_type)}</strong>
+            <span>${escapeHtml(entry.code)}${entry.description ? " - " + escapeHtml(entry.description) : ""}</span>
+            <button type="button" class="btn-danger" data-remove-billing-code="${index}" style="margin-left: auto;">&times;</button>
+        </div>
+    `).join("");
+
+    container.querySelectorAll("[data-remove-billing-code]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const index = Number(btn.getAttribute("data-remove-billing-code"));
+            encounterBillingCodesDraft.splice(index, 1);
+            renderEncounterBillingCodesList();
+        });
+    });
+}
+
+let visitHistoryEncounters = [];
+let visitHistoryIssueLookup = {};
+let visitHistoryInsuranceLabel = "-";
+let visitHistoryViewMode = "history";
+
+function setupVisitHistoryPanel()
+{
+    document.getElementById("pdVisitHistoryNewBtn").addEventListener("click", () => {
+        openEncounterFormModal(null);
+    });
+
+    document.getElementById("pdVisitHistoryToggleViewBtn").addEventListener("click", (event) => {
+        visitHistoryViewMode = visitHistoryViewMode === "history" ? "billing" : "history";
+        event.currentTarget.textContent = visitHistoryViewMode === "history" ? "To Billing View" : "To Visit History View";
+        renderVisitHistoryTable();
+    });
+
+    document.getElementById("pdVisitHistoryPrintBtn").addEventListener("click", () => {
+        printVisitHistoryTable(currentDashboardPatient);
+    });
+}
+
+async function loadVisitHistoryList(patient)
+{
+    const tbody = document.getElementById("pdVisitHistoryTableBody");
+
+    try {
+        const [encountersResult, issuesResult, insurancesResult] = await Promise.all([
+            fetchPatientEncounters(patient.id),
+            fetchLinkableIssues(patient.id),
+            fetchPatientInsurances(patient.id)
+        ]);
+
+        visitHistoryEncounters = encountersResult.success ? encountersResult.data : [];
+
+        visitHistoryIssueLookup = {};
+        (issuesResult.success ? issuesResult.data : []).forEach((issue) => {
+            visitHistoryIssueLookup[`${issue.issue_type}:${issue.issue_id}`] = issue.label;
+        });
+
+        const insurances = insurancesResult.success ? insurancesResult.data : [];
+        const primaryInsurance = insurances.find((i) => i.insurance_type === "primary") || insurances[0];
+        visitHistoryInsuranceLabel = primaryInsurance ? `${primaryInsurance.insurance_type}: ${primaryInsurance.insurance_name}` : "-";
+
+        renderVisitHistoryTable();
+    } catch (error) {
+        console.error("Failed to load visit history", error);
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load visit history right now. Please try again.</td></tr>`;
+    }
+}
+
+function formatEncounterIssues(linkedIssues)
+{
+    if (!linkedIssues) {
+        return "-";
+    }
+
+    return linkedIssues.split(",").map((key) => {
+        const [issueType] = key.split(":");
+        const tag = ENCOUNTER_ISSUE_TAGS[issueType] || "?";
+        const label = visitHistoryIssueLookup[key] || key;
+
+        return `${tag}: ${escapeHtml(label)}`;
+    }).join("<br>");
+}
+
+function formatEncounterBillingCodes(summary)
+{
+    if (!summary) {
+        return "-";
+    }
+
+    return summary.split("||").map((entry) => {
+        const parts = entry.split(":");
+        const codeType = parts[0];
+        const code = parts[1];
+        const description = parts.slice(2).join(":");
+
+        return escapeHtml(`${codeType} - ${code}${description ? " - " + description : ""}`);
+    }).join("<br>");
+}
+
+function renderVisitHistoryTable()
+{
+    const thead = document.getElementById("pdVisitHistoryTableHead");
+    const tbody = document.getElementById("pdVisitHistoryTableBody");
+
+    if (visitHistoryViewMode === "history") {
+        thead.innerHTML = `
+            <tr>
+                <th>Date</th>
+                <th>Issue</th>
+                <th>Reason/Form</th>
+                <th>Provider</th>
+                <th>Billing</th>
+                <th>Insurance</th>
+            </tr>
+        `;
+    } else {
+        thead.innerHTML = `
+            <tr>
+                <th>Date</th>
+                <th>Provider</th>
+                <th>Billing Facility</th>
+                <th>CPT/ICD Codes</th>
+                <th>Fee Total</th>
+                <th>In Collection</th>
+                <th>Insurance</th>
+            </tr>
+        `;
+    }
+
+    if (!visitHistoryEncounters.length) {
+        const colspan = visitHistoryViewMode === "history" ? 6 : 7;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="table-empty">No visits recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = visitHistoryEncounters.map((encounter) => {
+        const date = escapeHtml((encounter.date_of_service || "").slice(0, 16).replace("T", " "));
+        const provider = escapeHtml(encounter.encounter_provider_name || "-");
+        const billing = formatEncounterBillingCodes(encounter.billing_codes_summary);
+        const insurance = escapeHtml(visitHistoryInsuranceLabel);
+
+        if (visitHistoryViewMode === "history") {
+            const issues = formatEncounterIssues(encounter.linked_issues);
+            const reason = escapeHtml(encounter.reason_for_visit || "-");
+
+            return `
+                <tr>
+                    <td>${date}</td>
+                    <td>${issues}</td>
+                    <td>${reason}</td>
+                    <td>${provider}</td>
+                    <td>${billing}</td>
+                    <td>${insurance}</td>
+                </tr>
+            `;
+        }
+
+        const feeTotal = encounter.billing_fee_total ? `$${Number(encounter.billing_fee_total).toFixed(2)}` : "-";
+
+        return `
+            <tr>
+                <td>${date}</td>
+                <td>${provider}</td>
+                <td>${escapeHtml(encounter.billing_facility_name || "-")}</td>
+                <td>${billing}</td>
+                <td>${feeTotal}</td>
+                <td>${Number(encounter.in_collection) ? "Yes" : "No"}</td>
+                <td>${insurance}</td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function printVisitHistoryTable(patient)
+{
+    const reportWindow = window.open("", "_blank", "width=900,height=800,scrollbars=yes");
+
+    if (!reportWindow) {
+        alert("Please enable pop-ups to print this page.");
+        return;
+    }
+
+    const fullName = patient
+        ? [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")
+        : "";
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Visit History</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #222; }
+        h2 { margin-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 12.5px; vertical-align: top; }
+        th { background: #f4f6f9; }
+        ${CCD_PRINT_BUTTON_STYLE}
+    </style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h2>Visit History</h2>
+    <p>${escapeHtml(fullName)}${patient?.birthdate ? ` &mdash; DOB: ${escapeHtml(patient.birthdate)}` : ""}</p>
+    <table>
+        ${document.getElementById("pdVisitHistoryTableHead").outerHTML}
+        <tbody>${document.getElementById("pdVisitHistoryTableBody").innerHTML}</tbody>
+    </table>
+</body>
+</html>
+    `;
+
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    reportWindow.document.close();
 }
 
 let careTeamOptions = { members: [], roles: [], facilities: [], related_persons: [] };

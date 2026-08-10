@@ -63,6 +63,8 @@ import { ProfileView } from "../profile/profile.view.js";
 import { initProfile } from "../profile/profile.js";
 import { BusinessSettingsView } from "../business-settings/business-settings.view.js";
 import { initBusinessSettings } from "../business-settings/business-settings.js";
+import { GeneralSettingsView } from "../general-settings/general-settings.view.js";
+import { initGeneralSettings } from "../general-settings/general-settings.js";
 import { PharmaciesView } from "../pharmacies/pharmacies.view.js";
 import { initPharmacies } from "../pharmacies/pharmacies.js";
 import { RecallsView } from "../recalls/recalls.view.js";
@@ -358,6 +360,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPharmacies, 0);
                 return PharmaciesView();
+            }, activate);
+        } else if (tabId === 'general_settings' && user.role === 'admin') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initGeneralSettings, 0);
+                return GeneralSettingsView();
             }, activate);
         } else if (tabId === 'health_records' && user.role === 'patient') {
             tabManager.openTab(tabId, title, () => {
