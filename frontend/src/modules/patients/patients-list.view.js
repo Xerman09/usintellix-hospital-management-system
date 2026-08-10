@@ -2697,6 +2697,52 @@ export function PatientChartView(user)
     margin-bottom: 16px;
 }
 
+.pd-back-link {
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pd-back-link:hover {
+    text-decoration: underline;
+}
+
+.pd-locked-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    background: #fef3c7;
+    border-radius: 999px;
+    padding: 2px 10px;
+    vertical-align: middle;
+    margin-left: 8px;
+}
+
+.pd-esign-log-wrap {
+    margin-top: 14px;
+}
+
+.pd-esign-log-table {
+    font-size: 12.5px;
+}
+
+.pd-esign-log-table th,
+.pd-esign-log-table td {
+    padding: 8px 10px;
+}
+
+.pd-readonly-value {
+    margin: 0;
+    padding: 9px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #29323f;
+}
+
 .pd-report-split-col h4 {
     margin: 0;
     font-size: 15px;
@@ -4750,6 +4796,139 @@ textarea.pd-sdoh-readonly {
                     </div>
                 </div>
 
+                <div class="pd-transactions-panel" id="pdEncounterSummaryPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <div>
+                            <a href="#" class="pd-back-link" id="pdEncounterSummaryBackBtn">&larr; Back to Visit History</a>
+                            <h2 id="pdEncounterSummaryTitle" style="margin-top: 6px;">Encounter Summary</h2>
+                        </div>
+                    </div>
+
+                    <div id="pdEncounterSummaryAlert"></div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Visit Summary <span class="pd-locked-badge" id="pdEncSummaryVisitSummaryLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVisitSummarySignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVisitSummaryDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div id="pdEncSummaryVisitSummaryBody">
+                            <p class="pd-chart-nav-empty">Loading...</p>
+                        </div>
+                        <div class="pd-esign-log-wrap">
+                            <table class="data-table pd-esign-log-table">
+                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                <tbody id="pdEncSummaryVisitSummaryLog"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Care Plan Form <span class="pd-locked-badge" id="pdEncSummaryCarePlanLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryCarePlanSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryCarePlanDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Author</th>
+                                        <th>Type</th>
+                                        <th>Code</th>
+                                        <th>Code Text</th>
+                                        <th>Description</th>
+                                        <th>Date</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pdCarePlanTableBody">
+                                    <tr><td colspan="7" class="table-empty">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="pd-esign-log-wrap">
+                            <table class="data-table pd-esign-log-table">
+                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                <tbody id="pdEncSummaryCarePlanLog"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Clinical Instructions <span class="pd-locked-badge" id="pdEncSummaryClinicalInstructionsLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalInstructionsSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalInstructionsDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+
+                        <p class="pd-readonly-value" id="pdClinicalInstructionsText">-</p>
+
+                        <div class="pd-esign-log-wrap">
+                            <table class="data-table pd-esign-log-table">
+                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                <tbody id="pdEncSummaryClinicalInstructionsLog"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Vitals <span class="pd-locked-badge" id="pdEncSummaryVitalsLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Height</label>
+                                <p class="pd-readonly-value" id="pdVitals_height_cm">-</p>
+                            </div>
+                            <div class="form-group">
+                                <label>Weight</label>
+                                <p class="pd-readonly-value" id="pdVitals_weight_kg">-</p>
+                            </div>
+                            <div class="form-group">
+                                <label>BMI</label>
+                                <p class="pd-readonly-value" id="pdVitalsBmiDisplay">-</p>
+                            </div>
+                            <div class="form-group">
+                                <label>BMI Status</label>
+                                <p class="pd-readonly-value" id="pdVitalsBmiStatusDisplay">-</p>
+                            </div>
+                            <div class="form-group">
+                                <label>Oxygen Saturation</label>
+                                <p class="pd-readonly-value" id="pdVitals_oxygen_saturation">-</p>
+                            </div>
+                            <div class="form-group">
+                                <label>Oxygen Flow Rate</label>
+                                <p class="pd-readonly-value" id="pdVitals_oxygen_flow_rate">-</p>
+                            </div>
+                            <div class="form-group">
+                                <label>Inhaled Oxygen Concentration</label>
+                                <p class="pd-readonly-value" id="pdVitals_inhaled_oxygen_concentration">-</p>
+                            </div>
+                        </div>
+
+                        <div class="pd-esign-log-wrap">
+                            <table class="data-table pd-esign-log-table">
+                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                <tbody id="pdEncSummaryVitalsLog"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="pd-report-panel" id="pdReportPanel" style="display: none;">
                     <div class="pd-report-header">
                         <h3>Report</h3>
@@ -6000,6 +6179,38 @@ textarea.pd-sdoh-readonly {
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelBillingNote">Cancel</button>
                 <button class="login-btn" type="submit" id="saveBillingNoteBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="esignModalOverlay">
+    <div class="modal-box" style="max-width: 420px;">
+        <div class="modal-header">
+            <h2>Your password is your signature</h2>
+            <button type="button" class="modal-close" id="closeEsignModal">&times;</button>
+        </div>
+
+        <div id="esignFormAlert"></div>
+
+        <form id="esignForm">
+            <input type="hidden" id="esign_encounter_id">
+            <input type="hidden" id="esign_section_type">
+
+            <div class="form-group full">
+                <label>Password</label>
+                <input id="esign_password" type="password" class="form-input" placeholder="Enter your password to sign the form" autocomplete="current-password">
+                <span class="form-error" id="err-esign_password"></span>
+            </div>
+
+            <div class="form-group full">
+                <label>Amendment</label>
+                <textarea id="esign_amendment" class="form-input" rows="3" placeholder="Enter an amendment..." style="resize: vertical;"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelEsign">Back</button>
+                <button class="login-btn" type="submit" id="submitEsignBtn">Sign</button>
             </div>
         </form>
     </div>

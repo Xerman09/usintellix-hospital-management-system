@@ -1,6 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { PatientChartView } from "./patients-list.view.js?v=25";
+import { PatientChartView } from "./patients-list.view.js?v=28";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -91,6 +91,11 @@ import { fetchVisitCategories } from "../visit-categories/visit-categories.servi
 import { fetchClasses } from "../classes/classes.service.js";
 import { fetchVisitTypes } from "../visit-types/visit-types.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
+import {
+    fetchEncounterSections, signEncounterSection, deleteEncounterSection
+} from "../encounter-sections/encounter-sections.service.js";
+import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
+import { fetchCarePlanItems, removeCarePlanItem } from "../encounter-sections/encounter-care-plan-items.service.js";
 import { fetchInsurances } from "../insurances/insurances.service.js";
 import {
     fetchPatientInsurances, addPatientInsurance, updatePatientInsurance, removePatientInsurance
@@ -1469,6 +1474,7 @@ function showChartSection(key)
     const transactionsPanel = document.getElementById("pdTransactionsPanel");
     const issuesPanel = document.getElementById("pdIssuesPanel");
     const visitHistoryPanel = document.getElementById("pdVisitHistoryPanel");
+    const encounterSummaryPanel = document.getElementById("pdEncounterSummaryPanel");
     const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
     widgetGrid.style.display = "none";
@@ -1479,6 +1485,7 @@ function showChartSection(key)
     transactionsPanel.style.display = "none";
     issuesPanel.style.display = "none";
     visitHistoryPanel.style.display = "none";
+    encounterSummaryPanel.style.display = "none";
 
     if (key === "dashboard" || widgetTarget) {
         widgetGrid.style.display = "";
@@ -2112,6 +2119,7 @@ export async function initPatientChartTab(patient)
     setupTransactionsPanel(patient);
     setupIssuesPanel(patient);
     setupVisitHistoryPanel();
+    setupEncounterSummaryPanel();
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
@@ -6155,7 +6163,7 @@ function renderVisitHistoryTable()
             const reason = escapeHtml(encounter.reason_for_visit || "-");
 
             return `
-                <tr>
+                <tr data-open-encounter-summary="${encounter.id}" style="cursor: pointer;">
                     <td>${date}</td>
                     <td>${issues}</td>
                     <td>${reason}</td>
@@ -6192,6 +6200,18 @@ function renderVisitHistoryTable()
 
                 if (encounter) {
                     openBillingNoteModal(encounter);
+                }
+            });
+        });
+    }
+
+    if (visitHistoryViewMode === "history") {
+        tbody.querySelectorAll("[data-open-encounter-summary]").forEach((row) => {
+            row.addEventListener("click", () => {
+                const encounter = visitHistoryEncounters.find((e) => String(e.id) === row.getAttribute("data-open-encounter-summary"));
+
+                if (encounter) {
+                    openEncounterSummary(encounter);
                 }
             });
         });
@@ -6250,6 +6270,282 @@ function printVisitHistoryTable(patient)
     reportWindow.document.open();
     reportWindow.document.write(html);
     reportWindow.document.close();
+}
+
+let currentEncounterSummary = null;
+
+function openEncounterSummary(encounter)
+{
+    document.getElementById("pdVisitHistoryPanel").style.display = "none";
+    document.getElementById("pdEncounterSummaryPanel").style.display = "block";
+    loadEncounterSummary(encounter);
+}
+
+function backToVisitHistory()
+{
+    document.getElementById("pdEncounterSummaryPanel").style.display = "none";
+    document.getElementById("pdVisitHistoryPanel").style.display = "block";
+}
+
+async function loadEncounterSummary(encounter)
+{
+    document.getElementById("pdEncounterSummaryAlert").innerHTML = "";
+
+    const [sectionsResult, vitalsResult, carePlanResult] = await Promise.all([
+        fetchEncounterSections(encounter.id),
+        fetchEncounterVitals(encounter.id),
+        fetchCarePlanItems(encounter.id)
+    ]);
+
+    const sectionsByType = {};
+
+    (sectionsResult.success ? sectionsResult.data : []).forEach((section) => {
+        sectionsByType[section.section_type] = section;
+    });
+
+    currentEncounterSummary = {
+        encounter,
+        sections: sectionsByType,
+        vitals: vitalsResult.success ? vitalsResult.data : null,
+        carePlanItems: carePlanResult.success ? carePlanResult.data : []
+    };
+
+    renderEncounterSummary();
+}
+
+async function loadCarePlanItems()
+{
+    const result = await fetchCarePlanItems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.carePlanItems = result.success ? result.data : [];
+}
+
+function renderEncounterSummary()
+{
+    const { encounter } = currentEncounterSummary;
+    const patientName = currentDashboardPatient
+        ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
+        : "";
+
+    document.getElementById("pdEncounterSummaryTitle").textContent =
+        `${(encounter.date_of_service || "").slice(0, 10)} Encounter for ${patientName}`;
+
+    renderVisitSummarySection();
+    renderCarePlanSection();
+    renderClinicalInstructionsSection();
+    renderVitalsSection();
+}
+
+function renderLockedBadge(badgeId, lockedAt)
+{
+    document.getElementById(badgeId).style.display = lockedAt ? "inline-flex" : "none";
+}
+
+function renderEsignLog(tbodyId, signatures)
+{
+    const tbody = document.getElementById(tbodyId);
+
+    if (!signatures || !signatures.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No signatures yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = signatures.map((sig) => `
+        <tr>
+            <td>${escapeHtml(sig.signer_name)}</td>
+            <td>${escapeHtml(sig.signer_role || "-")}</td>
+            <td>${sig.amendment ? `<em>${escapeHtml(sig.amendment)}</em>` : "-"}</td>
+            <td>${escapeHtml((sig.signed_at || "").slice(0, 16).replace("T", " "))}</td>
+        </tr>
+    `).join("");
+}
+
+function renderVisitSummarySection()
+{
+    const { encounter, sections } = currentEncounterSummary;
+    const section = sections.visit_summary || {};
+    const locked = !!section.locked_at;
+
+    document.getElementById("pdEncSummaryVisitSummaryBody").innerHTML = `
+        <p><strong>${escapeHtml(encounter.visit_category_name || "Visit")}</strong></p>
+        <p>Reason For Visit - ${escapeHtml(encounter.reason_for_visit || "-")}</p>
+        <p>${escapeHtml(encounter.encounter_provider_name || "-")}${encounter.facility_name ? ` (${escapeHtml(encounter.facility_name)})` : ""}</p>
+        <p>Referring Provider - ${escapeHtml(encounter.referring_provider_name || "-")}</p>
+    `;
+
+    renderLockedBadge("pdEncSummaryVisitSummaryLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryVisitSummaryLog", section.signatures);
+    document.getElementById("pdEncSummaryVisitSummaryDeleteBtn").style.display = locked ? "none" : "";
+}
+
+function renderCarePlanSection()
+{
+    const { sections, carePlanItems } = currentEncounterSummary;
+    const section = sections.care_plan || {};
+    const locked = !!section.locked_at;
+    const tbody = document.getElementById("pdCarePlanTableBody");
+
+    if (!carePlanItems.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No care plan items recorded.</td></tr>`;
+    } else {
+        tbody.innerHTML = carePlanItems.map((item) => `
+            <tr>
+                <td>${escapeHtml(item.author_name)}</td>
+                <td>${escapeHtml(item.item_type)}</td>
+                <td>${escapeHtml(item.code || "-")}</td>
+                <td>${escapeHtml(item.code_text || "-")}</td>
+                <td>${escapeHtml(item.description)}</td>
+                <td>${escapeHtml((item.item_date || "").slice(0, 16).replace("T", " "))}</td>
+                <td class="table-actions">
+                    ${locked ? "" : `<button class="btn-danger" data-remove-care-plan-item="${item.id}">Delete</button>`}
+                </td>
+            </tr>
+        `).join("");
+
+        if (!locked) {
+            tbody.querySelectorAll("[data-remove-care-plan-item]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this care plan item?")) {
+                        return;
+                    }
+
+                    const result = await removeCarePlanItem(btn.getAttribute("data-remove-care-plan-item"));
+
+                    if (!result.success) {
+                        showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove item.", "error");
+                        return;
+                    }
+
+                    await loadCarePlanItems();
+                    renderCarePlanSection();
+                });
+            });
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryCarePlanLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryCarePlanLog", section.signatures);
+    document.getElementById("pdEncSummaryCarePlanDeleteBtn").style.display = locked ? "none" : "";
+}
+
+function renderClinicalInstructionsSection()
+{
+    const section = currentEncounterSummary.sections.clinical_instructions || {};
+
+    document.getElementById("pdClinicalInstructionsText").textContent = section.content || "Not recorded.";
+
+    renderLockedBadge("pdEncSummaryClinicalInstructionsLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryClinicalInstructionsLog", section.signatures);
+    document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").style.display = section.locked_at ? "none" : "";
+}
+
+function renderVitalsSection()
+{
+    const section = currentEncounterSummary.sections.vitals || {};
+    const vitals = currentEncounterSummary.vitals;
+
+    document.getElementById("pdVitals_height_cm").textContent = vitals?.height_cm ? `${vitals.height_cm} cm` : "-";
+    document.getElementById("pdVitals_weight_kg").textContent = vitals?.weight_kg ? `${vitals.weight_kg} kg` : "-";
+    document.getElementById("pdVitals_oxygen_saturation").textContent = vitals?.oxygen_saturation ? `${vitals.oxygen_saturation}%` : "-";
+    document.getElementById("pdVitals_oxygen_flow_rate").textContent = vitals?.oxygen_flow_rate ? `${vitals.oxygen_flow_rate} L/min` : "-";
+    document.getElementById("pdVitals_inhaled_oxygen_concentration").textContent = vitals?.inhaled_oxygen_concentration ? `${vitals.inhaled_oxygen_concentration}%` : "-";
+    document.getElementById("pdVitalsBmiDisplay").textContent = vitals?.bmi ?? "-";
+    document.getElementById("pdVitalsBmiStatusDisplay").textContent = vitals?.bmi_status ?? "-";
+
+    renderLockedBadge("pdEncSummaryVitalsLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryVitalsLog", section.signatures);
+    document.getElementById("pdEncSummaryVitalsDeleteBtn").style.display = section.locked_at ? "none" : "";
+}
+
+async function deleteEncounterSummarySection(sectionType)
+{
+    if (!confirm("Delete this section? This cannot be undone.")) {
+        return;
+    }
+
+    const result = await deleteEncounterSection(currentEncounterSummary.encounter.id, sectionType);
+
+    if (!result.success) {
+        showAlert("pdEncounterSummaryAlert", result.message || "Failed to delete section.", "error");
+        return;
+    }
+
+    await loadEncounterSummary(currentEncounterSummary.encounter);
+}
+
+function setupEncounterSummaryPanel()
+{
+    document.getElementById("pdEncounterSummaryBackBtn").addEventListener("click", (event) => {
+        event.preventDefault();
+        backToVisitHistory();
+    });
+
+    document.getElementById("pdEncSummaryVisitSummarySignBtn").addEventListener("click", () => openEsignModal("visit_summary"));
+    document.getElementById("pdEncSummaryVisitSummaryDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("visit_summary"));
+
+    document.getElementById("pdEncSummaryCarePlanSignBtn").addEventListener("click", () => openEsignModal("care_plan"));
+    document.getElementById("pdEncSummaryCarePlanDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("care_plan"));
+
+    document.getElementById("pdEncSummaryClinicalInstructionsSignBtn").addEventListener("click", () => openEsignModal("clinical_instructions"));
+    document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("clinical_instructions"));
+
+    document.getElementById("pdEncSummaryVitalsSignBtn").addEventListener("click", () => openEsignModal("vitals"));
+    document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("vitals"));
+
+    setupEsignModal();
+}
+
+function setupEsignModal()
+{
+    const modalOverlay = document.getElementById("esignModalOverlay");
+    const form = document.getElementById("esignForm");
+
+    const closeModal = () => {
+        modalOverlay.classList.remove("open");
+        form.reset();
+        document.getElementById("err-esign_password").textContent = "";
+        document.getElementById("esignFormAlert").innerHTML = "";
+    };
+
+    document.getElementById("closeEsignModal").addEventListener("click", closeModal);
+    document.getElementById("cancelEsign").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("err-esign_password").textContent = "";
+
+        const encounterId = document.getElementById("esign_encounter_id").value;
+        const sectionType = document.getElementById("esign_section_type").value;
+        const password = document.getElementById("esign_password").value;
+        const amendment = document.getElementById("esign_amendment").value;
+
+        const result = await signEncounterSection(encounterId, sectionType, password, amendment);
+
+        if (!result.success) {
+            document.getElementById("err-esign_password").textContent = result.message || "Failed to sign.";
+            return;
+        }
+
+        currentEncounterSummary.sections[sectionType] = result.data;
+        closeModal();
+        renderEncounterSummary();
+    });
+}
+
+function openEsignModal(sectionType)
+{
+    document.getElementById("esignFormAlert").innerHTML = "";
+    document.getElementById("err-esign_password").textContent = "";
+    document.getElementById("esignForm").reset();
+    document.getElementById("esign_encounter_id").value = currentEncounterSummary.encounter.id;
+    document.getElementById("esign_section_type").value = sectionType;
+    document.getElementById("esignModalOverlay").classList.add("open");
 }
 
 let careTeamOptions = { members: [], roles: [], facilities: [], related_persons: [] };
