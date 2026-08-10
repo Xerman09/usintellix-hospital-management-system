@@ -36,6 +36,7 @@ function staffNavLinks(role)
                 <a data-tab="insurances">Insurance Management</a>
                 <a data-tab="organization_types">Organization Type Registration</a>
                 <a data-tab="pos_codes">POS Code Management</a>
+                <a data-tab="price_levels">Price Level Management</a>
             </div>
         </div>
         <div class="nav-dropdown">

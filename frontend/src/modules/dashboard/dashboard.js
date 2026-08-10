@@ -51,6 +51,8 @@ import { OrganizationTypesView } from "../organization-types/organization-types.
 import { initOrganizationTypes } from "../organization-types/organization-types.js";
 import { PosCodesView } from "../pos-codes/pos-codes.view.js";
 import { initPosCodes } from "../pos-codes/pos-codes.js";
+import { PriceLevelsView } from "../price-levels/price-levels.view.js";
+import { initPriceLevels } from "../price-levels/price-levels.js";
 import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=7";
 import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
@@ -262,6 +264,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPosCodes, 0);
                 return PosCodesView();
+            }, activate);
+        } else if (tabId === 'price_levels') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPriceLevels, 0);
+                return PriceLevelsView();
             }, activate);
         } else if (tabId === 'icd10_diagnoses') {
             tabManager.openTab(tabId, title, () => {
