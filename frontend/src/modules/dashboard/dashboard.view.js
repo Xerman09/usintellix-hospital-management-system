@@ -71,6 +71,7 @@ function staffNavLinks(role)
                 </div>
                 <a data-tab="preference_types">Preference Type</a>
                 <a data-tab="surgeries">Surgeries</a>
+                <a data-tab="void_reasons">Void Reason Management</a>
             </div>
         </div>
         ${role === "admin" ? `

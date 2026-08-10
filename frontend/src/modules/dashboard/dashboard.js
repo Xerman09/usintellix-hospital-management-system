@@ -88,6 +88,8 @@ import { InformationSourcesView } from "../information-sources/information-sourc
 import { initInformationSources } from "../information-sources/information-sources.js";
 import { RefusalReasonsView } from "../refusal-reasons/refusal-reasons.view.js";
 import { initRefusalReasons } from "../refusal-reasons/refusal-reasons.js";
+import { VoidReasonsView } from "../void-reasons/void-reasons.view.js";
+import { initVoidReasons } from "../void-reasons/void-reasons.js";
 import { CompletionStatusesView } from "../completion-statuses/completion-statuses.view.js";
 import { initCompletionStatuses } from "../completion-statuses/completion-statuses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -300,6 +302,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initRefusalReasons, 0);
                 return RefusalReasonsView();
+            }, activate);
+        } else if (tabId === 'void_reasons') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initVoidReasons, 0);
+                return VoidReasonsView();
             }, activate);
         } else if (tabId === 'completion_statuses') {
             tabManager.openTab(tabId, title, () => {
