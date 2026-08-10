@@ -5982,6 +5982,29 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="billingNoteModalOverlay">
+    <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2>Billing Note</h2>
+            <button type="button" class="modal-close" id="closeBillingNoteModal">&times;</button>
+        </div>
+
+        <div id="billingNoteFormAlert"></div>
+
+        <form id="billingNoteForm">
+            <input type="hidden" id="billing_note_encounter_id">
+            <div class="form-group full">
+                <textarea id="billing_note_text" class="form-input" rows="5" style="resize: vertical;"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelBillingNote">Cancel</button>
+                <button class="login-btn" type="submit" id="saveBillingNoteBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal-overlay" id="immunizationDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">

@@ -134,6 +134,36 @@ class EncounterController extends Controller
     }
 
     /**
+     * Save an encounter's billing note (admin, receptionist, or the assigned doctor).
+     */
+    public function updateBillingNote(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $id = (int) $request->input('id');
+        $record = $this->encounterService->find($id);
+
+        if (!$record || !$this->ownsPatient($user, (int) $record['patient_id'])) {
+            $this->error('Encounter record not found.', 404);
+            return;
+        }
+
+        $result = $this->encounterService->updateBillingNote(
+            $id,
+            $request->input('billing_note'),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
      * Remove a recorded encounter (admin, receptionist, or the assigned doctor).
      */
     public function destroy(): void

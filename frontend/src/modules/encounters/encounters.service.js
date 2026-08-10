@@ -36,6 +36,17 @@ export async function updateEncounter(id, details, issues = [], billingCodes = [
     );
 }
 
+export async function updateEncounterBillingNote(id, billingNote)
+{
+    return await api(
+        "/encounters/billing-note",
+        {
+            method: "PUT",
+            body: JSON.stringify({ id, billing_note: billingNote })
+        }
+    );
+}
+
 export async function removeEncounter(id)
 {
     return await api(

@@ -36,6 +36,25 @@ class AuthController extends Controller
     }
 
     /**
+     * Verify a Two-Factor Authentication code for a pending login.
+     */
+    public function verifyTwoFactor(): void
+    {
+        $request = new Request();
+
+        $code = trim($request->input('code', ''));
+
+        $result = $this->authService->verifyTwoFactor($code);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 401, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
      * Handle user logout.
      */
     public function logout(): void

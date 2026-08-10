@@ -1,6 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { PatientChartView } from "./patients-list.view.js";
+import { PatientChartView } from "./patients-list.view.js?v=25";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -84,7 +84,7 @@ import {
 import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js";
 import {
     fetchPatientEncounters, fetchLinkableIssues, addEncounter, updateEncounter, removeEncounter,
-    fetchDischargeDispositions
+    fetchDischargeDispositions, updateEncounterBillingNote
 } from "../encounters/encounters.service.js";
 import { fetchCareTeam, fetchCareTeamOptions, saveCareTeam } from "../care-team/care-team.service.js";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
@@ -5989,13 +5989,62 @@ function setupVisitHistoryPanel()
 
     document.getElementById("pdVisitHistoryToggleViewBtn").addEventListener("click", (event) => {
         visitHistoryViewMode = visitHistoryViewMode === "history" ? "billing" : "history";
-        event.currentTarget.textContent = visitHistoryViewMode === "history" ? "To Billing View" : "To Visit History View";
+        event.currentTarget.textContent = visitHistoryViewMode === "history" ? "To Billing View" : "To Clinical View";
         renderVisitHistoryTable();
     });
 
     document.getElementById("pdVisitHistoryPrintBtn").addEventListener("click", () => {
         printVisitHistoryTable(currentDashboardPatient);
     });
+
+    setupBillingNoteModal();
+}
+
+function setupBillingNoteModal()
+{
+    const modalOverlay = document.getElementById("billingNoteModalOverlay");
+    const form = document.getElementById("billingNoteForm");
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("closeBillingNoteModal").addEventListener("click", closeModal);
+    document.getElementById("cancelBillingNote").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const encounterId = document.getElementById("billing_note_encounter_id").value;
+        const note = document.getElementById("billing_note_text").value.trim();
+
+        const result = await updateEncounterBillingNote(encounterId, note);
+
+        if (!result.success) {
+            showAlert("billingNoteFormAlert", result.message || "Failed to save billing note.", "error");
+            return;
+        }
+
+        const encounter = visitHistoryEncounters.find((e) => String(e.id) === String(encounterId));
+
+        if (encounter) {
+            encounter.billing_note = note || null;
+        }
+
+        closeModal();
+        renderVisitHistoryTable();
+    });
+}
+
+function openBillingNoteModal(encounter)
+{
+    document.getElementById("billingNoteFormAlert").innerHTML = "";
+    document.getElementById("billing_note_encounter_id").value = encounter.id;
+    document.getElementById("billing_note_text").value = encounter.billing_note || "";
+    document.getElementById("billingNoteModalOverlay").classList.add("open");
 }
 
 async function loadVisitHistoryList(patient)
@@ -6078,18 +6127,19 @@ function renderVisitHistoryTable()
         thead.innerHTML = `
             <tr>
                 <th>Date</th>
-                <th>Provider</th>
-                <th>Billing Facility</th>
-                <th>CPT/ICD Codes</th>
-                <th>Fee Total</th>
-                <th>In Collection</th>
+                <th>Billing Note</th>
+                <th>Code</th>
+                <th>Chg</th>
+                <th>Paid</th>
+                <th>Adj</th>
+                <th>Bal</th>
                 <th>Insurance</th>
             </tr>
         `;
     }
 
     if (!visitHistoryEncounters.length) {
-        const colspan = visitHistoryViewMode === "history" ? 6 : 7;
+        const colspan = visitHistoryViewMode === "history" ? 6 : 8;
         tbody.innerHTML = `<tr><td colspan="${colspan}" class="table-empty">No visits recorded for this patient.</td></tr>`;
         return;
     }
@@ -6116,20 +6166,46 @@ function renderVisitHistoryTable()
             `;
         }
 
-        const feeTotal = encounter.billing_fee_total ? `$${Number(encounter.billing_fee_total).toFixed(2)}` : "-";
+        const chg = encounter.billing_fee_total ? formatCurrency(encounter.billing_fee_total) : "-";
+        const noteButton = encounter.billing_note
+            ? `<button type="button" class="btn-edit" data-billing-note-id="${encounter.id}">${escapeHtml(truncateText(encounter.billing_note, 40))}</button>`
+            : `<button type="button" class="btn-primary-inline" data-billing-note-id="${encounter.id}">+ Add</button>`;
 
         return `
             <tr>
                 <td>${date}</td>
-                <td>${provider}</td>
-                <td>${escapeHtml(encounter.billing_facility_name || "-")}</td>
-                <td>${billing}</td>
-                <td>${feeTotal}</td>
-                <td>${Number(encounter.in_collection) ? "Yes" : "No"}</td>
+                <td>${noteButton}</td>
+                <td style="color: #16a34a;">${billing}</td>
+                <td>${chg}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
                 <td>${insurance}</td>
             </tr>
         `;
     }).join("");
+
+    if (visitHistoryViewMode === "billing") {
+        tbody.querySelectorAll("[data-billing-note-id]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const encounter = visitHistoryEncounters.find((e) => String(e.id) === btn.getAttribute("data-billing-note-id"));
+
+                if (encounter) {
+                    openBillingNoteModal(encounter);
+                }
+            });
+        });
+    }
+}
+
+function formatCurrency(value)
+{
+    return Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function truncateText(text, maxLength)
+{
+    return text.length > maxLength ? text.slice(0, maxLength - 1) + "…" : text;
 }
 
 function printVisitHistoryTable(patient)

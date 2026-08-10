@@ -63,6 +63,28 @@ export function LoginView()
 
         </form>
 
+        <form id="twoFactorForm" style="display:none;">
+
+            <p id="tfaInstructions" class="form-subtitle"></p>
+            <div id="tfaDevNotice" style="display:none;"></div>
+
+            <div class="form-group">
+                <label class="sr-only" for="tfa_code">Verification code</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="tfa_code" class="form-input" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                </div>
+                <span class="form-error" id="err-tfa_code"></span>
+            </div>
+
+            <button class="login-btn" type="submit">Verify</button>
+
+            <p class="login-forgot"><a id="backToLoginBtn">Back to Login</a></p>
+
+        </form>
+
     </div>
 
 </div>

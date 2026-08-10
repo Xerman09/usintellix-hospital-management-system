@@ -24,6 +24,11 @@ $router->put('/encounters', [EncounterController::class, 'update'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->put('/encounters/billing-note', [EncounterController::class, 'updateBillingNote'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->delete('/encounters', [EncounterController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

@@ -33,7 +33,7 @@ class EncounterService
                 e.billing_facility_id, bf.name AS billing_facility_name,
                 e.date_of_service, e.onset_date, e.in_collection,
                 e.discharge_disposition_id, dd.name AS discharge_disposition_name,
-                e.reason_for_visit, e.created_at, e.updated_at,
+                e.reason_for_visit, e.billing_note, e.created_at, e.updated_at,
                 (SELECT GROUP_CONCAT(CONCAT(ei.issue_type, ':', ei.issue_id) SEPARATOR ',')
                  FROM encounter_issues ei
                  WHERE ei.encounter_id = e.id) AS linked_issues,
@@ -223,6 +223,35 @@ class EncounterService
     public function find(int $id): ?array
     {
         return (new Encounter())->where('id', $id)->first();
+    }
+
+    /**
+     * Set an encounter's billing note. Kept separate from update() since
+     * it's edited standalone from the Visit History billing view, not
+     * through the full encounter form -- it shouldn't require the rest
+     * of the record's required fields to be resubmitted.
+     */
+    public function updateBillingNote(int $id, ?string $note, int $updatedBy): array
+    {
+        $record = (new Encounter())->where('id', $id)->first();
+
+        if (!$record || $record['deleted_at'] !== null) {
+            return [
+                'success' => false,
+                'message' => 'Encounter record not found.'
+            ];
+        }
+
+        (new Encounter())->update([
+            'billing_note' => ($note === null || trim($note) === '') ? null : $note,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $updatedBy
+        ], $id);
+
+        return [
+            'success' => true,
+            'message' => 'Billing note saved successfully.'
+        ];
     }
 
     /**

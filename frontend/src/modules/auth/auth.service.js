@@ -26,3 +26,18 @@ export async function logout()
         }
     );
 }
+
+
+export async function verifyTwoFactor(code)
+{
+    return await api(
+        "/verify-2fa",
+        {
+            method:"POST",
+
+            body:JSON.stringify({
+                code
+            })
+        }
+    );
+}
