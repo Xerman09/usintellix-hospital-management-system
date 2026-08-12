@@ -1,6 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { PatientChartView } from "./patients-list.view.js?v=28";
+import { PatientChartView } from "./patients-list.view.js?v=29";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -6457,20 +6457,55 @@ function renderVitalsSection()
     document.getElementById("pdEncSummaryVitalsDeleteBtn").style.display = section.locked_at ? "none" : "";
 }
 
-async function deleteEncounterSummarySection(sectionType)
+const SECTION_LABELS = {
+    visit_summary: "Visit Summary",
+    care_plan: "Care Plan Form",
+    clinical_instructions: "Clinical Instructions",
+    vitals: "Vitals"
+};
+
+let pendingDeleteSectionType = null;
+
+function openDeleteSectionModal(sectionType)
 {
-    if (!confirm("Delete this section? This cannot be undone.")) {
-        return;
-    }
+    pendingDeleteSectionType = sectionType;
+    document.getElementById("deleteSectionAlert").innerHTML = "";
+    document.getElementById("deleteSectionName").textContent = SECTION_LABELS[sectionType] || sectionType;
+    document.getElementById("deleteSectionModalOverlay").classList.add("open");
+}
 
-    const result = await deleteEncounterSection(currentEncounterSummary.encounter.id, sectionType);
+function setupDeleteSectionModal()
+{
+    const modalOverlay = document.getElementById("deleteSectionModalOverlay");
 
-    if (!result.success) {
-        showAlert("pdEncounterSummaryAlert", result.message || "Failed to delete section.", "error");
-        return;
-    }
+    const closeModal = () => {
+        modalOverlay.classList.remove("open");
+        pendingDeleteSectionType = null;
+    };
 
-    await loadEncounterSummary(currentEncounterSummary.encounter);
+    document.getElementById("closeDeleteSectionModal").addEventListener("click", closeModal);
+    document.getElementById("cancelDeleteSection").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    document.getElementById("confirmDeleteSectionBtn").addEventListener("click", async () => {
+        if (!pendingDeleteSectionType) {
+            return;
+        }
+
+        const result = await deleteEncounterSection(currentEncounterSummary.encounter.id, pendingDeleteSectionType);
+
+        if (!result.success) {
+            showAlert("deleteSectionAlert", result.message || "Failed to delete section.", "error");
+            return;
+        }
+
+        closeModal();
+        await loadEncounterSummary(currentEncounterSummary.encounter);
+    });
 }
 
 function setupEncounterSummaryPanel()
@@ -6481,18 +6516,19 @@ function setupEncounterSummaryPanel()
     });
 
     document.getElementById("pdEncSummaryVisitSummarySignBtn").addEventListener("click", () => openEsignModal("visit_summary"));
-    document.getElementById("pdEncSummaryVisitSummaryDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("visit_summary"));
+    document.getElementById("pdEncSummaryVisitSummaryDeleteBtn").addEventListener("click", () => openDeleteSectionModal("visit_summary"));
 
     document.getElementById("pdEncSummaryCarePlanSignBtn").addEventListener("click", () => openEsignModal("care_plan"));
-    document.getElementById("pdEncSummaryCarePlanDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("care_plan"));
+    document.getElementById("pdEncSummaryCarePlanDeleteBtn").addEventListener("click", () => openDeleteSectionModal("care_plan"));
 
     document.getElementById("pdEncSummaryClinicalInstructionsSignBtn").addEventListener("click", () => openEsignModal("clinical_instructions"));
-    document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("clinical_instructions"));
+    document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("clinical_instructions"));
 
     document.getElementById("pdEncSummaryVitalsSignBtn").addEventListener("click", () => openEsignModal("vitals"));
-    document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => deleteEncounterSummarySection("vitals"));
+    document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("vitals"));
 
     setupEsignModal();
+    setupDeleteSectionModal();
 }
 
 function setupEsignModal()

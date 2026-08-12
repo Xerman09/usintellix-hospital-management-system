@@ -6216,6 +6216,30 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="deleteSectionModalOverlay">
+    <div class="modal-box" style="max-width: 460px;">
+        <div class="modal-header">
+            <h2>Delete Encounter Form</h2>
+            <button type="button" class="modal-close" id="closeDeleteSectionModal">&times;</button>
+        </div>
+
+        <p class="form-subtitle">You are about to delete the following form from this encounter: <strong id="deleteSectionName"></strong></p>
+
+        <div id="deleteSectionAlert"></div>
+
+        <div class="form-actions">
+            <button type="button" class="btn-danger" id="confirmDeleteSectionBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Yes, Delete this form
+            </button>
+            <button type="button" class="btn-secondary" id="cancelDeleteSection">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="immunizationDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
