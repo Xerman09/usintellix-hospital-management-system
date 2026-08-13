@@ -2824,6 +2824,17 @@ export function PatientChartView(user)
     vertical-align: middle;
 }
 
+.pd-receipt-amount-col,
+.pd-receipt-table .pd-receipt-amount {
+    text-align: right;
+}
+
+.pd-receipt-total-row td {
+    background: #29323f;
+    color: #fff;
+    font-weight: 600;
+}
+
 .pd-report-split-col h4 {
     margin: 0;
     font-size: 15px;
@@ -5112,7 +5123,7 @@ textarea.pd-sdoh-readonly {
 
                     <div class="pd-report-header-actions" style="margin-top: 16px;">
                         <button type="button" class="pd-report-btn" id="pdFeeSheetNewAppointmentBtn">+ New Appointment</button>
-                        <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Show Receipt</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetShowReceiptBtn">Show Receipt</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Void Checkout and Re-Open</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Add More Items</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetCancelBtn">Cancel</button>
@@ -6348,6 +6359,35 @@ textarea.pd-sdoh-readonly {
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="pdFeeSheetReceiptModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="pdFeeSheetReceiptPatientName">Receipt</h2>
+            <button type="button" class="modal-close" id="closePdFeeSheetReceiptModal">&times;</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table pd-receipt-table">
+                <thead>
+                    <tr>
+                        <th>Date of Service</th>
+                        <th>Description</th>
+                        <th class="pd-receipt-amount-col">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="pdFeeSheetReceiptBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" id="pdFeeSheetReceiptPrintBtn">Print</button>
+            <button type="button" class="btn-secondary" disabled>Undo Checkout</button>
+            <button type="button" class="btn-secondary" disabled>Show Details</button>
+        </div>
     </div>
 </div>
 

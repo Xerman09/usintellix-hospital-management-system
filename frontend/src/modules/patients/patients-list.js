@@ -6694,7 +6694,7 @@ function renderFeeSheetTable()
         return;
     }
 
-    tbody.innerHTML = feeSheetRows.map((row) => {
+    tbody.innerHTML = feeSheetRows.map((row, index) => {
         if (!row.editable) {
             return `
                 <tr>
@@ -6718,7 +6718,7 @@ function renderFeeSheetTable()
                 <td>-</td>
                 <td>Cash</td>
                 <td>-</td>
-                <td><input type="text" class="form-input pd-fee-price-input" value="0"></td>
+                <td><input type="text" class="form-input pd-fee-price-input" value="0" data-fee-price-index="${index}"></td>
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
@@ -6727,6 +6727,111 @@ function renderFeeSheetTable()
             </tr>
         `;
     }).join("");
+}
+
+function computeFeeSheetReceipt()
+{
+    const encounterDate = (currentEncounterSummary.encounter.date_of_service || "").slice(0, 10);
+    const patientNo = currentDashboardPatient?.patient_no || "";
+
+    let totalCharges = 0;
+    const paymentLines = [];
+
+    document.querySelectorAll("#pdFeeSheetTableBody [data-fee-price-index]").forEach((input) => {
+        const amount = parseFloat(input.value);
+
+        if (!amount) {
+            return;
+        }
+
+        if (amount > 0) {
+            totalCharges += amount;
+        } else {
+            paymentLines.push({ date: encounterDate, description: `Payment Pt ${patientNo}`, amount });
+        }
+    });
+
+    const balanceDue = totalCharges + paymentLines.reduce((sum, line) => sum + line.amount, 0);
+
+    return { totalCharges, paymentLines, balanceDue };
+}
+
+function renderFeeSheetReceipt()
+{
+    const patientName = currentDashboardPatient
+        ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
+        : "";
+
+    document.getElementById("pdFeeSheetReceiptPatientName").textContent = patientName;
+
+    const { totalCharges, paymentLines, balanceDue } = computeFeeSheetReceipt();
+
+    const paymentRowsHtml = paymentLines.map((line) => `
+        <tr>
+            <td>${escapeHtml(line.date)}</td>
+            <td>${escapeHtml(line.description)}</td>
+            <td class="pd-receipt-amount">${formatCurrency(line.amount)}</td>
+        </tr>
+    `).join("");
+
+    document.getElementById("pdFeeSheetReceiptBody").innerHTML = `
+        <tr class="pd-receipt-total-row">
+            <td colspan="2">Total Charges</td>
+            <td class="pd-receipt-amount">$${formatCurrency(totalCharges)}</td>
+        </tr>
+        ${paymentRowsHtml}
+        <tr class="pd-receipt-total-row">
+            <td colspan="2">Balance Due</td>
+            <td class="pd-receipt-amount">$${formatCurrency(balanceDue)}</td>
+        </tr>
+    `;
+}
+
+function openFeeSheetReceipt()
+{
+    renderFeeSheetReceipt();
+    document.getElementById("pdFeeSheetReceiptModalOverlay").classList.add("open");
+}
+
+function printFeeSheetReceipt()
+{
+    const reportWindow = window.open("", "_blank", "width=700,height=800,scrollbars=yes");
+
+    if (!reportWindow) {
+        alert("Please enable pop-ups to print this page.");
+        return;
+    }
+
+    const patientName = document.getElementById("pdFeeSheetReceiptPatientName").textContent;
+    const tableHtml = document.getElementById("pdFeeSheetReceiptBody").parentElement.outerHTML;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Receipt</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #222; }
+        h2 { margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 12.5px; }
+        th { background: #f4f6f9; }
+        .pd-receipt-amount { text-align: right; }
+        .pd-receipt-total-row td { background: #29323f; color: #fff; font-weight: 600; }
+        ${CCD_PRINT_BUTTON_STYLE}
+    </style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h2>${escapeHtml(patientName)}</h2>
+    ${tableHtml}
+</body>
+</html>
+    `;
+
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    reportWindow.document.close();
 }
 
 function addFeeSheetCopayRow()
@@ -6866,9 +6971,27 @@ function setupFeeSheetPanel()
 
     document.getElementById("pdFeeSheetNewAppointmentBtn").addEventListener("click", () => openNewAppointmentFromFeeSheet());
 
+    document.getElementById("pdFeeSheetShowReceiptBtn").addEventListener("click", () => openFeeSheetReceipt());
+
     document.getElementById("pdFeeSheetCancelBtn").addEventListener("click", () => backToEncounterSummaryFromFeeSheet());
 
     setupFeeSheetAppointmentModal();
+    setupFeeSheetReceiptModal();
+}
+
+function setupFeeSheetReceiptModal()
+{
+    const modalOverlay = document.getElementById("pdFeeSheetReceiptModalOverlay");
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("closePdFeeSheetReceiptModal").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    document.getElementById("pdFeeSheetReceiptPrintBtn").addEventListener("click", () => printFeeSheetReceipt());
 }
 
 function setupEsignModal()
