@@ -2743,6 +2743,87 @@ export function PatientChartView(user)
     color: #29323f;
 }
 
+.pd-encsummary-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pd-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #52627a;
+    cursor: pointer;
+    border-radius: 8px;
+    background: #f4f6f9;
+    user-select: none;
+}
+
+.pd-toolbar-btn-disabled {
+    color: #c2c9d6;
+    cursor: not-allowed;
+}
+
+.pd-toolbar-disabled-link {
+    opacity: .5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pd-toolbar-icon-btn {
+    padding: 9px 14px;
+    border: 1px solid #d9e1ee;
+    border-radius: 8px;
+    background: white;
+    color: #52627a;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pd-toolbar-icon-btn:hover {
+    background: #f4f6f9;
+}
+
+.pd-card-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-right: 4px;
+    color: #52627a;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.pd-card-collapse-toggle svg {
+    transition: transform .15s;
+}
+
+.pd-card-collapse-toggle.collapsed svg {
+    transform: rotate(-90deg);
+}
+
+.pd-report-card-body.collapsed {
+    display: none;
+}
+
+.pd-fee-price-input {
+    width: 90px;
+    padding: 5px 8px;
+}
+
+.pd-fee-sheet-table td {
+    vertical-align: middle;
+}
+
 .pd-report-split-col h4 {
     margin: 0;
     font-size: 15px;
@@ -4802,130 +4883,239 @@ textarea.pd-sdoh-readonly {
                             <a href="#" class="pd-back-link" id="pdEncounterSummaryBackBtn">&larr; Back to Visit History</a>
                             <h2 id="pdEncounterSummaryTitle" style="margin-top: 6px;">Encounter Summary</h2>
                         </div>
+                        <div class="pd-encsummary-toolbar">
+                            <div class="nav-dropdown">
+                                <span class="pd-toolbar-btn">Administrative<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
+                                <div class="dropdown-content">
+                                    <a href="#" id="pdEncSummaryFeeSheetLink">Fee Sheet</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Misc Billing Options HCFA</a>
+                                    <a href="#" id="pdEncSummaryNewEncounterFormLink">New Encounter Form</a>
+                                </div>
+                            </div>
+                            <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Clinical<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
+                            <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Orders<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
+                            <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Questionnaires<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
+                            <button type="button" class="pd-toolbar-icon-btn" id="pdEncSummaryCollapseAllBtn">Collapse All</button>
+                            <button type="button" class="pd-toolbar-icon-btn" id="pdEncSummaryExpandAllBtn">Expand All</button>
+                            <button type="button" class="btn-danger" id="pdEncSummaryDeleteEncounterBtn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Delete
+                            </button>
+                        </div>
                     </div>
 
                     <div id="pdEncounterSummaryAlert"></div>
 
-                    <div class="pd-report-card">
+                    <div class="pd-report-card" id="pdEncSummaryVisitSummaryCard">
                         <div class="pd-report-card-header">
-                            <h3>Visit Summary <span class="pd-locked-badge" id="pdEncSummaryVisitSummaryLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryVisitSummaryToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Visit Summary <span class="pd-locked-badge" id="pdEncSummaryVisitSummaryLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
                             <div class="pd-report-header-actions">
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVisitSummarySignBtn">eSign</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVisitSummaryDeleteBtn">Delete</button>
                             </div>
                         </div>
-                        <div id="pdEncSummaryVisitSummaryBody">
-                            <p class="pd-chart-nav-empty">Loading...</p>
-                        </div>
-                        <div class="pd-esign-log-wrap">
-                            <table class="data-table pd-esign-log-table">
-                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
-                                <tbody id="pdEncSummaryVisitSummaryLog"></tbody>
-                            </table>
+                        <div class="pd-report-card-body" id="pdEncSummaryVisitSummaryCardBody">
+                            <div id="pdEncSummaryVisitSummaryBody">
+                                <p class="pd-chart-nav-empty">Loading...</p>
+                            </div>
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryVisitSummaryLog"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="pd-report-card">
+                    <div class="pd-report-card" id="pdEncSummaryCarePlanCard">
                         <div class="pd-report-card-header">
-                            <h3>Care Plan Form <span class="pd-locked-badge" id="pdEncSummaryCarePlanLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryCarePlanToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Care Plan Form <span class="pd-locked-badge" id="pdEncSummaryCarePlanLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
                             <div class="pd-report-header-actions">
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryCarePlanSignBtn">eSign</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryCarePlanDeleteBtn">Delete</button>
                             </div>
                         </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryCarePlanCardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Author</th>
+                                            <th>Type</th>
+                                            <th>Code</th>
+                                            <th>Code Text</th>
+                                            <th>Description</th>
+                                            <th>Date</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdCarePlanTableBody">
+                                        <tr><td colspan="7" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
 
-                        <div class="table-wrap">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Author</th>
-                                        <th>Type</th>
-                                        <th>Code</th>
-                                        <th>Code Text</th>
-                                        <th>Description</th>
-                                        <th>Date</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pdCarePlanTableBody">
-                                    <tr><td colspan="7" class="table-empty">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="pd-esign-log-wrap">
-                            <table class="data-table pd-esign-log-table">
-                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
-                                <tbody id="pdEncSummaryCarePlanLog"></tbody>
-                            </table>
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryCarePlanLog"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="pd-report-card">
+                    <div class="pd-report-card" id="pdEncSummaryClinicalInstructionsCard">
                         <div class="pd-report-card-header">
-                            <h3>Clinical Instructions <span class="pd-locked-badge" id="pdEncSummaryClinicalInstructionsLockedBadge" style="display:none;">&#128274; Locked</span></h3>
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryClinicalInstructionsToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Clinical Instructions <span class="pd-locked-badge" id="pdEncSummaryClinicalInstructionsLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
                             <div class="pd-report-header-actions">
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalInstructionsSignBtn">eSign</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalInstructionsDeleteBtn">Delete</button>
                             </div>
                         </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryClinicalInstructionsCardBody">
+                            <p class="pd-readonly-value" id="pdClinicalInstructionsText">-</p>
 
-                        <p class="pd-readonly-value" id="pdClinicalInstructionsText">-</p>
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryClinicalInstructionsLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
 
-                        <div class="pd-esign-log-wrap">
-                            <table class="data-table pd-esign-log-table">
-                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
-                                <tbody id="pdEncSummaryClinicalInstructionsLog"></tbody>
+                    <div class="pd-report-card" id="pdEncSummaryVitalsCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryVitalsToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Vitals <span class="pd-locked-badge" id="pdEncSummaryVitalsLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryVitalsCardBody">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Height</label>
+                                    <p class="pd-readonly-value" id="pdVitals_height_cm">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight</label>
+                                    <p class="pd-readonly-value" id="pdVitals_weight_kg">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>BMI</label>
+                                    <p class="pd-readonly-value" id="pdVitalsBmiDisplay">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>BMI Status</label>
+                                    <p class="pd-readonly-value" id="pdVitalsBmiStatusDisplay">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>Oxygen Saturation</label>
+                                    <p class="pd-readonly-value" id="pdVitals_oxygen_saturation">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>Oxygen Flow Rate</label>
+                                    <p class="pd-readonly-value" id="pdVitals_oxygen_flow_rate">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>Inhaled Oxygen Concentration</label>
+                                    <p class="pd-readonly-value" id="pdVitals_inhaled_oxygen_concentration">-</p>
+                                </div>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryVitalsLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <div>
+                            <a href="#" class="pd-back-link" id="pdFeeSheetBackBtn">&larr; Back to Encounter Summary</a>
+                            <h2 id="pdFeeSheetTitle" style="margin-top: 6px;">Fee Sheet</h2>
+                        </div>
+                    </div>
+
+                    <div id="pdFeeSheetAlert"></div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
+                            <h3>Selected Fee Sheet Codes and Charges for Current Encounter</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdFeeSheetAddCopayBtn">+ Add Copay</button>
+                            </div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="data-table pd-fee-sheet-table" id="pdFeeSheetTable">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Code</th>
+                                        <th>Description</th>
+                                        <th>Modifiers</th>
+                                        <th>Price</th>
+                                        <th>Qty</th>
+                                        <th>Justify</th>
+                                        <th>Note Codes</th>
+                                        <th>Auth</th>
+                                        <th>Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pdFeeSheetTableBody">
+                                    <tr><td colspan="10" class="table-empty">Loading...</td></tr>
+                                </tbody>
                             </table>
                         </div>
                     </div>
 
                     <div class="pd-report-card">
                         <div class="pd-report-card-header">
-                            <h3>Vitals <span class="pd-locked-badge" id="pdEncSummaryVitalsLockedBadge" style="display:none;">&#128274; Locked</span></h3>
-                            <div class="pd-report-header-actions">
-                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsSignBtn">eSign</button>
-                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsDeleteBtn">Delete</button>
-                            </div>
+                            <h3>Select Providers</h3>
                         </div>
-
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>Height</label>
-                                <p class="pd-readonly-value" id="pdVitals_height_cm">-</p>
+                                <label>Rendering</label>
+                                <select class="form-input" id="pdFeeSheetRenderingProvider"></select>
                             </div>
                             <div class="form-group">
-                                <label>Weight</label>
-                                <p class="pd-readonly-value" id="pdVitals_weight_kg">-</p>
-                            </div>
-                            <div class="form-group">
-                                <label>BMI</label>
-                                <p class="pd-readonly-value" id="pdVitalsBmiDisplay">-</p>
-                            </div>
-                            <div class="form-group">
-                                <label>BMI Status</label>
-                                <p class="pd-readonly-value" id="pdVitalsBmiStatusDisplay">-</p>
-                            </div>
-                            <div class="form-group">
-                                <label>Oxygen Saturation</label>
-                                <p class="pd-readonly-value" id="pdVitals_oxygen_saturation">-</p>
-                            </div>
-                            <div class="form-group">
-                                <label>Oxygen Flow Rate</label>
-                                <p class="pd-readonly-value" id="pdVitals_oxygen_flow_rate">-</p>
-                            </div>
-                            <div class="form-group">
-                                <label>Inhaled Oxygen Concentration</label>
-                                <p class="pd-readonly-value" id="pdVitals_inhaled_oxygen_concentration">-</p>
+                                <label>Supervising</label>
+                                <select class="form-input" id="pdFeeSheetSupervisingProvider"></select>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="pd-esign-log-wrap">
-                            <table class="data-table pd-esign-log-table">
-                                <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
-                                <tbody id="pdEncSummaryVitalsLog"></tbody>
-                            </table>
-                        </div>
+                    <div class="pd-report-header-actions" style="margin-top: 16px;">
+                        <button type="button" class="pd-report-btn" id="pdFeeSheetNewAppointmentBtn">+ New Appointment</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Show Receipt</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Void Checkout and Re-Open</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Add More Items</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetCancelBtn">Cancel</button>
                     </div>
                 </div>
 
@@ -6161,6 +6351,101 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="pdFeeSheetAppointmentModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>New Appointment</h2>
+            <button type="button" class="modal-close" id="closePdFeeSheetAppointmentModal">&times;</button>
+        </div>
+
+        <div id="pdFeeSheetAppointmentFormAlert"></div>
+
+        <form id="pdFeeSheetAppointmentForm">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Patient</label>
+                    <p class="pd-readonly-value" id="pdFeeSheetAppointmentPatientName">-</p>
+                </div>
+
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="fa_visit_category_id" class="form-input">
+                        <option value="">Select category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Title</label>
+                    <input id="fa_title" class="form-input" placeholder="Optional">
+                </div>
+
+                <div class="form-group">
+                    <label>Facility</label>
+                    <select id="fa_facility_id" class="form-input">
+                        <option value="">Select facility</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Billing Facility</label>
+                    <select id="fa_billing_facility_id" class="form-input">
+                        <option value="">Select facility</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Provider</label>
+                    <select id="fa_provider_id" class="form-input">
+                        <option value="">Select provider</option>
+                    </select>
+                    <span class="form-error" id="err-fa_provider_id"></span>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full rp-permissions">
+                    <label class="rp-checkbox">
+                        <input type="radio" name="fa_daytype" id="fa_daytype_time" value="time" checked>
+                        Time
+                    </label>
+                    <label class="rp-checkbox">
+                        <input type="radio" name="fa_daytype" id="fa_daytype_allday" value="allday">
+                        All Day Event
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input id="fa_appointment_date" type="date" class="form-input">
+                    <span class="form-error" id="err-fa_appointment_date"></span>
+                </div>
+                <div class="form-group" id="fa_timeGroup">
+                    <label>Time</label>
+                    <input id="fa_appointment_time" type="time" class="form-input">
+                    <span class="form-error" id="err-fa_appointment_time"></span>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Room Number</label>
+                    <select id="fa_room_id" class="form-input">
+                        <option value="">Select room</option>
+                    </select>
+                </div>
+                <div class="form-group full">
+                    <label>Comments</label>
+                    <textarea id="fa_notes" class="form-input" style="min-height: 70px;"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelPdFeeSheetAppointment">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal-overlay" id="billingNoteModalOverlay">
     <div class="modal-box" style="max-width: 480px;">
         <div class="modal-header">
@@ -6223,7 +6508,7 @@ textarea.pd-sdoh-readonly {
             <button type="button" class="modal-close" id="closeDeleteSectionModal">&times;</button>
         </div>
 
-        <p class="form-subtitle">You are about to delete the following form from this encounter: <strong id="deleteSectionName"></strong></p>
+        <p class="form-subtitle" id="deleteSectionMessage">You are about to delete the following form from this encounter: <strong id="deleteSectionName"></strong></p>
 
         <div id="deleteSectionAlert"></div>
 

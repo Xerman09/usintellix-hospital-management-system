@@ -40,3 +40,27 @@ export function getLastActivePatientChart()
 {
     return localStorage.getItem(LAST_ACTIVE_KEY);
 }
+
+// Tracks which chart-nav section (dashboard/history/encounter/etc.) was
+// last shown for whichever patient is in the shared Patient Chart tab, so
+// a page refresh reopens the same section instead of always resetting to
+// the Dashboard. Keyed together with the patient number so switching to a
+// different patient doesn't carry over a section that was never opened
+// for them.
+const LAST_ACTIVE_SECTION_KEY = "lastActivePatientChartSection";
+
+export function setLastActiveChartSection(patientNo, section)
+{
+    localStorage.setItem(LAST_ACTIVE_SECTION_KEY, JSON.stringify({ patientNo, section }));
+}
+
+export function getLastActiveChartSection(patientNo)
+{
+    try {
+        const stored = JSON.parse(localStorage.getItem(LAST_ACTIVE_SECTION_KEY));
+
+        return stored && stored.patientNo === patientNo ? stored.section : null;
+    } catch {
+        return null;
+    }
+}

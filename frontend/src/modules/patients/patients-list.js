@@ -1,6 +1,8 @@
 import { getUser } from "../../core/session.js";
-import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { PatientChartView } from "./patients-list.view.js?v=29";
+import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
+import { createAppointment } from "../appointments/appointments.service.js";
+import { fetchRooms } from "../rooms/rooms.service.js";
+import { PatientChartView } from "./patients-list.view.js?v=30";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -1466,6 +1468,10 @@ function activateChartNavButton(activeBtn)
 
 function showChartSection(key)
 {
+    if (currentDashboardPatient) {
+        setLastActiveChartSection(currentDashboardPatient.patient_no, key);
+    }
+
     const widgetGrid = document.getElementById("pdWidgetGrid");
     const placeholder = document.getElementById("pdChartPlaceholder");
     const historyPanel = document.getElementById("pdHistoryPanel");
@@ -1523,6 +1529,33 @@ function showChartSection(key)
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
         placeholder.style.display = "flex";
     }
+}
+
+// Reopens whichever chart-nav section was last shown for this patient
+// (persisted by showChartSection), so a page refresh doesn't drop back to
+// the Dashboard. No-op if nothing was recorded, or it was "dashboard"
+// (already the default state).
+function restoreLastChartSection(patient)
+{
+    const key = getLastActiveChartSection(patient.patient_no);
+
+    if (!key || key === "dashboard") {
+        return;
+    }
+
+    const btn = document.querySelector(`#pdChartNav [data-chart-nav="${key}"]`);
+
+    if (!btn) {
+        return;
+    }
+
+    if (key === "sdoh_assessment") {
+        document.querySelector('#pdChartNav [data-chart-nav="assessments"]').classList.add("expanded");
+        document.getElementById("pdAssessmentsSubmenu").classList.add("expanded");
+    }
+
+    activateChartNavButton(btn);
+    showChartSection(key);
 }
 
 function setupHistoryTabs()
@@ -2120,6 +2153,7 @@ export async function initPatientChartTab(patient)
     setupIssuesPanel(patient);
     setupVisitHistoryPanel();
     setupEncounterSummaryPanel();
+    setupFeeSheetPanel();
 
     // "Edit" on the Related Persons widget jumps straight into the Edit
     // Patient modal's Related Persons tab, reusing that CRUD instead of
@@ -2160,6 +2194,8 @@ export async function initPatientChartTab(patient)
     if (user.role !== "doctor") {
         await setupEditPatientModal(user);
     }
+
+    restoreLastChartSection(patient);
 }
 
 // The widgets used to each fire their own request when the dashboard
@@ -6464,13 +6500,30 @@ const SECTION_LABELS = {
     vitals: "Vitals"
 };
 
+const CARD_KEYS = ["VisitSummary", "CarePlan", "ClinicalInstructions", "Vitals"];
+
 let pendingDeleteSectionType = null;
+let pendingDeleteEncounter = false;
 
 function openDeleteSectionModal(sectionType)
 {
     pendingDeleteSectionType = sectionType;
+    pendingDeleteEncounter = false;
     document.getElementById("deleteSectionAlert").innerHTML = "";
-    document.getElementById("deleteSectionName").textContent = SECTION_LABELS[sectionType] || sectionType;
+    document.querySelector("#deleteSectionModalOverlay .modal-header h2").textContent = "Delete Encounter Form";
+    document.getElementById("deleteSectionMessage").innerHTML =
+        `You are about to delete the following form from this encounter: <strong id="deleteSectionName">${escapeHtml(SECTION_LABELS[sectionType] || sectionType)}</strong>`;
+    document.getElementById("deleteSectionModalOverlay").classList.add("open");
+}
+
+function openDeleteEncounterModal()
+{
+    pendingDeleteSectionType = null;
+    pendingDeleteEncounter = true;
+    document.getElementById("deleteSectionAlert").innerHTML = "";
+    document.querySelector("#deleteSectionModalOverlay .modal-header h2").textContent = "Delete Encounter";
+    document.getElementById("deleteSectionMessage").textContent =
+        "You are about to delete this entire encounter, including all of its forms. This cannot be undone.";
     document.getElementById("deleteSectionModalOverlay").classList.add("open");
 }
 
@@ -6481,6 +6534,7 @@ function setupDeleteSectionModal()
     const closeModal = () => {
         modalOverlay.classList.remove("open");
         pendingDeleteSectionType = null;
+        pendingDeleteEncounter = false;
     };
 
     document.getElementById("closeDeleteSectionModal").addEventListener("click", closeModal);
@@ -6492,6 +6546,24 @@ function setupDeleteSectionModal()
     });
 
     document.getElementById("confirmDeleteSectionBtn").addEventListener("click", async () => {
+        if (pendingDeleteEncounter) {
+            const result = await removeEncounter(currentEncounterSummary.encounter.id);
+
+            if (!result.success) {
+                showAlert("deleteSectionAlert", result.message || "Failed to delete encounter.", "error");
+                return;
+            }
+
+            closeModal();
+            backToVisitHistory();
+
+            if (currentDashboardPatient) {
+                await loadVisitHistoryList(currentDashboardPatient);
+            }
+
+            return;
+        }
+
         if (!pendingDeleteSectionType) {
             return;
         }
@@ -6505,6 +6577,30 @@ function setupDeleteSectionModal()
 
         closeModal();
         await loadEncounterSummary(currentEncounterSummary.encounter);
+    });
+}
+
+function toggleEncounterSummaryCard(cardKey, collapsed)
+{
+    document.getElementById(`pdEncSummary${cardKey}CardBody`).classList.toggle("collapsed", collapsed);
+    document.getElementById(`pdEncSummary${cardKey}Toggle`).classList.toggle("collapsed", collapsed);
+}
+
+function setupCollapsibleCards()
+{
+    CARD_KEYS.forEach((key) => {
+        document.getElementById(`pdEncSummary${key}Toggle`).addEventListener("click", () => {
+            const body = document.getElementById(`pdEncSummary${key}CardBody`);
+            toggleEncounterSummaryCard(key, !body.classList.contains("collapsed"));
+        });
+    });
+
+    document.getElementById("pdEncSummaryCollapseAllBtn").addEventListener("click", () => {
+        CARD_KEYS.forEach((key) => toggleEncounterSummaryCard(key, true));
+    });
+
+    document.getElementById("pdEncSummaryExpandAllBtn").addEventListener("click", () => {
+        CARD_KEYS.forEach((key) => toggleEncounterSummaryCard(key, false));
     });
 }
 
@@ -6527,8 +6623,252 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryVitalsSignBtn").addEventListener("click", () => openEsignModal("vitals"));
     document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("vitals"));
 
+    document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openEncounterFormModal(currentEncounterSummary.encounter);
+    });
+
+    document.getElementById("pdEncSummaryFeeSheetLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openFeeSheet();
+    });
+
+    document.getElementById("pdEncSummaryDeleteEncounterBtn").addEventListener("click", () => openDeleteEncounterModal());
+
     setupEsignModal();
     setupDeleteSectionModal();
+    setupCollapsibleCards();
+}
+
+let feeSheetRows = [];
+
+function openFeeSheet()
+{
+    document.getElementById("pdEncounterSummaryPanel").style.display = "none";
+    document.getElementById("pdFeeSheetPanel").style.display = "block";
+    loadFeeSheet();
+}
+
+function backToEncounterSummaryFromFeeSheet()
+{
+    document.getElementById("pdFeeSheetPanel").style.display = "none";
+    document.getElementById("pdEncounterSummaryPanel").style.display = "block";
+}
+
+async function loadFeeSheet()
+{
+    const { encounter } = currentEncounterSummary;
+    const patientName = currentDashboardPatient
+        ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
+        : "";
+
+    document.getElementById("pdFeeSheetTitle").textContent =
+        `Fee Sheet for ${patientName} for Encounter on ${(encounter.date_of_service || "").slice(0, 10)}`;
+
+    feeSheetRows = encounter.billing_codes_summary
+        ? encounter.billing_codes_summary.split("||").map((entry) => {
+            const parts = entry.split(":");
+            return {
+                type: parts[0],
+                code: parts[1],
+                description: parts.slice(2).join(":"),
+                editable: false
+            };
+        })
+        : [];
+
+    renderFeeSheetTable();
+
+    await loadEncounterCatalogsIfNeeded();
+
+    fillEncounterSelect("pdFeeSheetRenderingProvider", encounterProviders, providerLabel, "-- Select One --");
+    fillEncounterSelect("pdFeeSheetSupervisingProvider", encounterProviders, providerLabel, "-- Select One --");
+}
+
+function renderFeeSheetTable()
+{
+    const tbody = document.getElementById("pdFeeSheetTableBody");
+
+    if (!feeSheetRows.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No fee sheet codes for this encounter.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = feeSheetRows.map((row) => {
+        if (!row.editable) {
+            return `
+                <tr>
+                    <td>${escapeHtml(row.type || "-")}</td>
+                    <td>${escapeHtml(row.code || "-")}</td>
+                    <td>${escapeHtml(row.description || "-")}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td><input type="checkbox" checked disabled></td>
+                    <td><input type="checkbox" disabled></td>
+                </tr>
+            `;
+        }
+
+        return `
+            <tr>
+                <td>COPAY</td>
+                <td>-</td>
+                <td>Cash</td>
+                <td>-</td>
+                <td><input type="text" class="form-input pd-fee-price-input" value="0"></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td><input type="checkbox" checked></td>
+                <td><input type="checkbox"></td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function addFeeSheetCopayRow()
+{
+    feeSheetRows.push({ type: "COPAY", code: "", description: "Cash", editable: true });
+    renderFeeSheetTable();
+}
+
+let feeSheetRoomsLoaded = false;
+let feeSheetRooms = [];
+
+async function loadFeeSheetRoomsIfNeeded()
+{
+    if (feeSheetRoomsLoaded) {
+        return;
+    }
+
+    const result = await fetchRooms();
+
+    feeSheetRooms = result.success ? result.data : [];
+    feeSheetRoomsLoaded = true;
+}
+
+async function openNewAppointmentFromFeeSheet()
+{
+    document.getElementById("pdFeeSheetAppointmentFormAlert").innerHTML = "";
+    document.getElementById("pdFeeSheetAppointmentForm").reset();
+    document.querySelectorAll("#pdFeeSheetAppointmentForm .form-error").forEach((el) => { el.textContent = ""; });
+
+    await loadEncounterCatalogsIfNeeded();
+    await loadFeeSheetRoomsIfNeeded();
+
+    fillEncounterSelect("fa_visit_category_id", encounterVisitCategories, (c) => c.name, "-- Select One --");
+    fillEncounterSelect("fa_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
+    fillEncounterSelect("fa_billing_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
+    fillEncounterSelect("fa_provider_id", encounterProviders, providerLabel, "-- Select One --");
+    fillEncounterSelect("fa_room_id", feeSheetRooms, (r) => r.name, "-- Select One --");
+
+    document.getElementById("pdFeeSheetAppointmentPatientName").textContent = currentDashboardPatient
+        ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
+        : "-";
+
+    document.getElementById("fa_daytype_time").checked = true;
+    document.getElementById("fa_daytype_allday").checked = false;
+    document.getElementById("fa_timeGroup").hidden = false;
+    document.getElementById("fa_appointment_date").value = "";
+    document.getElementById("fa_appointment_time").value = "";
+
+    const renderingProviderId = document.getElementById("pdFeeSheetRenderingProvider").value;
+
+    document.getElementById("fa_provider_id").value = renderingProviderId || "";
+
+    document.getElementById("pdFeeSheetAppointmentModalOverlay").classList.add("open");
+}
+
+function readFeeSheetAppointmentData()
+{
+    const isAllDay = document.getElementById("fa_daytype_allday").checked;
+
+    return {
+        is_provider_block: "0",
+        visit_category_id: document.getElementById("fa_visit_category_id").value,
+        title: document.getElementById("fa_title").value.trim(),
+        facility_id: document.getElementById("fa_facility_id").value,
+        billing_facility_id: document.getElementById("fa_billing_facility_id").value,
+        patient_id: currentDashboardPatient.id,
+        provider_id: document.getElementById("fa_provider_id").value,
+        room_id: document.getElementById("fa_room_id").value,
+        notes: document.getElementById("fa_notes").value.trim(),
+        appointment_date: document.getElementById("fa_appointment_date").value,
+        appointment_time: isAllDay ? "" : document.getElementById("fa_appointment_time").value,
+        is_all_day: isAllDay ? "1" : "0",
+        recurrence_mode: "none"
+    };
+}
+
+function setupFeeSheetAppointmentModal()
+{
+    const modalOverlay = document.getElementById("pdFeeSheetAppointmentModalOverlay");
+    const form = document.getElementById("pdFeeSheetAppointmentForm");
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("closePdFeeSheetAppointmentModal").addEventListener("click", closeModal);
+    document.getElementById("cancelPdFeeSheetAppointment").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    document.getElementById("fa_daytype_time").addEventListener("change", () => {
+        document.getElementById("fa_timeGroup").hidden = false;
+    });
+
+    document.getElementById("fa_daytype_allday").addEventListener("change", () => {
+        document.getElementById("fa_timeGroup").hidden = true;
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.querySelectorAll("#pdFeeSheetAppointmentForm .form-error").forEach((el) => { el.textContent = ""; });
+        document.getElementById("pdFeeSheetAppointmentFormAlert").innerHTML = "";
+
+        const result = await createAppointment(readFeeSheetAppointmentData());
+
+        if (!result.success) {
+            showAlert("pdFeeSheetAppointmentFormAlert", result.message || "Failed to save appointment.", "error");
+
+            if (result.errors) {
+                Object.entries(result.errors).forEach(([field, message]) => {
+                    const errorEl = document.getElementById(`err-fa_${field}`);
+
+                    if (errorEl) {
+                        errorEl.textContent = message;
+                    }
+                });
+            }
+
+            return;
+        }
+
+        closeModal();
+        showAlert("pdFeeSheetAlert", "Appointment scheduled successfully.", "success");
+    });
+}
+
+function setupFeeSheetPanel()
+{
+    document.getElementById("pdFeeSheetBackBtn").addEventListener("click", (event) => {
+        event.preventDefault();
+        backToEncounterSummaryFromFeeSheet();
+    });
+
+    document.getElementById("pdFeeSheetAddCopayBtn").addEventListener("click", () => addFeeSheetCopayRow());
+
+    document.getElementById("pdFeeSheetNewAppointmentBtn").addEventListener("click", () => openNewAppointmentFromFeeSheet());
+
+    document.getElementById("pdFeeSheetCancelBtn").addEventListener("click", () => backToEncounterSummaryFromFeeSheet());
+
+    setupFeeSheetAppointmentModal();
 }
 
 function setupEsignModal()
