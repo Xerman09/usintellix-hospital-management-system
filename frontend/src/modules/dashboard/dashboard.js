@@ -9,8 +9,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=33";
-import { initPatientsList, restorePatientChartTab } from "../patients/patients-list.js?v=33";
+import { PatientsListView } from "../patients/patients-list.view.js?v=34";
+import { initPatientsList, restorePatientChartTab } from "../patients/patients-list.js?v=34";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -92,6 +92,8 @@ import { RefusalReasonsView } from "../refusal-reasons/refusal-reasons.view.js";
 import { initRefusalReasons } from "../refusal-reasons/refusal-reasons.js";
 import { VoidReasonsView } from "../void-reasons/void-reasons.view.js";
 import { initVoidReasons } from "../void-reasons/void-reasons.js";
+import { CarePlanReasonCodesView } from "../care-plan-reason-codes/care-plan-reason-codes.view.js";
+import { initCarePlanReasonCodes } from "../care-plan-reason-codes/care-plan-reason-codes.js";
 import { CompletionStatusesView } from "../completion-statuses/completion-statuses.view.js";
 import { initCompletionStatuses } from "../completion-statuses/completion-statuses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -314,6 +316,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initVoidReasons, 0);
                 return VoidReasonsView();
+            }, activate);
+        } else if (tabId === 'care_plan_reason_codes') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initCarePlanReasonCodes, 0);
+                return CarePlanReasonCodesView();
             }, activate);
         } else if (tabId === 'completion_statuses') {
             tabManager.openTab(tabId, title, () => {

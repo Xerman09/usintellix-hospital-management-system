@@ -4903,7 +4903,22 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdEncSummaryNewEncounterFormLink">New Encounter Form</a>
                                 </div>
                             </div>
-                            <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Clinical<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
+                            <div class="nav-dropdown">
+                                <span class="pd-toolbar-btn">Clinical<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
+                                <div class="dropdown-content">
+                                    <a href="#" id="pdClinicalMenuCarePlanLink">Care Plan</a>
+                                    <a href="#" id="pdClinicalMenuInstructionsLink">Clinical Instructions</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Clinical Notes (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Eye Exam (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Functional and Cognitive Status (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Observation (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Review Of Systems (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Review of Systems Checks (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">SOAP (Coming soon)</a>
+                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Speech Dictation (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuVitalsLink">Vitals</a>
+                                </div>
+                            </div>
                             <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Orders<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
                             <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Questionnaires<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
                             <button type="button" class="pd-toolbar-icon-btn" id="pdEncSummaryCollapseAllBtn">Collapse All</button>

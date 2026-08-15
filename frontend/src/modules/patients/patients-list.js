@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=33";
+import { PatientChartView } from "./patients-list.view.js?v=34";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -6206,7 +6206,7 @@ function renderVisitHistoryTable()
     }
 
     tbody.innerHTML = visitHistoryEncounters.map((encounter) => {
-        const date = escapeHtml((encounter.date_of_service || "").slice(0, 16).replace("T", " "));
+        const date = escapeHtml(formatDateTime(encounter.date_of_service));
         const provider = escapeHtml(encounter.encounter_provider_name || "-");
         const billing = formatEncounterBillingCodes(encounter.billing_codes_summary);
         const insurance = escapeHtml(visitHistoryInsuranceLabel);
@@ -6634,6 +6634,12 @@ function toggleEncounterSummaryCard(cardKey, collapsed)
     document.getElementById(`pdEncSummary${cardKey}Toggle`).classList.toggle("collapsed", collapsed);
 }
 
+function scrollToEncounterCard(cardKey)
+{
+    toggleEncounterSummaryCard(cardKey, false);
+    document.getElementById(`pdEncSummary${cardKey}Card`).scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function setupCollapsibleCards()
 {
     CARD_KEYS.forEach((key) => {
@@ -6688,6 +6694,21 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryMiscBillingLink").addEventListener("click", (event) => {
         event.preventDefault();
         openMiscBillingOptionsModal();
+    });
+
+    document.getElementById("pdClinicalMenuCarePlanLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        scrollToEncounterCard("CarePlan");
+    });
+
+    document.getElementById("pdClinicalMenuInstructionsLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        scrollToEncounterCard("ClinicalInstructions");
+    });
+
+    document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        scrollToEncounterCard("Vitals");
     });
 
     document.getElementById("pdEncSummaryDeleteEncounterBtn").addEventListener("click", () => openDeleteEncounterModal());
@@ -8701,6 +8722,27 @@ function formatDate(value)
     }
 
     return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatDateTime(value)
+{
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value.replace(" ", "T"));
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
 }
 
 function clearErrors(fields, prefix)
