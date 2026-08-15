@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=30";
+import { PatientChartView } from "./patients-list.view.js?v=32";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -5712,6 +5712,8 @@ function setupEncounterModals()
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
+        document.getElementById("encounterFormAlert").innerHTML = "";
+
         const recordId = document.getElementById("encounter_record_id").value;
         const categoryErrEl = document.getElementById("err-encounter_visit_category_id");
         const dateErrEl = document.getElementById("err-encounter_date_of_service");
@@ -5731,11 +5733,13 @@ function setupEncounterModals()
 
         if (!details.visit_category_id) {
             categoryErrEl.textContent = "Visit category is required.";
+            showAlert("encounterFormAlert", "Visit category is required.", "error");
             return;
         }
 
         if (!details.date_of_service) {
             dateErrEl.textContent = "Date of service is required.";
+            showAlert("encounterFormAlert", "Date of service is required.", "error");
             return;
         }
 
