@@ -4899,7 +4899,7 @@ textarea.pd-sdoh-readonly {
                                 <span class="pd-toolbar-btn">Administrative<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>
                                 <div class="dropdown-content">
                                     <a href="#" id="pdEncSummaryFeeSheetLink">Fee Sheet</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Misc Billing Options HCFA</a>
+                                    <a href="#" id="pdEncSummaryMiscBillingLink">Misc Billing Options HCFA</a>
                                     <a href="#" id="pdEncSummaryNewEncounterFormLink">New Encounter Form</a>
                                 </div>
                             </div>
@@ -5059,6 +5059,50 @@ textarea.pd-sdoh-readonly {
                                 <table class="data-table pd-esign-log-table">
                                     <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
                                     <tbody id="pdEncSummaryVitalsLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card" id="pdEncSummaryMiscBillingCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryMiscBillingToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                <span id="pdEncSummaryMiscBillingTitle">Misc Billing Options</span> <span class="pd-locked-badge" id="pdEncSummaryMiscBillingLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryMiscBillingEditBtn">Edit</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryMiscBillingSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryMiscBillingDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryMiscBillingCardBody">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Employment Related</label>
+                                    <p class="pd-readonly-value" id="pdMiscBilling_employment_related">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>Other Accident</label>
+                                    <p class="pd-readonly-value" id="pdMiscBilling_other_accident">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>Box 14 Date Qual</label>
+                                    <p class="pd-readonly-value" id="pdMiscBilling_onset_date_qualifier">-</p>
+                                </div>
+                                <div class="form-group">
+                                    <label>EPSDT Flag</label>
+                                    <p class="pd-readonly-value" id="pdMiscBilling_epsdt">-</p>
+                                </div>
+                            </div>
+                            <p class="pd-readonly-value" id="pdEncSummaryMiscBillingSummary">Encounter: -</p>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryMiscBillingLog"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -5261,15 +5305,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Allergies</h2>
-            <button type="button" class="modal-close" id="closeAllergyDetailModal">&times;</button>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button type="button" class="btn-primary-inline" id="openAddAllergyBtn">+ Add Allergy</button>
+                <button type="button" class="modal-close" id="closeAllergyDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full allergy history for this patient.</p>
 
         <div id="allergyDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddAllergyBtn">+ Add Allergy</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -7496,6 +7539,185 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelEncounterForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="miscBillingOptionsModalOverlay">
+    <div class="modal-box" style="max-width: 760px;">
+        <div class="modal-header">
+            <h2>Miscellaneous Billing Options for HCFA-1500</h2>
+            <button type="button" class="modal-close" id="closeMiscBillingOptionsModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Select Options for Current Encounter. Select Yes/No where appropriate.</p>
+
+        <div id="miscBillingOptionsAlert"></div>
+
+        <form id="miscBillingOptionsForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Box 10 A. Employment related</label>
+                    <select id="miscBilling_employment_related" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Box 10 B. Auto Accident</label>
+                    <select id="miscBilling_auto_accident" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>State</label>
+                    <input id="miscBilling_auto_accident_state" type="text" maxlength="2" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 10 C. Other Accident</label>
+                    <select id="miscBilling_other_accident" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Box 10 D. Claim Codes (Designated by NUCC)</label>
+                    <input id="miscBilling_claim_codes" type="text" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <label><input type="checkbox" id="miscBilling_epsdt"> EPSDT</label>
+                </div>
+
+                <div class="form-group">
+                    <label>Box 14. Onset Date</label>
+                    <input id="miscBilling_onset_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Onset Date Qualifier</label>
+                    <select id="miscBilling_onset_date_qualifier" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="Onset of Current Symptoms or Illness">Onset of Current Symptoms or Illness</option>
+                        <option value="Last Menstrual Period">Last Menstrual Period</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Box 15. Other Date</label>
+                    <input id="miscBilling_other_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Other Date Qualifier</label>
+                    <select id="miscBilling_other_date_qualifier" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="Initial Treatment">Initial Treatment</option>
+                        <option value="Latest Visit or Consultation">Latest Visit or Consultation</option>
+                        <option value="Acute Manifestation of a Chronic Condition">Acute Manifestation of a Chronic Condition</option>
+                        <option value="Accident">Accident</option>
+                        <option value="Last X-ray">Last X-ray</option>
+                        <option value="Prescription">Prescription</option>
+                        <option value="Report Start (Assumed Care Date)">Report Start (Assumed Care Date)</option>
+                        <option value="Report End (Relinquished Care Date)">Report End (Relinquished Care Date)</option>
+                        <option value="First Visit or Consultation">First Visit or Consultation</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Box 16. Date unable to work from</label>
+                    <input id="miscBilling_unable_to_work_from" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 16. Date unable to work to</label>
+                    <input id="miscBilling_unable_to_work_to" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 17. Provider</label>
+                    <select id="miscBilling_provider_id" class="form-input">
+                        <option value="">-- Please Select --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Box 17. Provider Qualifier</label>
+                    <input id="miscBilling_provider_qualifier" type="text" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 18. Hospitalization date from</label>
+                    <input id="miscBilling_hospitalization_from" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 18. Hospitalization date to</label>
+                    <input id="miscBilling_hospitalization_to" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 20. Is Outside Lab used?</label>
+                    <select id="miscBilling_outside_lab" class="form-input">
+                        <option value="">-- Select --</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount Charged</label>
+                    <input id="miscBilling_outside_lab_charges" type="number" step="0.01" min="0" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 22. Resubmission Code</label>
+                    <input id="miscBilling_resubmission_code" type="text" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Medicaid Original Reference No.</label>
+                    <input id="miscBilling_medicaid_original_ref_no" type="text" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Box 23. Prior Authorization No.</label>
+                    <input id="miscBilling_prior_authorization_no" type="text" class="form-input">
+                </div>
+
+                <div class="form-group full">
+                    <label><input type="checkbox" id="miscBilling_x12_replacement_claim"> X12 only: Replacement Claim</label>
+                </div>
+
+                <div class="form-group">
+                    <label>Claim Frequency</label>
+                    <label style="display:inline-block; margin-right: 16px;"><input type="radio" name="miscBillingX12ClaimFrequency" value="void" id="miscBilling_x12_claim_frequency_void"> Void Claim</label>
+                    <label style="display:inline-block;"><input type="radio" name="miscBillingX12ClaimFrequency" value="new" id="miscBilling_x12_claim_frequency_new" checked> New Claim</label>
+                </div>
+
+                <div class="form-group">
+                    <label>X12 only ICN resubmission No.</label>
+                    <input id="miscBilling_x12_icn_resubmission_no" type="text" class="form-input">
+                </div>
+
+                <div class="form-group full">
+                    <label>Additional Notes</label>
+                    <textarea id="miscBilling_additional_notes" class="form-input" style="min-height: 80px;"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelMiscBillingOptions">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

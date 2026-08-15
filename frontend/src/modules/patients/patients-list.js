@@ -98,6 +98,7 @@ import {
 } from "../encounter-sections/encounter-sections.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import { fetchCarePlanItems, removeCarePlanItem } from "../encounter-sections/encounter-care-plan-items.service.js";
+import { fetchEncounterMiscBillingOptions, saveEncounterMiscBillingOptions } from "../encounter-sections/encounter-misc-billing-options.service.js";
 import { fetchInsurances } from "../insurances/insurances.service.js";
 import {
     fetchPatientInsurances, addPatientInsurance, updatePatientInsurance, removePatientInsurance
@@ -5751,9 +5752,21 @@ function setupEncounterModals()
         }
 
         closeForm();
+
+        const savedEncounterId = recordId || result.data?.id;
+
         await loadEncounterDetailTable(currentDashboardPatient);
         await loadDashboardEncounters(currentDashboardPatient);
         await loadVisitHistoryList(currentDashboardPatient);
+
+        const savedEncounter = savedEncounterId
+            ? visitHistoryEncounters.find((e) => String(e.id) === String(savedEncounterId))
+            : null;
+
+        if (savedEncounter) {
+            showChartSection("encounter");
+            openEncounterSummary(savedEncounter);
+        }
     });
 }
 
@@ -6327,10 +6340,11 @@ async function loadEncounterSummary(encounter)
 {
     document.getElementById("pdEncounterSummaryAlert").innerHTML = "";
 
-    const [sectionsResult, vitalsResult, carePlanResult] = await Promise.all([
+    const [sectionsResult, vitalsResult, carePlanResult, miscBillingResult] = await Promise.all([
         fetchEncounterSections(encounter.id),
         fetchEncounterVitals(encounter.id),
-        fetchCarePlanItems(encounter.id)
+        fetchCarePlanItems(encounter.id),
+        fetchEncounterMiscBillingOptions(encounter.id)
     ]);
 
     const sectionsByType = {};
@@ -6343,7 +6357,8 @@ async function loadEncounterSummary(encounter)
         encounter,
         sections: sectionsByType,
         vitals: vitalsResult.success ? vitalsResult.data : null,
-        carePlanItems: carePlanResult.success ? carePlanResult.data : []
+        carePlanItems: carePlanResult.success ? carePlanResult.data : [],
+        miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null
     };
 
     renderEncounterSummary();
@@ -6370,6 +6385,7 @@ function renderEncounterSummary()
     renderCarePlanSection();
     renderClinicalInstructionsSection();
     renderVitalsSection();
+    renderMiscBillingOptionsSection();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -6493,14 +6509,37 @@ function renderVitalsSection()
     document.getElementById("pdEncSummaryVitalsDeleteBtn").style.display = section.locked_at ? "none" : "";
 }
 
+function renderMiscBillingOptionsSection()
+{
+    const { encounter, miscBillingOptions } = currentEncounterSummary;
+    const section = currentEncounterSummary.sections.misc_billing_options || {};
+    const locked = !!section.locked_at;
+    const data = miscBillingOptions || {};
+    const yesNo = (value) => value === "yes" ? "Yes" : value === "no" ? "No" : "-";
+
+    document.getElementById("pdEncSummaryMiscBillingTitle").textContent =
+        `Misc Billing Options${data.author_name ? ` (by ${data.author_name})` : ""}`;
+    document.getElementById("pdMiscBilling_employment_related").textContent = yesNo(data.employment_related);
+    document.getElementById("pdMiscBilling_other_accident").textContent = yesNo(data.other_accident);
+    document.getElementById("pdMiscBilling_onset_date_qualifier").textContent = data.onset_date_qualifier || "-";
+    document.getElementById("pdMiscBilling_epsdt").textContent = Number(data.epsdt) ? "Yes" : "No";
+    document.getElementById("pdEncSummaryMiscBillingSummary").textContent = `Encounter: ${encounter.id}`;
+
+    renderLockedBadge("pdEncSummaryMiscBillingLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryMiscBillingLog", section.signatures);
+    document.getElementById("pdEncSummaryMiscBillingEditBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdEncSummaryMiscBillingDeleteBtn").style.display = locked ? "none" : "";
+}
+
 const SECTION_LABELS = {
     visit_summary: "Visit Summary",
     care_plan: "Care Plan Form",
     clinical_instructions: "Clinical Instructions",
-    vitals: "Vitals"
+    vitals: "Vitals",
+    misc_billing_options: "Misc Billing Options"
 };
 
-const CARD_KEYS = ["VisitSummary", "CarePlan", "ClinicalInstructions", "Vitals"];
+const CARD_KEYS = ["VisitSummary", "CarePlan", "ClinicalInstructions", "Vitals", "MiscBilling"];
 
 let pendingDeleteSectionType = null;
 let pendingDeleteEncounter = false;
@@ -6623,9 +6662,13 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryVitalsSignBtn").addEventListener("click", () => openEsignModal("vitals"));
     document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("vitals"));
 
+    document.getElementById("pdEncSummaryMiscBillingSignBtn").addEventListener("click", () => openEsignModal("misc_billing_options"));
+    document.getElementById("pdEncSummaryMiscBillingDeleteBtn").addEventListener("click", () => openDeleteSectionModal("misc_billing_options"));
+    document.getElementById("pdEncSummaryMiscBillingEditBtn").addEventListener("click", () => openMiscBillingOptionsModal());
+
     document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
         event.preventDefault();
-        openEncounterFormModal(currentEncounterSummary.encounter);
+        openEncounterFormModal(null);
     });
 
     document.getElementById("pdEncSummaryFeeSheetLink").addEventListener("click", (event) => {
@@ -6633,11 +6676,105 @@ function setupEncounterSummaryPanel()
         openFeeSheet();
     });
 
+    document.getElementById("pdEncSummaryMiscBillingLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openMiscBillingOptionsModal();
+    });
+
     document.getElementById("pdEncSummaryDeleteEncounterBtn").addEventListener("click", () => openDeleteEncounterModal());
 
     setupEsignModal();
     setupDeleteSectionModal();
     setupCollapsibleCards();
+    setupMiscBillingOptionsModal();
+}
+
+const MISC_BILLING_FIELDS = [
+    "employment_related", "auto_accident", "auto_accident_state", "other_accident",
+    "claim_codes", "epsdt",
+    "onset_date", "onset_date_qualifier", "other_date", "other_date_qualifier",
+    "unable_to_work_from", "unable_to_work_to",
+    "provider_id", "provider_qualifier",
+    "hospitalization_from", "hospitalization_to",
+    "outside_lab", "outside_lab_charges",
+    "resubmission_code", "medicaid_original_ref_no", "prior_authorization_no",
+    "x12_replacement_claim", "x12_icn_resubmission_no",
+    "additional_notes"
+];
+
+async function openMiscBillingOptionsModal()
+{
+    document.getElementById("miscBillingOptionsAlert").innerHTML = "";
+    document.getElementById("miscBillingOptionsForm").reset();
+
+    await loadEncounterCatalogsIfNeeded();
+    fillEncounterSelect("miscBilling_provider_id", encounterProviders, providerLabel, "-- Please Select --");
+
+    const section = currentEncounterSummary.sections.misc_billing_options || {};
+    const locked = !!section.locked_at;
+    const data = currentEncounterSummary.miscBillingOptions || {};
+
+    MISC_BILLING_FIELDS.forEach((field) => {
+        const el = document.getElementById(`miscBilling_${field}`);
+
+        if (el.type === "checkbox") {
+            el.checked = !!data[field];
+        } else {
+            el.value = data[field] ?? "";
+        }
+
+        el.disabled = locked;
+    });
+
+    const frequency = data.x12_claim_frequency || "new";
+
+    document.getElementById(`miscBilling_x12_claim_frequency_${frequency}`).checked = true;
+    document.querySelectorAll('input[name="miscBillingX12ClaimFrequency"]').forEach((radio) => {
+        radio.disabled = locked;
+    });
+
+    document.querySelector("#miscBillingOptionsForm .form-actions button[type=submit]").style.display = locked ? "none" : "";
+
+    document.getElementById("miscBillingOptionsModalOverlay").classList.add("open");
+}
+
+function setupMiscBillingOptionsModal()
+{
+    const modalOverlay = document.getElementById("miscBillingOptionsModalOverlay");
+    const form = document.getElementById("miscBillingOptionsForm");
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("closeMiscBillingOptionsModal").addEventListener("click", closeModal);
+    document.getElementById("cancelMiscBillingOptions").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const payload = {};
+
+        MISC_BILLING_FIELDS.forEach((field) => {
+            const el = document.getElementById(`miscBilling_${field}`);
+            payload[field] = el.type === "checkbox" ? el.checked : el.value;
+        });
+
+        payload.x12_claim_frequency = document.querySelector('input[name="miscBillingX12ClaimFrequency"]:checked')?.value || "new";
+
+        const result = await saveEncounterMiscBillingOptions(currentEncounterSummary.encounter.id, payload);
+
+        if (!result.success) {
+            showAlert("miscBillingOptionsAlert", result.message || "Failed to save Misc Billing Options.", "error");
+            return;
+        }
+
+        closeModal();
+        await loadEncounterSummary(currentEncounterSummary.encounter);
+    });
 }
 
 let feeSheetRows = [];
@@ -8444,7 +8581,7 @@ function renderPatientsTable(patients, user)
                 </div>
             </td>
             <td><span class="pat-sex-badge ${sexClass}">${escapeHtml(sexLabel)}</span></td>
-            <td class="pat-muted ${patient.birthdate ? "" : "empty"}">${escapeHtml(patient.birthdate || "No birthdate")}</td>
+            <td class="pat-muted ${patient.birthdate ? "" : "empty"}">${escapeHtml(patient.birthdate ? formatDate(patient.birthdate) : "No birthdate")}</td>
             <td><span class="pat-tag ${providerName ? "" : "empty"}">${providerName ? escapeHtml(providerName) : "Unassigned"}</span></td>
             <td>
                 <div class="pat-actions">
@@ -8540,6 +8677,21 @@ function escapeHtml(value)
     div.textContent = value ?? "";
 
     return div.innerHTML;
+}
+
+function formatDate(value)
+{
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function clearErrors(fields, prefix)

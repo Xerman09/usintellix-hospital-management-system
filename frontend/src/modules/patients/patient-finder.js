@@ -100,7 +100,7 @@ function renderFinderResults(term)
                 </div>
             </td>
             <td><span class="fnd-muted ${sex ? "" : "empty"}">${escapeHtml(sexLabel)}</span></td>
-            <td class="fnd-muted ${patient.birthdate ? "" : "empty"}">${escapeHtml(patient.birthdate || "No birthdate")}</td>
+            <td class="fnd-muted ${patient.birthdate ? "" : "empty"}">${escapeHtml(patient.birthdate ? formatDate(patient.birthdate) : "No birthdate")}</td>
             <td><span class="fnd-tag ${providerName ? "" : "empty"}">${providerName ? escapeHtml(providerName) : "Unassigned"}</span></td>
             <td>
                 <button type="button" class="fnd-view-btn" data-view-id="${patient.id}">
@@ -140,4 +140,19 @@ function escapeHtml(value)
     div.textContent = value ?? "";
 
     return div.innerHTML;
+}
+
+function formatDate(value)
+{
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
