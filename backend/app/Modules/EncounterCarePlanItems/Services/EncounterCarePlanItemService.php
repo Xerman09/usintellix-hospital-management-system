@@ -9,7 +9,11 @@ use PDO;
 
 class EncounterCarePlanItemService
 {
-    private const DETAIL_FIELDS = ['author_name', 'item_type', 'code', 'code_text', 'description', 'item_date'];
+    private const DETAIL_FIELDS = [
+        'author_name', 'item_type', 'code', 'code_text', 'description', 'item_date',
+        'target_date', 'end_date', 'status',
+        'reason_code', 'reason_status', 'reason_recording_date', 'reason_end_date'
+    ];
 
     private EncounterSectionService $encounterSectionService;
 
@@ -21,7 +25,9 @@ class EncounterCarePlanItemService
     public function list(int $encounterId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, encounter_id, author_name, item_type, code, code_text, description, item_date, created_at
+            "SELECT id, encounter_id, author_name, item_type, code, code_text, description, item_date,
+                    target_date, end_date, status,
+                    reason_code, reason_status, reason_recording_date, reason_end_date, created_at
              FROM encounter_care_plan_items
              WHERE encounter_id = :encounter_id AND deleted_at IS NULL
              ORDER BY item_date DESC, id DESC"

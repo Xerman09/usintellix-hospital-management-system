@@ -15,7 +15,11 @@ class EncounterCarePlanItemController extends Controller
     private EncounterCarePlanItemService $encounterCarePlanItemService;
     private ProviderService $providerService;
 
-    private const DETAIL_FIELDS = ['author_name', 'item_type', 'code', 'code_text', 'description', 'item_date'];
+    private const DETAIL_FIELDS = [
+        'author_name', 'item_type', 'code', 'code_text', 'description', 'item_date',
+        'target_date', 'end_date', 'status',
+        'reason_code', 'reason_status', 'reason_recording_date', 'reason_end_date'
+    ];
 
     public function __construct()
     {

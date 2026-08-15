@@ -3657,7 +3657,8 @@ textarea.pd-sdoh-readonly {
 }
 
 .code-picker-box {
-    max-width: 480px;
+    max-width: 720px;
+    width: 100%;
     position: relative;
 }
 
@@ -3718,7 +3719,7 @@ textarea.pd-sdoh-readonly {
 }
 
 .code-picker-table-wrap {
-    max-height: 320px;
+    max-height: 480px;
     overflow-y: auto;
     border: 1px solid #eef1f7;
     border-radius: 10px;
@@ -4967,6 +4968,7 @@ textarea.pd-sdoh-readonly {
                                 Care Plan Form <span class="pd-locked-badge" id="pdEncSummaryCarePlanLockedBadge" style="display:none;">&#128274; Locked</span>
                             </h3>
                             <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdCarePlanAddBtn">+ Add</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryCarePlanSignBtn">eSign</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryCarePlanDeleteBtn">Delete</button>
                             </div>
@@ -6874,6 +6876,44 @@ textarea.pd-sdoh-readonly {
                 <button class="login-btn" type="submit">Save Immunization</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="carePlanFormModalOverlay">
+    <div class="modal-box" style="max-width: 860px;">
+        <div class="modal-header">
+            <h2 id="carePlanFormTitle">Care Plan Form</h2>
+            <button type="button" class="modal-close" id="closeCarePlanFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Enter Details</p>
+
+        <div id="carePlanFormAlert"></div>
+
+        <form id="carePlanForm">
+            <div id="carePlanRowsContainer"></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelCarePlanForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="carePlanReasonPickerModalOverlay">
+    <div class="modal-box code-picker-box">
+        <button type="button" class="modal-close code-picker-close" id="closeCarePlanReasonPickerModal">&times;</button>
+        <div class="code-picker-search-row">
+            <input type="text" class="form-input" id="carePlanReasonPickerSearch" placeholder="Search for">
+        </div>
+        <div class="code-picker-table-wrap">
+            <table class="code-picker-table">
+                <thead>
+                    <tr><th>Code</th><th>Description</th></tr>
+                </thead>
+                <tbody id="carePlanReasonPickerTableBody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 

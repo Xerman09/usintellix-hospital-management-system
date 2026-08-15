@@ -1544,6 +1544,19 @@ select.form-input {
     display: flex;
 }
 
+/* Care Plan Form sits above regular modals so it isn't lost behind
+   whatever else was open when it was launched; its own pickers
+   (code picker, reason picker) sit a level above that so they don't
+   tie on z-index with the Care Plan Form and lose to DOM order. */
+#carePlanFormModalOverlay {
+    z-index: 1050;
+}
+
+#codePickerModalOverlay,
+#carePlanReasonPickerModalOverlay {
+    z-index: 1100;
+}
+
 .modal-box {
     width: 100%;
     max-width: 760px;

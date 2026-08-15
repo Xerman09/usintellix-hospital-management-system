@@ -97,7 +97,10 @@ import {
     fetchEncounterSections, signEncounterSection, deleteEncounterSection
 } from "../encounter-sections/encounter-sections.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
-import { fetchCarePlanItems, removeCarePlanItem } from "../encounter-sections/encounter-care-plan-items.service.js";
+import {
+    fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
+} from "../encounter-sections/encounter-care-plan-items.service.js";
+import { fetchCarePlanReasonCodes } from "../care-plan-reason-codes/care-plan-reason-codes.service.js";
 import { fetchEncounterMiscBillingOptions, saveEncounterMiscBillingOptions } from "../encounter-sections/encounter-misc-billing-options.service.js";
 import { fetchInsurances } from "../insurances/insurances.service.js";
 import {
@@ -158,6 +161,22 @@ const IMMUNIZATION_DETAIL_FIELDS = [
     "completion_status", "refusal_reason", "reason_code",
     "ordering_provider_id", "encounter_id"
 ];
+
+const CARE_PLAN_TYPE_OPTIONS = [
+    "Appointments", "Device Order", "Goal", "Health Concern", "Instructions",
+    "Intervention", "Medication", "Planned Medication Act", "Plan of Care",
+    "Procedure", "Supply Order Act", "Test/Order"
+];
+
+const CARE_PLAN_STATUS_OPTIONS = [
+    "Active", "Completed", "Draft", "Entered in error", "On hold", "Revoked", "Unknown"
+];
+
+const CARE_PLAN_REASON_STATUS_OPTIONS = ["Pending", "Completed", "Negated"];
+
+let carePlanReasonCodesCache = null;
+let carePlanRowSeq = 0;
+let carePlanReasonPickerOnSelect = null;
 
 let currentDashboardPatient = null;
 let currentEditPatient = null;
@@ -2183,6 +2202,7 @@ export async function initPatientChartTab(patient)
     setupSurgeryModal();
     setupDentalIssueModal();
     setupImmunizationModals();
+    setupCarePlanModals();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -5031,6 +5051,343 @@ async function openImmunizationFormModal(existingRecord)
     formOverlay.classList.add("open");
 }
 
+function setupCarePlanModals()
+{
+    const formOverlay = document.getElementById("carePlanFormModalOverlay");
+    const form = document.getElementById("carePlanForm");
+    const reasonPickerOverlay = document.getElementById("carePlanReasonPickerModalOverlay");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdCarePlanAddBtn").addEventListener("click", () => {
+        if (currentEncounterSummary?.encounter) {
+            openCarePlanFormModal(null);
+        }
+    });
+
+    document.getElementById("closeCarePlanFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelCarePlanForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    document.getElementById("closeCarePlanReasonPickerModal").addEventListener("click", closeCarePlanReasonPicker);
+    reasonPickerOverlay.addEventListener("click", (event) => {
+        if (event.target === reasonPickerOverlay) {
+            closeCarePlanReasonPicker();
+        }
+    });
+
+    document.getElementById("carePlanReasonPickerSearch").addEventListener("input", (event) => {
+        renderCarePlanReasonPickerList(event.target.value.trim().toLowerCase());
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const rows = Array.from(document.querySelectorAll("#carePlanRowsContainer .care-plan-row"));
+        const payloads = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const rowEl = rows[i];
+            const hasReason = !rowEl.querySelector(".cp-reason-section").hidden;
+            const itemDateRaw = rowEl.querySelector(".cp-item-date").value;
+
+            const details = {
+                item_type: rowEl.querySelector(".cp-item-type").value,
+                code: rowEl.querySelector(".cp-code").value.trim() || null,
+                code_text: rowEl.querySelector(".cp-code-text").value.trim() || null,
+                description: rowEl.querySelector(".cp-description").value.trim(),
+                item_date: itemDateRaw ? `${itemDateRaw.replace("T", " ")}:00` : "",
+                target_date: rowEl.querySelector(".cp-target-date").value || null,
+                end_date: rowEl.querySelector(".cp-end-date").value || null,
+                status: rowEl.querySelector(".cp-status").value || null,
+                reason_code: hasReason ? (rowEl.querySelector(".cp-reason-code").value.trim() || null) : null,
+                reason_status: hasReason ? (rowEl.querySelector(".cp-reason-status").value || null) : null,
+                reason_recording_date: hasReason ? (rowEl.querySelector(".cp-reason-recording-date").value || null) : null,
+                reason_end_date: hasReason ? (rowEl.querySelector(".cp-reason-end-date").value || null) : null
+            };
+
+            if (!details.item_type || !details.description || !details.item_date) {
+                showAlert("carePlanFormAlert", `Item ${i + 1}: Type, Description, and Date are required.`, "error");
+                return;
+            }
+
+            payloads.push({ recordId: rowEl.querySelector(".cp-record-id").value, details });
+        }
+
+        if (!payloads.length) {
+            closeForm();
+            return;
+        }
+
+        for (const { recordId, details } of payloads) {
+            const result = recordId
+                ? await updateCarePlanItem(recordId, details)
+                : await addCarePlanItem(currentEncounterSummary.encounter.id, details);
+
+            if (!result.success) {
+                showAlert("carePlanFormAlert", result.message || "Failed to save care plan item.", "error");
+                return;
+            }
+        }
+
+        closeForm();
+        await loadCarePlanItems();
+        renderCarePlanSection();
+    });
+}
+
+function carePlanOptionsHtml(options)
+{
+    return `<option value="">-- Select --</option>` +
+        options.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+}
+
+function buildCarePlanRowHtml(rowId)
+{
+    return `
+        <div class="care-plan-row" data-row-id="${rowId}" style="margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #eef1f7;">
+            <input type="hidden" class="cp-record-id" value="">
+            <input type="hidden" class="cp-code-text" value="">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Code:</label>
+                    <input class="form-input cp-code" readonly placeholder="Click to select a code">
+                </div>
+
+                <div class="form-group">
+                    <label>Date:</label>
+                    <input type="datetime-local" class="form-input cp-item-date">
+                </div>
+
+                <div class="form-group">
+                    <label>Type:</label>
+                    <select class="form-input cp-item-type">${carePlanOptionsHtml(CARE_PLAN_TYPE_OPTIONS)}</select>
+                </div>
+
+                <div class="form-group">
+                    <label>Target Date:</label>
+                    <input type="date" class="form-input cp-target-date">
+                </div>
+
+                <div class="form-group">
+                    <label>End Date:</label>
+                    <input type="date" class="form-input cp-end-date">
+                </div>
+
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select class="form-input cp-status">${carePlanOptionsHtml(CARE_PLAN_STATUS_OPTIONS)}</select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Description:</label>
+                    <textarea class="form-input cp-description" style="min-height: 120px;"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn-secondary cp-add-btn">&#43; Add</button>
+                <button type="button" class="btn-secondary cp-delete-btn">&#128465; Delete</button>
+                <button type="button" class="btn-secondary cp-add-reason-btn">&#10035; Add Reason</button>
+            </div>
+
+            <div class="cp-reason-section" hidden>
+                <hr>
+                <p class="form-subtitle">Care Plan Reason Information</p>
+                <p>When recording a reason for the value (or absence of a value) of an observation both the reason code and status of the reason are required</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Reason Code</label>
+                        <input class="form-input cp-reason-code" readonly placeholder="Select a reason code">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Reason Status</label>
+                        <select class="form-input cp-reason-status">${carePlanOptionsHtml(CARE_PLAN_REASON_STATUS_OPTIONS)}</select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Reason Recording Date</label>
+                        <input type="date" class="form-input cp-reason-recording-date">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Reason End Date (Leave empty if there is no end date)</label>
+                        <input type="date" class="form-input cp-reason-end-date">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `.trim();
+}
+
+function wireCarePlanRow(rowEl)
+{
+    rowEl.querySelector(".cp-code").addEventListener("click", () => {
+        openCodePicker({
+            onSelect: ({ code, description }) => {
+                rowEl.querySelector(".cp-code").value = code;
+                rowEl.querySelector(".cp-code-text").value = description || "";
+            }
+        });
+    });
+
+    rowEl.querySelector(".cp-add-reason-btn").addEventListener("click", () => {
+        const reasonSection = rowEl.querySelector(".cp-reason-section");
+        reasonSection.hidden = !reasonSection.hidden;
+    });
+
+    rowEl.querySelector(".cp-reason-code").addEventListener("click", () => {
+        openCarePlanReasonPicker((code) => {
+            rowEl.querySelector(".cp-reason-code").value = code;
+        });
+    });
+
+    rowEl.querySelector(".cp-add-btn").addEventListener("click", () => {
+        rowEl.insertAdjacentElement("afterend", createCarePlanRow());
+    });
+
+    rowEl.querySelector(".cp-delete-btn").addEventListener("click", async () => {
+        const container = document.getElementById("carePlanRowsContainer");
+        const recordId = rowEl.querySelector(".cp-record-id").value;
+
+        if (recordId) {
+            if (!confirm("Remove this care plan item?")) {
+                return;
+            }
+
+            const result = await removeCarePlanItem(recordId);
+
+            if (!result.success) {
+                showAlert("carePlanFormAlert", result.message || "Failed to remove item.", "error");
+                return;
+            }
+
+            await loadCarePlanItems();
+            renderCarePlanSection();
+        }
+
+        if (container.children.length > 1) {
+            rowEl.remove();
+        } else {
+            document.getElementById("carePlanFormModalOverlay").classList.remove("open");
+        }
+    });
+}
+
+function createCarePlanRow()
+{
+    const wrapper = document.createElement("div");
+
+    wrapper.innerHTML = buildCarePlanRowHtml(++carePlanRowSeq);
+
+    const rowEl = wrapper.firstElementChild;
+
+    wireCarePlanRow(rowEl);
+
+    return rowEl;
+}
+
+function openCarePlanFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("carePlanFormModalOverlay");
+    const title = document.getElementById("carePlanFormTitle");
+    const container = document.getElementById("carePlanRowsContainer");
+
+    document.getElementById("carePlanFormAlert").innerHTML = "";
+    container.innerHTML = "";
+
+    const rowEl = createCarePlanRow();
+
+    container.appendChild(rowEl);
+
+    if (existingRecord) {
+        title.textContent = "Edit Care Plan Form";
+        rowEl.querySelector(".cp-record-id").value = existingRecord.id;
+        rowEl.querySelector(".cp-code").value = existingRecord.code || "";
+        rowEl.querySelector(".cp-code-text").value = existingRecord.code_text || "";
+        rowEl.querySelector(".cp-item-type").value = existingRecord.item_type || "";
+        rowEl.querySelector(".cp-item-date").value = (existingRecord.item_date || "").slice(0, 16).replace(" ", "T");
+        rowEl.querySelector(".cp-target-date").value = (existingRecord.target_date || "").slice(0, 10);
+        rowEl.querySelector(".cp-end-date").value = (existingRecord.end_date || "").slice(0, 10);
+        rowEl.querySelector(".cp-status").value = existingRecord.status || "";
+        rowEl.querySelector(".cp-description").value = existingRecord.description || "";
+        rowEl.querySelector(".cp-reason-code").value = existingRecord.reason_code || "";
+        rowEl.querySelector(".cp-reason-status").value = existingRecord.reason_status || "";
+        rowEl.querySelector(".cp-reason-recording-date").value = (existingRecord.reason_recording_date || "").slice(0, 10);
+        rowEl.querySelector(".cp-reason-end-date").value = (existingRecord.reason_end_date || "").slice(0, 10);
+
+        if (existingRecord.reason_code || existingRecord.reason_status
+            || existingRecord.reason_recording_date || existingRecord.reason_end_date) {
+            rowEl.querySelector(".cp-reason-section").hidden = false;
+        }
+    } else {
+        title.textContent = "Care Plan Form";
+    }
+
+    formOverlay.classList.add("open");
+}
+
+async function openCarePlanReasonPicker(onSelect)
+{
+    carePlanReasonPickerOnSelect = onSelect;
+
+    if (!carePlanReasonCodesCache) {
+        const result = await fetchCarePlanReasonCodes();
+        carePlanReasonCodesCache = result.success ? result.data : [];
+    }
+
+    document.getElementById("carePlanReasonPickerSearch").value = "";
+    document.getElementById("carePlanReasonPickerModalOverlay").classList.add("open");
+    renderCarePlanReasonPickerList("");
+}
+
+function closeCarePlanReasonPicker()
+{
+    document.getElementById("carePlanReasonPickerModalOverlay").classList.remove("open");
+    carePlanReasonPickerOnSelect = null;
+}
+
+function renderCarePlanReasonPickerList(filterText)
+{
+    const tbody = document.getElementById("carePlanReasonPickerTableBody");
+    const codes = carePlanReasonCodesCache || [];
+
+    const filtered = filterText
+        ? codes.filter((item) =>
+            (item.code || "").toLowerCase().includes(filterText) ||
+            (item.description || "").toLowerCase().includes(filterText))
+        : codes;
+
+    if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="2" class="code-picker-status">No matching reason codes.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((item) => `
+        <tr data-code="${escapeHtml(item.code)}">
+            <td>${escapeHtml(item.code)}</td>
+            <td>${escapeHtml(item.description || "-")}</td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("tr[data-code]").forEach((row) => {
+        row.addEventListener("click", () => {
+            if (carePlanReasonPickerOnSelect) {
+                carePlanReasonPickerOnSelect(row.getAttribute("data-code"));
+            }
+
+            closeCarePlanReasonPicker();
+        });
+    });
+}
+
 function setupPrescriptionModals()
 {
     const detailOverlay = document.getElementById("prescriptionDetailModalOverlay");
@@ -6458,12 +6815,25 @@ function renderCarePlanSection()
                 <td>${escapeHtml(item.description)}</td>
                 <td>${escapeHtml((item.item_date || "").slice(0, 16).replace("T", " "))}</td>
                 <td class="table-actions">
-                    ${locked ? "" : `<button class="btn-danger" data-remove-care-plan-item="${item.id}">Delete</button>`}
+                    ${locked ? "" : `
+                        <button class="btn-edit" data-edit-care-plan-item="${item.id}">Edit</button>
+                        <button class="btn-danger" data-remove-care-plan-item="${item.id}">Delete</button>
+                    `}
                 </td>
             </tr>
         `).join("");
 
         if (!locked) {
+            tbody.querySelectorAll("[data-edit-care-plan-item]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const item = carePlanItems.find((i) => String(i.id) === btn.getAttribute("data-edit-care-plan-item"));
+
+                    if (item) {
+                        openCarePlanFormModal(item);
+                    }
+                });
+            });
+
             tbody.querySelectorAll("[data-remove-care-plan-item]").forEach((btn) => {
                 btn.addEventListener("click", async () => {
                     if (!confirm("Remove this care plan item?")) {
@@ -6487,6 +6857,7 @@ function renderCarePlanSection()
     renderLockedBadge("pdEncSummaryCarePlanLockedBadge", section.locked_at);
     renderEsignLog("pdEncSummaryCarePlanLog", section.signatures);
     document.getElementById("pdEncSummaryCarePlanDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdCarePlanAddBtn").style.display = locked ? "none" : "";
 }
 
 function renderClinicalInstructionsSection()
@@ -6698,7 +7069,7 @@ function setupEncounterSummaryPanel()
 
     document.getElementById("pdClinicalMenuCarePlanLink").addEventListener("click", (event) => {
         event.preventDefault();
-        scrollToEncounterCard("CarePlan");
+        openCarePlanFormModal(null);
     });
 
     document.getElementById("pdClinicalMenuInstructionsLink").addEventListener("click", (event) => {
