@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=32";
+import { PatientChartView } from "./patients-list.view.js?v=33";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -6343,29 +6343,34 @@ function backToVisitHistory()
 async function loadEncounterSummary(encounter)
 {
     document.getElementById("pdEncounterSummaryAlert").innerHTML = "";
+    document.getElementById("pdEncounterSwitchLoadingOverlay").classList.add("open");
 
-    const [sectionsResult, vitalsResult, carePlanResult, miscBillingResult] = await Promise.all([
-        fetchEncounterSections(encounter.id),
-        fetchEncounterVitals(encounter.id),
-        fetchCarePlanItems(encounter.id),
-        fetchEncounterMiscBillingOptions(encounter.id)
-    ]);
+    try {
+        const [sectionsResult, vitalsResult, carePlanResult, miscBillingResult] = await Promise.all([
+            fetchEncounterSections(encounter.id),
+            fetchEncounterVitals(encounter.id),
+            fetchCarePlanItems(encounter.id),
+            fetchEncounterMiscBillingOptions(encounter.id)
+        ]);
 
-    const sectionsByType = {};
+        const sectionsByType = {};
 
-    (sectionsResult.success ? sectionsResult.data : []).forEach((section) => {
-        sectionsByType[section.section_type] = section;
-    });
+        (sectionsResult.success ? sectionsResult.data : []).forEach((section) => {
+            sectionsByType[section.section_type] = section;
+        });
 
-    currentEncounterSummary = {
-        encounter,
-        sections: sectionsByType,
-        vitals: vitalsResult.success ? vitalsResult.data : null,
-        carePlanItems: carePlanResult.success ? carePlanResult.data : [],
-        miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null
-    };
+        currentEncounterSummary = {
+            encounter,
+            sections: sectionsByType,
+            vitals: vitalsResult.success ? vitalsResult.data : null,
+            carePlanItems: carePlanResult.success ? carePlanResult.data : [],
+            miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null
+        };
 
-    renderEncounterSummary();
+        renderEncounterSummary();
+    } finally {
+        document.getElementById("pdEncounterSwitchLoadingOverlay").classList.remove("open");
+    }
 }
 
 async function loadCarePlanItems()

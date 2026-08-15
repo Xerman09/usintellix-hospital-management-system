@@ -7724,7 +7724,33 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="pdEncounterSwitchLoadingOverlay">
+    <div class="pd-loading-modal-box">
+        <span class="pd-loading-spinner pd-loading-spinner-lg"></span>
+        <p>Loading visit...</p>
+    </div>
+</div>
+
 <style>
+.pd-loading-modal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    background: white;
+    padding: 32px 40px;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    color: #29323f;
+    font-size: 14px;
+}
+
+.pd-loading-spinner-lg {
+    width: 28px;
+    height: 28px;
+    border-width: 3px;
+}
+
 .encounter-issues-list {
     max-height: 160px;
     overflow-y: auto;
