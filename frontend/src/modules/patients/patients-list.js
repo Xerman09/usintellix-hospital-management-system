@@ -2133,7 +2133,9 @@ export async function initPatientChartTab(patient)
     document.getElementById("pdSidebarSub").textContent = `Patient No: ${patient.patient_no}`;
 
     setFact("pdFactSex", sex);
-    setFact("pdFactBirthdate", patient.birthdate);
+    setFact("pdFactBirthdate", formatDate(patient.birthdate));
+    const age = calculateAge(patient.birthdate);
+    setFact("pdFactAge", age === null ? "" : String(age));
     setFact("pdFactBloodType", patient.blood_type);
     setFact("pdFactProvider", providerName);
 
@@ -9093,6 +9095,30 @@ function formatDate(value)
     }
 
     return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function calculateAge(birthdate)
+{
+    if (!birthdate) {
+        return null;
+    }
+
+    const dob = new Date(birthdate);
+
+    if (Number.isNaN(dob.getTime())) {
+        return null;
+    }
+
+    const today = new Date();
+
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+
+    return age;
 }
 
 function formatDateTime(value)

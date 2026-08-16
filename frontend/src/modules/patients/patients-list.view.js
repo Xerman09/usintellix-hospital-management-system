@@ -4131,6 +4131,10 @@ textarea.pd-sdoh-readonly {
                         <span class="pd-fact-value" id="pdFactBirthdate">-</span>
                     </div>
                     <div class="pd-fact">
+                        <span class="pd-fact-label">Age</span>
+                        <span class="pd-fact-value" id="pdFactAge">-</span>
+                    </div>
+                    <div class="pd-fact">
                         <span class="pd-fact-label">Blood Type</span>
                         <span class="pd-fact-value" id="pdFactBloodType">-</span>
                     </div>
