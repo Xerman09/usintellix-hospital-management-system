@@ -96,6 +96,9 @@ import { fetchFacilities } from "../facilities/facilities.service.js";
 import {
     fetchEncounterSections, signEncounterSection, deleteEncounterSection
 } from "../encounter-sections/encounter-sections.service.js";
+import {
+    fetchClinicalInstructionItems, addClinicalInstructionItem, updateClinicalInstructionItem, removeClinicalInstructionItem
+} from "../encounter-sections/encounter-clinical-instruction-items.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
@@ -2205,6 +2208,7 @@ export async function initPatientChartTab(patient)
     setupDentalIssueModal();
     setupImmunizationModals();
     setupCarePlanModals();
+    setupClinicalInstructionsModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -5390,6 +5394,83 @@ function renderCarePlanReasonPickerList(filterText)
     });
 }
 
+function setupClinicalInstructionsModal()
+{
+    const formOverlay = document.getElementById("clinicalInstructionsFormModalOverlay");
+    const form = document.getElementById("clinicalInstructionsForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdClinicalInstructionsAddBtn").addEventListener("click", () => {
+        if (currentEncounterSummary?.encounter) {
+            openClinicalInstructionsFormModal(null);
+        }
+    });
+
+    document.getElementById("closeClinicalInstructionsFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelClinicalInstructionsForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("clinical_instruction_record_id").value;
+        const instructions = document.getElementById("clinicalInstructions_content").value.trim();
+
+        if (!instructions) {
+            showAlert("clinicalInstructionsFormAlert", "Instructions is required.", "error");
+            return;
+        }
+
+        const details = {
+            instructions,
+            item_date: document.getElementById("clinical_instruction_item_date").value
+        };
+
+        const result = recordId
+            ? await updateClinicalInstructionItem(recordId, details)
+            : await addClinicalInstructionItem(currentEncounterSummary.encounter.id, details);
+
+        if (!result.success) {
+            showAlert("clinicalInstructionsFormAlert", result.message || "Failed to save.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadClinicalInstructionItems();
+        renderClinicalInstructionsSection();
+    });
+}
+
+function openClinicalInstructionsFormModal(existingRecord)
+{
+    document.getElementById("clinicalInstructionsFormAlert").innerHTML = "";
+    document.getElementById("clinical_instruction_record_id").value = existingRecord ? existingRecord.id : "";
+    document.getElementById("clinicalInstructions_content").value = existingRecord ? (existingRecord.instructions || "") : "";
+    document.getElementById("clinical_instruction_item_date").value = existingRecord
+        ? existingRecord.item_date
+        : formatMysqlDateTime(new Date());
+    document.getElementById("clinicalInstructionsFormModalOverlay").classList.add("open");
+}
+
+function formatMysqlDateTime(date)
+{
+    const pad = (n) => String(n).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+async function loadClinicalInstructionItems()
+{
+    const result = await fetchClinicalInstructionItems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.clinicalInstructionItems = result.success ? result.data : [];
+}
+
 function setupPrescriptionModals()
 {
     const detailOverlay = document.getElementById("prescriptionDetailModalOverlay");
@@ -6705,10 +6786,11 @@ async function loadEncounterSummary(encounter)
     document.getElementById("pdEncounterSwitchLoadingOverlay").classList.add("open");
 
     try {
-        const [sectionsResult, vitalsResult, carePlanResult, miscBillingResult] = await Promise.all([
+        const [sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, miscBillingResult] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
             fetchCarePlanItems(encounter.id),
+            fetchClinicalInstructionItems(encounter.id),
             fetchEncounterMiscBillingOptions(encounter.id)
         ]);
 
@@ -6723,6 +6805,7 @@ async function loadEncounterSummary(encounter)
             sections: sectionsByType,
             vitals: vitalsResult.success ? vitalsResult.data : null,
             carePlanItems: carePlanResult.success ? carePlanResult.data : [],
+            clinicalInstructionItems: clinicalInstructionsResult.success ? clinicalInstructionsResult.data : [],
             miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null
         };
 
@@ -6864,13 +6947,64 @@ function renderCarePlanSection()
 
 function renderClinicalInstructionsSection()
 {
-    const section = currentEncounterSummary.sections.clinical_instructions || {};
+    const { sections, clinicalInstructionItems } = currentEncounterSummary;
+    const section = sections.clinical_instructions || {};
+    const locked = !!section.locked_at;
+    const tbody = document.getElementById("pdClinicalInstructionsTableBody");
+    const items = clinicalInstructionItems || [];
 
-    document.getElementById("pdClinicalInstructionsText").textContent = section.content || "Not recorded.";
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">No clinical instructions recorded.</td></tr>`;
+    } else {
+        tbody.innerHTML = items.map((item) => `
+            <tr>
+                <td>${escapeHtml(item.author_name)}</td>
+                <td>${escapeHtml(item.instructions)}</td>
+                <td>${escapeHtml((item.item_date || "").slice(0, 16).replace("T", " "))}</td>
+                <td class="table-actions">
+                    ${locked ? "" : `
+                        <button class="btn-edit" data-edit-clinical-instruction-item="${item.id}">Edit</button>
+                        <button class="btn-danger" data-remove-clinical-instruction-item="${item.id}">Delete</button>
+                    `}
+                </td>
+            </tr>
+        `).join("");
+
+        if (!locked) {
+            tbody.querySelectorAll("[data-edit-clinical-instruction-item]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const item = items.find((i) => String(i.id) === btn.getAttribute("data-edit-clinical-instruction-item"));
+
+                    if (item) {
+                        openClinicalInstructionsFormModal(item);
+                    }
+                });
+            });
+
+            tbody.querySelectorAll("[data-remove-clinical-instruction-item]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this clinical instruction?")) {
+                        return;
+                    }
+
+                    const result = await removeClinicalInstructionItem(btn.getAttribute("data-remove-clinical-instruction-item"));
+
+                    if (!result.success) {
+                        showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove item.", "error");
+                        return;
+                    }
+
+                    await loadClinicalInstructionItems();
+                    renderClinicalInstructionsSection();
+                });
+            });
+        }
+    }
 
     renderLockedBadge("pdEncSummaryClinicalInstructionsLockedBadge", section.locked_at);
     renderEsignLog("pdEncSummaryClinicalInstructionsLog", section.signatures);
-    document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").style.display = section.locked_at ? "none" : "";
+    document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdClinicalInstructionsAddBtn").style.display = locked ? "none" : "";
 }
 
 function renderVitalsSection()
@@ -7076,7 +7210,7 @@ function setupEncounterSummaryPanel()
 
     document.getElementById("pdClinicalMenuInstructionsLink").addEventListener("click", (event) => {
         event.preventDefault();
-        scrollToEncounterCard("ClinicalInstructions");
+        openClinicalInstructionsFormModal(null);
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {

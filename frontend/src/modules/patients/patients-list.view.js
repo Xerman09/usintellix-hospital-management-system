@@ -5015,12 +5015,27 @@ textarea.pd-sdoh-readonly {
                                 Clinical Instructions <span class="pd-locked-badge" id="pdEncSummaryClinicalInstructionsLockedBadge" style="display:none;">&#128274; Locked</span>
                             </h3>
                             <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdClinicalInstructionsAddBtn">+ Add</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalInstructionsSignBtn">eSign</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalInstructionsDeleteBtn">Delete</button>
                             </div>
                         </div>
                         <div class="pd-report-card-body" id="pdEncSummaryClinicalInstructionsCardBody">
-                            <p class="pd-readonly-value" id="pdClinicalInstructionsText">-</p>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Author</th>
+                                            <th>Instructions</th>
+                                            <th>Date</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdClinicalInstructionsTableBody">
+                                        <tr><td colspan="4" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
 
                             <div class="pd-esign-log-wrap">
                                 <table class="data-table pd-esign-log-table">
@@ -6918,6 +6933,33 @@ textarea.pd-sdoh-readonly {
                 <tbody id="carePlanReasonPickerTableBody"></tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="clinicalInstructionsFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Clinical Instructions</h2>
+            <button type="button" class="modal-close" id="closeClinicalInstructionsFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Enter Details</p>
+
+        <div id="clinicalInstructionsFormAlert"></div>
+
+        <form id="clinicalInstructionsForm">
+            <input type="hidden" id="clinical_instruction_record_id">
+            <input type="hidden" id="clinical_instruction_item_date">
+
+            <div class="form-group full">
+                <label>Instructions:</label>
+                <textarea id="clinicalInstructions_content" class="form-input" style="min-height: 220px;"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelClinicalInstructionsForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
     </div>
 </div>
 
