@@ -5186,6 +5186,48 @@ textarea.pd-sdoh-readonly {
                             </div>
                         </div>
                     </div>
+
+                    <div class="pd-report-card" id="pdEncSummaryFunctionalCognitiveCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryFunctionalCognitiveToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                <span id="pdEncSummaryFunctionalCognitiveTitle">Functional and Cognitive Status Form</span> <span class="pd-locked-badge" id="pdEncSummaryFunctionalCognitiveLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdFunctionalCognitiveAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryFunctionalCognitiveSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryFunctionalCognitiveDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryFunctionalCognitiveCardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Code Text</th>
+                                            <th>Description</th>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdFunctionalCognitiveTableBody">
+                                        <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryFunctionalCognitiveLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">
@@ -7021,6 +7063,27 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelClinicalNotesForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="functionalCognitiveFormModalOverlay">
+    <div class="modal-box" style="max-width: 760px;">
+        <div class="modal-header">
+            <h2>Functional and Cognitive Status Form</h2>
+            <button type="button" class="modal-close" id="closeFunctionalCognitiveFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Enter Details</p>
+
+        <div id="functionalCognitiveFormAlert"></div>
+
+        <form id="functionalCognitiveForm">
+            <div id="functionalCognitiveRowsContainer"></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelFunctionalCognitiveForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

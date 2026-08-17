@@ -12,7 +12,7 @@ use PDO;
 
 class EncounterSectionService
 {
-    public const SECTION_TYPES = ['visit_summary', 'care_plan', 'clinical_instructions', 'clinical_notes', 'vitals', 'misc_billing_options'];
+    public const SECTION_TYPES = ['visit_summary', 'care_plan', 'clinical_instructions', 'clinical_notes', 'vitals', 'misc_billing_options', 'functional_cognitive_status'];
 
     /**
      * All 4 Encounter Summary sections for an encounter, creating any
