@@ -99,6 +99,9 @@ import {
 import {
     fetchClinicalInstructionItems, addClinicalInstructionItem, updateClinicalInstructionItem, removeClinicalInstructionItem
 } from "../encounter-sections/encounter-clinical-instruction-items.service.js";
+import {
+    fetchClinicalNoteItems, addClinicalNoteItem, updateClinicalNoteItem, removeClinicalNoteItem
+} from "../encounter-sections/encounter-clinical-note-items.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
@@ -177,9 +180,19 @@ const CARE_PLAN_STATUS_OPTIONS = [
 
 const CARE_PLAN_REASON_STATUS_OPTIONS = ["Pending", "Completed", "Negated"];
 
+const CLINICAL_NOTE_TYPE_OPTIONS = [
+    "Evaluation Note", "Progress Note", "Nurse Note", "History & Physical", "General Note",
+    "Discharge Summary Note", "Procedure Note", "Consultation Note", "Diagnostic imaging study",
+    "Laboratory Report Narrative", "Pathology Report Narrative", "Surgical operation note",
+    "Emergency department Note"
+];
+
+const CLINICAL_NOTE_CATEGORY_OPTIONS = ["Cardiology", "Pathology", "Radiology"];
+
 let carePlanReasonCodesCache = null;
 let carePlanRowSeq = 0;
 let carePlanReasonPickerOnSelect = null;
+let clinicalNoteRowSeq = 0;
 
 let currentDashboardPatient = null;
 let currentEditPatient = null;
@@ -2209,6 +2222,7 @@ export async function initPatientChartTab(patient)
     setupImmunizationModals();
     setupCarePlanModals();
     setupClinicalInstructionsModal();
+    setupClinicalNotesModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -5471,6 +5485,344 @@ async function loadClinicalInstructionItems()
     currentEncounterSummary.clinicalInstructionItems = result.success ? result.data : [];
 }
 
+function setupClinicalNotesModal()
+{
+    const formOverlay = document.getElementById("clinicalNotesFormModalOverlay");
+    const form = document.getElementById("clinicalNotesForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdClinicalNotesAddBtn").addEventListener("click", () => {
+        if (currentEncounterSummary?.encounter) {
+            openClinicalNotesFormModal(null);
+        }
+    });
+
+    document.getElementById("closeClinicalNotesFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelClinicalNotesForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    setupClinicalNoteDocumentPicker();
+    setupClinicalNoteResultPicker();
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const rows = Array.from(document.querySelectorAll("#clinicalNoteRowsContainer .clinical-note-row"));
+        const payloads = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const rowEl = rows[i];
+
+            const details = {
+                note_type: rowEl.querySelector(".cn-note-type").value,
+                category: rowEl.querySelector(".cn-category").value || null,
+                narrative: rowEl.querySelector(".cn-narrative").value.trim(),
+                note_date: rowEl.querySelector(".cn-note-date").value
+            };
+
+            if (!details.note_type || !details.narrative || !details.note_date) {
+                showAlert("clinicalNotesFormAlert", `Note ${i + 1}: Type, Narrative, and Date are required.`, "error");
+                return;
+            }
+
+            payloads.push({ recordId: rowEl.querySelector(".cn-record-id").value, details });
+        }
+
+        if (!payloads.length) {
+            closeForm();
+            return;
+        }
+
+        for (const { recordId, details } of payloads) {
+            const result = recordId
+                ? await updateClinicalNoteItem(recordId, details)
+                : await addClinicalNoteItem(currentEncounterSummary.encounter.id, details);
+
+            if (!result.success) {
+                showAlert("clinicalNotesFormAlert", result.message || "Failed to save clinical note.", "error");
+                return;
+            }
+        }
+
+        closeForm();
+        await loadClinicalNoteItems();
+        renderClinicalNotesSection();
+    });
+}
+
+function buildClinicalNoteRowHtml(rowId)
+{
+    return `
+        <div class="clinical-note-row" data-row-id="${rowId}" style="margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #eef1f7;">
+            <input type="hidden" class="cn-record-id" value="">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Date:</label>
+                    <input type="date" class="form-input cn-note-date">
+                </div>
+
+                <div class="form-group">
+                    <label>Type:</label>
+                    <select class="form-input cn-note-type">${carePlanOptionsHtml(CLINICAL_NOTE_TYPE_OPTIONS)}</select>
+                </div>
+
+                <div class="form-group">
+                    <label>Category:</label>
+                    <select class="form-input cn-category">${carePlanOptionsHtml(CLINICAL_NOTE_CATEGORY_OPTIONS)}</select>
+                </div>
+            </div>
+
+            <hr>
+
+            <p><strong>Author:</strong> <span class="cn-author-display">-</span></p>
+            <p><strong>Last Updated:</strong> <span class="cn-last-updated-display">-</span></p>
+
+            <div class="form-group full">
+                <label>Narrative:</label>
+                <textarea class="form-input cn-narrative" style="min-height: 140px;"></textarea>
+            </div>
+
+            <div class="form-group full">
+                <label>&#128196; Linked Documents:</label>
+                <div class="pd-readonly-value cn-documents-list" style="border: 1px solid #e7eaef; border-radius: 8px; padding: 10px; color: #8b98ac;">No documents linked</div>
+                <button type="button" class="btn-secondary cn-add-documents-btn" style="margin-top: 8px;">+ Add Documents</button>
+            </div>
+
+            <div class="form-group full">
+                <label>&#129514; Linked Procedure Results:</label>
+                <div class="pd-readonly-value cn-results-list" style="border: 1px solid #e7eaef; border-radius: 8px; padding: 10px; color: #8b98ac;">No results linked</div>
+                <button type="button" class="btn-secondary cn-add-results-btn" style="margin-top: 8px;">+ Add Results</button>
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn-secondary cn-add-btn">&#43; Add</button>
+                <button type="button" class="btn-secondary cn-delete-btn">&#128465; Delete</button>
+            </div>
+        </div>
+    `.trim();
+}
+
+function wireClinicalNoteRow(rowEl)
+{
+    rowEl.querySelector(".cn-add-btn").addEventListener("click", () => {
+        rowEl.insertAdjacentElement("afterend", createClinicalNoteRow());
+    });
+
+    rowEl.querySelector(".cn-add-documents-btn").addEventListener("click", () => {
+        openClinicalNoteDocumentPicker();
+    });
+
+    rowEl.querySelector(".cn-add-results-btn").addEventListener("click", () => {
+        openClinicalNoteResultPicker();
+    });
+
+    rowEl.querySelector(".cn-delete-btn").addEventListener("click", async () => {
+        const container = document.getElementById("clinicalNoteRowsContainer");
+        const recordId = rowEl.querySelector(".cn-record-id").value;
+
+        if (recordId) {
+            if (!confirm("Remove this clinical note?")) {
+                return;
+            }
+
+            const result = await removeClinicalNoteItem(recordId);
+
+            if (!result.success) {
+                showAlert("clinicalNotesFormAlert", result.message || "Failed to remove item.", "error");
+                return;
+            }
+
+            await loadClinicalNoteItems();
+            renderClinicalNotesSection();
+        }
+
+        if (container.children.length > 1) {
+            rowEl.remove();
+        } else {
+            document.getElementById("clinicalNotesFormModalOverlay").classList.remove("open");
+        }
+    });
+}
+
+function createClinicalNoteRow()
+{
+    const wrapper = document.createElement("div");
+
+    wrapper.innerHTML = buildClinicalNoteRowHtml(++clinicalNoteRowSeq);
+
+    const rowEl = wrapper.firstElementChild;
+
+    wireClinicalNoteRow(rowEl);
+
+    return rowEl;
+}
+
+function openClinicalNotesFormModal(existingRecord)
+{
+    const formOverlay = document.getElementById("clinicalNotesFormModalOverlay");
+    const container = document.getElementById("clinicalNoteRowsContainer");
+
+    document.getElementById("clinicalNotesFormAlert").innerHTML = "";
+    container.innerHTML = "";
+
+    const rowEl = createClinicalNoteRow();
+
+    container.appendChild(rowEl);
+
+    if (existingRecord) {
+        rowEl.querySelector(".cn-record-id").value = existingRecord.id;
+        rowEl.querySelector(".cn-note-date").value = (existingRecord.note_date || "").slice(0, 10);
+        rowEl.querySelector(".cn-note-type").value = existingRecord.note_type || "";
+        rowEl.querySelector(".cn-category").value = existingRecord.category || "";
+        rowEl.querySelector(".cn-narrative").value = existingRecord.narrative || "";
+        rowEl.querySelector(".cn-author-display").textContent = existingRecord.author_name || "-";
+        rowEl.querySelector(".cn-last-updated-display").textContent =
+            (existingRecord.updated_at || existingRecord.created_at || "").slice(0, 16).replace("T", " ") || "-";
+    }
+
+    formOverlay.classList.add("open");
+}
+
+async function loadClinicalNoteItems()
+{
+    const result = await fetchClinicalNoteItems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.clinicalNoteItems = result.success ? result.data : [];
+}
+
+function renderClinicalNotesSection()
+{
+    const { sections, clinicalNoteItems } = currentEncounterSummary;
+    const section = sections.clinical_notes || {};
+    const locked = !!section.locked_at;
+    const tbody = document.getElementById("pdClinicalNotesTableBody");
+    const items = clinicalNoteItems || [];
+
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No clinical notes recorded.</td></tr>`;
+    } else {
+        tbody.innerHTML = items.map((item) => `
+            <tr>
+                <td>${escapeHtml((item.note_date || "").slice(0, 10))}</td>
+                <td>${escapeHtml(item.note_type)}</td>
+                <td>${escapeHtml(item.category || "-")}</td>
+                <td>${escapeHtml(item.author_name)}</td>
+                <td>${escapeHtml(item.code || "-")}</td>
+                <td>${escapeHtml((item.updated_at || item.created_at || "").slice(0, 16).replace("T", " "))}</td>
+                <td class="table-actions">
+                    ${locked ? "" : `
+                        <button class="btn-edit" data-edit-clinical-note-item="${item.id}">Edit</button>
+                        <button class="btn-danger" data-remove-clinical-note-item="${item.id}">Delete</button>
+                    `}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="7" style="color:#5b6472;">${escapeHtml(item.narrative)}</td>
+            </tr>
+        `).join("");
+
+        if (!locked) {
+            tbody.querySelectorAll("[data-edit-clinical-note-item]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const item = items.find((i) => String(i.id) === btn.getAttribute("data-edit-clinical-note-item"));
+
+                    if (item) {
+                        openClinicalNotesFormModal(item);
+                    }
+                });
+            });
+
+            tbody.querySelectorAll("[data-remove-clinical-note-item]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this clinical note?")) {
+                        return;
+                    }
+
+                    const result = await removeClinicalNoteItem(btn.getAttribute("data-remove-clinical-note-item"));
+
+                    if (!result.success) {
+                        showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove item.", "error");
+                        return;
+                    }
+
+                    await loadClinicalNoteItems();
+                    renderClinicalNotesSection();
+                });
+            });
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryClinicalNotesLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryClinicalNotesLog", section.signatures);
+    document.getElementById("pdEncSummaryClinicalNotesDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdClinicalNotesAddBtn").style.display = locked ? "none" : "";
+}
+
+function setupClinicalNoteDocumentPicker()
+{
+    const overlay = document.getElementById("clinicalNoteDocumentPickerModalOverlay");
+    const close = () => overlay.classList.remove("open");
+
+    document.getElementById("closeClinicalNoteDocumentPickerModal").addEventListener("click", close);
+    document.getElementById("cancelClinicalNoteDocPicker").addEventListener("click", close);
+    document.getElementById("addSelectedClinicalNoteDocs").addEventListener("click", close);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            close();
+        }
+    });
+
+    document.getElementById("clinicalNoteDocSearchBtn").addEventListener("click", () => {
+        document.getElementById("clinicalNoteDocResultsBody").innerHTML =
+            `<tr><td class="table-empty">No documents found matching your criteria.</td></tr>`;
+    });
+}
+
+function openClinicalNoteDocumentPicker()
+{
+    document.getElementById("clinicalNoteDocSearchName").value = "";
+    document.getElementById("clinicalNoteDocSearchType").value = "";
+    document.getElementById("clinicalNoteDocSearchFromDate").value = "";
+    document.getElementById("clinicalNoteDocResultsBody").innerHTML =
+        `<tr><td class="table-empty">No documents found matching your criteria.</td></tr>`;
+    document.getElementById("clinicalNoteDocumentPickerModalOverlay").classList.add("open");
+}
+
+function setupClinicalNoteResultPicker()
+{
+    const overlay = document.getElementById("clinicalNoteResultPickerModalOverlay");
+    const close = () => overlay.classList.remove("open");
+
+    document.getElementById("closeClinicalNoteResultPickerModal").addEventListener("click", close);
+    document.getElementById("cancelClinicalNoteResultPicker").addEventListener("click", close);
+    document.getElementById("addSelectedClinicalNoteResults").addEventListener("click", close);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            close();
+        }
+    });
+
+    document.getElementById("clinicalNoteResultSearchBtn").addEventListener("click", () => {
+        document.getElementById("clinicalNoteResultResultsBody").innerHTML =
+            `<tr><td class="table-empty">No procedure results found matching your criteria.</td></tr>`;
+    });
+}
+
+function openClinicalNoteResultPicker()
+{
+    document.getElementById("clinicalNoteResultSearchName").value = "";
+    document.getElementById("clinicalNoteResultSearchFromDate").value = "";
+    document.getElementById("clinicalNoteResultResultsBody").innerHTML =
+        `<tr><td class="table-empty">No procedure results found matching your criteria.</td></tr>`;
+    document.getElementById("clinicalNoteResultPickerModalOverlay").classList.add("open");
+}
+
 function setupPrescriptionModals()
 {
     const detailOverlay = document.getElementById("prescriptionDetailModalOverlay");
@@ -6786,11 +7138,14 @@ async function loadEncounterSummary(encounter)
     document.getElementById("pdEncounterSwitchLoadingOverlay").classList.add("open");
 
     try {
-        const [sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, miscBillingResult] = await Promise.all([
+        const [
+            sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult, miscBillingResult
+        ] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
             fetchCarePlanItems(encounter.id),
             fetchClinicalInstructionItems(encounter.id),
+            fetchClinicalNoteItems(encounter.id),
             fetchEncounterMiscBillingOptions(encounter.id)
         ]);
 
@@ -6806,6 +7161,7 @@ async function loadEncounterSummary(encounter)
             vitals: vitalsResult.success ? vitalsResult.data : null,
             carePlanItems: carePlanResult.success ? carePlanResult.data : [],
             clinicalInstructionItems: clinicalInstructionsResult.success ? clinicalInstructionsResult.data : [],
+            clinicalNoteItems: clinicalNotesResult.success ? clinicalNotesResult.data : [],
             miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null
         };
 
@@ -6835,6 +7191,7 @@ function renderEncounterSummary()
     renderVisitSummarySection();
     renderCarePlanSection();
     renderClinicalInstructionsSection();
+    renderClinicalNotesSection();
     renderVitalsSection();
     renderMiscBillingOptionsSection();
 }
@@ -7051,11 +7408,12 @@ const SECTION_LABELS = {
     visit_summary: "Visit Summary",
     care_plan: "Care Plan Form",
     clinical_instructions: "Clinical Instructions",
+    clinical_notes: "Clinical Notes Form",
     vitals: "Vitals",
     misc_billing_options: "Misc Billing Options"
 };
 
-const CARD_KEYS = ["VisitSummary", "CarePlan", "ClinicalInstructions", "Vitals", "MiscBilling"];
+const CARD_KEYS = ["VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling"];
 
 let pendingDeleteSectionType = null;
 let pendingDeleteEncounter = false;
@@ -7181,6 +7539,9 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryClinicalInstructionsSignBtn").addEventListener("click", () => openEsignModal("clinical_instructions"));
     document.getElementById("pdEncSummaryClinicalInstructionsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("clinical_instructions"));
 
+    document.getElementById("pdEncSummaryClinicalNotesSignBtn").addEventListener("click", () => openEsignModal("clinical_notes"));
+    document.getElementById("pdEncSummaryClinicalNotesDeleteBtn").addEventListener("click", () => openDeleteSectionModal("clinical_notes"));
+
     document.getElementById("pdEncSummaryVitalsSignBtn").addEventListener("click", () => openEsignModal("vitals"));
     document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("vitals"));
 
@@ -7211,6 +7572,11 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdClinicalMenuInstructionsLink").addEventListener("click", (event) => {
         event.preventDefault();
         openClinicalInstructionsFormModal(null);
+    });
+
+    document.getElementById("pdClinicalMenuNotesLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openClinicalNotesFormModal(null);
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {

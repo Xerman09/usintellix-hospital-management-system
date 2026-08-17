@@ -51,6 +51,7 @@ require_once __DIR__ . '/../app/Modules/EncounterSections/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterVitals/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterCarePlanItems/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterClinicalInstructionItems/routes.php';
+require_once __DIR__ . '/../app/Modules/EncounterClinicalNoteItems/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterMiscBillingOptions/routes.php';
 require_once __DIR__ . '/../app/Modules/DischargeDispositions/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedications/routes.php';

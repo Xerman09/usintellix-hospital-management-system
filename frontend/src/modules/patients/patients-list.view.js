@@ -4913,7 +4913,7 @@ textarea.pd-sdoh-readonly {
                                 <div class="dropdown-content">
                                     <a href="#" id="pdClinicalMenuCarePlanLink">Care Plan</a>
                                     <a href="#" id="pdClinicalMenuInstructionsLink">Clinical Instructions</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Clinical Notes (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuNotesLink">Clinical Notes</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Eye Exam (Coming soon)</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Functional and Cognitive Status (Coming soon)</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Observation (Coming soon)</a>
@@ -5041,6 +5041,49 @@ textarea.pd-sdoh-readonly {
                                 <table class="data-table pd-esign-log-table">
                                     <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
                                     <tbody id="pdEncSummaryClinicalInstructionsLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card" id="pdEncSummaryClinicalNotesCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryClinicalNotesToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Clinical Notes Form <span class="pd-locked-badge" id="pdEncSummaryClinicalNotesLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdClinicalNotesAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalNotesSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryClinicalNotesDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryClinicalNotesCardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Category</th>
+                                            <th>Author</th>
+                                            <th>Code</th>
+                                            <th>Last Updated</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdClinicalNotesTableBody">
+                                        <tr><td colspan="7" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryClinicalNotesLog"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -6960,6 +7003,106 @@ textarea.pd-sdoh-readonly {
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="clinicalNotesFormModalOverlay">
+    <div class="modal-box" style="max-width: 780px;">
+        <div class="modal-header">
+            <h2>Clinical Notes Form</h2>
+            <button type="button" class="modal-close" id="closeClinicalNotesFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Note Details</p>
+
+        <div id="clinicalNotesFormAlert"></div>
+
+        <form id="clinicalNotesForm">
+            <div id="clinicalNoteRowsContainer"></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelClinicalNotesForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="clinicalNoteDocumentPickerModalOverlay">
+    <div class="modal-box" style="max-width: 640px;">
+        <div class="modal-header">
+            <h2>Search Documents</h2>
+            <button type="button" class="modal-close" id="closeClinicalNoteDocumentPickerModal">&times;</button>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Search by name:</label>
+                <input type="text" class="form-input" id="clinicalNoteDocSearchName" placeholder="Enter document name...">
+            </div>
+            <div class="form-group">
+                <label>Document Type:</label>
+                <select class="form-input" id="clinicalNoteDocSearchType">
+                    <option value="">All Types</option>
+                    <option value="Images">Images</option>
+                    <option value="Video">Video</option>
+                    <option value="Dicom">Dicom</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>From Date:</label>
+                <input type="date" class="form-input" id="clinicalNoteDocSearchFromDate">
+            </div>
+        </div>
+
+        <button type="button" class="btn-primary-inline" id="clinicalNoteDocSearchBtn">Search</button>
+
+        <div class="table-wrap" style="margin-top: 14px;">
+            <table class="data-table">
+                <tbody id="clinicalNoteDocResultsBody">
+                    <tr><td class="table-empty">No documents found matching your criteria.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" id="cancelClinicalNoteDocPicker">Cancel</button>
+            <button type="button" class="login-btn" id="addSelectedClinicalNoteDocs">Add Selected</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="clinicalNoteResultPickerModalOverlay">
+    <div class="modal-box" style="max-width: 640px;">
+        <div class="modal-header">
+            <h2>Search Procedure Results</h2>
+            <button type="button" class="modal-close" id="closeClinicalNoteResultPickerModal">&times;</button>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Search by procedure:</label>
+                <input type="text" class="form-input" id="clinicalNoteResultSearchName" placeholder="Enter procedure name...">
+            </div>
+            <div class="form-group">
+                <label>From Date:</label>
+                <input type="date" class="form-input" id="clinicalNoteResultSearchFromDate">
+            </div>
+        </div>
+
+        <button type="button" class="btn-primary-inline" id="clinicalNoteResultSearchBtn">Search</button>
+
+        <div class="table-wrap" style="margin-top: 14px;">
+            <table class="data-table">
+                <tbody id="clinicalNoteResultResultsBody">
+                    <tr><td class="table-empty">No procedure results found matching your criteria.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" id="cancelClinicalNoteResultPicker">Cancel</button>
+            <button type="button" class="login-btn" id="addSelectedClinicalNoteResults">Add Selected</button>
+        </div>
     </div>
 </div>
 
