@@ -94,6 +94,8 @@ import { VoidReasonsView } from "../void-reasons/void-reasons.view.js";
 import { initVoidReasons } from "../void-reasons/void-reasons.js";
 import { CarePlanReasonCodesView } from "../care-plan-reason-codes/care-plan-reason-codes.view.js";
 import { initCarePlanReasonCodes } from "../care-plan-reason-codes/care-plan-reason-codes.js";
+import { SpecimenSitesView } from "../specimen-sites/specimen-sites.view.js";
+import { initSpecimenSites } from "../specimen-sites/specimen-sites.js";
 import { CompletionStatusesView } from "../completion-statuses/completion-statuses.view.js";
 import { initCompletionStatuses } from "../completion-statuses/completion-statuses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -321,6 +323,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCarePlanReasonCodes, 0);
                 return CarePlanReasonCodesView();
+            }, activate);
+        } else if (tabId === 'specimen_sites') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSpecimenSites, 0);
+                return SpecimenSitesView();
             }, activate);
         } else if (tabId === 'completion_statuses') {
             tabManager.openTab(tabId, title, () => {

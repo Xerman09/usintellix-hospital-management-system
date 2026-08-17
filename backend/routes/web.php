@@ -68,6 +68,7 @@ require_once __DIR__ . '/../app/Modules/InformationSources/routes.php';
 require_once __DIR__ . '/../app/Modules/RefusalReasons/routes.php';
 require_once __DIR__ . '/../app/Modules/VoidReasons/routes.php';
 require_once __DIR__ . '/../app/Modules/CarePlanReasonCodes/routes.php';
+require_once __DIR__ . '/../app/Modules/SpecimenSites/routes.php';
 require_once __DIR__ . '/../app/Modules/CompletionStatuses/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientImmunizations/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientGeneralHistory/routes.php';

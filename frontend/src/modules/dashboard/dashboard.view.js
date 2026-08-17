@@ -74,6 +74,7 @@ function staffNavLinks(role)
                 <a data-tab="surgeries">Surgeries</a>
                 <a data-tab="void_reasons">Void Reason Management</a>
                 <a data-tab="care_plan_reason_codes">Care Plan Reason Code Management</a>
+                <a data-tab="specimen_sites">Specimen Site Management</a>
             </div>
         </div>
         ${role === "admin" ? `
