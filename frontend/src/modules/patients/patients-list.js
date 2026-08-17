@@ -102,6 +102,10 @@ import {
 import {
     fetchClinicalNoteItems, addClinicalNoteItem, updateClinicalNoteItem, removeClinicalNoteItem
 } from "../encounter-sections/encounter-clinical-note-items.service.js";
+import {
+    fetchFunctionalCognitiveStatusItems, addFunctionalCognitiveStatusItem,
+    updateFunctionalCognitiveStatusItem, removeFunctionalCognitiveStatusItem
+} from "../encounter-sections/encounter-functional-cognitive-status-items.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
