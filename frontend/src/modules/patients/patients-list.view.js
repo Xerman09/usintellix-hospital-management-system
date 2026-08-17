@@ -4915,7 +4915,7 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdClinicalMenuInstructionsLink">Clinical Instructions</a>
                                     <a href="#" id="pdClinicalMenuNotesLink">Clinical Notes</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Eye Exam (Coming soon)</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Functional and Cognitive Status (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuFunctionalCognitiveLink">Functional and Cognitive Status</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Observation (Coming soon)</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Review Of Systems (Coming soon)</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Review of Systems Checks (Coming soon)</a>

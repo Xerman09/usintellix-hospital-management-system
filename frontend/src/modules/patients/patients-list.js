@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=34";
+import { PatientChartView } from "./patients-list.view.js?v=35";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -197,6 +197,7 @@ let carePlanReasonCodesCache = null;
 let carePlanRowSeq = 0;
 let carePlanReasonPickerOnSelect = null;
 let clinicalNoteRowSeq = 0;
+let functionalCognitiveRowSeq = 0;
 
 let currentDashboardPatient = null;
 let currentEditPatient = null;
@@ -2227,6 +2228,7 @@ export async function initPatientChartTab(patient)
     setupCarePlanModals();
     setupClinicalInstructionsModal();
     setupClinicalNotesModal();
+    setupFunctionalCognitiveModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -5768,6 +5770,264 @@ function renderClinicalNotesSection()
     document.getElementById("pdClinicalNotesAddBtn").style.display = locked ? "none" : "";
 }
 
+function buildFunctionalCognitiveRowHtml(rowId)
+{
+    return `
+        <div class="functional-cognitive-row" data-row-id="${rowId}" style="margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #eef1f7;">
+            <input type="hidden" class="fc-record-id" value="">
+            <input type="hidden" class="fc-code-text" value="">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Code:</label>
+                    <input class="form-input fc-code" readonly placeholder="Click to select a code">
+                </div>
+
+                <div class="form-group">
+                    <label>Date:</label>
+                    <input type="date" class="form-input fc-item-date">
+                </div>
+
+                <div class="form-group">
+                    <label>For Mental Status:</label>
+                    <label style="display:flex; align-items:center; gap:6px; margin-top: 8px;"><input type="checkbox" class="fc-for-mental-status"> Yes</label>
+                </div>
+
+                <div class="form-group full">
+                    <label>Description:</label>
+                    <textarea class="form-input fc-description" style="min-height: 100px;"></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn-secondary fc-add-btn">&#43; Add</button>
+                <button type="button" class="btn-secondary fc-delete-btn">&#128465; Delete</button>
+            </div>
+        </div>
+    `.trim();
+}
+
+function wireFunctionalCognitiveRow(rowEl)
+{
+    rowEl.querySelector(".fc-code").addEventListener("click", () => {
+        openCodePicker({
+            onSelect: ({ code, description }) => {
+                rowEl.querySelector(".fc-code").value = code;
+                rowEl.querySelector(".fc-code-text").value = description || "";
+            }
+        });
+    });
+
+    rowEl.querySelector(".fc-add-btn").addEventListener("click", () => {
+        rowEl.insertAdjacentElement("afterend", createFunctionalCognitiveRow());
+    });
+
+    rowEl.querySelector(".fc-delete-btn").addEventListener("click", async () => {
+        const container = document.getElementById("functionalCognitiveRowsContainer");
+        const recordId = rowEl.querySelector(".fc-record-id").value;
+
+        if (recordId) {
+            if (!confirm("Remove this item?")) {
+                return;
+            }
+
+            const result = await removeFunctionalCognitiveStatusItem(recordId);
+
+            if (!result.success) {
+                showAlert("functionalCognitiveFormAlert", result.message || "Failed to remove item.", "error");
+                return;
+            }
+
+            await loadFunctionalCognitiveItems();
+            renderFunctionalCognitiveSection();
+        }
+
+        if (container.children.length > 1) {
+            rowEl.remove();
+        } else {
+            document.getElementById("functionalCognitiveFormModalOverlay").classList.remove("open");
+        }
+    });
+}
+
+function createFunctionalCognitiveRow()
+{
+    const wrapper = document.createElement("div");
+
+    wrapper.innerHTML = buildFunctionalCognitiveRowHtml(++functionalCognitiveRowSeq);
+
+    const rowEl = wrapper.firstElementChild;
+
+    wireFunctionalCognitiveRow(rowEl);
+
+    return rowEl;
+}
+
+function openFunctionalCognitiveFormModal(existingRecord)
+{
+    const container = document.getElementById("functionalCognitiveRowsContainer");
+
+    document.getElementById("functionalCognitiveFormAlert").innerHTML = "";
+    container.innerHTML = "";
+
+    const rowEl = createFunctionalCognitiveRow();
+
+    container.appendChild(rowEl);
+
+    if (existingRecord) {
+        rowEl.querySelector(".fc-record-id").value = existingRecord.id;
+        rowEl.querySelector(".fc-code").value = existingRecord.code || "";
+        rowEl.querySelector(".fc-code-text").value = existingRecord.code_text || "";
+        rowEl.querySelector(".fc-item-date").value = (existingRecord.item_date || "").slice(0, 10);
+        rowEl.querySelector(".fc-for-mental-status").checked = !!Number(existingRecord.for_mental_status);
+        rowEl.querySelector(".fc-description").value = existingRecord.description || "";
+    }
+
+    document.getElementById("functionalCognitiveFormModalOverlay").classList.add("open");
+}
+
+async function loadFunctionalCognitiveItems()
+{
+    const result = await fetchFunctionalCognitiveStatusItems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.functionalCognitiveItems = result.success ? result.data : [];
+}
+
+function renderFunctionalCognitiveSection()
+{
+    const { sections, functionalCognitiveItems } = currentEncounterSummary;
+    const section = sections.functional_cognitive_status || {};
+    const locked = !!section.locked_at;
+    const tbody = document.getElementById("pdFunctionalCognitiveTableBody");
+    const items = functionalCognitiveItems || [];
+
+    document.getElementById("pdEncSummaryFunctionalCognitiveTitle").textContent =
+        `Functional and Cognitive Status Form${items.length && items[0].author_name ? ` (by ${items[0].author_name})` : ""}`;
+
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No items recorded.</td></tr>`;
+    } else {
+        tbody.innerHTML = items.map((item) => `
+            <tr>
+                <td>${escapeHtml(item.code || "-")}</td>
+                <td>${escapeHtml(item.code_text || "-")}</td>
+                <td>${escapeHtml(item.description)}</td>
+                <td>${escapeHtml((item.item_date || "").slice(0, 10) || "-")}</td>
+                <td>${Number(item.for_mental_status) ? "Cognitive" : "Functional"}</td>
+                <td class="table-actions">
+                    ${locked ? "" : `
+                        <button class="btn-edit" data-edit-functional-cognitive-item="${item.id}">Edit</button>
+                        <button class="btn-danger" data-remove-functional-cognitive-item="${item.id}">Delete</button>
+                    `}
+                </td>
+            </tr>
+        `).join("");
+
+        if (!locked) {
+            tbody.querySelectorAll("[data-edit-functional-cognitive-item]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const item = items.find((i) => String(i.id) === btn.getAttribute("data-edit-functional-cognitive-item"));
+
+                    if (item) {
+                        openFunctionalCognitiveFormModal(item);
+                    }
+                });
+            });
+
+            tbody.querySelectorAll("[data-remove-functional-cognitive-item]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this item?")) {
+                        return;
+                    }
+
+                    const result = await removeFunctionalCognitiveStatusItem(btn.getAttribute("data-remove-functional-cognitive-item"));
+
+                    if (!result.success) {
+                        showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove item.", "error");
+                        return;
+                    }
+
+                    await loadFunctionalCognitiveItems();
+                    renderFunctionalCognitiveSection();
+                });
+            });
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryFunctionalCognitiveLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryFunctionalCognitiveLog", section.signatures);
+    document.getElementById("pdEncSummaryFunctionalCognitiveDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdFunctionalCognitiveAddBtn").style.display = locked ? "none" : "";
+}
+
+function setupFunctionalCognitiveModal()
+{
+    const formOverlay = document.getElementById("functionalCognitiveFormModalOverlay");
+    const form = document.getElementById("functionalCognitiveForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdFunctionalCognitiveAddBtn").addEventListener("click", () => {
+        if (currentEncounterSummary?.encounter) {
+            openFunctionalCognitiveFormModal(null);
+        }
+    });
+
+    document.getElementById("closeFunctionalCognitiveFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelFunctionalCognitiveForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const rows = Array.from(document.querySelectorAll("#functionalCognitiveRowsContainer .functional-cognitive-row"));
+        const payloads = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const rowEl = rows[i];
+
+            const details = {
+                code: rowEl.querySelector(".fc-code").value.trim() || null,
+                code_text: rowEl.querySelector(".fc-code-text").value.trim() || null,
+                for_mental_status: rowEl.querySelector(".fc-for-mental-status").checked,
+                description: rowEl.querySelector(".fc-description").value.trim(),
+                item_date: rowEl.querySelector(".fc-item-date").value || null
+            };
+
+            if (!details.description) {
+                showAlert("functionalCognitiveFormAlert", `Item ${i + 1}: Description is required.`, "error");
+                return;
+            }
+
+            payloads.push({ recordId: rowEl.querySelector(".fc-record-id").value, details });
+        }
+
+        if (!payloads.length) {
+            closeForm();
+            return;
+        }
+
+        for (const { recordId, details } of payloads) {
+            const result = recordId
+                ? await updateFunctionalCognitiveStatusItem(recordId, details)
+                : await addFunctionalCognitiveStatusItem(currentEncounterSummary.encounter.id, details);
+
+            if (!result.success) {
+                showAlert("functionalCognitiveFormAlert", result.message || "Failed to save item.", "error");
+                return;
+            }
+        }
+
+        closeForm();
+        await loadFunctionalCognitiveItems();
+        renderFunctionalCognitiveSection();
+    });
+}
+
 function setupClinicalNoteDocumentPicker()
 {
     const overlay = document.getElementById("clinicalNoteDocumentPickerModalOverlay");
@@ -7143,14 +7403,16 @@ async function loadEncounterSummary(encounter)
 
     try {
         const [
-            sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult, miscBillingResult
+            sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult,
+            miscBillingResult, functionalCognitiveResult
         ] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
             fetchCarePlanItems(encounter.id),
             fetchClinicalInstructionItems(encounter.id),
             fetchClinicalNoteItems(encounter.id),
-            fetchEncounterMiscBillingOptions(encounter.id)
+            fetchEncounterMiscBillingOptions(encounter.id),
+            fetchFunctionalCognitiveStatusItems(encounter.id)
         ]);
 
         const sectionsByType = {};
@@ -7166,7 +7428,8 @@ async function loadEncounterSummary(encounter)
             carePlanItems: carePlanResult.success ? carePlanResult.data : [],
             clinicalInstructionItems: clinicalInstructionsResult.success ? clinicalInstructionsResult.data : [],
             clinicalNoteItems: clinicalNotesResult.success ? clinicalNotesResult.data : [],
-            miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null
+            miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null,
+            functionalCognitiveItems: functionalCognitiveResult.success ? functionalCognitiveResult.data : []
         };
 
         renderEncounterSummary();
@@ -7198,6 +7461,7 @@ function renderEncounterSummary()
     renderClinicalNotesSection();
     renderVitalsSection();
     renderMiscBillingOptionsSection();
+    renderFunctionalCognitiveSection();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -7414,10 +7678,13 @@ const SECTION_LABELS = {
     clinical_instructions: "Clinical Instructions",
     clinical_notes: "Clinical Notes Form",
     vitals: "Vitals",
-    misc_billing_options: "Misc Billing Options"
+    misc_billing_options: "Misc Billing Options",
+    functional_cognitive_status: "Functional and Cognitive Status Form"
 };
 
-const CARD_KEYS = ["VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling"];
+const CARD_KEYS = [
+    "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling", "FunctionalCognitive"
+];
 
 let pendingDeleteSectionType = null;
 let pendingDeleteEncounter = false;
@@ -7553,6 +7820,9 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryMiscBillingDeleteBtn").addEventListener("click", () => openDeleteSectionModal("misc_billing_options"));
     document.getElementById("pdEncSummaryMiscBillingEditBtn").addEventListener("click", () => openMiscBillingOptionsModal());
 
+    document.getElementById("pdEncSummaryFunctionalCognitiveSignBtn").addEventListener("click", () => openEsignModal("functional_cognitive_status"));
+    document.getElementById("pdEncSummaryFunctionalCognitiveDeleteBtn").addEventListener("click", () => openDeleteSectionModal("functional_cognitive_status"));
+
     document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
         event.preventDefault();
         openEncounterFormModal(null);
@@ -7581,6 +7851,11 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdClinicalMenuNotesLink").addEventListener("click", (event) => {
         event.preventDefault();
         openClinicalNotesFormModal(null);
+    });
+
+    document.getElementById("pdClinicalMenuFunctionalCognitiveLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openFunctionalCognitiveFormModal(null);
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
