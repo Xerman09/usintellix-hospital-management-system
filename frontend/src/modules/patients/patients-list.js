@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=37";
+import { PatientChartView } from "./patients-list.view.js?v=38";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -110,6 +110,9 @@ import {
     fetchObservationItems, addObservationItem, updateObservationItem, removeObservationItem
 } from "../encounter-sections/encounter-observation-items.service.js";
 import { fetchReviewOfSystems, saveReviewOfSystems } from "../encounter-sections/encounter-review-of-systems.service.js";
+import {
+    fetchReviewOfSystemsChecks, saveReviewOfSystemsChecks
+} from "../encounter-sections/encounter-review-of-systems-checks.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
@@ -225,6 +228,18 @@ const REVIEW_OF_SYSTEMS_SECTIONS = [
     { title: "Psychiatric", fields: [["psych_psychiatric_diagnosis", "Psychiatric Diagnosis"], ["psych_anxiety", "Anxiety"], ["psych_psychiatric_medication", "Psychiatric Medication"], ["psych_social_difficulties", "Social Difficulties"], ["psych_depression", "Depression"]] },
     { title: "Endocrine", fields: [["endo_thyroid_problems", "Thyroid Problems"], ["endo_diabetes", "Diabetes"], ["endo_abnormal_blood_test", "Abnormal Blood Test"]] },
     { title: "Hematologic/Allergic/Immunologic", fields: [["hai_anemia", "Anemia"], ["hai_allergies", "Allergies"], ["hai_hai_status", "HAI Status"], ["hai_fh_blood_problems", "F/H Blood Problems"], ["hai_frequent_illness", "Frequent Illness"], ["hai_bleeding_problems", "Bleeding Problems"], ["hai_hiv", "HIV"]] }
+];
+
+const REVIEW_OF_SYSTEMS_CHECKS_SECTIONS = [
+    { title: "General", fields: [["general_fever", "Fever"], ["general_chills", "Chills"], ["general_night_sweats", "Night Sweats"], ["general_weight_loss", "Weight Loss"], ["general_poor_appetite", "Poor Appetite"], ["general_insomnia", "Insomnia"], ["general_fatigued", "Fatigued"], ["general_depressed", "Depressed"], ["general_hyperactive", "Hyperactive"], ["general_exposure_foreign_countries", "Exposure to Foreign Countries"]] },
+    { title: "Skin", fields: [["skin_rashes", "Rashes"], ["skin_infections", "Infections"], ["skin_ulcerations", "Ulcerations"], ["skin_pemphigus", "Pemphigus"], ["skin_herpes", "Herpes"]] },
+    { title: "HEENT", fields: [["heent_cataracts", "Cataracts"], ["heent_cataract_surgery", "Cataract Surgery"], ["heent_glaucoma", "Glaucoma"], ["heent_double_vision", "Double Vision"], ["heent_blurred_vision", "Blurred Vision"], ["heent_poor_hearing", "Poor Hearing"], ["heent_headaches", "Headaches"], ["heent_ringing_in_ears", "Ringing in Ears"], ["heent_bloody_nose", "Bloody Nose"], ["heent_sinusitis", "Sinusitis"], ["heent_sinus_surgery", "Sinus Surgery"], ["heent_dry_mouth", "Dry Mouth"], ["heent_strep_throat", "Strep Throat"], ["heent_tonsillectomy", "Tonsillectomy"], ["heent_swollen_lymph_nodes", "Swollen Lymph Nodes"], ["heent_throat_cancer", "Throat Cancer"], ["heent_throat_cancer_surgery", "Throat Cancer Surgery"]] },
+    { title: "Pulmonary", fields: [["pulm_emphysema", "Emphysema"], ["pulm_chronic_bronchitis", "Chronic Bronchitis"], ["pulm_interstitial_lung_disease", "Interstitial Lung Disease"], ["pulm_shortness_of_breath", "Shortness of Breath"], ["pulm_lung_cancer", "Lung Cancer"], ["pulm_lung_cancer_surgery", "Lung Cancer Surgery"], ["pulm_pheumothorax", "Pheumothorax"]] },
+    { title: "Cardiovascular", fields: [["cv_heart_attack", "Heart Attack"], ["cv_irregular_heart_beat", "Irregular Heart Beat"], ["cv_chest_pains", "Chest Pains"], ["cv_shortness_of_breath", "Shortness of Breath"], ["cv_high_blood_pressure", "High Blood Pressure"], ["cv_heart_failure", "Heart Failure"], ["cv_poor_circulation", "Poor Circulation"], ["cv_vascular_surgery", "Vascular Surgery"], ["cv_cardiac_catheterization", "Cardiac Catheterization"], ["cv_coronary_artery_bypass", "Coronary Artery Bypass"], ["cv_heart_transplant", "Heart Transplant"], ["cv_stress_test", "Stress Test"]] },
+    { title: "Gastrointestinal", fields: [["gi_stomach_pains", "Stomach Pains"], ["gi_peptic_ulcer_disease", "Peptic Ulcer Disease"], ["gi_gastritis", "Gastritis"], ["gi_endoscopy", "Endoscopy"], ["gi_polyps", "Polyps"], ["gi_colonoscopy", "Colonoscopy"], ["gi_colon_cancer", "Colon Cancer"], ["gi_colon_cancer_surgery", "Colon Cancer Surgery"], ["gi_ulcerative_colitis", "Ulcerative Colitis"], ["gi_crohns_disease", "Crohn's Disease"], ["gi_appendectomy", "Appendectomy"], ["gi_diverticulitis", "Diverticulitis"], ["gi_diverticulitis_surgery", "Diverticulitis Surgery"], ["gi_gall_stones", "Gall Stones"], ["gi_cholecystectomy", "Cholecystectomy"], ["gi_hepatitis", "Hepatitis"], ["gi_cirrhosis_liver", "Cirrhosis of the Liver"], ["gi_splenectomy", "Splenectomy"]] },
+    { title: "Genitourinary", fields: [["gu_kidney_failure", "Kidney Failure"], ["gu_kidney_stones", "Kidney Stones"], ["gu_kidney_cancer", "Kidney Cancer"], ["gu_kidney_infections", "Kidney Infections"], ["gu_bladder_infections", "Bladder Infections"], ["gu_bladder_cancer", "Bladder Cancer"], ["gu_prostate_problems", "Prostate Problems"], ["gu_prostate_cancer", "Prostate Cancer"], ["gu_kidney_transplant", "Kidney Transplant"], ["gu_sexually_transmitted_disease", "Sexually Transmitted Disease"], ["gu_burning_with_urination", "Burning with Urination"], ["gu_discharge_from_urethra", "Discharge From Urethra"]] },
+    { title: "Musculoskeletal", fields: [["msk_osetoarthritis", "Osetoarthritis"], ["msk_rheumotoid_arthritis", "Rheumotoid Arthritis"], ["msk_lupus", "Lupus"], ["msk_ankylosing_spondlilitis", "Ankylosing Spondlilitis"], ["msk_swollen_joints", "Swollen Joints"], ["msk_stiff_joints", "Stiff Joints"], ["msk_broken_bones", "Broken Bones"], ["msk_neck_problems", "Neck Problems"], ["msk_back_problems", "Back Problems"], ["msk_back_surgery", "Back Surgery"], ["msk_scoliosis", "Scoliosis"], ["msk_herniated_disc", "Herniated Disc"], ["msk_shoulder_problems", "Shoulder Problems"], ["msk_elbow_problems", "Elbow Problems"], ["msk_wrist_problems", "Wrist Problems"], ["msk_hand_problems", "Hand Problems"], ["msk_hip_problems", "Hip Problems"], ["msk_knee_problems", "Knee Problems"], ["msk_ankle_problems", "Ankle Problems"], ["msk_foot_problems", "Foot Problems"]] },
+    { title: "Endocrine", fields: [["endo_insulin_dependent_diabetes", "Insulin Dependent Diabetes"], ["endo_non_insulin_dependent_diabetes", "Non-Insulin Dependent Diabetes"], ["endo_hypothyroidism", "Hypothyroidism"], ["endo_hyperthyroidism", "Hyperthyroidism"], ["endo_cushing_syndrome", "Cushing Syndrome"], ["endo_addison_syndrome", "Addison Syndrome"]] }
 ];
 
 let carePlanReasonCodesCache = null;
@@ -2266,6 +2281,7 @@ export async function initPatientChartTab(patient)
     setupFunctionalCognitiveModal();
     setupObservationModal();
     setupReviewOfSystemsModal();
+    setupReviewOfSystemsChecksModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -6507,6 +6523,131 @@ function setupReviewOfSystemsModal()
     });
 }
 
+function buildReviewOfSystemsChecksFieldsHtml()
+{
+    return REVIEW_OF_SYSTEMS_CHECKS_SECTIONS.map((section) => `
+        <div class="ros-section">
+            <div class="ros-section-title">${escapeHtml(section.title)}</div>
+            <div class="rosc-field-grid">
+                ${section.fields.map(([key, label]) => `
+                    <label class="rosc-field-checkbox"><input type="checkbox" name="${key}"> ${escapeHtml(label)}</label>
+                `).join("")}
+            </div>
+        </div>
+    `).join("") + `
+        <div class="ros-section">
+            <div class="ros-section-title">Additional Notes</div>
+            <textarea class="form-input" id="reviewOfSystemsChecksNotes" style="min-height: 90px;"></textarea>
+        </div>
+    `;
+}
+
+function openReviewOfSystemsChecksFormModal()
+{
+    document.getElementById("reviewOfSystemsChecksFormAlert").innerHTML = "";
+    document.getElementById("reviewOfSystemsChecksFieldsContainer").innerHTML = buildReviewOfSystemsChecksFieldsHtml();
+
+    const data = currentEncounterSummary.reviewOfSystemsChecks || {};
+
+    REVIEW_OF_SYSTEMS_CHECKS_SECTIONS.forEach((section) => {
+        section.fields.forEach(([key]) => {
+            const input = document.querySelector(`input[name="${key}"]`);
+
+            if (input) {
+                input.checked = !!Number(data[key]);
+            }
+        });
+    });
+
+    document.getElementById("reviewOfSystemsChecksNotes").value = data.additional_notes || "";
+
+    document.getElementById("reviewOfSystemsChecksModalOverlay").classList.add("open");
+}
+
+async function loadReviewOfSystemsChecks()
+{
+    const result = await fetchReviewOfSystemsChecks(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.reviewOfSystemsChecks = result.success ? result.data : null;
+}
+
+function renderReviewOfSystemsChecksSection()
+{
+    const section = currentEncounterSummary.sections.review_of_systems_checks || {};
+    const locked = !!section.locked_at;
+    const data = currentEncounterSummary.reviewOfSystemsChecks;
+    const container = document.getElementById("pdReviewOfSystemsChecksFindings");
+
+    if (!data) {
+        container.innerHTML = `<p class="pd-chart-nav-empty">Not yet filled in. Click Edit to complete this form.</p>`;
+    } else {
+        const findings = [];
+
+        REVIEW_OF_SYSTEMS_CHECKS_SECTIONS.forEach((sec) => {
+            sec.fields.forEach(([key, label]) => {
+                if (Number(data[key])) {
+                    findings.push(`<strong>${escapeHtml(label)}:</strong> yes`);
+                }
+            });
+        });
+
+        if (data.additional_notes) {
+            findings.push(`<strong>Additional Notes:</strong> ${escapeHtml(data.additional_notes)}`);
+        }
+
+        container.innerHTML = findings.length
+            ? `<div class="rosc-findings-grid">${findings.map((f) => `<div>${f}</div>`).join("")}</div>`
+            : `<p class="pd-chart-nav-empty">No findings recorded.</p>`;
+    }
+
+    renderLockedBadge("pdEncSummaryReviewOfSystemsChecksLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryReviewOfSystemsChecksLog", section.signatures);
+    document.getElementById("pdEncSummaryReviewOfSystemsChecksEditBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdEncSummaryReviewOfSystemsChecksDeleteBtn").style.display = locked ? "none" : "";
+}
+
+function setupReviewOfSystemsChecksModal()
+{
+    const formOverlay = document.getElementById("reviewOfSystemsChecksModalOverlay");
+    const form = document.getElementById("reviewOfSystemsChecksForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeReviewOfSystemsChecksModal").addEventListener("click", closeForm);
+    document.getElementById("cancelReviewOfSystemsChecksForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const payload = {};
+
+        REVIEW_OF_SYSTEMS_CHECKS_SECTIONS.forEach((section) => {
+            section.fields.forEach(([key]) => {
+                const input = document.querySelector(`input[name="${key}"]`);
+                payload[key] = input ? input.checked : false;
+            });
+        });
+
+        payload.additional_notes = document.getElementById("reviewOfSystemsChecksNotes").value.trim() || null;
+
+        const result = await saveReviewOfSystemsChecks(currentEncounterSummary.encounter.id, payload);
+
+        if (!result.success) {
+            showAlert("reviewOfSystemsChecksFormAlert", result.message || "Failed to save Review of Systems Checks.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadReviewOfSystemsChecks();
+        renderReviewOfSystemsChecksSection();
+    });
+}
+
 function setupClinicalNoteDocumentPicker()
 {
     const overlay = document.getElementById("clinicalNoteDocumentPickerModalOverlay");
@@ -7883,7 +8024,8 @@ async function loadEncounterSummary(encounter)
     try {
         const [
             sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult,
-            miscBillingResult, functionalCognitiveResult, observationResult, reviewOfSystemsResult
+            miscBillingResult, functionalCognitiveResult, observationResult, reviewOfSystemsResult,
+            reviewOfSystemsChecksResult
         ] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
@@ -7893,7 +8035,8 @@ async function loadEncounterSummary(encounter)
             fetchEncounterMiscBillingOptions(encounter.id),
             fetchFunctionalCognitiveStatusItems(encounter.id),
             fetchObservationItems(encounter.id),
-            fetchReviewOfSystems(encounter.id)
+            fetchReviewOfSystems(encounter.id),
+            fetchReviewOfSystemsChecks(encounter.id)
         ]);
 
         const sectionsByType = {};
@@ -7912,7 +8055,8 @@ async function loadEncounterSummary(encounter)
             miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null,
             functionalCognitiveItems: functionalCognitiveResult.success ? functionalCognitiveResult.data : [],
             observationItems: observationResult.success ? observationResult.data : [],
-            reviewOfSystems: reviewOfSystemsResult.success ? reviewOfSystemsResult.data : null
+            reviewOfSystems: reviewOfSystemsResult.success ? reviewOfSystemsResult.data : null,
+            reviewOfSystemsChecks: reviewOfSystemsChecksResult.success ? reviewOfSystemsChecksResult.data : null
         };
 
         renderEncounterSummary();
@@ -7947,6 +8091,7 @@ function renderEncounterSummary()
     renderFunctionalCognitiveSection();
     renderObservationSection();
     renderReviewOfSystemsSection();
+    renderReviewOfSystemsChecksSection();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -8166,12 +8311,13 @@ const SECTION_LABELS = {
     misc_billing_options: "Misc Billing Options",
     functional_cognitive_status: "Functional and Cognitive Status Form",
     observation: "Observation Form",
-    review_of_systems: "Review Of Systems Form"
+    review_of_systems: "Review Of Systems Form",
+    review_of_systems_checks: "Review of Systems Checks"
 };
 
 const CARD_KEYS = [
     "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling",
-    "FunctionalCognitive", "Observation", "ReviewOfSystems"
+    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks"
 ];
 
 let pendingDeleteSectionType = null;
@@ -8318,6 +8464,10 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryReviewOfSystemsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("review_of_systems"));
     document.getElementById("pdEncSummaryReviewOfSystemsEditBtn").addEventListener("click", () => openReviewOfSystemsFormModal());
 
+    document.getElementById("pdEncSummaryReviewOfSystemsChecksSignBtn").addEventListener("click", () => openEsignModal("review_of_systems_checks"));
+    document.getElementById("pdEncSummaryReviewOfSystemsChecksDeleteBtn").addEventListener("click", () => openDeleteSectionModal("review_of_systems_checks"));
+    document.getElementById("pdEncSummaryReviewOfSystemsChecksEditBtn").addEventListener("click", () => openReviewOfSystemsChecksFormModal());
+
     document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
         event.preventDefault();
         openEncounterFormModal(null);
@@ -8361,6 +8511,11 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdClinicalMenuReviewOfSystemsLink").addEventListener("click", (event) => {
         event.preventDefault();
         openReviewOfSystemsFormModal();
+    });
+
+    document.getElementById("pdClinicalMenuReviewOfSystemsChecksLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openReviewOfSystemsChecksFormModal();
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
