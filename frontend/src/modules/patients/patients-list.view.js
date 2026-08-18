@@ -4920,7 +4920,7 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdClinicalMenuReviewOfSystemsLink">Review Of Systems</a>
                                     <a href="#" id="pdClinicalMenuReviewOfSystemsChecksLink">Review of Systems Checks</a>
                                     <a href="#" id="pdClinicalMenuSoapLink">SOAP</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Speech Dictation (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuSpeechDictationLink">Speech Dictation</a>
                                     <a href="#" id="pdClinicalMenuVitalsLink">Vitals</a>
                                 </div>
                             </div>
@@ -5323,6 +5323,47 @@ textarea.pd-sdoh-readonly {
                                 <table class="data-table pd-esign-log-table">
                                     <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
                                     <tbody id="pdEncSummaryReviewOfSystemsChecksLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card" id="pdEncSummarySpeechDictationCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummarySpeechDictationToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Speech Dictation Form <span class="pd-locked-badge" id="pdEncSummarySpeechDictationLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdSpeechDictationAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummarySpeechDictationSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummarySpeechDictationDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummarySpeechDictationCardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Author</th>
+                                            <th>Dictation</th>
+                                            <th>Additional Notes</th>
+                                            <th>Last Updated</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdSpeechDictationTableBody">
+                                        <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummarySpeechDictationLog"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -7289,6 +7330,36 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelSoapNoteForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="speechDictationFormModalOverlay">
+    <div class="modal-box" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2>Dictation</h2>
+            <button type="button" class="modal-close" id="closeSpeechDictationFormModal">&times;</button>
+        </div>
+
+        <div id="speechDictationFormAlert"></div>
+
+        <form id="speechDictationForm">
+            <input type="hidden" id="speech_dictation_record_id">
+
+            <div class="ros-section">
+                <div class="ros-section-title">Dictation</div>
+                <textarea id="speech_dictation_text" class="form-input" style="min-height: 220px;"></textarea>
+            </div>
+
+            <div class="ros-section">
+                <div class="ros-section-title">Additional Notes</div>
+                <textarea id="speech_dictation_notes" class="form-input" style="min-height: 90px;"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelSpeechDictationForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

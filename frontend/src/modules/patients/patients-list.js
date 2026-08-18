@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=39";
+import { PatientChartView } from "./patients-list.view.js?v=40";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -116,6 +116,9 @@ import {
 import {
     fetchSoapNotes, addSoapNote, updateSoapNote, removeSoapNote, signSoapNote
 } from "../encounter-sections/encounter-soap-notes.service.js";
+import {
+    fetchSpeechDictationItems, addSpeechDictationItem, updateSpeechDictationItem, removeSpeechDictationItem
+} from "../encounter-sections/encounter-speech-dictation-items.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
@@ -2286,6 +2289,7 @@ export async function initPatientChartTab(patient)
     setupReviewOfSystemsModal();
     setupReviewOfSystemsChecksModal();
     setupSoapNoteModal();
+    setupSpeechDictationModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -6816,6 +6820,137 @@ function renderSoapNotesSection()
     });
 }
 
+function openSpeechDictationFormModal(existingRecord)
+{
+    document.getElementById("speechDictationFormAlert").innerHTML = "";
+    document.getElementById("speech_dictation_record_id").value = existingRecord ? existingRecord.id : "";
+    document.getElementById("speech_dictation_text").value = existingRecord ? (existingRecord.dictation || "") : "";
+    document.getElementById("speech_dictation_notes").value = existingRecord ? (existingRecord.additional_notes || "") : "";
+    document.getElementById("speechDictationFormModalOverlay").classList.add("open");
+}
+
+function setupSpeechDictationModal()
+{
+    const formOverlay = document.getElementById("speechDictationFormModalOverlay");
+    const form = document.getElementById("speechDictationForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdSpeechDictationAddBtn").addEventListener("click", () => {
+        if (currentEncounterSummary?.encounter) {
+            openSpeechDictationFormModal(null);
+        }
+    });
+
+    document.getElementById("closeSpeechDictationFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelSpeechDictationForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("speech_dictation_record_id").value;
+        const dictation = document.getElementById("speech_dictation_text").value.trim();
+
+        if (!dictation) {
+            showAlert("speechDictationFormAlert", "Dictation is required.", "error");
+            return;
+        }
+
+        const details = {
+            dictation,
+            additional_notes: document.getElementById("speech_dictation_notes").value.trim() || null
+        };
+
+        const result = recordId
+            ? await updateSpeechDictationItem(recordId, details)
+            : await addSpeechDictationItem(currentEncounterSummary.encounter.id, details);
+
+        if (!result.success) {
+            showAlert("speechDictationFormAlert", result.message || "Failed to save dictation.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadSpeechDictationItems();
+        renderSpeechDictationSection();
+    });
+}
+
+async function loadSpeechDictationItems()
+{
+    const result = await fetchSpeechDictationItems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.speechDictationItems = result.success ? result.data : [];
+}
+
+function renderSpeechDictationSection()
+{
+    const { sections, speechDictationItems } = currentEncounterSummary;
+    const section = sections.speech_dictation || {};
+    const locked = !!section.locked_at;
+    const tbody = document.getElementById("pdSpeechDictationTableBody");
+    const items = speechDictationItems || [];
+
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No dictations recorded.</td></tr>`;
+    } else {
+        tbody.innerHTML = items.map((item) => `
+            <tr>
+                <td>${escapeHtml(item.author_name)}</td>
+                <td>${escapeHtml(item.dictation || "-")}</td>
+                <td>${escapeHtml(item.additional_notes || "-")}</td>
+                <td>${escapeHtml((item.updated_at || item.created_at || "").slice(0, 16).replace("T", " "))}</td>
+                <td class="table-actions">
+                    ${locked ? "" : `
+                        <button class="btn-edit" data-edit-speech-dictation-item="${item.id}">Edit</button>
+                        <button class="btn-danger" data-remove-speech-dictation-item="${item.id}">Delete</button>
+                    `}
+                </td>
+            </tr>
+        `).join("");
+
+        if (!locked) {
+            tbody.querySelectorAll("[data-edit-speech-dictation-item]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const item = items.find((i) => String(i.id) === btn.getAttribute("data-edit-speech-dictation-item"));
+
+                    if (item) {
+                        openSpeechDictationFormModal(item);
+                    }
+                });
+            });
+
+            tbody.querySelectorAll("[data-remove-speech-dictation-item]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this dictation?")) {
+                        return;
+                    }
+
+                    const result = await removeSpeechDictationItem(btn.getAttribute("data-remove-speech-dictation-item"));
+
+                    if (!result.success) {
+                        showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove item.", "error");
+                        return;
+                    }
+
+                    await loadSpeechDictationItems();
+                    renderSpeechDictationSection();
+                });
+            });
+        }
+    }
+
+    renderLockedBadge("pdEncSummarySpeechDictationLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummarySpeechDictationLog", section.signatures);
+    document.getElementById("pdEncSummarySpeechDictationDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdSpeechDictationAddBtn").style.display = locked ? "none" : "";
+}
+
 function setupClinicalNoteDocumentPicker()
 {
     const overlay = document.getElementById("clinicalNoteDocumentPickerModalOverlay");
@@ -8193,7 +8328,7 @@ async function loadEncounterSummary(encounter)
         const [
             sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult,
             miscBillingResult, functionalCognitiveResult, observationResult, reviewOfSystemsResult,
-            reviewOfSystemsChecksResult, soapNotesResult
+            reviewOfSystemsChecksResult, soapNotesResult, speechDictationResult
         ] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
@@ -8205,7 +8340,8 @@ async function loadEncounterSummary(encounter)
             fetchObservationItems(encounter.id),
             fetchReviewOfSystems(encounter.id),
             fetchReviewOfSystemsChecks(encounter.id),
-            fetchSoapNotes(encounter.id)
+            fetchSoapNotes(encounter.id),
+            fetchSpeechDictationItems(encounter.id)
         ]);
 
         const sectionsByType = {};
@@ -8226,7 +8362,8 @@ async function loadEncounterSummary(encounter)
             observationItems: observationResult.success ? observationResult.data : [],
             reviewOfSystems: reviewOfSystemsResult.success ? reviewOfSystemsResult.data : null,
             reviewOfSystemsChecks: reviewOfSystemsChecksResult.success ? reviewOfSystemsChecksResult.data : null,
-            soapNotes: soapNotesResult.success ? soapNotesResult.data : []
+            soapNotes: soapNotesResult.success ? soapNotesResult.data : [],
+            speechDictationItems: speechDictationResult.success ? speechDictationResult.data : []
         };
 
         renderEncounterSummary();
@@ -8263,6 +8400,7 @@ function renderEncounterSummary()
     renderReviewOfSystemsSection();
     renderReviewOfSystemsChecksSection();
     renderSoapNotesSection();
+    renderSpeechDictationSection();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -8483,12 +8621,13 @@ const SECTION_LABELS = {
     functional_cognitive_status: "Functional and Cognitive Status Form",
     observation: "Observation Form",
     review_of_systems: "Review Of Systems Form",
-    review_of_systems_checks: "Review of Systems Checks"
+    review_of_systems_checks: "Review of Systems Checks",
+    speech_dictation: "Speech Dictation Form"
 };
 
 const CARD_KEYS = [
     "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling",
-    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks"
+    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks", "SpeechDictation"
 ];
 
 let pendingDeleteSectionType = null;
@@ -8639,6 +8778,9 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryReviewOfSystemsChecksDeleteBtn").addEventListener("click", () => openDeleteSectionModal("review_of_systems_checks"));
     document.getElementById("pdEncSummaryReviewOfSystemsChecksEditBtn").addEventListener("click", () => openReviewOfSystemsChecksFormModal());
 
+    document.getElementById("pdEncSummarySpeechDictationSignBtn").addEventListener("click", () => openEsignModal("speech_dictation"));
+    document.getElementById("pdEncSummarySpeechDictationDeleteBtn").addEventListener("click", () => openDeleteSectionModal("speech_dictation"));
+
     document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
         event.preventDefault();
         openEncounterFormModal(null);
@@ -8692,6 +8834,11 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdClinicalMenuSoapLink").addEventListener("click", (event) => {
         event.preventDefault();
         openSoapNoteFormModal(null);
+    });
+
+    document.getElementById("pdClinicalMenuSpeechDictationLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openSpeechDictationFormModal(null);
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
