@@ -4916,8 +4916,8 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdClinicalMenuNotesLink">Clinical Notes</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Eye Exam (Coming soon)</a>
                                     <a href="#" id="pdClinicalMenuFunctionalCognitiveLink">Functional and Cognitive Status</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Observation (Coming soon)</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Review Of Systems (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuObservationLink">Observation</a>
+                                    <a href="#" id="pdClinicalMenuReviewOfSystemsLink">Review Of Systems</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Review of Systems Checks (Coming soon)</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">SOAP (Coming soon)</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Speech Dictation (Coming soon)</a>
@@ -5224,6 +5224,77 @@ textarea.pd-sdoh-readonly {
                                 <table class="data-table pd-esign-log-table">
                                     <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
                                     <tbody id="pdEncSummaryFunctionalCognitiveLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card" id="pdEncSummaryObservationCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryObservationToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                <span id="pdEncSummaryObservationTitle">Observation Form</span> <span class="pd-locked-badge" id="pdEncSummaryObservationLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn" id="pdObservationAddBtn">+ Add</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryObservationSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryObservationDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryObservationCardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Code</th>
+                                            <th>Description</th>
+                                            <th>Value</th>
+                                            <th>Status</th>
+                                            <th>Type</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdObservationTableBody">
+                                        <tr><td colspan="7" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryObservationLog"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card" id="pdEncSummaryReviewOfSystemsCard">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryReviewOfSystemsToggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                Review Of Systems Form <span class="pd-locked-badge" id="pdEncSummaryReviewOfSystemsLockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryReviewOfSystemsEditBtn">Edit</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryReviewOfSystemsSignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryReviewOfSystemsDeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryReviewOfSystemsCardBody">
+                            <div id="pdReviewOfSystemsFindings">
+                                <p class="pd-chart-nav-empty">Loading...</p>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryReviewOfSystemsLog"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -7090,6 +7161,48 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="observationFormModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Observation</h2>
+            <button type="button" class="modal-close" id="closeObservationFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Basic Information</p>
+
+        <div id="observationFormAlert"></div>
+
+        <form id="observationForm">
+            <div id="observationRowsContainer"></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelObservationForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="reviewOfSystemsModalOverlay">
+    <div class="modal-box" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2>Review Of Systems</h2>
+            <button type="button" class="modal-close" id="closeReviewOfSystemsModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Select Yes/No where appropriate.</p>
+
+        <div id="reviewOfSystemsFormAlert"></div>
+
+        <form id="reviewOfSystemsForm">
+            <div id="reviewOfSystemsFieldsContainer"></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelReviewOfSystemsForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal-overlay" id="clinicalNoteDocumentPickerModalOverlay">
     <div class="modal-box" style="max-width: 640px;">
         <div class="modal-header">
@@ -8039,6 +8152,39 @@ textarea.pd-sdoh-readonly {
 </div>
 
 <style>
+.ros-section-title {
+    background: #e7eaf0;
+    padding: 8px 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    margin: 18px 0 12px;
+}
+
+.ros-section:first-child .ros-section-title {
+    margin-top: 0;
+}
+
+.ros-field-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 4px;
+    border-bottom: 1px solid #f1f3f7;
+    font-size: 13px;
+}
+
+.ros-field-label {
+    min-width: 220px;
+    color: #29323f;
+}
+
+.ros-field-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
 .pd-loading-modal-box {
     display: flex;
     flex-direction: column;

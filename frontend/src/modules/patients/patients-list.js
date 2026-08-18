@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=35";
+import { PatientChartView } from "./patients-list.view.js?v=37";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -106,6 +106,10 @@ import {
     fetchFunctionalCognitiveStatusItems, addFunctionalCognitiveStatusItem,
     updateFunctionalCognitiveStatusItem, removeFunctionalCognitiveStatusItem
 } from "../encounter-sections/encounter-functional-cognitive-status-items.service.js";
+import {
+    fetchObservationItems, addObservationItem, updateObservationItem, removeObservationItem
+} from "../encounter-sections/encounter-observation-items.service.js";
+import { fetchReviewOfSystems, saveReviewOfSystems } from "../encounter-sections/encounter-review-of-systems.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
@@ -193,11 +197,42 @@ const CLINICAL_NOTE_TYPE_OPTIONS = [
 
 const CLINICAL_NOTE_CATEGORY_OPTIONS = ["Cardiology", "Pathology", "Radiology"];
 
+const OBSERVATION_STATUS_OPTIONS = [
+    "Registered", "Preliminary", "Final", "Amended", "Corrected", "Cancelled", "Entered in Error", "Unknown"
+];
+
+const OBSERVATION_TYPE_OPTIONS = [
+    "Activity", "Assessment", "Care Experience Preference", "Cognitive Status", "Disability Status", "Exam",
+    "Functional Status", "Imaging", "Laboratory", "Observation ADI Documentation", "Procedure",
+    "Social Determinants of Health (SDOH)", "Social History", "Survey", "Therapy",
+    "Treatment Intervention Preference", "Vital Signs"
+];
+
+const REVIEW_OF_SYSTEMS_SECTIONS = [
+    { title: "Constitutional", fields: [["constitutional_weight_change", "Weight Change"], ["constitutional_anorexia", "Anorexia"], ["constitutional_night_sweats", "Night Sweats"], ["constitutional_heat_or_cold", "Heat or Cold"], ["constitutional_weakness", "Weakness"], ["constitutional_fever", "Fever"], ["constitutional_insomnia", "Insomnia"], ["constitutional_intolerance", "Intolerance"], ["constitutional_fatigue", "Fatigue"], ["constitutional_chills", "Chills"], ["constitutional_irritability", "Irritability"]] },
+    { title: "Eyes", fields: [["eyes_change_in_vision", "Change in Vision"], ["eyes_irritation", "Irritation"], ["eyes_double_vision", "Double Vision"], ["eyes_family_history_glaucoma", "Family History of Glaucoma"], ["eyes_redness", "Redness"], ["eyes_blind_spots", "Blind Spots"], ["eyes_eye_pain", "Eye Pain"], ["eyes_excessive_tearing", "Excessive Tearing"], ["eyes_photophobia", "Photophobia"]] },
+    { title: "Ears, Nose, Mouth, Throat", fields: [["ent_hearing_loss", "Hearing Loss"], ["ent_vertigo", "Vertigo"], ["ent_sore_throat", "Sore Throat"], ["ent_nosebleed", "Nosebleed"], ["ent_discharge", "Discharge"], ["ent_tinnitus", "Tinnitus"], ["ent_sinus_problems", "Sinus Problems"], ["ent_snoring", "Snoring"], ["ent_pain", "Pain"], ["ent_frequent_colds", "Frequent Colds"], ["ent_post_nasal_drip", "Post Nasal Drip"], ["ent_apnea", "Apnea"]] },
+    { title: "Breast", fields: [["breast_mass", "Breast Mass"], ["breast_abnormal_mammogram", "Abnormal Mammogram"], ["breast_discharge", "Discharge"], ["breast_biopsy", "Biopsy"]] },
+    { title: "Respiratory", fields: [["resp_cough", "Cough"], ["resp_wheezing", "Wheezing"], ["resp_copd", "COPD"], ["resp_sputum", "Sputum"], ["resp_hemoptysis", "Hemoptysis"], ["resp_shortness_of_breath", "Shortness of Breath"], ["resp_asthma", "Asthma"]] },
+    { title: "Cardiovascular", fields: [["cv_chest_pain", "Chest Pain"], ["cv_pnd", "PND"], ["cv_peripheral", "Peripheral"], ["cv_history_heart_murmur", "History of Heart Murmur"], ["cv_palpitation", "Palpitation"], ["cv_doe", "DOE"], ["cv_edema", "Edema"], ["cv_arrythmia", "Arrythmia"], ["cv_syncope", "Syncope"], ["cv_orthopnea", "Orthopnea"], ["cv_leg_pain_cramping", "Leg Pain/Cramping"], ["cv_heart_problem", "Heart Problem"]] },
+    { title: "Gastrointestinal", fields: [["gi_dysphagia", "Dysphagia"], ["gi_belching", "Belching"], ["gi_vomiting", "Vomiting"], ["gi_food_intolerance", "Food Intolerance"], ["gi_hematochezia", "Hematochezia"], ["gi_constipation", "Constipation"], ["gi_heartburn", "Heartburn"], ["gi_flatulence", "Flatulence"], ["gi_hematemesis", "Hematemesis"], ["gi_ho_hepatitis", "H/O Hepatitis"], ["gi_changed_bowel", "Changed Bowel"], ["gi_bloating", "Bloating"], ["gi_nausea", "Nausea"], ["gi_pain", "Pain"]] },
+    { title: "Genitourinary General", fields: [["gu_general_polyuria", "Polyuria"], ["gu_general_hematuria", "Hematuria"], ["gu_general_incontinence", "Incontinence"], ["gu_general_polydypsia", "Polydypsia"], ["gu_general_frequency", "Frequency"], ["gu_general_renal_stones", "Renal Stones"], ["gu_general_dysuria", "Dysuria"], ["gu_general_urgency", "Urgency"], ["gu_general_utis", "UTIs"]] },
+    { title: "Genitourinary Male", fields: [["gu_male_hesitancy", "Hesitancy"], ["gu_male_nocturia", "Nocturia"], ["gu_male_dribbling", "Dribbling"], ["gu_male_erections", "Erections"], ["gu_male_stream", "Stream"], ["gu_male_ejaculations", "Ejaculations"]] },
+    { title: "Genitourinary Female", fields: [["gu_female_g", "Female G"], ["gu_female_lc", "Female LC"], ["gu_female_lmp", "LMP"], ["gu_female_symptoms", "Symptoms"], ["gu_female_p", "Female P"], ["gu_female_menarche", "Menarche"], ["gu_female_frequency", "Frequency"], ["gu_female_abnormal_hair_growth", "Abnormal Hair Growth"], ["gu_female_ap", "Female AP"], ["gu_female_menopause", "Menopause"], ["gu_female_flow", "Flow"], ["gu_female_fh_hirsutism_striae", "F/H Female Hirsutism/Striae"]] },
+    { title: "Musculoskeletal", fields: [["msk_chronic_joint_pain", "Chronic Joint Pain"], ["msk_warm", "Warm"], ["msk_aches", "Aches"], ["msk_swelling", "Swelling"], ["msk_stiffness", "Stiffness"], ["msk_fms", "FMS"], ["msk_redness", "Redness"], ["msk_muscle", "Muscle"], ["msk_arthritis", "Arthritis"]] },
+    { title: "Neurologic", fields: [["neuro_loc", "LOC"], ["neuro_tia", "TIA"], ["neuro_paralysis", "Paralysis"], ["neuro_dementia", "Dementia"], ["neuro_seizures", "Seizures"], ["neuro_numbness", "Numbness"], ["neuro_intellectual_decline", "Intellectual Decline"], ["neuro_headache", "Headache"], ["neuro_stroke", "Stroke"], ["neuro_weakness", "Weakness"], ["neuro_memory_problems", "Memory Problems"]] },
+    { title: "Skin", fields: [["skin_cancer", "Cancer"], ["skin_other", "Other"], ["skin_psoriasis", "Psoriasis"], ["skin_disease", "Disease"], ["skin_acne", "Acne"]] },
+    { title: "Psychiatric", fields: [["psych_psychiatric_diagnosis", "Psychiatric Diagnosis"], ["psych_anxiety", "Anxiety"], ["psych_psychiatric_medication", "Psychiatric Medication"], ["psych_social_difficulties", "Social Difficulties"], ["psych_depression", "Depression"]] },
+    { title: "Endocrine", fields: [["endo_thyroid_problems", "Thyroid Problems"], ["endo_diabetes", "Diabetes"], ["endo_abnormal_blood_test", "Abnormal Blood Test"]] },
+    { title: "Hematologic/Allergic/Immunologic", fields: [["hai_anemia", "Anemia"], ["hai_allergies", "Allergies"], ["hai_hai_status", "HAI Status"], ["hai_fh_blood_problems", "F/H Blood Problems"], ["hai_frequent_illness", "Frequent Illness"], ["hai_bleeding_problems", "Bleeding Problems"], ["hai_hiv", "HIV"]] }
+];
+
 let carePlanReasonCodesCache = null;
 let carePlanRowSeq = 0;
 let carePlanReasonPickerOnSelect = null;
 let clinicalNoteRowSeq = 0;
 let functionalCognitiveRowSeq = 0;
+let observationRowSeq = 0;
 
 let currentDashboardPatient = null;
 let currentEditPatient = null;
@@ -2229,6 +2264,8 @@ export async function initPatientChartTab(patient)
     setupClinicalInstructionsModal();
     setupClinicalNotesModal();
     setupFunctionalCognitiveModal();
+    setupObservationModal();
+    setupReviewOfSystemsModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -6028,6 +6065,448 @@ function setupFunctionalCognitiveModal()
     });
 }
 
+function buildObservationRowHtml(rowId)
+{
+    return `
+        <div class="observation-row" data-row-id="${rowId}" style="margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #eef1f7;">
+            <input type="hidden" class="obs-record-id" value="">
+            <input type="hidden" class="obs-code-text" value="">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Code:</label>
+                    <input class="form-input obs-code" readonly placeholder="Click to select a code">
+                </div>
+
+                <div class="form-group">
+                    <label>Description:</label>
+                    <input class="form-input obs-description" placeholder="Enter observation description">
+                </div>
+
+                <div class="form-group">
+                    <label>Date:</label>
+                    <input type="datetime-local" class="form-input obs-item-date">
+                </div>
+
+                <div class="form-group">
+                    <label>Value:</label>
+                    <input class="form-input obs-value" placeholder="Enter value">
+                </div>
+
+                <div class="form-group">
+                    <label>Unit:</label>
+                    <input class="form-input obs-unit" placeholder="Unit">
+                </div>
+
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select class="form-input obs-status">${carePlanOptionsHtml(OBSERVATION_STATUS_OPTIONS)}</select>
+                </div>
+
+                <div class="form-group">
+                    <label>Type:</label>
+                    <select class="form-input obs-type">${carePlanOptionsHtml(OBSERVATION_TYPE_OPTIONS)}</select>
+                </div>
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn-secondary obs-add-btn">&#43; Add</button>
+                <button type="button" class="btn-secondary obs-delete-btn">&#128465; Delete</button>
+                <button type="button" class="btn-secondary obs-add-reason-btn">&#10035; Add Reason</button>
+            </div>
+
+            <div class="obs-reason-section" hidden>
+                <hr>
+                <p class="form-subtitle">Reason for Observation</p>
+                <p>When recording a reason for the value (or absence of a value) of an observation both the reason code and status of the reason are required</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Reason Code</label>
+                        <input class="form-input obs-reason-code" readonly placeholder="Select a reason code">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Reason Status</label>
+                        <select class="form-input obs-reason-status">${carePlanOptionsHtml(CARE_PLAN_REASON_STATUS_OPTIONS)}</select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `.trim();
+}
+
+function wireObservationRow(rowEl)
+{
+    rowEl.querySelector(".obs-code").addEventListener("click", () => {
+        openCodePicker({
+            onSelect: ({ code, description }) => {
+                rowEl.querySelector(".obs-code").value = code;
+                rowEl.querySelector(".obs-code-text").value = description || "";
+            }
+        });
+    });
+
+    rowEl.querySelector(".obs-add-reason-btn").addEventListener("click", () => {
+        const reasonSection = rowEl.querySelector(".obs-reason-section");
+        reasonSection.hidden = !reasonSection.hidden;
+    });
+
+    rowEl.querySelector(".obs-reason-code").addEventListener("click", () => {
+        openCarePlanReasonPicker((code) => {
+            rowEl.querySelector(".obs-reason-code").value = code;
+        });
+    });
+
+    rowEl.querySelector(".obs-add-btn").addEventListener("click", () => {
+        rowEl.insertAdjacentElement("afterend", createObservationRow());
+    });
+
+    rowEl.querySelector(".obs-delete-btn").addEventListener("click", async () => {
+        const container = document.getElementById("observationRowsContainer");
+        const recordId = rowEl.querySelector(".obs-record-id").value;
+
+        if (recordId) {
+            if (!confirm("Remove this observation?")) {
+                return;
+            }
+
+            const result = await removeObservationItem(recordId);
+
+            if (!result.success) {
+                showAlert("observationFormAlert", result.message || "Failed to remove item.", "error");
+                return;
+            }
+
+            await loadObservationItems();
+            renderObservationSection();
+        }
+
+        if (container.children.length > 1) {
+            rowEl.remove();
+        } else {
+            document.getElementById("observationFormModalOverlay").classList.remove("open");
+        }
+    });
+}
+
+function createObservationRow()
+{
+    const wrapper = document.createElement("div");
+
+    wrapper.innerHTML = buildObservationRowHtml(++observationRowSeq);
+
+    const rowEl = wrapper.firstElementChild;
+
+    wireObservationRow(rowEl);
+
+    return rowEl;
+}
+
+function openObservationFormModal(existingRecord)
+{
+    const container = document.getElementById("observationRowsContainer");
+
+    document.getElementById("observationFormAlert").innerHTML = "";
+    container.innerHTML = "";
+
+    const rowEl = createObservationRow();
+
+    container.appendChild(rowEl);
+
+    if (existingRecord) {
+        rowEl.querySelector(".obs-record-id").value = existingRecord.id;
+        rowEl.querySelector(".obs-code").value = existingRecord.code || "";
+        rowEl.querySelector(".obs-code-text").value = existingRecord.code_text || "";
+        rowEl.querySelector(".obs-description").value = existingRecord.description || "";
+        rowEl.querySelector(".obs-item-date").value = (existingRecord.item_date || "").slice(0, 16).replace(" ", "T");
+        rowEl.querySelector(".obs-value").value = existingRecord.value || "";
+        rowEl.querySelector(".obs-unit").value = existingRecord.unit || "";
+        rowEl.querySelector(".obs-status").value = existingRecord.status || "Preliminary";
+        rowEl.querySelector(".obs-type").value = existingRecord.observation_type || "";
+        rowEl.querySelector(".obs-reason-code").value = existingRecord.reason_code || "";
+        rowEl.querySelector(".obs-reason-status").value = existingRecord.reason_status || "";
+
+        if (existingRecord.reason_code || existingRecord.reason_status) {
+            rowEl.querySelector(".obs-reason-section").hidden = false;
+        }
+    } else {
+        rowEl.querySelector(".obs-status").value = "Preliminary";
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+
+        rowEl.querySelector(".obs-item-date").value =
+            `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+
+    document.getElementById("observationFormModalOverlay").classList.add("open");
+}
+
+async function loadObservationItems()
+{
+    const result = await fetchObservationItems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.observationItems = result.success ? result.data : [];
+}
+
+function renderObservationSection()
+{
+    const { sections, observationItems } = currentEncounterSummary;
+    const section = sections.observation || {};
+    const locked = !!section.locked_at;
+    const tbody = document.getElementById("pdObservationTableBody");
+    const items = observationItems || [];
+
+    if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No observations recorded.</td></tr>`;
+    } else {
+        tbody.innerHTML = items.map((item) => `
+            <tr>
+                <td>${escapeHtml((item.item_date || "").slice(0, 16).replace("T", " "))}</td>
+                <td>${escapeHtml(item.code || "-")}</td>
+                <td>${escapeHtml(item.description || "-")}</td>
+                <td>${escapeHtml(item.value ? `${item.value}${item.unit ? " " + item.unit : ""}` : "-")}</td>
+                <td>${escapeHtml(item.status)}</td>
+                <td>${escapeHtml(item.observation_type || "-")}</td>
+                <td class="table-actions">
+                    ${locked ? "" : `
+                        <button class="btn-edit" data-edit-observation-item="${item.id}">Edit</button>
+                        <button class="btn-danger" data-remove-observation-item="${item.id}">Delete</button>
+                    `}
+                </td>
+            </tr>
+        `).join("");
+
+        if (!locked) {
+            tbody.querySelectorAll("[data-edit-observation-item]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const item = items.find((i) => String(i.id) === btn.getAttribute("data-edit-observation-item"));
+
+                    if (item) {
+                        openObservationFormModal(item);
+                    }
+                });
+            });
+
+            tbody.querySelectorAll("[data-remove-observation-item]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this observation?")) {
+                        return;
+                    }
+
+                    const result = await removeObservationItem(btn.getAttribute("data-remove-observation-item"));
+
+                    if (!result.success) {
+                        showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove item.", "error");
+                        return;
+                    }
+
+                    await loadObservationItems();
+                    renderObservationSection();
+                });
+            });
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryObservationLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryObservationLog", section.signatures);
+    document.getElementById("pdEncSummaryObservationDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdObservationAddBtn").style.display = locked ? "none" : "";
+}
+
+function setupObservationModal()
+{
+    const formOverlay = document.getElementById("observationFormModalOverlay");
+    const form = document.getElementById("observationForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdObservationAddBtn").addEventListener("click", () => {
+        if (currentEncounterSummary?.encounter) {
+            openObservationFormModal(null);
+        }
+    });
+
+    document.getElementById("closeObservationFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelObservationForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const rows = Array.from(document.querySelectorAll("#observationRowsContainer .observation-row"));
+        const payloads = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const rowEl = rows[i];
+            const hasReason = !rowEl.querySelector(".obs-reason-section").hidden;
+            const itemDateRaw = rowEl.querySelector(".obs-item-date").value;
+
+            const details = {
+                code: rowEl.querySelector(".obs-code").value.trim() || null,
+                code_text: rowEl.querySelector(".obs-code-text").value.trim() || null,
+                description: rowEl.querySelector(".obs-description").value.trim() || null,
+                item_date: itemDateRaw ? `${itemDateRaw.replace("T", " ")}:00` : "",
+                value: rowEl.querySelector(".obs-value").value.trim() || null,
+                unit: rowEl.querySelector(".obs-unit").value.trim() || null,
+                status: rowEl.querySelector(".obs-status").value || "Preliminary",
+                observation_type: rowEl.querySelector(".obs-type").value || null,
+                reason_code: hasReason ? (rowEl.querySelector(".obs-reason-code").value.trim() || null) : null,
+                reason_status: hasReason ? (rowEl.querySelector(".obs-reason-status").value || null) : null
+            };
+
+            if (!details.item_date) {
+                showAlert("observationFormAlert", `Item ${i + 1}: Date is required.`, "error");
+                return;
+            }
+
+            payloads.push({ recordId: rowEl.querySelector(".obs-record-id").value, details });
+        }
+
+        if (!payloads.length) {
+            closeForm();
+            return;
+        }
+
+        for (const { recordId, details } of payloads) {
+            const result = recordId
+                ? await updateObservationItem(recordId, details)
+                : await addObservationItem(currentEncounterSummary.encounter.id, details);
+
+            if (!result.success) {
+                showAlert("observationFormAlert", result.message || "Failed to save observation.", "error");
+                return;
+            }
+        }
+
+        closeForm();
+        await loadObservationItems();
+        renderObservationSection();
+    });
+}
+
+function buildReviewOfSystemsFieldsHtml()
+{
+    return REVIEW_OF_SYSTEMS_SECTIONS.map((section) => `
+        <div class="ros-section">
+            <div class="ros-section-title">${escapeHtml(section.title)}</div>
+            ${section.fields.map(([key, label]) => `
+                <div class="ros-field-row">
+                    <span class="ros-field-label">${escapeHtml(label)}:</span>
+                    <label><input type="radio" name="${key}" value="na" checked> N/A</label>
+                    <label><input type="radio" name="${key}" value="yes"> YES</label>
+                    <label><input type="radio" name="${key}" value="no"> NO</label>
+                </div>
+            `).join("")}
+        </div>
+    `).join("");
+}
+
+function openReviewOfSystemsFormModal()
+{
+    document.getElementById("reviewOfSystemsFormAlert").innerHTML = "";
+    document.getElementById("reviewOfSystemsFieldsContainer").innerHTML = buildReviewOfSystemsFieldsHtml();
+
+    const data = currentEncounterSummary.reviewOfSystems || {};
+
+    REVIEW_OF_SYSTEMS_SECTIONS.forEach((section) => {
+        section.fields.forEach(([key]) => {
+            const value = data[key] || "na";
+            const input = document.querySelector(`input[name="${key}"][value="${value}"]`);
+
+            if (input) {
+                input.checked = true;
+            }
+        });
+    });
+
+    document.getElementById("reviewOfSystemsModalOverlay").classList.add("open");
+}
+
+async function loadReviewOfSystems()
+{
+    const result = await fetchReviewOfSystems(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.reviewOfSystems = result.success ? result.data : null;
+}
+
+function renderReviewOfSystemsSection()
+{
+    const section = currentEncounterSummary.sections.review_of_systems || {};
+    const locked = !!section.locked_at;
+    const data = currentEncounterSummary.reviewOfSystems;
+    const container = document.getElementById("pdReviewOfSystemsFindings");
+
+    if (!data) {
+        container.innerHTML = `<p class="pd-chart-nav-empty">Not yet filled in. Click Edit to complete this form.</p>`;
+    } else {
+        const sectionsWithFindings = REVIEW_OF_SYSTEMS_SECTIONS
+            .map((sec) => ({ title: sec.title, items: sec.fields.filter(([key]) => data[key] && data[key] !== "na") }))
+            .filter((sec) => sec.items.length);
+
+        if (!sectionsWithFindings.length) {
+            container.innerHTML = `<p class="pd-chart-nav-empty">All systems reviewed, no findings recorded.</p>`;
+        } else {
+            container.innerHTML = sectionsWithFindings.map((sec) => `
+                <p style="margin: 10px 0 4px; font-weight: 600;">${escapeHtml(sec.title)}</p>
+                <p class="pd-readonly-value">${sec.items.map(([key, label]) =>
+                    `${escapeHtml(label)}: ${data[key] === "yes" ? "Yes" : "No"}`
+                ).join(" &middot; ")}</p>
+            `).join("");
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryReviewOfSystemsLockedBadge", section.locked_at);
+    renderEsignLog("pdEncSummaryReviewOfSystemsLog", section.signatures);
+    document.getElementById("pdEncSummaryReviewOfSystemsEditBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdEncSummaryReviewOfSystemsDeleteBtn").style.display = locked ? "none" : "";
+}
+
+function setupReviewOfSystemsModal()
+{
+    const formOverlay = document.getElementById("reviewOfSystemsModalOverlay");
+    const form = document.getElementById("reviewOfSystemsForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeReviewOfSystemsModal").addEventListener("click", closeForm);
+    document.getElementById("cancelReviewOfSystemsForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const payload = {};
+
+        REVIEW_OF_SYSTEMS_SECTIONS.forEach((section) => {
+            section.fields.forEach(([key]) => {
+                const checked = document.querySelector(`input[name="${key}"]:checked`);
+                payload[key] = checked ? checked.value : "na";
+            });
+        });
+
+        const result = await saveReviewOfSystems(currentEncounterSummary.encounter.id, payload);
+
+        if (!result.success) {
+            showAlert("reviewOfSystemsFormAlert", result.message || "Failed to save Review Of Systems.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadReviewOfSystems();
+        renderReviewOfSystemsSection();
+    });
+}
+
 function setupClinicalNoteDocumentPicker()
 {
     const overlay = document.getElementById("clinicalNoteDocumentPickerModalOverlay");
@@ -7404,7 +7883,7 @@ async function loadEncounterSummary(encounter)
     try {
         const [
             sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult,
-            miscBillingResult, functionalCognitiveResult
+            miscBillingResult, functionalCognitiveResult, observationResult, reviewOfSystemsResult
         ] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
@@ -7412,7 +7891,9 @@ async function loadEncounterSummary(encounter)
             fetchClinicalInstructionItems(encounter.id),
             fetchClinicalNoteItems(encounter.id),
             fetchEncounterMiscBillingOptions(encounter.id),
-            fetchFunctionalCognitiveStatusItems(encounter.id)
+            fetchFunctionalCognitiveStatusItems(encounter.id),
+            fetchObservationItems(encounter.id),
+            fetchReviewOfSystems(encounter.id)
         ]);
 
         const sectionsByType = {};
@@ -7429,7 +7910,9 @@ async function loadEncounterSummary(encounter)
             clinicalInstructionItems: clinicalInstructionsResult.success ? clinicalInstructionsResult.data : [],
             clinicalNoteItems: clinicalNotesResult.success ? clinicalNotesResult.data : [],
             miscBillingOptions: miscBillingResult.success ? miscBillingResult.data : null,
-            functionalCognitiveItems: functionalCognitiveResult.success ? functionalCognitiveResult.data : []
+            functionalCognitiveItems: functionalCognitiveResult.success ? functionalCognitiveResult.data : [],
+            observationItems: observationResult.success ? observationResult.data : [],
+            reviewOfSystems: reviewOfSystemsResult.success ? reviewOfSystemsResult.data : null
         };
 
         renderEncounterSummary();
@@ -7462,6 +7945,8 @@ function renderEncounterSummary()
     renderVitalsSection();
     renderMiscBillingOptionsSection();
     renderFunctionalCognitiveSection();
+    renderObservationSection();
+    renderReviewOfSystemsSection();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -7679,11 +8164,14 @@ const SECTION_LABELS = {
     clinical_notes: "Clinical Notes Form",
     vitals: "Vitals",
     misc_billing_options: "Misc Billing Options",
-    functional_cognitive_status: "Functional and Cognitive Status Form"
+    functional_cognitive_status: "Functional and Cognitive Status Form",
+    observation: "Observation Form",
+    review_of_systems: "Review Of Systems Form"
 };
 
 const CARD_KEYS = [
-    "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling", "FunctionalCognitive"
+    "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling",
+    "FunctionalCognitive", "Observation", "ReviewOfSystems"
 ];
 
 let pendingDeleteSectionType = null;
@@ -7823,6 +8311,13 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdEncSummaryFunctionalCognitiveSignBtn").addEventListener("click", () => openEsignModal("functional_cognitive_status"));
     document.getElementById("pdEncSummaryFunctionalCognitiveDeleteBtn").addEventListener("click", () => openDeleteSectionModal("functional_cognitive_status"));
 
+    document.getElementById("pdEncSummaryObservationSignBtn").addEventListener("click", () => openEsignModal("observation"));
+    document.getElementById("pdEncSummaryObservationDeleteBtn").addEventListener("click", () => openDeleteSectionModal("observation"));
+
+    document.getElementById("pdEncSummaryReviewOfSystemsSignBtn").addEventListener("click", () => openEsignModal("review_of_systems"));
+    document.getElementById("pdEncSummaryReviewOfSystemsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("review_of_systems"));
+    document.getElementById("pdEncSummaryReviewOfSystemsEditBtn").addEventListener("click", () => openReviewOfSystemsFormModal());
+
     document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
         event.preventDefault();
         openEncounterFormModal(null);
@@ -7856,6 +8351,16 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdClinicalMenuFunctionalCognitiveLink").addEventListener("click", (event) => {
         event.preventDefault();
         openFunctionalCognitiveFormModal(null);
+    });
+
+    document.getElementById("pdClinicalMenuObservationLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openObservationFormModal(null);
+    });
+
+    document.getElementById("pdClinicalMenuReviewOfSystemsLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openReviewOfSystemsFormModal();
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
