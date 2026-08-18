@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=38";
+import { PatientChartView } from "./patients-list.view.js?v=39";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -113,6 +113,9 @@ import { fetchReviewOfSystems, saveReviewOfSystems } from "../encounter-sections
 import {
     fetchReviewOfSystemsChecks, saveReviewOfSystemsChecks
 } from "../encounter-sections/encounter-review-of-systems-checks.service.js";
+import {
+    fetchSoapNotes, addSoapNote, updateSoapNote, removeSoapNote, signSoapNote
+} from "../encounter-sections/encounter-soap-notes.service.js";
 import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
@@ -2282,6 +2285,7 @@ export async function initPatientChartTab(patient)
     setupObservationModal();
     setupReviewOfSystemsModal();
     setupReviewOfSystemsChecksModal();
+    setupSoapNoteModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -6648,6 +6652,170 @@ function setupReviewOfSystemsChecksModal()
     });
 }
 
+function openSoapNoteFormModal(existingRecord)
+{
+    document.getElementById("soapNoteFormAlert").innerHTML = "";
+    document.getElementById("soap_note_record_id").value = existingRecord ? existingRecord.id : "";
+    document.getElementById("soap_subjective").value = existingRecord ? (existingRecord.subjective || "") : "";
+    document.getElementById("soap_objective").value = existingRecord ? (existingRecord.objective || "") : "";
+    document.getElementById("soap_assessment").value = existingRecord ? (existingRecord.assessment || "") : "";
+    document.getElementById("soap_plan").value = existingRecord ? (existingRecord.plan || "") : "";
+    document.getElementById("soapNoteFormModalOverlay").classList.add("open");
+}
+
+function setupSoapNoteModal()
+{
+    const formOverlay = document.getElementById("soapNoteFormModalOverlay");
+    const form = document.getElementById("soapNoteForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeSoapNoteFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelSoapNoteForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const recordId = document.getElementById("soap_note_record_id").value;
+
+        const details = {
+            subjective: document.getElementById("soap_subjective").value.trim() || null,
+            objective: document.getElementById("soap_objective").value.trim() || null,
+            assessment: document.getElementById("soap_assessment").value.trim() || null,
+            plan: document.getElementById("soap_plan").value.trim() || null
+        };
+
+        const result = recordId
+            ? await updateSoapNote(recordId, details)
+            : await addSoapNote(currentEncounterSummary.encounter.id, details);
+
+        if (!result.success) {
+            showAlert("soapNoteFormAlert", result.message || "Failed to save SOAP note.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadSoapNotes();
+        renderSoapNotesSection();
+    });
+}
+
+async function loadSoapNotes()
+{
+    const result = await fetchSoapNotes(currentEncounterSummary.encounter.id);
+
+    currentEncounterSummary.soapNotes = result.success ? result.data : [];
+}
+
+function renderSoapNotesSection()
+{
+    const container = document.getElementById("pdSoapNotesContainer");
+    const notes = currentEncounterSummary.soapNotes || [];
+
+    if (!notes.length) {
+        container.innerHTML = "";
+        return;
+    }
+
+    container.innerHTML = notes.map((note) => {
+        const locked = !!note.locked_at;
+
+        return `
+            <div class="pd-report-card" data-soap-note-id="${note.id}">
+                <div class="pd-report-card-header">
+                    <h3>
+                        <button type="button" class="pd-card-collapse-toggle soap-toggle" aria-label="Toggle section">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                        SOAP ${note.author_name ? `(by ${escapeHtml(note.author_name)})` : ""} ${locked ? `<span class="pd-locked-badge">&#128274; Locked</span>` : ""}
+                    </h3>
+                    <div class="pd-report-header-actions">
+                        ${locked ? "" : `<button type="button" class="pd-report-btn pd-report-btn-secondary soap-edit-btn">Edit</button>`}
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary soap-sign-btn">eSign</button>
+                        ${locked ? "" : `<button type="button" class="pd-report-btn pd-report-btn-secondary soap-delete-btn">Delete</button>`}
+                    </div>
+                </div>
+                <div class="pd-report-card-body soap-card-body">
+                    <p><strong>Subjective:</strong> ${escapeHtml(note.subjective || "-")}</p>
+                    <p><strong>Objective:</strong> ${escapeHtml(note.objective || "-")}</p>
+                    <p><strong>Assessment:</strong> ${escapeHtml(note.assessment || "-")}</p>
+                    <p><strong>Plan:</strong> ${escapeHtml(note.plan || "-")}</p>
+
+                    <div class="pd-esign-log-wrap">
+                        <table class="data-table pd-esign-log-table">
+                            <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                            <tbody>
+                                ${note.signatures && note.signatures.length
+                                    ? note.signatures.map((sig) => `
+                                        <tr>
+                                            <td>${escapeHtml(sig.signer_name)}</td>
+                                            <td>${escapeHtml(sig.signer_role || "-")}</td>
+                                            <td>${sig.amendment ? `<em>${escapeHtml(sig.amendment)}</em>` : "-"}</td>
+                                            <td>${escapeHtml((sig.signed_at || "").slice(0, 16).replace("T", " "))}</td>
+                                        </tr>
+                                    `).join("")
+                                    : `<tr><td colspan="4" class="table-empty">No signatures on file</td></tr>`
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    container.querySelectorAll(".soap-toggle").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const body = btn.closest(".pd-report-card").querySelector(".soap-card-body");
+            body.classList.toggle("collapsed");
+            btn.classList.toggle("collapsed");
+        });
+    });
+
+    container.querySelectorAll(".soap-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const noteId = btn.closest("[data-soap-note-id]").getAttribute("data-soap-note-id");
+            const note = notes.find((n) => String(n.id) === noteId);
+
+            if (note) {
+                openSoapNoteFormModal(note);
+            }
+        });
+    });
+
+    container.querySelectorAll(".soap-sign-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const noteId = btn.closest("[data-soap-note-id]").getAttribute("data-soap-note-id");
+            openSoapEsignModal(noteId);
+        });
+    });
+
+    container.querySelectorAll(".soap-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const noteId = btn.closest("[data-soap-note-id]").getAttribute("data-soap-note-id");
+
+            if (!confirm("Remove this SOAP note?")) {
+                return;
+            }
+
+            const result = await removeSoapNote(noteId);
+
+            if (!result.success) {
+                showAlert("pdEncounterSummaryAlert", result.message || "Failed to remove SOAP note.", "error");
+                return;
+            }
+
+            await loadSoapNotes();
+            renderSoapNotesSection();
+        });
+    });
+}
+
 function setupClinicalNoteDocumentPicker()
 {
     const overlay = document.getElementById("clinicalNoteDocumentPickerModalOverlay");
@@ -8025,7 +8193,7 @@ async function loadEncounterSummary(encounter)
         const [
             sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult,
             miscBillingResult, functionalCognitiveResult, observationResult, reviewOfSystemsResult,
-            reviewOfSystemsChecksResult
+            reviewOfSystemsChecksResult, soapNotesResult
         ] = await Promise.all([
             fetchEncounterSections(encounter.id),
             fetchEncounterVitals(encounter.id),
@@ -8036,7 +8204,8 @@ async function loadEncounterSummary(encounter)
             fetchFunctionalCognitiveStatusItems(encounter.id),
             fetchObservationItems(encounter.id),
             fetchReviewOfSystems(encounter.id),
-            fetchReviewOfSystemsChecks(encounter.id)
+            fetchReviewOfSystemsChecks(encounter.id),
+            fetchSoapNotes(encounter.id)
         ]);
 
         const sectionsByType = {};
@@ -8056,7 +8225,8 @@ async function loadEncounterSummary(encounter)
             functionalCognitiveItems: functionalCognitiveResult.success ? functionalCognitiveResult.data : [],
             observationItems: observationResult.success ? observationResult.data : [],
             reviewOfSystems: reviewOfSystemsResult.success ? reviewOfSystemsResult.data : null,
-            reviewOfSystemsChecks: reviewOfSystemsChecksResult.success ? reviewOfSystemsChecksResult.data : null
+            reviewOfSystemsChecks: reviewOfSystemsChecksResult.success ? reviewOfSystemsChecksResult.data : null,
+            soapNotes: soapNotesResult.success ? soapNotesResult.data : []
         };
 
         renderEncounterSummary();
@@ -8092,6 +8262,7 @@ function renderEncounterSummary()
     renderObservationSection();
     renderReviewOfSystemsSection();
     renderReviewOfSystemsChecksSection();
+    renderSoapNotesSection();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -8516,6 +8687,11 @@ function setupEncounterSummaryPanel()
     document.getElementById("pdClinicalMenuReviewOfSystemsChecksLink").addEventListener("click", (event) => {
         event.preventDefault();
         openReviewOfSystemsChecksFormModal();
+    });
+
+    document.getElementById("pdClinicalMenuSoapLink").addEventListener("click", (event) => {
+        event.preventDefault();
+        openSoapNoteFormModal(null);
     });
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
@@ -9000,8 +9176,23 @@ function setupEsignModal()
 
         const encounterId = document.getElementById("esign_encounter_id").value;
         const sectionType = document.getElementById("esign_section_type").value;
+        const soapNoteId = document.getElementById("esign_soap_note_id").value;
         const password = document.getElementById("esign_password").value;
         const amendment = document.getElementById("esign_amendment").value;
+
+        if (soapNoteId) {
+            const result = await signSoapNote(soapNoteId, password, amendment);
+
+            if (!result.success) {
+                document.getElementById("err-esign_password").textContent = result.message || "Failed to sign.";
+                return;
+            }
+
+            closeModal();
+            await loadSoapNotes();
+            renderSoapNotesSection();
+            return;
+        }
 
         const result = await signEncounterSection(encounterId, sectionType, password, amendment);
 
@@ -9023,6 +9214,18 @@ function openEsignModal(sectionType)
     document.getElementById("esignForm").reset();
     document.getElementById("esign_encounter_id").value = currentEncounterSummary.encounter.id;
     document.getElementById("esign_section_type").value = sectionType;
+    document.getElementById("esign_soap_note_id").value = "";
+    document.getElementById("esignModalOverlay").classList.add("open");
+}
+
+function openSoapEsignModal(noteId)
+{
+    document.getElementById("esignFormAlert").innerHTML = "";
+    document.getElementById("err-esign_password").textContent = "";
+    document.getElementById("esignForm").reset();
+    document.getElementById("esign_encounter_id").value = currentEncounterSummary.encounter.id;
+    document.getElementById("esign_section_type").value = "";
+    document.getElementById("esign_soap_note_id").value = noteId;
     document.getElementById("esignModalOverlay").classList.add("open");
 }
 

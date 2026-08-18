@@ -4919,7 +4919,7 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdClinicalMenuObservationLink">Observation</a>
                                     <a href="#" id="pdClinicalMenuReviewOfSystemsLink">Review Of Systems</a>
                                     <a href="#" id="pdClinicalMenuReviewOfSystemsChecksLink">Review of Systems Checks</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">SOAP (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuSoapLink">SOAP</a>
                                     <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Speech Dictation (Coming soon)</a>
                                     <a href="#" id="pdClinicalMenuVitalsLink">Vitals</a>
                                 </div>
@@ -5327,6 +5327,8 @@ textarea.pd-sdoh-readonly {
                             </div>
                         </div>
                     </div>
+
+                    <div id="pdSoapNotesContainer"></div>
                 </div>
 
                 <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">
@@ -6784,6 +6786,7 @@ textarea.pd-sdoh-readonly {
         <form id="esignForm">
             <input type="hidden" id="esign_encounter_id">
             <input type="hidden" id="esign_section_type">
+            <input type="hidden" id="esign_soap_note_id">
 
             <div class="form-group full">
                 <label>Password</label>
@@ -7246,6 +7249,46 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelReviewOfSystemsChecksForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="soapNoteFormModalOverlay">
+    <div class="modal-box" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2>SOAP</h2>
+            <button type="button" class="modal-close" id="closeSoapNoteFormModal">&times;</button>
+        </div>
+
+        <div id="soapNoteFormAlert"></div>
+
+        <form id="soapNoteForm">
+            <input type="hidden" id="soap_note_record_id">
+
+            <div class="ros-section">
+                <div class="ros-section-title">Subjective</div>
+                <textarea id="soap_subjective" class="form-input" style="min-height: 120px;"></textarea>
+            </div>
+
+            <div class="ros-section">
+                <div class="ros-section-title">Objective</div>
+                <textarea id="soap_objective" class="form-input" style="min-height: 120px;"></textarea>
+            </div>
+
+            <div class="ros-section">
+                <div class="ros-section-title">Assessment</div>
+                <textarea id="soap_assessment" class="form-input" style="min-height: 120px;"></textarea>
+            </div>
+
+            <div class="ros-section">
+                <div class="ros-section-title">Plan</div>
+                <textarea id="soap_plan" class="form-input" style="min-height: 120px;"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelSoapNoteForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
