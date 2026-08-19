@@ -1,8 +1,9 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
+import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=43";
+import { PatientChartView } from "./patients-list.view.js?v=44";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -1602,6 +1603,7 @@ function showChartSection(key)
     const issuesPanel = document.getElementById("pdIssuesPanel");
     const visitHistoryPanel = document.getElementById("pdVisitHistoryPanel");
     const encounterSummaryPanel = document.getElementById("pdEncounterSummaryPanel");
+    const ledgerPanel = document.getElementById("pdLedgerPanel");
     const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
 
     widgetGrid.style.display = "none";
@@ -1613,6 +1615,7 @@ function showChartSection(key)
     issuesPanel.style.display = "none";
     visitHistoryPanel.style.display = "none";
     encounterSummaryPanel.style.display = "none";
+    ledgerPanel.style.display = "none";
 
     if (key === "dashboard" || widgetTarget) {
         widgetGrid.style.display = "";
@@ -1645,6 +1648,11 @@ function showChartSection(key)
         visitHistoryPanel.style.display = "block";
         if (currentDashboardPatient) {
             loadVisitHistoryList(currentDashboardPatient);
+        }
+    } else if (key === "ledger") {
+        ledgerPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            loadLedger(currentDashboardPatient);
         }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
@@ -1707,6 +1715,7 @@ function resetChartNav()
     document.getElementById("pdReportPanel").style.display = "none";
     document.getElementById("pdTransactionsPanel").style.display = "none";
     document.getElementById("pdIssuesPanel").style.display = "none";
+    document.getElementById("pdLedgerPanel").style.display = "none";
 
     document.querySelectorAll("#pdHistoryTabs .pd-history-tab").forEach((t) => {
         t.classList.toggle("active", t.getAttribute("data-history-tab") === "general");
@@ -1813,6 +1822,221 @@ async function populateTransactionDropdowns()
 
         billingFacilityEl.innerHTML = `<option value="">-- Unspecified --</option>${options}`;
     }
+}
+
+let currentLedgerData = null;
+
+function defaultLedgerDateRange()
+{
+    const to = new Date();
+    const from = new Date();
+    from.setFullYear(from.getFullYear() - 1);
+
+    const pad = (n) => String(n).padStart(2, "0");
+    const format = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    return { from: format(from), to: format(to) };
+}
+
+async function loadLedger(patient)
+{
+    const tbody = document.getElementById("pdLedgerTableBody");
+
+    if (!tbody) {
+        return;
+    }
+
+    document.getElementById("pdLedgerTitle").textContent =
+        `Patient Ledger - ${[patient.first_name, patient.last_name].filter(Boolean).join(" ")}`;
+
+    const fromInput = document.getElementById("pdLedgerFrom");
+    const toInput = document.getElementById("pdLedgerTo");
+
+    if (!fromInput.value || !toInput.value) {
+        const defaults = defaultLedgerDateRange();
+
+        fromInput.value = defaults.from;
+        toInput.value = defaults.to;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Loading...</td></tr>`;
+
+    try {
+        const result = await fetchPatientLedger(patient.id, fromInput.value, toInput.value);
+
+        currentLedgerData = result.success ? result.data : { rows: [], totals: {} };
+        renderLedgerTable(currentLedgerData);
+    } catch (error) {
+        console.error("Failed to load patient ledger", error);
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Unable to load the ledger right now.</td></tr>`;
+    }
+}
+
+function ledgerRowHtml(row)
+{
+    return `
+        <tr>
+            <td>${escapeHtml(row.code || "-")}</td>
+            <td>${escapeHtml(row.description || "-")}</td>
+            <td>${escapeHtml(row.billed_date || "-")}${row.payor ? ` / ${escapeHtml(row.payor)}` : ""}</td>
+            <td>${escapeHtml(row.type || "-")}</td>
+            <td>${row.units ?? "-"}</td>
+            <td>${row.charge ? formatCurrency(row.charge) : "-"}</td>
+            <td>${row.payment ? formatCurrency(row.payment) : "-"}</td>
+            <td>${row.adjustment ? formatCurrency(row.adjustment) : "-"}</td>
+            <td>${formatCurrency(row.balance)}</td>
+        </tr>
+    `;
+}
+
+function renderLedgerTable(data)
+{
+    const tbody = document.getElementById("pdLedgerTableBody");
+    const rows = data.rows || [];
+    const totals = data.totals || {};
+
+    tbody.innerHTML = rows.length
+        ? rows.map(ledgerRowHtml).join("")
+        : `<tr><td colspan="9" class="table-empty">No billing activity in this date range.</td></tr>`;
+
+    document.getElementById("pdLedgerTotalUnits").textContent = totals.units ?? 0;
+    document.getElementById("pdLedgerTotalCharge").textContent = formatCurrency(totals.charge || 0);
+    document.getElementById("pdLedgerTotalPayment").textContent = formatCurrency(totals.payment || 0);
+    document.getElementById("pdLedgerTotalAdjustment").textContent = formatCurrency(totals.adjustment || 0);
+    document.getElementById("pdLedgerTotalBalance").textContent = formatCurrency(totals.balance || 0);
+}
+
+function printPatientLedger(patient, data)
+{
+    const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
+
+    if (!reportWindow) {
+        alert("Please enable pop-ups to print the ledger.");
+        return;
+    }
+
+    const fullName = [patient.first_name, patient.last_name].filter(Boolean).join(" ");
+    const rows = data.rows || [];
+    const totals = data.totals || {};
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient Ledger - ${escapeHtml(fullName)}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #000; }
+        h1 { font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; font-size: 11px; }
+        th { background: #f0f0f0; }
+        tfoot td { font-weight: bold; }
+        ${CCD_PRINT_BUTTON_STYLE}
+    </style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+    <h1>Patient Ledger - ${escapeHtml(fullName)}</h1>
+    <table>
+        <thead>
+            <tr><th>Code</th><th>Description</th><th>Billed Date / Payor</th><th>Type</th><th>Units</th><th>Charge</th><th>Payment</th><th>Adjustment</th><th>Balance</th></tr>
+        </thead>
+        <tbody>
+            ${rows.map(ledgerRowHtml).join("")}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4">Grand Total</td>
+                <td>${totals.units ?? 0}</td>
+                <td>${formatCurrency(totals.charge || 0)}</td>
+                <td>${formatCurrency(totals.payment || 0)}</td>
+                <td>${formatCurrency(totals.adjustment || 0)}</td>
+                <td>${formatCurrency(totals.balance || 0)}</td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>
+    `;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+}
+
+function openLedgerPaymentModal()
+{
+    document.getElementById("ledgerPaymentFormAlert").innerHTML = "";
+    document.getElementById("ledgerPaymentForm").reset();
+    document.getElementById("ledgerPayment_payment_type").value = "COPAY";
+    document.getElementById("ledgerPayment_payment_date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("ledgerPaymentModalOverlay").classList.add("open");
+}
+
+function setupLedgerPaymentModal()
+{
+    const formOverlay = document.getElementById("ledgerPaymentModalOverlay");
+    const form = document.getElementById("ledgerPaymentForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeLedgerPaymentModal").addEventListener("click", closeForm);
+    document.getElementById("cancelLedgerPaymentForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const details = {
+            payer_type: document.getElementById("ledgerPayment_payer_type").value,
+            payment_type: document.getElementById("ledgerPayment_payment_type").value.trim() || "COPAY",
+            payment_date: document.getElementById("ledgerPayment_payment_date").value,
+            payment_amount: document.getElementById("ledgerPayment_payment_amount").value || 0,
+            adjustment_amount: document.getElementById("ledgerPayment_adjustment_amount").value || 0,
+            notes: document.getElementById("ledgerPayment_notes").value.trim() || null
+        };
+
+        const result = await addLedgerPayment(currentDashboardPatient.id, details);
+
+        if (!result.success) {
+            showAlert("ledgerPaymentFormAlert", result.message || "Failed to record payment.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadLedger(currentDashboardPatient);
+    });
+}
+
+function setupLedgerPanel()
+{
+    document.getElementById("pdLedgerSubmitBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            loadLedger(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("pdLedgerBackBtn").addEventListener("click", (event) => {
+        event.preventDefault();
+        showChartSection("dashboard");
+    });
+
+    document.getElementById("pdLedgerPrintBtn").addEventListener("click", () => {
+        if (currentDashboardPatient && currentLedgerData) {
+            printPatientLedger(currentDashboardPatient, currentLedgerData);
+        }
+    });
+
+    document.getElementById("pdLedgerAddPaymentBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openLedgerPaymentModal();
+        }
+    });
+
+    setupLedgerPaymentModal();
 }
 
 async function loadTransactionsList(patient)
@@ -2319,6 +2543,7 @@ export async function initPatientChartTab(patient)
     setupSoapNoteModal();
     setupSpeechDictationModal();
     setupVitalsModal();
+    setupLedgerPanel();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();

@@ -4993,6 +4993,62 @@ textarea.pd-sdoh-readonly {
                     </div>
                 </div>
 
+                <div class="pd-transactions-panel" id="pdLedgerPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <h2 id="pdLedgerTitle">Patient Ledger</h2>
+                    </div>
+
+                    <div id="pdLedgerAlert"></div>
+
+                    <div class="form-grid" style="align-items: end; margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label>From:</label>
+                            <input type="date" id="pdLedgerFrom" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>To:</label>
+                            <input type="date" id="pdLedgerTo" class="form-input">
+                        </div>
+                        <div class="form-group full" style="display: flex; gap: 10px; align-items: center;">
+                            <button type="button" class="login-btn" id="pdLedgerSubmitBtn">&#10003; Submit</button>
+                            <button type="button" class="btn-secondary" id="pdLedgerAddPaymentBtn">+ Add Payment</button>
+                            <button type="button" class="btn-secondary" id="pdLedgerPrintBtn">&#128424; Print Ledger</button>
+                            <a href="#" class="btn-secondary" id="pdLedgerBackBtn" style="text-decoration: none; display: inline-flex; align-items: center;">&rarr; Back To Patient</a>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="data-table" id="pdLedgerTable">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Description</th>
+                                    <th>Billed Date / Payor</th>
+                                    <th>Type</th>
+                                    <th>Units</th>
+                                    <th>Charge</th>
+                                    <th>Payment</th>
+                                    <th>Adjustment</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdLedgerTableBody">
+                                <tr><td colspan="9" class="table-empty">Loading...</td></tr>
+                            </tbody>
+                            <tfoot>
+                                <tr style="font-weight: 600;">
+                                    <td colspan="4">Grand Total</td>
+                                    <td id="pdLedgerTotalUnits">0</td>
+                                    <td id="pdLedgerTotalCharge">0.00</td>
+                                    <td id="pdLedgerTotalPayment">0.00</td>
+                                    <td id="pdLedgerTotalAdjustment">0.00</td>
+                                    <td id="pdLedgerTotalBalance">0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="pd-transactions-panel" id="pdVisitHistoryPanel" style="display: none;">
                     <div class="pd-report-card-header">
                         <h2>Visit History</h2>
@@ -8239,6 +8295,59 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelEncounterForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="ledgerPaymentModalOverlay">
+    <div class="modal-box" style="max-width: 520px;">
+        <div class="modal-header">
+            <h2>Add Payment</h2>
+            <button type="button" class="modal-close" id="closeLedgerPaymentModal">&times;</button>
+        </div>
+
+        <div id="ledgerPaymentFormAlert"></div>
+
+        <form id="ledgerPaymentForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Payer</label>
+                    <select id="ledgerPayment_payer_type" class="form-input">
+                        <option value="patient">Patient</option>
+                        <option value="insurance">Insurance</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Type</label>
+                    <input type="text" id="ledgerPayment_payment_type" class="form-input" placeholder="e.g. COPAY" value="COPAY">
+                </div>
+
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="ledgerPayment_payment_date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Payment Amount</label>
+                    <input type="number" step="0.01" min="0" id="ledgerPayment_payment_amount" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Adjustment Amount</label>
+                    <input type="number" step="0.01" min="0" id="ledgerPayment_adjustment_amount" class="form-input">
+                </div>
+
+                <div class="form-group full">
+                    <label>Notes</label>
+                    <input type="text" id="ledgerPayment_notes" class="form-input">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelLedgerPaymentForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

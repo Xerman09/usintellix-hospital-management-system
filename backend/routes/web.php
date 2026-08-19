@@ -59,6 +59,7 @@ require_once __DIR__ . '/../app/Modules/EncounterReviewOfSystems/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterReviewOfSystemsChecks/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterSoapNotes/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterSpeechDictationItems/routes.php';
+require_once __DIR__ . '/../app/Modules/PatientLedger/routes.php';
 require_once __DIR__ . '/../app/Modules/DischargeDispositions/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientMedications/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientInsurances/routes.php';
