@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=40";
+import { PatientChartView } from "./patients-list.view.js?v=41";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -119,7 +119,7 @@ import {
 import {
     fetchSpeechDictationItems, addSpeechDictationItem, updateSpeechDictationItem, removeSpeechDictationItem
 } from "../encounter-sections/encounter-speech-dictation-items.service.js";
-import { fetchEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
+import { fetchEncounterVitals, saveEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
 } from "../encounter-sections/encounter-care-plan-items.service.js";
@@ -247,6 +247,27 @@ const REVIEW_OF_SYSTEMS_CHECKS_SECTIONS = [
     { title: "Musculoskeletal", fields: [["msk_osetoarthritis", "Osetoarthritis"], ["msk_rheumotoid_arthritis", "Rheumotoid Arthritis"], ["msk_lupus", "Lupus"], ["msk_ankylosing_spondlilitis", "Ankylosing Spondlilitis"], ["msk_swollen_joints", "Swollen Joints"], ["msk_stiff_joints", "Stiff Joints"], ["msk_broken_bones", "Broken Bones"], ["msk_neck_problems", "Neck Problems"], ["msk_back_problems", "Back Problems"], ["msk_back_surgery", "Back Surgery"], ["msk_scoliosis", "Scoliosis"], ["msk_herniated_disc", "Herniated Disc"], ["msk_shoulder_problems", "Shoulder Problems"], ["msk_elbow_problems", "Elbow Problems"], ["msk_wrist_problems", "Wrist Problems"], ["msk_hand_problems", "Hand Problems"], ["msk_hip_problems", "Hip Problems"], ["msk_knee_problems", "Knee Problems"], ["msk_ankle_problems", "Ankle Problems"], ["msk_foot_problems", "Foot Problems"]] },
     { title: "Endocrine", fields: [["endo_insulin_dependent_diabetes", "Insulin Dependent Diabetes"], ["endo_non_insulin_dependent_diabetes", "Non-Insulin Dependent Diabetes"], ["endo_hypothyroidism", "Hypothyroidism"], ["endo_hyperthyroidism", "Hyperthyroidism"], ["endo_cushing_syndrome", "Cushing Syndrome"], ["endo_addison_syndrome", "Addison Syndrome"]] }
 ];
+
+const VITALS_FIELDS = [
+    { key: "weight", label: "Weight", loinc: "29463-7", unit: "lbs", type: "numeric" },
+    { key: "height", label: "Height/Length", loinc: "8302-2", unit: "in", type: "numeric" },
+    { key: "bp_systolic", label: "BP Systolic", loinc: "8480-6", unit: "mmHg", type: "numeric" },
+    { key: "bp_diastolic", label: "BP Diastolic", loinc: "8462-4", unit: "mmHg", type: "numeric" },
+    { key: "pulse", label: "Pulse", loinc: "8867-4", unit: "per min", type: "numeric" },
+    { key: "respiration", label: "Respiration", loinc: "9279-1", unit: "per min", type: "numeric" },
+    { key: "temperature", label: "Temperature", loinc: "8310-5", unit: "F", type: "numeric" },
+    {
+        key: "temp_location", label: "Temp Location", loinc: "8327-9", unit: "", type: "select",
+        options: ["Oral", "Axillary", "Rectal", "Tympanic", "Temporal", "Other"]
+    },
+    { key: "oxygen_saturation", label: "Oxygen Saturation", loinc: "59408-5", unit: "%", type: "numeric" },
+    { key: "oxygen_flow_rate", label: "Oxygen Flow Rate", loinc: "3151-8", unit: "l/min", type: "numeric" },
+    { key: "inhaled_oxygen_concentration", label: "Inhaled Oxygen Concentration", loinc: "3150-0", unit: "%", type: "numeric" },
+    { key: "head_circumference", label: "Head Circumference", loinc: "9843-4", unit: "in", type: "numeric" },
+    { key: "waist_circumference", label: "Waist Circumference", loinc: "9843-4", unit: "in", type: "numeric" }
+];
+
+const VITALS_ABN_OPTIONS = ["Normal", "Abnormal", "High", "Low"];
 
 let carePlanReasonCodesCache = null;
 let carePlanRowSeq = 0;
@@ -2290,6 +2311,7 @@ export async function initPatientChartTab(patient)
     setupReviewOfSystemsChecksModal();
     setupSoapNoteModal();
     setupSpeechDictationModal();
+    setupVitalsModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -8574,19 +8596,132 @@ function renderClinicalInstructionsSection()
 function renderVitalsSection()
 {
     const section = currentEncounterSummary.sections.vitals || {};
-    const vitals = currentEncounterSummary.vitals;
+    const locked = !!section.locked_at;
+    const data = currentEncounterSummary.vitals;
+    const tbody = document.getElementById("pdVitalsHistoryTableBody");
 
-    document.getElementById("pdVitals_height_cm").textContent = vitals?.height_cm ? `${vitals.height_cm} cm` : "-";
-    document.getElementById("pdVitals_weight_kg").textContent = vitals?.weight_kg ? `${vitals.weight_kg} kg` : "-";
-    document.getElementById("pdVitals_oxygen_saturation").textContent = vitals?.oxygen_saturation ? `${vitals.oxygen_saturation}%` : "-";
-    document.getElementById("pdVitals_oxygen_flow_rate").textContent = vitals?.oxygen_flow_rate ? `${vitals.oxygen_flow_rate} L/min` : "-";
-    document.getElementById("pdVitals_inhaled_oxygen_concentration").textContent = vitals?.inhaled_oxygen_concentration ? `${vitals.inhaled_oxygen_concentration}%` : "-";
-    document.getElementById("pdVitalsBmiDisplay").textContent = vitals?.bmi ?? "-";
-    document.getElementById("pdVitalsBmiStatusDisplay").textContent = vitals?.bmi_status ?? "-";
+    const rows = VITALS_FIELDS.map((field) => {
+        let value = "-";
+
+        if (data) {
+            const raw = data[field.key];
+            value = (raw !== null && raw !== undefined && raw !== "") ? raw : "-";
+        }
+
+        return `<tr><td>${escapeHtml(field.label)}</td><td>${escapeHtml(field.unit)}</td><td>${escapeHtml(String(value))}</td></tr>`;
+    });
+
+    rows.push(`<tr><td>BMI</td><td>kg/m^2</td><td>${escapeHtml(data?.bmi ?? "-")}</td></tr>`);
+    rows.push(`<tr><td>BMI Status</td><td>Type</td><td>${escapeHtml(data?.bmi_status ?? "-")}</td></tr>`);
+    rows.push(`<tr><td>Other Notes</td><td>-</td><td>${escapeHtml(data?.other_notes || "-")}</td></tr>`);
+
+    tbody.innerHTML = rows.join("");
 
     renderLockedBadge("pdEncSummaryVitalsLockedBadge", section.locked_at);
     renderEsignLog("pdEncSummaryVitalsLog", section.signatures);
-    document.getElementById("pdEncSummaryVitalsDeleteBtn").style.display = section.locked_at ? "none" : "";
+    document.getElementById("pdEncSummaryVitalsDeleteBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdEncSummaryVitalsEditBtn").style.display = locked ? "none" : "";
+}
+
+function buildVitalsFieldsHtml()
+{
+    return VITALS_FIELDS.map((field) => {
+        if (field.type === "select") {
+            return `
+                <tr>
+                    <td>${escapeHtml(field.label)} <span class="pd-readonly-value" style="display:inline;">(LOINC:${field.loinc})</span></td>
+                    <td></td>
+                    <td colspan="2">
+                        <select class="form-input" id="vitals_${field.key}">
+                            <option value="">-- Select --</option>
+                            ${field.options.map((opt) => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join("")}
+                        </select>
+                    </td>
+                </tr>
+            `;
+        }
+
+        return `
+            <tr>
+                <td>${escapeHtml(field.label)} <span class="pd-readonly-value" style="display:inline;">(LOINC:${field.loinc})</span></td>
+                <td>${escapeHtml(field.unit)}</td>
+                <td><input type="number" step="0.01" class="form-input" id="vitals_${field.key}"></td>
+                <td>
+                    <select class="form-input" id="vitals_${field.key}_abn">
+                        <option value="">-- Select --</option>
+                        ${VITALS_ABN_OPTIONS.map((opt) => `<option value="${opt}">${opt}</option>`).join("")}
+                    </select>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function openVitalsFormModal()
+{
+    document.getElementById("vitalsFormAlert").innerHTML = "";
+    document.getElementById("vitalsFieldsContainer").innerHTML = buildVitalsFieldsHtml();
+
+    const data = currentEncounterSummary.vitals || {};
+
+    VITALS_FIELDS.forEach((field) => {
+        if (field.type === "select") {
+            document.getElementById(`vitals_${field.key}`).value = data[field.key] || "";
+            return;
+        }
+
+        document.getElementById(`vitals_${field.key}`).value = data[field.key] ?? "";
+        document.getElementById(`vitals_${field.key}_abn`).value = data[`${field.key}_abn`] || "";
+    });
+
+    document.getElementById("vitals_other_notes").value = data.other_notes || "";
+
+    document.getElementById("vitalsFormModalOverlay").classList.add("open");
+}
+
+function setupVitalsModal()
+{
+    const formOverlay = document.getElementById("vitalsFormModalOverlay");
+    const form = document.getElementById("vitalsForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("closeVitalsFormModal").addEventListener("click", closeForm);
+    document.getElementById("cancelVitalsForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const payload = {};
+
+        VITALS_FIELDS.forEach((field) => {
+            if (field.type === "select") {
+                payload[field.key] = document.getElementById(`vitals_${field.key}`).value || null;
+                return;
+            }
+
+            payload[field.key] = document.getElementById(`vitals_${field.key}`).value || null;
+            payload[`${field.key}_abn`] = document.getElementById(`vitals_${field.key}_abn`).value || null;
+        });
+
+        payload.other_notes = document.getElementById("vitals_other_notes").value.trim() || null;
+
+        const result = await saveEncounterVitals(currentEncounterSummary.encounter.id, payload);
+
+        if (!result.success) {
+            showAlert("vitalsFormAlert", result.message || "Failed to save vitals.", "error");
+            return;
+        }
+
+        closeForm();
+        currentEncounterSummary.vitals = result.data;
+        renderVitalsSection();
+    });
 }
 
 function renderMiscBillingOptionsSection()
@@ -8714,12 +8849,6 @@ function toggleEncounterSummaryCard(cardKey, collapsed)
     document.getElementById(`pdEncSummary${cardKey}Toggle`).classList.toggle("collapsed", collapsed);
 }
 
-function scrollToEncounterCard(cardKey)
-{
-    toggleEncounterSummaryCard(cardKey, false);
-    document.getElementById(`pdEncSummary${cardKey}Card`).scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 function setupCollapsibleCards()
 {
     CARD_KEYS.forEach((key) => {
@@ -8759,6 +8888,7 @@ function setupEncounterSummaryPanel()
 
     document.getElementById("pdEncSummaryVitalsSignBtn").addEventListener("click", () => openEsignModal("vitals"));
     document.getElementById("pdEncSummaryVitalsDeleteBtn").addEventListener("click", () => openDeleteSectionModal("vitals"));
+    document.getElementById("pdEncSummaryVitalsEditBtn").addEventListener("click", () => openVitalsFormModal());
 
     document.getElementById("pdEncSummaryMiscBillingSignBtn").addEventListener("click", () => openEsignModal("misc_billing_options"));
     document.getElementById("pdEncSummaryMiscBillingDeleteBtn").addEventListener("click", () => openDeleteSectionModal("misc_billing_options"));
@@ -8843,7 +8973,7 @@ function setupEncounterSummaryPanel()
 
     document.getElementById("pdClinicalMenuVitalsLink").addEventListener("click", (event) => {
         event.preventDefault();
-        scrollToEncounterCard("Vitals");
+        openVitalsFormModal();
     });
 
     document.getElementById("pdEncSummaryDeleteEncounterBtn").addEventListener("click", () => openDeleteEncounterModal());

@@ -5098,40 +5098,26 @@ textarea.pd-sdoh-readonly {
                                 Vitals <span class="pd-locked-badge" id="pdEncSummaryVitalsLockedBadge" style="display:none;">&#128274; Locked</span>
                             </h3>
                             <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsEditBtn">Edit</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsSignBtn">eSign</button>
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryVitalsDeleteBtn">Delete</button>
                             </div>
                         </div>
                         <div class="pd-report-card-body" id="pdEncSummaryVitalsCardBody">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Height</label>
-                                    <p class="pd-readonly-value" id="pdVitals_height_cm">-</p>
-                                </div>
-                                <div class="form-group">
-                                    <label>Weight</label>
-                                    <p class="pd-readonly-value" id="pdVitals_weight_kg">-</p>
-                                </div>
-                                <div class="form-group">
-                                    <label>BMI</label>
-                                    <p class="pd-readonly-value" id="pdVitalsBmiDisplay">-</p>
-                                </div>
-                                <div class="form-group">
-                                    <label>BMI Status</label>
-                                    <p class="pd-readonly-value" id="pdVitalsBmiStatusDisplay">-</p>
-                                </div>
-                                <div class="form-group">
-                                    <label>Oxygen Saturation</label>
-                                    <p class="pd-readonly-value" id="pdVitals_oxygen_saturation">-</p>
-                                </div>
-                                <div class="form-group">
-                                    <label>Oxygen Flow Rate</label>
-                                    <p class="pd-readonly-value" id="pdVitals_oxygen_flow_rate">-</p>
-                                </div>
-                                <div class="form-group">
-                                    <label>Inhaled Oxygen Concentration</label>
-                                    <p class="pd-readonly-value" id="pdVitals_inhaled_oxygen_concentration">-</p>
-                                </div>
+                            <p style="font-weight: 600; margin: 0 0 8px;">Vitals History</p>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Unit</th>
+                                            <th>Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdVitalsHistoryTableBody">
+                                        <tr><td colspan="3" class="table-empty">Loading...</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
 
                             <div class="pd-esign-log-wrap">
@@ -8122,6 +8108,43 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelEncounterForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="vitalsFormModalOverlay">
+    <div class="modal-box" style="max-width: 820px;">
+        <div class="modal-header">
+            <h2>Vitals</h2>
+            <button type="button" class="modal-close" id="closeVitalsFormModal">&times;</button>
+        </div>
+
+        <div id="vitalsFormAlert"></div>
+
+        <form id="vitalsForm">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Unit</th>
+                            <th>Value</th>
+                            <th>Abn</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vitalsFieldsContainer"></tbody>
+                </table>
+            </div>
+
+            <div class="ros-section" style="margin-top: 16px;">
+                <div class="ros-section-title">Other Notes</div>
+                <textarea id="vitals_other_notes" class="form-input" style="min-height: 90px;"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelVitalsForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>

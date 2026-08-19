@@ -7,8 +7,16 @@ use App\Modules\EncounterVitals\Models\EncounterVital;
 
 class EncounterVitalService
 {
-    private const DETAIL_FIELDS = [
-        'height_cm', 'weight_kg', 'oxygen_saturation', 'oxygen_flow_rate', 'inhaled_oxygen_concentration'
+    private const NUMERIC_FIELDS = [
+        'weight', 'height', 'bp_systolic', 'bp_diastolic', 'pulse', 'respiration', 'temperature',
+        'oxygen_saturation', 'oxygen_flow_rate', 'inhaled_oxygen_concentration',
+        'head_circumference', 'waist_circumference'
+    ];
+
+    private const TEXT_FIELDS = [
+        'weight_abn', 'height_abn', 'bp_systolic_abn', 'bp_diastolic_abn', 'pulse_abn', 'respiration_abn',
+        'temperature_abn', 'temp_location', 'oxygen_saturation_abn', 'oxygen_flow_rate_abn',
+        'inhaled_oxygen_concentration_abn', 'head_circumference_abn', 'waist_circumference_abn', 'other_notes'
     ];
 
     private EncounterSectionService $encounterSectionService;
@@ -24,8 +32,9 @@ class EncounterVitalService
     }
 
     /**
-     * Upsert an encounter's vitals, computing BMI/BMI status server-side.
-     * Rejected once the 'vitals' section is locked.
+     * Upsert an encounter's vitals, computing BMI/BMI status server-side
+     * from height(in)/weight(lbs). Rejected once the 'vitals' section is
+     * locked.
      */
     public function save(int $encounterId, array $data, int $userId): array
     {
@@ -38,12 +47,17 @@ class EncounterVitalService
 
         $values = [];
 
-        foreach (self::DETAIL_FIELDS as $field) {
+        foreach (self::NUMERIC_FIELDS as $field) {
             $raw = $data[$field] ?? null;
             $values[$field] = ($raw === '' || $raw === null) ? null : (float) $raw;
         }
 
-        [$bmi, $bmiStatus] = $this->computeBmi($values['height_cm'], $values['weight_kg']);
+        foreach (self::TEXT_FIELDS as $field) {
+            $raw = $data[$field] ?? null;
+            $values[$field] = ($raw === '' || $raw === null) ? null : $raw;
+        }
+
+        [$bmi, $bmiStatus] = $this->computeBmi($values['height'], $values['weight']);
 
         $values['bmi'] = $bmi;
         $values['bmi_status'] = $bmiStatus;
@@ -71,17 +85,17 @@ class EncounterVitalService
     }
 
     /**
-     * BMI = weight(kg) / height(m)^2, categorized into the standard WHO
-     * bands. Either input missing means BMI can't be computed.
+     * BMI = 703 * weight(lbs) / height(in)^2, categorized into the
+     * standard WHO bands. Either input missing means BMI can't be
+     * computed.
      */
-    private function computeBmi(?float $heightCm, ?float $weightKg): array
+    private function computeBmi(?float $heightIn, ?float $weightLbs): array
     {
-        if (!$heightCm || !$weightKg) {
+        if (!$heightIn || !$weightLbs) {
             return [null, null];
         }
 
-        $heightM = $heightCm / 100;
-        $bmi = round($weightKg / ($heightM * $heightM), 1);
+        $bmi = round((703 * $weightLbs) / ($heightIn * $heightIn), 1);
 
         $status = match (true) {
             $bmi < 18.5 => 'Underweight',

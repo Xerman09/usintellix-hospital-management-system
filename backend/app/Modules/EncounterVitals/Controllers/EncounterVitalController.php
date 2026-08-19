@@ -16,7 +16,16 @@ class EncounterVitalController extends Controller
     private ProviderService $providerService;
 
     private const DETAIL_FIELDS = [
-        'height_cm', 'weight_kg', 'oxygen_saturation', 'oxygen_flow_rate', 'inhaled_oxygen_concentration'
+        'weight', 'weight_abn', 'height', 'height_abn',
+        'bp_systolic', 'bp_systolic_abn', 'bp_diastolic', 'bp_diastolic_abn',
+        'pulse', 'pulse_abn', 'respiration', 'respiration_abn',
+        'temperature', 'temperature_abn', 'temp_location',
+        'oxygen_saturation', 'oxygen_saturation_abn',
+        'oxygen_flow_rate', 'oxygen_flow_rate_abn',
+        'inhaled_oxygen_concentration', 'inhaled_oxygen_concentration_abn',
+        'head_circumference', 'head_circumference_abn',
+        'waist_circumference', 'waist_circumference_abn',
+        'other_notes'
     ];
 
     public function __construct()
