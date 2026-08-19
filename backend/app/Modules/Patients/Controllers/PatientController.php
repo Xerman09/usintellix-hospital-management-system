@@ -205,6 +205,48 @@ class PatientController extends Controller
     }
 
     /**
+     * Upload/replace a patient's photo.
+     */
+    public function uploadPhoto(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $id = (int) $request->input('id');
+        $files = $request->files();
+
+        $result = $this->patientService->uploadPhoto($id, $files['photo'] ?? [], (int) $user['id']);
+
+        if (!$result['success']) {
+            $status = $result['message'] === 'Patient not found.' ? 404 : 422;
+            $this->error($result['message'], $status);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
+     * Remove a patient's photo.
+     */
+    public function removePhoto(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $id = (int) $request->input('id');
+
+        $result = $this->patientService->removePhoto($id, (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
      * Register a new patient account (receptionist-only).
      */
     public function register(): void

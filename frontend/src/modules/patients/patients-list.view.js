@@ -271,6 +271,13 @@ export function PatientsListView(user)
     justify-content: center;
     font-weight: 600;
     font-size: 12px;
+    overflow: hidden;
+}
+
+.pat-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .pat-name {
@@ -473,6 +480,14 @@ export function PatientsListView(user)
     justify-content: center;
     font-weight: 600;
     font-size: 13px;
+    overflow: hidden;
+}
+
+.pd-topbar-avatar img,
+.pd-sidebar-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .pd-topbar h2 {
@@ -504,10 +519,17 @@ export function PatientsListView(user)
     overflow-y: auto;
 }
 
+.pd-sidebar-avatar-wrap {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    margin: 0 0 6px;
+    cursor: pointer;
+}
+
 .pd-sidebar-avatar {
     width: 52px;
     height: 52px;
-    margin: 0 0 10px;
     border-radius: 8px;
     background: var(--accent);
     color: white;
@@ -516,6 +538,46 @@ export function PatientsListView(user)
     justify-content: center;
     font-weight: 600;
     font-size: 19px;
+    overflow: hidden;
+}
+
+.pd-sidebar-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: rgba(20, 24, 31, 0.55);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .15s;
+    pointer-events: none;
+}
+
+.pd-sidebar-avatar-wrap:hover .pd-sidebar-avatar-overlay {
+    opacity: 1;
+}
+
+.pd-sidebar-avatar-overlay svg {
+    width: 16px;
+    height: 16px;
+}
+
+.pd-sidebar-remove-photo {
+    display: block;
+    margin: 0 0 10px;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #b91c1c;
+    cursor: pointer;
+}
+
+.pd-sidebar-remove-photo:hover {
+    text-decoration: underline;
 }
 
 .pd-sidebar-name {
@@ -2082,6 +2144,13 @@ export function PatientChartView(user)
     justify-content: center;
     font-weight: 600;
     font-size: 12px;
+    overflow: hidden;
+}
+
+.pat-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .pat-name {
@@ -2284,6 +2353,14 @@ export function PatientChartView(user)
     justify-content: center;
     font-weight: 600;
     font-size: 13px;
+    overflow: hidden;
+}
+
+.pd-topbar-avatar img,
+.pd-sidebar-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .pd-topbar h2 {
@@ -2315,10 +2392,17 @@ export function PatientChartView(user)
     overflow-y: auto;
 }
 
+.pd-sidebar-avatar-wrap {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    margin: 0 0 6px;
+    cursor: pointer;
+}
+
 .pd-sidebar-avatar {
     width: 52px;
     height: 52px;
-    margin: 0 0 10px;
     border-radius: 8px;
     background: var(--accent);
     color: white;
@@ -2327,6 +2411,46 @@ export function PatientChartView(user)
     justify-content: center;
     font-weight: 600;
     font-size: 19px;
+    overflow: hidden;
+}
+
+.pd-sidebar-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: rgba(20, 24, 31, 0.55);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .15s;
+    pointer-events: none;
+}
+
+.pd-sidebar-avatar-wrap:hover .pd-sidebar-avatar-overlay {
+    opacity: 1;
+}
+
+.pd-sidebar-avatar-overlay svg {
+    width: 16px;
+    height: 16px;
+}
+
+.pd-sidebar-remove-photo {
+    display: block;
+    margin: 0 0 10px;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #b91c1c;
+    cursor: pointer;
+}
+
+.pd-sidebar-remove-photo:hover {
+    text-decoration: underline;
 }
 
 .pd-sidebar-name {
@@ -4117,7 +4241,14 @@ textarea.pd-sdoh-readonly {
 
         <div class="pd-body">
             <div class="pd-sidebar">
-                <div class="pd-sidebar-avatar" id="pdSidebarAvatar">?</div>
+                <div class="pd-sidebar-avatar-wrap" id="pdSidebarAvatarWrap" title="Change photo">
+                    <div class="pd-sidebar-avatar" id="pdSidebarAvatar">?</div>
+                    <div class="pd-sidebar-avatar-overlay">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    </div>
+                </div>
+                <input type="file" id="pdPhotoFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;">
+                <button type="button" class="pd-sidebar-remove-photo" id="pdRemovePhotoBtn" style="display:none;">Remove Photo</button>
                 <p class="pd-sidebar-name" id="pdSidebarName">&nbsp;</p>
                 <p class="pd-sidebar-sub" id="pdSidebarSub">&nbsp;</p>
 

@@ -44,3 +44,31 @@ export async function fetchPatientDashboardSummary(patientId)
 
     return await api(`/patients/dashboard-summary?${query}`);
 }
+
+export async function uploadPatientPhoto(patientId, file)
+{
+    const formData = new FormData();
+
+    formData.append("id", patientId);
+    formData.append("photo", file);
+
+    return await api(
+        "/patients/photo",
+        {
+            method: "POST",
+            headers: {},
+            body: formData
+        }
+    );
+}
+
+export async function removePatientPhoto(patientId)
+{
+    return await api(
+        "/patients/photo",
+        {
+            method: "DELETE",
+            body: JSON.stringify({ id: patientId })
+        }
+    );
+}

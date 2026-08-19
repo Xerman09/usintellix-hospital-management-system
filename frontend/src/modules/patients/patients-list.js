@@ -9,7 +9,8 @@ import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
-import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary } from "./patients.service.js";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto } from "./patients.service.js";
+import { patientAvatarHtml } from "../../core/patient-avatar.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import {
     fetchPatientTransactions,
@@ -2219,12 +2220,11 @@ export async function initPatientChartTab(patient)
     currentDashboardPatient = patient;
 
     const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
-    const initial = (patient.first_name || "?").charAt(0).toUpperCase();
     const sex = patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "";
     const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
 
-    document.getElementById("pdAvatar").textContent = initial;
-    document.getElementById("pdSidebarAvatar").textContent = initial;
+    document.getElementById("pdAvatar").innerHTML = patientAvatarHtml(patient);
+    document.getElementById("pdSidebarAvatar").innerHTML = patientAvatarHtml(patient);
     document.getElementById("pdName").textContent = fullName;
     document.getElementById("pdSidebarName").textContent = fullName;
     document.getElementById("pdSubtitle").textContent = `Patient No: ${patient.patient_no}`;
@@ -2238,6 +2238,7 @@ export async function initPatientChartTab(patient)
     setFact("pdFactProvider", providerName);
 
     showPatientContextBar(patient);
+    setupPatientPhotoUpload(patient);
 
     resetChartNav();
 
@@ -9990,6 +9991,8 @@ function showPatientContextBar(patient)
     const dob = formatDate(patient.birthdate);
     const age = calculateAge(patient.birthdate);
 
+    document.getElementById("patientContextPhoto").innerHTML = patientAvatarHtml(patient);
+
     const nameEl = document.getElementById("patientContextName");
     nameEl.textContent = fullName || "Unnamed Patient";
     nameEl.onclick = (event) => {
@@ -10017,6 +10020,91 @@ function hidePatientContextBar()
 
     if (window.tabManager && window.tabManager.tabs.has("patient_chart")) {
         window.tabManager.closeTab("patient_chart");
+    }
+}
+
+// Wires the click-to-upload photo behavior on the Patient Chart's sidebar
+// avatar. Re-run every time the chart is opened/replaced (initPatientChartTab
+// runs per patient), so handlers are reassigned with .onclick/.onchange
+// (overwrite, not addEventListener) to avoid stacking duplicate listeners
+// across repeated opens of the shared chart tab.
+function setupPatientPhotoUpload(patient)
+{
+    const wrap = document.getElementById("pdSidebarAvatarWrap");
+    const fileInput = document.getElementById("pdPhotoFileInput");
+    const removeBtn = document.getElementById("pdRemovePhotoBtn");
+
+    if (!wrap || !fileInput || !removeBtn) {
+        return;
+    }
+
+    removeBtn.style.display = patient.photo ? "block" : "none";
+
+    wrap.onclick = () => fileInput.click();
+
+    fileInput.onchange = async () => {
+        const file = fileInput.files[0];
+
+        fileInput.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            alert("Please choose an image file.");
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            alert("Image must be 2MB or smaller.");
+            return;
+        }
+
+        const result = await uploadPatientPhoto(patient.id, file);
+
+        if (!result.success) {
+            alert(result.message || "Failed to upload photo.");
+            return;
+        }
+
+        patient.photo = result.data.photo;
+        applyPatientPhotoUpdate(patient);
+    };
+
+    removeBtn.onclick = async () => {
+        if (!confirm("Remove this patient's photo?")) {
+            return;
+        }
+
+        const result = await removePatientPhoto(patient.id);
+
+        if (!result.success) {
+            alert(result.message || "Failed to remove photo.");
+            return;
+        }
+
+        patient.photo = null;
+        applyPatientPhotoUpdate(patient);
+    };
+}
+
+// Refreshes every spot the just-updated patient's photo is shown without
+// needing a full patients refetch: the chart header/sidebar, the shared
+// patient-context bar, and the cached list-row entry (so returning to the
+// Patients tab reflects it too).
+function applyPatientPhotoUpdate(patient)
+{
+    document.getElementById("pdAvatar").innerHTML = patientAvatarHtml(patient);
+    document.getElementById("pdSidebarAvatar").innerHTML = patientAvatarHtml(patient);
+    document.getElementById("pdRemovePhotoBtn").style.display = patient.photo ? "block" : "none";
+
+    showPatientContextBar(patient);
+
+    const cached = patientsCache.find((item) => item.id === patient.id);
+
+    if (cached) {
+        cached.photo = patient.photo;
     }
 }
 
@@ -10945,7 +11033,7 @@ function renderPatientsTable(patients, user)
             <td><span class="pat-patient-no">${escapeHtml(patient.patient_no)}</span></td>
             <td>
                 <div class="pat-name-cell">
-                    <div class="pat-avatar">${escapeHtml((patient.first_name || "?").charAt(0).toUpperCase())}</div>
+                    <div class="pat-avatar">${patientAvatarHtml(patient)}</div>
                     <span class="pat-name">${escapeHtml(fullName)}</span>
                 </div>
             </td>

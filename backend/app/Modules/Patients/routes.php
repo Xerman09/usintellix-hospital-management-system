@@ -28,3 +28,13 @@ $router->put('/patients', [PatientController::class, 'update'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist']]
 ]);
+
+$router->post('/patients/photo', [PatientController::class, 'uploadPhoto'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist']]
+]);
+
+$router->delete('/patients/photo', [PatientController::class, 'removePhoto'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist']]
+]);

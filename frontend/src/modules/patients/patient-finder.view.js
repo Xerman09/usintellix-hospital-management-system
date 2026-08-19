@@ -145,6 +145,13 @@ export function PatientFinderView()
     justify-content: center;
     font-weight: 600;
     font-size: 12px;
+    overflow: hidden;
+}
+
+.fnd-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .fnd-name {

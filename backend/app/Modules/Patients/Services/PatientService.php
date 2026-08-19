@@ -174,6 +174,125 @@ class PatientService
     }
 
     /**
+     * Upload/replace a patient's photo.
+     */
+    public function uploadPhoto(int $id, array $file, int $updatedBy): array
+    {
+        $patient = (new Patient())->where('id', $id)->first();
+
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return [
+                'success' => false,
+                'message' => 'Patient not found.'
+            ];
+        }
+
+        if (empty($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return [
+                'success' => false,
+                'message' => 'No image was uploaded.'
+            ];
+        }
+
+        $allowedTypes = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif'
+        ];
+
+        $mimeType = mime_content_type($file['tmp_name']);
+
+        if (!isset($allowedTypes[$mimeType])) {
+            return [
+                'success' => false,
+                'message' => 'Only JPG, PNG, WEBP, or GIF images are allowed.'
+            ];
+        }
+
+        if ($file['size'] > 2 * 1024 * 1024) {
+            return [
+                'success' => false,
+                'message' => 'Image must be 2MB or smaller.'
+            ];
+        }
+
+        $uploadDir = dirname(__DIR__, 4) . '/public/uploads/patient_photos';
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $filename = 'patient_' . $id . '_' . time() . '.' . $allowedTypes[$mimeType];
+        $destination = $uploadDir . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            return [
+                'success' => false,
+                'message' => 'Failed to save the uploaded image.'
+            ];
+        }
+
+        if (!empty($patient['photo'])) {
+            $oldPath = dirname(__DIR__, 4) . '/public' . $patient['photo'];
+
+            if (is_file($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+
+        $photoPath = '/uploads/patient_photos/' . $filename;
+
+        (new Patient())->update([
+            'photo'      => $photoPath,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $updatedBy
+        ], $id);
+
+        return [
+            'success' => true,
+            'message' => 'Patient photo updated successfully.',
+            'data' => [
+                'photo' => $photoPath
+            ]
+        ];
+    }
+
+    /**
+     * Remove a patient's photo, reverting to the initial-letter avatar.
+     */
+    public function removePhoto(int $id, int $updatedBy): array
+    {
+        $patient = (new Patient())->where('id', $id)->first();
+
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return [
+                'success' => false,
+                'message' => 'Patient not found.'
+            ];
+        }
+
+        if (!empty($patient['photo'])) {
+            $path = dirname(__DIR__, 4) . '/public' . $patient['photo'];
+
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+
+        (new Patient())->update([
+            'photo'      => null,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $updatedBy
+        ], $id);
+
+        return [
+            'success' => true,
+            'message' => 'Patient photo removed successfully.'
+        ];
+    }
+
+    /**
      * Create or update a patient's contact info record.
      */
     private function upsertContact(int $patientId, array $data, int $userId): void

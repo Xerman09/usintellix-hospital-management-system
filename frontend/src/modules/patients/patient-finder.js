@@ -1,6 +1,7 @@
 import { getUser } from "../../core/session.js";
 import { fetchPatients } from "./patients.service.js";
 import { openPatientChartTab } from "./patients-list.js?v=41";
+import { patientAvatarHtml } from "../../core/patient-avatar.js";
 
 let finderPatientsCache = [];
 
@@ -95,7 +96,7 @@ function renderFinderResults(term)
             <td><span class="fnd-patient-no">${escapeHtml(patient.patient_no)}</span></td>
             <td>
                 <div class="fnd-name-cell">
-                    <div class="fnd-avatar">${escapeHtml((patient.first_name || "?").charAt(0).toUpperCase())}</div>
+                    <div class="fnd-avatar">${patientAvatarHtml(patient)}</div>
                     <span class="fnd-name">${escapeHtml(fullName)}</span>
                 </div>
             </td>
