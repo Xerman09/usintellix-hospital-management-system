@@ -1,8 +1,8 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
-import { createAppointment } from "../appointments/appointments.service.js";
+import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=42";
+import { PatientChartView } from "./patients-list.view.js?v=43";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2254,6 +2254,7 @@ export async function initPatientChartTab(patient)
     loadPatientDashboardWidgets(patient);
     loadDashboardInsurance(patient);
     loadDashboardVitalsHistory(patient);
+    loadDashboardAppointments(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -4774,6 +4775,58 @@ function renderDashboardVitalsHistory(vitalsHistory)
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
             <p>No vitals recorded yet.</p>
+           </div>`;
+}
+
+async function loadDashboardAppointments(patient)
+{
+    const body = document.getElementById("pdAppointmentsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const today = new Date().toISOString().slice(0, 10);
+        const result = await fetchAppointments({ patient_id: patient.id, from: today });
+
+        const appointments = (result.success ? result.data : [])
+            .slice()
+            .sort((a, b) => `${a.appointment_date} ${a.appointment_time}`.localeCompare(`${b.appointment_date} ${b.appointment_time}`));
+
+        renderDashboardAppointments(appointments);
+    } catch (error) {
+        console.error("Failed to load appointments", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load appointments right now.</p></div>`;
+    }
+}
+
+function renderDashboardAppointments(appointments)
+{
+    const body = document.getElementById("pdAppointmentsBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = appointments.length
+        ? `<div class="pd-allergy-list">
+            ${appointments.map((appt) => {
+                const provider = [appt.provider_first_name, appt.provider_last_name].filter(Boolean).join(" ");
+                const time = appt.is_all_day ? "All day" : (appt.appointment_time || "").slice(0, 5);
+                const label = [appt.reason || appt.title || appt.visit_category_name || "Appointment", provider ? `with ${provider}` : ""]
+                    .filter(Boolean).join(" ");
+
+                return `
+                    <div class="pd-allergy-item">
+                        <span class="pd-allergy-name">${escapeHtml((appt.appointment_date || "").slice(0, 10))} ${escapeHtml(time)} &middot; ${escapeHtml(label)}</span>
+                    </div>
+                `;
+            }).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+            <p>No upcoming appointments.</p>
            </div>`;
 }
 
