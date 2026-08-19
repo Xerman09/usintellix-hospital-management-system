@@ -2,8 +2,10 @@
 
 namespace App\Modules\EncounterVitals\Services;
 
+use App\Core\Database;
 use App\Modules\EncounterSections\Services\EncounterSectionService;
 use App\Modules\EncounterVitals\Models\EncounterVital;
+use PDO;
 
 class EncounterVitalService
 {
@@ -29,6 +31,26 @@ class EncounterVitalService
     public function find(int $encounterId): ?array
     {
         return (new EncounterVital())->where('encounter_id', $encounterId)->first();
+    }
+
+    /**
+     * Every vitals row recorded across all of a patient's encounters,
+     * most recent first -- backs the "Vitals" dashboard widget's history
+     * view (cross-encounter), as opposed to find() which is scoped to
+     * one encounter.
+     */
+    public function listForPatient(int $patientId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT ev.*, e.date_of_service
+             FROM encounter_vitals ev
+             JOIN encounters e ON e.id = ev.encounter_id
+             WHERE e.patient_id = :patient_id AND e.deleted_at IS NULL
+             ORDER BY e.date_of_service DESC, ev.id DESC"
+        );
+        $stmt->execute(['patient_id' => $patientId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**

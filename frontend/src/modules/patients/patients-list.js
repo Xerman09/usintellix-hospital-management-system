@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=41";
+import { PatientChartView } from "./patients-list.view.js?v=42";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -120,7 +120,9 @@ import {
 import {
     fetchSpeechDictationItems, addSpeechDictationItem, updateSpeechDictationItem, removeSpeechDictationItem
 } from "../encounter-sections/encounter-speech-dictation-items.service.js";
-import { fetchEncounterVitals, saveEncounterVitals } from "../encounter-sections/encounter-vitals.service.js";
+import {
+    fetchEncounterVitals, saveEncounterVitals, fetchVitalsHistory
+} from "../encounter-sections/encounter-vitals.service.js";
 import {
     fetchCarePlanItems, addCarePlanItem, updateCarePlanItem, removeCarePlanItem
 } from "../encounter-sections/encounter-care-plan-items.service.js";
@@ -2251,6 +2253,7 @@ export async function initPatientChartTab(patient)
 
     loadPatientDashboardWidgets(patient);
     loadDashboardInsurance(patient);
+    loadDashboardVitalsHistory(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -4718,6 +4721,59 @@ function renderDashboardInsurance(insurances)
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path></svg>
             <p>No insurance on file.</p>
+           </div>`;
+}
+
+async function loadDashboardVitalsHistory(patient)
+{
+    const body = document.getElementById("pdVitalsHistoryBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchVitalsHistory(patient.id);
+
+        renderDashboardVitalsHistory(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load vitals history", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load vitals right now.</p></div>`;
+    }
+}
+
+function summarizeVitalsEntry(vitals)
+{
+    const parts = [];
+
+    if (vitals.weight) parts.push(`Wt ${vitals.weight} lbs`);
+    if (vitals.height) parts.push(`Ht ${vitals.height} in`);
+    if (vitals.bp_systolic && vitals.bp_diastolic) parts.push(`BP ${vitals.bp_systolic}/${vitals.bp_diastolic}`);
+    if (vitals.pulse) parts.push(`Pulse ${vitals.pulse}`);
+    if (vitals.temperature) parts.push(`Temp ${vitals.temperature}F`);
+
+    return parts.length ? parts.join(", ") : "No values recorded";
+}
+
+function renderDashboardVitalsHistory(vitalsHistory)
+{
+    const body = document.getElementById("pdVitalsHistoryBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = vitalsHistory.length
+        ? `<div class="pd-allergy-list">
+            ${vitalsHistory.map((vitals) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">${escapeHtml((vitals.date_of_service || "").slice(0, 10) || "-")} &middot; ${escapeHtml(summarizeVitalsEntry(vitals))}</span>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+            <p>No vitals recorded yet.</p>
            </div>`;
 }
 

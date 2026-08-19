@@ -17,3 +17,10 @@ export async function saveEncounterVitals(encounterId, data)
         }
     );
 }
+
+export async function fetchVitalsHistory(patientId)
+{
+    const query = new URLSearchParams({ patient_id: patientId }).toString();
+
+    return await api(`/encounter-vitals/history?${query}`);
+}

@@ -49,6 +49,21 @@ class EncounterVitalController extends Controller
         $this->success($this->encounterVitalService->find($encounterId), 'Vitals retrieved successfully.');
     }
 
+    public function history(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $patientId = (int) $request->input('patient_id');
+
+        if (!$this->ownsPatient($user, $patientId)) {
+            $this->error('Patient not found.', 404);
+            return;
+        }
+
+        $this->success($this->encounterVitalService->listForPatient($patientId), 'Vitals history retrieved successfully.');
+    }
+
     public function update(): void
     {
         $request = new Request();
@@ -88,6 +103,28 @@ class EncounterVitalController extends Controller
         }
 
         $patient = (new Patient())->where('id', (int) $encounter['patient_id'])->first();
+
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return false;
+        }
+
+        if (($user['role'] ?? '') !== 'doctor') {
+            return true;
+        }
+
+        $provider = $this->providerService->findByUserId((int) $user['id']);
+        $providerId = $provider ? (int) $provider['id'] : 0;
+
+        return (int) $patient['provider_id'] === $providerId;
+    }
+
+    private function ownsPatient(array $user, int $patientId): bool
+    {
+        if (!$patientId) {
+            return false;
+        }
+
+        $patient = (new Patient())->where('id', $patientId)->first();
 
         if (!$patient || $patient['deleted_at'] !== null) {
             return false;

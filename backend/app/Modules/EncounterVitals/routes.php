@@ -13,3 +13,8 @@ $router->put('/encounter-vitals', [EncounterVitalController::class, 'update'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/encounter-vitals/history', [EncounterVitalController::class, 'history'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
