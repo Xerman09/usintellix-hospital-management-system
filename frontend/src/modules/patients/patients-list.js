@@ -1,5 +1,5 @@
 import { getUser } from "../../core/session.js";
-import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
+import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment } from "../appointments/appointments.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import { PatientChartView } from "./patients-list.view.js?v=41";
@@ -2236,6 +2236,8 @@ export async function initPatientChartTab(patient)
     setFact("pdFactAge", age === null ? "" : String(age));
     setFact("pdFactBloodType", patient.blood_type);
     setFact("pdFactProvider", providerName);
+
+    showPatientContextBar(patient);
 
     resetChartNav();
 
@@ -9971,6 +9973,51 @@ function setFact(elementId, value)
 
     el.textContent = value || "Not set";
     el.classList.toggle("empty", !value);
+}
+
+// Shows the persistent patient banner above the tab bar (outside the tab
+// content area, so it stays visible while switching between other open
+// tabs -- not just while the Patient Chart tab itself is active).
+function showPatientContextBar(patient)
+{
+    const bar = document.getElementById("patientContextBar");
+
+    if (!bar) {
+        return;
+    }
+
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const dob = formatDate(patient.birthdate);
+    const age = calculateAge(patient.birthdate);
+
+    const nameEl = document.getElementById("patientContextName");
+    nameEl.textContent = fullName || "Unnamed Patient";
+    nameEl.onclick = (event) => {
+        event.preventDefault();
+        openPatientChartTab(patient);
+    };
+
+    document.getElementById("patientContextMeta").textContent =
+        `DOB: ${dob || "Not set"}    Age: ${age === null ? "-" : age}`;
+
+    document.getElementById("patientContextClose").onclick = hidePatientContextBar;
+
+    bar.style.display = "flex";
+}
+
+function hidePatientContextBar()
+{
+    const bar = document.getElementById("patientContextBar");
+
+    if (bar) {
+        bar.style.display = "none";
+    }
+
+    clearLastActivePatientChart();
+
+    if (window.tabManager && window.tabManager.tabs.has("patient_chart")) {
+        window.tabManager.closeTab("patient_chart");
+    }
 }
 
 function setupPatientFilters(user)

@@ -77,6 +77,7 @@ require_once __DIR__ . '/../app/Modules/CarePlanReasonCodes/routes.php';
 require_once __DIR__ . '/../app/Modules/SpecimenSites/routes.php';
 require_once __DIR__ . '/../app/Modules/SpecimenMethods/routes.php';
 require_once __DIR__ . '/../app/Modules/SpecimenTypes/routes.php';
+require_once __DIR__ . '/../app/Modules/SpecimenConditions/routes.php';
 require_once __DIR__ . '/../app/Modules/CompletionStatuses/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientImmunizations/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientGeneralHistory/routes.php';

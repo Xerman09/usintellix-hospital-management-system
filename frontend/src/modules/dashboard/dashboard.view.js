@@ -77,6 +77,7 @@ function staffNavLinks(role)
                 <a data-tab="specimen_sites">Specimen Site Management</a>
                 <a data-tab="specimen_methods">Specimen Method Management</a>
                 <a data-tab="specimen_types">Specimen Type Management</a>
+                <a data-tab="specimen_conditions">Specimen Condition Management</a>
             </div>
         </div>
         ${role === "admin" ? `
@@ -180,6 +181,19 @@ export function DashboardView()
             </div>
         </div>
     </nav>
+
+    <div class="patient-context-bar" id="patientContextBar" style="display: none;">
+        <div class="patient-context-photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"></path></svg>
+        </div>
+        <div class="patient-context-info">
+            <div class="patient-context-name-row">
+                <a href="#" id="patientContextName" class="patient-context-name">&nbsp;</a>
+                <button type="button" class="patient-context-close" id="patientContextClose" aria-label="Clear selected patient">&times;</button>
+            </div>
+            <div class="patient-context-meta" id="patientContextMeta">&nbsp;</div>
+        </div>
+    </div>
 
     <div class="tab-bar" id="tabBar">
         <!-- Tabs will be rendered here dynamically -->

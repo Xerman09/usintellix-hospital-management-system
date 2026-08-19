@@ -100,6 +100,8 @@ import { SpecimenMethodsView } from "../specimen-methods/specimen-methods.view.j
 import { initSpecimenMethods } from "../specimen-methods/specimen-methods.js";
 import { SpecimenTypesView } from "../specimen-types/specimen-types.view.js";
 import { initSpecimenTypes } from "../specimen-types/specimen-types.js";
+import { SpecimenConditionsView } from "../specimen-conditions/specimen-conditions.view.js";
+import { initSpecimenConditions } from "../specimen-conditions/specimen-conditions.js";
 import { CompletionStatusesView } from "../completion-statuses/completion-statuses.view.js";
 import { initCompletionStatuses } from "../completion-statuses/completion-statuses.js";
 import { CqmValuesetsView } from "../cqm-valuesets/cqm-valuesets.view.js";
@@ -342,6 +344,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initSpecimenTypes, 0);
                 return SpecimenTypesView();
+            }, activate);
+        } else if (tabId === 'specimen_conditions') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSpecimenConditions, 0);
+                return SpecimenConditionsView();
             }, activate);
         } else if (tabId === 'completion_statuses') {
             tabManager.openTab(tabId, title, () => {

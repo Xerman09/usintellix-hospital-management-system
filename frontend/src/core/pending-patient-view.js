@@ -41,6 +41,11 @@ export function getLastActivePatientChart()
     return localStorage.getItem(LAST_ACTIVE_KEY);
 }
 
+export function clearLastActivePatientChart()
+{
+    localStorage.removeItem(LAST_ACTIVE_KEY);
+}
+
 // Tracks which chart-nav section (dashboard/history/encounter/etc.) was
 // last shown for whichever patient is in the shared Patient Chart tab, so
 // a page refresh reopens the same section instead of always resetting to
