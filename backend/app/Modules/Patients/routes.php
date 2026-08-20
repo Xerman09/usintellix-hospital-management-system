@@ -16,7 +16,7 @@ $router->get('/patients/dashboard-summary', [PatientController::class, 'dashboar
 
 $router->post('/patients', [PatientController::class, 'register'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist']]
 ]);
 
 $router->delete('/patients', [PatientController::class, 'destroy'], [
