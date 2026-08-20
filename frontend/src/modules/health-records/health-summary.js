@@ -17,6 +17,7 @@ export async function initHealthSummary(options = {})
     }
 
     renderHeader(result.data.demographics);
+    renderFacts(result.data.demographics, result.data.care_provider);
     renderAboutContact(result.data.demographics);
     renderCareProvider(result.data.care_provider);
     renderAllergies(result.data.allergies);
@@ -26,10 +27,73 @@ export async function initHealthSummary(options = {})
 
 function renderHeader(demographics)
 {
-    document.getElementById("hrsPatientName").textContent =
-        [demographics.first_name, demographics.middle_name, demographics.last_name, demographics.suffix].filter(Boolean).join(" ");
+    const fullName = [demographics.first_name, demographics.middle_name, demographics.last_name, demographics.suffix].filter(Boolean).join(" ");
 
+    document.getElementById("hrsPatientName").textContent = fullName;
     document.getElementById("hrsPatientNo").textContent = `Patient No: ${demographics.patient_no}`;
+    document.getElementById("hrsAvatar").textContent = (demographics.first_name || "?").charAt(0).toUpperCase();
+}
+
+function setFact(elementId, value)
+{
+    const el = document.getElementById(elementId);
+
+    if (!el) return;
+
+    el.textContent = value || "Not set";
+    el.classList.toggle("empty", !value);
+}
+
+function calculateAge(birthdate)
+{
+    if (!birthdate) {
+        return null;
+    }
+
+    const dob = new Date(birthdate);
+
+    if (Number.isNaN(dob.getTime())) {
+        return null;
+    }
+
+    const today = new Date();
+
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+
+    return age;
+}
+
+function formatDate(value)
+{
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function renderFacts(demographics, provider)
+{
+    const sex = demographics.sex ? demographics.sex.charAt(0).toUpperCase() + demographics.sex.slice(1) : "";
+    const providerName = provider ? [provider.first_name, provider.last_name].filter(Boolean).join(" ") : "";
+    const age = calculateAge(demographics.birthdate);
+
+    setFact("hrsFactSex", sex);
+    setFact("hrsFactBirthdate", formatDate(demographics.birthdate));
+    setFact("hrsFactAge", age === null ? "" : String(age));
+    setFact("hrsFactBloodType", demographics.blood_type);
+    setFact("hrsFactProvider", providerName);
 }
 
 function renderAboutContact(d)
@@ -44,7 +108,7 @@ function renderAboutContact(d)
 
     container.innerHTML = `
         <div>
-            <label style="display: block; font-weight: 600; margin-bottom: 8px;">About</label>
+            <label class="hrs-subcard-label">About</label>
             <div class="form-grid">
                 <div class="form-group"><label>Sex</label><p>${sex}</p></div>
                 <div class="form-group"><label>Civil Status</label><p>${civilStatus}</p></div>
@@ -59,7 +123,7 @@ function renderAboutContact(d)
             </div>
         </div>
         <div>
-            <label style="display: block; font-weight: 600; margin-bottom: 8px;">Contact</label>
+            <label class="hrs-subcard-label">Contact</label>
             <div class="form-grid">
                 <div class="form-group full"><label>Address</label><p>${address}</p></div>
                 <div class="form-group"><label>Home Phone</label><p>${d.home_phone ?? "-"}</p></div>
@@ -77,7 +141,7 @@ function renderCareProvider(provider)
     if (!el) return;
 
     if (!provider) {
-        el.innerHTML = `<p class="table-empty" style="padding: 10px 0; text-align: left;">No care provider assigned.</p>`;
+        el.innerHTML = `<p class="hrs-widget-empty-text">No care provider assigned.</p>`;
         return;
     }
 
@@ -101,7 +165,7 @@ function renderAllergies(allergies)
     if (!el) return;
 
     if (!allergies || !allergies.length) {
-        el.innerHTML = `<p class="table-empty" style="padding: 10px 0; text-align: left;">No allergies recorded.</p>`;
+        el.innerHTML = `<p class="hrs-widget-empty-text">No allergies recorded.</p>`;
         return;
     }
 
@@ -115,7 +179,7 @@ function renderEncounters(encounters)
     if (!el) return;
 
     if (!encounters || !encounters.length) {
-        el.innerHTML = `<p class="table-empty" style="padding: 10px 0; text-align: left;">No encounters recorded.</p>`;
+        el.innerHTML = `<p class="hrs-widget-empty-text">No encounters recorded.</p>`;
         return;
     }
 
@@ -151,7 +215,7 @@ function renderEmptySections(data)
         const records = data[key];
 
         el.innerHTML = (Array.isArray(records) && records.length)
-            ? `<p class="table-empty" style="padding: 10px 0; text-align: left;">${records.length} record(s) on file.</p>`
-            : `<p class="table-empty" style="padding: 10px 0; text-align: left;">No data recorded on file.</p>`;
+            ? `<p class="hrs-widget-empty-text">${records.length} record(s) on file.</p>`
+            : `<p class="hrs-widget-empty-text">No data recorded on file.</p>`;
     });
 }

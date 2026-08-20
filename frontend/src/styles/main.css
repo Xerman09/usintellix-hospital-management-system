@@ -1782,6 +1782,225 @@ select.form-input {
 }
 
 /* =========================
+   HEALTH RECORDS SUMMARY
+========================= */
+
+.hrs-page {
+    display: flex;
+    flex-direction: column;
+    margin: -24px;
+}
+
+.hrs-topbar {
+    display: flex;
+    align-items: center;
+    padding: 14px 24px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.hrs-topbar-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hrs-topbar-avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.hrs-topbar h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #14181f;
+}
+
+.hrs-topbar p {
+    margin: 1px 0 0;
+    font-size: 12px;
+    color: #6b7787;
+}
+
+.hrs-body {
+    display: flex;
+}
+
+.hrs-sidebar {
+    width: 232px;
+    flex-shrink: 0;
+    padding: 18px 16px;
+    border-right: 1px solid #e5e9f0;
+    background: #fbfcfe;
+}
+
+.hrs-fact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.hrs-fact {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.hrs-fact-label {
+    font-size: 11.5px;
+    color: #8b98ac;
+}
+
+.hrs-fact-value {
+    font-size: 12.5px;
+    color: #29323f;
+    font-weight: 600;
+    text-align: right;
+}
+
+.hrs-fact-value.empty {
+    font-weight: 400;
+    color: #a3adbd;
+}
+
+.hrs-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.hrs-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    color: #3b475a;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color .1s;
+}
+
+.hrs-nav-link:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.hrs-nav-link svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #8b98ac;
+}
+
+.hrs-nav-link:hover svg {
+    color: var(--accent);
+}
+
+.hrs-main {
+    flex: 1;
+    min-width: 0;
+    padding: 18px 20px;
+}
+
+.hrs-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.hrs-widget {
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    scroll-margin-top: 12px;
+}
+
+.hrs-widget-about {
+    margin-bottom: 12px;
+}
+
+.hrs-widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.hrs-widget-header-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.hrs-widget-header-title svg {
+    width: 14px;
+    height: 14px;
+    color: #6b7787;
+    flex-shrink: 0;
+}
+
+.hrs-widget-header h3 {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.hrs-widget-body {
+    padding: 12px;
+}
+
+.hrs-widget-empty-text {
+    margin: 0;
+    font-size: 12px;
+    color: #8b98ac;
+}
+
+.hrs-subcard-label {
+    display: block;
+    font-weight: 700;
+    font-size: 13px;
+    color: #25324b;
+    margin-bottom: 12px;
+}
+
+.hrs-about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 860px) {
+    .hrs-body { flex-direction: column; }
+    .hrs-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e9f0; }
+    .hrs-widget-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+    .hrs-about-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================
    APPOINTMENTS CALENDAR
    Small month calendar (upper-left) driving a day timeline that fills
    the rest of the container.
