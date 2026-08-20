@@ -1706,6 +1706,80 @@ select.form-input {
 }
 
 /* =========================
+   LOGOUT CONFIRM MODAL
+========================= */
+
+.logout-confirm-box {
+    position: relative;
+    max-width: 380px;
+    padding: 40px 36px 36px;
+    text-align: center;
+}
+
+.logout-confirm-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+}
+
+.logout-confirm-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+}
+
+.logout-confirm-icon svg {
+    width: 26px;
+    height: 26px;
+}
+
+.logout-confirm-title {
+    margin: 0 0 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a2338;
+}
+
+.logout-confirm-text {
+    margin: 0 auto 28px;
+    max-width: 270px;
+    color: #71809b;
+    font-size: 14.5px;
+    line-height: 1.5;
+}
+
+.logout-confirm-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.logout-confirm-actions .btn-secondary {
+    margin: 0;
+}
+
+.logout-confirm-btn {
+    flex: 1;
+    height: 46px;
+    border-radius: 14px;
+    border: none;
+    background: var(--accent-dark);
+    color: white;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.logout-confirm-btn:hover {
+    background: var(--accent-mid);
+}
+
+/* =========================
    APPOINTMENTS CALENDAR
    Small month calendar (upper-left) driving a day timeline that fills
    the rest of the container.

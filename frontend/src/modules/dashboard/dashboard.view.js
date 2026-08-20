@@ -205,15 +205,20 @@ export function DashboardView()
 </div>
 
 <div class="modal-overlay" id="logoutConfirmModalOverlay">
-    <div class="modal-box" style="max-width: 400px; text-align: center;">
-        <div class="modal-header">
-            <h2>Log Out</h2>
-            <button type="button" class="modal-close" id="closeLogoutConfirmModal">&times;</button>
+    <div class="modal-box logout-confirm-box">
+        <button type="button" class="modal-close logout-confirm-close" id="closeLogoutConfirmModal">&times;</button>
+        <div class="logout-confirm-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <path d="M16 17l5-5-5-5"></path>
+                <path d="M21 12H9"></path>
+            </svg>
         </div>
-        <p class="form-subtitle">Are you sure you want to logout?</p>
-        <div class="form-actions" style="justify-content: center; margin-top: 20px;">
+        <h2 class="logout-confirm-title">Log Out</h2>
+        <p class="logout-confirm-text">You're about to end your session. You'll need to sign in again to continue.</p>
+        <div class="logout-confirm-actions">
             <button type="button" class="btn-secondary" id="cancelLogoutBtn">Cancel</button>
-            <button type="button" class="btn-danger" id="confirmLogoutBtn">Logout</button>
+            <button type="button" class="logout-confirm-btn" id="confirmLogoutBtn">Log Out</button>
         </div>
     </div>
 </div>

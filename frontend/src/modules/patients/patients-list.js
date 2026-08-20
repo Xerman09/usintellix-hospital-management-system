@@ -2,8 +2,9 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
+import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=44";
+import { PatientChartView } from "./patients-list.view.js?v=45";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -12,6 +13,7 @@ import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto } from "./patients.service.js";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
+import { API_URL } from "../../core/api.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import {
     fetchPatientTransactions,
@@ -2479,6 +2481,7 @@ export async function initPatientChartTab(patient)
     loadDashboardInsurance(patient);
     loadDashboardVitalsHistory(patient);
     loadDashboardAppointments(patient);
+    loadDashboardDocuments(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2544,6 +2547,7 @@ export async function initPatientChartTab(patient)
     setupSpeechDictationModal();
     setupVitalsModal();
     setupLedgerPanel();
+    setupDocumentUploadModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -5053,6 +5057,124 @@ function renderDashboardAppointments(appointments)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
             <p>No upcoming appointments.</p>
            </div>`;
+}
+
+async function loadDashboardDocuments(patient)
+{
+    const body = document.getElementById("pdDocumentsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientDocuments(patient.id);
+
+        renderDashboardDocuments(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load documents", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load documents right now.</p></div>`;
+    }
+}
+
+function formatDocumentFileSize(bytes)
+{
+    if (!bytes) return "-";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderDashboardDocuments(documents)
+{
+    const body = document.getElementById("pdDocumentsBody");
+
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = documents.length
+        ? `<div class="pd-allergy-list">
+            ${documents.map((doc) => `
+                <div class="pd-allergy-item">
+                    <span class="pd-allergy-name">
+                        <a href="${API_URL}${doc.file_path}" target="_blank" rel="noopener">${escapeHtml(doc.original_filename)}</a>
+                        ${doc.category ? ` &middot; ${escapeHtml(doc.category)}` : ""} &middot; ${escapeHtml((doc.created_at || "").slice(0, 10) || "-")} &middot; ${formatDocumentFileSize(doc.file_size)}
+                        ${doc.uploaded_by_name ? ` &middot; by ${escapeHtml(doc.uploaded_by_name)}` : ""}
+                    </span>
+                    <button type="button" class="pd-allergy-remove" data-delete-doc-id="${doc.id}" title="Delete document">&times;</button>
+                </div>
+            `).join("")}
+           </div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
+            <p>No documents uploaded yet.</p>
+           </div>`;
+
+    body.querySelectorAll("[data-delete-doc-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Delete this document?")) {
+                return;
+            }
+
+            const result = await deletePatientDocument(btn.getAttribute("data-delete-doc-id"), currentDashboardPatient.id);
+
+            if (result.success) {
+                loadDashboardDocuments(currentDashboardPatient);
+            }
+        });
+    });
+}
+
+function openDocumentUploadModal()
+{
+    document.getElementById("patientDocumentFormAlert").innerHTML = "";
+    document.getElementById("patientDocumentForm").reset();
+    document.getElementById("patientDocumentModalOverlay").classList.add("open");
+}
+
+function setupDocumentUploadModal()
+{
+    const formOverlay = document.getElementById("patientDocumentModalOverlay");
+    const form = document.getElementById("patientDocumentForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdDocumentsAddBtn").addEventListener("click", openDocumentUploadModal);
+    document.getElementById("closePatientDocumentModal").addEventListener("click", closeForm);
+    document.getElementById("cancelPatientDocumentForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const fileInput = document.getElementById("patientDocument_file");
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showAlert("patientDocumentFormAlert", "Please choose a file to upload.", "error");
+            return;
+        }
+
+        const details = {
+            category: document.getElementById("patientDocument_category").value,
+            description: document.getElementById("patientDocument_description").value.trim()
+        };
+
+        const result = await uploadPatientDocument(currentDashboardPatient.id, file, details);
+
+        if (!result.success) {
+            showAlert("patientDocumentFormAlert", result.message || "Failed to upload document.", "error");
+            return;
+        }
+
+        closeForm();
+        await loadDashboardDocuments(currentDashboardPatient);
+    });
 }
 
 function setupInsuranceModals()

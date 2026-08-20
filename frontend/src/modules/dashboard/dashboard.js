@@ -9,8 +9,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=44";
-import { initPatientsList, restorePatientChartTab } from "../patients/patients-list.js?v=44";
+import { PatientsListView } from "../patients/patients-list.view.js?v=45";
+import { initPatientsList, restorePatientChartTab } from "../patients/patients-list.js?v=45";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -59,6 +59,8 @@ import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7"
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
 import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
 import { initHealthSummary } from "../health-records/health-summary.js?v=2";
+import { DocumentsView } from "../documents/documents.view.js";
+import { initDocuments } from "../documents/documents.js";
 import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
 import { ProfileView } from "../profile/profile.view.js";
@@ -419,6 +421,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(() => initHealthSummary({}), 0);
                 return HealthSummaryView();
+            }, activate);
+        } else if (tabId === 'documents' && user.role === 'patient') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initDocuments, 0);
+                return DocumentsView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
