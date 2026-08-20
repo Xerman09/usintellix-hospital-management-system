@@ -664,6 +664,89 @@ body {
 
 
 
+.login-page .login-field-label {
+
+    display: block;
+
+    margin: 0 0 6px;
+
+    color: var(--login-muted);
+
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+
+}
+
+
+
+.login-page .input-icon-group:has(.form-input:disabled) {
+
+    opacity: .55;
+    cursor: not-allowed;
+
+}
+
+
+
+.login-page .form-input:disabled {
+
+    cursor: not-allowed;
+
+}
+
+
+
+.login-btn-row {
+
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+
+}
+
+.login-btn-row .login-btn {
+
+    width: auto;
+
+}
+
+
+
+.login-btn-outline {
+
+    flex: 1;
+
+    height: 46px;
+
+    border-radius: 8px;
+    border: 1px solid var(--login-field-border);
+
+    background: transparent;
+
+    color: var(--login-muted);
+
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.login-btn-outline:hover {
+
+    border-color: rgba(255,255,255,.28);
+    color: var(--login-ink);
+
+}
+
+
+
 .login-secondary-btn {
 
     display: block;

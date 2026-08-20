@@ -8,6 +8,7 @@ use App\Modules\Auth\Models\TwoFactorCode;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\GeneralSettings\Services\GeneralSettingService;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Models\PatientContact;
 use App\Modules\Roles\Models\Role;
 use App\Modules\Users\Models\User;
 use PDO;
@@ -141,6 +142,107 @@ class AuthService
     }
 
     /**
+     * Complete a patient's forced first-login credential reset: verify
+     * their current (receptionist-assigned) password and the trusted
+     * email on file, then let them pick a new username/password.
+     */
+    public function completeFirstLogin(
+        int $userId,
+        string $currentPassword,
+        string $newUsername,
+        string $newPassword,
+        string $confirmPassword,
+        string $confirmEmail
+    ): array {
+        $errors = [];
+        $newUsername = trim($newUsername);
+
+        if (empty($currentPassword)) {
+            $errors['current_password'] = 'Current password is required.';
+        }
+
+        if (empty($newUsername)) {
+            $errors['username'] = 'Username is required.';
+        }
+
+        if (!$this->isStrongPassword($newPassword)) {
+            $errors['new_password'] = 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.';
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            $errors['confirm_password'] = 'Passwords do not match.';
+        }
+
+        if (empty($confirmEmail)) {
+            $errors['confirm_email'] = 'Email confirmation is required.';
+        }
+
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'message' => 'Please correct the errors below.',
+                'errors' => $errors
+            ];
+        }
+
+        $user = (new User())->where('id', $userId)->first();
+
+        if (!$user || !User::verifyPassword($currentPassword, $user['password'])) {
+            return [
+                'success' => false,
+                'message' => 'Current password is incorrect.',
+                'errors' => ['current_password' => 'Current password is incorrect.']
+            ];
+        }
+
+        if (strcasecmp($newUsername, $user['username']) !== 0
+            && (new User())->where('username', $newUsername)->first()
+        ) {
+            return [
+                'success' => false,
+                'message' => 'That username is already taken.',
+                'errors' => ['username' => 'That username is already taken.']
+            ];
+        }
+
+        $patient = (new Patient())->where('user_id', $userId)->first();
+        $contact = $patient ? (new PatientContact())->where('patient_id', $patient['id'])->first() : null;
+        $onFileEmail = $contact['email'] ?? null;
+
+        if (empty($onFileEmail) || strcasecmp(trim($confirmEmail), $onFileEmail) !== 0) {
+            return [
+                'success' => false,
+                'message' => 'That email does not match the one on file.',
+                'errors' => ['confirm_email' => 'That email does not match the one on file.']
+            ];
+        }
+
+        (new User())->update([
+            'username'              => $newUsername,
+            'password'              => User::hashPassword($newPassword),
+            'must_change_password'  => 0,
+            'updated_at'            => date('Y-m-d H:i:s'),
+            'updated_by'            => $userId
+        ], $userId);
+
+        return [
+            'success' => true,
+            'message' => 'Credentials updated successfully.',
+            'data' => [
+                'username' => $newUsername
+            ]
+        ];
+    }
+
+    private function isStrongPassword(string $password): bool
+    {
+        return strlen($password) >= 8
+            && preg_match('/[A-Z]/', $password) === 1
+            && preg_match('/[a-z]/', $password) === 1
+            && preg_match('/[0-9]/', $password) === 1;
+    }
+
+    /**
      * Finish authenticating: resolve the display role/name and store the
      * logged-in user in the session. Shared by the direct-login path and
      * the post-2FA-verification path so both end up with an identical
@@ -152,12 +254,13 @@ class AuthService
         $name = $this->resolveName($user, $employee);
 
         Session::put('user', [
-            'id'         => $user['id'],
-            'username'   => $user['username'],
-            'role'       => $resolvedRole,
-            'first_name' => $name['first_name'],
-            'last_name'  => $name['last_name'],
-            'avatar'     => $user['avatar'] ?? null
+            'id'                    => $user['id'],
+            'username'              => $user['username'],
+            'role'                  => $resolvedRole,
+            'first_name'            => $name['first_name'],
+            'last_name'             => $name['last_name'],
+            'avatar'                => $user['avatar'] ?? null,
+            'must_change_password'  => (bool) ($user['must_change_password'] ?? false)
         ]);
 
         return [

@@ -4,6 +4,7 @@ namespace App\Modules\Auth\Controllers;
 
 use App\Core\Controller;
 use App\Core\Request;
+use App\Core\Session;
 use App\Modules\Auth\Services\AuthService;
 
 class AuthController extends Controller
@@ -62,5 +63,37 @@ class AuthController extends Controller
         $this->authService->logout();
 
         $this->success(null, 'Logged out successfully.');
+    }
+
+    /**
+     * Complete the logged-in user's forced first-login credential reset.
+     */
+    public function completeFirstLogin(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->authService->completeFirstLogin(
+            (int) $user['id'],
+            (string) $request->input('current_password', ''),
+            (string) $request->input('username', ''),
+            (string) $request->input('new_password', ''),
+            (string) $request->input('confirm_password', ''),
+            (string) $request->input('confirm_email', '')
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $updatedUser = array_merge($user, [
+            'username'             => $result['data']['username'],
+            'must_change_password' => false
+        ]);
+
+        Session::put('user', $updatedUser);
+
+        $this->success(['user' => $updatedUser], $result['message']);
     }
 }

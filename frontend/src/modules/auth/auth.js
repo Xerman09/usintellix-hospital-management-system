@@ -1,6 +1,6 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor } from "./auth.service.js?v=2";
-import { saveUser } from "../../core/session.js";
+import { login, verifyTwoFactor, completeFirstLogin, logout } from "./auth.service.js?v=2";
+import { saveUser, clearSession } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
 
@@ -18,6 +18,9 @@ export function initLogin()
 
     const twoFactorForm =
         document.getElementById("twoFactorForm");
+
+    const firstLoginForm =
+        document.getElementById("firstLoginForm");
 
 
     loginForm.addEventListener(
@@ -71,11 +74,7 @@ export function initLogin()
             }
 
 
-            saveUser(result.data.user);
-
-
-            window.location.hash =
-                "#/dashboard";
+            proceedAfterAuthentication(result.data.user);
 
         }
     );
@@ -100,10 +99,7 @@ export function initLogin()
                 return;
             }
 
-            saveUser(result.data.user);
-
-            window.location.hash =
-                "#/dashboard";
+            proceedAfterAuthentication(result.data.user);
 
         }
     );
@@ -114,6 +110,104 @@ export function initLogin()
         showLoginStep();
     });
 
+
+    firstLoginForm.addEventListener(
+        "submit",
+        async (event) => {
+
+            event.preventDefault();
+
+            clearFirstLoginErrors();
+
+            const newPassword = document.getElementById("fl_new_password").value;
+            const confirmPassword = document.getElementById("fl_confirm_password").value;
+
+            if (newPassword !== confirmPassword) {
+                document.getElementById("err-fl_confirm_password").textContent = "Passwords do not match.";
+                return;
+            }
+
+            const result = await completeFirstLogin({
+                username: document.getElementById("fl_username").value.trim(),
+                current_password: document.getElementById("fl_current_password").value,
+                new_password: newPassword,
+                confirm_password: confirmPassword,
+                confirm_email: document.getElementById("fl_confirm_email").value.trim()
+            });
+
+            if (!result.success) {
+                showAlert(result.message, "error");
+
+                if (result.errors) {
+                    Object.entries(result.errors).forEach(([field, message]) => {
+                        const errorEl = document.getElementById(`err-fl_${field}`);
+
+                        if (errorEl) {
+                            errorEl.textContent = message;
+                        }
+                    });
+                }
+
+                return;
+            }
+
+            saveUser(result.data.user);
+
+            window.location.hash =
+                "#/dashboard";
+
+        }
+    );
+
+
+    document.getElementById("firstLoginCancelBtn").addEventListener("click", async () => {
+        await logout();
+        clearSession();
+        showLoginStep();
+    });
+
+}
+
+function proceedAfterAuthentication(user)
+{
+    if (user.must_change_password) {
+        showFirstLoginStep(user);
+        return;
+    }
+
+    saveUser(user);
+
+    window.location.hash =
+        "#/dashboard";
+}
+
+function showFirstLoginStep(user)
+{
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("twoFactorForm").style.display = "none";
+    document.getElementById("firstLoginForm").style.display = "";
+
+    document.getElementById("fl_account_name").value = user.username;
+    document.getElementById("fl_username").value = user.username;
+    document.getElementById("fl_current_password").value = "";
+    document.getElementById("fl_new_password").value = "";
+    document.getElementById("fl_confirm_password").value = "";
+    document.getElementById("fl_confirm_email").value = "";
+
+    clearFirstLoginErrors();
+}
+
+const FIRST_LOGIN_FIELDS = ["username", "current_password", "new_password", "confirm_password", "confirm_email"];
+
+function clearFirstLoginErrors()
+{
+    FIRST_LOGIN_FIELDS.forEach((field) => {
+        const errorEl = document.getElementById(`err-fl_${field}`);
+
+        if (errorEl) {
+            errorEl.textContent = "";
+        }
+    });
 }
 
 function showTwoFactorStep(data)
@@ -145,6 +239,7 @@ function showTwoFactorStep(data)
 function showLoginStep()
 {
     document.getElementById("twoFactorForm").style.display = "none";
+    document.getElementById("firstLoginForm").style.display = "none";
     document.getElementById("loginForm").style.display = "";
     document.getElementById("password").value = "";
     clearErrors();

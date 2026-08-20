@@ -85,6 +85,82 @@ export function LoginView()
 
         </form>
 
+        <form id="firstLoginForm" style="display:none;">
+
+            <p class="form-subtitle">Please enter new credentials to continue.</p>
+
+            <div class="form-group">
+                <label class="login-field-label" for="fl_account_name">Account Name</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21c0-3.87-3.58-7-8-7s-8 3.13-8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                    </span>
+                    <input id="fl_account_name" class="form-input" disabled>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="fl_username">Use Username</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21c0-3.87-3.58-7-8-7s-8 3.13-8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                    </span>
+                    <input id="fl_username" class="form-input">
+                </div>
+                <span class="form-error" id="err-fl_username"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="fl_current_password">Current Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="fl_current_password" type="password" class="form-input" autocomplete="current-password">
+                </div>
+                <span class="form-error" id="err-fl_current_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="fl_new_password">New Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="fl_new_password" type="password" class="form-input" placeholder="Min length is 8 with upper, lowercase, numbers mix" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-fl_new_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="fl_confirm_password">Confirm New Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="fl_confirm_password" type="password" class="form-input" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-fl_confirm_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="fl_confirm_email">Confirm Email Address</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m4 6 8 7 8-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <input id="fl_confirm_email" type="email" class="form-input" placeholder="Current on record trusted email">
+                </div>
+                <span class="form-error" id="err-fl_confirm_email"></span>
+            </div>
+
+            <div class="login-btn-row">
+                <button class="login-btn-outline" type="button" id="firstLoginCancelBtn">Cancel</button>
+                <button class="login-btn" type="submit">Log In</button>
+            </div>
+
+        </form>
+
     </div>
 
 </div>

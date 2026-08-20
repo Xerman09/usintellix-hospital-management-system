@@ -417,10 +417,11 @@ class PatientService
 
         try {
             $userId = (new User())->create([
-                'username'   => $data['username'],
-                'password'   => User::hashPassword($data['password']),
-                'created_at' => date('Y-m-d H:i:s'),
-                'created_by' => $createdBy
+                'username'             => $data['username'],
+                'password'             => User::hashPassword($data['password']),
+                'must_change_password' => 1,
+                'created_at'           => date('Y-m-d H:i:s'),
+                'created_by'           => $createdBy
             ]);
 
             if (!$userId) {

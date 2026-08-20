@@ -41,3 +41,16 @@ export async function verifyTwoFactor(code)
         }
     );
 }
+
+
+export async function completeFirstLogin(data)
+{
+    return await api(
+        "/auth/first-login",
+        {
+            method:"PUT",
+
+            body:JSON.stringify(data)
+        }
+    );
+}
