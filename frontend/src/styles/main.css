@@ -1914,13 +1914,7 @@ select.form-input {
     color: #6b7787;
 }
 
-.hrs-body {
-    display: flex;
-}
-
 .hrs-main {
-    flex: 1;
-    min-width: 0;
     padding: 18px 20px;
 }
 

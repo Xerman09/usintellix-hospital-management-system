@@ -76,32 +76,30 @@ export function HealthSummaryView()
             </div>
         </div>
 
-        <div class="hrs-body">
-            <div class="hrs-main">
-                <div class="hrs-widget hrs-widget-about">
-                    <div class="hrs-widget-header">
-                        <div class="hrs-widget-header-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path></svg>
-                            <h3>About &amp; Contact</h3>
-                        </div>
+        <div class="hrs-main">
+            <div class="hrs-widget hrs-widget-about">
+                <div class="hrs-widget-header">
+                    <div class="hrs-widget-header-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path></svg>
+                        <h3>About &amp; Contact</h3>
                     </div>
-                    <div class="hrs-widget-body">
-                        <div id="hrsAboutContact" class="hrs-about-grid">
-                            <div>
-                                <label class="hrs-subcard-label">About</label>
-                                <p class="hrs-widget-empty-text">Loading...</p>
-                            </div>
-                            <div>
-                                <label class="hrs-subcard-label">Contact</label>
-                                <p class="hrs-widget-empty-text">Loading...</p>
-                            </div>
+                </div>
+                <div class="hrs-widget-body">
+                    <div id="hrsAboutContact" class="hrs-about-grid">
+                        <div>
+                            <label class="hrs-subcard-label">About</label>
+                            <p class="hrs-widget-empty-text">Loading...</p>
+                        </div>
+                        <div>
+                            <label class="hrs-subcard-label">Contact</label>
+                            <p class="hrs-widget-empty-text">Loading...</p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="hrs-widget-grid">
-                    ${widgets}
-                </div>
+            <div class="hrs-widget-grid">
+                ${widgets}
             </div>
         </div>
 </div>

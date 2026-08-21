@@ -2,6 +2,7 @@
 
 namespace App\Modules\HealthRecords\Services;
 
+use App\Core\Cache;
 use App\Core\Database;
 use App\Modules\Appointments\Services\AppointmentService;
 use App\Modules\PatientAllergies\Services\PatientAllergyService;
@@ -31,10 +32,16 @@ class HealthRecordSummaryService
     }
 
     /**
-     * Build a CCD-style health record summary for a single patient.
-     * Sections with no patient-linked data source yet return an empty array.
+     * Build a CCD-style health record summary for a single patient, cached
+     * for up to a minute so repeatedly opening the same patient's summary
+     * doesn't re-run the full set of section queries every time.
      */
     public function getSummary(int $patientId): ?array
+    {
+        return Cache::remember("health_summary:{$patientId}", 60, fn () => $this->buildSummary($patientId));
+    }
+
+    private function buildSummary(int $patientId): ?array
     {
         $patient = $this->fetchPatient($patientId);
 
