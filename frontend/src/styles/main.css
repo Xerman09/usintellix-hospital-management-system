@@ -2807,6 +2807,49 @@ select.form-input {
     padding: 18px 24px;
 }
 
+.docs-instructions {
+    background: var(--accent-light);
+    border: 1px solid var(--accent-border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+}
+
+.docs-instructions h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent-dark);
+}
+
+.docs-instructions-welcome {
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: #3b475a;
+}
+
+.docs-instructions h3 {
+    margin: 14px 0 4px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--accent-text);
+}
+
+.docs-instructions h3:first-of-type {
+    margin-top: 0;
+}
+
+.docs-instructions ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.docs-instructions li {
+    font-size: 12.5px;
+    color: #3b475a;
+    line-height: 1.6;
+}
+
 /* =========================
    TOAST NOTIFICATIONS
 ========================= */

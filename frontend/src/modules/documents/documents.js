@@ -1,6 +1,7 @@
 import { fetchPatientDocuments, uploadPatientDocument } from "../patient-documents/patient-documents.service.js";
 import { escapeHtml } from "../appointments/appointment-format.js";
 import { API_URL } from "../../core/api.js";
+import { getUser } from "../../core/session.js";
 
 export async function initDocuments()
 {
@@ -10,9 +11,24 @@ export async function initDocuments()
         return;
     }
 
+    renderWelcomeName();
     setupToolbar();
     setupUploadModal();
     await loadDocuments();
+}
+
+function renderWelcomeName()
+{
+    const el = document.getElementById("docsWelcomeName");
+
+    if (!el) {
+        return;
+    }
+
+    const user = getUser();
+    const name = user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : "";
+
+    el.textContent = name ? `, ${name}` : "";
 }
 
 async function loadDocuments()

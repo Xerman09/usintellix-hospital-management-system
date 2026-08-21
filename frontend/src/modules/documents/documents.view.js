@@ -25,6 +25,29 @@ export function DocumentsView()
     </div>
 
     <div class="docs-body">
+        <div class="docs-instructions">
+            <h2>Instructions</h2>
+            <p class="docs-instructions-welcome">Welcome<span id="docsWelcomeName"></span></p>
+
+            <h3>Viewing Your Documents</h3>
+            <ul>
+                <li>Files your care team has shared with you appear in the table below.</li>
+                <li>Click <strong>Download</strong> next to any file to open or save a copy.</li>
+            </ul>
+
+            <h3>Uploading Documents</h3>
+            <ul>
+                <li>Click <strong>Upload</strong> in the toolbar above.</li>
+                <li>Choose a file, optionally set a category and description, then click <strong>Upload</strong> to add it to your Documents list.</li>
+                <li>Accepted file types: PDF, JPG, PNG, GIF, WEBP, DOC, DOCX, XLS, XLSX &mdash; up to 10MB.</li>
+            </ul>
+
+            <h3>Staying Up To Date</h3>
+            <ul>
+                <li>Click <strong>Reload</strong> in the toolbar if you're expecting a new file and don't see it yet.</li>
+            </ul>
+        </div>
+
         <div class="table-wrap">
             <table class="data-table">
                 <thead>
