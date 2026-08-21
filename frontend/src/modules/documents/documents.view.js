@@ -48,23 +48,7 @@ export function DocumentsView()
             </ul>
         </div>
 
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Uploaded By</th>
-                        <th>Date</th>
-                        <th>Size</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="docsTableBody">
-                    <tr><td colspan="6" class="table-empty">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
+        <div id="docsListContainer"></div>
     </div>
 </div>
 

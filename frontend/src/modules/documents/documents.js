@@ -5,9 +5,9 @@ import { getUser } from "../../core/session.js";
 
 export async function initDocuments()
 {
-    const body = document.getElementById("docsTableBody");
+    const container = document.getElementById("docsListContainer");
 
-    if (!body) {
+    if (!container) {
         return;
     }
 
@@ -33,13 +33,11 @@ function renderWelcomeName()
 
 async function loadDocuments()
 {
-    const body = document.getElementById("docsTableBody");
+    const container = document.getElementById("docsListContainer");
 
-    if (!body) {
+    if (!container) {
         return;
     }
-
-    body.innerHTML = `<tr><td colspan="6" class="table-empty">Loading...</td></tr>`;
 
     try {
         const result = await fetchPatientDocuments();
@@ -47,7 +45,7 @@ async function loadDocuments()
         renderDocuments(result.success ? result.data : []);
     } catch (error) {
         console.error("Failed to load documents", error);
-        body.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load documents right now.</td></tr>`;
+        container.innerHTML = `<p class="table-empty">Unable to load documents right now.</p>`;
     }
 }
 
@@ -141,18 +139,39 @@ function formatFileSize(bytes)
 
 function renderDocuments(documents)
 {
-    const body = document.getElementById("docsTableBody");
+    const container = document.getElementById("docsListContainer");
 
-    body.innerHTML = documents.length
-        ? documents.map((doc) => `
-            <tr>
-                <td>${escapeHtml(doc.original_filename)}</td>
-                <td>${escapeHtml(doc.category || "-")}</td>
-                <td>${escapeHtml(doc.uploaded_by_name || "-")}</td>
-                <td>${escapeHtml((doc.created_at || "").slice(0, 10) || "-")}</td>
-                <td>${formatFileSize(doc.file_size)}</td>
-                <td><a href="${API_URL}${doc.file_path}" target="_blank" rel="noopener">Download</a></td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="6" class="table-empty">No documents have been shared with you yet.</td></tr>`;
+    if (!documents.length) {
+        container.innerHTML = `<p class="table-empty">No documents have been shared with you yet.</p>`;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Uploaded By</th>
+                        <th>Date</th>
+                        <th>Size</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${documents.map((doc) => `
+                        <tr>
+                            <td>${escapeHtml(doc.original_filename)}</td>
+                            <td>${escapeHtml(doc.category || "-")}</td>
+                            <td>${escapeHtml(doc.uploaded_by_name || "-")}</td>
+                            <td>${escapeHtml((doc.created_at || "").slice(0, 10) || "-")}</td>
+                            <td>${formatFileSize(doc.file_size)}</td>
+                            <td><a href="${API_URL}${doc.file_path}" target="_blank" rel="noopener">Download</a></td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
 }
