@@ -57,6 +57,8 @@ import { AppointmentsListView } from "../appointments/appointments-list.view.js?
 import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
+import { PatientAppointmentsView } from "../appointments/patient-appointments.view.js";
+import { initPatientAppointments } from "../appointments/patient-appointments.js";
 import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
 import { initHealthSummary } from "../health-records/health-summary.js?v=2";
 import { DocumentsView } from "../documents/documents.view.js";
@@ -381,6 +383,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAppointmentsList, 0);
                 return AppointmentsListView(user);
+            }, activate);
+        } else if (tabId === 'appointments' && user.role === 'patient') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientAppointments, 0);
+                return PatientAppointmentsView();
             }, activate);
         } else if (tabId === 'messaging') {
             tabManager.openTab(tabId, title, () => {

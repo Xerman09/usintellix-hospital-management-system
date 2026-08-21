@@ -111,7 +111,7 @@ function staffNavLinks(role)
 }
 
 const PATIENT_NAV_LINKS = `
-    <a data-tab="appointments">Calendar</a>
+    <a data-tab="appointments">Appointments</a>
     <div class="nav-dropdown">
         <span>Patient Health Records</span>
         <div class="dropdown-content">

@@ -2578,6 +2578,238 @@ select.form-input {
 }
 
 /* =========================
+   PATIENT APPOINTMENT CARDS
+========================= */
+
+.pt-appt-page {
+    display: flex;
+    flex-direction: column;
+    margin: -24px;
+}
+
+.pt-appt-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pt-appt-topbar h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #14181f;
+}
+
+.pt-appt-topbar p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: #6b7787;
+}
+
+.pt-appt-view-switch {
+    display: flex;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.pt-appt-view-btn {
+    padding: 0 16px;
+    height: 32px;
+    border: none;
+    border-left: 1px solid #dbe1ea;
+    background: white;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #71809b;
+    cursor: pointer;
+}
+
+.pt-appt-view-btn:first-child {
+    border-left: none;
+}
+
+.pt-appt-view-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+.pt-appt-cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.pt-appt-nav-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    background: white;
+    color: #42536b;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.pt-appt-nav-btn:hover {
+    background: #f8fafc;
+}
+
+.pt-appt-cal-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #25324b;
+    min-width: 160px;
+    text-align: center;
+}
+
+.pt-appt-cal-day {
+    margin-top: 28px;
+}
+
+.pt-appt-body {
+    padding: 24px;
+}
+
+.appt-section {
+    margin-bottom: 32px;
+}
+
+.appt-section:last-child {
+    margin-bottom: 0;
+}
+
+.appt-section-title {
+    font-size: 15px;
+    margin: 0 0 14px;
+    color: #25324b;
+}
+
+.appt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.appt-empty {
+    padding: 24px;
+    text-align: center;
+    color: #71809b;
+    background: #f6f8fc;
+    border-radius: 14px;
+    font-size: 14px;
+}
+
+.pt-appt-card {
+    display: flex;
+    align-items: stretch;
+    background: white;
+    border: 1px solid #e6ebf5;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(15, 37, 87, 0.05);
+    overflow: hidden;
+}
+
+.pt-appt-card-date {
+    flex: 0 0 84px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 16px 12px;
+    background: var(--accent-light);
+    border-right: 1px dashed var(--accent-border);
+    color: var(--accent-text);
+}
+
+.pt-appt-card-weekday {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pt-appt-card-day {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--accent-dark);
+}
+
+.pt-appt-card-month {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.pt-appt-card-body {
+    flex: 1;
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.pt-appt-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pt-appt-card-time {
+    font-size: 15px;
+    font-weight: 700;
+    color: #25324b;
+}
+
+.pt-appt-card-with {
+    font-size: 14px;
+    font-weight: 600;
+    color: #25324b;
+}
+
+.pt-appt-card-reason,
+.pt-appt-card-location {
+    font-size: 13px;
+    color: #71809b;
+}
+
+.pt-appt-card--past {
+    opacity: 0.7;
+}
+
+.pt-appt-card--past .pt-appt-card-date {
+    background: #f1f3f8;
+    border-right-color: #dbe0ea;
+    color: #71809b;
+}
+
+.pt-appt-card--past .pt-appt-card-day {
+    color: #4b5670;
+}
+
+.pt-appt-card.cancelled .pt-appt-card-date {
+    background: #fef2f2;
+    border-right-color: #fecaca;
+    color: #b91c1c;
+}
+
+.pt-appt-card.cancelled .pt-appt-card-day {
+    color: #b91c1c;
+}
+
+/* =========================
    TOAST NOTIFICATIONS
 ========================= */
 

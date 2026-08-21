@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Appointments\Services\AppointmentService;
+use App\Modules\Patients\Models\Patient;
 use App\Modules\Providers\Services\ProviderService;
 
 class AppointmentController extends Controller
@@ -21,7 +22,8 @@ class AppointmentController extends Controller
 
     /**
      * List appointments, scoped to the logged-in doctor's own
-     * provider record when applicable.
+     * provider record, or the logged-in patient's own patient record,
+     * when applicable.
      */
     public function index(): void
     {
@@ -29,8 +31,9 @@ class AppointmentController extends Controller
         $request = new Request();
 
         $providerId = $this->resolveProviderId($user);
+        $restrictPatientId = $this->resolvePatientId($user);
 
-        $patientId = $request->input('patient_id') ? (int) $request->input('patient_id') : null;
+        $patientId = $restrictPatientId ?? ($request->input('patient_id') ? (int) $request->input('patient_id') : null);
         $from = $request->input('from');
         $to = $request->input('to');
 
@@ -236,5 +239,20 @@ class AppointmentController extends Controller
         $provider = $this->providerService->findByUserId((int) $user['id']);
 
         return $provider ? (int) $provider['id'] : 0;
+    }
+
+    /**
+     * Resolve the patient_id a patient is restricted to (0 if they have
+     * no patient record), or null for roles with unrestricted access.
+     */
+    private function resolvePatientId(array $user): ?int
+    {
+        if ($user['role'] !== 'patient') {
+            return null;
+        }
+
+        $patient = (new Patient())->where('user_id', $user['id'])->first();
+
+        return $patient ? (int) $patient['id'] : 0;
     }
 }

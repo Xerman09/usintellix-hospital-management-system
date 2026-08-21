@@ -6,7 +6,7 @@ use App\Modules\Appointments\Controllers\AppointmentController;
 
 $router->get('/appointments', [AppointmentController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->post('/appointments', [AppointmentController::class, 'store'], [
