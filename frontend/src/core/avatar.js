@@ -6,11 +6,13 @@ import { API_URL } from "./api.js";
  */
 export function avatarHtml(user)
 {
+    const letter = (user?.username || "U").charAt(0).toUpperCase();
+
     if (user?.avatar) {
-        return `<img src="${API_URL}${user.avatar}" alt="Avatar">`;
+        return `<img src="${API_URL}${user.avatar}" alt="${letter}" onerror="this.outerHTML='${letter}'">`;
     }
 
-    return (user?.username || "U").charAt(0).toUpperCase();
+    return letter;
 }
 
 /**
