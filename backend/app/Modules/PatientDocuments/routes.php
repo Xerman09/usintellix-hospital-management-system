@@ -11,7 +11,7 @@ $router->get('/patient-documents', [PatientDocumentController::class, 'index'], 
 
 $router->post('/patient-documents', [PatientDocumentController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->delete('/patient-documents', [PatientDocumentController::class, 'destroy'], [

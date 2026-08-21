@@ -2740,6 +2740,74 @@ select.form-input {
 }
 
 /* =========================
+   PATIENT DOCUMENTS
+========================= */
+
+.docs-page {
+    display: flex;
+    flex-direction: column;
+    margin: -24px;
+}
+
+.docs-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.docs-topbar h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #14181f;
+}
+
+.docs-topbar p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: #6b7787;
+}
+
+.docs-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.docs-tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid var(--accent-border);
+    background: white;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.docs-tool-btn:hover {
+    background: var(--accent-light);
+}
+
+.docs-tool-btn svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.docs-body {
+    padding: 18px 24px;
+}
+
+/* =========================
    TOAST NOTIFICATIONS
 ========================= */
 

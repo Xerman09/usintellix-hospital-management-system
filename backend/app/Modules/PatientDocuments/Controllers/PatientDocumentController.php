@@ -40,9 +40,9 @@ class PatientDocumentController extends Controller
         $request = new Request();
         $user = Session::get('user');
 
-        $patientId = (int) $request->input('patient_id');
+        $patientId = $this->resolvePatientId($user, $request);
 
-        if (!$this->ownsPatient($user, $patientId)) {
+        if (!$patientId) {
             $this->error('Patient not found.', 404);
             return;
         }
