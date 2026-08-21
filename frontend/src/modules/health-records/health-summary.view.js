@@ -1,14 +1,19 @@
+// Sections rendered as full-width record tables (the "Health Snapshot"
+// medical lists), as opposed to the narrower key/value CCD sections.
+export const HRS_WIDE_KEYS = ["immunizations", "medications", "prescriptions", "allergies", "problems", "results"];
+
 export const HRS_SECTIONS = [
     { key: "care_provider", label: "Care Providers", icon: "people" },
-    { key: "allergies", label: "Allergies, Adverse Reactions, Alerts", icon: "alert" },
-    { key: "medications", label: "History of Medication Use", icon: "pill" },
-    { key: "problems", label: "Problem List / Diagnosis List", icon: "issue" },
+    { key: "immunizations", label: "Patient Immunization", icon: "syringe" },
+    { key: "medications", label: "Current Medications", icon: "pill" },
+    { key: "prescriptions", label: "Active Prescriptions", icon: "pill" },
+    { key: "allergies", label: "Medication Allergy List", icon: "alert" },
+    { key: "problems", label: "Current Problems List", icon: "issue" },
+    { key: "results", label: "Lab Results", icon: "pulse" },
     { key: "procedures", label: "History of Procedures", icon: "clipboard" },
-    { key: "results", label: "Relevant Diagnostic Tests / Lab Data", icon: "pulse" },
     { key: "advance_directives", label: "Advance Directives", icon: "document" },
     { key: "functional_status", label: "Functional Status", icon: "pulse" },
     { key: "encounters", label: "Encounters", icon: "calendar" },
-    { key: "immunizations", label: "Immunizations", icon: "syringe" },
     { key: "payers", label: "Payers", icon: "shield" },
     { key: "assessments", label: "Assessments", icon: "clipboard" },
     { key: "treatment_plan", label: "Treatment Plan", icon: "document" },
@@ -45,15 +50,8 @@ function hrsIcon(name)
 
 export function HealthSummaryView()
 {
-    const navLinks = HRS_SECTIONS.map((section) => `
-        <a href="#hrs-widget-${section.key}" class="hrs-nav-link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${hrsIcon(section.icon)}</svg>
-            <span>${section.label}</span>
-        </a>
-    `).join("");
-
     const widgets = HRS_SECTIONS.map((section) => `
-        <div class="hrs-widget" id="hrs-widget-${section.key}">
+        <div class="hrs-widget${HRS_WIDE_KEYS.includes(section.key) ? " hrs-widget--wide" : ""}" id="hrs-widget-${section.key}">
             <div class="hrs-widget-header">
                 <div class="hrs-widget-header-title">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${hrsIcon(section.icon)}</svg>
@@ -79,35 +77,6 @@ export function HealthSummaryView()
         </div>
 
         <div class="hrs-body">
-            <div class="hrs-sidebar">
-                <div class="hrs-fact-list">
-                    <div class="hrs-fact">
-                        <span class="hrs-fact-label">Sex</span>
-                        <span class="hrs-fact-value" id="hrsFactSex">-</span>
-                    </div>
-                    <div class="hrs-fact">
-                        <span class="hrs-fact-label">Birthdate</span>
-                        <span class="hrs-fact-value" id="hrsFactBirthdate">-</span>
-                    </div>
-                    <div class="hrs-fact">
-                        <span class="hrs-fact-label">Age</span>
-                        <span class="hrs-fact-value" id="hrsFactAge">-</span>
-                    </div>
-                    <div class="hrs-fact">
-                        <span class="hrs-fact-label">Blood Type</span>
-                        <span class="hrs-fact-value" id="hrsFactBloodType">-</span>
-                    </div>
-                    <div class="hrs-fact">
-                        <span class="hrs-fact-label">Care Provider</span>
-                        <span class="hrs-fact-value" id="hrsFactProvider">-</span>
-                    </div>
-                </div>
-
-                <nav class="hrs-nav">
-                    ${navLinks}
-                </nav>
-            </div>
-
             <div class="hrs-main">
                 <div class="hrs-widget hrs-widget-about">
                     <div class="hrs-widget-header">

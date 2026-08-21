@@ -5,17 +5,29 @@ namespace App\Modules\HealthRecords\Services;
 use App\Core\Database;
 use App\Modules\Appointments\Services\AppointmentService;
 use App\Modules\PatientAllergies\Services\PatientAllergyService;
+use App\Modules\PatientImmunizations\Services\PatientImmunizationService;
+use App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService;
+use App\Modules\PatientMedications\Services\PatientMedicationService;
+use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
 use PDO;
 
 class HealthRecordSummaryService
 {
     private AppointmentService $appointmentService;
     private PatientAllergyService $patientAllergyService;
+    private PatientImmunizationService $patientImmunizationService;
+    private PatientMedicalProblemService $patientMedicalProblemService;
+    private PatientMedicationService $patientMedicationService;
+    private PatientPrescriptionService $patientPrescriptionService;
 
     public function __construct()
     {
         $this->appointmentService = new AppointmentService();
         $this->patientAllergyService = new PatientAllergyService();
+        $this->patientImmunizationService = new PatientImmunizationService();
+        $this->patientMedicalProblemService = new PatientMedicalProblemService();
+        $this->patientMedicationService = new PatientMedicationService();
+        $this->patientPrescriptionService = new PatientPrescriptionService();
     }
 
     /**
@@ -68,16 +80,16 @@ class HealthRecordSummaryService
                 'email'           => $patient['provider_email']
             ] : null,
             'allergies'            => $this->patientAllergyService->list($patientId),
-            'medications'          => [],
-            'prescriptions'        => [],
+            'medications'          => $this->patientMedicationService->list($patientId),
+            'prescriptions'        => $this->patientPrescriptionService->list($patientId),
             'clinical_reminders'   => [],
-            'problems'             => [],
+            'problems'             => $this->patientMedicalProblemService->list($patientId),
             'procedures'           => [],
             'results'              => [],
             'advance_directives'   => [],
             'functional_status'    => [],
             'encounters'           => $this->appointmentService->list(null, $patientId),
-            'immunizations'        => [],
+            'immunizations'        => $this->patientImmunizationService->list($patientId),
             'payers'               => [],
             'assessments'          => [],
             'treatment_plan'       => [],

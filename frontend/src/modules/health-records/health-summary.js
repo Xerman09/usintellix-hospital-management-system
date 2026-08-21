@@ -1,10 +1,18 @@
 import { fetchHealthSummary } from "./health-records.service.js";
 import { HRS_SECTIONS } from "./health-summary.view.js?v=2";
-import { formatApptDate, formatApptTime, statusLabel } from "../appointments/appointment-format.js";
+import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js";
+
+// Sections with their own detailed-table renderer, as opposed to the
+// generic "N record(s) on file" placeholder used for the rest.
+const CUSTOM_RENDERED_KEYS = ["care_provider", "encounters", "allergies", "medications", "prescriptions", "problems", "immunizations"];
 
 const EMPTY_SECTION_KEYS = HRS_SECTIONS
     .map((section) => section.key)
-    .filter((key) => !["care_provider", "encounters", "allergies"].includes(key));
+    .filter((key) => !CUSTOM_RENDERED_KEYS.includes(key));
+
+const EMPTY_TEXT_OVERRIDES = {
+    results: "No Results"
+};
 
 export async function initHealthSummary(options = {})
 {
@@ -17,11 +25,14 @@ export async function initHealthSummary(options = {})
     }
 
     renderHeader(result.data.demographics);
-    renderFacts(result.data.demographics, result.data.care_provider);
     renderAboutContact(result.data.demographics);
     renderCareProvider(result.data.care_provider);
-    renderAllergies(result.data.allergies);
+    renderAllergiesTable(result.data.allergies);
     renderEncounters(result.data.encounters);
+    renderImmunizations(result.data.immunizations);
+    renderDrugTable("hrs-medications", result.data.medications, "No records found.");
+    renderDrugTable("hrs-prescriptions", result.data.prescriptions, "No Results");
+    renderProblems(result.data.problems);
     renderEmptySections(result.data);
 }
 
@@ -32,40 +43,6 @@ function renderHeader(demographics)
     document.getElementById("hrsPatientName").textContent = fullName;
     document.getElementById("hrsPatientNo").textContent = `Patient No: ${demographics.patient_no}`;
     document.getElementById("hrsAvatar").textContent = (demographics.first_name || "?").charAt(0).toUpperCase();
-}
-
-function setFact(elementId, value)
-{
-    const el = document.getElementById(elementId);
-
-    if (!el) return;
-
-    el.textContent = value || "Not set";
-    el.classList.toggle("empty", !value);
-}
-
-function calculateAge(birthdate)
-{
-    if (!birthdate) {
-        return null;
-    }
-
-    const dob = new Date(birthdate);
-
-    if (Number.isNaN(dob.getTime())) {
-        return null;
-    }
-
-    const today = new Date();
-
-    let age = today.getFullYear() - dob.getFullYear();
-    const monthDiff = today.getMonth() - dob.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-        age--;
-    }
-
-    return age;
 }
 
 function formatDate(value)
@@ -81,19 +58,6 @@ function formatDate(value)
     }
 
     return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
-function renderFacts(demographics, provider)
-{
-    const sex = demographics.sex ? demographics.sex.charAt(0).toUpperCase() + demographics.sex.slice(1) : "";
-    const providerName = provider ? [provider.first_name, provider.last_name].filter(Boolean).join(" ") : "";
-    const age = calculateAge(demographics.birthdate);
-
-    setFact("hrsFactSex", sex);
-    setFact("hrsFactBirthdate", formatDate(demographics.birthdate));
-    setFact("hrsFactAge", age === null ? "" : String(age));
-    setFact("hrsFactBloodType", demographics.blood_type);
-    setFact("hrsFactProvider", providerName);
 }
 
 function renderAboutContact(d)
@@ -158,18 +122,113 @@ function renderCareProvider(provider)
     `;
 }
 
-function renderAllergies(allergies)
+function renderAllergiesTable(allergies)
 {
-    const el = document.getElementById("hrs-allergies");
+    renderListTable(
+        "hrs-allergies",
+        allergies,
+        "No records found.",
+        ["Title", "Reported Date", "Start Date", "End Date", "Referrer"],
+        (allergy) => `
+            <tr>
+                <td>${escapeHtml(allergy.name)}</td>
+                <td>${formatDateTime(allergy.created_at)}</td>
+                <td>${formatDate(allergy.begin_date)}</td>
+                <td>${formatDate(allergy.end_date)}</td>
+                <td>${escapeHtml(allergy.referred_by || "-")}</td>
+            </tr>
+        `
+    );
+}
+
+function renderImmunizations(immunizations)
+{
+    renderListTable(
+        "hrs-immunizations",
+        immunizations,
+        "No records found.",
+        ["Vaccine", "Date Administered", "Manufacturer", "Administered By"],
+        (imm) => `
+            <tr>
+                <td>${escapeHtml(imm.vaccine_name || imm.cvx_code || "-")}</td>
+                <td>${formatDateTime(imm.administered_at)}</td>
+                <td>${escapeHtml(imm.manufacturer || "-")}</td>
+                <td>${escapeHtml(imm.administered_by_provider_name || imm.administered_by || "-")}</td>
+            </tr>
+        `
+    );
+}
+
+function renderDrugTable(elementId, records, emptyMessage)
+{
+    renderListTable(
+        elementId,
+        records,
+        emptyMessage,
+        ["Drug", "Start Date", "Last Modified", "End Date"],
+        (drug) => `
+            <tr>
+                <td>${escapeHtml(drug.title)}</td>
+                <td>${formatDate(drug.begin_date)}</td>
+                <td>${formatDateTime(drug.updated_at || drug.created_at)}</td>
+                <td>${formatDate(drug.end_date)}</td>
+            </tr>
+        `
+    );
+}
+
+function renderProblems(problems)
+{
+    renderListTable(
+        "hrs-problems",
+        problems,
+        "No records found.",
+        ["Title", "Reported Date", "Start Date", "End Date"],
+        (problem) => `
+            <tr>
+                <td>${escapeHtml(problem.title)}</td>
+                <td>${formatDateTime(problem.created_at)}</td>
+                <td>${formatDate(problem.begin_date)}</td>
+                <td>${formatDate(problem.end_date)}</td>
+            </tr>
+        `
+    );
+}
+
+function renderListTable(elementId, records, emptyMessage, headers, rowRenderer)
+{
+    const el = document.getElementById(elementId);
 
     if (!el) return;
 
-    if (!allergies || !allergies.length) {
-        el.innerHTML = `<p class="hrs-widget-empty-text">No allergies recorded.</p>`;
+    if (!records || !records.length) {
+        el.innerHTML = `<p class="hrs-widget-empty-text">${emptyMessage}</p>`;
         return;
     }
 
-    el.innerHTML = `<ul style="margin: 0; padding-left: 18px;">${allergies.map((allergy) => `<li>${allergy.name}</li>`).join("")}</ul>`;
+    el.innerHTML = `
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr>${headers.map((header) => `<th>${header}</th>`).join("")}</tr></thead>
+                <tbody>${records.map(rowRenderer).join("")}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function formatDateTime(value)
+{
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(String(value).replace(" ", "T"));
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 function renderEncounters(encounters)
@@ -213,9 +272,10 @@ function renderEmptySections(data)
         if (!el) return;
 
         const records = data[key];
+        const emptyText = EMPTY_TEXT_OVERRIDES[key] || "No data recorded on file.";
 
         el.innerHTML = (Array.isArray(records) && records.length)
             ? `<p class="hrs-widget-empty-text">${records.length} record(s) on file.</p>`
-            : `<p class="hrs-widget-empty-text">No data recorded on file.</p>`;
+            : `<p class="hrs-widget-empty-text">${emptyText}</p>`;
     });
 }
