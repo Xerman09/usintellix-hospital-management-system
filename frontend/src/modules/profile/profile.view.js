@@ -2,304 +2,271 @@ export function ProfileView()
 {
     return `
 <style>
-.prof-page {
+.prof-page-modern {
     width: 100%;
     font-size: 13.5px;
+    color: #334155;
 }
 
-.prof-card {
-    width: 100%;
+.prof-card-modern {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 24px;
 }
 
-.prof-header {
+.prof-header-modern {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 20px;
-    margin-bottom: 4px;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
     padding-bottom: 16px;
-    border-bottom: 1px solid #e5e9f0;
-    flex-wrap: wrap;
+    margin-bottom: 24px;
 }
 
-.prof-header-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.prof-header h1 {
+.prof-header-modern h1 {
     margin: 0;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
-    color: #14181f;
-    letter-spacing: -.2px;
+    color: #0f172a;
 }
 
-.prof-header .form-subtitle {
-    margin: 1px 0 0;
-    font-size: 12.5px;
-    max-width: 480px;
-}
-
-.prof-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.prof-add-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    height: 34px;
-    padding: 0 14px;
-    border: 1px solid var(--accent);
-    border-radius: 6px;
-    background: var(--accent);
-    color: white;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background-color .12s;
-    white-space: nowrap;
-}
-
-.prof-add-btn:hover {
-    background: #1742b0;
-    border-color: #1742b0;
-}
-
-.prof-add-btn svg {
-    width: 14px;
-    height: 14px;
-}
-
-.prof-icon-btn {
+.prof-btn-edit-modern {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 34px;
-    padding: 0 14px;
-    border: 1px solid #dbe1ea;
-    border-radius: 6px;
     background: white;
-    color: #3b475a;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
     font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background-color .12s, border-color .12s;
-    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
 }
 
-.prof-icon-btn:hover {
-    background: #f1f5f9;
-    border-color: #c8d2e0;
+.prof-btn-edit-modern:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
 }
 
-.prof-icon-btn svg {
-    width: 14px;
-    height: 14px;
+.prof-section-modern {
+    margin-bottom: 32px;
 }
 
-.profile-avatar-menu-wrap {
-    position: relative;
-    flex-shrink: 0;
+.prof-section-title-modern {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.prof-avatar-dropdown {
-    display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    background: white;
-    min-width: 170px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
-    border-radius: 8px;
-    border: 1px solid #e5e9f0;
-    z-index: 20;
-    padding: 6px;
+.prof-fields-grid-modern {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px 24px;
+}
+
+.prof-field-modern {
+    display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 }
 
-.profile-avatar-menu-wrap.open .prof-avatar-dropdown {
-    display: flex;
+.prof-label-modern {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
 }
 
-.prof-avatar-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    border: none;
-    background: none;
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 13px;
+.prof-val-modern {
+    font-size: 14px;
+    color: #1e293b;
     font-weight: 500;
-    color: #374151;
-    cursor: pointer;
+}
+
+.prof-insurance-panel-modern {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.prof-insurance-header-modern {
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.prof-insurance-table-modern {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.prof-insurance-table-modern th, .prof-insurance-table-modern td {
+    padding: 12px 16px;
     text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.prof-avatar-dropdown-item:hover {
-    background: #f3f4f6;
+.prof-insurance-table-modern th {
+    font-weight: 600;
+    font-size: 12px;
+    color: #64748b;
+    width: 20%;
 }
 
-.prof-avatar-dropdown-item svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
+.prof-insurance-table-modern td {
+    font-size: 14px;
+    color: #1e293b;
+    font-weight: 500;
 }
 
-.prof-avatar-dropdown-item.danger {
-    color: #b91c1c;
-}
-
-.prof-avatar-dropdown-item.danger:hover {
-    background: #fef2f2;
-}
-
-@media (max-width: 640px) {
-    .prof-header { flex-direction: column; align-items: stretch; }
-    .prof-header-actions { justify-content: flex-end; }
+.prof-insurance-table-modern tr:last-child th,
+.prof-insurance-table-modern tr:last-child td {
+    border-bottom: none;
 }
 </style>
 
-<div class="prof-page">
-    <div class="prof-card">
-        <div class="prof-header">
-            <div class="prof-header-title">
-                <div class="profile-avatar-menu-wrap" id="avatarMenuWrap">
-                    <div class="profile-avatar-wrap" id="avatarMenuTrigger" title="Change photo">
-                        <div class="profile-avatar" id="profileAvatarDisplay">?</div>
-                        <div class="profile-avatar-overlay">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                        </div>
-                    </div>
-                    <div class="prof-avatar-dropdown" id="avatarDropdown">
-                        <button type="button" class="prof-avatar-dropdown-item" id="chooseAvatarBtn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                            Choose Icon
-                        </button>
-                        <button type="button" class="prof-avatar-dropdown-item danger" id="removeAvatarBtn" style="display:none;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg>
-                            Remove Icon
-                        </button>
-                    </div>
-                    <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;">
-                </div>
-                <div>
-                    <h1 id="profileHeaderName">My Profile</h1>
-                    <p class="form-subtitle" id="profileHeaderSub">View and update your account information.</p>
-                </div>
-            </div>
-            <div class="prof-header-actions">
-                <button type="button" class="prof-add-btn" id="openEditProfileModal">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                    Edit
-                </button>
-                <button type="button" class="prof-icon-btn" id="openChangePasswordModal">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    Change Password
-                </button>
-            </div>
+<div class="prof-page-modern">
+    <div class="prof-card-modern">
+        <div class="prof-header-modern">
+            <h1>Profile From Medical Records</h1>
+            <button type="button" class="prof-btn-edit-modern" id="openEditProfileModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Edit Profile
+            </button>
         </div>
-
+        
         <div id="formAlert"></div>
 
-        <div class="form-grid" style="margin-top: 20px;">
-            <div class="form-group">
-                <label>Username</label>
-                <p id="ro_username">-</p>
-            </div>
-
-            <div class="form-group">
-                <label>Role</label>
-                <p id="ro_role">-</p>
-            </div>
-
-            <div class="form-group" id="ro_no_group" style="display:none;">
-                <label id="ro_no_label">ID No.</label>
-                <p id="ro_no">-</p>
-            </div>
-
-            <div class="form-group" id="ro_department_group" style="display:none;">
-                <label>Department</label>
-                <p id="ro_department">-</p>
-            </div>
-
-            <div class="form-group">
-                <label>First Name</label>
-                <p id="ro_first_name">-</p>
-            </div>
-
-            <div class="form-group">
-                <label>Middle Name</label>
-                <p id="ro_middle_name">-</p>
-            </div>
-
-            <div class="form-group">
-                <label>Last Name</label>
-                <p id="ro_last_name">-</p>
-            </div>
-
-            <div class="form-group">
-                <label>Suffix</label>
-                <p id="ro_suffix">-</p>
-            </div>
-
-            <div class="form-group profile-employee-field" style="display:none;">
-                <label>Email</label>
-                <p id="ro_email">-</p>
-            </div>
-
-            <div class="form-group profile-employee-field" style="display:none;">
-                <label>Phone</label>
-                <p id="ro_phone">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>Contact Email</label>
-                <p id="ro_contact_email">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>Mobile Phone</label>
-                <p id="ro_mobile_phone">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>Home Phone</label>
-                <p id="ro_home_phone">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>Work Phone</label>
-                <p id="ro_work_phone">-</p>
-            </div>
-
-            <div class="form-group full profile-patient-field" style="display:none;">
-                <label>Address</label>
-                <p id="ro_address_line">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>City</label>
-                <p id="ro_city">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>Province</label>
-                <p id="ro_province">-</p>
-            </div>
-
-            <div class="form-group profile-patient-field" style="display:none;">
-                <label>Zip Code</label>
-                <p id="ro_zip_code">-</p>
+        <!-- WHO -->
+        <div class="prof-section-modern">
+            <div class="prof-section-title-modern">Who</div>
+            <div class="prof-fields-grid-modern">
+                <div class="prof-field-modern"><div class="prof-label-modern">Name</div><div class="prof-val-modern" id="oemr_name">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">External ID</div><div class="prof-val-modern" id="oemr_external_id">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">DOB</div><div class="prof-val-modern" id="oemr_dob">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Birth Sex</div><div class="prof-val-modern" id="oemr_birth_sex">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">S.S.</div><div class="prof-val-modern" id="oemr_ss">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Marital Status</div><div class="prof-val-modern" id="oemr_marital_status">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Sex</div><div class="prof-val-modern" id="oemr_sex">-</div></div>
             </div>
         </div>
+
+        <!-- CONTACT -->
+        <div class="prof-section-modern">
+            <div class="prof-section-title-modern">Contact</div>
+            <div class="prof-fields-grid-modern">
+                <div class="prof-field-modern"><div class="prof-label-modern">Address</div><div class="prof-val-modern" id="oemr_address">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">City</div><div class="prof-val-modern" id="oemr_city">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">State</div><div class="prof-val-modern" id="oemr_state">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Postal Code</div><div class="prof-val-modern" id="oemr_postal_code">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Country</div><div class="prof-val-modern" id="oemr_country">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Mother's Name</div><div class="prof-val-modern" id="oemr_mothers_name">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Emergency Contact</div><div class="prof-val-modern" id="oemr_emergency_contact">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Emergency Phone</div><div class="prof-val-modern" id="oemr_emergency_phone">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Home Phone</div><div class="prof-val-modern" id="oemr_home_phone">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Work Phone</div><div class="prof-val-modern" id="oemr_work_phone">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Mobile Phone</div><div class="prof-val-modern" id="oemr_mobile_phone">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Contact Email</div><div class="prof-val-modern" id="oemr_contact_email">-</div></div>
+            </div>
+        </div>
+
+        <!-- CHOICES -->
+        <div class="prof-section-modern">
+            <div class="prof-section-title-modern">Choices</div>
+            <div class="prof-fields-grid-modern">
+                <div class="prof-field-modern"><div class="prof-label-modern">Provider</div><div class="prof-val-modern" id="oemr_provider">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Pharmacy</div><div class="prof-val-modern" id="oemr_pharmacy">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">HIPAA Notice Received</div><div class="prof-val-modern" id="oemr_hipaa">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Voice Message</div><div class="prof-val-modern" id="oemr_allow_voice">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Leave Message With</div><div class="prof-val-modern" id="oemr_leave_message">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Mail Message</div><div class="prof-val-modern" id="oemr_allow_mail">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow SMS</div><div class="prof-val-modern" id="oemr_allow_sms">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Email</div><div class="prof-val-modern" id="oemr_allow_email">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Immunization Registry Use</div><div class="prof-val-modern" id="oemr_allow_immun_reg">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Immunization Info Sharing</div><div class="prof-val-modern" id="oemr_allow_immun_share">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Health Information Exchange</div><div class="prof-val-modern" id="oemr_allow_health_exchange">-</div></div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Allow Patient Portal</div><div class="prof-val-modern" id="oemr_allow_patient_portal">-</div></div>
+            </div>
+        </div>
+
+        <!-- EMPLOYER & STATS -->
+        <div class="prof-section-modern" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div>
+                <div class="prof-section-title-modern">Employer</div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Occupation</div><div class="prof-val-modern" id="oemr_occupation">-</div></div>
+            </div>
+            <div>
+                <div class="prof-section-title-modern">Stats</div>
+                <div class="prof-field-modern"><div class="prof-label-modern">Language</div><div class="prof-val-modern" id="oemr_language">-</div></div>
+            </div>
+        </div>
+
+        <!-- INSURANCE PANELS -->
+        <div class="prof-insurance-panel-modern">
+            <div class="prof-insurance-header-modern">Primary Insurance</div>
+            <table class="prof-insurance-table-modern">
+                <tbody>
+                    <tr>
+                        <th>Provider</th><td id="oemr_ins1_provider">-</td>
+                        <th>Plan Name</th><td id="oemr_ins1_plan">-</td>
+                        <th>Policy Number</th><td id="oemr_ins1_policy">-</td>
+                    </tr>
+                    <tr>
+                        <th>Group Number</th><td id="oemr_ins1_group">-</td>
+                        <th>Subscriber First Name</th><td id="oemr_ins1_sub_first">-</td>
+                        <th>Subscriber Last Name</th><td id="oemr_ins1_sub_last">-</td>
+                    </tr>
+                    <tr>
+                        <th>Relationship</th><td id="oemr_ins1_sub_rel">-</td>
+                        <th>Subscriber SS</th><td id="oemr_ins1_sub_ss">-</td>
+                        <th>Subscriber DOB</th><td id="oemr_ins1_sub_dob">-</td>
+                    </tr>
+                    <tr>
+                        <th>Subscriber Phone</th><td id="oemr_ins1_sub_phone">-</td>
+                        <th>Subscriber Address</th><td id="oemr_ins1_sub_address">-</td>
+                        <th>Subscriber Zip</th><td id="oemr_ins1_sub_zip">-</td>
+                    </tr>
+                    <tr>
+                        <th>Subscriber City</th><td id="oemr_ins1_sub_city">-</td>
+                        <th>Subscriber State</th><td id="oemr_ins1_sub_state">-</td>
+                        <th>Subscriber Country</th><td id="oemr_ins1_sub_country">-</td>
+                    </tr>
+                    <tr>
+                        <th>Subscriber Employer</th><td id="oemr_ins1_sub_emp">-</td>
+                        <th>Employer Street</th><td id="oemr_ins1_sub_emp_street">-</td>
+                        <th>Employer City</th><td id="oemr_ins1_sub_emp_city">-</td>
+                    </tr>
+                    <tr>
+                        <th>Employer Zip</th><td id="oemr_ins1_sub_emp_zip">-</td>
+                        <th>Employer State</th><td id="oemr_ins1_sub_emp_state">-</td>
+                        <th>Employer Country</th><td id="oemr_ins1_sub_emp_country">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="prof-insurance-panel-modern">
+            <div class="prof-insurance-header-modern">Secondary Insurance</div>
+            <div style="padding: 16px; color: #64748b; font-size: 13px;">No Secondary Insurance Found</div>
+        </div>
+
+        <div class="prof-insurance-panel-modern">
+            <div class="prof-insurance-header-modern">Tertiary Insurance</div>
+            <div style="padding: 16px; color: #64748b; font-size: 13px;">No Tertiary Insurance Found</div>
+        </div>
+
     </div>
 </div>
 

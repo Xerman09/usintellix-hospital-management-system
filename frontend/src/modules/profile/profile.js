@@ -36,51 +36,72 @@ export async function initProfile()
 function renderProfile(profile)
 {
     const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
+    
+    // Who
+    document.getElementById("oemr_name").textContent = displayName || profile.username || "Phil Belford";
+    document.getElementById("oemr_external_id").textContent = profile.patient_no || profile.employee_no || "1";
+    document.getElementById("oemr_dob").textContent = "1972-02-09";
+    document.getElementById("oemr_birth_sex").textContent = "Male";
+    document.getElementById("oemr_ss").textContent = "333222333";
+    document.getElementById("oemr_marital_status").textContent = "Single";
+    document.getElementById("oemr_sex").textContent = "Male";
 
-    document.getElementById("profileHeaderName").textContent = displayName || profile.username || "My Profile";
-    document.getElementById("profileHeaderSub").textContent =
-        `${capitalize(profile.role || "")}${profile.username ? " · @" + profile.username : ""}`;
+    // Contact
+    document.getElementById("oemr_address").textContent = profile.address_line || "6666 String Street";
+    document.getElementById("oemr_city").textContent = profile.city || "Longview";
+    document.getElementById("oemr_state").textContent = profile.province || "Florida";
+    document.getElementById("oemr_postal_code").textContent = profile.zip_code || "44433";
+    document.getElementById("oemr_country").textContent = "USA";
+    document.getElementById("oemr_mothers_name").textContent = "Gardner";
+    document.getElementById("oemr_emergency_contact").textContent = "Wilma";
+    document.getElementById("oemr_emergency_phone").textContent = "222-333-4444";
+    document.getElementById("oemr_home_phone").textContent = profile.home_phone || "333-444-2222";
+    document.getElementById("oemr_work_phone").textContent = profile.work_phone || "555-444-3333";
+    document.getElementById("oemr_mobile_phone").textContent = profile.mobile_phone || "222-444-2222";
+    document.getElementById("oemr_contact_email").textContent = profile.contact_email || profile.email || "heya@invalid.email.com";
 
-    renderAvatar(document.getElementById("profileAvatarDisplay"), profile);
-    document.getElementById("removeAvatarBtn").style.display = profile.avatar ? "" : "none";
+    // Choices
+    document.getElementById("oemr_provider").textContent = "Charlie Sullivan";
+    document.getElementById("oemr_pharmacy").textContent = "";
+    document.getElementById("oemr_hipaa").textContent = "YES";
+    document.getElementById("oemr_allow_voice").textContent = "YES";
+    document.getElementById("oemr_leave_message").textContent = "Phil";
+    document.getElementById("oemr_allow_mail").textContent = "YES";
+    document.getElementById("oemr_allow_sms").textContent = "YES";
+    document.getElementById("oemr_allow_email").textContent = "YES";
+    document.getElementById("oemr_allow_immun_reg").textContent = "YES";
+    document.getElementById("oemr_allow_immun_share").textContent = "YES";
+    document.getElementById("oemr_allow_health_exchange").textContent = "YES";
+    document.getElementById("oemr_allow_patient_portal").textContent = "YES";
 
-    document.getElementById("ro_username").textContent = profile.username || "-";
-    document.getElementById("ro_role").textContent = capitalize(profile.role || "-");
-    document.getElementById("ro_first_name").textContent = profile.first_name || "-";
-    document.getElementById("ro_middle_name").textContent = profile.middle_name || "-";
-    document.getElementById("ro_last_name").textContent = profile.last_name || "-";
-    document.getElementById("ro_suffix").textContent = profile.suffix || "-";
+    // Employer
+    document.getElementById("oemr_occupation").textContent = "Pen User";
 
-    if (profile.kind === "employee") {
-        document.querySelectorAll(".profile-employee-field").forEach((el) => el.style.display = "");
+    // Stats
+    document.getElementById("oemr_language").textContent = "English";
 
-        document.getElementById("ro_no_group").style.display = "";
-        document.getElementById("ro_no_label").textContent = "Employee No.";
-        document.getElementById("ro_no").textContent = profile.employee_no || "-";
-
-        document.getElementById("ro_email").textContent = profile.email || "-";
-        document.getElementById("ro_phone").textContent = profile.phone || "-";
-
-        if (profile.department_name) {
-            document.getElementById("ro_department_group").style.display = "";
-            document.getElementById("ro_department").textContent = profile.department_name;
-        }
-    } else if (profile.kind === "patient") {
-        document.querySelectorAll(".profile-patient-field").forEach((el) => el.style.display = "");
-
-        document.getElementById("ro_no_group").style.display = "";
-        document.getElementById("ro_no_label").textContent = "Patient No.";
-        document.getElementById("ro_no").textContent = profile.patient_no || "-";
-
-        document.getElementById("ro_contact_email").textContent = profile.contact_email || "-";
-        document.getElementById("ro_mobile_phone").textContent = profile.mobile_phone || "-";
-        document.getElementById("ro_home_phone").textContent = profile.home_phone || "-";
-        document.getElementById("ro_work_phone").textContent = profile.work_phone || "-";
-        document.getElementById("ro_address_line").textContent = profile.address_line || "-";
-        document.getElementById("ro_city").textContent = profile.city || "-";
-        document.getElementById("ro_province").textContent = profile.province || "-";
-        document.getElementById("ro_zip_code").textContent = profile.zip_code || "-";
-    }
+    // Insurance 1
+    document.getElementById("oemr_ins1_provider").textContent = "Aekna";
+    document.getElementById("oemr_ins1_plan").textContent = "Bad Plan";
+    document.getElementById("oemr_ins1_policy").textContent = "555";
+    document.getElementById("oemr_ins1_group").textContent = "444";
+    document.getElementById("oemr_ins1_sub_first").textContent = "Phil";
+    document.getElementById("oemr_ins1_sub_last").textContent = "Belford";
+    document.getElementById("oemr_ins1_sub_rel").textContent = "self";
+    document.getElementById("oemr_ins1_sub_ss").textContent = "333222333";
+    document.getElementById("oemr_ins1_sub_dob").textContent = "1972-02-09";
+    document.getElementById("oemr_ins1_sub_phone").textContent = "333-444-2222";
+    document.getElementById("oemr_ins1_sub_address").textContent = "6666 String Street";
+    document.getElementById("oemr_ins1_sub_zip").textContent = "44433";
+    document.getElementById("oemr_ins1_sub_city").textContent = "Longview";
+    document.getElementById("oemr_ins1_sub_state").textContent = "FL";
+    document.getElementById("oemr_ins1_sub_country").textContent = "USA";
+    document.getElementById("oemr_ins1_sub_emp").textContent = "Using Pens Inc.";
+    document.getElementById("oemr_ins1_sub_emp_street").textContent = "23344 Watchahee Road";
+    document.getElementById("oemr_ins1_sub_emp_city").textContent = "Longview";
+    document.getElementById("oemr_ins1_sub_emp_zip").textContent = "44433";
+    document.getElementById("oemr_ins1_sub_emp_state").textContent = "FL";
+    document.getElementById("oemr_ins1_sub_emp_country").textContent = "USA";
 }
 
 function setupEditProfileModal()
