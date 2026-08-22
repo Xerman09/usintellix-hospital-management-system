@@ -308,6 +308,22 @@ function setupSelectFormDropdown()
     });
 
     document.getElementById("docsFormDeleteBtn")?.addEventListener("click", () => {
+        const modal = document.getElementById("docsDeleteConfirmModalOverlay");
+        if (modal) modal.style.display = "flex";
+    });
+
+    document.getElementById("docsDeleteCancelModalBtn")?.addEventListener("click", () => {
+        const modal = document.getElementById("docsDeleteConfirmModalOverlay");
+        if (modal) modal.style.display = "none";
+    });
+
+    document.getElementById("docsDeleteConfirmModalBtn")?.addEventListener("click", () => {
+        const modal = document.getElementById("docsDeleteConfirmModalOverlay");
+        if (modal) modal.style.display = "none";
+
+        if (typeof showToast === 'function') {
+            showToast("Delete Successful", "success");
+        }
         localStorage.removeItem('hipaa_status');
         closeForm();
     });

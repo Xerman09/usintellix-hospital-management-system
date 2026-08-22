@@ -230,5 +230,16 @@ export function DocumentsView()
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="docsDeleteConfirmModalOverlay" style="display: none;">
+    <div class="modal-box" style="max-width: 400px; text-align: center;">
+        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 18px; font-weight: 600; color: #0f172a;">Confirm Deletion</h3>
+        <p style="margin-bottom: 24px; color: #475569; font-size: 14px;">Are you sure you want to delete this document? This action cannot be undone.</p>
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button type="button" id="docsDeleteCancelModalBtn" class="btn-secondary" style="padding: 8px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <button type="button" id="docsDeleteConfirmModalBtn" style="padding: 8px 16px; background: #ef4444; border: none; color: white; border-radius: 4px; cursor: pointer;">Delete</button>
+        </div>
+    </div>
+</div>
 `;
 }
