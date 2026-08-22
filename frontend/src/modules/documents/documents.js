@@ -370,6 +370,25 @@ function setupSelectFormDropdown()
         const modal = document.getElementById("docsDeleteConfirmModalOverlay");
         if (modal) modal.style.display = "flex";
     });
+
+    // Medical Form Checkboxes
+    const toggleSection = (chkId, secId) => {
+        const chk = document.getElementById(chkId);
+        const sec = document.getElementById(secId);
+        if (chk && sec) {
+            chk.addEventListener("change", (e) => {
+                if (e.target.checked) {
+                    sec.style.display = "grid";
+                } else {
+                    sec.style.display = "none";
+                }
+            });
+        }
+    };
+    toggleSection("chkFamilyHistory", "secFamilyHistory");
+    toggleSection("chkRelatives", "secRelatives");
+    toggleSection("chkLifestyle", "secLifestyle");
+    toggleSection("chkOther", "secOther");
 }
 
 function updateDropdownStatus() {

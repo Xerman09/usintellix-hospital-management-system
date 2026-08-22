@@ -386,16 +386,272 @@ export function DocumentsView()
                                     <td style="text-align: center;"><input type="radio" name="exam3"></td>
                                     <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
                                 </tr>
-                                <tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
                                     <td style="padding: 12px;">Gynecological Exam</td>
                                     <td style="text-align: center;"><input type="radio" name="exam4"></td>
                                     <td style="text-align: center;"><input type="radio" name="exam4"></td>
                                     <td style="text-align: center;"><input type="radio" name="exam4"></td>
                                     <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
                                 </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Mammogram</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam5"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam5"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam5"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Physical Exam</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam6"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam6"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam6"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Prostate Exam</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam7"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam7"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam7"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Rectal Exam</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam8"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam8"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam8"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Sigmoid/Colonoscopy</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam9"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam9"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam9"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Retinal Exam</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam10"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam10"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam10"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Flu Vaccination</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam11"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam11"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam11"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Pneumonia Vaccination</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam12"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam12"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam12"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">LDL</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam13"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam13"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam13"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Hemoglobin</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam14"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam14"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam14"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px;">PSA</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam15"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam15"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam15"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                <div style="margin-bottom: 12px; margin-top: 16px;">
+                    <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="chkFamilyHistory"> Family History
+                    </label>
+                </div>
+                <div id="secFamilyHistory" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px; color: #0f172a;">
+                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 12px; align-items: center;">
+                        <label style="font-weight: bold;">Father:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Siblings:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Offspring:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 12px; align-items: center;">
+                        <label style="font-weight: bold;">Mother:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Spouse:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px; margin-top: 16px;">
+                    <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="chkRelatives"> Relatives
+                    </label>
+                </div>
+                <div id="secRelatives" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px; color: #0f172a;">
+                    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center;">
+                        <label style="font-weight: bold;">Cancer:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Diabetes:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Heart Problems:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Epilepsy:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Suicide:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center;">
+                        <label style="font-weight: bold;">Tuberculosis:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">High Blood Pressure:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Stroke:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label style="font-weight: bold;">Mental Illness:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px; margin-top: 16px;">
+                    <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="chkLifestyle"> Lifestyle
+                    </label>
+                </div>
+                <div id="secLifestyle" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 150px 1fr; gap: 16px; color: #0f172a;">
+                    <div style="font-weight: bold;">Tobacco:</div>
+                    <div>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px; margin-bottom: 12px; display: block;">
+                        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+                            <select style="border: 1px solid #cbd5e1; padding: 4px; width: 250px;">
+                                <option>Unassigned</option>
+                                <option>Current every day smoker</option>
+                                <option>Current some day smoker</option>
+                                <option>Former smoker</option>
+                                <option>Never smoker</option>
+                                <option>Smoker, current status unknown</option>
+                                <option>Unknown if ever smoked</option>
+                                <option>Heavy tobacco smoker</option>
+                                <option>Light tobacco smoker</option>
+                            </select>
+                            <span style="font-weight: bold;">Status:</span>
+                            <label><input type="radio" name="tobStatus"> Current</label>
+                            <label><input type="radio" name="tobStatus"> Quit</label>
+                            <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                            <span style="width: 250px; font-size: 13px;">Cigarette pack-years (Number of packs per day multiplied by number of years smoked)</span>
+                            <input type="number" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;" value="0">
+                        </div>
+                    </div>
+                    
+                    <div style="font-weight: bold;">Coffee:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        <span style="font-weight: bold; margin-left: auto;">Status:</span>
+                        <label><input type="radio" name="cofStatus"> Current</label>
+                        <label><input type="radio" name="cofStatus"> Quit</label>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        <label><input type="radio" name="cofStatus"> Never</label>
+                        <label><input type="radio" name="cofStatus"> N/A</label>
+                    </div>
+
+                    <div style="font-weight: bold;">Alcohol:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        <span style="font-weight: bold; margin-left: auto;">Status:</span>
+                        <label><input type="radio" name="alcStatus"> Current</label>
+                        <label><input type="radio" name="alcStatus"> Quit</label>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        <label><input type="radio" name="alcStatus"> Never</label>
+                        <label><input type="radio" name="alcStatus"> N/A</label>
+                    </div>
+
+                    <div style="font-weight: bold;">Recreational Drugs:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        <span style="font-weight: bold; margin-left: auto;">Status:</span>
+                        <label><input type="radio" name="recStatus"> Current</label>
+                        <label><input type="radio" name="recStatus"> Quit</label>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        <label><input type="radio" name="recStatus"> Never</label>
+                        <label><input type="radio" name="recStatus"> N/A</label>
+                    </div>
+
+                    <div style="font-weight: bold;">Counseling:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        <span style="font-weight: bold; margin-left: auto;">Status:</span>
+                        <label><input type="radio" name="counStatus"> Current</label>
+                        <label><input type="radio" name="counStatus"> Quit</label>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        <label><input type="radio" name="counStatus"> Never</label>
+                        <label><input type="radio" name="counStatus"> N/A</label>
+                    </div>
+
+                    <div style="font-weight: bold;">Exercise Patterns:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        <span style="font-weight: bold; margin-left: auto;">Status:</span>
+                        <label><input type="radio" name="exStatus"> Current</label>
+                        <label><input type="radio" name="exStatus"> Quit</label>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        <label><input type="radio" name="exStatus"> Never</label>
+                        <label><input type="radio" name="exStatus"> N/A</label>
+                    </div>
+
+                    <div style="font-weight: bold;">Hazardous Activities:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        <span style="font-weight: bold; margin-left: auto;">Status:</span>
+                        <label><input type="radio" name="hazStatus"> Current</label>
+                        <label><input type="radio" name="hazStatus"> Quit</label>
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 80px;">
+                        <label><input type="radio" name="hazStatus"> Never</label>
+                        <label><input type="radio" name="hazStatus"> N/A</label>
+                    </div>
+
+                    <div style="font-weight: bold;">Sleep Patterns:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                    </div>
+
+                    <div style="font-weight: bold;">Seatbelt Use:</div>
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px; margin-top: 16px;">
+                    <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="chkOther"> Other
+                    </label>
+                </div>
+                <div id="secOther" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px; color: #0f172a;">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center;">
+                            <label style="font-weight: bold;">Name/Value:</label>
+                            <div>
+                                <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 100px; display: block; margin-bottom: 4px;">
+                                <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 100px; display: block;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: flex-start;">
+                            <label style="font-weight: bold;">Additional History:</label>
+                            <textarea style="border: 1px solid #cbd5e1; padding: 4px; width: 100%; height: 80px; resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: flex-start;">
+                        <label style="font-weight: bold;">Name/Value:</label>
+                        <div>
+                            <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 100px; display: block; margin-bottom: 4px;">
+                            <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 100px; display: block;">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 40px; font-size: 13px;">
+                    Rev.
                 </div>
 
                 <div style="margin-bottom: 24px; margin-top: 40px;">
