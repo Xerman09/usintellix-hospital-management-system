@@ -283,13 +283,31 @@ function generateCustomReport(action) {
     const html = generateCustomPatientReportHtml(patientDataForReport, filteredData, selectedCats);
     
     if (action === 'view') {
-        const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
-        if (reportWindow) {
-            reportWindow.document.open();
-            reportWindow.document.write(html);
-            reportWindow.document.close();
+        const modal = document.getElementById("customReportModal");
+        const modalBody = document.getElementById("customReportModalBody");
+        const btnClose = document.getElementById("btnCloseCustomReportModal");
+        const btnPrint = document.getElementById("btnModalPrintableVersion");
+        
+        if (modal && modalBody) {
+            modalBody.innerHTML = html;
+            modal.style.display = 'flex';
+            
+            if (btnClose) {
+                btnClose.onclick = () => { modal.style.display = 'none'; };
+            }
+            if (btnPrint) {
+                btnPrint.onclick = () => { generateCustomReport('download'); };
+            }
         } else {
-            alert("Please enable pop-ups to view the report.");
+            // Fallback
+            const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
+            if (reportWindow) {
+                reportWindow.document.open();
+                reportWindow.document.write(html);
+                reportWindow.document.close();
+            } else {
+                alert("Please enable pop-ups to view the report.");
+            }
         }
     } else if (action === 'download') {
         // Download as PDF via print dialog

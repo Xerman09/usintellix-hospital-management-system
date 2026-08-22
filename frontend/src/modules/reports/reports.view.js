@@ -165,6 +165,23 @@ export function ReportsView() {
         </div>
     </div>
 </div>
+
+    <!-- Custom Report Modal -->
+    <div id="customReportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; width: 90%; max-width: 1200px; height: 90%; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px 8px 0 0;">
+                <h2 style="margin: 0; font-size: 18px; color: #0f172a;">Custom Report</h2>
+                <button id="btnCloseCustomReportModal" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">&times;</button>
+            </div>
+            <div style="padding: 16px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;">
+                <button id="btnModalPrintableVersion" style="background: white; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 4px; cursor: pointer; color: #0f172a;">Printable Version</button>
+            </div>
+            <div style="flex: 1; overflow-y: auto; padding: 24px; background: white;" id="customReportModalBody">
+                <!-- Report HTML will be injected here -->
+            </div>
+        </div>
+    </div>
+</div>
 <style>
 .prof-card-modern {
     background: #ffffff;
