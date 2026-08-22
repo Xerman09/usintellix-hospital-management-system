@@ -733,25 +733,25 @@ export function DocumentsView()
 
 
 
-<div class="modal-overlay" id="docsUploadModalOverlay">
-    <div class="modal-box" style="max-width: 480px;">
-        <div class="modal-header">
-            <h2>Upload Document</h2>
-            <button type="button" class="modal-close" id="docsUploadModalClose">&times;</button>
+<div class="modal-overlay" id="docsUploadModalOverlay" style="background-color: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);">
+    <div class="modal-box" style="max-width: 480px; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Upload Document</h2>
+            <button type="button" id="docsUploadModalClose" style="background: transparent; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px; line-height: 1;">&times;</button>
         </div>
 
         <div id="docsUploadFormAlert"></div>
 
         <form id="docsUploadForm">
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label>File</label>
-                    <input type="file" id="docsUpload_file" class="form-input" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">File</label>
+                    <input type="file" id="docsUpload_file" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 14px; color: #334155; outline: none; transition: border-color 0.2s;" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx">
                 </div>
 
-                <div class="form-group full">
-                    <label>Category</label>
-                    <select id="docsUpload_category" class="form-input">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Category</label>
+                    <select id="docsUpload_category" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 14px; color: #334155; outline: none; transition: border-color 0.2s; appearance: none; background: white url('data:image/svg+xml;utf8,<svg fill=\\'none\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' width=\\'20\\' xmlns=\\'http://www.w3.org/2000/svg\\'><path d=\\'M5 7.5L10 12.5L15 7.5\\' stroke=\\'%2364748b\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'1.5\\'/></svg>') no-repeat right 12px center;">
                         <option value="">-- Please Select --</option>
                         <option value="Lab Result">Lab Result</option>
                         <option value="Imaging">Imaging</option>
@@ -762,15 +762,15 @@ export function DocumentsView()
                     </select>
                 </div>
 
-                <div class="form-group full">
-                    <label>Description</label>
-                    <textarea id="docsUpload_description" class="form-input" rows="3"></textarea>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Description</label>
+                    <textarea id="docsUpload_description" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 14px; color: #334155; outline: none; transition: border-color 0.2s; resize: vertical;" rows="3"></textarea>
                 </div>
             </div>
 
-            <div class="form-actions">
-                <button type="button" class="btn-secondary" id="docsUploadCancelBtn">Cancel</button>
-                <button class="login-btn" type="submit">Upload</button>
+            <div style="display: flex; gap: 16px; margin-top: 32px;">
+                <button type="button" id="docsUploadCancelBtn" style="flex: 1; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Cancel</button>
+                <button type="submit" style="flex: 1; padding: 12px; background: #8b5cf6; border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4); transition: transform 0.1s, box-shadow 0.2s;">Upload</button>
             </div>
         </form>
     </div>
