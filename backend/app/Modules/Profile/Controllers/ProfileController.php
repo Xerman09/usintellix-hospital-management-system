@@ -128,4 +128,26 @@ class ProfileController extends Controller
 
         $this->success(['user' => $updatedUser], $result['message']);
     }
+
+    /**
+     * Save the logged-in patient's signature.
+     */
+    public function saveSignature(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $data = $request->all();
+
+        if (empty($data['signature'])) {
+            $this->error('Signature data is required.', 400);
+            return;
+        }
+
+        try {
+            $this->profileService->saveSignature((int) $user['id'], $data['signature']);
+            $this->success([], 'Signature saved successfully.');
+        } catch (\Exception $e) {
+            $this->error($e->getMessage(), 500);
+        }
+    }
 }

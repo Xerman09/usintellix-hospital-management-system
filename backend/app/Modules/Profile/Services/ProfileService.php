@@ -63,6 +63,7 @@ class ProfileService
                 'birthdate'     => $patient['birthdate'],
                 'civil_status'  => $patient['civil_status'],
                 'blood_type'    => $patient['blood_type'],
+                'signature'     => $patient['signature'] ?? null,
                 'address_line'  => $contact['address_line'] ?? null,
                 'city'          => $contact['city'] ?? null,
                 'province'      => $contact['province'] ?? null,
@@ -81,6 +82,18 @@ class ProfileService
             'role'     => $sessionRole,
             'avatar'   => $user['avatar'] ?? null,
         ];
+    }
+
+    /**
+     * Save the signature for the logged-in patient.
+     */
+    public function saveSignature(int $userId, string $signatureData): void
+    {
+        $patient = (new Patient())->where('user_id', $userId)->first();
+
+        if ($patient) {
+            (new Patient())->update(['signature' => $signatureData], $patient['id']);
+        }
     }
 
     /**

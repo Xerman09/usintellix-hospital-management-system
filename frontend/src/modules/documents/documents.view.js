@@ -26,7 +26,7 @@ export function DocumentsView()
 
     <!-- The new toolbar (Left side of the OpenEMR screenshot) -->
     <div style="display: flex; gap: 8px; padding: 0 40px 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px;">
-        <button type="button" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
+        <button type="button" id="docsSignatureOpenBtn" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
             Signature
         </button>
@@ -110,6 +110,21 @@ export function DocumentsView()
                 <button class="login-btn" type="submit">Upload</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="docsSignatureModalOverlay">
+    <div class="modal-box" style="max-width: 600px; padding: 0;">
+        <div style="background: white; border-bottom: 1px solid #e2e8f0;">
+            <canvas id="docsSignatureCanvas" width="600" height="300" style="width: 100%; height: 300px; touch-action: none; cursor: crosshair; display: block;"></canvas>
+            <div style="text-align: center; padding: 8px; color: #475569; font-size: 12px; border-top: 1px solid #e2e8f0; background: #f8fafc;">Sign Above</div>
+        </div>
+        <div style="display: flex; background: #f1f5f9; border-top: 1px solid #e2e8f0;">
+            <button type="button" id="docsSignatureClearBtn" style="flex: 1; padding: 12px; background: #f8fafc; border: none; border-right: 1px solid #e2e8f0; color: #334155; font-size: 14px; cursor: pointer;">Clear Canvas</button>
+            <button type="button" id="docsSignatureUseCurrentBtn" style="flex: 1; padding: 12px; background: #f8fafc; border: none; border-right: 1px solid #e2e8f0; color: #334155; font-size: 14px; cursor: pointer;">Use Current</button>
+            <button type="button" id="docsSignatureCancelBtn" style="flex: 1; padding: 12px; background: #ef4444; border: none; border-right: 1px solid #dc2626; color: white; font-size: 14px; cursor: pointer;">Cancel</button>
+            <button type="button" id="docsSignatureSaveBtn" style="flex: 1; padding: 12px; background: #22c55e; border: none; color: white; font-size: 14px; font-weight: 500; cursor: pointer;">Sign and Save</button>
+        </div>
     </div>
 </div>
 `;
