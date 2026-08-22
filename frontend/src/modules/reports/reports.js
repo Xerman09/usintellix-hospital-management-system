@@ -2,6 +2,7 @@ import { getUser } from "../../core/session.js";
 import { fetchHealthSummary } from "../health-records/health-records.service.js";
 import { fetchProfile } from "../profile/profile.service.js";
 import { generateCcdDetailedReportHtml } from "../patients/patients-list.js";
+import { generateCustomPatientReportHtml } from "./custom-report-template.js";
 
 export function initReports() {
     const btnDownloadSummary = document.getElementById("btnDownloadSummary");
@@ -268,7 +269,7 @@ function generateCustomReport(action) {
         };
     }
     
-    const html = generateCcdDetailedReportHtml(patientDataForReport, filteredData);
+    const html = generateCustomPatientReportHtml(patientDataForReport, filteredData, selectedCats);
     
     if (action === 'view') {
         const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
