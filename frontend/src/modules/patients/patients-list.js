@@ -11,7 +11,7 @@ import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
-import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto } from "./patients.service.js";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
 import { API_URL } from "../../core/api.js";
 import { fetchProviders } from "../providers/providers.service.js";
@@ -582,6 +582,73 @@ function setupReports()
     setupSimplePatientReportCard("pdIssues", "Generating Issues report...", generateIssuesReportHtml);
     setupSimplePatientReportCard("pdProcedures", "Generating Procedures report...", generateProceduresReportHtml);
     setupSimplePatientReportCard("pdDocuments", "Generating Documents report...", generateDocumentsReportHtml);
+
+    const aiGenerateBtn = document.getElementById("pdAiReportGenerateBtn");
+    if (aiGenerateBtn) {
+        const newAiBtn = aiGenerateBtn.cloneNode(true);
+        aiGenerateBtn.parentNode.replaceChild(newAiBtn, aiGenerateBtn);
+        newAiBtn.addEventListener("click", async () => {
+            if (!currentDashboardPatient) return;
+
+            const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+            if (!reportWindow) {
+                alert("Please enable pop-ups to view the report.");
+                return;
+            }
+
+            reportWindow.document.open();
+            reportWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head><title>Loading Report...</title>
+                <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+                </head>
+                <body><h2>Fetching Patient Data...</h2><p>Please wait.</p></body>
+                </html>
+            `);
+
+            newAiBtn.disabled = true;
+            newAiBtn.textContent = "Analyzing...";
+
+            const summaryRes = await fetchPatientDashboardSummary(currentDashboardPatient.id);
+            if (!summaryRes.success) {
+                reportWindow.document.open();
+                reportWindow.document.write(`<h2>Failed to load data.</h2>`);
+                reportWindow.document.close();
+                newAiBtn.disabled = false;
+                newAiBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:5px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate AI Report';
+                return;
+            }
+
+            reportWindow.document.open();
+            reportWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head><title>Analyzing...</title>
+                <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+                </head>
+                <body><h2>Analyzing with AI...</h2><p>This may take a minute while the AI digests the patient's health assessment.</p></body>
+                </html>
+            `);
+
+            const aiRes = await fetchAiHealthAssessment(currentDashboardPatient.id, summaryRes.data);
+
+            newAiBtn.disabled = false;
+            newAiBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:5px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate AI Report';
+
+            if (!aiRes.success) {
+                reportWindow.document.open();
+                reportWindow.document.write(`<h2>Failed to generate AI report.</h2><p>${escapeHtml(aiRes.message || "")}</p>`);
+                reportWindow.document.close();
+                return;
+            }
+
+            const html = generateAiReportHtml(currentDashboardPatient, aiRes.data);
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
+        });
+    }
 }
 
 // Opens a popup synchronously (to dodge popup blockers), shows a loading
@@ -11691,4 +11758,57 @@ function showListAlert(message, type)
     }
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+}
+
+function generateAiReportHtml(patient, aiData) {
+    const data = aiData.analysis || {};
+    const warningsHtml = (data.warnings || []).map(w => `<li>${escapeHtml(w)}</li>`).join("");
+    const recsHtml = (data.recommendations || []).map(r => `<li>${escapeHtml(r)}</li>`).join("");
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(" ");
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Health Assessment Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 14px; margin: 40px; color: #333; line-height: 1.5; }
+        h1 { font-size: 20px; color: #111; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
+        h2 { font-size: 16px; color: #b91c1c; margin-top: 24px; }
+        h3 { font-size: 16px; color: #047857; margin-top: 24px; }
+        .patient-info { background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 24px; }
+        ul { margin: 12px 0; padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        .summary { font-size: 15px; margin-bottom: 20px; font-style: italic; color: #555; }
+        .footer { margin-top: 40px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 12px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>AI Health Assessment Report</h1>
+    
+    <div class="patient-info">
+        <strong>Patient:</strong> ${escapeHtml(fullName)}<br>
+        <strong>Generated At:</strong> ${escapeHtml(data.generated_at || new Date().toLocaleString())}
+    </div>
+
+    <div class="summary">
+        ${escapeHtml(data.summary || "")}
+    </div>
+
+    <h2>Critical Warnings & Contraindications</h2>
+    <ul>
+        ${warningsHtml || "<li>No warnings identified.</li>"}
+    </ul>
+
+    <h3>Recommendations & Next Steps</h3>
+    <ul>
+        ${recsHtml || "<li>No specific recommendations.</li>"}
+    </ul>
+
+    <div class="footer">
+        Disclaimer: This report is generated by Artificial Intelligence. It is intended to assist healthcare professionals and should not replace clinical judgement.
+    </div>
+</body>
+</html>
+    `;
 }

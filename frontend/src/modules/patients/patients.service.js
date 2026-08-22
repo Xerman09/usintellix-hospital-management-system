@@ -72,3 +72,17 @@ export async function removePatientPhoto(patientId)
         }
     );
 }
+
+export async function fetchAiHealthAssessment(patientId, summaryData)
+{
+    return await api(
+        "/ai/health-assessment",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                patient_id: patientId,
+                data: summaryData
+            })
+        }
+    );
+}

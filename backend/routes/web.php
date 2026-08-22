@@ -97,6 +97,7 @@ require_once __DIR__ . '/../app/Modules/CareTeams/routes.php';
 require_once __DIR__ . '/../app/Modules/PreferenceTypes/routes.php';
 require_once __DIR__ . '/../app/Modules/Profile/routes.php';
 require_once __DIR__ . '/../app/Modules/BusinessSettings/routes.php';
+require_once __DIR__ . '/../app/Modules/AiAnalysis/routes.php';
 require_once __DIR__ . '/../app/Modules/Recalls/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientFlow/routes.php';
 require_once __DIR__ . '/../app/Modules/Codes/routes.php';

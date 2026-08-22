@@ -5673,6 +5673,16 @@ textarea.pd-sdoh-readonly {
                             </div>
                         </div>
 
+                        <div class="pd-report-card">
+                            <div class="pd-report-card-header">
+                                <h4>AI Health Assessment Report</h4>
+                            </div>
+                            <p class="pd-chart-nav-empty" style="margin: 0 0 12px; font-style: normal;">Generate an AI-powered digest of the patient's health assessment and history to highlight potential warning signs.</p>
+                            <div class="pd-report-actions">
+                                <button type="button" class="pd-report-btn" id="pdAiReportGenerateBtn">${reportIcon("check")} Generate AI Report</button>
+                            </div>
+                        </div>
+
                         <div class="pd-report-split">
                             <div class="pd-report-split-col"><h4>Issues:</h4></div>
                             <div class="pd-report-split-col"><h4>Encounters &amp; Forms:</h4></div>

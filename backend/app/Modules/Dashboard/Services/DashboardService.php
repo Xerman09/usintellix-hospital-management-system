@@ -172,6 +172,7 @@ class DashboardService
         return [
             'role_scope' => 'patient',
             'has_patient_record' => true,
+            'patient_id' => $patientId,
             'appointments_upcoming' => $appointmentsUpcoming,
             'next_appointment' => $next,
             'recent_appointments' => $recentStmt->fetchAll(PDO::FETCH_ASSOC)

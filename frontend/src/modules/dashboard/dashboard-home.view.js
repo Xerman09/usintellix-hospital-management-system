@@ -372,6 +372,20 @@ export function DashboardHomeView(user)
         </div>
 
 
+        <div class="dh-panel" id="dhAiReportPanel" style="display: none; margin-top: 16px;">
+            <div class="dh-panel-header">
+                <h2>AI Health Assessment</h2>
+            </div>
+            <div id="dhAiReportContent" style="padding: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 12px; color: #6b7787;">
+                    <div style="font-weight: 600; color: #3b475a;">Analyzing your health records...</div>
+                    <div class="skeleton" style="height: 16px; width: 100%; border-radius: 4px;"></div>
+                    <div class="skeleton" style="height: 16px; width: 80%; border-radius: 4px;"></div>
+                    <div class="skeleton" style="height: 16px; width: 90%; border-radius: 4px;"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 `;
