@@ -16,6 +16,7 @@ export async function initDocuments()
     setupToolbar();
     setupUploadModal();
     setupSignatureModal();
+    setupSelectFormDropdown();
     await loadDocuments();
 }
 
@@ -256,6 +257,39 @@ function setupSignatureModal()
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
         }
+    });
+}
+
+function setupSelectFormDropdown()
+{
+    const btn = document.getElementById("docsSelectFormBtn");
+    const dropdown = document.getElementById("docsSelectFormDropdown");
+
+    if (!btn || !dropdown) return;
+
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (dropdown.style.display === "none") {
+            dropdown.style.display = "block";
+        } else {
+            dropdown.style.display = "none";
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (dropdown.style.display === "block" && !dropdown.contains(e.target) && e.target !== btn) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    // Optional: Add click handlers for the options
+    const options = dropdown.querySelectorAll(".docs-form-option");
+    options.forEach(opt => {
+        opt.addEventListener("click", (e) => {
+            e.preventDefault();
+            dropdown.style.display = "none";
+            // Logic to handle form selection could go here
+        });
     });
 }
 

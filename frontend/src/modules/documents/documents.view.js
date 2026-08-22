@@ -26,16 +26,25 @@ export function DocumentsView()
 
     <!-- The new toolbar (Left side of the OpenEMR screenshot) -->
     <div style="display: flex; gap: 8px; padding: 0 40px 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px;">
-        <button type="button" id="docsSignatureOpenBtn" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
+        <button type="button" id="docsSignatureOpenBtn" class="btn-secondary" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
             Signature
         </button>
-        <button type="button" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            Select Form
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-left: 6px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-        <button type="button" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
+        <div style="position: relative; display: inline-block; flex: 1;" id="docsSelectFormContainer">
+            <button type="button" id="docsSelectFormBtn" class="btn-secondary" style="width: 100%; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                Select Form
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-left: 6px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div id="docsSelectFormDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); min-width: 100%; z-index: 50; margin-top: 4px;">
+                <div style="background: #0f172a; color: white; padding: 8px 12px; font-weight: 600; font-size: 14px; text-align: center;">General</div>
+                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Hipaa Document</a>
+                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Insurance Info</a>
+                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Medical History</a>
+                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px;">Privacy Document</a>
+            </div>
+        </div>
+        <button type="button" class="btn-secondary" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             Activities
         </button>
