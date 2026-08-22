@@ -26,7 +26,42 @@ export function initReports() {
     }
 
     if (btnCustomizedHistory) {
-        btnCustomizedHistory.addEventListener("click", () => alert("Customized Medical History Report functionality coming soon."));
+        btnCustomizedHistory.addEventListener("click", () => openCustomizedReport());
+    }
+    
+    const btnBackToReports = document.getElementById("btnBackToReports");
+    if (btnBackToReports) {
+        btnBackToReports.addEventListener("click", () => {
+            document.querySelector('.reports-grid').style.display = 'grid';
+            document.getElementById('customizedReportContainer').style.display = 'none';
+        });
+    }
+
+    const customCheckAll = document.getElementById("customCheckAll");
+    const customClearAll = document.getElementById("customClearAll");
+    
+    if (customCheckAll) {
+        customCheckAll.addEventListener("click", (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.cat-cb, .item-cb').forEach(cb => cb.checked = true);
+        });
+    }
+    
+    if (customClearAll) {
+        customClearAll.addEventListener("click", (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.cat-cb, .item-cb').forEach(cb => cb.checked = false);
+        });
+    }
+
+    const btnCustomGenerate = document.getElementById("btnCustomGenerate");
+    const btnCustomDownload = document.getElementById("btnCustomDownload");
+    
+    if (btnCustomGenerate) {
+        btnCustomGenerate.addEventListener("click", () => generateCustomReport('view'));
+    }
+    if (btnCustomDownload) {
+        btnCustomDownload.addEventListener("click", () => generateCustomReport('download'));
     }
 
     if (btnDownloadDocs) {
@@ -36,6 +71,96 @@ export function initReports() {
     if (btnHelp) {
         btnHelp.addEventListener("click", () => alert("Please contact support for assistance with medical reports."));
     }
+}
+
+let cachedHealthData = null;
+let cachedProfileData = null;
+
+async function openCustomizedReport() {
+    const user = getUser();
+    if (!user || !user.id) return;
+    
+    const originalText = document.getElementById("btnCustomizedHistory").innerHTML;
+    document.getElementById("btnCustomizedHistory").innerHTML = "Loading...";
+    document.getElementById("btnCustomizedHistory").disabled = true;
+
+    try {
+        const [healthResult, profileResult] = await Promise.all([
+            fetchHealthSummary(user.id),
+            fetchProfile()
+        ]);
+
+        if (healthResult.success && profileResult.success) {
+            cachedHealthData = healthResult.data || {};
+            cachedProfileData = profileResult.data || user;
+            
+            populateCustomizedReport(cachedHealthData);
+            
+            document.querySelector('.reports-grid').style.display = 'none';
+            document.getElementById('customizedReportContainer').style.display = 'block';
+        } else {
+            alert("Failed to load patient data for the report.");
+        }
+    } catch (e) {
+        alert("Error loading data.");
+    } finally {
+        document.getElementById("btnCustomizedHistory").innerHTML = originalText;
+        document.getElementById("btnCustomizedHistory").disabled = false;
+    }
+}
+
+function populateCustomizedReport(data) {
+    const issuesContainer = document.getElementById("customIssuesList");
+    const encountersContainer = document.getElementById("customEncountersList");
+    
+    let issuesHtml = '';
+    
+    // Allergies
+    if (data.allergies && data.allergies.length) {
+        issuesHtml += '<div class="custom-section-header">Allergies</div>';
+        data.allergies.forEach(a => {
+            issuesHtml += `<div class="custom-item-row">
+                <label><input type="checkbox" class="item-cb" data-type="allergies" data-id="${a.id}" checked> ${a.title}</label>
+                <span>Active</span>
+            </div>`;
+        });
+    }
+    
+    // Problems
+    if (data.problems && data.problems.length) {
+        issuesHtml += '<div class="custom-section-header">Medical Problems</div>';
+        data.problems.forEach(p => {
+            issuesHtml += `<div class="custom-item-row">
+                <label><input type="checkbox" class="item-cb" data-type="problems" data-id="${p.id}" checked> ${p.problem || p.title}</label>
+                <span>Active</span>
+            </div>`;
+        });
+    }
+    
+    // Medications
+    if (data.medications && data.medications.length) {
+        issuesHtml += '<div class="custom-section-header">Medications</div>';
+        data.medications.forEach(m => {
+            issuesHtml += `<div class="custom-item-row">
+                <label><input type="checkbox" class="item-cb" data-type="medications" data-id="${m.id}" checked> ${m.medication || m.title}</label>
+                <span>Active</span>
+            </div>`;
+        });
+    }
+    
+    issuesContainer.innerHTML = issuesHtml || '<div style="color: #64748b; font-size: 12px; font-style: italic;">No active issues found.</div>';
+    
+    let encountersHtml = '';
+    if (data.encounters && data.encounters.length) {
+        data.encounters.forEach(e => {
+            const d = e.date ? e.date.substring(0, 10) : '';
+            encountersHtml += `<div class="custom-item-row" style="border: none;">
+                <label><input type="checkbox" class="item-cb" data-type="encounters" data-id="${e.id}" checked> ${e.reason || 'Encounter'} (${d})</label>
+            </div>`;
+        });
+    }
+    
+    encountersContainer.innerHTML = encountersHtml || '<div style="color: #64748b; font-size: 12px; font-style: italic;">No encounters found.</div>';
 }
 
 async function generateSummary(action) {
@@ -102,5 +227,73 @@ async function generateSummary(action) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+}
+
+function generateCustomReport(action) {
+    if (!cachedProfileData || !cachedHealthData) return;
+    
+    // Check which categories are selected
+    const selectedCats = Array.from(document.querySelectorAll('.cat-cb:checked')).map(cb => cb.value);
+    
+    // Check which specific items are selected
+    const selectedItems = {
+        allergies: new Set(),
+        problems: new Set(),
+        medications: new Set(),
+        encounters: new Set()
+    };
+    
+    document.querySelectorAll('.item-cb:checked').forEach(cb => {
+        selectedItems[cb.dataset.type].add(Number(cb.dataset.id));
+    });
+    
+    // Filter the health data based on selection
+    const filteredData = {
+        allergies: (cachedHealthData.allergies || []).filter(a => selectedCats.includes('Allergies') && selectedItems.allergies.has(Number(a.id))),
+        problems: (cachedHealthData.problems || []).filter(p => selectedCats.includes('Medical Problems') && selectedItems.problems.has(Number(p.id))),
+        medications: (cachedHealthData.medications || []).filter(m => selectedCats.includes('Medications') && selectedItems.medications.has(Number(m.id))),
+        encounters: (cachedHealthData.encounters || []).filter(e => selectedItems.encounters.has(Number(e.id))),
+        immunizations: selectedCats.includes('Immunizations') ? cachedHealthData.immunizations : []
+    };
+    
+    // Build patient data based on Demographics check
+    let patientDataForReport = cachedProfileData;
+    if (!selectedCats.includes('Demographics')) {
+        patientDataForReport = {
+            id: cachedProfileData.id,
+            patient_no: cachedProfileData.patient_no,
+            first_name: 'REDACTED',
+            last_name: 'REDACTED'
+        };
+    }
+    
+    const html = generateCcdDetailedReportHtml(patientDataForReport, filteredData);
+    
+    if (action === 'view') {
+        const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
+        if (reportWindow) {
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
+        } else {
+            alert("Please enable pop-ups to view the report.");
+        }
+    } else if (action === 'download') {
+        // Download as PDF via print dialog
+        const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
+        if (reportWindow) {
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.write(`<script>
+                window.onload = function() { 
+                    window.print();
+                    setTimeout(function() { window.close(); }, 500);
+                };
+            </script>`);
+            reportWindow.document.close();
+        } else {
+            alert("Please enable pop-ups to download the report.");
+        }
     }
 }
