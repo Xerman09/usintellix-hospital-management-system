@@ -50,14 +50,14 @@ export function DocumentsView()
         <button type="button" class="btn-secondary" id="docsSubmitCompletedBtn" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center; display: none;">
             Submit Completed
         </button>
-        <button type="button" class="btn-secondary" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center;">
+        <button type="button" id="docsActivitiesBtn" class="btn-secondary" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             Activities
         </button>
     </div>
 
     <!-- The "Editing" bar - styled properly -->
-    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 40px; margin-bottom: 32px; display: flex; align-items: center; gap: 8px;">
+    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 40px; margin-bottom: 32px; display: flex; align-items: center; gap: 8px;" id="docsEditingBar">
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb;"></div>
         <span style="font-weight: 600; color: #334155; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Editing Document</span>
     </div>
@@ -65,7 +65,7 @@ export function DocumentsView()
     <div class="docs-body" id="docsMainBody">
         <div class="docs-instructions">
             <h2>Instructions for completing Pending Forms</h2>
-            <p class="docs-instructions-welcome" style="margin-bottom: 24px;">Welcome<span id="docsWelcomeName"></span></p>
+            <p class="docs-instructions-welcome" style="margin-bottom: 24px;">Welcome <span id="docsWelcomeName"></span></p>
 
             <h3>Filling Out Forms</h3>
             <ul>
@@ -80,8 +80,33 @@ export function DocumentsView()
                 <li>Once sent, the form will show in your Document History as <em>Pending review</em>. You may still make changes to the form until reviewed by the practice administrator. Once the review is completed, Document History will show the form as <em>Locked</em> and no further edits are available. At this point, your completed document is recorded in your chart (medical record).</li>
             </ul>
         </div>
-
         <div id="docsListContainer"></div>
+    </div>
+
+    <!-- Activities View Container -->
+    <div class="docs-body" id="docsActivitiesBody" style="display: none; padding: 0 40px;">
+        <h2 style="text-align: center; font-weight: normal; margin-bottom: 16px; font-size: 22px;">Document and Forms Activity</h2>
+        
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 8px; font-style: italic; font-size: 13px;">
+            <label style="cursor: pointer;"><input type="checkbox" style="margin-right: 4px;">(Show All)</label>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #e2e8f0; text-align: left;">
+            <thead>
+                <tr style="background: #1e293b; color: white;">
+                    <th style="padding: 10px 12px; font-weight: bold; width: 40px;">Id</th>
+                    <th style="padding: 10px 12px; font-weight: bold;">Document</th>
+                    <th style="padding: 10px 12px; font-weight: bold;">Create Date</th>
+                    <th style="padding: 10px 12px; font-weight: bold;">Reviewed Date <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></th>
+                    <th style="padding: 10px 12px; font-weight: bold;">Status</th>
+                    <th style="padding: 10px 12px; font-weight: bold;">Signed</th>
+                    <th style="padding: 10px 12px; font-weight: bold;">Signed Date</th>
+                </tr>
+            </thead>
+            <tbody id="docsActivitiesTableBody">
+                <!-- Activities rows will go here -->
+            </tbody>
+        </table>
     </div>
 
     <!-- New Form View Container -->

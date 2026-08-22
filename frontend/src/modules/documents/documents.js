@@ -304,6 +304,8 @@ function setupSelectFormDropdown()
     document.getElementById("docsFormDismissBtn")?.addEventListener("click", closeForm);
     document.getElementById("docsFormDismissBtnBottom")?.addEventListener("click", closeForm);
 
+    document.getElementById("docsActivitiesBtn")?.addEventListener("click", openActivitiesView);
+
     document.getElementById("docsSubmitCompletedBtn")?.addEventListener("click", () => {
         if (typeof showToast === 'function') {
             showToast("Updates Successful", "success");
@@ -423,6 +425,41 @@ function openHipaaForm()
             }
         }
     });
+}
+
+function openActivitiesView()
+{
+    document.getElementById("docsMainBody").style.display = "none";
+    document.getElementById("docsFormBody").style.display = "none";
+    document.getElementById("docsEditingBar").style.display = "none";
+    document.getElementById("docsActivitiesBody").style.display = "block";
+    
+    // Revert toolbar buttons
+    document.getElementById("docsSaveDraftBtn").style.display = "none";
+    document.getElementById("docsSubmitCompletedBtn").style.display = "none";
+
+    const tbody = document.getElementById("docsActivitiesTableBody");
+    tbody.innerHTML = ""; // clear previous
+
+    const hipaaStatus = localStorage.getItem('hipaa_status');
+    if (hipaaStatus === "In Review") {
+        // Create mock row from screenshot
+        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid #f1f5f9";
+        tr.innerHTML = `
+            <td style="padding: 10px 12px; font-weight: bold;">2</td>
+            <td style="padding: 10px 12px;">
+                <span style="color: #2563eb; border: 1px solid #22c55e; padding: 2px 6px; display: inline-block;">Hipaa Document</span>
+            </td>
+            <td style="padding: 10px 12px;">${todayDisplay}</td>
+            <td style="padding: 10px 12px;">Pending</td>
+            <td style="padding: 10px 12px;">In Review</td>
+            <td style="padding: 10px 12px;">No</td>
+            <td style="padding: 10px 12px;">Pending</td>
+        `;
+        tbody.appendChild(tr);
+    }
 }
 
 function closeForm()
