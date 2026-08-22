@@ -80,6 +80,8 @@ import { initPatientFlow } from "../patient-flow/patient-flow.js";
 import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
+import { ReportsView } from "../reports/reports.view.js";
+import { initReports } from "../reports/reports.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CvxCodesView } from "../cvx-codes/cvx-codes.view.js";
@@ -440,6 +442,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initBilling, 0);
                 return BillingView();
+            }, activate);
+        } else if (tabId === 'reports' && user.role === 'patient') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initReports, 0);
+                return ReportsView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);

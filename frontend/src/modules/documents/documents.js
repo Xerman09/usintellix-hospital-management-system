@@ -4,8 +4,7 @@ import { api, API_URL } from "../../core/api.js";
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 
-export async function initDocuments()
-{
+export async function initDocuments() {
     const container = document.getElementById("docsListContainer");
 
     if (!container) {
@@ -20,8 +19,7 @@ export async function initDocuments()
     await loadDocuments();
 }
 
-function renderWelcomeName()
-{
+function renderWelcomeName() {
     const el = document.getElementById("docsWelcomeName");
 
     if (!el) {
@@ -34,8 +32,7 @@ function renderWelcomeName()
     el.textContent = name ? `, ${name}` : "";
 }
 
-async function loadDocuments()
-{
+async function loadDocuments() {
     const container = document.getElementById("docsListContainer");
 
     if (!container) {
@@ -63,8 +60,7 @@ async function loadDocuments()
     }
 }
 
-function setupToolbar()
-{
+function setupToolbar() {
     document.getElementById("docsReloadBtn").addEventListener("click", loadDocuments);
 
     document.getElementById("docsExitBtn").addEventListener("click", () => {
@@ -72,8 +68,7 @@ function setupToolbar()
     });
 }
 
-function setupUploadModal()
-{
+function setupUploadModal() {
     const overlay = document.getElementById("docsUploadModalOverlay");
     const form = document.getElementById("docsUploadForm");
 
@@ -116,7 +111,7 @@ function setupUploadModal()
             const mockDocs = JSON.parse(localStorage.getItem('mock_uploaded_docs') || '[]');
             const user = getUser();
             const fullName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : "Patient";
-            
+
             const newDoc = {
                 original_filename: file.name,
                 category: details.category || "Other",
@@ -125,10 +120,10 @@ function setupUploadModal()
                 file_size: file.size,
                 file_path: "#" // Mock path
             };
-            
+
             mockDocs.push(newDoc);
             localStorage.setItem('mock_uploaded_docs', JSON.stringify(mockDocs));
-            
+
             if (typeof showToast === 'function') {
                 showToast("Document uploaded successfully.", "success");
             }
@@ -142,8 +137,7 @@ function setupUploadModal()
     });
 }
 
-function setupSignatureModal()
-{
+function setupSignatureModal() {
     const overlay = document.getElementById("docsSignatureModalOverlay");
     const openBtn = document.getElementById("docsSignatureOpenBtn");
     const cancelBtn = document.getElementById("docsSignatureCancelBtn");
@@ -151,7 +145,7 @@ function setupSignatureModal()
     const saveBtn = document.getElementById("docsSignatureSaveBtn");
     const useCurrentBtn = document.getElementById("docsSignatureUseCurrentBtn");
     const canvas = document.getElementById("docsSignatureCanvas");
-    
+
     if (!overlay || !openBtn || !canvas) return;
 
     const ctx = canvas.getContext("2d");
@@ -178,9 +172,9 @@ function setupSignatureModal()
 
     const draw = (e) => {
         if (!isDrawing) return;
-        
+
         e.preventDefault();
-        
+
         const rect = canvas.getBoundingClientRect();
         let clientX = e.clientX;
         let clientY = e.clientY;
@@ -265,7 +259,7 @@ function setupSignatureModal()
 
         try {
             const dataUrl = canvas.toDataURL("image/png");
-            
+
             const response = await api("/profile/signature", {
                 method: "POST",
                 body: JSON.stringify({ signature: dataUrl })
@@ -279,7 +273,7 @@ function setupSignatureModal()
                     sessionStorage.setItem("user", JSON.stringify(user));
                 }
                 existingSignature = dataUrl;
-                
+
                 // Assuming showToast is a global or helper
                 if (typeof showToast === 'function') showToast("Signature saved successfully.", "success");
                 overlay.classList.remove("open");
@@ -296,8 +290,7 @@ function setupSignatureModal()
     });
 }
 
-function setupSelectFormDropdown()
-{
+function setupSelectFormDropdown() {
     const btn = document.getElementById("docsSelectFormBtn");
     const dropdown = document.getElementById("docsSelectFormDropdown");
 
@@ -305,7 +298,7 @@ function setupSelectFormDropdown()
 
     btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        
+
         // Update highlight status right before showing the dropdown
         updateDropdownStatus();
 
@@ -327,7 +320,7 @@ function setupSelectFormDropdown()
             e.preventDefault();
             dropdown.style.display = "none";
             const formType = opt.getAttribute("data-form");
-            
+
             if (formType === "hipaa") {
                 openHipaaForm();
             } else if (formType === "insurance") {
@@ -352,7 +345,7 @@ function setupSelectFormDropdown()
         if (typeof showToast === 'function') {
             showToast("Updates Successful", "success");
         }
-        
+
         if (document.getElementById("docsFormBody")?.style.display === "block") {
             localStorage.setItem('hipaa_status', 'In Review');
         } else if (document.getElementById("docsInsuranceFormBody")?.style.display === "block") {
@@ -362,7 +355,7 @@ function setupSelectFormDropdown()
         } else if (document.getElementById("docsPrivacyFormBody")?.style.display === "block") {
             localStorage.setItem('privacy_status', 'In Review');
         }
-        
+
         closeForm();
     });
 
@@ -383,7 +376,7 @@ function setupSelectFormDropdown()
         if (typeof showToast === 'function') {
             showToast("Delete Successful", "success");
         }
-        
+
         if (document.getElementById("docsFormBody")?.style.display === "block") {
             localStorage.removeItem('hipaa_status');
         } else if (document.getElementById("docsInsuranceFormBody")?.style.display === "block") {
@@ -393,7 +386,7 @@ function setupSelectFormDropdown()
         } else if (document.getElementById("docsPrivacyFormBody")?.style.display === "block") {
             localStorage.removeItem('privacy_status');
         }
-        
+
         closeForm();
     });
 
@@ -444,7 +437,7 @@ function setupSelectFormDropdown()
 function updateDropdownStatus() {
     const hipaaStatus = localStorage.getItem('hipaa_status');
     const hipaaOption = document.querySelector('.docs-form-option[data-form="hipaa"]');
-    
+
     if (hipaaOption) {
         if (hipaaStatus === 'In Review') {
             hipaaOption.style.backgroundColor = '#dcfce7'; // light green
@@ -500,13 +493,12 @@ function updateDropdownStatus() {
     }
 }
 
-function openHipaaForm()
-{
+function openHipaaForm() {
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
-    
+
     // Toggle toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "flex";
     document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
@@ -526,7 +518,7 @@ function openHipaaForm()
     // Set Date and Status
     const today = new Date().toISOString().split('T')[0];
     const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    
+
     document.getElementById("docsFormHeaderDate").textContent = todayDisplay;
     document.getElementById("hipaaGivenToday").textContent = today;
     document.getElementById("hipaaGivenToday2").textContent = today;
@@ -546,7 +538,7 @@ function openHipaaForm()
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     document.getElementById("hipaaPatientName").textContent = fullName;
     document.getElementById("hipaaPatientName2").textContent = fullName;
-    
+
     // Since we don't store sex/dob in session user, fetch profile if needed, or leave blank if not available.
     // For now we try to populate what we can from session user.
     document.getElementById("hipaaPatientSex").textContent = user.sex || "Unknown";
@@ -568,7 +560,7 @@ function openHipaaForm()
             document.getElementById("hipaaPatientSex").textContent = p.sex || "Unknown";
             document.getElementById("hipaaPatientId").textContent = p.id;
             document.getElementById("hipaaPatientDob").textContent = p.birthdate || "Unknown";
-            
+
             document.getElementById("hipaaPatientAddress").textContent = p.address_line || "Unknown";
             document.getElementById("hipaaPatientZip").textContent = p.zip_code || "Unknown";
             document.getElementById("hipaaPatientCity").textContent = p.city || "Unknown";
@@ -584,8 +576,7 @@ function openHipaaForm()
     });
 }
 
-function openInsuranceForm()
-{
+function openInsuranceForm() {
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
@@ -593,7 +584,7 @@ function openInsuranceForm()
     const privBody = document.getElementById("docsPrivacyFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
-    
+
     // Toggle toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "flex";
     document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
@@ -610,7 +601,7 @@ function openInsuranceForm()
     // Set Date and Status
     const today = new Date().toISOString().split('T')[0];
     const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    
+
     document.getElementById("docsInsuranceFormHeaderDate").textContent = todayDisplay;
     document.getElementById("insuranceGivenToday").textContent = today;
 
@@ -630,8 +621,7 @@ function openInsuranceForm()
     document.getElementById("insurancePatientName").textContent = fullName;
 }
 
-function openMedicalForm()
-{
+function openMedicalForm() {
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
@@ -639,7 +629,7 @@ function openMedicalForm()
     const privBody = document.getElementById("docsPrivacyFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
-    
+
     // Toggle toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "flex";
     document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
@@ -655,7 +645,7 @@ function openMedicalForm()
 
     // Set Date and Status
     const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    
+
     document.getElementById("docsMedicalFormHeaderDate").textContent = todayDisplay;
 
     const status = localStorage.getItem('medical_status') || 'New';
@@ -678,8 +668,7 @@ function openMedicalForm()
     }
 }
 
-function openPrivacyForm()
-{
+function openPrivacyForm() {
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
@@ -687,7 +676,7 @@ function openPrivacyForm()
     const privBody = document.getElementById("docsPrivacyFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
-    
+
     // Toggle toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "flex";
     document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
@@ -704,7 +693,7 @@ function openPrivacyForm()
     // Set Date and Status
     const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     const ymdDisplay = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    
+
     document.getElementById("docsPrivacyFormHeaderDate").textContent = todayDisplay;
     document.getElementById("privacyFormDateBottom").textContent = ymdDisplay;
 
@@ -725,8 +714,7 @@ function openPrivacyForm()
     document.getElementById("privacyPatientDOB").textContent = user.dob || "1972-02-09"; // Fallback to match screenshot if missing
 }
 
-function openActivitiesView()
-{
+function openActivitiesView() {
     document.getElementById("docsMainBody").style.display = "none";
     document.getElementById("docsFormBody").style.display = "none";
     document.getElementById("docsInsuranceFormBody").style.display = "none";
@@ -734,7 +722,7 @@ function openActivitiesView()
     document.getElementById("docsPrivacyFormBody").style.display = "none";
     document.getElementById("docsEditingBar").style.display = "none";
     document.getElementById("docsActivitiesBody").style.display = "block";
-    
+
     // Revert toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "none";
     document.getElementById("docsSubmitCompletedBtn").style.display = "none";
@@ -836,14 +824,13 @@ function openActivitiesView()
     }
 }
 
-function closeForm()
-{
+function closeForm() {
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
     const medBody = document.getElementById("docsMedicalFormBody");
     const privBody = document.getElementById("docsPrivacyFormBody");
-    
+
     // Revert toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "none";
     document.getElementById("docsSubmitCompletedBtn").style.display = "none";
@@ -856,8 +843,7 @@ function closeForm()
     if (privBody) privBody.style.display = "none";
 }
 
-function showAlert(containerId, message, type)
-{
+function showAlert(containerId, message, type) {
     const container = document.getElementById(containerId);
 
     if (container) {
@@ -865,8 +851,7 @@ function showAlert(containerId, message, type)
     }
 }
 
-function formatFileSize(bytes)
-{
+function formatFileSize(bytes) {
     if (!bytes) {
         return "-";
     }
@@ -882,8 +867,7 @@ function formatFileSize(bytes)
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function renderDocuments(documents)
-{
+function renderDocuments(documents) {
     const container = document.getElementById("docsListContainer");
 
     if (!documents.length) {
