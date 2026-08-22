@@ -196,7 +196,117 @@ export function DocumentsView()
             </div>
         </div>
     </div>
+
+    <!-- Insurance Form View Container -->
+    <div id="docsInsuranceFormBody" style="display: none;">
+        <div style="background: #0f172a; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 14px; font-weight: 500;">
+                <span style="font-weight: bold; margin-right: 8px;">Editing</span>
+                <span style="background: white; color: black; padding: 2px 4px; border-radius: 2px; margin-right: 8px;">Insurance Info</span>
+                New Version: Dated:<span id="docsInsuranceFormHeaderDate"></span> 
+                Status:<span id="docsInsuranceFormHeaderStatus" style="font-weight: bold;">New</span>
+            </div>
+            <button type="button" id="docsInsuranceFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 12px; cursor: pointer;">Dismiss Form</button>
+        </div>
+        <div style="padding: 40px; display: flex; justify-content: center; background: #f8fafc;">
+            <div style="background: white; border: 1px solid #e2e8f0; max-width: 800px; width: 100%; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <h2 style="text-align: center; margin-top: 0; margin-bottom: 24px; font-weight: normal; font-size: 24px;">INSURANCE INFORMATION</h2>
+
+                <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+                    <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox"> Medicare# <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;"></label>
+                    <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox"> Medicaid# <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;"></label>
+                </div>
+
+                <div style="margin-bottom: 24px;">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox"> Workers Compensation (job injury) If so then to whom is bill to be sent? 
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 250px;">
+                    </label>
+                </div>
+
+                <div style="margin-bottom: 32px;">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox"> Other Medical Insurance: Group# 
+                        <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                        ID# <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px;">
+                    </label>
+                </div>
+
+                <div style="margin-bottom: 32px;">
+                    <p style="margin-bottom: 16px;">Name/Address 1st or 2nd Insurance:</p>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <label>Name:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Relationship:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 60px auto 80px; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <label>Address</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>State</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Zip</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 12px; align-items: center;">
+                        <label>Phone:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Secondary Phone:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 32px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <p style="margin-bottom: 16px;">Are you personally responsible for the payment of your fees? 
+                        <label style="margin-left: 8px; cursor: pointer;"><input type="radio" name="insResponsible"> Yes</label>
+                        <label style="margin-left: 8px; cursor: pointer;"><input type="radio" name="insResponsible"> No</label>
+                    </p>
+                    
+                    <p style="margin-bottom: 16px;">If not, who is?</p>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 1fr auto 100px; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <label>Name:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Relationship:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>DOB:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 60px auto 80px; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <label>Address</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>State</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Zip</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 12px; align-items: center;">
+                        <label>Phone:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Secondary Phone:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 48px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <p style="margin-bottom: 16px;">Who to notify in emergency (nearest relative or friend)?</p>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <label>Name</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Relationship</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 60px auto 80px; gap: 12px; align-items: center; margin-bottom: 12px;">
+                        <label>Address:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>State:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Zip:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 12px; align-items: center;">
+                        <label>Work Phone:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <label>Home Phone:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 24px;">
+                    <span style="font-size: 14px;">Signed by <span id="insurancePatientName"></span> on <span id="insuranceGivenToday"></span> </span>
+                    <span style="cursor: pointer; padding: 2px 4px;">X</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <button type="button" id="docsInsuranceFormDeleteBtn" style="background: #ef4444; border: none; color: white; padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Delete Document
+                    </button>
+                    <button type="button" id="docsInsuranceFormDismissBtnBottom" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px 16px; font-size: 14px; cursor: pointer; margin-left: auto;">Dismiss Form</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+
 
 <div class="modal-overlay" id="docsUploadModalOverlay">
     <div class="modal-box" style="max-width: 480px;">
