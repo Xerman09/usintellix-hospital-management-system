@@ -125,6 +125,7 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="medications">Medications</a>
     <a data-tab="billing">Billing</a>
     <a data-tab="documents">Documents</a>
+    <a data-tab="profile">Profile</a>
 `;
 
 const DOCTOR_NAV_LINKS = `
