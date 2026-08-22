@@ -296,6 +296,8 @@ function setupSelectFormDropdown()
                 openHipaaForm();
             } else if (formType === "insurance") {
                 openInsuranceForm();
+            } else if (formType === "medical") {
+                openMedicalForm();
             }
         });
     });
@@ -317,6 +319,8 @@ function setupSelectFormDropdown()
             localStorage.setItem('hipaa_status', 'In Review');
         } else if (document.getElementById("docsInsuranceFormBody")?.style.display === "block") {
             localStorage.setItem('insurance_status', 'In Review');
+        } else if (document.getElementById("docsMedicalFormBody")?.style.display === "block") {
+            localStorage.setItem('medical_status', 'In Review');
         }
         
         closeForm();
@@ -344,6 +348,8 @@ function setupSelectFormDropdown()
             localStorage.removeItem('hipaa_status');
         } else if (document.getElementById("docsInsuranceFormBody")?.style.display === "block") {
             localStorage.removeItem('insurance_status');
+        } else if (document.getElementById("docsMedicalFormBody")?.style.display === "block") {
+            localStorage.removeItem('medical_status');
         }
         
         closeForm();
@@ -353,6 +359,14 @@ function setupSelectFormDropdown()
     document.getElementById("docsInsuranceFormDismissBtnBottom")?.addEventListener("click", closeForm);
 
     document.getElementById("docsInsuranceFormDeleteBtn")?.addEventListener("click", () => {
+        const modal = document.getElementById("docsDeleteConfirmModalOverlay");
+        if (modal) modal.style.display = "flex";
+    });
+
+    document.getElementById("docsMedicalFormDismissBtn")?.addEventListener("click", closeForm);
+    document.getElementById("docsMedicalFormDismissBtnBottom")?.addEventListener("click", closeForm);
+
+    document.getElementById("docsMedicalFormDeleteBtn")?.addEventListener("click", () => {
         const modal = document.getElementById("docsDeleteConfirmModalOverlay");
         if (modal) modal.style.display = "flex";
     });
@@ -387,6 +401,20 @@ function updateDropdownStatus() {
             insOption.style.fontWeight = 'normal';
         }
     }
+
+    const medStatus = localStorage.getItem('medical_status');
+    const medOption = document.querySelector('.docs-form-option[data-form="medical"]');
+    if (medOption) {
+        if (medStatus === 'In Review') {
+            medOption.style.backgroundColor = '#dcfce7';
+            medOption.style.color = '#166534';
+            medOption.style.fontWeight = '500';
+        } else {
+            medOption.style.backgroundColor = 'transparent';
+            medOption.style.color = '#475569';
+            medOption.style.fontWeight = 'normal';
+        }
+    }
 }
 
 function openHipaaForm()
@@ -405,6 +433,8 @@ function openHipaaForm()
     if (activitiesBody) activitiesBody.style.display = "none";
     const insBody = document.getElementById("docsInsuranceFormBody");
     if (insBody) insBody.style.display = "none";
+    const medBody = document.getElementById("docsMedicalFormBody");
+    if (medBody) medBody.style.display = "none";
     if (editingBar) editingBar.style.display = "flex";
     if (formBody) formBody.style.display = "block";
 
@@ -474,6 +504,7 @@ function openInsuranceForm()
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
+    const medBody = document.getElementById("docsMedicalFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
     
@@ -485,6 +516,7 @@ function openInsuranceForm()
     if (mainBody) mainBody.style.display = "none";
     if (activitiesBody) activitiesBody.style.display = "none";
     if (formBody) formBody.style.display = "none";
+    if (medBody) medBody.style.display = "none";
     if (editingBar) editingBar.style.display = "flex";
     if (insBody) insBody.style.display = "block";
 
@@ -511,11 +543,58 @@ function openInsuranceForm()
     document.getElementById("insurancePatientName").textContent = fullName;
 }
 
+function openMedicalForm()
+{
+    const mainBody = document.getElementById("docsMainBody");
+    const formBody = document.getElementById("docsFormBody");
+    const insBody = document.getElementById("docsInsuranceFormBody");
+    const medBody = document.getElementById("docsMedicalFormBody");
+    const activitiesBody = document.getElementById("docsActivitiesBody");
+    const editingBar = document.getElementById("docsEditingBar");
+    
+    // Toggle toolbar buttons
+    document.getElementById("docsSaveDraftBtn").style.display = "flex";
+    document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
+
+    // Toggle views
+    if (mainBody) mainBody.style.display = "none";
+    if (activitiesBody) activitiesBody.style.display = "none";
+    if (formBody) formBody.style.display = "none";
+    if (insBody) insBody.style.display = "none";
+    if (editingBar) editingBar.style.display = "flex";
+    if (medBody) medBody.style.display = "block";
+
+    // Set Date and Status
+    const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    
+    document.getElementById("docsMedicalFormHeaderDate").textContent = todayDisplay;
+
+    const status = localStorage.getItem('medical_status') || 'New';
+    document.getElementById("docsMedicalFormHeaderStatus").textContent = status;
+    if (status === 'In Review') {
+        document.getElementById("docsMedicalFormDeleteBtn").style.display = "flex";
+    } else {
+        document.getElementById("docsMedicalFormDeleteBtn").style.display = "none";
+    }
+
+    // Load Patient Data
+    const user = getUser();
+    if (!user) return;
+
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    const sigSpan = document.getElementById("medicalPatientName");
+    if (sigSpan) {
+        sigSpan.textContent = fullName;
+        sigSpan.style.display = "inline";
+    }
+}
+
 function openActivitiesView()
 {
     document.getElementById("docsMainBody").style.display = "none";
     document.getElementById("docsFormBody").style.display = "none";
     document.getElementById("docsInsuranceFormBody").style.display = "none";
+    document.getElementById("docsMedicalFormBody").style.display = "none";
     document.getElementById("docsEditingBar").style.display = "none";
     document.getElementById("docsActivitiesBody").style.display = "block";
     
@@ -572,6 +651,29 @@ function openActivitiesView()
             openInsuranceForm();
         });
     }
+
+    const medStatus = localStorage.getItem('medical_status');
+    if (medStatus === "In Review") {
+        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid #f1f5f9";
+        tr.innerHTML = `
+            <td style="padding: 10px 12px; font-weight: bold;">4</td>
+            <td style="padding: 10px 12px;">
+                <span class="docs-activity-link-med" style="color: #2563eb; border: 1px solid #22c55e; padding: 2px 6px; display: inline-block; cursor: pointer;">Medical History</span>
+            </td>
+            <td style="padding: 10px 12px;">${todayDisplay}</td>
+            <td style="padding: 10px 12px;">Pending</td>
+            <td style="padding: 10px 12px;">In Review</td>
+            <td style="padding: 10px 12px;">No</td>
+            <td style="padding: 10px 12px;">Pending</td>
+        `;
+        tbody.appendChild(tr);
+
+        tr.querySelector(".docs-activity-link-med").addEventListener("click", () => {
+            openMedicalForm();
+        });
+    }
 }
 
 function closeForm()
@@ -579,6 +681,7 @@ function closeForm()
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
+    const medBody = document.getElementById("docsMedicalFormBody");
     
     // Revert toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "none";
@@ -588,6 +691,7 @@ function closeForm()
     if (mainBody) mainBody.style.display = "block";
     if (formBody) formBody.style.display = "none";
     if (insBody) insBody.style.display = "none";
+    if (medBody) medBody.style.display = "none";
 }
 
 function showAlert(containerId, message, type)

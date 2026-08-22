@@ -304,6 +304,115 @@ export function DocumentsView()
             </div>
         </div>
     </div>
+
+    <!-- Medical History Form View Container -->
+    <div id="docsMedicalFormBody" style="display: none;">
+        <div style="background: #0f172a; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 14px; font-weight: 500;">
+                <span style="font-weight: bold; margin-right: 8px;">Editing</span>
+                <span style="background: white; color: black; padding: 2px 4px; border-radius: 2px; margin-right: 8px;">Medical History</span>
+                New Version: Dated:<span id="docsMedicalFormHeaderDate"></span> 
+                Status:<span id="docsMedicalFormHeaderStatus" style="font-weight: bold;">New</span>
+            </div>
+            <button type="button" id="docsMedicalFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 12px; cursor: pointer;">Dismiss Form</button>
+        </div>
+        <div style="padding: 40px; display: flex; justify-content: center; background: #f8fafc;">
+            <div style="background: white; border: 1px solid #e2e8f0; max-width: 900px; width: 100%; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <h2 style="margin-top: 0; margin-bottom: 24px; font-weight: normal; font-size: 24px; color: #1e293b;">History</h2>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" checked> General
+                    </label>
+                </div>
+
+                <div style="background: #cbd5e1; padding: 24px; border-radius: 4px; margin-bottom: 32px; display: grid; grid-template-columns: 150px 1fr; gap: 16px; color: #0f172a;">
+                    
+                    <div style="font-weight: bold;">Risk Factors:</div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px;">
+                        <label><input type="checkbox"> Varicose Veins</label>
+                        <label><input type="checkbox"> Hypertension</label>
+                        <label><input type="checkbox"> Diabetes</label>
+                        <label><input type="checkbox"> Sickle Cell</label>
+                        <label><input type="checkbox"> Fibroids</label>
+                        <label><input type="checkbox"> PID (Pelvic Inflammatory Disease)</label>
+                        <label><input type="checkbox"> Severe Migraine</label>
+                        <label><input type="checkbox"> Heart Disease</label>
+                        <label><input type="checkbox"> Thrombosis/Stroke</label>
+                        <label><input type="checkbox"> Hepatitis</label>
+                        <label><input type="checkbox"> Gall Bladder Condition</label>
+                        <label><input type="checkbox"> Breast Disease</label>
+                        <label><input type="checkbox"> Depression</label>
+                        <label><input type="checkbox"> Allergies</label>
+                        <label><input type="checkbox"> Infertility</label>
+                        <label><input type="checkbox"> Asthma</label>
+                        <label><input type="checkbox"> Epilepsy</label>
+                        <label><input type="checkbox"> Contact Lenses</label>
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox"> Contraceptive Complication (specify)</label>
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox"> Other (specify)</label>
+                    </div>
+
+                    <div style="font-weight: bold; margin-top: 24px;">Exams/Tests:</div>
+                    <div style="margin-top: 24px; background: white; border: 1px solid #94a3b8; border-radius: 2px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #94a3b8;">
+                                    <th style="text-align: left; padding: 12px; font-weight: bold;">Exam or Test</th>
+                                    <th style="text-align: center; padding: 12px; font-weight: bold; width: 40px;">N/A</th>
+                                    <th style="text-align: center; padding: 12px; font-weight: bold; width: 40px;">Nor</th>
+                                    <th style="text-align: center; padding: 12px; font-weight: bold; width: 40px;">Abn</th>
+                                    <th style="text-align: left; padding: 12px; font-weight: bold;">Date/Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Breast Exam</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam1"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam1"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam1"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">Cardiac Echo</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam2"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam2"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam2"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">ECG</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam3"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam3"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam3"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px;">Gynecological Exam</td>
+                                    <td style="text-align: center;"><input type="radio" name="exam4"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam4"></td>
+                                    <td style="text-align: center;"><input type="radio" name="exam4"></td>
+                                    <td style="padding: 12px;"><input type="text" style="width: 100%; border: 1px solid #cbd5e1; padding: 4px; box-sizing: border-box;"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 24px; margin-top: 40px;">
+                    <span style="font-size: 14px;">Patient Signature: <span id="medicalPatientName" style="display: none;"></span></span>
+                    <span style="cursor: pointer; padding: 2px 4px; margin-left: 8px;">X</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <button type="button" id="docsMedicalFormDeleteBtn" style="background: #ef4444; border: none; color: white; padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Delete Document
+                    </button>
+                    <button type="button" id="docsMedicalFormDismissBtnBottom" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px 16px; font-size: 14px; cursor: pointer; margin-left: auto;">Dismiss Form</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 
