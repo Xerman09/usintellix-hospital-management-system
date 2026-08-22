@@ -271,105 +271,247 @@ export function ProfileView()
 </div>
 
 <div class="modal-overlay" id="editProfileModalOverlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 1100px;">
         <div class="modal-header">
-            <h2>Edit Profile</h2>
+            <h2>Profile Edits</h2>
             <button type="button" class="modal-close" id="closeEditProfileModal">&times;</button>
         </div>
-        <p class="form-subtitle">Update your name and contact information.</p>
 
         <div id="editProfileFormAlert"></div>
 
         <form id="editProfileForm">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>First Name</label>
+            <!-- Basic Details Grid -->
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 24px;">
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Current Physician</label>
+                    <select id="edit_physician" class="form-input">
+                        <option>Administrator Assign</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Title</label>
+                    <select id="edit_title" class="form-input">
+                        <option>Unassigned</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>First</label>
                     <input id="edit_first_name" class="form-input">
-                    <span class="form-error" id="err-edit_first_name"></span>
+                    <span class="edit-pending-note" id="pending_first_name"></span>
                 </div>
-
-                <div class="form-group">
-                    <label>Middle Name</label>
-                    <input id="edit_middle_name" class="form-input" placeholder="Optional">
-                    <span class="form-error"></span>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Middle</label>
+                    <input id="edit_middle_name" class="form-input" placeholder="Middle Name">
+                    <span class="edit-pending-note" id="pending_middle_name"></span>
                 </div>
-
-                <div class="form-group">
-                    <label>Last Name</label>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Last</label>
                     <input id="edit_last_name" class="form-input">
-                    <span class="form-error" id="err-edit_last_name"></span>
+                    <span class="edit-pending-note" id="pending_last_name"></span>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Public Patient Id</label>
+                    <input id="edit_public_id" class="form-input" value="1" disabled style="background:#f1f5f9;">
                 </div>
 
-                <div class="form-group">
-                    <label>Suffix</label>
-                    <input id="edit_suffix" class="form-input" placeholder="Jr, Sr, III (optional)">
-                    <span class="form-error"></span>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Birth Date</label>
+                    <input id="edit_dob" class="form-input" type="date">
+                    <span class="edit-pending-note" id="pending_dob"></span>
                 </div>
-
-                <div class="form-group profile-employee-field" style="display:none;">
-                    <label>Email</label>
-                    <input id="edit_email" type="email" class="form-input">
-                    <span class="form-error" id="err-edit_email"></span>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Gender</label>
+                    <select id="edit_gender" class="form-input">
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                    <span class="edit-pending-note" id="pending_gender"></span>
                 </div>
-
-                <div class="form-group profile-employee-field" style="display:none;">
-                    <label>Phone</label>
-                    <input id="edit_phone" class="form-input">
-                    <span class="form-error" id="err-edit_phone"></span>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Marital Status</label>
+                    <select id="edit_marital_status" class="form-input">
+                        <option>Single</option>
+                        <option>Married</option>
+                    </select>
+                    <span class="edit-pending-note" id="pending_marital_status" style="color: #ef4444; font-size: 11px; margin-top: 4px; display: block;"></span>
                 </div>
-
-                <div class="form-group profile-patient-field" style="display:none;">
-                    <label>Contact Email</label>
-                    <input id="edit_contact_email" type="email" class="form-input">
-                    <span class="form-error" id="err-edit_contact_email"></span>
-                </div>
-
-                <div class="form-group profile-patient-field" style="display:none;">
-                    <label>Mobile Phone</label>
-                    <input id="edit_mobile_phone" class="form-input">
-                    <span class="form-error"></span>
-                </div>
-
-                <div class="form-group profile-patient-field" style="display:none;">
-                    <label>Home Phone</label>
-                    <input id="edit_home_phone" class="form-input">
-                    <span class="form-error"></span>
-                </div>
-
-                <div class="form-group profile-patient-field" style="display:none;">
-                    <label>Work Phone</label>
-                    <input id="edit_work_phone" class="form-input">
-                    <span class="form-error"></span>
-                </div>
-
-                <div class="form-group full profile-patient-field" style="display:none;">
-                    <label>Address</label>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Street</label>
                     <input id="edit_address_line" class="form-input">
-                    <span class="form-error"></span>
+                    <span class="edit-pending-note" id="pending_address_line"></span>
                 </div>
-
-                <div class="form-group profile-patient-field" style="display:none;">
+                <div class="form-group" style="grid-column: span 1;">
                     <label>City</label>
                     <input id="edit_city" class="form-input">
-                    <span class="form-error"></span>
+                    <span class="edit-pending-note" id="pending_city"></span>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>State</label>
+                    <select id="edit_province" class="form-input">
+                        <option>Florida</option>
+                        <option>California</option>
+                    </select>
+                    <span class="edit-pending-note" id="pending_province"></span>
                 </div>
 
-                <div class="form-group profile-patient-field" style="display:none;">
-                    <label>Province</label>
-                    <input id="edit_province" class="form-input">
-                    <span class="form-error"></span>
-                </div>
-
-                <div class="form-group profile-patient-field" style="display:none;">
-                    <label>Zip Code</label>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Postal Code</label>
                     <input id="edit_zip_code" class="form-input">
-                    <span class="form-error"></span>
+                    <span class="edit-pending-note" id="pending_zip_code"></span>
                 </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>County</label>
+                    <input id="edit_county" class="form-input" placeholder="County">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Country Code</label>
+                    <input id="edit_country" class="form-input" value="USA">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Home Phone</label>
+                    <input id="edit_home_phone" class="form-input">
+                    <span class="edit-pending-note" id="pending_home_phone"></span>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Business Phone</label>
+                    <input id="edit_work_phone" class="form-input">
+                    <span class="edit-pending-note" id="pending_work_phone"></span>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Cell Phone</label>
+                    <input id="edit_mobile_phone" class="form-input">
+                    <span class="edit-pending-note" id="pending_mobile_phone"></span>
+                </div>
+
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Contact or Notify Phone</label>
+                    <input id="edit_notify_phone" class="form-input">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Contact Relationship</label>
+                    <input id="edit_notify_rel" class="form-input">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Date</label>
+                    <input id="edit_date" class="form-input" disabled style="background:#f1f5f9;">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Email</label>
+                    <input id="edit_contact_email" class="form-input">
+                    <span class="edit-pending-note" id="pending_contact_email"></span>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Email Direct</label>
+                    <input id="edit_email_direct" class="form-input" placeholder="Direct Email">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Preferred Language</label>
+                    <input id="edit_language" class="form-input" value="English">
+                </div>
+
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Family Size</label>
+                    <input id="edit_family_size" class="form-input" placeholder="Family Size">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Mothers Name</label>
+                    <input id="edit_mothers_name" class="form-input">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Guardians Name</label>
+                    <input id="edit_guardians_name" class="form-input" placeholder="Guardians Name">
+                </div>
+                
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow Postal Mail</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_mail"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_mail" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_mail"> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Allow Voice Call</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc; max-width: 250px;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_voice"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_voice" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_voice"> Unassigned</label>
+                    </div>
+                </div>
+
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow Notice</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_notice"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_notice" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_notice"> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Hipaa Message</label>
+                    <input id="edit_hipaa_message" class="form-input">
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow SMS</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_sms"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_sms" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_sms"> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow Email</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_email"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_email" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_email"> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Allow Immunization Registry Use</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc; max-width: 250px;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_immun"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_immun" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_immun"> Unassigned</label>
+                    </div>
+                </div>
+
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow Immunization Info Share</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_immun_share"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_immun_share" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_immun_share"> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow Health Info Exchange</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_health_exchange"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_health_exchange" checked> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_health_exchange"> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                    <label>Allow Patient Portal</label>
+                    <div style="display:flex; gap:8px; align-items:center; border:1px solid #cbd5e1; padding:6px; border-radius:4px; background:#f8fafc;">
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_portal"> NO</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_portal"> YES</label>
+                        <label style="margin:0; font-weight:normal;"><input type="radio" name="allow_portal" checked> Unassigned</label>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column: span 3;">
+                    <label style="color: #22c55e;">Comments about change request</label>
+                    <textarea class="form-input" rows="2"></textarea>
+                </div>
+
             </div>
 
-            <div class="form-actions">
+            <div class="form-actions" style="justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn-secondary" style="background:#0284c7; color:white; border:none;">Help</button>
                 <button type="button" class="btn-secondary" id="cancelEditProfile">Cancel</button>
-                <button class="login-btn" type="submit">Save Changes</button>
+                <button type="button" class="btn-secondary" id="revertEditProfileBtn" style="background:#ef4444; color:white; border:none;">Revert Edits</button>
+                <button type="submit" class="btn-secondary" style="background:#22c55e; color:white; border:none; font-weight:600;">Submit Changes</button>
             </div>
         </form>
     </div>

@@ -106,23 +106,61 @@ function renderProfile(profile)
 
 function setupEditProfileModal()
 {
-    const fields = currentProfile.kind === "patient" ? PATIENT_FIELDS : EMPLOYEE_FIELDS;
-
     const modalOverlay = document.getElementById("editProfileModalOverlay");
     const form = document.getElementById("editProfileForm");
+    
+    // We mock the new fields that may not exist in currentProfile yet
+    const ALL_FIELDS = [
+        "first_name", "middle_name", "last_name", "dob", "gender", "marital_status",
+        "address_line", "city", "province", "zip_code", "county", "country",
+        "home_phone", "work_phone", "mobile_phone", "notify_phone", "notify_rel",
+        "contact_email", "email_direct", "language", "family_size", "mothers_name", 
+        "guardians_name", "hipaa_message"
+    ];
 
-    const openModal = () => {
-        clearFieldErrors(fields, "edit_");
-        document.getElementById("editProfileFormAlert").innerHTML = "";
+    const loadPendingEdits = () => {
+        let pendingEdits = {};
+        try {
+            pendingEdits = JSON.parse(localStorage.getItem("pending_profile_edits") || "{}");
+        } catch (e) { }
 
-        fields.forEach((field) => {
+        ALL_FIELDS.forEach((field) => {
             const input = document.getElementById(`edit_${field}`);
-
+            const pendingNote = document.getElementById(`pending_${field}`);
+            
             if (input) {
-                input.value = currentProfile[field] || "";
+                // Determine original value
+                let origVal = "";
+                if (field === "dob") origVal = "1972-02-09";
+                else if (field === "gender") origVal = "Male";
+                else if (field === "marital_status") origVal = "Single";
+                else if (field === "country") origVal = "USA";
+                else if (field === "language") origVal = "English";
+                else origVal = currentProfile[field] || "";
+
+                if (pendingEdits[field] && pendingEdits[field] !== origVal) {
+                    input.value = pendingEdits[field];
+                    if (pendingNote) {
+                        pendingNote.textContent = origVal || "(empty)";
+                        pendingNote.style.color = "#ef4444";
+                        pendingNote.style.fontSize = "11px";
+                        pendingNote.style.marginTop = "4px";
+                        pendingNote.style.display = "block";
+                    }
+                } else {
+                    input.value = origVal;
+                    if (pendingNote) {
+                        pendingNote.textContent = "";
+                        pendingNote.style.display = "none";
+                    }
+                }
             }
         });
+    };
 
+    const openModal = () => {
+        document.getElementById("editProfileFormAlert").innerHTML = "";
+        loadPendingEdits();
         modalOverlay.classList.add("open");
     };
 
@@ -133,6 +171,11 @@ function setupEditProfileModal()
     document.getElementById("openEditProfileModal").addEventListener("click", openModal);
     document.getElementById("closeEditProfileModal").addEventListener("click", closeModal);
     document.getElementById("cancelEditProfile").addEventListener("click", closeModal);
+    
+    document.getElementById("revertEditProfileBtn").addEventListener("click", () => {
+        localStorage.removeItem("pending_profile_edits");
+        loadPendingEdits();
+    });
 
     modalOverlay.addEventListener("click", (event) => {
         if (event.target === modalOverlay) {
@@ -143,49 +186,18 @@ function setupEditProfileModal()
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
-        clearFieldErrors(fields, "edit_");
-
-        const data = {};
-
-        fields.forEach((field) => {
-            data[field] = document.getElementById(`edit_${field}`).value.trim();
+        const pendingEdits = {};
+        ALL_FIELDS.forEach((field) => {
+            const input = document.getElementById(`edit_${field}`);
+            if (input) {
+                pendingEdits[field] = input.value;
+            }
         });
 
-        const result = await updateProfile(data);
+        localStorage.setItem("pending_profile_edits", JSON.stringify(pendingEdits));
 
-        if (!result.success) {
-            showAlert("editProfileFormAlert", result.message || "Failed to update profile.", "error");
-
-            if (result.errors) {
-                Object.entries(result.errors).forEach(([field, message]) => {
-                    const errorEl = document.getElementById(`err-edit_${field}`);
-
-                    if (errorEl) {
-                        errorEl.textContent = message;
-                    }
-                });
-            }
-
-            return;
-        }
-
-        currentProfile = { ...currentProfile, ...data };
-        renderProfile(currentProfile);
-
-        const user = getUser();
-
-        if (user) {
-            saveUser({ ...user, ...result.data.user });
-        }
-
-        const profileName = document.getElementById("profileName");
-
-        if (profileName) {
-            profileName.textContent = `${result.data.user.first_name} ${result.data.user.last_name}`;
-        }
-
+        showToast("Changes submitted for approval", "success");
         closeModal();
-        showToast("Profile updated successfully.", "success");
     });
 }
 
