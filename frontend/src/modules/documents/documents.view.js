@@ -4,8 +4,8 @@ export function DocumentsView()
 <div class="docs-page">
     <div class="docs-topbar">
         <div>
-            <h1>Documents</h1>
-            <p>Files shared by your care team, and anything you've uploaded yourself</p>
+            <h1>Documents and Forms</h1>
+            <p>Complete pending forms, sign documents, and manage your health records</p>
         </div>
 
         <div class="docs-toolbar">
@@ -24,27 +24,45 @@ export function DocumentsView()
         </div>
     </div>
 
+    <!-- The new toolbar (Left side of the OpenEMR screenshot) -->
+    <div style="display: flex; gap: 8px; padding: 0 40px 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px;">
+        <button type="button" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            Signature
+        </button>
+        <button type="button" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Select Form
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-left: 6px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <button type="button" class="btn-secondary" style="background: white; border-color: #cbd5e1; color: #475569; font-weight: 500;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            Activities
+        </button>
+    </div>
+
+    <!-- The "Editing" bar - styled properly -->
+    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 40px; margin-bottom: 32px; display: flex; align-items: center; gap: 8px;">
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb;"></div>
+        <span style="font-weight: 600; color: #334155; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Editing Document</span>
+    </div>
+
     <div class="docs-body">
         <div class="docs-instructions">
-            <h2>Instructions</h2>
-            <p class="docs-instructions-welcome">Welcome<span id="docsWelcomeName"></span></p>
+            <h2>Instructions for completing Pending Forms</h2>
+            <p class="docs-instructions-welcome" style="margin-bottom: 24px;">Welcome<span id="docsWelcomeName"></span></p>
 
-            <h3>Viewing Your Documents</h3>
+            <h3>Filling Out Forms</h3>
             <ul>
-                <li>Files your care team has shared with you appear in the table below.</li>
-                <li>Click <strong>Download</strong> next to any file to open or save a copy.</li>
+                <li>Select a form from the list on the left by clicking the appropriate button. After selection, the page will go to full page. To exit, click the Action menu horizontal barred button to toggle page mode.</li>
+                <li>Answer all the appropriate queries in the form.</li>
+                <li>When finished, click either the <strong>Save</strong> or <strong>Submit Document</strong> option in the top Action Menu. The 'Save' button will save the currently edited form to your Document History and will still be available for editing until you delete the form or send to your provider using the 'Submit Document' action button.</li>
             </ul>
 
-            <h3>Uploading Documents</h3>
+            <h3>Sending Documents</h3>
             <ul>
-                <li>Click <strong>Upload</strong> in the toolbar above.</li>
-                <li>Choose a file, optionally set a category and description, then click <strong>Upload</strong> to add it to your Documents list.</li>
-                <li>Accepted file types: PDF, JPG, PNG, GIF, WEBP, DOC, DOCX, XLS, XLSX &mdash; up to 10MB.</li>
-            </ul>
-
-            <h3>Staying Up To Date</h3>
-            <ul>
-                <li>Click <strong>Reload</strong> in the toolbar if you're expecting a new file and don't see it yet.</li>
+                <li>Click the <strong>Submit Document</strong> button from the Action Menu.</li>
+                <li>Once sent, the form will show in your Document History as <em>Pending review</em>. You may still make changes to the form until reviewed by the practice administrator. Once the review is completed, Document History will show the form as <em>Locked</em> and no further edits are available. At this point, your completed document is recorded in your chart (medical record).</li>
             </ul>
         </div>
 
