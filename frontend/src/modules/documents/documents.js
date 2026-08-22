@@ -288,9 +288,96 @@ function setupSelectFormDropdown()
         opt.addEventListener("click", (e) => {
             e.preventDefault();
             dropdown.style.display = "none";
-            // Logic to handle form selection could go here
+            const formType = opt.getAttribute("data-form");
+            
+            if (formType === "hipaa") {
+                openHipaaForm();
+            }
         });
     });
+
+    document.getElementById("docsFormDismissBtn")?.addEventListener("click", closeForm);
+    document.getElementById("docsFormDismissBtnBottom")?.addEventListener("click", closeForm);
+}
+
+function openHipaaForm()
+{
+    const mainBody = document.getElementById("docsMainBody");
+    const formBody = document.getElementById("docsFormBody");
+    
+    // Toggle toolbar buttons
+    document.getElementById("docsSaveDraftBtn").style.display = "flex";
+    document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
+
+    // Toggle views
+    mainBody.style.display = "none";
+    formBody.style.display = "block";
+
+    // Set Date
+    const today = new Date().toISOString().split('T')[0];
+    const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    
+    document.getElementById("docsFormHeaderDate").textContent = todayDisplay;
+    document.getElementById("hipaaGivenToday").textContent = today;
+    document.getElementById("hipaaGivenToday2").textContent = today;
+
+    // Load Patient Data
+    const user = getUser();
+    if (!user) return;
+
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    document.getElementById("hipaaPatientName").textContent = fullName;
+    document.getElementById("hipaaPatientName2").textContent = fullName;
+    
+    // Since we don't store sex/dob in session user, fetch profile if needed, or leave blank if not available.
+    // For now we try to populate what we can from session user.
+    document.getElementById("hipaaPatientSex").textContent = user.sex || "Unknown";
+    document.getElementById("hipaaPatientId").textContent = user.id;
+    document.getElementById("hipaaPatientDob").textContent = user.birthdate || "Unknown";
+    document.getElementById("hipaaPatientAddress").textContent = user.address_line || "Unknown";
+    document.getElementById("hipaaPatientZip").textContent = user.zip_code || "Unknown";
+    document.getElementById("hipaaPatientCity").textContent = user.city || "Unknown";
+    document.getElementById("hipaaPatientState").textContent = user.province || "Unknown";
+    document.getElementById("hipaaPatientPhone").textContent = user.phone || "Unknown";
+
+    // Fetch Profile for full details and signature
+    api("/profile", { method: "GET" }).then(res => {
+        if (res.success && res.data) {
+            const p = res.data;
+            const pName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+            document.getElementById("hipaaPatientName").textContent = pName;
+            document.getElementById("hipaaPatientName2").textContent = pName;
+            document.getElementById("hipaaPatientSex").textContent = p.sex || "Unknown";
+            document.getElementById("hipaaPatientId").textContent = p.id;
+            document.getElementById("hipaaPatientDob").textContent = p.birthdate || "Unknown";
+            
+            document.getElementById("hipaaPatientAddress").textContent = p.address_line || "Unknown";
+            document.getElementById("hipaaPatientZip").textContent = p.zip_code || "Unknown";
+            document.getElementById("hipaaPatientCity").textContent = p.city || "Unknown";
+            document.getElementById("hipaaPatientState").textContent = p.province || "Unknown";
+            document.getElementById("hipaaPatientPhone").textContent = p.home_phone || p.mobile_phone || p.phone || "Unknown";
+
+            if (p.signature) {
+                document.getElementById("hipaaSignatureImg").src = p.signature;
+                document.getElementById("hipaaSignatureImg").style.display = "inline-block";
+                document.getElementById("hipaaSignaturePlaceholder").style.display = "none";
+            }
+        }
+    });
+}
+
+function closeForm()
+{
+    const mainBody = document.getElementById("docsMainBody");
+    const formBody = document.getElementById("docsFormBody");
+    
+    // Revert toolbar buttons
+    document.getElementById("docsSaveDraftBtn").style.display = "none";
+    document.getElementById("docsSubmitCompletedBtn").style.display = "none";
+
+    // Toggle views
+    mainBody.style.display = "block";
+    formBody.style.display = "none";
 }
 
 function showAlert(containerId, message, type)

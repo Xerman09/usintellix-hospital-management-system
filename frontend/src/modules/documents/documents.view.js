@@ -38,12 +38,18 @@ export function DocumentsView()
             </button>
             <div id="docsSelectFormDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); min-width: 100%; z-index: 50; margin-top: 4px;">
                 <div style="background: #0f172a; color: white; padding: 8px 12px; font-weight: 600; font-size: 14px; text-align: center;">General</div>
-                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Hipaa Document</a>
-                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Insurance Info</a>
-                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Medical History</a>
-                <a href="#" class="docs-form-option" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px;">Privacy Document</a>
+                <a href="#" class="docs-form-option" data-form="hipaa" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Hipaa Document</a>
+                <a href="#" class="docs-form-option" data-form="insurance" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Insurance Info</a>
+                <a href="#" class="docs-form-option" data-form="medical" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Medical History</a>
+                <a href="#" class="docs-form-option" data-form="privacy" style="display: block; padding: 10px 16px; color: #475569; text-decoration: none; font-size: 14px;">Privacy Document</a>
             </div>
         </div>
+        <button type="button" class="btn-secondary" id="docsSaveDraftBtn" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center; display: none;">
+            Save as Draft
+        </button>
+        <button type="button" class="btn-secondary" id="docsSubmitCompletedBtn" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center; display: none;">
+            Submit Completed
+        </button>
         <button type="button" class="btn-secondary" style="flex: 1; background: white; border-color: #cbd5e1; color: #475569; font-weight: 500; display: flex; justify-content: center; align-items: center;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             Activities
@@ -56,7 +62,7 @@ export function DocumentsView()
         <span style="font-weight: 600; color: #334155; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Editing Document</span>
     </div>
 
-    <div class="docs-body">
+    <div class="docs-body" id="docsMainBody">
         <div class="docs-instructions">
             <h2>Instructions for completing Pending Forms</h2>
             <p class="docs-instructions-welcome" style="margin-bottom: 24px;">Welcome<span id="docsWelcomeName"></span></p>
@@ -76,6 +82,87 @@ export function DocumentsView()
         </div>
 
         <div id="docsListContainer"></div>
+    </div>
+
+    <!-- New Form View Container -->
+    <div id="docsFormBody" style="display: none;">
+        <div style="background: #0f172a; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-weight: 500; font-size: 14px;">
+                <span style="font-weight: bold; background: white; color: black; padding: 2px 4px; margin-right: 8px;" id="docsFormHeaderTitle">Hipaa Document</span>
+                New Version: Dated: <span id="docsFormHeaderDate"></span> Status: New
+            </div>
+            <button type="button" id="docsFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 13px; cursor: pointer;">Dismiss Form</button>
+        </div>
+
+        <div style="padding: 24px 40px; background: white; border: 1px solid #e2e8f0; border-top: none; min-height: 500px;" id="docsFormContent">
+            <!-- HIPAA Form Content -->
+            <div id="docsHipaaFormContent">
+                <h2 style="font-size: 24px; font-weight: normal; margin-bottom: 16px;">HIPAA Declaration</h2>
+                <p style="margin-bottom: 16px;">Given today: <span id="hipaaGivenToday"></span></p>
+                
+                <p style="margin-bottom: 16px;">OpenEMR Software makes it a priority to keep this piece of software updated with the most recent available security options, so it will integrate easily into a HIPAA-compliant practice and will protect our customers with at least the official HIPAA regulations.</p>
+                
+                <p style="font-style: italic; margin-bottom: 8px;">The Practice:</p>
+                <div style="margin-bottom: 16px; line-height: 1.6;">
+                    (a) Is required by federal law to maintain the privacy of your PHI and to provide you with this Privacy Notice detailing the Practice's legal duties and privacy practices with respect to your PHI<br>
+                    (b) Under the Privacy Rule, it may be required by other laws to grant greater access or maintain greater restrictions on the use of, or release of your PHI than that which is provided for under federal HIPAA laws.<br>
+                    (c) Is required to abide by the terms of the Privacy Notice<br>
+                    (d) Reserves the right to change the terms of this Privacy Notice and make new Privacy Notice provisions effective for all of your PHI that it maintains if needed<br>
+                    (e) Will distribute any revised Privacy Notice to you prior to implementation<br>
+                    (f) Will not retaliate against you for filing a complaint
+                </div>
+
+                <p style="font-style: italic; margin-bottom: 8px;">Patient Communications:</p>
+                <p style="margin-bottom: 16px; line-height: 1.6;">
+                    Health Insurance Privacy Act 1996 USA, requires to inform you of the following government stipulations in order for us to contact you with educational and promotional items in the future via e-mail, U.S. mail, telephone, and/or prerecorded messages. We will not share, sell, or use your personal contact information for spam messages.<br>
+                    I am aware and have read the policies of this practice towards secrecy and digital information protection:<br>
+                    The Practice set up their User accounts for the OpenEMR databases, so it requires Users to log in with a password.<br>
+                    The User have to exit or log out of any medical information when not using it or as soon as Default timeout is reached.<br>
+                    When using this medical information registration in front of patients the User should use the "Privacy" feature to hide PHI (Personal Health Information) for other patients in the Search screen.<br>
+                    We have developed and will use standard operating procedures (SOPs) requiring any use of the Export Patients Medical or other information to be documented.<br>
+                    Users are only allowed to store a copy of your Medical information on a laptop computer or other portable media that is taken outside The Practice if recorded in writing. By signing out of The Practice with any portable device or transport medium this information is to be erased when finished with the need to take this information out of The Practice, if possible this information is only to be taken outside The Practice in encrypted format.<br>
+                    Only specific technicians may have occasional access to our hardware and Software. The HIPAA Privacy Rule requires that a practice have a signed Business Associate Contract before granting such access. The Technicians are trained on HIPAA regulations and limit the use and disclosure of customer data to the minimum necessary.
+                </p>
+
+                <p style="font-style: italic; font-size: 20px; margin: 32px 0;">I acknowledge receipt of this notice, have read the contents and understand the content.</p>
+
+                <div style="margin-bottom: 32px; line-height: 1.6;">
+                    Patient Name: <span id="hipaaPatientName"></span> Sex: <span id="hipaaPatientSex"></span> <span style="font-style: italic;">hereby signs and agree to the terms of this agreement .</span><br>
+                    Our external ID:<span id="hipaaPatientId"></span><br>
+                    Born: <span id="hipaaPatientDob"></span><br>
+                    Home Address: <span id="hipaaPatientAddress"></span><br>
+                    Zip: <span id="hipaaPatientZip"></span>; City: <span id="hipaaPatientCity"></span>; State: <span id="hipaaPatientState"></span><br>
+                    Home Phone: <span id="hipaaPatientPhone"></span>
+                </div>
+
+                <div style="margin-bottom: 24px; display: flex; align-items: flex-end; gap: 8px;">
+                    <span>Patient Signature: </span>
+                    <div style="min-width: 200px; border-bottom: 1px solid black; padding-bottom: 4px; display: inline-block;">
+                        <img id="hipaaSignatureImg" src="" style="display: none; max-height: 50px; margin-top: -20px;" alt="Signature">
+                        <span id="hipaaSignaturePlaceholder">X</span>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 32px;">
+                    Patient:<span id="hipaaPatientName2"></span> Date: <span id="hipaaGivenToday2"></span>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="font-style: italic; cursor: pointer;">
+                        I do not accept these terms: <input type="checkbox" id="hipaaRefusalCheckbox">
+                    </label>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 40px;">
+                    <label>Patient refusal to sign due to the following reason:</label>
+                    <input type="text" id="hipaaRefusalReason" style="border: 1px solid #cbd5e1; padding: 4px; width: 300px;">
+                </div>
+
+                <div style="text-align: right;">
+                    <button type="button" id="docsFormDismissBtnBottom" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px 16px; font-size: 14px; cursor: pointer;">Dismiss Form</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
