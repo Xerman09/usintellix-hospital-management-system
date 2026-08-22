@@ -667,7 +667,7 @@ function openPrivacyForm()
 
     // Set Date and Status
     const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    const ymdDisplay = new Date().toISOString().substring(0, 10);
+    const ymdDisplay = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     
     document.getElementById("docsPrivacyFormHeaderDate").textContent = todayDisplay;
     document.getElementById("privacyFormDateBottom").textContent = ymdDisplay;
@@ -709,7 +709,7 @@ function openActivitiesView()
     const hipaaStatus = localStorage.getItem('hipaa_status');
     if (hipaaStatus === "In Review") {
         // Create mock row from screenshot
-        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const todayDisplay = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid #f1f5f9";
         tr.innerHTML = `
@@ -732,7 +732,7 @@ function openActivitiesView()
 
     const insStatus = localStorage.getItem('insurance_status');
     if (insStatus === "In Review") {
-        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const todayDisplay = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid #f1f5f9";
         tr.innerHTML = `
@@ -755,7 +755,7 @@ function openActivitiesView()
 
     const medStatus = localStorage.getItem('medical_status');
     if (medStatus === "In Review") {
-        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const todayDisplay = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid #f1f5f9";
         tr.innerHTML = `
@@ -778,7 +778,7 @@ function openActivitiesView()
 
     const privStatus = localStorage.getItem('privacy_status');
     if (privStatus === "In Review") {
-        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const todayDisplay = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid #f1f5f9";
         tr.innerHTML = `
