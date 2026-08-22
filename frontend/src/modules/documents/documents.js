@@ -357,14 +357,18 @@ function openHipaaForm()
 {
     const mainBody = document.getElementById("docsMainBody");
     const formBody = document.getElementById("docsFormBody");
+    const activitiesBody = document.getElementById("docsActivitiesBody");
+    const editingBar = document.getElementById("docsEditingBar");
     
     // Toggle toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "flex";
     document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
 
     // Toggle views
-    mainBody.style.display = "none";
-    formBody.style.display = "block";
+    if (mainBody) mainBody.style.display = "none";
+    if (activitiesBody) activitiesBody.style.display = "none";
+    if (editingBar) editingBar.style.display = "flex";
+    if (formBody) formBody.style.display = "block";
 
     // Set Date and Status
     const today = new Date().toISOString().split('T')[0];
@@ -450,7 +454,7 @@ function openActivitiesView()
         tr.innerHTML = `
             <td style="padding: 10px 12px; font-weight: bold;">2</td>
             <td style="padding: 10px 12px;">
-                <span style="color: #2563eb; border: 1px solid #22c55e; padding: 2px 6px; display: inline-block;">Hipaa Document</span>
+                <span class="docs-activity-link" style="color: #2563eb; border: 1px solid #22c55e; padding: 2px 6px; display: inline-block; cursor: pointer;">Hipaa Document</span>
             </td>
             <td style="padding: 10px 12px;">${todayDisplay}</td>
             <td style="padding: 10px 12px;">Pending</td>
@@ -459,6 +463,10 @@ function openActivitiesView()
             <td style="padding: 10px 12px;">Pending</td>
         `;
         tbody.appendChild(tr);
+
+        tr.querySelector(".docs-activity-link").addEventListener("click", () => {
+            openHipaaForm();
+        });
     }
 }
 
