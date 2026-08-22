@@ -11,11 +11,18 @@ export function initReports() {
     const btnHelp = document.getElementById("btnHelp");
 
     if (btnDownloadSummary) {
-        btnDownloadSummary.addEventListener("click", () => generateSummary(true));
+        btnDownloadSummary.addEventListener("click", async () => {
+            const originalText = btnDownloadSummary.innerHTML;
+            btnDownloadSummary.innerHTML = "Downloading...";
+            btnDownloadSummary.disabled = true;
+            await generateSummary('download');
+            btnDownloadSummary.innerHTML = originalText;
+            btnDownloadSummary.disabled = false;
+        });
     }
     
     if (btnViewSummary) {
-        btnViewSummary.addEventListener("click", () => generateSummary(false));
+        btnViewSummary.addEventListener("click", () => generateSummary('view'));
     }
 
     if (btnCustomizedHistory) {
@@ -31,25 +38,28 @@ export function initReports() {
     }
 }
 
-async function generateSummary(shouldPrint) {
+async function generateSummary(action) {
     const user = getUser();
     if (!user || !user.id) return;
     
-    // 1. Open synchronously BEFORE fetching
-    const reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
-    if (!reportWindow) {
-        alert("Please enable pop-ups to view the report.");
-        return;
-    }
+    let reportWindow = null;
+    if (action === 'view') {
+        // 1. Open synchronously BEFORE fetching for view
+        reportWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
+        if (!reportWindow) {
+            alert("Please enable pop-ups to view the report.");
+            return;
+        }
 
-    // 2. Write a loading state immediately
-    reportWindow.document.open();
-    reportWindow.document.write(`
-        <!DOCTYPE html><html><head><title>Loading Report...</title></head>
-        <body style="font-family: sans-serif; text-align: center; padding: 40px; color: #555;">
-            <h2>Generating Summary of Care...</h2><p>Please wait.</p>
-        </body></html>
-    `);
+        // 2. Write a loading state immediately
+        reportWindow.document.open();
+        reportWindow.document.write(`
+            <!DOCTYPE html><html><head><title>Loading Report...</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 40px; color: #555;">
+                <h2>Generating Summary of Care...</h2><p>Please wait.</p>
+            </body></html>
+        `);
+    }
     
     // 3. Perform the asynchronous fetches
     const [healthResult, profileResult] = await Promise.all([
@@ -59,23 +69,38 @@ async function generateSummary(shouldPrint) {
     
     // 4. Handle Errors
     if (!healthResult.success || !profileResult.success) {
-        reportWindow.document.open();
-        reportWindow.document.write(`<h2 style="font-family: sans-serif; color: #d92d20; padding: 40px; text-align: center;">Failed to load data.</h2>`);
-        reportWindow.document.close();
+        if (action === 'view' && reportWindow) {
+            reportWindow.document.open();
+            reportWindow.document.write(`<h2 style="font-family: sans-serif; color: #d92d20; padding: 40px; text-align: center;">Failed to load data.</h2>`);
+            reportWindow.document.close();
+        } else {
+            alert("Failed to load data.");
+        }
         return;
     }
     
-    // 5. Generate and overwrite the final HTML using the admin CCR template
+    // 5. Generate the final HTML using the admin CCR template
     const fullPatientData = profileResult.data || user;
     const html = generateCcdDetailedReportHtml(fullPatientData, healthResult.data || {});
     
-    reportWindow.document.open();
-    reportWindow.document.write(html);
-    
-    // Auto print if requested
-    if (shouldPrint) {
-        reportWindow.document.write(`<script>window.onload = function() { window.print(); }</script>`);
+    if (action === 'view' && reportWindow) {
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+    } else if (action === 'download') {
+        // Download as HTML file
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        const dateStr = new Date().toISOString().split('T')[0];
+        const safeName = (user.first_name || 'Patient') + '_' + (user.last_name || '');
+        
+        a.href = url;
+        a.download = `Summary_Of_Care_${safeName}_${dateStr}.html`.replace(/[^a-zA-Z0-9_.-]/g, '');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
-    
-    reportWindow.document.close();
 }
