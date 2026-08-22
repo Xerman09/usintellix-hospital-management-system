@@ -194,6 +194,14 @@ function setupSignatureModal()
 
     openBtn.addEventListener("click", () => {
         clearCanvas();
+        if (existingSignature) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                hasDrawn = true;
+            };
+            img.src = existingSignature;
+        }
         useCurrentBtn.style.display = existingSignature ? "block" : "none";
         overlay.classList.add("open");
     });
