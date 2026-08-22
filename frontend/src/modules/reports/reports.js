@@ -76,37 +76,54 @@ export function initReports() {
 
 let cachedHealthData = null;
 let cachedProfileData = null;
+let lastFetchTime = 0;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes cache
+
+async function fetchReportDataCached(userId) {
+    const now = Date.now();
+    if (cachedHealthData && cachedProfileData && (now - lastFetchTime < CACHE_DURATION_MS)) {
+        return { healthData: cachedHealthData, profileData: cachedProfileData };
+    }
+    
+    const [healthResult, profileResult] = await Promise.all([
+        fetchHealthSummary(userId),
+        fetchProfile()
+    ]);
+    
+    if (healthResult.success && profileResult.success) {
+        cachedHealthData = healthResult.data || {};
+        cachedProfileData = profileResult.data || {};
+        lastFetchTime = now;
+        return { healthData: cachedHealthData, profileData: cachedProfileData };
+    }
+    
+    throw new Error("Failed to load patient data");
+}
 
 async function openCustomizedReport() {
     const user = getUser();
     if (!user || !user.id) return;
     
-    const originalText = document.getElementById("btnCustomizedHistory").innerHTML;
-    document.getElementById("btnCustomizedHistory").innerHTML = "Loading...";
-    document.getElementById("btnCustomizedHistory").disabled = true;
+    const btn = document.getElementById("btnCustomizedHistory");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "Loading...";
+    btn.disabled = true;
 
     try {
-        const [healthResult, profileResult] = await Promise.all([
-            fetchHealthSummary(user.id),
-            fetchProfile()
-        ]);
-
-        if (healthResult.success && profileResult.success) {
-            cachedHealthData = healthResult.data || {};
-            cachedProfileData = profileResult.data || user;
-            
-            populateCustomizedReport(cachedHealthData);
-            
-            document.querySelector('.reports-grid').style.display = 'none';
-            document.getElementById('customizedReportContainer').style.display = 'block';
-        } else {
-            alert("Failed to load patient data for the report.");
-        }
+        const { healthData, profileData } = await fetchReportDataCached(user.id);
+        
+        // Populate the profile data fallback if needed
+        cachedProfileData = profileData.id ? profileData : user;
+        
+        populateCustomizedReport(healthData);
+        
+        document.querySelector('.reports-grid').style.display = 'none';
+        document.getElementById('customizedReportContainer').style.display = 'block';
     } catch (e) {
-        alert("Error loading data.");
+        alert("Failed to load patient data for the report.");
     } finally {
-        document.getElementById("btnCustomizedHistory").innerHTML = originalText;
-        document.getElementById("btnCustomizedHistory").disabled = false;
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
 
@@ -186,15 +203,35 @@ async function generateSummary(action) {
             </body></html>
         `);
     }
-    
     // 3. Perform the asynchronous fetches
-    const [healthResult, profileResult] = await Promise.all([
-        fetchHealthSummary(user.id),
-        fetchProfile()
-    ]);
-    
-    // 4. Handle Errors
-    if (!healthResult.success || !profileResult.success) {
+    try {
+        const { healthData, profileData } = await fetchReportDataCached(user.id);
+        
+        // 5. Generate the final HTML using the admin CCR template
+        const fullPatientData = profileData.id ? profileData : user;
+        const html = generateCcdDetailedReportHtml(fullPatientData, healthData);
+        
+        if (action === 'view' && reportWindow) {
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
+        } else if (action === 'download') {
+            // Download as HTML file
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeName = (user.first_name || 'Patient') + '_' + (user.last_name || '');
+            
+            a.href = url;
+            a.download = `Summary_Of_Care_${safeName}_${dateStr}.html`.replace(/[^a-zA-Z0-9_.-]/g, '');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    } catch (e) {
         if (action === 'view' && reportWindow) {
             reportWindow.document.open();
             reportWindow.document.write(`<h2 style="font-family: sans-serif; color: #d92d20; padding: 40px; text-align: center;">Failed to load data.</h2>`);
@@ -202,32 +239,6 @@ async function generateSummary(action) {
         } else {
             alert("Failed to load data.");
         }
-        return;
-    }
-    
-    // 5. Generate the final HTML using the admin CCR template
-    const fullPatientData = profileResult.data || user;
-    const html = generateCcdDetailedReportHtml(fullPatientData, healthResult.data || {});
-    
-    if (action === 'view' && reportWindow) {
-        reportWindow.document.open();
-        reportWindow.document.write(html);
-        reportWindow.document.close();
-    } else if (action === 'download') {
-        // Download as HTML file
-        const blob = new Blob([html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        
-        const dateStr = new Date().toISOString().split('T')[0];
-        const safeName = (user.first_name || 'Patient') + '_' + (user.last_name || '');
-        
-        a.href = url;
-        a.download = `Summary_Of_Care_${safeName}_${dateStr}.html`.replace(/[^a-zA-Z0-9_.-]/g, '');
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     }
 }
 
