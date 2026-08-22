@@ -671,6 +671,66 @@ export function DocumentsView()
     </div>
 </div>
 
+<div id="docsPrivacyFormBody" style="display: none;">
+    <div style="background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column;">
+        <div style="background: #0f172a; color: white; padding: 4px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold;">
+            <div>Editing <span style="background: white; color: black; padding: 2px 4px; margin: 0 4px;">Privacy Document</span> New Version: Dated:<span id="docsPrivacyFormHeaderDate"></span> Status:<span id="docsPrivacyFormHeaderStatus"></span></div>
+            <button type="button" id="docsPrivacyFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 2px 12px; font-size: 12px; cursor: pointer;">Dismiss Form</button>
+        </div>
+
+        <div style="padding: 24px; font-size: 13px; line-height: 1.5; color: #334155; max-height: calc(100vh - 200px); overflow-y: auto;">
+            <div style="margin-bottom: 24px;">
+                NOTICE OF PRIVACY PRACTICES PATIENT ACKNOWLEDGEMENT AND CONSENT TO MEDICAL TREATMENT<br>
+                Patient Name: <span id="privacyPatientName" style="font-style: italic;"></span><br>
+                Date of Birth: <span id="privacyPatientDOB"></span>
+            </div>
+
+            <p style="margin-bottom: 16px;">
+                I have received and understand this practice's Notice of Privacy Practices written in plain English. The notice provides in detail the uses and disclosures of my protected health information that may be made by this practice, my individual rights, how I may exercise those rights, and the practices legal duties with respect to my information.
+            </p>
+
+            <p style="margin-bottom: 16px;">
+                I understand that the practice reserves the right to change the terms of the Privacy Practices, and to make changes regarding all protected health information. If changes occur then the practice will provide me with a revised copy upon request.
+            </p>
+
+            <p style="margin-bottom: 16px;">
+                I voluntarily consent to care, including physician examination and tests such as x-ray, laboratory tests and to medical treatment by my physician or his/her assistants or designees, as may be necessary in the judgment of my physician. No guarantees have been made to me as the result of treatment or examination.
+            </p>
+
+            <p style="margin-bottom: 16px;">
+                Authorization for:<br>
+                In consideration for services received by I agree to pay any and all charges as billed. I also request that direct payments be made to on my behalf by insurers and agencies in the settlement of any of my claims. I understand that my protected health information may need to be released for the purpose of treatment, payment or health care operations.
+            </p>
+
+            <p style="margin-bottom: 24px;">
+                Medicare Patients:<br>
+                I certify that the information given by me for application for payment under title XVIII of the Social Security Act is correct. I authorize any holder of medical or other relevant information about me be released to the Social Security Administration or it's intermediaries of carriers and such information needed to support application for payment. Including records pertaining to HIV status or treatment (AIDS records), drug and alcohol treatment, and or psychiatric treatment. I assign and authorize payment directly to for the unpaid charges for the physician's services. I understand that I am responsible for all insurance deductibles and coinsurance.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px;">
+                <div>Comments: </div>
+                <div>Signature: </div>
+                <div>Do you authorize electronic signature </div>
+                <div>Relationship to patient (if signed by a personal representative): </div>
+                <div>Are you Primary Care Giver: YesNo </div>
+                <div>Date: <span id="privacyFormDateBottom"></span></div>
+            </div>
+
+            <div style="margin-bottom: 40px;">
+                Clinic Representative Signature Signed: 
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button type="button" id="docsPrivacyFormDeleteBtn" style="background: #ef4444; border: none; color: white; padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Delete Document
+                </button>
+                <button type="button" id="docsPrivacyFormDismissBtnBottom" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px 16px; font-size: 14px; cursor: pointer; margin-left: auto;">Dismiss Form</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 
 <div class="modal-overlay" id="docsUploadModalOverlay">

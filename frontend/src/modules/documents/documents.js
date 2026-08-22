@@ -298,6 +298,8 @@ function setupSelectFormDropdown()
                 openInsuranceForm();
             } else if (formType === "medical") {
                 openMedicalForm();
+            } else if (formType === "privacy") {
+                openPrivacyForm();
             }
         });
     });
@@ -321,6 +323,8 @@ function setupSelectFormDropdown()
             localStorage.setItem('insurance_status', 'In Review');
         } else if (document.getElementById("docsMedicalFormBody")?.style.display === "block") {
             localStorage.setItem('medical_status', 'In Review');
+        } else if (document.getElementById("docsPrivacyFormBody")?.style.display === "block") {
+            localStorage.setItem('privacy_status', 'In Review');
         }
         
         closeForm();
@@ -350,6 +354,8 @@ function setupSelectFormDropdown()
             localStorage.removeItem('insurance_status');
         } else if (document.getElementById("docsMedicalFormBody")?.style.display === "block") {
             localStorage.removeItem('medical_status');
+        } else if (document.getElementById("docsPrivacyFormBody")?.style.display === "block") {
+            localStorage.removeItem('privacy_status');
         }
         
         closeForm();
@@ -367,6 +373,14 @@ function setupSelectFormDropdown()
     document.getElementById("docsMedicalFormDismissBtnBottom")?.addEventListener("click", closeForm);
 
     document.getElementById("docsMedicalFormDeleteBtn")?.addEventListener("click", () => {
+        const modal = document.getElementById("docsDeleteConfirmModalOverlay");
+        if (modal) modal.style.display = "flex";
+    });
+
+    document.getElementById("docsPrivacyFormDismissBtn")?.addEventListener("click", closeForm);
+    document.getElementById("docsPrivacyFormDismissBtnBottom")?.addEventListener("click", closeForm);
+
+    document.getElementById("docsPrivacyFormDeleteBtn")?.addEventListener("click", () => {
         const modal = document.getElementById("docsDeleteConfirmModalOverlay");
         if (modal) modal.style.display = "flex";
     });
@@ -434,6 +448,20 @@ function updateDropdownStatus() {
             medOption.style.fontWeight = 'normal';
         }
     }
+
+    const privStatus = localStorage.getItem('privacy_status');
+    const privOption = document.querySelector('.docs-form-option[data-form="privacy"]');
+    if (privOption) {
+        if (privStatus === 'In Review') {
+            privOption.style.backgroundColor = '#dcfce7';
+            privOption.style.color = '#166534';
+            privOption.style.fontWeight = '500';
+        } else {
+            privOption.style.backgroundColor = 'transparent';
+            privOption.style.color = '#475569';
+            privOption.style.fontWeight = 'normal';
+        }
+    }
 }
 
 function openHipaaForm()
@@ -454,6 +482,8 @@ function openHipaaForm()
     if (insBody) insBody.style.display = "none";
     const medBody = document.getElementById("docsMedicalFormBody");
     if (medBody) medBody.style.display = "none";
+    const privBody = document.getElementById("docsPrivacyFormBody");
+    if (privBody) privBody.style.display = "none";
     if (editingBar) editingBar.style.display = "flex";
     if (formBody) formBody.style.display = "block";
 
@@ -524,6 +554,7 @@ function openInsuranceForm()
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
     const medBody = document.getElementById("docsMedicalFormBody");
+    const privBody = document.getElementById("docsPrivacyFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
     
@@ -536,6 +567,7 @@ function openInsuranceForm()
     if (activitiesBody) activitiesBody.style.display = "none";
     if (formBody) formBody.style.display = "none";
     if (medBody) medBody.style.display = "none";
+    if (privBody) privBody.style.display = "none";
     if (editingBar) editingBar.style.display = "flex";
     if (insBody) insBody.style.display = "block";
 
@@ -568,6 +600,7 @@ function openMedicalForm()
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
     const medBody = document.getElementById("docsMedicalFormBody");
+    const privBody = document.getElementById("docsPrivacyFormBody");
     const activitiesBody = document.getElementById("docsActivitiesBody");
     const editingBar = document.getElementById("docsEditingBar");
     
@@ -580,6 +613,7 @@ function openMedicalForm()
     if (activitiesBody) activitiesBody.style.display = "none";
     if (formBody) formBody.style.display = "none";
     if (insBody) insBody.style.display = "none";
+    if (privBody) privBody.style.display = "none";
     if (editingBar) editingBar.style.display = "flex";
     if (medBody) medBody.style.display = "block";
 
@@ -608,12 +642,60 @@ function openMedicalForm()
     }
 }
 
+function openPrivacyForm()
+{
+    const mainBody = document.getElementById("docsMainBody");
+    const formBody = document.getElementById("docsFormBody");
+    const insBody = document.getElementById("docsInsuranceFormBody");
+    const medBody = document.getElementById("docsMedicalFormBody");
+    const privBody = document.getElementById("docsPrivacyFormBody");
+    const activitiesBody = document.getElementById("docsActivitiesBody");
+    const editingBar = document.getElementById("docsEditingBar");
+    
+    // Toggle toolbar buttons
+    document.getElementById("docsSaveDraftBtn").style.display = "flex";
+    document.getElementById("docsSubmitCompletedBtn").style.display = "flex";
+
+    // Toggle views
+    if (mainBody) mainBody.style.display = "none";
+    if (activitiesBody) activitiesBody.style.display = "none";
+    if (formBody) formBody.style.display = "none";
+    if (insBody) insBody.style.display = "none";
+    if (medBody) medBody.style.display = "none";
+    if (editingBar) editingBar.style.display = "flex";
+    if (privBody) privBody.style.display = "block";
+
+    // Set Date and Status
+    const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const ymdDisplay = new Date().toISOString().substring(0, 10);
+    
+    document.getElementById("docsPrivacyFormHeaderDate").textContent = todayDisplay;
+    document.getElementById("privacyFormDateBottom").textContent = ymdDisplay;
+
+    const status = localStorage.getItem('privacy_status') || 'New';
+    document.getElementById("docsPrivacyFormHeaderStatus").textContent = status;
+    if (status === 'In Review') {
+        document.getElementById("docsPrivacyFormDeleteBtn").style.display = "flex";
+    } else {
+        document.getElementById("docsPrivacyFormDeleteBtn").style.display = "none";
+    }
+
+    // Load Patient Data
+    const user = getUser();
+    if (!user) return;
+
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    document.getElementById("privacyPatientName").textContent = fullName;
+    document.getElementById("privacyPatientDOB").textContent = user.dob || "1972-02-09"; // Fallback to match screenshot if missing
+}
+
 function openActivitiesView()
 {
     document.getElementById("docsMainBody").style.display = "none";
     document.getElementById("docsFormBody").style.display = "none";
     document.getElementById("docsInsuranceFormBody").style.display = "none";
     document.getElementById("docsMedicalFormBody").style.display = "none";
+    document.getElementById("docsPrivacyFormBody").style.display = "none";
     document.getElementById("docsEditingBar").style.display = "none";
     document.getElementById("docsActivitiesBody").style.display = "block";
     
@@ -693,6 +775,29 @@ function openActivitiesView()
             openMedicalForm();
         });
     }
+
+    const privStatus = localStorage.getItem('privacy_status');
+    if (privStatus === "In Review") {
+        const todayDisplay = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid #f1f5f9";
+        tr.innerHTML = `
+            <td style="padding: 10px 12px; font-weight: bold;">5</td>
+            <td style="padding: 10px 12px;">
+                <span class="docs-activity-link-priv" style="color: #2563eb; border: 1px solid #22c55e; padding: 2px 6px; display: inline-block; cursor: pointer;">Privacy Document</span>
+            </td>
+            <td style="padding: 10px 12px;">${todayDisplay}</td>
+            <td style="padding: 10px 12px;">Pending</td>
+            <td style="padding: 10px 12px;">In Review</td>
+            <td style="padding: 10px 12px;">No</td>
+            <td style="padding: 10px 12px;">Pending</td>
+        `;
+        tbody.appendChild(tr);
+
+        tr.querySelector(".docs-activity-link-priv").addEventListener("click", () => {
+            openPrivacyForm();
+        });
+    }
 }
 
 function closeForm()
@@ -701,6 +806,7 @@ function closeForm()
     const formBody = document.getElementById("docsFormBody");
     const insBody = document.getElementById("docsInsuranceFormBody");
     const medBody = document.getElementById("docsMedicalFormBody");
+    const privBody = document.getElementById("docsPrivacyFormBody");
     
     // Revert toolbar buttons
     document.getElementById("docsSaveDraftBtn").style.display = "none";
@@ -711,6 +817,7 @@ function closeForm()
     if (formBody) formBody.style.display = "none";
     if (insBody) insBody.style.display = "none";
     if (medBody) medBody.style.display = "none";
+    if (privBody) privBody.style.display = "none";
 }
 
 function showAlert(containerId, message, type)
