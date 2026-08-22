@@ -269,6 +269,10 @@ function setupSelectFormDropdown()
 
     btn.addEventListener("click", (e) => {
         e.stopPropagation();
+        
+        // Update highlight status right before showing the dropdown
+        updateDropdownStatus();
+
         if (dropdown.style.display === "none") {
             dropdown.style.display = "block";
         } else {
@@ -276,10 +280,8 @@ function setupSelectFormDropdown()
         }
     });
 
-    document.addEventListener("click", (e) => {
-        if (dropdown.style.display === "block" && !dropdown.contains(e.target) && e.target !== btn) {
-            dropdown.style.display = "none";
-        }
+    document.addEventListener("click", () => {
+        dropdown.style.display = "none";
     });
 
     // Optional: Add click handlers for the options
@@ -295,6 +297,9 @@ function setupSelectFormDropdown()
             }
         });
     });
+
+    // Run once on init to set the initial state
+    updateDropdownStatus();
 
     document.getElementById("docsFormDismissBtn")?.addEventListener("click", closeForm);
     document.getElementById("docsFormDismissBtnBottom")?.addEventListener("click", closeForm);
@@ -327,6 +332,23 @@ function setupSelectFormDropdown()
         localStorage.removeItem('hipaa_status');
         closeForm();
     });
+}
+
+function updateDropdownStatus() {
+    const hipaaStatus = localStorage.getItem('hipaa_status');
+    const hipaaOption = document.querySelector('.docs-form-option[data-form="hipaa"]');
+    
+    if (hipaaOption) {
+        if (hipaaStatus === 'In Review') {
+            hipaaOption.style.backgroundColor = '#dcfce7'; // light green
+            hipaaOption.style.color = '#166534'; // dark green text
+            hipaaOption.style.fontWeight = '500';
+        } else {
+            hipaaOption.style.backgroundColor = 'transparent';
+            hipaaOption.style.color = '#475569';
+            hipaaOption.style.fontWeight = 'normal';
+        }
+    }
 }
 
 function openHipaaForm()
