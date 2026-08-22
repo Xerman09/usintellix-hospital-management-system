@@ -1216,7 +1216,7 @@ function generateCcdReportHtml(patient, data) {
 // Relevant Dx Tests/Lab Data, History of Procedures, Social History,
 // Assessments) render "Not Available", matching how OpenEMR itself renders
 // an empty C-CDA section rather than hiding it from the navigation.
-function generateCcdDetailedReportHtml(patient, data) {
+export function generateCcdDetailedReportHtml(patient, data) {
     const allergies = data.allergies || [];
     const problems = data.problems || [];
     const medications = data.medications || [];
