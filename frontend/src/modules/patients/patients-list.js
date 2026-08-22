@@ -10713,6 +10713,13 @@ async function setupEditPatientModal(user)
     await loadProviderOptions("edit_provider_id");
 
     const modalOverlay = document.getElementById("editPatientModalOverlay");
+
+    // The patient chart tab can be gone by the time this resolves -- e.g.
+    // the session expired and the page redirected to login mid-request.
+    if (!modalOverlay) {
+        return;
+    }
+
     const modalBox = modalOverlay.querySelector(".modal-box");
     const form = document.getElementById("editPatientForm");
 
@@ -11437,16 +11444,21 @@ async function loadProviderOptions(selectId)
     const result = await fetchProviders();
     const select = document.getElementById(selectId);
 
-    if (result.success) {
-        result.data.forEach((provider) => {
-            const option = document.createElement("option");
-
-            option.value = provider.id;
-            option.textContent = `${provider.first_name} ${provider.last_name}${provider.specialty ? " — " + provider.specialty : ""}`;
-
-            select.appendChild(option);
-        });
+    // The select can be gone by the time this resolves -- e.g. the user
+    // navigated away, or the session expired and the page redirected to
+    // login mid-request.
+    if (!select || !result.success) {
+        return;
     }
+
+    result.data.forEach((provider) => {
+        const option = document.createElement("option");
+
+        option.value = provider.id;
+        option.textContent = `${provider.first_name} ${provider.last_name}${provider.specialty ? " — " + provider.specialty : ""}`;
+
+        select.appendChild(option);
+    });
 }
 
 async function loadPatients(user)

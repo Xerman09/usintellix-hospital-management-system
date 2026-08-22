@@ -260,6 +260,12 @@ function renderSummary()
     const body = document.getElementById("pdSdohSummaryBody");
     const editBtn = document.getElementById("pdSdohEditBtn");
 
+    // The patient chart tab can be gone by the time this resolves -- e.g.
+    // the session expired and the page redirected to login mid-request.
+    if (!empty || !body || !editBtn) {
+        return;
+    }
+
     if (!sdohAssessments.length) {
         empty.style.display = "block";
         body.style.display = "none";

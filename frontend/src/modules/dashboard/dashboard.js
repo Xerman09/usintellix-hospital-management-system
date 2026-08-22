@@ -470,7 +470,15 @@ export function Dashboard()
             }
         });
 
-        document.getElementById('confirmLogoutBtn').addEventListener('click', async () => {
+        const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+
+        confirmLogoutBtn.addEventListener('click', async () => {
+            // Disable immediately -- clicking again before the request
+            // resolves (e.g. because the session already died and there's
+            // no visible feedback yet) would otherwise fire a second,
+            // redundant /logout request.
+            confirmLogoutBtn.disabled = true;
+
             await logout();
             clearSession();
             window.location.hash = "#/login";
