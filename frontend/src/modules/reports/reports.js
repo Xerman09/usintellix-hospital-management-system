@@ -3,6 +3,7 @@ import { fetchHealthSummary } from "../health-records/health-records.service.js"
 import { fetchProfile } from "../profile/profile.service.js";
 import { generateCcdDetailedReportHtml } from "../patients/patients-list.js";
 import { generateCustomPatientReportHtml } from "./custom-report-template.js";
+import { fetchPatientDocuments } from "../patient-documents/patient-documents.service.js";
 
 export function initReports() {
     const btnDownloadSummary = document.getElementById("btnDownloadSummary");
@@ -66,7 +67,30 @@ export function initReports() {
     }
 
     if (btnDownloadDocs) {
-        btnDownloadDocs.addEventListener("click", () => alert("Download Medical Record Documents functionality coming soon."));
+        btnDownloadDocs.addEventListener("click", () => openDownloadDocs());
+    }
+
+    const btnBackToReportsFromDocs = document.getElementById("btnBackToReportsFromDocs");
+    if (btnBackToReportsFromDocs) {
+        btnBackToReportsFromDocs.addEventListener("click", () => {
+            document.querySelector('.reports-grid').style.display = 'grid';
+            document.getElementById('downloadDocsContainer').style.display = 'none';
+        });
+    }
+
+    const selectAllDocsMaster = document.getElementById("selectAllDocsMaster");
+    if (selectAllDocsMaster) {
+        selectAllDocsMaster.addEventListener("change", (e) => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('.cat-select-all, .doc-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+            });
+        });
+    }
+
+    const btnDownloadSelectedDocs = document.getElementById("btnDownloadSelectedDocs");
+    if (btnDownloadSelectedDocs) {
+        btnDownloadSelectedDocs.addEventListener("click", () => generateDocsZip());
     }
 
     if (btnHelp) {
@@ -325,5 +349,148 @@ function generateCustomReport(action) {
         } else {
             alert("Please enable pop-ups to download the report.");
         }
+    }
+}
+
+let cachedDocs = null;
+
+async function openDownloadDocs() {
+    const user = getUser();
+    if (!user || !user.id) return;
+    
+    const btn = document.getElementById("btnDownloadDocs");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "Loading...";
+    btn.disabled = true;
+
+    try {
+        const result = await fetchPatientDocuments(user.id);
+        if (result.success) {
+            cachedDocs = result.data || [];
+            
+            // Group by category
+            const grouped = cachedDocs.reduce((acc, doc) => {
+                const cat = doc.category || "Uncategorized";
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(doc);
+                return acc;
+            }, {});
+            
+            const grid = document.getElementById("docsCategoriesGrid");
+            let html = '';
+            
+            Object.keys(grouped).forEach((cat, index) => {
+                html += `
+                <div style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 16px; background: #f8fafc;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 14px; font-weight: 500;">${cat}/</h4>
+                        <label style="font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="checkbox" class="cat-select-all" data-target="cat-group-${index}"> Select All
+                        </label>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;" class="cat-group-${index}">
+                `;
+                
+                grouped[cat].forEach(doc => {
+                    html += `
+                        <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" class="doc-checkbox" data-url="${doc.file_path}" data-name="${doc.file_name}">
+                            ${doc.file_name}
+                        </label>
+                    `;
+                });
+                
+                html += `</div></div>`;
+            });
+            
+            grid.innerHTML = html || '<div style="font-size: 14px; color: #64748b;">No documents found.</div>';
+            
+            // Wire up category select alls
+            document.querySelectorAll('.cat-select-all').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const isChecked = e.target.checked;
+                    const groupClass = e.target.getAttribute('data-target');
+                    document.querySelectorAll('.' + groupClass + ' .doc-checkbox').forEach(docCb => {
+                        docCb.checked = isChecked;
+                    });
+                });
+            });
+            
+            document.querySelector('.reports-grid').style.display = 'none';
+            document.getElementById('downloadDocsContainer').style.display = 'block';
+        } else {
+            alert("Failed to load documents.");
+        }
+    } catch (e) {
+        alert("Error fetching documents.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function generateDocsZip() {
+    const selectedCbs = Array.from(document.querySelectorAll('.doc-checkbox:checked'));
+    if (selectedCbs.length === 0) {
+        alert("Please select at least one document to download.");
+        return;
+    }
+    
+    if (typeof JSZip === 'undefined') {
+        alert("JSZip library failed to load. Cannot generate ZIP file.");
+        return;
+    }
+
+    const btn = document.getElementById("btnDownloadSelectedDocs");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "Zipping Files...";
+    btn.disabled = true;
+
+    try {
+        const zip = new JSZip();
+        const API_URL = window.location.origin.includes('localhost') ? 'http://localhost/usintellix-hospital-management-system/backend' : '';
+        
+        // Fetch all selected files
+        const fetchPromises = selectedCbs.map(async (cb) => {
+            const fileUrl = API_URL + cb.dataset.url;
+            const fileName = cb.dataset.name;
+            
+            try {
+                const response = await fetch(fileUrl);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    zip.file(fileName, blob);
+                } else {
+                    console.error("Failed to fetch file:", fileUrl);
+                }
+            } catch (err) {
+                console.error("Error fetching file:", fileUrl, err);
+            }
+        });
+        
+        await Promise.all(fetchPromises);
+        
+        const zipContent = await zip.generateAsync({ type: "blob" });
+        
+        // Trigger download
+        const url = URL.createObjectURL(zipContent);
+        const a = document.createElement('a');
+        a.href = url;
+        const user = getUser();
+        const dateStr = new Date().toISOString().split('T')[0];
+        const safeName = (user.first_name || 'Patient') + '_' + (user.last_name || '');
+        
+        a.download = `Medical_Records_${safeName}_${dateStr}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+    } catch (e) {
+        console.error(e);
+        alert("An error occurred while creating the zip file.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }

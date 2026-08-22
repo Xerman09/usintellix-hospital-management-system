@@ -181,6 +181,38 @@ export function ReportsView() {
             </div>
         </div>
     </div>
+    <!-- Download Documents Container -->
+    <div id="downloadDocsContainer" style="display: none; padding: 0 16px;">
+        <button id="btnBackToReportsFromDocs" style="margin-bottom: 20px; background: none; border: none; color: #2563eb; cursor: pointer; font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 4px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to Reports
+        </button>
+        
+        <div class="prof-card-modern">
+            <h2 style="margin-top: 0; color: #0f172a; font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+                Download Documents From Medical Record
+            </h2>
+            
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 16px; margin: 0 0 16px 0; font-weight: 500;">Select Documents to Download</h3>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 16px; cursor: pointer;">
+                    <input type="checkbox" id="selectAllDocsMaster"> Select All Documents
+                </label>
+                
+                <div id="docsCategoriesGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+                    <!-- Categories will be injected here -->
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
+                <button id="btnDownloadSelectedDocs" style="background-color: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 500; cursor: pointer;">Download Selected Documents</button>
+            </div>
+            
+            <div style="background-color: #d1fae5; color: #064e3b; padding: 12px 16px; border-radius: 4px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Your files will download as a zip file
+            </div>
+        </div>
+    </div>
 </div>
 <style>
 .prof-card-modern {
