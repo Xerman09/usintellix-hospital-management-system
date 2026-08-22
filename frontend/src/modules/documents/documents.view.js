@@ -89,7 +89,7 @@ export function DocumentsView()
         <div style="background: #0f172a; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
             <div style="font-weight: 500; font-size: 14px;">
                 <span style="font-weight: bold; background: white; color: black; padding: 2px 4px; margin-right: 8px;" id="docsFormHeaderTitle">Hipaa Document</span>
-                New Version: Dated: <span id="docsFormHeaderDate"></span> Status: New
+                New Version: Dated:<span id="docsFormHeaderDate"></span> Status:<span id="docsFormHeaderStatus">New</span>
             </div>
             <button type="button" id="docsFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 13px; cursor: pointer;">Dismiss Form</button>
         </div>
@@ -139,7 +139,10 @@ export function DocumentsView()
                     <span>Patient Signature: </span>
                     <div style="min-width: 200px; border-bottom: 1px solid black; padding-bottom: 4px; display: inline-block;">
                         <img id="hipaaSignatureImg" src="" style="display: none; max-height: 50px; margin-top: -20px;" alt="Signature">
-                        <span id="hipaaSignaturePlaceholder">X</span>
+                        <span id="hipaaSignaturePlaceholder" style="color: #ef4444; font-size: 14px; cursor: pointer;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px; vertical-align: text-bottom;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            Click in signature
+                        </span>
                     </div>
                 </div>
 
@@ -158,7 +161,11 @@ export function DocumentsView()
                     <input type="text" id="hipaaRefusalReason" style="border: 1px solid #cbd5e1; padding: 4px; width: 300px;">
                 </div>
 
-                <div style="text-align: right;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <button type="button" id="docsFormDeleteBtn" style="background: #ef4444; border: none; color: white; padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Delete Document
+                    </button>
                     <button type="button" id="docsFormDismissBtnBottom" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px 16px; font-size: 14px; cursor: pointer;">Dismiss Form</button>
                 </div>
             </div>

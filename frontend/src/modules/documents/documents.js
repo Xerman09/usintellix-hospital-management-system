@@ -298,6 +298,19 @@ function setupSelectFormDropdown()
 
     document.getElementById("docsFormDismissBtn")?.addEventListener("click", closeForm);
     document.getElementById("docsFormDismissBtnBottom")?.addEventListener("click", closeForm);
+
+    document.getElementById("docsSubmitCompletedBtn")?.addEventListener("click", () => {
+        if (typeof showToast === 'function') {
+            showToast("Updates Successful", "success");
+        }
+        localStorage.setItem('hipaa_status', 'In Review');
+        closeForm();
+    });
+
+    document.getElementById("docsFormDeleteBtn")?.addEventListener("click", () => {
+        localStorage.removeItem('hipaa_status');
+        closeForm();
+    });
 }
 
 function openHipaaForm()
@@ -313,13 +326,21 @@ function openHipaaForm()
     mainBody.style.display = "none";
     formBody.style.display = "block";
 
-    // Set Date
+    // Set Date and Status
     const today = new Date().toISOString().split('T')[0];
     const todayDisplay = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     
     document.getElementById("docsFormHeaderDate").textContent = todayDisplay;
     document.getElementById("hipaaGivenToday").textContent = today;
     document.getElementById("hipaaGivenToday2").textContent = today;
+
+    const status = localStorage.getItem('hipaa_status') || 'New';
+    document.getElementById("docsFormHeaderStatus").textContent = status;
+    if (status === 'In Review') {
+        document.getElementById("docsFormDeleteBtn").style.display = "flex";
+    } else {
+        document.getElementById("docsFormDeleteBtn").style.display = "none";
+    }
 
     // Load Patient Data
     const user = getUser();
