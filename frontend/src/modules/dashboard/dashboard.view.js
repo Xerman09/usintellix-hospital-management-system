@@ -136,8 +136,8 @@ const DOCTOR_NAV_LINKS = `
     <div class="nav-dropdown">
         <span>Patient</span>
         <div class="dropdown-content">
-            <a data-tab="patient_finder">New/Search</a>
-            <a data-tab="patients">Dashboard</a>
+            <a data-tab="patients">New/Search</a>
+            <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Visits

@@ -22,19 +22,19 @@ export function AddPatientView()
             <div class="modal-tab-panel active" data-panel="basic">
                 <div class="form-grid">
                     <div class="form-group full">
-                        <label>Username</label>
+                        <label>Username <span style="color: #dc2626;">*</span></label>
                         <input id="username" class="form-input" placeholder="e.g juan.delacruz">
                         <span class="form-error" id="err-username"></span>
                     </div>
 
                     <div class="form-group full">
-                        <label>Password</label>
+                        <label>Password <span style="color: #dc2626;">*</span></label>
                         <input id="password" type="password" class="form-input" placeholder="••••••••">
                         <span class="form-error" id="err-password"></span>
                     </div>
 
                     <div class="form-group">
-                        <label>First Name</label>
+                        <label>First Name <span style="color: #dc2626;">*</span></label>
                         <input id="first_name" class="form-input" placeholder="First name">
                         <span class="form-error" id="err-first_name"></span>
                     </div>
@@ -46,7 +46,7 @@ export function AddPatientView()
                     </div>
 
                     <div class="form-group">
-                        <label>Last Name</label>
+                        <label>Last Name <span style="color: #dc2626;">*</span></label>
                         <input id="last_name" class="form-input" placeholder="Last name">
                         <span class="form-error" id="err-last_name"></span>
                     </div>
@@ -58,7 +58,7 @@ export function AddPatientView()
                     </div>
 
                     <div class="form-group">
-                        <label>Sex</label>
+                        <label>Sex <span style="color: #dc2626;">*</span></label>
                         <select id="sex" class="form-input">
                             <option value="">Select sex</option>
                             <option value="male">Male</option>
@@ -68,13 +68,13 @@ export function AddPatientView()
                     </div>
 
                     <div class="form-group">
-                        <label>Birthdate</label>
+                        <label>Birthdate <span style="color: #dc2626;">*</span></label>
                         <input id="birthdate" type="date" class="form-input">
                         <span class="form-error" id="err-birthdate"></span>
                     </div>
 
                     <div class="form-group">
-                        <label>Civil Status</label>
+                        <label>Civil Status <span style="color: #dc2626;">*</span></label>
                         <select id="civil_status" class="form-input">
                             <option value="">Select civil status</option>
                             <option value="Single">Single</option>
@@ -86,7 +86,7 @@ export function AddPatientView()
                     </div>
 
                     <div class="form-group">
-                        <label>Blood Type</label>
+                        <label>Blood Type <span style="color: #dc2626;">*</span></label>
                         <select id="blood_type" class="form-input">
                             <option value="">Select blood type</option>
                             <option value="A+">A+</option>
@@ -102,13 +102,13 @@ export function AddPatientView()
                     </div>
 
                     <div class="form-group">
-                        <label>Height (cm)</label>
+                        <label>Height (cm) <span style="color: #dc2626;">*</span></label>
                         <input id="height" type="number" step="0.01" class="form-input" placeholder="e.g 165.50">
                         <span class="form-error" id="err-height"></span>
                     </div>
 
                     <div class="form-group">
-                        <label>Weight (kg)</label>
+                        <label>Weight (kg) <span style="color: #dc2626;">*</span></label>
                         <input id="weight" type="number" step="0.01" class="form-input" placeholder="e.g 60.00">
                         <span class="form-error" id="err-weight"></span>
                     </div>

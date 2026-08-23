@@ -16,7 +16,7 @@ $router->get('/patients/dashboard-summary', [PatientController::class, 'dashboar
 
 $router->post('/patients', [PatientController::class, 'register'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->delete('/patients', [PatientController::class, 'destroy'], [
@@ -26,15 +26,15 @@ $router->delete('/patients', [PatientController::class, 'destroy'], [
 
 $router->put('/patients', [PatientController::class, 'update'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/patients/photo', [PatientController::class, 'uploadPhoto'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->delete('/patients/photo', [PatientController::class, 'removePhoto'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);

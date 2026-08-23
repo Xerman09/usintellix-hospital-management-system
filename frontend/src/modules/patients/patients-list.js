@@ -363,11 +363,11 @@ export async function initPatientsList()
     await loadPatients(user);
     setupPatientFilters(user);
 
-    if (user.role !== "doctor") {
+    if (user.role !== "patient") {
         await setupEditPatientModal(user);
     }
 
-    if (user.role === "receptionist") {
+    if (user.role === "receptionist" || user.role === "doctor") {
         await setupAddPatientModal(user);
     }
 
