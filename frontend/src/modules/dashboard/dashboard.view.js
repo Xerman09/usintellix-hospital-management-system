@@ -121,7 +121,6 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="messaging">Messaging</a>
     <a data-tab="recalls">Recalls</a>
 
-    <a data-tab="laboratory">Laboratory</a>
     <a data-tab="medications">Medications</a>
     <a data-tab="billing">Billing</a>
     <a data-tab="reports">Medical Reports</a>
