@@ -120,6 +120,8 @@ import { CodesView } from "../codes/codes.view.js";
 import { initCodes } from "../codes/codes.js";
 import { MessagesView } from "../messages/messages.view.js?v=2";
 import { initMessages } from "../messages/messages.js";
+import { SettingsView } from "../settings/settings.view.js";
+import { initSettings } from "../settings/settings.js";
 
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -448,6 +450,11 @@ export function Dashboard()
                 setTimeout(initReports, 0);
                 return ReportsView();
             }, activate);
+        } else if (tabId === 'settings') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSettings, 0);
+                return SettingsView();
+            }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
         }
@@ -513,7 +520,7 @@ export function Dashboard()
     if (settingsBtn) {
         settingsBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            tabManager.openTab('settings', 'Settings', () => renderPlaceholderTab('Settings'));
+            openDashboardTab('settings', 'Settings');
         });
     }
 
