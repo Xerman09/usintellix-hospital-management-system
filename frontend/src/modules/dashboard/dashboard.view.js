@@ -106,7 +106,7 @@ function staffNavLinks(role)
             </div>
         </div>
         ` : ""}
-
+        <a data-tab="settings">Settings</a>
     `;
 }
 
@@ -127,8 +127,8 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="reports">Medical Reports</a>
     <a data-tab="documents">Documents</a>
     <a data-tab="profile">Profile</a>
+    <a data-tab="settings">Settings</a>
 `;
-
 
 const DOCTOR_NAV_LINKS = `
     <a data-tab="patient_finder">Finder</a>
@@ -137,6 +137,7 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="messaging">Messaging</a>
     <a data-tab="recalls">Recalls</a>
     <a data-tab="patient_flow">Flow</a>
+    <a data-tab="settings">Settings</a>
 `;
 
 function getNavLinks(role)
