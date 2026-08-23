@@ -5,6 +5,8 @@ import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=2";
 import { DashboardHomeView } from "./dashboard-home.view.js";
 import { initDashboardHome } from "./dashboard-home.js";
+import { HelpView } from "../help/help.view.js";
+import { initHelp } from "../help/help.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
@@ -454,6 +456,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initSettings, 0);
                 return SettingsView();
+            }, activate);
+        } else if (tabId === 'help') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initHelp, 0);
+                return HelpView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
