@@ -13,7 +13,12 @@ export function initSettings() {
     if (btnSelectTheme) {
         btnSelectTheme.addEventListener("click", (e) => {
             e.preventDefault();
-            alert("Select Theme feature coming soon.");
+            const appearanceBtn = document.querySelector('a[data-tab="appearance"]');
+            if (appearanceBtn) {
+                appearanceBtn.click();
+            } else {
+                if (typeof showToast === 'function') showToast("Appearance module not found.", "error");
+            }
         });
     }
 }
