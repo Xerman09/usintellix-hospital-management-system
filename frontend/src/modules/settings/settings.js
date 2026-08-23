@@ -8,18 +8,78 @@ export function initSettings() {
     const btnSelectTheme = document.getElementById("btnSelectTheme");
 
     setupSignatureModal(btnDigitalSignature);
-    
-    if (btnManageLogin) {
-        btnManageLogin.addEventListener("click", (e) => {
-            e.preventDefault();
-            alert("Manage Login Credentials feature coming soon.");
-        });
-    }
+    setupLoginCredentialsModal(btnManageLogin);
     
     if (btnSelectTheme) {
         btnSelectTheme.addEventListener("click", (e) => {
             e.preventDefault();
             alert("Select Theme feature coming soon.");
+        });
+    }
+}
+
+function setupLoginCredentialsModal(openBtn) {
+    const overlay = document.getElementById("settingsLoginModalOverlay");
+    const closeBtn = document.getElementById("settingsLoginCloseBtn");
+    const helpToggle = document.getElementById("settingsHelpToggle");
+    const helpContent = document.getElementById("settingsHelpContent");
+    const helpArrow = document.getElementById("settingsHelpArrow");
+    const saveBtn = document.getElementById("settingsLoginSaveBtn");
+    
+    if (!overlay || !openBtn) return;
+    
+    // Set user info
+    const user = getUser();
+    if (user) {
+        const portalIdEl = document.getElementById("settingsPortalId");
+        const patientIdEl = document.getElementById("settingsPatientId");
+        const changeUsernameEl = document.getElementById("settingsChangeUsername");
+        
+        if (portalIdEl) portalIdEl.value = user.username || user.email || "";
+        if (patientIdEl) patientIdEl.value = user.id || "";
+        if (changeUsernameEl) changeUsernameEl.placeholder = user.username || user.email || "";
+    }
+    
+    openBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        
+        // Reset fields
+        document.getElementById("settingsChangeUsername").value = "";
+        document.getElementById("settingsConfirmUsername").value = "";
+        document.getElementById("settingsChangePassword").value = "";
+        document.getElementById("settingsConfirmPassword").value = "";
+        document.getElementById("settingsCurrentPassword").value = "";
+        
+        overlay.classList.add("open");
+    });
+    
+    closeBtn.addEventListener("click", () => {
+        overlay.classList.remove("open");
+    });
+    
+    if (helpToggle && helpContent && helpArrow) {
+        helpToggle.addEventListener("click", () => {
+            if (helpContent.style.display === "none") {
+                helpContent.style.display = "block";
+                helpArrow.style.transform = "rotate(90deg)";
+            } else {
+                helpContent.style.display = "none";
+                helpArrow.style.transform = "rotate(0deg)";
+            }
+        });
+    }
+    
+    if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+            const currentPass = document.getElementById("settingsCurrentPassword").value;
+            if (!currentPass) {
+                if (typeof showToast === 'function') showToast("Current password is required to save changes.", "error");
+                return;
+            }
+            
+            // Simulate saving
+            if (typeof showToast === 'function') showToast("Login credentials updated successfully.", "success");
+            overlay.classList.remove("open");
         });
     }
 }

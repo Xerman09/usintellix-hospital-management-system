@@ -87,5 +87,93 @@ export function SettingsView() {
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="settingsLoginModalOverlay">
+    <div class="modal-box" style="max-width: 800px; padding: 0; display: flex; flex-direction: column; max-height: 90vh;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: white;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: normal; color: #0f172a;">Manage Login Credentials</h3>
+            <button type="button" id="settingsLoginCloseBtn" style="background: transparent; border: none; font-size: 20px; font-weight: bold; color: #64748b; cursor: pointer;">&times;</button>
+        </div>
+        
+        <div style="padding: 16px; overflow-y: auto; background: white; flex: 1;">
+            
+            <!-- Account Username Section -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 16px;">
+                <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: center; color: #0f172a; font-size: 16px;">
+                    Account Username <svg viewBox="0 0 24 24" fill="#0ea5e9" style="width: 16px; height: 16px; vertical-align: text-bottom;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4" stroke="white" stroke-width="2" stroke-linecap="round"></path><path d="M12 8h.01" stroke="white" stroke-width="2" stroke-linecap="round"></path></svg>
+                </div>
+                <div style="padding: 16px;">
+                    <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center; margin-bottom: 12px;">
+                        <label style="font-weight: bold; font-size: 14px; color: #000;">Change Username</label>
+                        <input type="text" id="settingsChangeUsername" placeholder="Phil1" style="border: 1px solid #94a3b8; border-radius: 2px; padding: 6px; width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center;">
+                        <label style="font-weight: bold; font-size: 14px; color: #000;">Confirm Username</label>
+                        <div style="width: 100%;">
+                            <input type="text" id="settingsConfirmUsername" style="border: 1px solid #94a3b8; border-radius: 2px; padding: 6px; width: 100%; box-sizing: border-box;">
+                            <div style="font-size: 13px; font-style: italic; color: #475569; margin-top: 4px;">Enter a minimum of 8 characters. Recommended to include symbols and numbers but not required.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Password Section -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 16px;">
+                <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: center; color: #0f172a; font-size: 16px;">
+                    Account Password <svg viewBox="0 0 24 24" fill="#0ea5e9" style="width: 16px; height: 16px; vertical-align: text-bottom;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4" stroke="white" stroke-width="2" stroke-linecap="round"></path><path d="M12 8h.01" stroke="white" stroke-width="2" stroke-linecap="round"></path></svg>
+                </div>
+                <div style="padding: 16px;">
+                    <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center; margin-bottom: 12px;">
+                        <label style="font-weight: bold; font-size: 14px; color: #000;">Change Password</label>
+                        <input type="password" id="settingsChangePassword" style="border: 1px solid #94a3b8; border-radius: 2px; padding: 6px; width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center;">
+                        <label style="font-weight: bold; font-size: 14px; color: #000;">Confirm Password</label>
+                        <div style="width: 100%;">
+                            <input type="password" id="settingsConfirmPassword" style="border: 1px solid #94a3b8; border-radius: 2px; padding: 6px; width: 100%; box-sizing: border-box;">
+                            <div style="font-size: 13px; font-style: italic; color: #475569; margin-top: 4px;">Password must be at least 8 characters with at least one uppercase,one lowercase,and one number.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Current Password Auth Section -->
+            <div style="background: #fce8e8; border: 1px solid #fecaca; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 14px; color: #000; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" style="width: 16px; height: 16px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Enter your current Account Password to authorize these changes
+                </div>
+                <input type="password" id="settingsCurrentPassword" placeholder="Current password" style="border: 1px solid #94a3b8; border-radius: 2px; padding: 6px; width: 100%; box-sizing: border-box;">
+            </div>
+            
+            <button type="button" id="settingsLoginSaveBtn" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: 16px;">Save</button>
+            
+            <!-- Help Toggle -->
+            <div id="settingsHelpToggle" style="background: #e0f2fe; padding: 8px; text-align: center; cursor: pointer; color: #0369a1; border-radius: 4px; font-size: 14px;">
+                <span id="settingsHelpArrow" style="display: inline-block; transform: rotate(0deg); transition: transform 0.2s;">&#9654;</span> Help <svg viewBox="0 0 24 24" fill="#0f172a" style="width: 14px; height: 14px; vertical-align: text-bottom;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4" stroke="white" stroke-width="2" stroke-linecap="round"></path><path d="M12 8h.01" stroke="white" stroke-width="2" stroke-linecap="round"></path></svg>
+            </div>
+            
+            <!-- Help Content -->
+            <div id="settingsHelpContent" style="display: none; background: #e0f2fe; padding: 16px; border-radius: 0 0 4px 4px; font-size: 13px; color: #334155; margin-top: -4px;">
+                <p style="margin-top: 0;">Use this form to change your Account Username, Account Password, or both.</p>
+                <p>You can change your current Account Password by entering a new Account Password and then entering the same Account Password into the Confirm Password field</p>
+                <p>You can change your current Account Username by entering a new Account Username and then entering the same Account Username into the Confirm Username field</p>
+                <p>Any change to your Account Username or Account Password requires you to enter in your current Account Password into the Confirm Current Password field.</p>
+                <p>For additional help or questions you can contact your healthcare support staff.</p>
+                <p style="margin-bottom: 24px;">The following fields can be used to help your support staff locate your account.</p>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: center; margin-bottom: 12px;">
+                    <label style="font-weight: bold;">Portal Account ID for reference</label>
+                    <input type="text" id="settingsPortalId" value="Phil1" readonly style="border: 1px solid #94a3b8; background: #f1f5f9; padding: 6px; border-radius: 2px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: center;">
+                    <label style="font-weight: bold;">Patient Identifier (pid)</label>
+                    <input type="text" id="settingsPatientId" value="1" readonly style="border: 1px solid #94a3b8; background: #f1f5f9; padding: 6px; border-radius: 2px;">
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
     `;
 }
