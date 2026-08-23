@@ -94,26 +94,42 @@ function setupToolbar() {
 }
 
 function setupUploadModal() {
-    const overlay = document.getElementById("docsUploadModalOverlay");
+    const container = document.getElementById("docsUploadContainer");
     const form = document.getElementById("docsUploadForm");
+    const mainBody = document.getElementById("docsMainBody");
 
-    const openModal = () => {
+    const openUpload = () => {
         document.getElementById("docsUploadFormAlert").innerHTML = "";
         form.reset();
-        overlay.classList.add("open");
+        
+        // Hide other views
+        const activities = document.getElementById("docsActivitiesBody");
+        if (activities) activities.style.display = "none";
+        
+        const help = document.getElementById("docsHelpContainer");
+        if (help) help.style.display = "none";
+        
+        const forms = ["docsFormBody", "docsInsuranceFormBody", "docsMedicalFormBody"];
+        forms.forEach(f => {
+            const el = document.getElementById(f);
+            if (el) el.style.display = "none";
+        });
+        
+        if (mainBody) mainBody.style.display = "none";
+        
+        container.style.display = "block";
     };
 
-    const closeModal = () => overlay.classList.remove("open");
+    const closeUpload = () => {
+        container.style.display = "none";
+        if (mainBody) mainBody.style.display = "block";
+    };
 
-    document.getElementById("docsUploadBtn").addEventListener("click", openModal);
-    document.getElementById("docsUploadModalClose").addEventListener("click", closeModal);
-    document.getElementById("docsUploadCancelBtn").addEventListener("click", closeModal);
-
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            closeModal();
-        }
-    });
+    const uploadBtn = document.getElementById("docsUploadBtn");
+    if (uploadBtn) uploadBtn.addEventListener("click", openUpload);
+    
+    const cancelBtn = document.getElementById("docsUploadCancelBtn");
+    if (cancelBtn) cancelBtn.addEventListener("click", closeUpload);
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -157,7 +173,7 @@ function setupUploadModal() {
             return;
         }
 
-        closeModal();
+        closeUpload();
         await loadDocuments();
     });
 }

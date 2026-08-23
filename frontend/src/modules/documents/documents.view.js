@@ -737,13 +737,15 @@ export function DocumentsView()
 
 
 
-<div class="modal-overlay" id="docsUploadModalOverlay" style="background-color: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px);">
-    <div class="modal-box" style="max-width: 480px; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Upload Document</h2>
-            <button type="button" id="docsUploadModalClose" style="background: transparent; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px; line-height: 1;">&times;</button>
-        </div>
+<div id="docsUploadContainer" style="display: none; width: 100%; background: #ffffff;">
+    <div style="display: flex; align-items: center; background-color: #0f172a; color: white; padding: 12px 16px; width: 100%; box-sizing: border-box;">
+        <button type="button" id="docsUploadCancelBtn" style="background: white; border: 1px solid #ccc; padding: 4px 12px; border-radius: 2px; color: black; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 4px; margin-right: 16px;">
+            &larr; Back
+        </button>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 500;">Upload Document</h2>
+    </div>
 
+    <div style="padding: 24px; max-width: 600px;">
         <div id="docsUploadFormAlert"></div>
 
         <form id="docsUploadForm">
@@ -772,13 +774,13 @@ export function DocumentsView()
                 </div>
             </div>
 
-            <div style="display: flex; gap: 16px; margin-top: 32px;">
-                <button type="button" id="docsUploadCancelBtn" style="flex: 1; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Cancel</button>
-                <button type="submit" style="flex: 1; padding: 12px; background: #8b5cf6; border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4); transition: transform 0.1s, box-shadow 0.2s;">Upload</button>
+            <div style="margin-top: 32px;">
+                <button type="submit" style="padding: 12px 24px; background: #8b5cf6; border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4); transition: transform 0.1s, box-shadow 0.2s;">Upload Document</button>
             </div>
         </form>
     </div>
 </div>
+
 
 <div class="modal-overlay" id="docsSignatureModalOverlay">
     <div class="modal-box" style="max-width: 600px; padding: 0;">
