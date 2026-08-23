@@ -133,11 +133,37 @@ const PATIENT_NAV_LINKS = `
 
 const DOCTOR_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
-    <a data-tab="patient_finder">Finder</a>
+    <div class="nav-dropdown">
+        <span>Patient</span>
+        <div class="dropdown-content">
+            <a data-tab="patient_finder">New/Search</a>
+            <a data-tab="patients">Dashboard</a>
+            <div class="dropdown-submenu">
+                <span class="dropdown-submenu-trigger">
+                    Visits
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="patient_flow">Flow</a>
+                    <a data-tab="appointments">Appointments</a>
+                </div>
+            </div>
+            <div class="dropdown-submenu">
+                <span class="dropdown-submenu-trigger">
+                    Records
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="health_records">Health Records</a>
+                    <a data-tab="medications">Medications</a>
+                    <a data-tab="documents">Documents</a>
+                </div>
+            </div>
+        </div>
+    </div>
     <a data-tab="patient_flow">Flow</a>
     <a data-tab="recalls">Recalls</a>
     <a data-tab="messaging">Messages</a>
-    <a data-tab="patients">Patients</a>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
 `;
