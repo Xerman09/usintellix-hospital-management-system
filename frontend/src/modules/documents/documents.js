@@ -66,6 +66,31 @@ function setupToolbar() {
     document.getElementById("docsExitBtn").addEventListener("click", () => {
         window.tabManager.closeTab("documents");
     });
+
+    const helpBtn = document.getElementById("docsHelpBtn");
+    const helpContainer = document.getElementById("docsHelpContainer");
+    const backBtn = document.getElementById("btnBackToDocsFromHelp");
+
+    if (helpBtn && helpContainer && backBtn) {
+        helpBtn.addEventListener("click", () => {
+            // Hide everything except the topbar
+            const idsToHide = [
+                "docsEditingBar", "docsMainBody", "docsActivitiesBody",
+                "docsFormBody", "docsInsuranceFormBody", "docsMedicalFormBody",
+                "docsPrivacyFormBody"
+            ];
+            idsToHide.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = "none";
+            });
+            helpContainer.style.display = "block";
+        });
+
+        backBtn.addEventListener("click", () => {
+            helpContainer.style.display = "none";
+            document.getElementById("docsMainBody").style.display = "block";
+        });
+    }
 }
 
 function setupUploadModal() {

@@ -164,8 +164,6 @@ export function ReportsView() {
             </div>
         </div>
     </div>
-</div>
-
     <!-- Custom Report Modal -->
     <div id="customReportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
         <div style="background: white; width: 90%; max-width: 1200px; height: 90%; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -210,6 +208,59 @@ export function ReportsView() {
             <div style="background-color: #d1fae5; color: #064e3b; padding: 12px 16px; border-radius: 4px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                 Your files will download as a zip file
+            </div>
+        </div>
+    </div>
+    <div id="reportsHelpContainer" style="display: none; width: 100%; background: #ffffff; padding: 24px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <button id="btnBackToReportsFromHelp" style="background: none; border: none; color: #2563eb; cursor: pointer; font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 4px; padding: 0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to Reports
+            </button>
+        </div>
+        
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+            <!-- View Summary of Care -->
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px; background: #ffffff;">
+                <div style="background-color: #0f172a; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #334155; font-weight: 500;">View Summary of Care</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">View your Summary of Care document that includes a printable version of your healthcare information. This document can be used to transfer your care to another healthcare facility. In technical terms it is called a C-CDA.</p>
+                </div>
+            </div>
+            
+            <!-- Download Summary of Care -->
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px; background: #f8fafc;">
+                <div style="background-color: #0f172a; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #334155; font-weight: 500;">Download Summary of Care</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">Download a copy of your Summary of Care document. This document can be used to transfer your care to another healthcare facility. In technical terms it is called a C-CDA.</p>
+                </div>
+            </div>
+            
+            <!-- Customized Medical History Report -->
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px; background: #ffffff;">
+                <div style="background-color: #0f172a; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #334155; font-weight: 500;">Customized Medical History Report</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">View, Print, or Download individual items of your medical history based upon your custom selections</p>
+                </div>
+            </div>
+            
+            <!-- Download Medical Record Documents -->
+            <div style="padding: 16px; display: flex; gap: 16px; background: #ffffff;">
+                <div style="background-color: #0f172a; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 12v4"/><path d="M14 12v4"/><path d="M10 16h4"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #334155; font-weight: 500;">Download Medical Record Documents</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">Select stored documents in your medical file that have been uploaded by your clinical staff or yourself to be downloaded.</p>
+                </div>
             </div>
         </div>
     </div>

@@ -66,6 +66,21 @@ export function initReports() {
         btnCustomDownload.addEventListener("click", () => generateCustomReport('download'));
     }
 
+    if (btnHelp) {
+        btnHelp.addEventListener("click", () => {
+            document.querySelector('.reports-grid').style.display = 'none';
+            document.getElementById('reportsHelpContainer').style.display = 'block';
+        });
+    }
+
+    const btnBackToReportsFromHelp = document.getElementById("btnBackToReportsFromHelp");
+    if (btnBackToReportsFromHelp) {
+        btnBackToReportsFromHelp.addEventListener("click", () => {
+            document.querySelector('.reports-grid').style.display = 'grid';
+            document.getElementById('reportsHelpContainer').style.display = 'none';
+        });
+    }
+
     if (btnDownloadDocs) {
         btnDownloadDocs.addEventListener("click", () => openDownloadDocs());
     }
@@ -91,10 +106,6 @@ export function initReports() {
     const btnDownloadSelectedDocs = document.getElementById("btnDownloadSelectedDocs");
     if (btnDownloadSelectedDocs) {
         btnDownloadSelectedDocs.addEventListener("click", () => generateDocsZip());
-    }
-
-    if (btnHelp) {
-        btnHelp.addEventListener("click", () => alert("Please contact support for assistance with medical reports."));
     }
 }
 

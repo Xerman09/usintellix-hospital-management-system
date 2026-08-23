@@ -21,6 +21,10 @@ export function DocumentsView()
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
                 Exit to Dashboard
             </button>
+            <button type="button" class="docs-tool-btn" id="docsHelpBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                Help
+            </button>
         </div>
     </div>
 
@@ -798,6 +802,55 @@ export function DocumentsView()
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
             <button type="button" id="docsDeleteCancelModalBtn" class="btn-secondary" style="padding: 8px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">Cancel</button>
             <button type="button" id="docsDeleteConfirmModalBtn" style="padding: 8px 16px; background: #ef4444; border: none; color: white; border-radius: 4px; cursor: pointer;">Delete</button>
+        </div>
+    </div>
+    <!-- Help Container -->
+    <div id="docsHelpContainer" style="display: none; width: 100%; background: #ffffff;">
+        <!-- Header -->
+        <div style="display: flex; align-items: center; background-color: #0f172a; color: white; padding: 12px 16px; width: 100%; box-sizing: border-box;">
+            <button id="btnBackToDocsFromHelp" style="background: white; border: 1px solid #ccc; padding: 4px 12px; border-radius: 2px; color: black; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 4px; margin-right: 16px;">
+                &larr; Back
+            </button>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 500;">
+                Medical Records Help
+            </h2>
+        </div>
+        
+        <!-- List Items -->
+        <div style="display: flex; flex-direction: column; width: 100%;">
+            
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #334155; font-weight: normal;">View Summary of Care</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b;">View your Summary of Care document that includes a printable version of your healthcare information. This document can be used to transfer your care to another healthcare facility. In technical terms it is called a C-CDA.</p>
+                </div>
+            </div>
+            
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #334155; font-weight: normal;">Download Summary of Care</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b;">Download a copy of your Summary of Care document. This document can be used to transfer your care to another healthcare facility. In technical terms it is called a C-CDA.</p>
+                </div>
+            </div>
+            
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #334155; font-weight: normal;">Customized Medical History Report</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b;">View, Print, or Download individual items of your medical history based upon your custom selections</p>
+                </div>
+            </div>
+            
+            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 16px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #334155; font-weight: normal;">Download Medical Record Documents</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b;">Select stored documents in your medical file that have been uploaded by your clinical staff or yourself to be downloaded.</p>
+                </div>
+            </div>
+            
         </div>
     </div>
 </div>
