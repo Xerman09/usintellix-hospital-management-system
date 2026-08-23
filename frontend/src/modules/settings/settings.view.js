@@ -72,5 +72,20 @@ export function SettingsView() {
         </a>
     </div>
 </div>
+
+<div class="modal-overlay" id="settingsSignatureModalOverlay">
+    <div class="modal-box" style="max-width: 600px; padding: 0;">
+        <div style="background: white; border-bottom: 1px solid #e2e8f0;">
+            <canvas id="settingsSignatureCanvas" width="600" height="300" style="width: 100%; height: 300px; touch-action: none; cursor: crosshair; display: block;"></canvas>
+            <div style="text-align: center; padding: 8px; color: #475569; font-size: 12px; border-top: 1px solid #e2e8f0; background: #f8fafc;">Sign Above</div>
+        </div>
+        <div style="display: flex; background: #f1f5f9; border-top: 1px solid #e2e8f0;">
+            <button type="button" id="settingsSignatureClearBtn" style="flex: 1; padding: 12px; background: #f8fafc; border: none; border-right: 1px solid #e2e8f0; color: #334155; font-size: 14px; cursor: pointer;">Clear Canvas</button>
+            <button type="button" id="settingsSignatureUseCurrentBtn" style="flex: 1; padding: 12px; background: #f8fafc; border: none; border-right: 1px solid #e2e8f0; color: #334155; font-size: 14px; cursor: pointer;">Use Current</button>
+            <button type="button" id="settingsSignatureCancelBtn" style="flex: 1; padding: 12px; background: #ef4444; border: none; border-right: 1px solid #dc2626; color: white; font-size: 14px; cursor: pointer;">Cancel</button>
+            <button type="button" id="settingsSignatureSaveBtn" style="flex: 1; padding: 12px; background: #22c55e; border: none; color: white; font-size: 14px; font-weight: 500; cursor: pointer;">Sign and Save</button>
+        </div>
+    </div>
+</div>
     `;
 }
