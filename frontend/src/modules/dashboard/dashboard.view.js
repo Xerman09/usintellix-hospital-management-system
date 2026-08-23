@@ -132,12 +132,12 @@ const PATIENT_NAV_LINKS = `
 `;
 
 const DOCTOR_NAV_LINKS = `
-    <a data-tab="patient_finder">Finder</a>
-    <a data-tab="patients">Patients</a>
     <a data-tab="appointments">Calendar</a>
-    <a data-tab="messaging">Messaging</a>
-    <a data-tab="recalls">Recalls</a>
+    <a data-tab="patient_finder">Finder</a>
     <a data-tab="patient_flow">Flow</a>
+    <a data-tab="recalls">Recalls</a>
+    <a data-tab="messaging">Messages</a>
+    <a data-tab="patients">Patients</a>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
 `;
