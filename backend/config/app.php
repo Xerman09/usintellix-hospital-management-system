@@ -1,14 +1,17 @@
 <?php
 
+$envPath = __DIR__ . '/../.env';
+$env = file_exists($envPath) ? parse_ini_file($envPath) : [];
+
 return [
 
-    'name' => 'Hospital System',
+    'name' => $env['APP_NAME'] ?? 'Hospital System',
 
-    'environment' => 'development',
+    'environment' => $env['APP_ENV'] ?? 'development',
 
-    'debug' => true,
+    'debug' => isset($env['APP_DEBUG']) ? filter_var($env['APP_DEBUG'], FILTER_VALIDATE_BOOLEAN) : true,
 
-    'url' => 'http://localhost',
+    'url' => $env['APP_URL'] ?? 'http://localhost',
 
     'timezone' => 'Asia/Manila',
 
