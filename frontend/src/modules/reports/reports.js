@@ -459,7 +459,9 @@ async function generateDocsZip() {
 
     try {
         const zip = new JSZip();
-        const API_URL = window.location.origin.includes('localhost') ? 'http://localhost/usintellix-hospital-management-system/backend' : '';
+        const API_URL = window.location.origin.includes('localhost') 
+            ? 'http://localhost/usintellix-hospital-management-system/backend' 
+            : 'https://ihs.dm3system.com/backend';
         
         // Fetch all selected files
         const fetchPromises = selectedCbs.map(async (cb) => {
