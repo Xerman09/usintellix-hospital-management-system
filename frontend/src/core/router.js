@@ -1,11 +1,11 @@
-import { LoginView } from "../modules/auth/login.view.js?v=4";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=16";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=38";
-import { initLogin } from "../modules/auth/auth.js?v=2";
-import { AddEmployeeView } from "../modules/employees/add-employee.view.js";
-import { initAddEmployee } from "../modules/employees/add-employee.js";
-import { AddPatientView } from "../modules/patients/add-patient.view.js?v=2";
-import { initAddPatient } from "../modules/patients/add-patient.js?v=2";
+import { LoginView } from "../modules/auth/login.view.js?v=100";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=100";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=100";
+import { initLogin } from "../modules/auth/auth.js?v=100";
+import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=100";
+import { initAddEmployee } from "../modules/employees/add-employee.js?v=100";
+import { AddPatientView } from "../modules/patients/add-patient.view.js?v=100";
+import { initAddPatient } from "../modules/patients/add-patient.js?v=100";
 
 
 const app = document.getElementById("app");

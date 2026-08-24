@@ -1,6 +1,6 @@
 import { fetchPatientDocuments, uploadPatientDocument } from "../patient-documents/patient-documents.service.js";
 import { escapeHtml } from "../appointments/appointment-format.js";
-import { api, API_URL } from "../../core/api.js";
+import { api, API_URL } from "../../core/api.js?v=5";
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 

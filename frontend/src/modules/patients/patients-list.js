@@ -13,7 +13,7 @@ import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
-import { API_URL } from "../../core/api.js";
+import { API_URL } from "../../core/api.js?v=5";
 import { fetchProviders } from "../providers/providers.service.js";
 import {
     fetchPatientTransactions,

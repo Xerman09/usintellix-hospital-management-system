@@ -1,5 +1,5 @@
 import { fetchBusinessSettings, updateBusinessSettings, uploadBusinessLogo, removeBusinessLogo } from "./business-settings.service.js";
-import { API_URL } from "../../core/api.js";
+import { API_URL } from "../../core/api.js?v=5";
 import { clearBrandingCache, applyBranding } from "../../core/branding.js";
 import { showToast } from "../../core/toast.js";
 
