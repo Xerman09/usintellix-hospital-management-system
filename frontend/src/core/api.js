@@ -1,8 +1,6 @@
 import { clearSession } from "./session.js";
 
-export const API_URL = window.location.origin.includes('localhost') 
-    ? "http://localhost/usintellix-hospital-management-system/backend/public" 
-    : "https://ihs.dm3system.com/backend/public";
+export const API_URL = "https://ihs.dm3system.com/backend/public";
 
 // Endpoints where a 401 is a normal form-validation outcome (wrong
 // password / wrong 2FA code), not a sign that the session died -- these
