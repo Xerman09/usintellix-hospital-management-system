@@ -106,6 +106,53 @@ function staffNavLinks(role)
             </div>
         </div>
         ` : ""}
+        <div class="nav-dropdown">
+            <span>Reports</span>
+            <div class="dropdown-content">
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Clients
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="clients_list">List</a>
+                        <a data-tab="clients_rx">Rx</a>
+                        <a data-tab="patient_list_creation">Patient List Creation</a>
+                        <a data-tab="message_list">Message List</a>
+                        <a data-tab="clinical_reports">Clinical</a>
+                        <a data-tab="referrals_reports">Referrals</a>
+                        <a data-tab="immunization_registry">Immunization Registry</a>
+                    </div>
+                </div>
+                <a data-tab="clinic_reports">Clinic</a>
+                <a data-tab="visits_reports">Visits</a>
+                <a data-tab="financial_reports">Financial</a>
+                <a data-tab="procedures_reports">Procedures</a>
+                <a data-tab="insurance_reports">Insurance</a>
+                <a data-tab="blank_forms">Blank Forms</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Services
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="services_overview">Overview</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="nav-dropdown">
+            <span>Miscellaneous</span>
+            <div class="dropdown-content">
+                <a data-tab="misc_settings">Settings</a>
+            </div>
+        </div>
+        <div class="nav-dropdown">
+            <span>Popups</span>
+            <div class="dropdown-content">
+                <a data-tab="popup_management">Management</a>
+            </div>
+        </div>
         <a data-tab="settings">Settings</a>
         <a data-tab="help">Help</a>
     `;
