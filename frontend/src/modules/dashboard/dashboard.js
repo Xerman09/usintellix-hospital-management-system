@@ -86,6 +86,8 @@ import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
 import { ReportsView } from "../reports/reports.view.js";
 import { initReports } from "../reports/reports.js";
+import { ClientsListView } from "../reports/clients-list.view.js";
+import { initClientsList } from "../reports/clients-list.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
 import { initIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.js";
 import { CvxCodesView } from "../cvx-codes/cvx-codes.view.js";
@@ -458,6 +460,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initReports, 0);
                 return ReportsView();
+            }, activate);
+        } else if (tabId === 'clients_list') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initClientsList, 0);
+                return ClientsListView();
             }, activate);
         } else if (tabId === 'settings') {
             tabManager.openTab(tabId, title, () => {
