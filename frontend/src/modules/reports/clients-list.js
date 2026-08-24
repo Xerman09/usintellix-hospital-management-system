@@ -15,7 +15,9 @@ export async function initClientsList() {
             result.data.forEach(provider => {
                 const option = document.createElement("option");
                 option.value = provider.id;
-                option.textContent = provider.employee_name || `Provider #${provider.id}`;
+                const nameParts = [provider.first_name, provider.last_name].filter(Boolean);
+                const fullName = nameParts.length > 0 ? nameParts.join(" ") : `Provider #${provider.id}`;
+                option.textContent = fullName;
                 providerSelect.appendChild(option);
             });
         }
@@ -116,7 +118,7 @@ function renderReportTable() {
         tbody.appendChild(tr);
     });
 
-    totalCount.textContent = \`Total Number of Patients: \${currentReportData.length}\`;
+    totalCount.textContent = `Total Number of Patients: ${currentReportData.length}`;
 }
 
 function exportToCsv(data) {
@@ -127,11 +129,11 @@ function exportToCsv(data) {
     data.forEach(row => {
         const values = [
             row.last_visit ? row.last_visit.split(' ')[0] : '',
-            \`"\${row.last_name}, \${row.first_name}"\`,
+            `"${row.last_name}, ${row.first_name}"`,
             row.patient_no || row.id,
-            \`"\${row.address_line || ''}"\`,
-            \`"\${row.city || ''}"\`,
-            \`"\${row.state || ''}"\`,
+            `"${row.address_line || ''}"`,
+            `"${row.city || ''}"`,
+            `"${row.state || ''}"`,
             row.zip_code || '',
             row.home_phone || '',
             row.work_phone || ''
@@ -139,7 +141,7 @@ function exportToCsv(data) {
         csvRows.push(values.join(","));
     });
 
-    const csvString = csvRows.join("\\n");
+    const csvString = csvRows.join("\n");
     const blob = new Blob([csvString], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     
@@ -159,7 +161,7 @@ function printReport() {
         return;
     }
 
-    let tableHtml = \`
+    let tableHtml = `
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left;">
             <thead>
                 <tr style="border-bottom: 2px solid #000;">
@@ -175,33 +177,33 @@ function printReport() {
                 </tr>
             </thead>
             <tbody>
-    \`;
+    `;
 
     currentReportData.forEach(row => {
-        tableHtml += \`
+        tableHtml += `
             <tr style="border-bottom: 1px solid #ccc;">
-                <td style="padding: 8px;">\${escapeHtml(row.last_visit ? row.last_visit.split(' ')[0] : '')}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.last_name)}, \${escapeHtml(row.first_name)}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.patient_no || row.id)}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.address_line || '')}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.city || '')}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.state || '')}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.zip_code || '')}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.home_phone || '')}</td>
-                <td style="padding: 8px;">\${escapeHtml(row.work_phone || '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.last_visit ? row.last_visit.split(' ')[0] : '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.last_name)}, ${escapeHtml(row.first_name)}</td>
+                <td style="padding: 8px;">${escapeHtml(row.patient_no || row.id)}</td>
+                <td style="padding: 8px;">${escapeHtml(row.address_line || '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.city || '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.state || '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.zip_code || '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.home_phone || '')}</td>
+                <td style="padding: 8px;">${escapeHtml(row.work_phone || '')}</td>
             </tr>
-        \`;
+        `;
     });
 
-    tableHtml += \`
+    tableHtml += `
             </tbody>
         </table>
         <div style="margin-top: 20px; font-weight: bold; text-align: right;">
-            Total Number of Patients: \${currentReportData.length}
+            Total Number of Patients: ${currentReportData.length}
         </div>
-    \`;
+    `;
 
-    const html = \`
+    const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -213,14 +215,14 @@ function printReport() {
         </head>
         <body>
             <h1>Patient List Report</h1>
-            <p>Generated on \${new Date().toLocaleString()}</p>
-            \${tableHtml}
+            <p>Generated on ${new Date().toLocaleString()}</p>
+            ${tableHtml}
             <script>
                 window.onload = function() { window.print(); }
             </script>
         </body>
         </html>
-    \`;
+    `;
 
     reportWindow.document.open();
     reportWindow.document.write(html);
