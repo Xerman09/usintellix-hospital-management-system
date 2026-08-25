@@ -28,3 +28,8 @@ $router->get('/reports/clinical', [ReportController::class, 'clinical'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/referrals', [ReportController::class, 'referrals'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

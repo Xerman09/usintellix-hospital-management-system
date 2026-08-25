@@ -327,4 +327,11 @@ class ReportService
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getReferralReport(array $filters = []): array
+    {
+        // TODO: The referrals table does not exist yet. 
+        // Returning empty array for now so the UI functions without erroring.
+        return [];
+    }
 }

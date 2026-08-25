@@ -67,4 +67,13 @@ class ReportController extends Controller
 
         $this->success($data, 'Clinical report retrieved successfully.');
     }
+
+    public function referrals(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'facility_id']);
+        $data = $this->reportService->getReferralReport($filters);
+
+        $this->success($data, 'Referral report retrieved successfully.');
+    }
 }

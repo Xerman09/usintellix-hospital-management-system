@@ -134,6 +134,8 @@ import { initPatientListCreationReport } from "../reports/patient-list-creation.
 import { PatientListCreationView } from "../reports/patient-list-creation.view.js";
 import { initClinicalReport } from "../reports/clinical.js";
 import { ClinicalReportView } from "../reports/clinical.view.js";
+import { initReferralsReport } from "../reports/referrals.js";
+import { ReferralsReportView } from "../reports/referrals.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -487,6 +489,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initClinicalReport, 0);
                 return ClinicalReportView();
+            }, activate);
+        } else if (tabId === 'referrals' || tabId === 'referrals_reports') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initReferralsReport, 0);
+                return ReferralsReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
