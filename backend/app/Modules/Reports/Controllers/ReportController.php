@@ -153,4 +153,12 @@ class ReportController extends Controller
         $data = $this->reportService->getAppointmentsReport($filters);
         $this->success($data, 'Appointments report retrieved successfully.');
     }
+
+    public function patientFlowBoard(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'provider_id', 'status', 'category']);
+        $data = $this->reportService->getPatientFlowBoardReport($filters);
+        $this->success($data, 'Patient flow board report retrieved successfully.');
+    }
 }

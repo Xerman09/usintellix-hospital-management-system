@@ -736,4 +736,65 @@ class ReportService
         
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    public function getPatientFlowBoardReport(array $filters = []): array
+    {
+        $sql = "
+            SELECT 
+                COALESCE(u.username, 'Unassigned') as provider,
+                COALESCE(DATE(a.appointment_date), DATE(pf.created_at)) as date,
+                TIME_FORMAT(a.appointment_time, '%H:%i') as time,
+                CONCAT(p.first_name, ' ', p.last_name) as patient,
+                a.id as id,
+                'Established Patient' as type,
+                CONCAT('@ ', pf.stage) as final_status,
+                TIME_FORMAT(pf.checked_in_at, '%H:%i:%s') as arrive_time,
+                TIME_FORMAT(pf.checked_out_at, '%H:%i:%s') as discharge_time,
+                IF(pf.checked_in_at IS NOT NULL AND pf.checked_out_at IS NOT NULL,
+                    SEC_TO_TIME(TIMESTAMPDIFF(SECOND, pf.checked_in_at, pf.checked_out_at)),
+                    ''
+                ) as total_time
+            FROM patient_flow pf
+            LEFT JOIN appointments a ON pf.appointment_id = a.id
+            LEFT JOIN users u ON pf.provider_id = u.id
+            LEFT JOIN patients p ON pf.patient_id = p.id
+            WHERE pf.deleted_at IS NULL
+        ";
+
+        $params = [];
+        
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND (a.appointment_date >= ? OR DATE(pf.created_at) >= ?)";
+            $params[] = $filters['date_from'];
+            $params[] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND (a.appointment_date <= ? OR DATE(pf.created_at) <= ?)";
+            $params[] = $filters['date_to'];
+            $params[] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['facility_id']) && $filters['facility_id'] !== 'all') {
+            $sql .= " AND pf.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+        
+        if (!empty($filters['provider_id']) && $filters['provider_id'] !== 'all') {
+            $sql .= " AND pf.provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $sql .= " AND pf.stage = ?";
+            $params[] = $filters['status'];
+        }
+        
+        $sql .= " ORDER BY date ASC, time ASC";
+        
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

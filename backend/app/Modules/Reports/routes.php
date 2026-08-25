@@ -83,3 +83,8 @@ $router->get('/reports/visits/appointments', [ReportController::class, 'appointm
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/visits/patient-flow', [ReportController::class, 'patientFlowBoard'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
