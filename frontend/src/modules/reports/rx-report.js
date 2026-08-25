@@ -6,12 +6,14 @@ async function loadRxFacilities() {
         const result = await fetchFacilities();
         if (result.success) {
             const select = document.getElementById("rxFacility");
-            result.data.forEach(facility => {
-                const option = document.createElement("option");
-                option.value = facility.id;
-                option.textContent = facility.name;
-                select.appendChild(option);
-            });
+            if (select) {
+                result.data.forEach(facility => {
+                    const option = document.createElement("option");
+                    option.value = facility.id;
+                    option.textContent = facility.name;
+                    select.appendChild(option);
+                });
+            }
         }
     } catch (e) {
         console.error("Failed to load facilities for RX report", e);

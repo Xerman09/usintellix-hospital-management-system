@@ -130,6 +130,8 @@ import { SettingsView } from "../settings/settings.view.js";
 import { initSettings } from "../settings/settings.js";
 import { initRxReport } from "../reports/rx-report.js";
 import { RxReportView } from "../reports/rx-report.view.js";
+import { initPatientListCreationReport } from "../reports/patient-list-creation.js";
+import { PatientListCreationView } from "../reports/patient-list-creation.view.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
         <h2>${title}</h2>
@@ -471,6 +473,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initRxReport, 0);
                 return RxReportView();
+            }, activate);
+        } else if (tabId === 'patient_list_creation') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientListCreationReport, 0);
+                return PatientListCreationView();
             }, activate);
         } else if (tabId === 'settings') {
             tabManager.openTab(tabId, title, () => {

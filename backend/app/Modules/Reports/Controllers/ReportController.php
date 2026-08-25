@@ -35,11 +35,18 @@ class ReportController extends Controller
     public function rxReport(): void
     {
         $request = new Request();
-        
         $filters = $request->only(['facility_id', 'date_from', 'date_to', 'patient_id', 'drug', 'lot']);
-        
         $data = $this->reportService->getRxReport($filters);
 
         $this->success($data, 'Rx report retrieved successfully.');
+    }
+
+    public function patientListCreation(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'patient_id', 'age_min', 'age_max', 'gender', 'ethnicity', 'provider_id', 'option']);
+        $data = $this->reportService->getPatientListCreationReport($filters);
+
+        $this->success($data, 'Patient list creation report retrieved successfully.');
     }
 }
