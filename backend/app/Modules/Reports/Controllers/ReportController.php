@@ -58,4 +58,13 @@ class ReportController extends Controller
 
         $this->success($data, 'Message list report retrieved successfully.');
     }
+
+    public function clinical(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'patient_id', 'age_min', 'age_max', 'gender', 'race', 'ethnicity']);
+        $data = $this->reportService->getClinicalReport($filters);
+
+        $this->success($data, 'Clinical report retrieved successfully.');
+    }
 }

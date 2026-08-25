@@ -251,4 +251,80 @@ class ReportService
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getClinicalReport(array $filters = []): array
+    {
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+        $patientId = $filters['patient_id'] ?? null;
+        $ageMin = $filters['age_min'] ?? null;
+        $ageMax = $filters['age_max'] ?? null;
+        $gender = $filters['gender'] ?? null;
+        $race = $filters['race'] ?? null;
+        $ethnicity = $filters['ethnicity'] ?? null;
+        
+        $sql = "
+            SELECT 
+                p.id,
+                p.patient_no as pid,
+                CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+                p.sex as gender,
+                p.race,
+                p.ethnicity,
+                TIMESTAMPDIFF(YEAR, p.birthdate, CURDATE()) as age,
+                CONCAT(emp.first_name, ' ', emp.last_name) as provider
+            FROM patients p
+            LEFT JOIN providers prov ON p.provider_id = prov.id
+            LEFT JOIN employees emp ON prov.employee_id = emp.id
+            WHERE p.deleted_at IS NULL
+        ";
+        $params = [];
+
+        if (!empty($dateFrom)) {
+            $sql .= " AND p.created_at >= :date_from";
+            $params['date_from'] = $dateFrom;
+        }
+
+        if (!empty($dateTo)) {
+            $sql .= " AND p.created_at <= :date_to";
+            $params['date_to'] = $dateTo;
+        }
+
+        if (!empty($patientId)) {
+            $sql .= " AND p.patient_no LIKE :patient_id";
+            $params['patient_id'] = "%{$patientId}%";
+        }
+
+        if (!empty($ageMin) && is_numeric($ageMin)) {
+            $sql .= " AND TIMESTAMPDIFF(YEAR, p.birthdate, CURDATE()) >= :age_min";
+            $params['age_min'] = $ageMin;
+        }
+
+        if (!empty($ageMax) && is_numeric($ageMax)) {
+            $sql .= " AND TIMESTAMPDIFF(YEAR, p.birthdate, CURDATE()) <= :age_max";
+            $params['age_max'] = $ageMax;
+        }
+
+        if (!empty($gender) && $gender !== 'Unassigned') {
+            $sql .= " AND p.sex = :gender";
+            $params['gender'] = $gender;
+        }
+
+        if (!empty($race) && $race !== 'Unassigned') {
+            $sql .= " AND p.race = :race";
+            $params['race'] = $race;
+        }
+
+        if (!empty($ethnicity) && $ethnicity !== 'Unassigned') {
+            $sql .= " AND p.ethnicity = :ethnicity";
+            $params['ethnicity'] = $ethnicity;
+        }
+
+        $sql .= " ORDER BY p.created_at DESC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

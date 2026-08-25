@@ -132,6 +132,8 @@ import { initRxReport } from "../reports/rx-report.js";
 import { RxReportView } from "../reports/rx-report.view.js";
 import { initPatientListCreationReport } from "../reports/patient-list-creation.js";
 import { PatientListCreationView } from "../reports/patient-list-creation.view.js";
+import { initClinicalReport } from "../reports/clinical.js";
+import { ClinicalReportView } from "../reports/clinical.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -480,6 +482,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientListCreationReport, 0);
                 return PatientListCreationView();
+            }, activate);
+        } else if (tabId === 'clinical_reports') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initClinicalReport, 0);
+                return ClinicalReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
