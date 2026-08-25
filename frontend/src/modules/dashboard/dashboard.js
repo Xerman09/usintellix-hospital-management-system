@@ -150,6 +150,8 @@ import { initAlertsLog } from "../reports/alerts-log.js";
 import { AlertsLogView } from "../reports/alerts-log.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
+import { initAppointmentsReport } from "../reports/appointments.js";
+import { AppointmentsReportView } from "../reports/appointments.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -543,6 +545,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initDailySummary, 0);
                 return DailySummaryView();
+            }, activate);
+        } else if (tabId === 'reports_visits_appointments') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAppointmentsReport, 0);
+                return AppointmentsReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
