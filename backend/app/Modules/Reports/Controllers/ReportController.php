@@ -28,4 +28,18 @@ class ReportController extends Controller
 
         $this->success($data, 'Patient list retrieved successfully.');
     }
+
+    /**
+     * Get prescriptions and dispensations report based on filters.
+     */
+    public function rxReport(): void
+    {
+        $request = new Request();
+        
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'patient_id', 'drug', 'lot']);
+        
+        $data = $this->reportService->getRxReport($filters);
+
+        $this->success($data, 'Rx report retrieved successfully.');
+    }
 }

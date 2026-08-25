@@ -128,7 +128,8 @@ import { MessagesView } from "../messages/messages.view.js?v=2";
 import { initMessages } from "../messages/messages.js";
 import { SettingsView } from "../settings/settings.view.js";
 import { initSettings } from "../settings/settings.js";
-
+import { initRxReport } from "../reports/rx-report.js";
+import { RxReportView } from "../reports/rx-report.view.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
         <h2>${title}</h2>
@@ -465,6 +466,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initClientsList, 0);
                 return ClientsListView();
+            }, activate);
+        } else if (tabId === 'clients_rx') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initRxReport, 0);
+                return RxReportView();
             }, activate);
         } else if (tabId === 'settings') {
             tabManager.openTab(tabId, title, () => {
