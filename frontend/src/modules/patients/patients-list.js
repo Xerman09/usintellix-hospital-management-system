@@ -10637,6 +10637,8 @@ function setupPatientFilters(user)
     const searchClear = document.getElementById("patientSearchClear");
     const providerFilter = document.getElementById("patientProviderFilter");
 
+    if (!searchInput || !searchClear || !providerFilter) return;
+
     const applyFilters = () => renderPatientsTable(getFilteredPatients(searchInput, providerFilter), user);
 
     searchInput.addEventListener("input", () => {
@@ -10710,6 +10712,10 @@ async function setupAddPatientModal(user)
     await loadProviderOptions("provider_id");
 
     const modalOverlay = document.getElementById("addPatientModalOverlay");
+    const openBtn = document.getElementById("openAddPatientModal");
+
+    if (!modalOverlay || !openBtn) return;
+
     const modalBox = modalOverlay.querySelector(".modal-box");
     const form = document.getElementById("addPatientForm");
 
@@ -10776,16 +10782,15 @@ async function setupAddPatientModal(user)
 
 async function setupEditPatientModal(user)
 {
-    document.getElementById("edit_birthdate").max = new Date().toISOString().split("T")[0];
-    await loadProviderOptions("edit_provider_id");
-
     const modalOverlay = document.getElementById("editPatientModalOverlay");
+    const editBirthdate = document.getElementById("edit_birthdate");
 
-    // The patient chart tab can be gone by the time this resolves -- e.g.
-    // the session expired and the page redirected to login mid-request.
-    if (!modalOverlay) {
+    if (!modalOverlay || !editBirthdate) {
         return;
     }
+
+    editBirthdate.max = new Date().toISOString().split("T")[0];
+    await loadProviderOptions("edit_provider_id");
 
     const modalBox = modalOverlay.querySelector(".modal-box");
     const form = document.getElementById("editPatientForm");

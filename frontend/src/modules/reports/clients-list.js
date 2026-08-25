@@ -82,6 +82,11 @@ export async function initClientsList() {
             printReport();
         });
     }
+
+    // Restore table if data was previously fetched and we navigated back
+    if (currentReportData && currentReportData.length > 0) {
+        renderReportTable();
+    }
 }
 
 function renderReportTable() {

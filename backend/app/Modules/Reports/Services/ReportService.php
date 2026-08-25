@@ -30,9 +30,9 @@ class ReportService
                 pc.work_phone, 
                 MAX(e.date_of_service) AS last_visit
             FROM patients p
-            JOIN encounters e ON e.patient_id = p.id
+            LEFT JOIN encounters e ON e.patient_id = p.id AND e.deleted_at IS NULL
             LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
-            WHERE e.deleted_at IS NULL AND p.deleted_at IS NULL
+            WHERE p.deleted_at IS NULL
         ";
 
         $params = [];

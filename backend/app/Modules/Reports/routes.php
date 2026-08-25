@@ -1,8 +1,6 @@
 <?php
 
 use App\Modules\Reports\Controllers\ReportController;
-use App\Core\AuthMiddleware;
-use App\Core\RoleMiddleware;
 
 /** @var \App\Core\Router $router */
 
