@@ -577,4 +577,57 @@ class ReportService
 
         return $results;
     }
+
+    public function getDailySummaryReport(array $filters = []): array
+    {
+        $sql = "
+            SELECT 
+                a.appointment_date as date,
+                COALESCE(f.name, 'Unassigned Facility') as facility,
+                COALESCE(u.username, 'Unassigned Provider') as provider,
+                COUNT(a.id) as appointments,
+                SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) as visited_patients,
+                0 as new_patients,
+                '0.00' as total_charges,
+                '0.00' as total_copay,
+                '0.00' as balance_payment
+            FROM appointments a
+            LEFT JOIN facilities f ON a.facility_id = f.id
+            LEFT JOIN users u ON a.provider_id = u.id
+            WHERE a.deleted_at IS NULL
+        ";
+        
+        $params = [];
+        
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND a.appointment_date >= :date_from";
+            $params[':date_from'] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND a.appointment_date <= :date_to";
+            $params[':date_to'] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND a.facility_id = :facility_id";
+            $params[':facility_id'] = $filters['facility_id'];
+        }
+        
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND a.provider_id = :provider_id";
+            $params[':provider_id'] = $filters['provider_id'];
+        }
+        
+        $sql .= " GROUP BY a.appointment_date, a.facility_id, a.provider_id, f.name, u.username";
+        $sql .= " ORDER BY a.appointment_date DESC";
+        
+        $stmt = Database::connection()->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

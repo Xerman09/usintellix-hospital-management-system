@@ -148,6 +148,8 @@ import { initRealWorldTesting } from "../reports/real-world-testing.js";
 import { RealWorldTestingView } from "../reports/real-world-testing.view.js";
 import { initAlertsLog } from "../reports/alerts-log.js";
 import { AlertsLogView } from "../reports/alerts-log.view.js";
+import { initDailySummary } from "../reports/daily-summary.js";
+import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -536,6 +538,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAlertsLog, 0);
                 return AlertsLogView();
+            }, activate);
+        } else if (tabId === 'reports_visits_daily') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initDailySummary, 0);
+                return DailySummaryView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {

@@ -137,4 +137,12 @@ class ReportController extends Controller
         $data = $this->reportService->getAlertsLogReport($filters);
         $this->success($data, 'Alerts log retrieved successfully.');
     }
+
+    public function dailySummary(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'provider_id']);
+        $data = $this->reportService->getDailySummaryReport($filters);
+        $this->success($data, 'Daily summary retrieved successfully.');
+    }
 }
