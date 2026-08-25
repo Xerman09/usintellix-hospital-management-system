@@ -169,4 +169,12 @@ class ReportController extends Controller
         $data = $this->reportService->getEncountersReport($filters);
         $this->success($data, 'Encounters report retrieved successfully.');
     }
+
+    public function appointmentsEncountersReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'details']);
+        $data = $this->reportService->getAppointmentsEncountersReport($filters);
+        $this->success($data, 'Appointments and Encounters report retrieved successfully.');
+    }
 }

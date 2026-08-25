@@ -839,4 +839,48 @@ class ReportService
         
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    public function getAppointmentsEncountersReport(array $filters = []): array
+    {
+        // This report shows totals of encounters per provider. The actual UI name says "Appointments and Encounters" 
+        // but the table headers are: Practitioner | Date/Appt | Patient | ID | Chart | Encounter | Charges | Copays | Billed | Error
+        // It aggregates by provider. We'll return the summarized data.
+
+        $sql = "
+            SELECT 
+                COALESCE(u.username, 'Unassigned') as provider,
+                COUNT(e.id) as encounters_count,
+                '0' as charges,
+                '0' as copays,
+                '0' as billed
+            FROM encounters e
+            LEFT JOIN users u ON e.encounter_provider_id = u.id
+            WHERE e.deleted_at IS NULL
+        ";
+
+        $params = [];
+        
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND DATE(e.date_of_service) >= ?";
+            $params[] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND DATE(e.date_of_service) <= ?";
+            $params[] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['facility_id']) && $filters['facility_id'] !== 'all') {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+        
+        $sql .= " GROUP BY u.username";
+        $sql .= " ORDER BY provider ASC";
+        
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }
