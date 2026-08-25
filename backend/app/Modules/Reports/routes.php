@@ -98,3 +98,8 @@ $router->get('/reports/visits/appointments-encounters', [ReportController::class
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/visits/superbill', [ReportController::class, 'superbillReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

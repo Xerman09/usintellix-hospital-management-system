@@ -158,6 +158,8 @@ import { initEncountersReport } from "../reports/encounters.js";
 import { EncountersReportView } from "../reports/encounters.view.js";
 import { initAppointmentsEncountersReport } from "../reports/appointments-encounters.js";
 import { AppointmentsEncountersReportView } from "../reports/appointments-encounters.view.js";
+import { initSuperbillReport } from "../reports/superbill.js";
+import { SuperbillReportView } from "../reports/superbill.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -571,6 +573,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAppointmentsEncountersReport, 0);
                 return AppointmentsEncountersReportView();
+            }, activate);
+        } else if (tabId === 'reports_visits_superbill') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSuperbillReport, 0);
+                return SuperbillReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {

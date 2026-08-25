@@ -177,4 +177,12 @@ class ReportController extends Controller
         $data = $this->reportService->getAppointmentsEncountersReport($filters);
         $this->success($data, 'Appointments and Encounters report retrieved successfully.');
     }
+
+    public function superbillReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'patient_id']);
+        $data = $this->reportService->getSuperbillReport($filters);
+        $this->success($data, 'Superbill report retrieved successfully.');
+    }
 }
