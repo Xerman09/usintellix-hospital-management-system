@@ -146,6 +146,8 @@ import { initAmcMeasures } from "../reports/amc-measures.js";
 import { AmcMeasuresView } from "../reports/amc-measures.view.js";
 import { initRealWorldTesting } from "../reports/real-world-testing.js";
 import { RealWorldTestingView } from "../reports/real-world-testing.view.js";
+import { initAlertsLog } from "../reports/alerts-log.js";
+import { AlertsLogView } from "../reports/alerts-log.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -529,6 +531,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initRealWorldTesting, 0);
                 return RealWorldTestingView();
+            }, activate);
+        } else if (tabId === 'clinic_alerts_log') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAlertsLog, 0);
+                return AlertsLogView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {

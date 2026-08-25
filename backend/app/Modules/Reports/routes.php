@@ -68,3 +68,8 @@ $router->get('/reports/real-world-testing', [ReportController::class, 'realWorld
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/alerts-log', [ReportController::class, 'alertsLog'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

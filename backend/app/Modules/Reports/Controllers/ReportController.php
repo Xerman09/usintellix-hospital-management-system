@@ -129,4 +129,12 @@ class ReportController extends Controller
         $data = $this->reportService->getRealWorldTestingReport();
         $this->success($data, 'Real World Testing report retrieved successfully.');
     }
+
+    public function alertsLog(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to']);
+        $data = $this->reportService->getAlertsLogReport($filters);
+        $this->success($data, 'Alerts log retrieved successfully.');
+    }
 }
