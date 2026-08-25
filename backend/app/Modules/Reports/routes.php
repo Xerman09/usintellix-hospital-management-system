@@ -58,3 +58,13 @@ $router->get('/reports/standard-measures', [ReportController::class, 'standardMe
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/amc-measures', [ReportController::class, 'amcMeasures'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/reports/real-world-testing', [ReportController::class, 'realWorldTesting'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

@@ -115,4 +115,18 @@ class ReportController extends Controller
         $data = $this->reportService->getStandardMeasuresReport($filters);
         $this->success($data, 'Standard measures retrieved successfully.');
     }
+
+    public function amcMeasures(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'rule_set', 'provider', 'provider_relationship']);
+        $data = $this->reportService->getAmcMeasuresReport($filters);
+        $this->success($data, 'AMC measures retrieved successfully.');
+    }
+
+    public function realWorldTesting(): void
+    {
+        $data = $this->reportService->getRealWorldTestingReport();
+        $this->success($data, 'Real World Testing report retrieved successfully.');
+    }
 }
