@@ -797,4 +797,46 @@ class ReportService
         
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    public function getEncountersReport(array $filters = []): array
+    {
+        $sql = "
+            SELECT 
+                COALESCE(u.username, 'Unassigned') as provider,
+                COUNT(e.id) as encounters
+            FROM encounters e
+            LEFT JOIN users u ON e.encounter_provider_id = u.id
+            WHERE e.deleted_at IS NULL
+        ";
+
+        $params = [];
+        
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND DATE(e.date_of_service) >= ?";
+            $params[] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND DATE(e.date_of_service) <= ?";
+            $params[] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['facility_id']) && $filters['facility_id'] !== 'all') {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+        
+        if (!empty($filters['provider_id']) && $filters['provider_id'] !== 'all') {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        $sql .= " GROUP BY u.username, e.encounter_provider_id";
+        $sql .= " ORDER BY provider ASC";
+        
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

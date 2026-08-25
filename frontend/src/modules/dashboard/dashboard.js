@@ -154,6 +154,8 @@ import { initAppointmentsReport } from "../reports/appointments.js";
 import { AppointmentsReportView } from "../reports/appointments.view.js";
 import { initFlowBoardReport } from "../reports/flow-board.js";
 import { FlowBoardReportView } from "../reports/flow-board.view.js";
+import { initEncountersReport } from "../reports/encounters.js";
+import { EncountersReportView } from "../reports/encounters.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -557,6 +559,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initFlowBoardReport, 0);
                 return FlowBoardReportView();
+            }, activate);
+        } else if (tabId === 'reports_visits_encounters') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initEncountersReport, 0);
+                return EncountersReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
