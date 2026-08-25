@@ -137,7 +137,26 @@ function staffNavLinks(role)
                         <a data-tab="clinic_alerts_log">Alerts Log</a>
                     </div>
                 </div>
-                <a data-tab="visits_reports">Visits</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Visits
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="reports_visits_daily">Daily Report</a>
+                        <a data-tab="reports_visits_appointments">Appointments</a>
+                        <a data-tab="reports_visits_flow_board">Patient Flow Board</a>
+                        <a data-tab="reports_visits_encounters">Encounters</a>
+                        <a data-tab="reports_visits_appt_enc">Appt-Enc</a>
+                        <a data-tab="reports_visits_superbill">Superbill</a>
+                        <a data-tab="reports_visits_eligibility">Eligibility</a>
+                        <a data-tab="reports_visits_eligibility_response">Eligibility Response</a>
+                        <a data-tab="reports_visits_chart_activity">Chart Activity</a>
+                        <a data-tab="reports_visits_charts_out">Charts Out</a>
+                        <a data-tab="reports_visits_services">Services</a>
+                        <a data-tab="reports_visits_syndromic_surveillance">Syndromic Surveillance</a>
+                    </div>
+                </div>
                 <a data-tab="financial_reports">Financial</a>
                 <a data-tab="procedures_reports">Procedures</a>
                 <a data-tab="insurance_reports">Insurance</a>
