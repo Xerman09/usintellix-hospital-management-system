@@ -76,4 +76,19 @@ class ReportController extends Controller
 
         $this->success($data, 'Referral report retrieved successfully.');
     }
+
+    public function immunizationRegistry(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['vis_date_from', 'vis_date_to', 'cvx_code_id']);
+        $data = $this->reportService->getImmunizationRegistryReport($filters);
+
+        $this->success($data, 'Immunization registry report retrieved successfully.');
+    }
+
+    public function immunizationRegistryCvxCodes(): void
+    {
+        $data = $this->reportService->getImmunizationCvxCodes();
+        $this->success($data, 'CVX codes retrieved successfully.');
+    }
 }

@@ -334,4 +334,55 @@ class ReportService
         // Returning empty array for now so the UI functions without erroring.
         return [];
     }
+
+    public function getImmunizationCvxCodes(): array
+    {
+        $sql = "SELECT id, code as cvx_code, short_description as description FROM cvx_codes WHERE deleted_at IS NULL ORDER BY CAST(code AS UNSIGNED) ASC";
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getImmunizationRegistryReport(array $filters = []): array
+    {
+        $visDateFrom = $filters['vis_date_from'] ?? null;
+        $visDateTo   = $filters['vis_date_to'] ?? null;
+        $cvxCodeId   = $filters['cvx_code_id'] ?? null;
+
+        $sql = "
+            SELECT
+                p.patient_no AS pid,
+                CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
+                pi.cvx_code AS immunization_code,
+                COALESCE(pi.vaccine_name, cc.short_description) AS immunization_title,
+                COALESCE(pi.vis_date_given, DATE(pi.administered_at)) AS immunization_date
+            FROM patient_immunizations pi
+            JOIN patients p ON pi.patient_id = p.id
+            LEFT JOIN cvx_codes cc ON cc.id = pi.cvx_code_id
+            WHERE pi.deleted_at IS NULL
+              AND p.deleted_at IS NULL
+        ";
+        $params = [];
+
+        if (!empty($cvxCodeId)) {
+            $sql .= " AND pi.cvx_code_id = :cvx_code_id";
+            $params['cvx_code_id'] = $cvxCodeId;
+        }
+
+        if (!empty($visDateFrom)) {
+            $sql .= " AND COALESCE(pi.vis_date_given, DATE(pi.administered_at)) >= :vis_date_from";
+            $params['vis_date_from'] = $visDateFrom;
+        }
+
+        if (!empty($visDateTo)) {
+            $sql .= " AND COALESCE(pi.vis_date_given, DATE(pi.administered_at)) <= :vis_date_to";
+            $params['vis_date_to'] = $visDateTo;
+        }
+
+        $sql .= " ORDER BY pi.administered_at DESC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

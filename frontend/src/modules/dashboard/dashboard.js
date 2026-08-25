@@ -136,6 +136,8 @@ import { initClinicalReport } from "../reports/clinical.js";
 import { ClinicalReportView } from "../reports/clinical.view.js";
 import { initReferralsReport } from "../reports/referrals.js";
 import { ReferralsReportView } from "../reports/referrals.view.js";
+import { initImmunizationRegistry } from "../reports/immunization-registry.js";
+import { ImmunizationRegistryView } from "../reports/immunization-registry.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -494,6 +496,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initReferralsReport, 0);
                 return ReferralsReportView();
+            }, activate);
+        } else if (tabId === 'immunization_registry') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initImmunizationRegistry, 0);
+                return ImmunizationRegistryView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {

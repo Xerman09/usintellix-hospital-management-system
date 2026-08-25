@@ -33,3 +33,13 @@ $router->get('/reports/referrals', [ReportController::class, 'referrals'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/immunization-registry', [ReportController::class, 'immunizationRegistry'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/reports/immunization-registry/cvx-codes', [ReportController::class, 'immunizationRegistryCvxCodes'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
