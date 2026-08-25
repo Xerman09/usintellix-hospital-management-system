@@ -207,4 +207,48 @@ class ReportService
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getMessageListReport(array $filters = []): array
+    {
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+        
+        $sql = "
+            SELECT 
+                DATE(m.created_at) as date,
+                u.username as user,
+                CONCAT(p.first_name, ' ', p.last_name) as patient,
+                p.patient_no as pid,
+                p.birthdate as dob,
+                mt.name as type,
+                ms.name as status,
+                ub.username as updated_by,
+                m.updated_at as last_update
+            FROM messages m
+            LEFT JOIN users u ON m.sender_id = u.id
+            LEFT JOIN patients p ON m.patient_id = p.id
+            LEFT JOIN message_types mt ON m.type_id = mt.id
+            LEFT JOIN message_statuses ms ON m.status_id = ms.id
+            LEFT JOIN users ub ON m.updated_by = ub.id
+            WHERE m.deleted_at IS NULL
+        ";
+        $params = [];
+
+        if (!empty($dateFrom)) {
+            $sql .= " AND DATE(m.created_at) >= :date_from";
+            $params['date_from'] = $dateFrom;
+        }
+
+        if (!empty($dateTo)) {
+            $sql .= " AND DATE(m.created_at) <= :date_to";
+            $params['date_to'] = $dateTo;
+        }
+
+        $sql .= " ORDER BY m.created_at DESC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

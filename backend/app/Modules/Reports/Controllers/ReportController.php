@@ -49,4 +49,13 @@ class ReportController extends Controller
 
         $this->success($data, 'Patient list creation report retrieved successfully.');
     }
+
+    public function messageList(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to']);
+        $data = $this->reportService->getMessageListReport($filters);
+
+        $this->success($data, 'Message list report retrieved successfully.');
+    }
 }

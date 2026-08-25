@@ -132,6 +132,8 @@ import { initRxReport } from "../reports/rx-report.js";
 import { RxReportView } from "../reports/rx-report.view.js";
 import { initPatientListCreationReport } from "../reports/patient-list-creation.js";
 import { PatientListCreationView } from "../reports/patient-list-creation.view.js";
+import { initMessageListReport } from "../reports/message-list.js";
+import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
         <h2>${title}</h2>
@@ -478,6 +480,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientListCreationReport, 0);
                 return PatientListCreationView();
+            }, activate);
+        } else if (tabId === 'message_list') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initMessageListReport, 0);
+                return MessageListView();
             }, activate);
         } else if (tabId === 'settings') {
             tabManager.openTab(tabId, title, () => {
