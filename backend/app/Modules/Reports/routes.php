@@ -43,3 +43,18 @@ $router->get('/reports/immunization-registry/cvx-codes', [ReportController::clas
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/history', [ReportController::class, 'reportHistory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/reports/history', [ReportController::class, 'logReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/reports/standard-measures', [ReportController::class, 'standardMeasures'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

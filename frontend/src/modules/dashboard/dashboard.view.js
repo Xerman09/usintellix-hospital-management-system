@@ -124,12 +124,32 @@ function staffNavLinks(role)
                         <a data-tab="immunization_registry">Immunization Registry</a>
                     </div>
                 </div>
-                <a data-tab="clinic_reports">Clinic</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Clinic
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="clinic_report_results">Report Results</a>
+                        <a data-tab="clinic_standard_measures">Standard Measures</a>
+                        <a data-tab="clinic_automated_measures">Automated Measures (AMC)</a>
+                        <a data-tab="clinic_real_world_testing">2026 Real World Testing Report</a>
+                        <a data-tab="clinic_alerts_log">Alerts Log</a>
+                    </div>
+                </div>
                 <a data-tab="visits_reports">Visits</a>
                 <a data-tab="financial_reports">Financial</a>
                 <a data-tab="procedures_reports">Procedures</a>
                 <a data-tab="insurance_reports">Insurance</a>
-                <a data-tab="blank_forms">Blank Forms</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Blank Forms
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="blank_forms_general">General</a>
+                    </div>
+                </div>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Services

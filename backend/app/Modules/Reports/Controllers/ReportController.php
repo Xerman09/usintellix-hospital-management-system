@@ -91,4 +91,28 @@ class ReportController extends Controller
         $data = $this->reportService->getImmunizationCvxCodes();
         $this->success($data, 'CVX codes retrieved successfully.');
     }
+
+    public function reportHistory(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to']);
+        $data = $this->reportService->getReportHistory($filters);
+        $this->success($data, 'Report history retrieved successfully.');
+    }
+
+    public function logReport(): void
+    {
+        $request = new Request();
+        $body = $request->only(['title', 'report_type', 'status', 'filters']);
+        $userId = $_SESSION['user']['id'] ?? null;
+        $this->reportService->logReportRun($body, $userId);
+        $this->success([], 'Report logged successfully.');
+    }
+    public function standardMeasures(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['target_date', 'rule_set', 'plan_set', 'provider', 'provider_relationship']);
+        $data = $this->reportService->getStandardMeasuresReport($filters);
+        $this->success($data, 'Standard measures retrieved successfully.');
+    }
 }

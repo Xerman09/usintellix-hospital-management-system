@@ -138,6 +138,8 @@ import { initReferralsReport } from "../reports/referrals.js";
 import { ReferralsReportView } from "../reports/referrals.view.js";
 import { initImmunizationRegistry } from "../reports/immunization-registry.js";
 import { ImmunizationRegistryView } from "../reports/immunization-registry.view.js";
+import { initReportHistory } from "../reports/report-history.js";
+import { ReportHistoryView } from "../reports/report-history.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -501,6 +503,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initImmunizationRegistry, 0);
                 return ImmunizationRegistryView();
+            }, activate);
+        } else if (tabId === 'clinic_report_results') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initReportHistory, 0);
+                return ReportHistoryView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {

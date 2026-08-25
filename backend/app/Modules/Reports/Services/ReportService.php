@@ -385,4 +385,58 @@ class ReportService
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getReportHistory(array $filters = []): array
+    {
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo   = $filters['date_to'] ?? null;
+
+        $sql = "
+            SELECT
+                rh.id,
+                rh.title,
+                rh.report_type,
+                rh.status,
+                rh.created_at AS date,
+                u.username AS ran_by
+            FROM report_history rh
+            LEFT JOIN users u ON u.id = rh.ran_by
+            WHERE 1=1
+        ";
+        $params = [];
+
+        if (!empty($dateFrom)) {
+            $sql .= " AND rh.created_at >= :date_from";
+            $params['date_from'] = $dateFrom;
+        }
+
+        if (!empty($dateTo)) {
+            $sql .= " AND rh.created_at <= :date_to";
+            $params['date_to'] = $dateTo;
+        }
+
+        $sql .= " ORDER BY rh.created_at DESC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function logReportRun(array $data, ?int $userId): void
+    {
+        $sql = "
+            INSERT INTO report_history (title, report_type, status, ran_by, filters, created_at)
+            VALUES (:title, :report_type, :status, :ran_by, :filters, :created_at)
+        ";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute([
+            'title'       => $data['title'] ?? 'Unknown Report',
+            'report_type' => $data['report_type'] ?? null,
+            'status'      => $data['status'] ?? 'Completed',
+            'ran_by'      => $userId,
+            'filters'     => isset($data['filters']) ? json_encode($data['filters']) : null,
+            'created_at'  => date('Y-m-d H:i:s'),
+        ]);
+    }
 }
