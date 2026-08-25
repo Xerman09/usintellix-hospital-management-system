@@ -439,4 +439,40 @@ class ReportService
             'created_at'  => date('Y-m-d H:i:s'),
         ]);
     }
+
+    public function getStandardMeasuresReport(array $filters = []): array
+    {
+        // Get actual total patient count
+        $stmt = Database::connection()->prepare("SELECT COUNT(id) as total FROM patients WHERE deleted_at IS NULL");
+        $stmt->execute();
+        $totalPatients = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+        // Mock remaining CQM numerators/denominators as evaluating full Clinical Quality Measures 
+        // requires the complete CQM rule engine and valuesets which are currently empty in the system.
+        $mockData = [
+            ['title' => 'Adult Weight Screening and Follow-Up', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Cancer Screening: Colon Cancer Screening', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Cancer Screening: Mammogram', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Cancer Screening: Pap Smear', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Cancer Screening: Prostate Cancer Screening', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Diabetes: Eye Exam', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Diabetes: Foot Exam', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Diabetes: Hemoglobin A1C', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Diabetes: Urine Microalbumin', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Hypertension: Blood Pressure Measurement', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Influenza Immunization for Patients >= 50 Years Old', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Coumadin Management - INR Monitoring', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0%'],
+            ['title' => 'Pneumonia Vaccination Status for Older Adults', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0%'],
+            ['title' => 'Tobacco Cessation Intervention', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0%'],
+            ['title' => 'Tobacco Use Assessment', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Weight Assessment and Counseling for Children and Adolescents', 'total' => $totalPatients, 'denom' => 0, 'denom_excl' => 0, 'num' => 0, 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Measurement: Weight', 'total' => '', 'denom' => '', 'denom_excl' => 0, 'num' => '', 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Education: Weight', 'total' => '', 'denom' => '', 'denom_excl' => 0, 'num' => '', 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Education: Nutrition', 'total' => '', 'denom' => '', 'denom_excl' => 0, 'num' => '', 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Education: Exercise', 'total' => '', 'denom' => '', 'denom_excl' => 0, 'num' => '', 'failed' => 0, 'perf' => '0.0000%'],
+            ['title' => 'Measurement: BMI', 'total' => '', 'denom' => '', 'denom_excl' => 0, 'num' => '', 'failed' => 0, 'perf' => '0.0000%']
+        ];
+        
+        return $mockData;
+    }
 }
