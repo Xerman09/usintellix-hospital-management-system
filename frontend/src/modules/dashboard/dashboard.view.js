@@ -173,7 +173,16 @@ function staffNavLinks(role)
                         <a data-tab="reports_financial_payment_processing">Payment Processing</a>
                     </div>
                 </div>
-                <a data-tab="procedures_reports">Procedures</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Procedures
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="reports_procedures_pending_res">Pending Res</a>
+                        <a data-tab="reports_procedures_statistics">Statistics</a>
+                    </div>
+                </div>
                 <a data-tab="insurance_reports">Insurance</a>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">

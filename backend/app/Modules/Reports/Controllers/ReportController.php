@@ -235,4 +235,18 @@ class ReportController extends Controller
             'diagnoses' => $diagnoses
         ], 'Syndromic surveillance report retrieved successfully.');
     }
+
+    public function pendingOrdersReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to']);
+        $data = $this->reportService->getPendingOrdersReport($filters);
+        
+        $facilities = $this->reportService->getFacilities();
+        
+        $this->success([
+            'results' => $data,
+            'facilities' => $facilities
+        ], 'Pending orders report retrieved successfully.');
+    }
 }

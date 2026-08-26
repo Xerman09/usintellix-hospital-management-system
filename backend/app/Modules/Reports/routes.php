@@ -128,3 +128,8 @@ $router->get('/reports/visits/syndromic-surveillance', [ReportController::class,
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/procedures/pending', [ReportController::class, 'pendingOrdersReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

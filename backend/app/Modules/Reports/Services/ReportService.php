@@ -1096,4 +1096,11 @@ class ReportService
         
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    public function getPendingOrdersReport(array $filters = []): array
+    {
+        // There are currently no order or procedure tables to fetch from
+        // We will return an empty array for now as a mock
+        return [];
+    }
 }
