@@ -993,7 +993,7 @@ class ReportService
         $patient = $stmtPatient->fetch(\PDO::FETCH_ASSOC);
 
         if (!$patient) {
-            return ['patient_name' => 'Unknown', 'results' => []];
+            return ['patient_name' => null, 'results' => []];
         }
         $patientName = $patient['last_name'] . ', ' . $patient['first_name'];
 

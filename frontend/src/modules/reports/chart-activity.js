@@ -37,9 +37,16 @@ async function fetchChartActivity() {
             const patientName = result.data.patient_name;
             const data = result.data.results;
             
-            if (patientName) {
-                title.textContent = `Report - Chart Location Activity for ${patientName} (${patientId})`;
+            if (!patientName) {
+                // Patient not found
+                title.textContent = `Report - Chart Location Activity`;
+                tbody.innerHTML = `<tr><td colspan="2" style="padding: 12px; text-align: center; color: #e53e3e;">No patient found for ID ${patientId}.</td></tr>`;
+                printBtn.style.display = "none";
+                submitBtn.style.borderRadius = "4px";
+                return;
             }
+
+            title.textContent = `Report - Chart Location Activity for ${patientName} (${patientId})`;
             
             // Adjust buttons visually to match active state
             submitBtn.style.borderRadius = "4px 0 0 4px";
