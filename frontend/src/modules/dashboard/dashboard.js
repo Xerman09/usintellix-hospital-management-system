@@ -180,6 +180,8 @@ import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
 import { SuperbillFormView } from "../reports/superbill-form.view.js";
+import { initServicesBackgroundReport } from "../reports/services-background.js";
+import { ServicesBackgroundView } from "../reports/services-background.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -648,6 +650,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initSuperbillForm, 0);
                 return SuperbillFormView();
+            }, activate);
+        } else if (tabId === 'services_background') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initServicesBackgroundReport, 0);
+                return ServicesBackgroundView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
