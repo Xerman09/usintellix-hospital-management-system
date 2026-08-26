@@ -157,7 +157,22 @@ function staffNavLinks(role)
                         <a data-tab="reports_visits_syndromic_surveillance">Syndromic Surveillance</a>
                     </div>
                 </div>
-                <a data-tab="financial_reports">Financial</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Financial
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="reports_financial_sales">Sales</a>
+                        <a data-tab="reports_financial_cash_rec">Cash Rec</a>
+                        <a data-tab="reports_financial_front_rec">Front Rec</a>
+                        <a data-tab="reports_financial_pmt_method">Pmt Method</a>
+                        <a data-tab="reports_financial_collections">Collections and Aging</a>
+                        <a data-tab="reports_financial_pat_ledger">Pat Ledger</a>
+                        <a data-tab="reports_financial_summary_service_code">Financial Summary by Service Code</a>
+                        <a data-tab="reports_financial_payment_processing">Payment Processing</a>
+                    </div>
+                </div>
                 <a data-tab="procedures_reports">Procedures</a>
                 <a data-tab="insurance_reports">Insurance</a>
                 <div class="dropdown-submenu">
