@@ -174,6 +174,8 @@ import { initSyndromicSurveillanceReport } from "../reports/syndromic-surveillan
 import { SyndromicSurveillanceReportView } from "../reports/syndromic-surveillance.view.js";
 import { initPendingOrdersReport } from "../reports/pending-res.js";
 import { PendingOrdersReportView } from "../reports/pending-res.view.js";
+import { initProcedureStatisticsReport } from "../reports/procedures-statistics.js";
+import { ProcedureStatisticsReportView } from "../reports/procedures-statistics.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -627,6 +629,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPendingOrdersReport, 0);
                 return PendingOrdersReportView();
+            }, activate);
+        } else if (tabId === 'reports_procedures_statistics') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initProcedureStatisticsReport, 0);
+                return ProcedureStatisticsReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
