@@ -43,6 +43,13 @@ function staffNavLinks(role)
         <a data-tab="patient_flow">Flow</a>
         ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
         <div class="nav-dropdown">
+            <span>Modules</span>
+            <div class="dropdown-content">
+                <a data-tab="manage_modules">Manage Modules</a>
+                <a data-tab="carecoordination">Carecoordination</a>
+            </div>
+        </div>
+        <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
                 <a data-tab="providers">Providers</a>
