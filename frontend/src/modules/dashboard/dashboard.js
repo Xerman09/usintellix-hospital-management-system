@@ -233,7 +233,7 @@ export function Dashboard()
     // -- activating each of them in turn would render, then immediately
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
-        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history') {
+        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_create_visit') {
             const activePatient = getLastActivePatientChart();
             if (!activePatient) {
                 showToast("Please select a patient first.", "error");
@@ -710,7 +710,7 @@ export function Dashboard()
     function updatePatientNavState() {
         const activePatient = getLastActivePatientChart();
         const isPatientActive = activePatient && activePatient !== "null";
-        const patientLinks = document.querySelectorAll('#navbarLinks a[data-tab="patient_dashboard"], #navbarLinks a[data-tab="patient_visits_history"], #navbarLinks a[data-tab="patient_records_history"]');
+        const patientLinks = document.querySelectorAll('#navbarLinks a[data-tab="patient_dashboard"], #navbarLinks a[data-tab="patient_visits_history"], #navbarLinks a[data-tab="patient_records_history"], #navbarLinks a[data-tab="patient_create_visit"]');
         
         patientLinks.forEach(link => {
             if (isPatientActive) {

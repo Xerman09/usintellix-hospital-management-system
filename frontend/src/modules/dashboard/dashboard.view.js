@@ -20,6 +20,8 @@ function staffNavLinks(role)
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                     </span>
                     <div class="dropdown-submenu-content">
+                        <a data-tab="patient_create_visit">Create Visit</a>
+                        <a data-tab="patient_current_visit" class="disabled-nav-link" style="opacity: 0.5; pointer-events: none; cursor: not-allowed;">Current</a>
                         <a data-tab="patient_visits_history">Visit History</a>
                     </div>
                 </div>
