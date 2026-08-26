@@ -930,12 +930,12 @@ class ReportService
                 f.name AS facility_name,
                 f.facility_npi,
                 ins.name AS insurance_comp,
-                DATE_FORMAT(a.date, '%m/%d/%Y') AS appt_date,
+                DATE_FORMAT(a.appointment_date, '%m/%d/%Y') AS appt_date,
                 pi.policy_number AS policy_no,
                 CONCAT(p.last_name, ' ', p.first_name) AS patient_name,
-                DATE_FORMAT(p.date_of_birth, '%Y%m%d') AS dob,
-                p.gender,
-                p.ssn
+                DATE_FORMAT(p.birthdate, '%Y%m%d') AS dob,
+                p.sex AS gender,
+                '' AS ssn
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
             LEFT JOIN patient_insurances pi ON p.id = pi.patient_id
@@ -947,12 +947,12 @@ class ReportService
         $params = [];
         
         if (!empty($filters['date_from'])) {
-            $sql .= " AND DATE(a.date) >= ?";
+            $sql .= " AND DATE(a.appointment_date) >= ?";
             $params[] = $filters['date_from'];
         }
         
         if (!empty($filters['date_to'])) {
-            $sql .= " AND DATE(a.date) <= ?";
+            $sql .= " AND DATE(a.appointment_date) <= ?";
             $params[] = $filters['date_to'];
         }
         
@@ -972,7 +972,7 @@ class ReportService
             $params[] = $filters['x12_partner_id'];
         }
 
-        $sql .= " ORDER BY a.date ASC, p.last_name ASC";
+        $sql .= " ORDER BY a.appointment_date ASC, p.last_name ASC";
         
         $stmt = Database::connection()->prepare($sql);
         $stmt->execute($params);
