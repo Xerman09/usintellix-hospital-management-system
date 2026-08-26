@@ -185,4 +185,18 @@ class ReportController extends Controller
         $data = $this->reportService->getSuperbillReport($filters);
         $this->success($data, 'Superbill report retrieved successfully.');
     }
+
+    public function eligibilityReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'facility_id', 'provider_id', 'x12_partner_id']);
+        $data = $this->reportService->getEligibilityReport($filters);
+        
+        $x12Partners = $this->reportService->getX12Partners();
+        
+        $this->success([
+            'results' => $data,
+            'x12_partners' => $x12Partners
+        ], 'Eligibility report retrieved successfully.');
+    }
 }

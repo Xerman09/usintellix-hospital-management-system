@@ -914,4 +914,69 @@ class ReportService
 
         return ['clinic' => $facility];
     }
+
+    public function getX12Partners(): array
+    {
+        $sql = "SELECT id, name FROM x12_partners WHERE deleted_at IS NULL ORDER BY name ASC";
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function getEligibilityReport(array $filters = []): array
+    {
+        $sql = "
+            SELECT 
+                f.name AS facility_name,
+                f.facility_npi,
+                ins.name AS insurance_comp,
+                DATE_FORMAT(a.date, '%m/%d/%Y') AS appt_date,
+                pi.policy_number AS policy_no,
+                CONCAT(p.last_name, ' ', p.first_name) AS patient_name,
+                DATE_FORMAT(p.date_of_birth, '%Y%m%d') AS dob,
+                p.gender,
+                p.ssn
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            LEFT JOIN patient_insurances pi ON p.id = pi.patient_id
+            LEFT JOIN insurances ins ON pi.insurance_id = ins.id
+            LEFT JOIN facilities f ON a.facility_id = f.id
+            WHERE a.deleted_at IS NULL
+        ";
+
+        $params = [];
+        
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND DATE(a.date) >= ?";
+            $params[] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND DATE(a.date) <= ?";
+            $params[] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['facility_id']) && $filters['facility_id'] !== 'all') {
+            $sql .= " AND a.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+        
+        if (!empty($filters['provider_id']) && $filters['provider_id'] !== 'all') {
+            $sql .= " AND a.provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        // x12_partner_id is used for the clearing house, might filter insurances by x12_partner_id
+        if (!empty($filters['x12_partner_id']) && $filters['x12_partner_id'] !== 'all') {
+            $sql .= " AND ins.x12_partner_id = ?";
+            $params[] = $filters['x12_partner_id'];
+        }
+
+        $sql .= " ORDER BY a.date ASC, p.last_name ASC";
+        
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

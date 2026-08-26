@@ -103,3 +103,8 @@ $router->get('/reports/visits/superbill', [ReportController::class, 'superbillRe
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/visits/eligibility', [ReportController::class, 'eligibilityReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
