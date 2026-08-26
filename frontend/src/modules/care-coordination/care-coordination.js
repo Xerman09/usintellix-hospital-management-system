@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js";
 import { fetchPatients, fetchPatientDashboardSummary } from "../patients/patients.service.js";
-import { generateCcdDetailedReportHtml } from "../patients/patients-list.js";
+import { generateCcdDetailedReportHtml, generateQrdaReportHtml } from "../patients/patients-list.js";
 
 export async function initCareCoordination() {
     try {
@@ -39,9 +39,12 @@ function renderTable(data) {
                     <td>${escapeHtml(row.last_visit || 'N/A')}</td>
                     <td>${escapeHtml(row.created_at)}</td>
                     <td style="text-align: center;"><input type="checkbox"></td>
-                    <td style="text-align: center;">
-                        <button type="button" class="view-btn" data-pid="${row.pid}" style="background: transparent; border: none; cursor: pointer; color: #3b82f6;">
+                    <td style="text-align: center; display: flex; justify-content: center; gap: 8px;">
+                        <button type="button" class="view-btn" data-pid="${row.pid}" title="CCDA Document" style="background: transparent; border: none; cursor: pointer; color: #3b82f6;">
                             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                        <button type="button" class="qrda-btn" data-pid="${row.pid}" title="QRDA Incidence Report" style="background: transparent; border: none; cursor: pointer; color: #b5651d;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         </button>
                     </td>
                 </tr>
@@ -102,6 +105,15 @@ function attachExpandListeners() {
             const pid = viewBtn.getAttribute('data-pid');
             if (pid) {
                 await openPatientCcdReport(pid, viewBtn);
+            }
+            return;
+        }
+
+        const qrdaBtn = e.target.closest('.qrda-btn');
+        if (qrdaBtn) {
+            const pid = qrdaBtn.getAttribute('data-pid');
+            if (pid) {
+                await openPatientQrdaReport(pid, qrdaBtn);
             }
             return;
         }
@@ -180,6 +192,65 @@ async function openPatientCcdReport(pid, btn) {
             <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #d32f2f; }</style>
             </head>
             <body><h2>Error generating report.</h2><p>${escapeHtml(err.message)}</p></body>
+            </html>
+        `);
+        reportWindow.document.close();
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+async function openPatientQrdaReport(pid, btn) {
+    const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+    if (!reportWindow) {
+        console.error("Popup blocked. Please enable pop-ups to view the report.");
+        return;
+    }
+    reportWindow.document.open();
+    reportWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Loading Report...</title>
+        <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+        </head>
+        <body><h2>Generating QRDA Report...</h2><p>Please wait while we gather the patient's data.</p></body>
+        </html>
+    `);
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+
+    try {
+        const allPatientsRes = await fetchPatients();
+        let patientRecord = null;
+        if (allPatientsRes.success && allPatientsRes.data) {
+            patientRecord = allPatientsRes.data.find(p => p.id == pid);
+        }
+
+        if (!patientRecord) {
+            throw new Error("Patient not found.");
+        }
+
+        const summaryRes = await fetchPatientDashboardSummary(pid);
+        if (!summaryRes.success) {
+            throw new Error("Failed to load patient summary.");
+        }
+
+        const html = generateQrdaReportHtml(patientRecord, summaryRes.data || {});
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+
+    } catch (err) {
+        reportWindow.document.open();
+        reportWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Error</title>
+            <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #d32f2f; }</style>
+            </head>
+            <body><h2>Error generating QRDA report.</h2><p>${escapeHtml(err.message)}</p></body>
             </html>
         `);
         reportWindow.document.close();

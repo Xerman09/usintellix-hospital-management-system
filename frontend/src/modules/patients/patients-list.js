@@ -11881,3 +11881,129 @@ export function triggerRecordsRequest() {
     }
 }
 
+export function generateQrdaReportHtml(patient, data) {
+    const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+    const patientDob = patient.birthdate ? new Date(patient.birthdate).toLocaleString() : "";
+    const address = [patient.address_line, patient.city, patient.province, patient.zip_code].filter(Boolean).join(", ");
+    const documentId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const now = new Date().toLocaleString();
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QRDA Incidence Report</title>
+    <style>
+        body { font-family: Tahoma, Arial, sans-serif; font-size: 11px; margin: 20px; color: #000; }
+        h1 { font-size: 16px; text-align: center; color: #003366; font-weight: bold; margin-bottom: 20px; }
+        h2 { font-size: 12px; color: #003366; font-weight: bold; margin-top: 20px; margin-bottom: 5px; border-bottom: 2px solid #589689; padding-bottom: 3px; }
+        table.qrda-info { width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #0000ff; }
+        table.qrda-info td, table.qrda-info th { border: 1px solid #ffffff; padding: 4px; vertical-align: top; }
+        table.qrda-info th { background-color: #3399ff; color: #ffffff; text-align: left; font-weight: bold; width: 20%; }
+        table.qrda-info td { background-color: #ccccff; color: #000000; width: 30%; }
+        
+        .toc-list { list-style-type: disc; margin-left: 20px; padding: 0; }
+        .toc-list li a { color: #0000ff; text-decoration: underline; }
+
+        table.measure-table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #000; }
+        table.measure-table th { background-color: #ffcc00; font-weight: bold; padding: 4px; border: 1px solid #000; text-align: center; }
+        table.measure-table td { background-color: #ffffcc; padding: 4px; border: 1px solid #000; }
+    </style>
+</head>
+<body>
+    <h1>QRDA Incidence Report</h1>
+
+    <table class="qrda-info">
+        <tr>
+            <th>Patient</th>
+            <td colspan="3">${escapeHtml(fullName)}</td>
+        </tr>
+        <tr>
+            <th>Date of birth</th>
+            <td>${escapeHtml(patientDob)}</td>
+            <th>Sex</th>
+            <td>${escapeHtml(patient.sex || 'Male')}</td>
+        </tr>
+        <tr>
+            <th>Race</th>
+            <td>2106-3</td>
+            <th>Ethnicity</th>
+            <td>2186-5</td>
+        </tr>
+        <tr>
+            <th>Contact info</th>
+            <td>Primary Home:<br/>${escapeHtml(address)}<br/>Tel: ${escapeHtml(patient.home_phone || '333-444-2222')}</td>
+            <th>Patient IDs</th>
+            <td>1 1.3.6.1.4.1.115</td>
+        </tr>
+        <tr>
+            <th>Document Id</th>
+            <td colspan="3">${documentId}</td>
+        </tr>
+        <tr>
+            <th>Document Created:</th>
+            <td colspan="3">${now}</td>
+        </tr>
+        <tr>
+            <th>Performer</th>
+            <td><u>Person</u><br/>Daryl Carroll<br/>1982671962 - 2.16.840.1.113883.4.6<br/>463132 - 2.16.840.1.113883.4.336</td>
+            <td colspan="2"><u>Organization</u><br/>695939209 - 2.16.840.1.113883.4.2</td>
+        </tr>
+        <tr>
+            <th>Author</th>
+            <td colspan="3">Cypress</td>
+        </tr>
+        <tr>
+            <th>Contact info</th>
+            <td colspan="3">202 Burlington Rd.<br/>Bedford, MA 01730, US<br/>Tel: (781)271-3000</td>
+        </tr>
+        <tr>
+            <th>EHR Certification Number</th>
+            <td colspan="3">123456789 2.16.840.1.113883.3.2074.1<br/>123456789 ()</td>
+        </tr>
+        <tr>
+            <th>Legal authenticator</th>
+            <td colspan="3">Henry Seven of Cypress signed at ${now}</td>
+        </tr>
+        <tr>
+            <th>Contact info</th>
+            <td colspan="3">202 Burlington Rd.<br/>Bedford, MA 01730, US<br/>Tel: (781)271-3000</td>
+        </tr>
+        <tr>
+            <th>Document maintained by</th>
+            <td colspan="3">Cypress Test Deck</td>
+        </tr>
+        <tr>
+            <th>Contact info</th>
+            <td colspan="3">202 Burlington Rd.<br/>Bedford, MA 01730, US<br/>Tel: (781)271-3000</td>
+        </tr>
+    </table>
+
+    <h2 style="border: none; font-size: 14px; margin-top: 25px;">Table of Contents</h2>
+    <ul class="toc-list">
+        <li><a href="#measure">Measure Section</a></li>
+        <li><a href="#reporting">Reporting Parameters</a></li>
+        <li><a href="#patientdata">Patient Data</a></li>
+    </ul>
+
+    <h2 id="measure">Measure Section</h2>
+    <table class="measure-table">
+        <thead>
+            <tr>
+                <th>eMeasure Title</th>
+                <th style="width: 150px;">Version specific identifier</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>This measure provides a standardized method for monitoring the performance of diagnostic CT to discourage unnecessarily high radiation doses, a risk factor for cancer, while preserving image quality. It is expressed as a percentage of patients with CT exams that are out-of-range based on having either excessive radiation dose or inadequate image quality relative to evidence-based thresholds based on the clinical indication for the exam. All diagnostic CT exams of specified anatomic sites performed in inpatient, outpatient and ambulatory care settings are eligible. This measure is not telehealth eligible.</td>
+                <td>8A6D0454-8DF0-2D9F-018E-437F76142790</td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
+    `;
+}
+
