@@ -108,3 +108,8 @@ $router->get('/reports/visits/eligibility', [ReportController::class, 'eligibili
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/visits/chart-activity', [ReportController::class, 'chartActivityReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

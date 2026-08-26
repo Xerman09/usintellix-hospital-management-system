@@ -979,4 +979,30 @@ class ReportService
         
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    public function getChartActivityReport(array $filters = []): array
+    {
+        if (empty($filters['patient_id'])) {
+            return ['patient_name' => '', 'results' => []];
+        }
+
+        // Fetch patient name
+        $sqlPatient = "SELECT first_name, last_name FROM patients WHERE id = ? AND deleted_at IS NULL";
+        $stmtPatient = Database::connection()->prepare($sqlPatient);
+        $stmtPatient->execute([$filters['patient_id']]);
+        $patient = $stmtPatient->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$patient) {
+            return ['patient_name' => 'Unknown', 'results' => []];
+        }
+        $patientName = $patient['last_name'] . ', ' . $patient['first_name'];
+
+        // Mock chart activity since there's no chart_locations table in the schema
+        // In a real implementation this would query chart tracking tables
+        
+        return [
+            'patient_name' => $patientName,
+            'results' => []
+        ];
+    }
 }

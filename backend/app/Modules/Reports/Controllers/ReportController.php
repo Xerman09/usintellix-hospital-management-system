@@ -199,4 +199,12 @@ class ReportController extends Controller
             'x12_partners' => $x12Partners
         ], 'Eligibility report retrieved successfully.');
     }
+
+    public function chartActivityReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['patient_id']);
+        $data = $this->reportService->getChartActivityReport($filters);
+        $this->success($data, 'Chart activity report retrieved successfully.');
+    }
 }
