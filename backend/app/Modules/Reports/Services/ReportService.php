@@ -1038,4 +1038,62 @@ class ReportService
         
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    public function getICD9Diagnoses(): array
+    {
+        // ICD9 codes are actually in codes table or similar. For UI dropdown, fetch unique ICD9 codes from codes table or just use coding from problems
+        $sql = "SELECT DISTINCT coding as code, coding as description FROM patient_medical_problems WHERE deleted_at IS NULL AND coding IS NOT NULL AND coding != '' ORDER BY coding ASC";
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function getSyndromicSurveillanceReport(array $filters = []): array
+    {
+        $diagnosis = $filters['diagnosis'] ?? 'all';
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+
+        $sql = "SELECT pmp.patient_id as patient_id, 
+                       CONCAT(p.last_name, ', ', p.first_name) as patient_name,
+                       pmp.coding as diagnosis,
+                       pmp.id as issue_id,
+                       pmp.title as issue_title,
+                       DATE_FORMAT(pmp.created_at, '%Y-%m-%d %H:%i:%s') as issue_date
+                FROM patient_medical_problems pmp
+                JOIN patients p ON pmp.patient_id = p.id
+                WHERE pmp.deleted_at IS NULL AND p.deleted_at IS NULL";
+        
+        $params = [];
+
+        if ($diagnosis !== 'all' && !empty($diagnosis)) {
+            // Note: if diagnosis is multiple, handle appropriately. Since UI sends one or multiple, let's handle as single for now or IN clause.
+            // Simplified for mockup.
+            if (is_array($diagnosis)) {
+                $placeholders = str_repeat('?,', count($diagnosis) - 1) . '?';
+                $sql .= " AND pmp.coding IN ($placeholders)";
+                $params = array_merge($params, $diagnosis);
+            } else {
+                $sql .= " AND pmp.coding = ?";
+                $params[] = $diagnosis;
+            }
+        }
+
+        if ($dateFrom) {
+            $sql .= " AND pmp.created_at >= ?";
+            $params[] = $dateFrom . ' 00:00:00';
+        }
+        
+        if ($dateTo) {
+            $sql .= " AND pmp.created_at <= ?";
+            $params[] = $dateTo . ' 23:59:59';
+        }
+
+        $sql .= " ORDER BY pmp.created_at DESC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

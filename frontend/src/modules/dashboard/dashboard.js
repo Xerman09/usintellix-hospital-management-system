@@ -170,6 +170,8 @@ import { initChartsOutReport } from "../reports/charts-out.js";
 import { ChartsOutReportView } from "../reports/charts-out.view.js";
 import { initServicesReport } from "../reports/services.js";
 import { ServicesReportView } from "../reports/services.view.js";
+import { initSyndromicSurveillanceReport } from "../reports/syndromic-surveillance.js";
+import { SyndromicSurveillanceReportView } from "../reports/syndromic-surveillance.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -613,6 +615,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initServicesReport, 0);
                 return ServicesReportView();
+            }, activate);
+        } else if (tabId === 'reports_visits_syndromic_surveillance') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSyndromicSurveillanceReport, 0);
+                return SyndromicSurveillanceReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {

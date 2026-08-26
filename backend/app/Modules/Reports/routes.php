@@ -123,3 +123,8 @@ $router->get('/reports/visits/services', [ReportController::class, 'servicesRepo
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/visits/syndromic-surveillance', [ReportController::class, 'syndromicSurveillanceReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

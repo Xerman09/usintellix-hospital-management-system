@@ -221,4 +221,18 @@ class ReportController extends Controller
         $data = $this->reportService->getServicesReport($filters);
         $this->success($data, 'Services report retrieved successfully.');
     }
+
+    public function syndromicSurveillanceReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['diagnosis', 'date_from', 'date_to']);
+        $data = $this->reportService->getSyndromicSurveillanceReport($filters);
+        
+        $diagnoses = $this->reportService->getICD9Diagnoses();
+        
+        $this->success([
+            'results' => $data,
+            'diagnoses' => $diagnoses
+        ], 'Syndromic surveillance report retrieved successfully.');
+    }
 }
