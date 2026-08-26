@@ -1103,4 +1103,16 @@ class ReportService
         // We will return an empty array for now as a mock
         return [];
     }
+
+    public function getFacilities(): array
+    {
+        $sql = "SELECT id, name FROM facility WHERE deleted_at IS NULL ORDER BY name ASC";
+        try {
+            $stmt = Database::connection()->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
 }
