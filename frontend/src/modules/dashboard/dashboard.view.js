@@ -13,8 +13,8 @@ function staffNavLinks(role)
             <span>Patient</span>
             <div class="dropdown-content">
                 <a data-tab="patients">New/Search</a>
-                <a data-tab="patient_dashboard">Dashboard</a>
-                <div class="dropdown-submenu">
+                <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
+                <div class="dropdown-submenu patient-dependent-nav">
                     <span class="dropdown-submenu-trigger">
                         Visits
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
@@ -25,7 +25,7 @@ function staffNavLinks(role)
                         <a data-tab="patient_visits_history">Visit History</a>
                     </div>
                 </div>
-                <div class="dropdown-submenu">
+                <div class="dropdown-submenu patient-dependent-nav">
                     <span class="dropdown-submenu-trigger">
                         Records
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>

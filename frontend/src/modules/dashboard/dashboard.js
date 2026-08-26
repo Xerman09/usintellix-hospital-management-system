@@ -15,8 +15,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=45";
-import { initPatientsList, restorePatientChartTab } from "../patients/patients-list.js?v=45";
+import { PatientsListView } from "../patients/patients-list.view.js?v=46";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit } from "../patients/patients-list.js?v=46";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -235,14 +235,27 @@ export function Dashboard()
     function openDashboardTab(tabId, title, activate = true) {
         if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_create_visit') {
             const activePatient = getLastActivePatientChart();
-            if (!activePatient) {
+            if (!activePatient || activePatient === "null") {
                 showToast("Please select a patient first.", "error");
                 return;
             }
-            // All these patient specific tabs should just redirect to the main patient chart for now
-            // or if they had their own views, we would handle them. Let's redirect to patient chart.
-            tabId = 'patient_chart';
-            title = 'Patient Chart';
+            const action = tabId;
+            
+            // patient_chart doesn't have a standard tab template since it's highly dynamic
+            // and managed by patients-list.js. We restore it directly.
+            if (activate && tabManager.activeTabId === 'patient_chart') {
+                // If we are already on the patient chart, no need to do a full reload/fetch
+                if (action === 'patient_create_visit') {
+                    triggerCreateVisit();
+                }
+            } else {
+                restorePatientChartTab(activate).then(() => {
+                    if (action === 'patient_create_visit') {
+                        setTimeout(() => triggerCreateVisit(), 200);
+                    }
+                });
+            }
+            return;
         }
 
         if (tabId === 'patients') {
@@ -710,7 +723,7 @@ export function Dashboard()
     function updatePatientNavState() {
         const activePatient = getLastActivePatientChart();
         const isPatientActive = activePatient && activePatient !== "null";
-        const patientLinks = document.querySelectorAll('#navbarLinks a[data-tab="patient_dashboard"], #navbarLinks a[data-tab="patient_visits_history"], #navbarLinks a[data-tab="patient_records_history"], #navbarLinks a[data-tab="patient_create_visit"]');
+        const patientLinks = document.querySelectorAll('.patient-dependent-nav');
         
         patientLinks.forEach(link => {
             if (isPatientActive) {

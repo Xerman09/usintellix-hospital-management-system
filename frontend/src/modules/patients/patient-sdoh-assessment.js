@@ -222,15 +222,19 @@ async function loadSdohCatalogsIfNeeded()
     cachedProviders = providersResult.success ? providersResult.data : [];
 
     const toolSelect = document.getElementById("pdSdoh_screening_tool_id");
-    toolSelect.innerHTML = `<option value="">-- Select One --</option>` +
-        cachedScreeningTools.map((tool) => `<option value="${tool.id}">${escapeHtml(tool.name)}</option>`).join("");
+    if (toolSelect) {
+        toolSelect.innerHTML = `<option value="">-- Select One --</option>` +
+            cachedScreeningTools.map((tool) => `<option value="${tool.id}">${escapeHtml(tool.name)}</option>`).join("");
+    }
 
     const providerSelect = document.getElementById("pdSdoh_assessor_provider_id");
-    providerSelect.innerHTML = `<option value="">-- Select One --</option>` +
-        cachedProviders.map((provider) => {
-            const label = `${provider.first_name} ${provider.last_name}${provider.specialty ? " — " + provider.specialty : ""}`;
-            return `<option value="${provider.id}">${escapeHtml(label)}</option>`;
-        }).join("");
+    if (providerSelect) {
+        providerSelect.innerHTML = `<option value="">-- Select One --</option>` +
+            cachedProviders.map((provider) => {
+                const label = `${provider.first_name} ${provider.last_name}${provider.specialty ? " — " + provider.specialty : ""}`;
+                return `<option value="${provider.id}">${escapeHtml(label)}</option>`;
+            }).join("");
+    }
 
     sdohCatalogsLoaded = true;
 }

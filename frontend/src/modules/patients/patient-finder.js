@@ -1,6 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { fetchPatients } from "./patients.service.js";
-import { openPatientChartTab } from "./patients-list.js?v=45";
+import { openPatientChartTab } from "./patients-list.js?v=46";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
 
 let finderPatientsCache = [];

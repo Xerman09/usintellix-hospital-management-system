@@ -4,7 +4,7 @@ import { createAppointment, fetchAppointments } from "../appointments/appointmen
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=45";
+import { PatientChartView } from "./patients-list.view.js?v=46";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -8202,9 +8202,7 @@ function setupEncounterModals()
     });
 
     document.getElementById("pdNewEncounterBtn").addEventListener("click", () => {
-        if (currentDashboardPatient) {
-            openEncounterFormModal(null);
-        }
+        triggerCreateVisit();
     });
 
     document.getElementById("closeEncounterDetailModal").addEventListener("click", closeDetail);
@@ -11816,4 +11814,9 @@ function generateAiReportHtml(patient, aiData) {
 </body>
 </html>
     `;
+}
+export function triggerCreateVisit() {
+    if (currentDashboardPatient) {
+        openEncounterFormModal(null);
+    }
 }
