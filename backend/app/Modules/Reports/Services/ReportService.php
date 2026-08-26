@@ -1106,7 +1106,7 @@ class ReportService
 
     public function getFacilities(): array
     {
-        $sql = "SELECT id, name FROM facility WHERE deleted_at IS NULL ORDER BY name ASC";
+        $sql = "SELECT id, name, physical_address_line1 as address, physical_city as city, physical_state as state, physical_zip as zip, physical_country as country FROM facilities WHERE deleted_at IS NULL ORDER BY name ASC";
         try {
             $stmt = Database::connection()->prepare($sql);
             $stmt->execute();

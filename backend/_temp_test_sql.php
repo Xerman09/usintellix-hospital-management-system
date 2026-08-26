@@ -2,15 +2,10 @@
 $pdo = new PDO('mysql:host=195.35.61.75;dbname=u815148223_uhms;charset=utf8mb4', 'u815148223_uhms', 'uHMS_123');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 try {
-    $stmt = $pdo->query("SHOW TABLES LIKE '%order%'");
-    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    echo "Order tables:\n";
-    print_r($tables);
-    
-    $stmt = $pdo->query("SHOW TABLES LIKE '%procedure%'");
-    $tables2 = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    echo "Procedure tables:\n";
-    print_r($tables2);
+    $sql = "SELECT id, name, physical_address_line1 as address, physical_city as city, physical_state as state, physical_zip as zip, physical_country as country FROM facilities WHERE deleted_at IS NULL ORDER BY name ASC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    print_r($stmt->fetchAll(PDO::FETCH_ASSOC));
 } catch (Exception $e) {
     echo 'ERROR: ' . $e->getMessage();
 }
