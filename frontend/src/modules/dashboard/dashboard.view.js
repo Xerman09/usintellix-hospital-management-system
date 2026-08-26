@@ -21,7 +21,7 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="patient_create_visit">Create Visit</a>
-                        <a data-tab="patient_current_visit" class="disabled-nav-link" style="opacity: 0.5; pointer-events: none; cursor: not-allowed;">Current</a>
+                        <a data-tab="patient_current_visit">Current</a>
                         <a data-tab="patient_visits_history">Visit History</a>
                     </div>
                 </div>

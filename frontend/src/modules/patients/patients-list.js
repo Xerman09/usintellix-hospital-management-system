@@ -4,7 +4,7 @@ import { createAppointment, fetchAppointments } from "../appointments/appointmen
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=46";
+import { PatientChartView } from "./patients-list.view.js?v=47";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -11818,5 +11818,23 @@ function generateAiReportHtml(patient, aiData) {
 export function triggerCreateVisit() {
     if (currentDashboardPatient) {
         openEncounterFormModal(null);
+    }
+}
+
+export async function triggerCurrentVisit() {
+    if (!currentDashboardPatient) return;
+
+    try {
+        const result = await fetchPatientEncounters(currentDashboardPatient.id);
+        if (result.success && result.data && result.data.length > 0) {
+            // Assume the most recent one (index 0) is the current visit
+            const latestEncounter = result.data[0];
+            showChartSection("encounter");
+            openEncounterSummary(latestEncounter);
+        } else {
+            showToast("No current visit found for this patient.", "error");
+        }
+    } catch (e) {
+        showToast("Failed to fetch current visit.", "error");
     }
 }

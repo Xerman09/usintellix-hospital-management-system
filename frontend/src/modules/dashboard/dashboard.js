@@ -15,8 +15,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=46";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit } from "../patients/patients-list.js?v=46";
+import { PatientsListView } from "../patients/patients-list.view.js?v=47";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit } from "../patients/patients-list.js?v=47";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -233,7 +233,7 @@ export function Dashboard()
     // -- activating each of them in turn would render, then immediately
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
-        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_create_visit') {
+        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit') {
             const activePatient = getLastActivePatientChart();
             if (!activePatient || activePatient === "null") {
                 showToast("Please select a patient first.", "error");
@@ -247,11 +247,15 @@ export function Dashboard()
                 // If we are already on the patient chart, no need to do a full reload/fetch
                 if (action === 'patient_create_visit') {
                     triggerCreateVisit();
+                } else if (action === 'patient_current_visit') {
+                    triggerCurrentVisit();
                 }
             } else {
                 restorePatientChartTab(activate).then(() => {
                     if (action === 'patient_create_visit') {
                         setTimeout(() => triggerCreateVisit(), 200);
+                    } else if (action === 'patient_current_visit') {
+                        setTimeout(() => triggerCurrentVisit(), 200);
                     }
                 });
             }
