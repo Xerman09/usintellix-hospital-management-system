@@ -19,8 +19,10 @@ import { PatientsListView } from "../patients/patients-list.view.js?v=49";
 import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest } from "../patients/patients-list.js?v=49";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
-import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=102";
-import { initManageModules } from "../manage-modules/manage-modules.js?v=102";
+import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
+import { initManageModules } from "../manage-modules/manage-modules.js?v=103";
+import { CareCoordinationView } from "../care-coordination/care-coordination.view.js?v=103";
+import { initCareCoordination } from "../care-coordination/care-coordination.js?v=103";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { ProviderCategoriesView } from "../provider-categories/provider-categories.view.js";
@@ -725,6 +727,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initManageModules, 0);
                 return ManageModulesView();
+            }, activate);
+        } else if (tabId === 'carecoordination') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initCareCoordination, 0);
+                return CareCoordinationView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
