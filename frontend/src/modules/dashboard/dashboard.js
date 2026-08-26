@@ -15,8 +15,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=47";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit } from "../patients/patients-list.js?v=47";
+import { PatientsListView } from "../patients/patients-list.view.js?v=48";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory } from "../patients/patients-list.js?v=48";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -249,6 +249,15 @@ export function Dashboard()
                     triggerCreateVisit();
                 } else if (action === 'patient_current_visit') {
                     triggerCurrentVisit();
+                } else if (action === 'patient_visits_history') {
+                    triggerVisitHistory();
+                } else if (action === 'patient_records_history') {
+                    triggerRecordsHistory();
+                } else if (action === 'patient_dashboard') {
+                    // For dashboard, there's no specific 'dashboard' view inside patient chart?
+                    // Actually there's showChartSection("dashboard");
+                    // Assuming that's handled by triggerPatientDashboard() if we created one, or we can just ignore since default is dashboard.
+                    // Let's implement triggerPatientDashboard() or just do nothing (it's already handled if we restore).
                 }
             } else {
                 restorePatientChartTab(activate).then(() => {
@@ -256,6 +265,10 @@ export function Dashboard()
                         setTimeout(() => triggerCreateVisit(), 200);
                     } else if (action === 'patient_current_visit') {
                         setTimeout(() => triggerCurrentVisit(), 200);
+                    } else if (action === 'patient_visits_history') {
+                        setTimeout(() => triggerVisitHistory(), 200);
+                    } else if (action === 'patient_records_history') {
+                        setTimeout(() => triggerRecordsHistory(), 200);
                     }
                 });
             }
