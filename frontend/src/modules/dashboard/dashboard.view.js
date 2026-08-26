@@ -190,7 +190,16 @@ function staffNavLinks(role)
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                     </span>
                     <div class="dropdown-submenu-content">
-                        <a data-tab="blank_forms_general">General</a>
+                        <div class="dropdown-submenu">
+                            <span class="dropdown-submenu-trigger">
+                                Core
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                            </span>
+                            <div class="dropdown-submenu-content">
+                                <a data-tab="blank_forms_core_demographics">Demographics</a>
+                                <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="dropdown-submenu">
