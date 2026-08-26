@@ -8311,6 +8311,23 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<div class="modal-overlay" id="patientRecordRequestModalOverlay">
+    <div class="modal-box" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2>Patient Records Request</h2>
+            <button type="button" class="modal-close" id="closePatientRecordRequestModal">&times;</button>
+        </div>
+        
+        <div style="background-color: #eef2f6; border-radius: 4px; padding: 16px; color: #334155; margin-top: 10px;">
+            There is already an open patient record request.
+        </div>
+        
+        <div class="form-actions" style="margin-top: 24px;">
+            <button type="button" class="btn-secondary" id="cancelPatientRecordRequestBtn">Close</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="patientDocumentModalOverlay">
     <div class="modal-box" style="max-width: 480px;">
         <div class="modal-header">

@@ -15,8 +15,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=48";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory } from "../patients/patients-list.js?v=48";
+import { PatientsListView } from "../patients/patients-list.view.js?v=49";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest } from "../patients/patients-list.js?v=49";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ProvidersView } from "../providers/providers.view.js";
@@ -233,7 +233,7 @@ export function Dashboard()
     // -- activating each of them in turn would render, then immediately
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
-        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit') {
+        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_records_request' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit') {
             const activePatient = getLastActivePatientChart();
             if (!activePatient || activePatient === "null") {
                 showToast("Please select a patient first.", "error");
@@ -253,6 +253,8 @@ export function Dashboard()
                     triggerVisitHistory();
                 } else if (action === 'patient_records_history') {
                     triggerRecordsHistory();
+                } else if (action === 'patient_records_request') {
+                    triggerRecordsRequest();
                 } else if (action === 'patient_dashboard') {
                     // For dashboard, there's no specific 'dashboard' view inside patient chart?
                     // Actually there's showChartSection("dashboard");
@@ -269,6 +271,8 @@ export function Dashboard()
                         setTimeout(() => triggerVisitHistory(), 200);
                     } else if (action === 'patient_records_history') {
                         setTimeout(() => triggerRecordsHistory(), 200);
+                    } else if (action === 'patient_records_request') {
+                        setTimeout(() => triggerRecordsRequest(), 200);
                     }
                 });
             }

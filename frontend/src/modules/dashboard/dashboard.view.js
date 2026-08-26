@@ -32,6 +32,7 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="patient_records_history">Patient History</a>
+                        <a data-tab="patient_records_request">Patient Records Request</a>
                     </div>
                 </div>
             </div>
