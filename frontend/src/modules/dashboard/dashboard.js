@@ -19,6 +19,8 @@ import { PatientsListView } from "../patients/patients-list.view.js?v=49";
 import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest } from "../patients/patients-list.js?v=49";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
+import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=102";
+import { initManageModules } from "../manage-modules/manage-modules.js?v=102";
 import { ProvidersView } from "../providers/providers.view.js";
 import { initProviders } from "../providers/providers.js";
 import { ProviderCategoriesView } from "../provider-categories/provider-categories.view.js";
@@ -718,6 +720,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initHelp, 0);
                 return HelpView();
+            }, activate);
+        } else if (tabId === 'manage_modules') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initManageModules, 0);
+                return ManageModulesView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
