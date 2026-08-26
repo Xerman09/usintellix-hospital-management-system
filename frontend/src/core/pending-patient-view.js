@@ -34,6 +34,7 @@ const LAST_ACTIVE_KEY = "lastActivePatientChartNo";
 export function setLastActivePatientChart(patientNo)
 {
     localStorage.setItem(LAST_ACTIVE_KEY, patientNo);
+    window.dispatchEvent(new CustomEvent('activePatientChanged', { detail: { patientNo } }));
 }
 
 export function getLastActivePatientChart()
@@ -44,6 +45,7 @@ export function getLastActivePatientChart()
 export function clearLastActivePatientChart()
 {
     localStorage.removeItem(LAST_ACTIVE_KEY);
+    window.dispatchEvent(new CustomEvent('activePatientChanged', { detail: { patientNo: null } }));
 }
 
 // Tracks which chart-nav section (dashboard/history/encounter/etc.) was

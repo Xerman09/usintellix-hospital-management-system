@@ -4,6 +4,8 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=2";
 import { DashboardHomeView } from "./dashboard-home.view.js";
+import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
+import { showToast } from "../../core/toast.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { HelpView } from "../help/help.view.js";
 import { initHelp } from "../help/help.js";
@@ -231,6 +233,18 @@ export function Dashboard()
     // -- activating each of them in turn would render, then immediately
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
+        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history') {
+            const activePatient = getLastActivePatientChart();
+            if (!activePatient) {
+                showToast("Please select a patient first.", "error");
+                return;
+            }
+            // All these patient specific tabs should just redirect to the main patient chart for now
+            // or if they had their own views, we would handle them. Let's redirect to patient chart.
+            tabId = 'patient_chart';
+            title = 'Patient Chart';
+        }
+
         if (tabId === 'patients') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientsList, 0);
@@ -680,6 +694,11 @@ export function Dashboard()
     const navLinks = document.querySelectorAll('#navbarLinks a[data-tab]');
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
+            if (link.classList.contains('disabled-nav-link')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
             e.preventDefault();
             const tabId = link.getAttribute('data-tab');
             const title = link.textContent.trim();
@@ -687,6 +706,28 @@ export function Dashboard()
             openDashboardTab(tabId, title);
         });
     });
+
+    function updatePatientNavState() {
+        const activePatient = getLastActivePatientChart();
+        const isPatientActive = activePatient && activePatient !== "null";
+        const patientLinks = document.querySelectorAll('#navbarLinks a[data-tab="patient_dashboard"], #navbarLinks a[data-tab="patient_visits_history"], #navbarLinks a[data-tab="patient_records_history"]');
+        
+        patientLinks.forEach(link => {
+            if (isPatientActive) {
+                link.classList.remove('disabled-nav-link');
+                link.style.opacity = '1';
+                link.style.cursor = 'pointer';
+            } else {
+                link.classList.add('disabled-nav-link');
+                link.style.opacity = '0.5';
+                link.style.cursor = 'not-allowed';
+            }
+        });
+    }
+
+    // Initialize nav state and listen for changes
+    updatePatientNavState();
+    window.addEventListener('activePatientChanged', updatePatientNavState);
 
     // Logout
     const logoutBtn = document.getElementById('logoutBtn');
