@@ -9,7 +9,31 @@ function staffNavLinks(role)
     return `
         ${appointmentsLink}
         <a data-tab="patient_finder">Finder</a>
-        <a data-tab="patients">Patients</a>
+        <div class="nav-dropdown">
+            <span>Patient</span>
+            <div class="dropdown-content">
+                <a data-tab="patients">New/Search</a>
+                <a data-tab="patient_dashboard">Dashboard</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Visits
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="patient_visits_history">Visit History</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Records
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="patient_records_history">Patient History</a>
+                    </div>
+                </div>
+            </div>
+        </div>
         <a data-tab="employees">Employees</a>
         <a data-tab="messaging">Messaging</a>
         <a data-tab="recalls">Recalls</a>
