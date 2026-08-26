@@ -113,3 +113,13 @@ $router->get('/reports/visits/chart-activity', [ReportController::class, 'chartA
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/visits/charts-out', [ReportController::class, 'chartsOutReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/reports/visits/services', [ReportController::class, 'servicesReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

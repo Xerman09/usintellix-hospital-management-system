@@ -207,4 +207,18 @@ class ReportController extends Controller
         $data = $this->reportService->getChartActivityReport($filters);
         $this->success($data, 'Chart activity report retrieved successfully.');
     }
+
+    public function chartsOutReport(): void
+    {
+        $data = $this->reportService->getChartsOutReport();
+        $this->success($data, 'Charts out report retrieved successfully.');
+    }
+
+    public function servicesReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['type', 'include_uncategorized']);
+        $data = $this->reportService->getServicesReport($filters);
+        $this->success($data, 'Services report retrieved successfully.');
+    }
 }

@@ -1005,4 +1005,37 @@ class ReportService
             'results' => []
         ];
     }
+
+    public function getChartsOutReport(): array
+    {
+        // Mock charts out since there's no chart_locations table in the schema
+        // In a real implementation this would query chart tracking tables for checked out charts
+        return [];
+    }
+
+    public function getServicesReport(array $filters = []): array
+    {
+        $type = $filters['type'] ?? 'all';
+        $includeUncategorized = isset($filters['include_uncategorized']) && $filters['include_uncategorized'] === 'true';
+
+        $sql = "SELECT category, code_type, code, modifier, description, related_code, fee_standard 
+                FROM codes WHERE deleted_at IS NULL";
+        $params = [];
+
+        if ($type !== 'all') {
+            $sql .= " AND code_type = ?";
+            $params[] = $type;
+        }
+
+        if (!$includeUncategorized) {
+            $sql .= " AND category != 'Unassigned' AND category != '' AND category IS NOT NULL";
+        }
+
+        $sql .= " ORDER BY category ASC, code_type ASC, code ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

@@ -166,6 +166,10 @@ import { initEligibilityResponse } from "../reports/eligibility-response.js";
 import { EligibilityResponseView } from "../reports/eligibility-response.view.js";
 import { initChartActivityReport } from "../reports/chart-activity.js";
 import { ChartActivityReportView } from "../reports/chart-activity.view.js";
+import { initChartsOutReport } from "../reports/charts-out.js";
+import { ChartsOutReportView } from "../reports/charts-out.view.js";
+import { initServicesReport } from "../reports/services.js";
+import { ServicesReportView } from "../reports/services.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 function renderPlaceholderTab(title) {
@@ -599,6 +603,16 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initChartActivityReport, 0);
                 return ChartActivityReportView();
+            }, activate);
+        } else if (tabId === 'reports_visits_charts_out') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initChartsOutReport, 0);
+                return ChartsOutReportView();
+            }, activate);
+        } else if (tabId === 'reports_visits_services') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initServicesReport, 0);
+                return ServicesReportView();
             }, activate);
         } else if (tabId === 'message_list') {
             tabManager.openTab(tabId, title, () => {
