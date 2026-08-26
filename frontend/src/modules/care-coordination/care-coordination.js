@@ -46,38 +46,45 @@ function renderTable(data) {
                 </tr>
             `;
 
+            let encountersHtml = "";
             if (row.encounters && row.encounters.length > 0) {
-                html += `
-                    <tr class="nested-row nested-row-${idx}" style="display: ${isExpanded ? 'table-row' : 'none'};">
-                        <td colspan="11" style="padding: 12px 40px; background-color: white; border-bottom: 1px solid #e2e8f0;">
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0;">
-                                <thead style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
-                                    <tr>
-                                        <th style="padding: 8px; text-align: left;">#</th>
-                                        <th style="padding: 8px; text-align: left;">Encounter</th>
-                                        <th style="padding: 8px; text-align: left;">DOS</th>
-                                        <th style="padding: 8px; text-align: center;">Transferred Date</th>
-                                        <th style="padding: 8px; text-align: center;">Transferred By</th>
-                                        <th style="padding: 8px; text-align: left;">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${row.encounters.map(enc => `
-                                        <tr>
-                                            <td style="padding: 8px;">${escapeHtml(enc.id)}</td>
-                                            <td style="padding: 8px;">Encounter ${escapeHtml(enc.id)}</td>
-                                            <td style="padding: 8px;">${escapeHtml(enc.dos)}</td>
-                                            <td style="padding: 8px; text-align: center;">${escapeHtml(enc.transferredDate)}</td>
-                                            <td style="padding: 8px; text-align: center;">${escapeHtml(enc.transferredBy)}</td>
-                                            <td style="padding: 8px;">${escapeHtml(enc.status)}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </td>
-                    </tr>
+                encountersHtml = `
+                    <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0;">
+                        <thead style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+                            <tr>
+                                <th style="padding: 8px; text-align: left;">#</th>
+                                <th style="padding: 8px; text-align: left;">Encounter</th>
+                                <th style="padding: 8px; text-align: left;">DOS</th>
+                                <th style="padding: 8px; text-align: center;">Transferred Date</th>
+                                <th style="padding: 8px; text-align: center;">Transferred By</th>
+                                <th style="padding: 8px; text-align: left;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${row.encounters.map(enc => `
+                                <tr>
+                                    <td style="padding: 8px;">${escapeHtml(enc.id)}</td>
+                                    <td style="padding: 8px;">Encounter ${escapeHtml(enc.id)}</td>
+                                    <td style="padding: 8px;">${escapeHtml(enc.dos)}</td>
+                                    <td style="padding: 8px; text-align: center;">${escapeHtml(enc.transferredDate)}</td>
+                                    <td style="padding: 8px; text-align: center;">${escapeHtml(enc.transferredBy)}</td>
+                                    <td style="padding: 8px;">${escapeHtml(enc.status)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 `;
+            } else {
+                encountersHtml = `<div style="padding: 16px; text-align: center; color: #64748b; font-style: italic;">No encounters found for this patient.</div>`;
             }
+
+            html += `
+                <tr class="nested-row nested-row-${idx}" style="display: ${isExpanded ? 'table-row' : 'none'};">
+                    <td colspan="11" style="padding: 12px 40px; background-color: white; border-bottom: 1px solid #e2e8f0;">
+                        ${encountersHtml}
+                    </td>
+                </tr>
+            `;
         });
     }
 
