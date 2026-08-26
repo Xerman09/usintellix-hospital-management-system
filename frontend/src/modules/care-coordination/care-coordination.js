@@ -1,4 +1,6 @@
 import { api } from "../../core/api.js";
+import { fetchPatients, fetchPatientDashboardSummary } from "../patients/patients.service.js";
+import { generateCcdDetailedReportHtml } from "../patients/patients-list.js";
 
 export async function initCareCoordination() {
     try {
@@ -18,7 +20,7 @@ function renderTable(data) {
 
     let html = "";
     if (data.length === 0) {
-        html = `<tr><td colspan="11" style="text-align: center;">No records found.</td></tr>`;
+        html = `<tr><td colspan="11" style="text-align: center; padding: 20px;">No patient records found.</td></tr>`;
     } else {
         data.forEach((row, idx) => {
             const isExpanded = false; // default collapsed
@@ -28,20 +30,19 @@ function renderTable(data) {
                     <td style="text-align: center; cursor: pointer;" class="expand-toggle" data-idx="${idx}">
                         <span style="display: inline-block; transform: ${isExpanded ? 'rotate(90deg)' : 'rotate(0)'}; transition: transform 0.2s;">▶</span>
                     </td>
-                    <td>${row.id})</td>
-                    <td>${row.pid}</td>
-                    <td style="color: #64748b;">${escapeHtml(row.name)}</td>
-                    <td>${row.encounterCount}</td>
-                    <td>${row.totalTransfers}</td>
-                    <td>${row.successfulTransfers}</td>
-                    <td>${escapeHtml(row.lastVisit)}</td>
-                    <td>${escapeHtml(row.creationDate)}</td>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(row.pid)}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(row.encounter_count)}</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>${escapeHtml(row.last_visit || 'N/A')}</td>
+                    <td>${escapeHtml(row.created_at)}</td>
                     <td style="text-align: center;"><input type="checkbox"></td>
                     <td style="text-align: center;">
-                        <div style="display: flex; gap: 4px; justify-content: center; opacity: 0.5;">
-                            <div style="width: 14px; height: 14px; background: #94a3b8; border-radius: 2px;"></div>
-                            <div style="width: 14px; height: 14px; background: #94a3b8; border-radius: 2px;"></div>
-                        </div>
+                        <button type="button" class="view-btn" data-pid="${row.pid}" style="background: transparent; border: none; cursor: pointer; color: #3b82f6;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
                     </td>
                 </tr>
             `;
@@ -95,7 +96,16 @@ function attachExpandListeners() {
     const tbody = document.getElementById("careCoordinationTableBody");
     if (!tbody) return;
 
-    tbody.addEventListener("click", (e) => {
+    tbody.addEventListener("click", async (e) => {
+        const viewBtn = e.target.closest('.view-btn');
+        if (viewBtn) {
+            const pid = viewBtn.getAttribute('data-pid');
+            if (pid) {
+                await openPatientCcdReport(pid, viewBtn);
+            }
+            return;
+        }
+
         const toggleBtn = e.target.closest('.expand-toggle');
         if (toggleBtn) {
             const idx = toggleBtn.getAttribute('data-idx');
@@ -118,6 +128,65 @@ function attachExpandListeners() {
             }
         }
     });
+}
+
+async function openPatientCcdReport(pid, btn) {
+    const reportWindow = window.open("", "_blank", "width=850,height=800,scrollbars=yes");
+    if (!reportWindow) {
+        console.error("Popup blocked. Please enable pop-ups to view the report.");
+        return;
+    }
+    reportWindow.document.open();
+    reportWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Loading Report...</title>
+        <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #555; }</style>
+        </head>
+        <body><h2>Generating Patient Report...</h2><p>Please wait while we gather the patient's data.</p></body>
+        </html>
+    `);
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+
+    try {
+        const allPatientsRes = await fetchPatients();
+        let patientRecord = null;
+        if (allPatientsRes.success && allPatientsRes.data) {
+            patientRecord = allPatientsRes.data.find(p => p.id == pid);
+        }
+
+        if (!patientRecord) {
+            throw new Error("Patient not found.");
+        }
+
+        const summaryRes = await fetchPatientDashboardSummary(pid);
+        if (!summaryRes.success) {
+            throw new Error("Failed to load patient summary.");
+        }
+
+        const html = generateCcdDetailedReportHtml(patientRecord, summaryRes.data || {});
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+
+    } catch (err) {
+        reportWindow.document.open();
+        reportWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Error</title>
+            <style>body { font-family: sans-serif; padding: 40px; text-align: center; color: #d32f2f; }</style>
+            </head>
+            <body><h2>Error generating report.</h2><p>${escapeHtml(err.message)}</p></body>
+            </html>
+        `);
+        reportWindow.document.close();
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
 }
 
 function escapeHtml(value) {
