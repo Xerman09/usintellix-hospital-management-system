@@ -7,6 +7,7 @@ export async function initCareCoordination() {
         const data = await api('/care-coordination');
         renderTable(data);
         attachExpandListeners();
+        attachTabListeners();
     } catch (e) {
         console.error("Failed to load care coordination data", e);
         const tbody = document.getElementById("careCoordinationTableBody");
@@ -92,7 +93,84 @@ function renderTable(data) {
         });
     }
 
-    tbody.innerHTML = html;
+    document.getElementById("careCoordinationTableBody").innerHTML = html;
+}
+
+function attachTabListeners() {
+    const tabsContainer = document.getElementById("careCoordinationSubTabs");
+    if (!tabsContainer) return;
+
+    tabsContainer.addEventListener("click", (e) => {
+        const link = e.target.closest(".sub-tab-link");
+        if (!link) return;
+        e.preventDefault();
+
+        // Remove active state from all links
+        const allLinks = tabsContainer.querySelectorAll(".sub-tab-link");
+        allLinks.forEach(l => {
+            l.classList.remove("active");
+            l.style.borderBottom = "none";
+            l.style.color = "#64748b";
+        });
+
+        // Add active state to clicked link
+        link.classList.add("active");
+        link.style.borderBottom = "2px solid #3b82f6";
+        link.style.color = "#3b82f6";
+
+        // Hide all contents
+        const targets = ["ccda-qrda", "immunization", "syndromic"];
+        targets.forEach(t => {
+            const el = document.getElementById(`content-${t}`);
+            if (el) el.style.display = "none";
+        });
+
+        // Show target content
+        const targetId = link.getAttribute("data-target");
+        const targetEl = document.getElementById(`content-${targetId}`);
+        if (targetEl) {
+            targetEl.style.display = "block";
+        }
+    });
+
+    const btnSearchImm = document.getElementById("btn-search-immunization");
+    if (btnSearchImm) {
+        btnSearchImm.addEventListener("click", async () => {
+            const tbody = document.getElementById("immunizationTableBody");
+            if (!tbody) return;
+
+            btnSearchImm.disabled = true;
+            btnSearchImm.textContent = "SEARCHING...";
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 32px;">Loading data...</td></tr>`;
+
+            try {
+                const res = await api('/reports/immunization-registry');
+                if (res.success && res.data && res.data.length > 0) {
+                    let html = '';
+                    res.data.forEach(row => {
+                        html += `
+                            <tr>
+                                <td>${escapeHtml(row.pid)}</td>
+                                <td>${escapeHtml(row.patient_name)}</td>
+                                <td>${escapeHtml(row.immunization_code)}</td>
+                                <td>${escapeHtml(row.immunization_title)}</td>
+                                <td>${escapeHtml(row.immunization_date)}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 32px;">No immunization records found.</td></tr>`;
+                }
+            } catch (err) {
+                console.error("Failed to load immunization data", err);
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444; padding: 32px;">Error loading data.</td></tr>`;
+            } finally {
+                btnSearchImm.disabled = false;
+                btnSearchImm.textContent = "SEARCH";
+            }
+        });
+    }
 }
 
 function attachExpandListeners() {
