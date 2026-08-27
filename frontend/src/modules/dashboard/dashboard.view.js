@@ -43,6 +43,18 @@ function staffNavLinks(role)
         <a data-tab="patient_flow">Flow</a>
         ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
         <div class="nav-dropdown">
+            <span>Fees</span>
+            <div class="dropdown-content">
+                <a data-tab="fee_sheet">Fee Sheet</a>
+                <a data-tab="payment">Payment</a>
+                <a data-tab="checkout">Checkout</a>
+                <a data-tab="billing_manager">Billing Manager</a>
+                <a data-tab="batch_payments">Batch Payments</a>
+                <a data-tab="posting_payments">Posting Payments</a>
+                <a data-tab="edi_history">EDI History</a>
+            </div>
+        </div>
+        <div class="nav-dropdown">
             <span>Modules</span>
             <div class="dropdown-content">
                 <a data-tab="manage_modules">Manage Modules</a>
