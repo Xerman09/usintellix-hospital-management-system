@@ -171,6 +171,46 @@ function attachTabListeners() {
             }
         });
     }
+
+    const btnSearchSynd = document.getElementById("btn-search-syndromic");
+    if (btnSearchSynd) {
+        btnSearchSynd.addEventListener("click", async () => {
+            const tbody = document.getElementById("syndromicTableBody");
+            if (!tbody) return;
+
+            btnSearchSynd.disabled = true;
+            btnSearchSynd.textContent = "SEARCHING...";
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 32px;">Loading data...</td></tr>`;
+
+            try {
+                const res = await api('/reports/visits/syndromic-surveillance');
+                if (res.success && res.data && res.data.length > 0) {
+                    let html = '';
+                    res.data.forEach(row => {
+                        html += `
+                            <tr>
+                                <td>${escapeHtml(row.patient_id)}</td>
+                                <td>${escapeHtml(row.patient_name)}</td>
+                                <td>${escapeHtml(row.issue_id)}</td>
+                                <td>${escapeHtml(row.diagnosis)}</td>
+                                <td>${escapeHtml(row.issue_title)}</td>
+                                <td>${escapeHtml(row.issue_date)}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 32px;">No syndromic surveillance records found.</td></tr>`;
+                }
+            } catch (err) {
+                console.error("Failed to load syndromic surveillance data", err);
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 32px;">Error loading data.</td></tr>`;
+            } finally {
+                btnSearchSynd.disabled = false;
+                btnSearchSynd.textContent = "SEARCH";
+            }
+        });
+    }
 }
 
 function attachExpandListeners() {

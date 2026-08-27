@@ -98,12 +98,26 @@ export function CareCoordinationView() {
         
         <!-- Syndromic Surveillance Content -->
         <div id="content-syndromic" class="tab-content" style="display: none;">
-            <div style="display: flex; align-items: center; background-color: #f1f5f9; padding: 12px 16px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
-                <button type="button" class="btn-primary" style="background-color: #3b82f6; padding: 6px 16px;">SEARCH</button>
+            <div style="display: flex; align-items: center; background-color: #f1f5f9; padding: 12px 16px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+                <button type="button" class="btn-primary" id="btn-search-syndromic" style="background-color: #3b82f6; padding: 6px 16px;">SEARCH</button>
             </div>
             
-            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; text-align: center; padding: 32px; color: #334155; font-weight: 500;">
-                Nothing to display
+            <div class="table-wrap" style="background: white;">
+                <table class="data-table" style="width: 100%;">
+                    <thead style="background-color: #f1f5f9;">
+                        <tr>
+                            <th style="width: 100px;">PID</th>
+                            <th>Patient Name</th>
+                            <th style="width: 100px;">Issue ID</th>
+                            <th>Diagnosis Code</th>
+                            <th>Issue Title</th>
+                            <th>Issue Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="syndromicTableBody">
+                        <tr><td colspan="6" style="text-align: center; color: #64748b; padding: 32px;">Nothing to display</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
