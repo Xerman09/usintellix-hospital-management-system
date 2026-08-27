@@ -101,6 +101,7 @@ function renderFields()
 function renderView()
 {
     const view = document.getElementById("pdLifestyleViewContent");
+    if (!view) return;
     const byKey = new Map(currentData.map((record) => [record.item_key, record]));
 
     const lines = [];

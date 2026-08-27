@@ -250,6 +250,7 @@ async function loadAssessments(patientId)
 
 function showState(name)
 {
+    if (!document.getElementById("pdSdohSummaryState")) return;
     document.getElementById("pdSdohSummaryState").style.display = name === "summary" ? "block" : "none";
     document.getElementById("pdSdohForm").style.display = name === "form" ? "block" : "none";
     document.getElementById("pdSdohListState").style.display = name === "list" ? "block" : "none";

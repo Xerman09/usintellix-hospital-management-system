@@ -44,6 +44,7 @@ function renderLoading()
 function renderRows()
 {
     const container = document.getElementById("pdFamilyHistoryRows");
+    if (!container) return;
 
     container.innerHTML = RELATIONS.map((relation) => `
         <div class="pd-fh-row">

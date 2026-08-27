@@ -18,7 +18,7 @@ export function PaymentView() {
         <div style="padding: 10px; font-size: 14px;">
             <div style="margin-bottom: 10px;">
                 <label style="display: block; margin-bottom: 5px;">Payment Method:</label>
-                <select style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                <select id="paymentMethod" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
                     <option>Check Payment</option>
                     <option>Cash</option>
                     <option>Credit Card</option>
@@ -27,7 +27,7 @@ export function PaymentView() {
             
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px;">Check or Reference Number:</label>
-                <input type="text" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                <input id="paymentRef" type="text" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
             </div>
             
             <div style="margin-bottom: 15px;">
@@ -99,7 +99,7 @@ export function PaymentView() {
         </div>
         
         <div style="text-align: center; margin-top: 20px;">
-            <button style="background: #3b5998; color: white; border: none; padding: 8px 15px; border-radius: 3px; font-size: 14px; cursor: pointer; margin-right: 10px;">
+            <button id="generateInvoiceBtn" style="background: #3b5998; color: white; border: none; padding: 8px 15px; border-radius: 3px; font-size: 14px; cursor: pointer; margin-right: 10px;">
                 <svg style="width: 14px; height: 14px; vertical-align: middle; margin-right: 5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 Generate Invoice
             </button>

@@ -64,6 +64,7 @@ function renderFields()
 function renderView()
 {
     const view = document.getElementById("pdRelativesHistoryViewContent");
+    if (!view) return;
 
     const recorded = CONDITIONS.filter((condition) =>
         currentData.some((record) => record.condition_key === condition.key));

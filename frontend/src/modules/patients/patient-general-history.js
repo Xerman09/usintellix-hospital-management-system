@@ -131,6 +131,7 @@ function renderView()
 {
     const riskFactorsView = document.getElementById("pdGeneralHistoryRiskFactorsView");
     const examsView = document.getElementById("pdGeneralHistoryExamsView");
+    if (!riskFactorsView || !examsView) return;
 
     const selectedRiskFactors = RISK_FACTORS.filter((riskFactor) =>
         currentData.risk_factors.some((record) => record.risk_factor_key === riskFactor.key));

@@ -10823,7 +10823,10 @@ async function setupEditPatientModal(user)
         document.getElementById("editFormAlert").innerHTML = "";
     };
 
-    document.getElementById("closeEditPatientModal").addEventListener("click", closeModal);
+    const closeBtn = document.getElementById("closeEditPatientModal");
+    if (!closeBtn) return;
+    
+    closeBtn.addEventListener("click", closeModal);
     document.getElementById("cancelEditPatient").addEventListener("click", closeModal);
     modalOverlay.addEventListener("click", (event) => {
         if (event.target === modalOverlay) {

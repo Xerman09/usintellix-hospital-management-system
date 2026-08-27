@@ -39,6 +39,7 @@ function renderLoading()
 function renderView()
 {
     const view = document.getElementById("pdOtherHistoryViewContent");
+    if (!view) return;
     const lines = [];
 
     if (currentData.name_1 || currentData.value_1) {
