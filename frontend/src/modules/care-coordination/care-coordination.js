@@ -97,41 +97,91 @@ function renderTable(data) {
 }
 
 function attachTabListeners() {
-    const tabsContainer = document.getElementById("careCoordinationSubTabs");
-    if (!tabsContainer) return;
+    const mainTabsContainer = document.getElementById("careCoordinationMainTabs");
+    if (mainTabsContainer) {
+        mainTabsContainer.addEventListener("click", (e) => {
+            const link = e.target.closest(".main-tab-link");
+            if (!link) return;
+            e.preventDefault();
 
-    tabsContainer.addEventListener("click", (e) => {
-        const link = e.target.closest(".sub-tab-link");
-        if (!link) return;
-        e.preventDefault();
+            const allLinks = mainTabsContainer.querySelectorAll(".main-tab-link");
+            allLinks.forEach(l => {
+                l.classList.remove("active");
+                l.style.borderBottom = "none";
+                l.style.backgroundColor = "transparent";
+                l.style.color = "#64748b";
+            });
 
-        // Remove active state from all links
-        const allLinks = tabsContainer.querySelectorAll(".sub-tab-link");
-        allLinks.forEach(l => {
-            l.classList.remove("active");
-            l.style.borderBottom = "none";
-            l.style.color = "#64748b";
+            link.classList.add("active");
+            link.style.borderBottom = "none";
+            link.style.backgroundColor = "white";
+            link.style.color = "#3b82f6";
+
+            const target = link.getAttribute("data-main-target");
+            document.getElementById("section-export").style.display = target === "export" ? "block" : "none";
+            document.getElementById("section-import").style.display = target === "import" ? "block" : "none";
         });
+    }
 
-        // Add active state to clicked link
-        link.classList.add("active");
-        link.style.borderBottom = "2px solid #3b82f6";
-        link.style.color = "#3b82f6";
+    const subTabsContainer = document.getElementById("careCoordinationSubTabs");
+    if (subTabsContainer) {
+        subTabsContainer.addEventListener("click", (e) => {
+            const link = e.target.closest(".sub-tab-link");
+            if (!link) return;
+            e.preventDefault();
 
-        // Hide all contents
-        const targets = ["ccda-qrda", "immunization", "syndromic"];
-        targets.forEach(t => {
-            const el = document.getElementById(`content-${t}`);
-            if (el) el.style.display = "none";
+            const allLinks = subTabsContainer.querySelectorAll(".sub-tab-link");
+            allLinks.forEach(l => {
+                l.classList.remove("active");
+                l.style.borderBottom = "none";
+                l.style.color = "#64748b";
+            });
+
+            link.classList.add("active");
+            link.style.borderBottom = "2px solid #3b82f6";
+            link.style.color = "#3b82f6";
+
+            const targets = ["ccda-qrda", "immunization", "syndromic"];
+            targets.forEach(t => {
+                const el = document.getElementById(`content-${t}`);
+                if (el) el.style.display = "none";
+            });
+
+            const targetId = link.getAttribute("data-target");
+            const targetEl = document.getElementById(`content-${targetId}`);
+            if (targetEl) targetEl.style.display = "block";
         });
+    }
 
-        // Show target content
-        const targetId = link.getAttribute("data-target");
-        const targetEl = document.getElementById(`content-${targetId}`);
-        if (targetEl) {
-            targetEl.style.display = "block";
-        }
-    });
+    const importSubTabsContainer = document.getElementById("importSubTabs");
+    if (importSubTabsContainer) {
+        importSubTabsContainer.addEventListener("click", (e) => {
+            const link = e.target.closest(".import-sub-tab-link");
+            if (!link) return;
+            e.preventDefault();
+
+            const allLinks = importSubTabsContainer.querySelectorAll(".import-sub-tab-link");
+            allLinks.forEach(l => {
+                l.classList.remove("active");
+                l.style.borderBottom = "none";
+                l.style.color = "#64748b";
+            });
+
+            link.classList.add("active");
+            link.style.borderBottom = "2px solid #3b82f6";
+            link.style.color = "#3b82f6";
+
+            const targets = ["import-ccd", "import-ccr", "import-ccda"];
+            targets.forEach(t => {
+                const el = document.getElementById(`content-${t}`);
+                if (el) el.style.display = "none";
+            });
+
+            const targetId = link.getAttribute("data-target");
+            const targetEl = document.getElementById(`content-${targetId}`);
+            if (targetEl) targetEl.style.display = "block";
+        });
+    }
 
     const btnSearchImm = document.getElementById("btn-search-immunization");
     if (btnSearchImm) {
