@@ -413,79 +413,98 @@ class PatientService
         }
 
         $db = Database::connection();
-        $db->beginTransaction();
+        $maxAttempts = 5;
 
-        try {
-            $userId = (new User())->create([
-                'username'             => $data['username'],
-                'password'             => User::hashPassword($data['password']),
-                'must_change_password' => 1,
-                'created_at'           => date('Y-m-d H:i:s'),
-                'created_by'           => $createdBy
-            ]);
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $db->beginTransaction();
 
-            if (!$userId) {
-                throw new \RuntimeException('Failed to create user account.');
+            try {
+                $userId = (new User())->create([
+                    'username'             => $data['username'],
+                    'password'             => User::hashPassword($data['password']),
+                    'must_change_password' => 1,
+                    'created_at'           => date('Y-m-d H:i:s'),
+                    'created_by'           => $createdBy
+                ]);
+
+                if (!$userId) {
+                    throw new \RuntimeException('Failed to create user account.');
+                }
+
+                $patientNo = $this->generatePatientNo();
+
+                $patientId = (new Patient())->create([
+                    'user_id'      => $userId,
+                    'provider_id'  => $data['provider_id'] ?? null,
+                    'patient_no'   => $patientNo,
+                    'first_name'   => $data['first_name'],
+                    'middle_name'  => $data['middle_name'] ?? null,
+                    'last_name'    => $data['last_name'],
+                    'suffix'       => $data['suffix'] ?? null,
+                    'sex'          => $data['sex'],
+                    'birthdate'    => $data['birthdate'],
+                    'civil_status' => $data['civil_status'],
+                    'blood_type'   => $data['blood_type'],
+                    'race'         => $data['race'] ?? null,
+                    'ethnicity'    => $data['ethnicity'] ?? null,
+                    'religion'     => $data['religion'] ?? null,
+                    'language'     => $data['language'] ?? null,
+                    'allow_sms'         => $this->normalizeYesNo($data['allow_sms'] ?? null),
+                    'allow_voice_calls' => $this->normalizeYesNo($data['allow_voice_calls'] ?? null),
+                    'allow_email'       => $this->normalizeYesNo($data['allow_email'] ?? null),
+                    'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
+                    'allow_postcard'    => $this->normalizeYesNo($data['allow_postcard'] ?? null),
+                    'height'       => $data['height'],
+                    'weight'       => $data['weight'],
+                    'date_deceased'   => $data['date_deceased'] ?? null,
+                    'reason_deceased' => $data['reason_deceased'] ?? null,
+                    'created_at'   => date('Y-m-d H:i:s'),
+                    'created_by'   => $createdBy
+                ]);
+
+                if (!$patientId) {
+                    throw new \RuntimeException('Failed to create patient record.');
+                }
+
+                $this->upsertContact($patientId, $data, $createdBy);
+                $this->upsertEmployer($patientId, $data, $createdBy);
+                $this->upsertGuardian($patientId, $data, $createdBy);
+
+                $db->commit();
+
+                return [
+                    'success' => true,
+                    'message' => 'Patient account created successfully.',
+                    'data' => [
+                        'user_id'    => $userId,
+                        'patient_id' => $patientId,
+                        'patient_no' => $patientNo
+                    ]
+                ];
+            } catch (Throwable $e) {
+                $db->rollBack();
+
+                $isPatientNoCollision = $e instanceof \PDOException
+                    && ($e->errorInfo[1] ?? null) === 1062
+                    && str_contains($e->getMessage(), 'patient_no');
+
+                if ($isPatientNoCollision && $attempt < $maxAttempts) {
+                    continue;
+                }
+
+                error_log('Patient registration failed: ' . $e->getMessage());
+
+                return [
+                    'success' => false,
+                    'message' => 'Failed to register patient.'
+                ];
             }
-
-            $patientNo = $this->generatePatientNo();
-
-            $patientId = (new Patient())->create([
-                'user_id'      => $userId,
-                'provider_id'  => $data['provider_id'] ?? null,
-                'patient_no'   => $patientNo,
-                'first_name'   => $data['first_name'],
-                'middle_name'  => $data['middle_name'] ?? null,
-                'last_name'    => $data['last_name'],
-                'suffix'       => $data['suffix'] ?? null,
-                'sex'          => $data['sex'],
-                'birthdate'    => $data['birthdate'],
-                'civil_status' => $data['civil_status'],
-                'blood_type'   => $data['blood_type'],
-                'race'         => $data['race'] ?? null,
-                'ethnicity'    => $data['ethnicity'] ?? null,
-                'religion'     => $data['religion'] ?? null,
-                'language'     => $data['language'] ?? null,
-                'allow_sms'         => $this->normalizeYesNo($data['allow_sms'] ?? null),
-                'allow_voice_calls' => $this->normalizeYesNo($data['allow_voice_calls'] ?? null),
-                'allow_email'       => $this->normalizeYesNo($data['allow_email'] ?? null),
-                'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
-            'allow_postcard'    => $this->normalizeYesNo($data['allow_postcard'] ?? null),
-                'height'       => $data['height'],
-                'weight'       => $data['weight'],
-                'date_deceased'   => $data['date_deceased'] ?? null,
-                'reason_deceased' => $data['reason_deceased'] ?? null,
-                'created_at'   => date('Y-m-d H:i:s'),
-                'created_by'   => $createdBy
-            ]);
-
-            if (!$patientId) {
-                throw new \RuntimeException('Failed to create patient record.');
-            }
-
-            $this->upsertContact($patientId, $data, $createdBy);
-            $this->upsertEmployer($patientId, $data, $createdBy);
-            $this->upsertGuardian($patientId, $data, $createdBy);
-
-            $db->commit();
-
-            return [
-                'success' => true,
-                'message' => 'Patient account created successfully.',
-                'data' => [
-                    'user_id'    => $userId,
-                    'patient_id' => $patientId,
-                    'patient_no' => $patientNo
-                ]
-            ];
-        } catch (Throwable $e) {
-            $db->rollBack();
-
-            return [
-                'success' => false,
-                'message' => 'Failed to register patient.'
-            ];
         }
+
+        return [
+            'success' => false,
+            'message' => 'Failed to register patient.'
+        ];
     }
 
     /**
@@ -589,11 +608,19 @@ class PatientService
 
     /**
      * Generate a sequential patient number.
+     *
+     * Derived from the highest patient_no already in use (not a row COUNT),
+     * so it stays correct even if past rows were removed and the count no
+     * longer matches the highest number issued.
      */
     private function generatePatientNo(): string
     {
-        $count = count((new Patient())->get());
+        $stmt = Database::connection()->query(
+            "SELECT MAX(CAST(SUBSTRING(patient_no, 5) AS UNSIGNED)) AS max_no FROM patients"
+        );
 
-        return 'PAT-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+        $maxNo = (int) ($stmt->fetch(PDO::FETCH_ASSOC)['max_no'] ?? 0);
+
+        return 'PAT-' . str_pad((string) ($maxNo + 1), 6, '0', STR_PAD_LEFT);
     }
 }

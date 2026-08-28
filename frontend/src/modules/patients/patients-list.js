@@ -10763,6 +10763,14 @@ async function setupAddPatientModal(user)
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
+        const submitButton = form.querySelector('button[type="submit"]');
+
+        if (submitButton.disabled) {
+            return;
+        }
+
+        submitButton.disabled = true;
+
         clearErrors(FIELDS, "");
 
         const data = {};
@@ -10775,27 +10783,31 @@ async function setupAddPatientModal(user)
             }
         });
 
-        const result = await createPatient(data);
+        try {
+            const result = await createPatient(data);
 
-        if (!result.success) {
-            showAlert("formAlert", result.message || "Failed to register patient.", "error");
+            if (!result.success) {
+                showAlert("formAlert", result.message || "Failed to register patient.", "error");
 
-            if (result.errors) {
-                Object.entries(result.errors).forEach(([field, message]) => {
-                    const errorEl = document.getElementById(`err-${field}`);
+                if (result.errors) {
+                    Object.entries(result.errors).forEach(([field, message]) => {
+                        const errorEl = document.getElementById(`err-${field}`);
 
-                    if (errorEl) {
-                        errorEl.textContent = message;
-                    }
-                });
+                        if (errorEl) {
+                            errorEl.textContent = message;
+                        }
+                    });
+                }
+
+                return;
             }
 
-            return;
+            closeModal();
+            showListAlert(`Patient registered successfully. Patient No: ${result.data.patient_no}`, "success");
+            await loadPatients(user);
+        } finally {
+            submitButton.disabled = false;
         }
-
-        closeModal();
-        showListAlert(`Patient registered successfully. Patient No: ${result.data.patient_no}`, "success");
-        await loadPatients(user);
     });
 }
 

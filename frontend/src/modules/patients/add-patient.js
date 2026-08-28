@@ -38,6 +38,14 @@ export async function initAddPatient()
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
+        const submitButton = form.querySelector('button[type="submit"]');
+
+        if (submitButton.disabled) {
+            return;
+        }
+
+        submitButton.disabled = true;
+
         clearErrors();
 
         const data = {};
@@ -50,27 +58,31 @@ export async function initAddPatient()
             }
         });
 
-        const result = await createPatient(data);
+        try {
+            const result = await createPatient(data);
 
-        if (!result.success) {
-            showAlert(result.message || "Failed to register patient.", "error");
+            if (!result.success) {
+                showAlert(result.message || "Failed to register patient.", "error");
 
-            if (result.errors) {
-                Object.entries(result.errors).forEach(([field, message]) => {
-                    const errorEl = document.getElementById(`err-${field}`);
+                if (result.errors) {
+                    Object.entries(result.errors).forEach(([field, message]) => {
+                        const errorEl = document.getElementById(`err-${field}`);
 
-                    if (errorEl) {
-                        errorEl.textContent = message;
-                    }
-                });
+                        if (errorEl) {
+                            errorEl.textContent = message;
+                        }
+                    });
+                }
+
+                return;
             }
 
-            return;
+            showAlert(`Patient registered successfully. Patient No: ${result.data.patient_no}`, "success");
+            form.reset();
+            resetTabs();
+        } finally {
+            submitButton.disabled = false;
         }
-
-        showAlert(`Patient registered successfully. Patient No: ${result.data.patient_no}`, "success");
-        form.reset();
-        resetTabs();
     });
 }
 
