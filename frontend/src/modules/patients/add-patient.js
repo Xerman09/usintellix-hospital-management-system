@@ -62,16 +62,26 @@ export async function initAddPatient()
             const result = await createPatient(data);
 
             if (!result.success) {
-                showAlert(result.message || "Failed to register patient.", "error");
+                if (result.errors && Object.keys(result.errors).length > 0) {
+                    showAlert(Object.values(result.errors).join(" "), "error");
 
-                if (result.errors) {
+                    let firstErrorField = null;
+
                     Object.entries(result.errors).forEach(([field, message]) => {
                         const errorEl = document.getElementById(`err-${field}`);
 
                         if (errorEl) {
                             errorEl.textContent = message;
                         }
+
+                        if (!firstErrorField) {
+                            firstErrorField = field;
+                        }
                     });
+
+                    revealField(firstErrorField);
+                } else {
+                    showAlert(result.message || "Failed to register patient.", "error");
                 }
 
                 return;
@@ -80,10 +90,36 @@ export async function initAddPatient()
             showAlert(`Patient registered successfully. Patient No: ${result.data.patient_no}`, "success");
             form.reset();
             resetTabs();
+        } catch (error) {
+            showAlert("Something went wrong while registering the patient. Please try again.", "error");
         } finally {
             submitButton.disabled = false;
         }
     });
+}
+
+/**
+ * Switch to the tab containing a field and focus it, so a validation
+ * error on a non-default tab (e.g. Choices, Contact Info) isn't invisible.
+ */
+function revealField(fieldId)
+{
+    if (!fieldId) {
+        return;
+    }
+
+    const fieldEl = document.getElementById(fieldId);
+    const panel = fieldEl?.closest(".modal-tab-panel");
+
+    if (!panel) {
+        return;
+    }
+
+    const tabName = panel.getAttribute("data-panel");
+    const tabBtn = document.querySelector(`.modal-tab[data-tab="${tabName}"]`);
+
+    tabBtn?.click();
+    fieldEl.focus();
 }
 
 function wireTabs()

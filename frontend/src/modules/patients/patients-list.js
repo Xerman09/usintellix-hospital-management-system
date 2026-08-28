@@ -10787,16 +10787,26 @@ async function setupAddPatientModal(user)
             const result = await createPatient(data);
 
             if (!result.success) {
-                showAlert("formAlert", result.message || "Failed to register patient.", "error");
+                if (result.errors && Object.keys(result.errors).length > 0) {
+                    showAlert("formAlert", Object.values(result.errors).join(" "), "error");
 
-                if (result.errors) {
+                    let firstErrorField = null;
+
                     Object.entries(result.errors).forEach(([field, message]) => {
                         const errorEl = document.getElementById(`err-${field}`);
 
                         if (errorEl) {
                             errorEl.textContent = message;
                         }
+
+                        if (!firstErrorField) {
+                            firstErrorField = field;
+                        }
                     });
+
+                    revealModalField(modalBox, firstErrorField);
+                } else {
+                    showAlert("formAlert", result.message || "Failed to register patient.", "error");
                 }
 
                 return;
@@ -10805,10 +10815,36 @@ async function setupAddPatientModal(user)
             closeModal();
             showListAlert(`Patient registered successfully. Patient No: ${result.data.patient_no}`, "success");
             await loadPatients(user);
+        } catch (error) {
+            showAlert("formAlert", "Something went wrong while registering the patient. Please try again.", "error");
         } finally {
             submitButton.disabled = false;
         }
     });
+}
+
+/**
+ * Switch to the tab containing a field within a modal and focus it, so a
+ * validation error on a non-default tab isn't invisible to the user.
+ */
+function revealModalField(modalBox, fieldId)
+{
+    if (!fieldId) {
+        return;
+    }
+
+    const fieldEl = document.getElementById(fieldId);
+    const panel = fieldEl?.closest(".modal-tab-panel");
+
+    if (!panel) {
+        return;
+    }
+
+    const tabName = panel.getAttribute("data-panel");
+    const tabBtn = modalBox.querySelector(`.modal-tab[data-tab="${tabName}"]`);
+
+    tabBtn?.click();
+    fieldEl.focus();
 }
 
 async function setupEditPatientModal(user)

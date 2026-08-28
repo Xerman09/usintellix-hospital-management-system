@@ -317,7 +317,8 @@ class PatientController extends Controller
         );
 
         if (!$result['success']) {
-            $this->error($result['message'], 422, $result['errors'] ?? null);
+            $status = !empty($result['errors']) ? 422 : 500;
+            $this->error($result['message'], $status, $result['errors'] ?? null);
             return;
         }
 
