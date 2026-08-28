@@ -8954,7 +8954,7 @@ function renderEncounterSummary()
         : "";
 
     document.getElementById("pdEncounterSummaryTitle").textContent =
-        `${(encounter.date_of_service || "").slice(0, 10)} Encounter for ${patientName}`;
+        `${formatDate(encounter.date_of_service)} Encounter for ${patientName}`;
 
     renderVisitSummarySection();
     renderCarePlanSection();
