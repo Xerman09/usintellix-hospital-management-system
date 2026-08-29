@@ -2740,7 +2740,7 @@ function renderDashboardEncounters(encounters)
         ? `<div class="pd-allergy-list">
             ${encounters.slice(0, 5).map((encounter) => `
                 <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">${escapeHtml((encounter.date_of_service || "").slice(0, 16).replace("T", " "))}${encounter.visit_category_name ? ` &middot; ${escapeHtml(encounter.visit_category_name)}` : ""}</span>
+                    <span class="pd-allergy-name">${escapeHtml(formatDateTime(encounter.date_of_service))}${encounter.visit_category_name ? ` &middot; ${escapeHtml(encounter.visit_category_name)}` : ""}</span>
                 </div>
             `).join("")}
            </div>`
