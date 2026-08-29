@@ -3,23 +3,23 @@ import { formatApptTime, statusLabel, escapeHtml } from "./appointment-format.js
 const SLOT_MINUTES = 15;
 const DEFAULT_START_HOUR = 7;
 const DEFAULT_END_HOUR = 19;
+const ROW_HEIGHT_PX = 30; // matches .appt-timeline-time / .appt-timeline-events min-height
 
 /**
  * Day timeline — a timestamp column (15-minute rows, hour labels only)
  * beside a borderless events column. Appointments have no stored
  * duration, so each one is bucketed into the 15-minute row its
  * appointment_time falls in.
+ *
+ * The hour grid always renders, even with zero appointments -- like
+ * Google Calendar's day view, seeing the empty structure of the day is
+ * the point, not just a "nothing here" message.
  */
-export function renderTimeline(containerId, appointments, { showProvider = false, emptyMessage = "No appointments for this day.", onEdit, onCancel } = {})
+export function renderTimeline(containerId, appointments, { showProvider = false, emptyMessage = "No appointments for this day.", isToday = false, onEdit, onCancel, onSlotClick } = {})
 {
     const container = document.getElementById(containerId);
 
     if (!container) {
-        return;
-    }
-
-    if (!appointments.length) {
-        container.innerHTML = `<div class="appt-timeline-empty">${escapeHtml(emptyMessage)}</div>`;
         return;
     }
 
@@ -42,19 +42,32 @@ export function renderTimeline(containerId, appointments, { showProvider = false
         byBucket.set(bucket, list);
     });
 
+    const nowMinutes = isToday ? currentMinutes() : null;
+    const showNowLine = nowMinutes !== null && nowMinutes >= rangeStart && nowMinutes < rangeEnd;
+
     let html = "";
 
     for (let minutes = rangeStart; minutes < rangeEnd; minutes += SLOT_MINUTES) {
         const isHour = minutes % 60 === 0;
         const events = byBucket.get(minutes) || [];
+        const hourClass = isHour ? "on-hour" : "";
+        const isEmpty = events.length === 0;
 
         html += `
-            <div class="appt-timeline-time ${isHour ? "on-hour" : ""}">${isHour ? formatHourLabel(minutes) : ""}</div>
-            <div class="appt-timeline-events">${events.map((appointment) => apptCard(appointment, showProvider)).join("")}</div>
+            <div class="appt-timeline-time ${hourClass}">${isHour ? formatHourLabel(minutes) : ""}</div>
+            <div class="appt-timeline-events ${hourClass} ${isEmpty ? "slot-empty" : ""}" ${isEmpty ? `data-slot-time="${minutesToTimeStr(minutes)}"` : ""}>${events.map((appointment) => apptCard(appointment, showProvider)).join("")}</div>
         `;
     }
 
-    container.innerHTML = html;
+    if (showNowLine) {
+        const top = ((nowMinutes - rangeStart) / SLOT_MINUTES) * ROW_HEIGHT_PX;
+
+        html += `<div class="appt-timeline-now-line" style="top: ${top}px;"></div>`;
+    }
+
+    container.innerHTML = !sorted.length
+        ? `<div class="appt-timeline-empty-note">${escapeHtml(emptyMessage)}</div>${html}`
+        : html;
 
     container.querySelectorAll("[data-edit-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -76,6 +89,26 @@ export function renderTimeline(containerId, appointments, { showProvider = false
                 await onCancel(btn.getAttribute("data-cancel-id"), btn.getAttribute("data-date"));
             }
         });
+    });
+
+    if (onSlotClick) {
+        container.querySelectorAll(".appt-timeline-events.slot-empty").forEach((cell) => {
+            cell.addEventListener("click", () => onSlotClick(cell.getAttribute("data-slot-time")));
+        });
+    }
+
+    // Scroll to whatever's most relevant: the current-time line if it's
+    // in view (today), otherwise the day's first appointment, otherwise
+    // straight to the top of the default range -- never leave the user
+    // guessing which way to scroll to find "now" or the day's schedule.
+    requestAnimationFrame(() => {
+        const scrollMinutes = showNowLine
+            ? nowMinutes
+            : (minutesList.length ? Math.min(...minutesList) : rangeStart);
+
+        const targetTop = ((scrollMinutes - rangeStart) / SLOT_MINUTES) * ROW_HEIGHT_PX;
+
+        container.scrollTop = Math.max(0, targetTop - container.clientHeight / 3);
     });
 }
 
@@ -114,6 +147,21 @@ function timeToMinutes(timeStr)
 function bucketStart(minutes)
 {
     return Math.floor(minutes / SLOT_MINUTES) * SLOT_MINUTES;
+}
+
+function minutesToTimeStr(minutes)
+{
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+function currentMinutes()
+{
+    const now = new Date();
+
+    return now.getHours() * 60 + now.getMinutes();
 }
 
 function formatHourLabel(minutes)

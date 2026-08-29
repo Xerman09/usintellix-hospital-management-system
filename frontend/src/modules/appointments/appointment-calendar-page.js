@@ -24,6 +24,7 @@ let viewMode = "day";
 let calendarManuallyCollapsed = false;
 let searchTerm = "";
 let currentEditId = null;
+let requestNewAppointmentAt = () => {};
 
 /**
  * Shared controller for both the doctor's and the admin/receptionist's
@@ -382,8 +383,10 @@ function renderMainView()
         renderTimeline("apptViewBody", dayAppointments, {
             showProvider,
             emptyMessage: "No appointments for this day.",
+            isToday: selectedDate === todayStr,
             onEdit: openEditModal,
-            onCancel: cancelAppointment
+            onCancel: cancelAppointment,
+            onSlotClick: (timeStr) => requestNewAppointmentAt(selectedDate, timeStr)
         });
     } else if (viewMode === "week") {
         body.className = "appt-week-grid";
@@ -406,7 +409,8 @@ function renderMainView()
                 selectedDate = dateStr;
                 syncCalendarMonthToSelected();
                 renderAll();
-            }
+            },
+            onSlotClick: (dateStr, timeStr) => requestNewAppointmentAt(dateStr, timeStr)
         });
     } else {
         body.className = "appt-month-grid";
@@ -743,7 +747,12 @@ function setupAppointmentModal()
     wireDateTimeSection("p_");
     wireDateTimeSection("b_");
 
-    const openAddModal = () => {
+    // prefillDate/prefillTime come from clicking an empty slot on the
+    // day/week grid -- honored exactly as clicked, even a past date,
+    // since the user picked that specific cell on purpose. The toolbar's
+    // plain "+" button calls this with no args, where clamping to today
+    // still makes sense (nothing specific was chosen).
+    const openAddModal = (prefillDate, prefillTime) => {
         form.reset();
         clearErrors();
         document.getElementById("formAlert").innerHTML = "";
@@ -753,10 +762,14 @@ function setupAppointmentModal()
 
         resetModalTabs(modalBox);
 
-        const dateValue = selectedDate < todayStr ? todayStr : selectedDate;
+        const dateValue = prefillDate || (selectedDate < todayStr ? todayStr : selectedDate);
 
         resetDateTimeSection("p_", dateValue);
         resetDateTimeSection("b_", dateValue);
+
+        if (prefillTime) {
+            document.getElementById("p_appointment_time").value = prefillTime;
+        }
 
         document.getElementById("p_statusFieldGroup").style.display = "none";
 
@@ -775,7 +788,8 @@ function setupAppointmentModal()
         document.getElementById("formAlert").innerHTML = "";
     };
 
-    document.getElementById("openAddAppointmentModal").addEventListener("click", openAddModal);
+    document.getElementById("openAddAppointmentModal").addEventListener("click", () => openAddModal());
+    requestNewAppointmentAt = openAddModal;
     document.getElementById("closeAddAppointmentModal").addEventListener("click", closeModal);
     document.getElementById("cancelAddAppointment").addEventListener("click", closeModal);
     modalOverlay.addEventListener("click", (event) => {

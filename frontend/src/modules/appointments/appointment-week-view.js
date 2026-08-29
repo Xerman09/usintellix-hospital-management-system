@@ -3,6 +3,7 @@ import { formatApptTime, escapeHtml } from "./appointment-format.js?v=2";
 const SLOT_MINUTES = 15;
 const DEFAULT_START_HOUR = 7;
 const DEFAULT_END_HOUR = 19;
+const ROW_HEIGHT_PX = 30; // matches .appt-timeline-time / .appt-week-cell min-height
 const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /**
@@ -11,7 +12,7 @@ const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
  * column header shows the weekday + date and is itself clickable to
  * jump to that day.
  */
-export function renderWeekView(containerId, days, appointments, { onEdit, onCancel, onSelectDay } = {})
+export function renderWeekView(containerId, days, appointments, { onEdit, onCancel, onSelectDay, onSlotClick } = {})
 {
     const container = document.getElementById(containerId);
 
@@ -67,12 +68,34 @@ export function renderWeekView(containerId, days, appointments, { onEdit, onCanc
 
         days.forEach((day) => {
             const events = byDate[day.dateStr].get(minutes) || [];
+            const isEmpty = events.length === 0;
+            const cellClasses = ["appt-week-cell"];
 
-            html += `<div class="appt-week-cell">${events.map((appointment) => weekCard(appointment)).join("")}</div>`;
+            if (isHour) cellClasses.push("on-hour");
+            if (day.isToday) cellClasses.push("today");
+            if (isEmpty) cellClasses.push("slot-empty");
+
+            html += `<div class="${cellClasses.join(" ")}" ${isEmpty ? `data-date="${day.dateStr}" data-slot-time="${minutesToTimeStr(minutes)}"` : ""}>${events.map((appointment) => weekCard(appointment)).join("")}</div>`;
         });
     }
 
+    const todayIndex = days.findIndex((day) => day.isToday);
+    const nowMinutes = todayIndex !== -1 ? currentMinutes() : null;
+    const showNowLine = nowMinutes !== null && nowMinutes >= rangeStart && nowMinutes < rangeEnd;
+
     container.innerHTML = html;
+
+    if (showNowLine) {
+        const top = ((nowMinutes - rangeStart) / SLOT_MINUTES) * ROW_HEIGHT_PX;
+        const nowLine = document.createElement("div");
+
+        nowLine.className = "appt-week-now-line";
+        nowLine.style.top = `${top}px`;
+        nowLine.style.left = `calc(76px + (100% - 76px) * ${todayIndex} / 7)`;
+        nowLine.style.width = `calc((100% - 76px) / 7)`;
+
+        container.appendChild(nowLine);
+    }
 
     container.querySelectorAll("[data-edit-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -100,6 +123,22 @@ export function renderWeekView(containerId, days, appointments, { onEdit, onCanc
 
     container.querySelectorAll(".appt-week-daycol-header[data-date]").forEach((cell) => {
         cell.addEventListener("click", () => onSelectDay && onSelectDay(cell.getAttribute("data-date")));
+    });
+
+    if (onSlotClick) {
+        container.querySelectorAll(".appt-week-cell.slot-empty").forEach((cell) => {
+            cell.addEventListener("click", () => onSlotClick(cell.getAttribute("data-date"), cell.getAttribute("data-slot-time")));
+        });
+    }
+
+    requestAnimationFrame(() => {
+        const scrollMinutes = showNowLine
+            ? nowMinutes
+            : (minutesList.length ? Math.min(...minutesList) : rangeStart);
+
+        const targetTop = ((scrollMinutes - rangeStart) / SLOT_MINUTES) * ROW_HEIGHT_PX;
+
+        container.scrollTop = Math.max(0, targetTop - container.clientHeight / 3);
     });
 }
 
@@ -132,6 +171,21 @@ function timeToMinutes(timeStr)
 function bucketStart(minutes)
 {
     return Math.floor(minutes / SLOT_MINUTES) * SLOT_MINUTES;
+}
+
+function minutesToTimeStr(minutes)
+{
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+function currentMinutes()
+{
+    const now = new Date();
+
+    return now.getHours() * 60 + now.getMinutes();
 }
 
 function formatHourLabel(minutes)

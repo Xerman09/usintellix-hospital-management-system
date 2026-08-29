@@ -2129,6 +2129,7 @@ select.form-input {
 }
 
 .appt-timeline {
+    position: relative;
     display: grid;
     grid-template-columns: 76px 1fr;
     max-height: 640px;
@@ -2153,6 +2154,7 @@ select.form-input {
     color: #94a3b8;
     font-weight: 600;
     padding-top: 4px;
+    border-bottom-color: #dbe1ea;
 }
 
 .appt-timeline-events {
@@ -2164,10 +2166,51 @@ select.form-input {
     border-bottom: 1px solid #f5f7fa;
 }
 
-.appt-timeline-empty {
+.appt-timeline-events.on-hour {
+    border-bottom-color: #dbe1ea;
+}
+
+.appt-timeline-events.slot-empty {
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.appt-timeline-events.slot-empty:hover {
+    background: #f3f6fb;
+}
+
+.appt-timeline-empty-note {
+    grid-column: 1 / -1;
     text-align: center;
     color: #9ca3af;
-    padding: 40px 14px;
+    font-size: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eef1f7;
+    background: #fbfcfe;
+}
+
+.appt-timeline-now-line,
+.appt-week-now-line {
+    position: absolute;
+    left: 76px;
+    right: 0;
+    height: 2px;
+    background: #ea4335;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.appt-timeline-now-line::before,
+.appt-week-now-line::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ea4335;
 }
 
 .appt-timeline-card {
@@ -2225,6 +2268,7 @@ select.form-input {
 
 /* Week filter — same time column, one events column per weekday. */
 .appt-week-grid {
+    position: relative;
     display: grid;
     grid-template-columns: 76px repeat(7, 1fr);
     max-height: 640px;
@@ -2266,6 +2310,10 @@ select.form-input {
     background: #f8fafc;
 }
 
+.appt-week-daycol-header.today {
+    background: rgba(29, 78, 216, .05);
+}
+
 .appt-week-daycol-header.today .appt-week-daynum {
     color: var(--accent);
 }
@@ -2295,6 +2343,22 @@ select.form-input {
     display: flex;
     flex-direction: column;
     gap: 2px;
+}
+
+.appt-week-cell.on-hour {
+    border-bottom-color: #dbe1ea;
+}
+
+.appt-week-cell.today {
+    background: rgba(29, 78, 216, .03);
+}
+
+.appt-week-cell.slot-empty {
+    cursor: pointer;
+}
+
+.appt-week-cell.slot-empty:hover {
+    background: #f3f6fb;
 }
 
 .appt-week-cell:last-child {
