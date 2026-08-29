@@ -62,6 +62,7 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
+                <a data-tab="providers">Providers</a>
                 <a data-tab="procedure_configuration">Configuration</a>
                 <a data-tab="procedure_load_compendium">Load Compendium</a>
                 <a class="nav-link-disabled" data-tab="procedure_pending_review">Pending Review</a>
@@ -72,10 +73,11 @@ function staffNavLinks(role)
                 <a data-tab="procedure_lab_documents">Lab Documents</a>
             </div>
         </div>
-        ${role === "admin" ? `
         <div class="nav-dropdown">
             <span>Admin</span>
             <div class="dropdown-content">
+                <a data-tab="employees">Employees</a>
+                ${role === "admin" ? `
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Practice
@@ -95,9 +97,11 @@ function staffNavLinks(role)
                         <a data-tab="general_settings">Two Factor Authentication</a>
                     </div>
                 </div>
+                <a data-tab="role_management">Role Management</a>
+                ` : ""}
+                <a data-tab="settings">Settings</a>
             </div>
         </div>
-        ` : ""}
         <div class="nav-dropdown">
             <span>Reports</span>
             <div class="dropdown-content">
@@ -220,9 +224,6 @@ function staffNavLinks(role)
                 <a data-tab="popup_management">Management</a>
             </div>
         </div>
-        <a data-tab="employees">Employees</a>
-        <a data-tab="providers">Providers</a>
-        ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
         <div class="nav-dropdown">
             <span>File Management</span>
             <div class="dropdown-content">
@@ -291,7 +292,6 @@ function staffNavLinks(role)
                 <a data-tab="price_levels">Price Level Management</a>
             </div>
         </div>
-        <a data-tab="settings">Settings</a>
         <a data-tab="help">Help</a>
     `;
 }
