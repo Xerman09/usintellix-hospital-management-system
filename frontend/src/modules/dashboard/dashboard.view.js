@@ -9,6 +9,9 @@ function staffNavLinks(role)
     return `
         ${appointmentsLink}
         <a data-tab="patient_finder">Finder</a>
+        <a data-tab="patient_flow">Flow</a>
+        <a data-tab="recalls">Recalls</a>
+        <a data-tab="messaging">Messaging</a>
         <div class="nav-dropdown">
             <span>Patient</span>
             <div class="dropdown-content">
@@ -37,11 +40,6 @@ function staffNavLinks(role)
                 </div>
             </div>
         </div>
-        <a data-tab="employees">Employees</a>
-        <a data-tab="messaging">Messaging</a>
-        <a data-tab="recalls">Recalls</a>
-        <a data-tab="patient_flow">Flow</a>
-        ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
         <div class="nav-dropdown">
             <span>Fees</span>
             <div class="dropdown-content">
@@ -64,66 +62,14 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
-                <a data-tab="providers">Providers</a>
-                <a data-tab="provider_categories">Provider Categories</a>
-                <a data-tab="visit_categories">Visit Categories</a>
-                <a data-tab="screening_tools">Screening Tools</a>
-                <a data-tab="classes">Classes</a>
-                <a data-tab="visit_types">Visit Type</a>
-                <a data-tab="facilities">Facility</a>
-                <a data-tab="facility_billings">Facility Billing</a>
-                <a data-tab="allergies">Allergy Management</a>
-                <a data-tab="medical_problems">Medical Problem Management</a>
-                <a data-tab="medication_management">Medication Management</a>
-                <a data-tab="prescription_categories">Prescription Categories</a>
-                <a data-tab="payer_types">Payer Type Management</a>
-                <a data-tab="x12_partners">X12 Partner</a>
-                <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
-                <a data-tab="insurances">Insurance Management</a>
-                <a data-tab="organization_types">Organization Type Registration</a>
-                <a data-tab="pos_codes">POS Code Management</a>
-                <a data-tab="price_levels">Price Level Management</a>
-            </div>
-        </div>
-        <div class="nav-dropdown">
-            <span>File Management</span>
-            <div class="dropdown-content">
-                <div class="dropdown-section-label">Code</div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Codes
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
-                        <a data-tab="cvx_codes">CVX Immunization Codes</a>
-                        <a data-tab="cqm_valuesets">CQM Valueset</a>
-                        <a data-tab="codes">Codes</a>
-                    </div>
-                </div>
-                <div class="dropdown-submenu">
-                    <span class="dropdown-submenu-trigger">
-                        Immunization
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                    </span>
-                    <div class="dropdown-submenu-content">
-                        <a data-tab="immunizations">Immunizations</a>
-                        <a data-tab="administration_routes">Routes</a>
-                        <a data-tab="administration_sites">Administration Sites</a>
-                        <a data-tab="amount_units">Amount Units</a>
-                        <a data-tab="information_sources">Information Sources</a>
-                        <a data-tab="refusal_reasons">Refusal Reasons</a>
-                        <a data-tab="completion_statuses">Completion Statuses</a>
-                    </div>
-                </div>
-                <a data-tab="preference_types">Preference Type</a>
-                <a data-tab="surgeries">Surgeries</a>
-                <a data-tab="void_reasons">Void Reason Management</a>
-                <a data-tab="care_plan_reason_codes">Care Plan Reason Code Management</a>
-                <a data-tab="specimen_sites">Specimen Site Management</a>
-                <a data-tab="specimen_methods">Specimen Method Management</a>
-                <a data-tab="specimen_types">Specimen Type Management</a>
-                <a data-tab="specimen_conditions">Specimen Condition Management</a>
+                <a data-tab="procedure_configuration">Configuration</a>
+                <a data-tab="procedure_load_compendium">Load Compendium</a>
+                <a class="nav-link-disabled" data-tab="procedure_pending_review">Pending Review</a>
+                <a class="nav-link-disabled" data-tab="procedure_patient_results">Patient Results</a>
+                <a class="nav-link-disabled" data-tab="procedure_lab_overview">Lab Overview</a>
+                <a data-tab="procedure_batch_results">Batch Results</a>
+                <a data-tab="procedure_electronic_reports">Electronic Reports</a>
+                <a data-tab="procedure_lab_documents">Lab Documents</a>
             </div>
         </div>
         ${role === "admin" ? `
@@ -272,6 +218,77 @@ function staffNavLinks(role)
             <span>Popups</span>
             <div class="dropdown-content">
                 <a data-tab="popup_management">Management</a>
+            </div>
+        </div>
+        <a data-tab="employees">Employees</a>
+        <a data-tab="providers">Providers</a>
+        ${role === "admin" ? `<a data-tab="role_management">Role Management</a>` : ""}
+        <div class="nav-dropdown">
+            <span>File Management</span>
+            <div class="dropdown-content">
+                <div class="dropdown-section-label">Code</div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Codes
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
+                        <a data-tab="cvx_codes">CVX Immunization Codes</a>
+                        <a data-tab="cqm_valuesets">CQM Valueset</a>
+                        <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
+                        <a data-tab="pos_codes">POS Code Management</a>
+                        <a data-tab="codes">Codes</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Immunization
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="immunizations">Immunizations</a>
+                        <a data-tab="administration_routes">Routes</a>
+                        <a data-tab="administration_sites">Administration Sites</a>
+                        <a data-tab="amount_units">Amount Units</a>
+                        <a data-tab="information_sources">Information Sources</a>
+                        <a data-tab="refusal_reasons">Refusal Reasons</a>
+                        <a data-tab="completion_statuses">Completion Statuses</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Specimen
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="specimen_sites">Specimen Site Management</a>
+                        <a data-tab="specimen_methods">Specimen Method Management</a>
+                        <a data-tab="specimen_types">Specimen Type Management</a>
+                        <a data-tab="specimen_conditions">Specimen Condition Management</a>
+                    </div>
+                </div>
+                <a data-tab="preference_types">Preference Type</a>
+                <a data-tab="surgeries">Surgeries</a>
+                <a data-tab="void_reasons">Void Reason Management</a>
+                <a data-tab="care_plan_reason_codes">Care Plan Reason Code Management</a>
+                <div class="dropdown-section-label">Procedures</div>
+                <a data-tab="provider_categories">Provider Categories</a>
+                <a data-tab="visit_categories">Visit Categories</a>
+                <a data-tab="screening_tools">Screening Tools</a>
+                <a data-tab="classes">Classes</a>
+                <a data-tab="visit_types">Visit Type</a>
+                <a data-tab="facilities">Facility</a>
+                <a data-tab="facility_billings">Facility Billing</a>
+                <a data-tab="allergies">Allergy Management</a>
+                <a data-tab="medical_problems">Medical Problem Management</a>
+                <a data-tab="medication_management">Medication Management</a>
+                <a data-tab="prescription_categories">Prescription Categories</a>
+                <a data-tab="payer_types">Payer Type Management</a>
+                <a data-tab="x12_partners">X12 Partner</a>
+                <a data-tab="insurances">Insurance Management</a>
+                <a data-tab="organization_types">Organization Type Registration</a>
+                <a data-tab="price_levels">Price Level Management</a>
             </div>
         </div>
         <a data-tab="settings">Settings</a>

@@ -2737,10 +2737,16 @@ function renderDashboardEncounters(encounters)
     }
 
     body.innerHTML = encounters.length
-        ? `<div class="pd-allergy-list">
+        ? `<div class="pd-visit-list">
             ${encounters.slice(0, 5).map((encounter) => `
-                <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">${escapeHtml(formatDateTime(encounter.date_of_service))}${encounter.visit_category_name ? ` &middot; ${escapeHtml(encounter.visit_category_name)}` : ""}</span>
+                <div class="pd-visit-item">
+                    <div class="pd-visit-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+                    </div>
+                    <div class="pd-visit-info">
+                        <span class="pd-visit-category">${escapeHtml(encounter.visit_category_name || "Visit")}</span>
+                        <span class="pd-visit-date">${escapeHtml(formatDateTime(encounter.date_of_service))}</span>
+                    </div>
                 </div>
             `).join("")}
            </div>`

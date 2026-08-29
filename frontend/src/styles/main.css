@@ -921,6 +921,12 @@ body {
     color: var(--accent);
 }
 
+.dropdown-content a.nav-link-disabled {
+    color: #b7c0cf;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .dropdown-section-label {
     padding: 10px 12px 4px;
     font-size: 10.5px;

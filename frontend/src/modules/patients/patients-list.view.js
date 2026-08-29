@@ -989,6 +989,67 @@ export function PatientsListView(user)
     color: #29323f;
 }
 
+.pd-visit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.pd-visit-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    transition: border-color .12s, background-color .12s;
+}
+
+.pd-visit-item:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-light);
+}
+
+.pd-visit-icon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: var(--accent-lighter);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pd-visit-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.pd-visit-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.pd-visit-category {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-visit-date {
+    font-size: 11.5px;
+    color: #8b98ac;
+}
+
 .pd-allergy-remove {
     flex-shrink: 0;
     border: none;
@@ -4131,6 +4192,67 @@ textarea.pd-sdoh-readonly {
     font-size: 12.5px;
     font-weight: 600;
     color: #29323f;
+}
+
+.pd-visit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.pd-visit-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    transition: border-color .12s, background-color .12s;
+}
+
+.pd-visit-item:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-light);
+}
+
+.pd-visit-icon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: var(--accent-lighter);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pd-visit-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.pd-visit-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.pd-visit-category {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-visit-date {
+    font-size: 11.5px;
+    color: #8b98ac;
 }
 
 .pd-allergy-remove {
