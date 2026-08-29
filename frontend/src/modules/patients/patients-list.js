@@ -5066,7 +5066,7 @@ function renderDashboardVitalsHistory(vitalsHistory)
         ? `<div class="pd-allergy-list">
             ${vitalsHistory.map((vitals) => `
                 <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">${escapeHtml((vitals.date_of_service || "").slice(0, 10) || "-")} &middot; ${escapeHtml(summarizeVitalsEntry(vitals))}</span>
+                    <span class="pd-allergy-name">${escapeHtml(formatDate(vitals.date_of_service) || "-")} &middot; ${escapeHtml(summarizeVitalsEntry(vitals))}</span>
                 </div>
             `).join("")}
            </div>`
