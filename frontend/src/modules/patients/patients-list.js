@@ -1,6 +1,7 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
+import { formatApptDate, formatApptTime } from "../appointments/appointment-format.js";
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
@@ -5110,13 +5111,13 @@ function renderDashboardAppointments(appointments)
         ? `<div class="pd-allergy-list">
             ${appointments.map((appt) => {
                 const provider = [appt.provider_first_name, appt.provider_last_name].filter(Boolean).join(" ");
-                const time = appt.is_all_day ? "All day" : (appt.appointment_time || "").slice(0, 5);
+                const time = appt.is_all_day ? "All day" : formatApptTime(appt.appointment_time);
                 const label = [appt.reason || appt.title || appt.visit_category_name || "Appointment", provider ? `with ${provider}` : ""]
                     .filter(Boolean).join(" ");
 
                 return `
                     <div class="pd-allergy-item">
-                        <span class="pd-allergy-name">${escapeHtml((appt.appointment_date || "").slice(0, 10))} ${escapeHtml(time)} &middot; ${escapeHtml(label)}</span>
+                        <span class="pd-allergy-name">${escapeHtml(formatApptDate(appt.appointment_date))} ${escapeHtml(time)} &middot; ${escapeHtml(label)}</span>
                     </div>
                 `;
             }).join("")}
