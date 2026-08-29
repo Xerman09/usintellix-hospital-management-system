@@ -2894,7 +2894,7 @@ function renderDemographics(patient)
             field("Last Name", patient.last_name),
             field("Suffix", patient.suffix),
             field("Sex", sexLabel),
-            field("Birthdate", patient.birthdate),
+            field("Birthdate", formatDate(patient.birthdate)),
             field("Civil Status", patient.civil_status),
             field("Blood Type", patient.blood_type),
             field("Height (cm)", patient.height),

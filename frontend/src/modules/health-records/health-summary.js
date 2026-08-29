@@ -76,7 +76,7 @@ function renderAboutContact(d)
             <div class="form-grid">
                 <div class="form-group"><label>Sex</label><p>${sex}</p></div>
                 <div class="form-group"><label>Civil Status</label><p>${civilStatus}</p></div>
-                <div class="form-group"><label>Birthdate</label><p>${d.birthdate ?? "-"}</p></div>
+                <div class="form-group"><label>Birthdate</label><p>${formatDate(d.birthdate) || "-"}</p></div>
                 <div class="form-group"><label>Blood Type</label><p>${d.blood_type ?? "-"}</p></div>
                 <div class="form-group"><label>Height</label><p>${d.height ?? "-"} cm</p></div>
                 <div class="form-group"><label>Weight</label><p>${d.weight ?? "-"} kg</p></div>
