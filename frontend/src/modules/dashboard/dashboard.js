@@ -37,6 +37,8 @@ import { VendorsView } from "../vendors/vendors.view.js";
 import { initVendors } from "../vendors/vendors.js";
 import { ContainerGroupsView } from "../container-groups/container-groups.view.js";
 import { initContainerGroups } from "../container-groups/container-groups.js";
+import { BatchResultsView } from "../batch-results/batch-results.view.js";
+import { initBatchResults } from "../batch-results/batch-results.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
 import { SurgeriesView } from "../surgeries/surgeries.view.js";
@@ -347,6 +349,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initContainerGroups, 0);
                 return ContainerGroupsView();
+            }, activate);
+        } else if (tabId === 'procedure_batch_results') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initBatchResults, 0);
+                return BatchResultsView();
             }, activate);
         } else if (tabId === 'screening_tools') {
             tabManager.openTab(tabId, title, () => {

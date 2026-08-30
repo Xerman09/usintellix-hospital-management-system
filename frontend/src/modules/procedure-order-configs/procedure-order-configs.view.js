@@ -222,6 +222,15 @@ export function ProcedureOrderConfigsView()
     color: #1a2338;
 }
 
+.poc-name--selectable {
+    cursor: pointer;
+}
+
+.poc-name--selectable:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
 .poc-muted {
     color: #71809b;
 }

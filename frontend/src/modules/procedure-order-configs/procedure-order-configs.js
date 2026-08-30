@@ -52,8 +52,15 @@ const OTHER_VALUE = "__other__";
 let items = [];
 let dropdownOptions = {};
 let expanded = new Set();
+let onSelectItem = null;
 
-export async function initProcedureOrderConfigs()
+// options.onSelect, when provided, turns this into a picker: each row's
+// name becomes clickable and invokes onSelect(item) instead of doing
+// nothing -- used when this tree is embedded inside another page (e.g.
+// Batch Results' "Procedure" field) rather than opened as its own tab.
+// Everything else (Add Top Level, Edit, Add child, Delete) still works
+// exactly as it does on the standalone page.
+export async function initProcedureOrderConfigs(options = {})
 {
     const user = getUser();
 
@@ -61,6 +68,8 @@ export async function initProcedureOrderConfigs()
         window.location.hash = "#/dashboard";
         return;
     }
+
+    onSelectItem = options.onSelect || null;
 
     const modalOverlay = document.getElementById("pocModalOverlay");
     const modalTitle = document.getElementById("pocModalTitle");
@@ -455,6 +464,18 @@ function render(openModal)
             }
         });
     });
+
+    if (onSelectItem) {
+        tbody.querySelectorAll("[data-select-id]").forEach((el) => {
+            el.addEventListener("click", () => {
+                const item = items.find((row) => row.id === Number(el.getAttribute("data-select-id")));
+
+                if (item) {
+                    onSelectItem(item);
+                }
+            });
+        });
+    }
 }
 
 function renderRow(item, depth, hasChildren)
@@ -470,13 +491,14 @@ function renderRow(item, depth, hasChildren)
         : `<span class="poc-toggle-spacer"></span>`;
 
     const details = buildDetailsSummary(item);
+    const nameAttrs = onSelectItem ? `class="poc-name poc-name--selectable" data-select-id="${item.id}"` : `class="poc-name"`;
 
     return `
         <tr>
             <td>
                 <div class="poc-name-cell" style="padding-left: ${indent}px;">
                     ${toggle}
-                    <span class="poc-name">${escapeHtml(item.name)}</span>
+                    <span ${nameAttrs}>${escapeHtml(item.name)}</span>
                 </div>
             </td>
             <td class="poc-muted">${TIER_LABELS[item.procedure_tier] || item.procedure_tier}</td>
