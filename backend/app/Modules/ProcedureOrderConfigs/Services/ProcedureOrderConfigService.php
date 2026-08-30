@@ -3,6 +3,7 @@
 namespace App\Modules\ProcedureOrderConfigs\Services;
 
 use App\Core\Database;
+use App\Modules\Facilities\Models\Facility;
 use App\Modules\ProcedureOrderConfigs\Models\ProcedureOrderConfig;
 use PDO;
 use Throwable;
@@ -52,13 +53,16 @@ class ProcedureOrderConfigService
     public function list(): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, parent_id, procedure_tier, name, description, sequence,
-                    order_test_type, order_from, identifying_code, standard_code,
-                    body_site, specimen_type, administer_via, laterality,
-                    default_units, default_range, created_at, updated_at
-             FROM procedure_order_configs
-             WHERE deleted_at IS NULL
-             ORDER BY parent_id IS NULL DESC, parent_id, sequence, name"
+            "SELECT poc.id, poc.parent_id, poc.procedure_tier, poc.name, poc.description, poc.sequence,
+                    poc.order_test_type, poc.order_from, poc.identifying_code, poc.standard_code,
+                    poc.body_site, poc.specimen_type, poc.administer_via, poc.laterality,
+                    poc.default_units, poc.default_range, poc.source_facility_id,
+                    f.name AS source_facility_name,
+                    poc.created_at, poc.updated_at
+             FROM procedure_order_configs poc
+             LEFT JOIN facilities f ON f.id = poc.source_facility_id
+             WHERE poc.deleted_at IS NULL
+             ORDER BY poc.parent_id IS NULL DESC, poc.parent_id, poc.sequence, poc.name"
         );
 
         $stmt->execute();
@@ -125,6 +129,7 @@ class ProcedureOrderConfigService
 
         $data['procedure_tier'] = $config['procedure_tier'];
         $data['parent_id'] = $config['parent_id'];
+        $data['source_facility_id'] = $config['source_facility_id'];
 
         $errors = $this->validate($data, skipParentCheck: true);
 
@@ -189,6 +194,144 @@ class ProcedureOrderConfigService
     }
 
     /**
+     * The CSV columns "Load Order Definitions" expects, in order.
+     * Only "name" is required -- everything else is optional per row.
+     */
+    public const COMPENDIUM_COLUMNS = [
+        'name', 'order_test_type', 'identifying_code', 'standard_code',
+        'body_site', 'specimen_type', 'administer_via', 'laterality',
+        'description', 'sequence'
+    ];
+
+    /**
+     * Bulk-create Procedure Order rows from an uploaded CSV file (the
+     * "Load Lab Compendium" > "Load Order Definitions" action). Each
+     * data row becomes one Procedure Order nested under the chosen
+     * container Group, tagged with the vendor facility it came from.
+     * Rows are processed independently -- a bad row is skipped and
+     * reported rather than aborting the whole file.
+     */
+    public function loadCompendium(array $file, int $vendorFacilityId, int $containerGroupId, int $createdBy): array
+    {
+        if (empty($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return [
+                'success' => false,
+                'message' => 'No file was uploaded.'
+            ];
+        }
+
+        $vendor = (new Facility())->where('id', $vendorFacilityId)->first();
+
+        if (!$vendor || $vendor['deleted_at'] !== null) {
+            return [
+                'success' => false,
+                'message' => 'Selected vendor was not found.'
+            ];
+        }
+
+        $containerGroup = (new ProcedureOrderConfig())->where('id', $containerGroupId)->first();
+
+        if (!$containerGroup || $containerGroup['deleted_at'] !== null || $containerGroup['procedure_tier'] !== 'group') {
+            return [
+                'success' => false,
+                'message' => 'Selected container group was not found.'
+            ];
+        }
+
+        $handle = fopen($file['tmp_name'], 'r');
+
+        if (!$handle) {
+            return [
+                'success' => false,
+                'message' => 'Unable to read the uploaded file.'
+            ];
+        }
+
+        $header = fgetcsv($handle);
+
+        if ($header === false) {
+            fclose($handle);
+
+            return [
+                'success' => false,
+                'message' => 'The uploaded file is empty.'
+            ];
+        }
+
+        $columnIndex = [];
+
+        foreach ($header as $index => $columnName) {
+            $columnIndex[strtolower(trim($columnName))] = $index;
+        }
+
+        if (!isset($columnIndex['name'])) {
+            fclose($handle);
+
+            return [
+                'success' => false,
+                'message' => 'The file is missing a required "name" column. Expected columns: ' . implode(', ', self::COMPENDIUM_COLUMNS)
+            ];
+        }
+
+        $created = 0;
+        $failed = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            $value = fn(string $column) => isset($columnIndex[$column], $row[$columnIndex[$column]])
+                ? trim((string) $row[$columnIndex[$column]])
+                : '';
+
+            $name = $value('name');
+
+            if ($name === '') {
+                continue;
+            }
+
+            $data = [
+                'procedure_tier'     => 'procedure_order',
+                'parent_id'          => $containerGroupId,
+                'source_facility_id' => $vendorFacilityId,
+                'name'               => $name,
+                'order_test_type'    => $value('order_test_type') !== '' ? $value('order_test_type') : 'Laboratory',
+                'identifying_code'   => $value('identifying_code') ?: null,
+                'standard_code'      => $value('standard_code') ?: null,
+                'body_site'          => $value('body_site') ?: null,
+                'specimen_type'      => $value('specimen_type') ?: null,
+                'administer_via'     => $value('administer_via') ?: null,
+                'laterality'         => $value('laterality') ?: null,
+                'description'        => $value('description') ?: null,
+                'sequence'           => $value('sequence') !== '' ? $value('sequence') : 0
+            ];
+
+            $result = $this->register($data, $createdBy);
+
+            if ($result['success']) {
+                $created++;
+            } else {
+                $failed[] = [
+                    'row'    => $rowNumber,
+                    'name'   => $name,
+                    'errors' => $result['errors'] ?? ['general' => $result['message']]
+                ];
+            }
+        }
+
+        fclose($handle);
+
+        return [
+            'success' => true,
+            'message' => "Loaded {$created} order definition(s)" . (!empty($failed) ? ', ' . count($failed) . ' row(s) failed.' : '.'),
+            'data' => [
+                'created' => $created,
+                'failed'  => $failed
+            ]
+        ];
+    }
+
+    /**
      * Walk the tree (breadth-first) from the given id and collect every
      * active descendant's id, including the starting id itself.
      */
@@ -240,10 +383,11 @@ class ProcedureOrderConfigService
         ];
 
         $payload = [
-            'procedure_tier' => $tier,
-            'name'           => $data['name'],
-            'description'    => $data['description'] ?? null,
-            'sequence'       => $data['sequence'] ?? 0
+            'procedure_tier'     => $tier,
+            'name'               => $data['name'],
+            'description'        => $data['description'] ?? null,
+            'sequence'           => $data['sequence'] ?? 0,
+            'source_facility_id' => $data['source_facility_id'] ?? null
         ];
 
         foreach ($fieldsByTier as $field => $applicableTiers) {

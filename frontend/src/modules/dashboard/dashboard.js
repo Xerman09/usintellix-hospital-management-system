@@ -31,6 +31,10 @@ import { VisitCategoriesView } from "../visit-categories/visit-categories.view.j
 import { initVisitCategories } from "../visit-categories/visit-categories.js";
 import { ProcedureOrderConfigsView } from "../procedure-order-configs/procedure-order-configs.view.js";
 import { initProcedureOrderConfigs } from "../procedure-order-configs/procedure-order-configs.js";
+import { LoadCompendiumView } from "../procedure-order-configs/load-compendium.view.js";
+import { initLoadCompendium } from "../procedure-order-configs/load-compendium.js";
+import { VendorsView } from "../vendors/vendors.view.js";
+import { initVendors } from "../vendors/vendors.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
 import { SurgeriesView } from "../surgeries/surgeries.view.js";
@@ -326,6 +330,16 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initProcedureOrderConfigs, 0);
                 return ProcedureOrderConfigsView();
+            }, activate);
+        } else if (tabId === 'procedure_load_compendium') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initLoadCompendium, 0);
+                return LoadCompendiumView();
+            }, activate);
+        } else if (tabId === 'vendor_management') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initVendors, 0);
+                return VendorsView();
             }, activate);
         } else if (tabId === 'screening_tools') {
             tabManager.openTab(tabId, title, () => {

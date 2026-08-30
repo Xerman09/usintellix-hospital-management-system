@@ -106,4 +106,52 @@ class ProcedureOrderConfigController extends Controller
 
         $this->success(null, $result['message']);
     }
+
+    /**
+     * "Load Lab Compendium" > bulk-create Procedure Order rows from an
+     * uploaded CSV file (admin-only). Only the "Load Order Definitions"
+     * action is implemented -- the other two modes shown in the UI have
+     * no backing feature yet.
+     */
+    public function loadCompendium(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $action = (string) $request->input('action', '');
+
+        if ($action !== 'load_order_definitions') {
+            $this->error('This action is not available yet.', 422);
+            return;
+        }
+
+        $vendorFacilityId = (int) $request->input('vendor_id');
+        $containerGroupId = (int) $request->input('container_group_id');
+
+        if ($vendorFacilityId <= 0) {
+            $this->error('Please select a vendor.', 422, ['vendor_id' => 'Vendor is required.']);
+            return;
+        }
+
+        if ($containerGroupId <= 0) {
+            $this->error('Please select a container group.', 422, ['container_group_id' => 'Container Group Name is required.']);
+            return;
+        }
+
+        $files = $request->files();
+
+        $result = $this->procedureOrderConfigService->loadCompendium(
+            $files['file'] ?? [],
+            $vendorFacilityId,
+            $containerGroupId,
+            (int) $admin['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
 }

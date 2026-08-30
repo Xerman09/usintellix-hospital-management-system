@@ -37,3 +37,15 @@ export async function deleteProcedureOrderConfig(id)
         }
     );
 }
+
+export async function loadProcedureOrderCompendium(formData)
+{
+    return await api(
+        "/procedure-order-configs/load-compendium",
+        {
+            method: "POST",
+            headers: {},
+            body: formData
+        }
+    );
+}

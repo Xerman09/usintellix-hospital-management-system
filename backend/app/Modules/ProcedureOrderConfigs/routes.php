@@ -23,3 +23,8 @@ $router->delete('/procedure-order-configs', [ProcedureOrderConfigController::cla
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->post('/procedure-order-configs/load-compendium', [ProcedureOrderConfigController::class, 'loadCompendium'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

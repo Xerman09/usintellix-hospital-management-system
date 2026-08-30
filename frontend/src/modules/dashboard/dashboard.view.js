@@ -65,6 +65,7 @@ function staffNavLinks(role)
                 <a data-tab="providers">Providers</a>
                 <a data-tab="procedure_configuration">Configuration</a>
                 <a data-tab="procedure_load_compendium">Load Compendium</a>
+                <a data-tab="vendor_management">Vendor Management</a>
                 <a class="nav-link-disabled" data-tab="procedure_pending_review">Pending Review</a>
                 <a class="nav-link-disabled" data-tab="procedure_patient_results">Patient Results</a>
                 <a class="nav-link-disabled" data-tab="procedure_lab_overview">Lab Overview</a>
