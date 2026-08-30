@@ -29,6 +29,8 @@ import { ProviderCategoriesView } from "../provider-categories/provider-categori
 import { initProviderCategories } from "../provider-categories/provider-categories.js";
 import { VisitCategoriesView } from "../visit-categories/visit-categories.view.js";
 import { initVisitCategories } from "../visit-categories/visit-categories.js";
+import { ProcedureOrderConfigsView } from "../procedure-order-configs/procedure-order-configs.view.js";
+import { initProcedureOrderConfigs } from "../procedure-order-configs/procedure-order-configs.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
 import { SurgeriesView } from "../surgeries/surgeries.view.js";
@@ -319,6 +321,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initVisitCategories, 0);
                 return VisitCategoriesView();
+            }, activate);
+        } else if (tabId === 'procedure_configuration') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initProcedureOrderConfigs, 0);
+                return ProcedureOrderConfigsView();
             }, activate);
         } else if (tabId === 'screening_tools') {
             tabManager.openTab(tabId, title, () => {

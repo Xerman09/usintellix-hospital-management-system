@@ -1,8 +1,11 @@
 import { getUser } from "../../core/session.js";
 import { fetchProviders, createProvider, deleteProvider } from "./providers.service.js";
 import { fetchEmployeesByRole } from "../employees/employees.service.js";
+import { escapeHtml } from "../appointments/appointment-format.js";
 
 const FIELDS = ["employee_id", "specialty", "npi_number", "license_number", "dea_number"];
+
+let providersCache = [];
 
 export async function initProviders()
 {
@@ -14,6 +17,7 @@ export async function initProviders()
     }
 
     await loadProviders();
+    setupProviderFilters();
 
     const modalOverlay = document.getElementById("addProviderModalOverlay");
     const form = document.getElementById("addProviderForm");
@@ -111,23 +115,90 @@ async function loadDoctorEmployees()
 
 async function loadProviders()
 {
-    const tbody = document.getElementById("providersTableBody");
     const result = await fetchProviders();
 
-    if (!result.success || !result.data.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No providers registered yet.</td></tr>`;
+    providersCache = result.success ? result.data : [];
+
+    renderProvidersTable(providersCache);
+}
+
+function setupProviderFilters()
+{
+    const searchInput = document.getElementById("providerSearchInput");
+    const searchClear = document.getElementById("providerSearchClear");
+
+    if (!searchInput || !searchClear) return;
+
+    const applyFilters = () => renderProvidersTable(getFilteredProviders(searchInput));
+
+    searchInput.addEventListener("input", () => {
+        searchClear.classList.toggle("show", searchInput.value.length > 0);
+        applyFilters();
+    });
+    searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchClear.classList.remove("show");
+        applyFilters();
+        searchInput.focus();
+    });
+}
+
+function getFilteredProviders(searchInput)
+{
+    const term = searchInput.value.trim().toLowerCase();
+
+    if (term === "") {
+        return providersCache;
+    }
+
+    return providersCache.filter((provider) => {
+        const haystack = [
+            provider.first_name,
+            provider.middle_name,
+            provider.last_name,
+            provider.suffix,
+            provider.specialty,
+            provider.department_name
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return haystack.includes(term);
+    });
+}
+
+function renderProvidersTable(providers)
+{
+    const tbody = document.getElementById("providersTableBody");
+    const countText = document.getElementById("providerCountText");
+
+    if (!tbody || !countText) {
         return;
     }
 
-    tbody.innerHTML = result.data.map((provider) => `
+    countText.textContent = `${providersCache.length} ${providersCache.length === 1 ? "provider" : "providers"}`;
+
+    if (!providers.length) {
+        const noneAtAll = providersCache.length === 0;
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="prov-empty-state">
+                    <strong>${noneAtAll ? "No providers yet" : "No matching providers"}</strong>
+                    <p>${noneAtAll ? "Providers you register will appear here." : "Try a different search term."}</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = providers.map((provider) => `
         <tr>
-            <td>${[provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" ")}</td>
-            <td>${provider.department_name ?? "-"}</td>
-            <td>${provider.specialty}</td>
-            <td>${provider.npi_number ?? "-"}</td>
-            <td>${provider.email}</td>
-            <td>${provider.phone}</td>
-            <td><button class="btn-danger" data-id="${provider.id}">Delete</button></td>
+            <td class="prov-name">${escapeHtml([provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" "))}</td>
+            <td class="prov-muted">${escapeHtml(provider.department_name ?? "-")}</td>
+            <td>${escapeHtml(provider.specialty)}</td>
+            <td class="prov-muted">${escapeHtml(provider.npi_number ?? "-")}</td>
+            <td class="prov-muted">${escapeHtml(provider.email)}</td>
+            <td class="prov-muted">${escapeHtml(provider.phone)}</td>
+            <td><div class="prov-actions"><button class="btn-danger" data-id="${provider.id}">Delete</button></div></td>
         </tr>
     `).join("");
 

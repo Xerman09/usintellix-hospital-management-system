@@ -108,5 +108,6 @@ require_once __DIR__ . '/../app/Modules/Pharmacies/routes.php';
 require_once __DIR__ . '/../app/Modules/PracticeRules/routes.php';
 require_once __DIR__ . '/../app/Modules/ProviderCategories/routes.php';
 require_once __DIR__ . '/../app/Modules/Reports/routes.php';
+require_once __DIR__ . '/../app/Modules/ProcedureOrderConfigs/routes.php';
 
 return $router;
