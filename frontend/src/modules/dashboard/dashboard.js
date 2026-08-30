@@ -35,6 +35,8 @@ import { LoadCompendiumView } from "../procedure-order-configs/load-compendium.v
 import { initLoadCompendium } from "../procedure-order-configs/load-compendium.js";
 import { VendorsView } from "../vendors/vendors.view.js";
 import { initVendors } from "../vendors/vendors.js";
+import { ContainerGroupsView } from "../container-groups/container-groups.view.js";
+import { initContainerGroups } from "../container-groups/container-groups.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
 import { SurgeriesView } from "../surgeries/surgeries.view.js";
@@ -340,6 +342,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initVendors, 0);
                 return VendorsView();
+            }, activate);
+        } else if (tabId === 'container_group_management') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initContainerGroups, 0);
+                return ContainerGroupsView();
             }, activate);
         } else if (tabId === 'screening_tools') {
             tabManager.openTab(tabId, title, () => {

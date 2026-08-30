@@ -282,6 +282,7 @@ function staffNavLinks(role)
                 <a data-tab="facilities">Facility</a>
                 <a data-tab="facility_billings">Facility Billing</a>
                 <a data-tab="vendor_management">Vendor Management</a>
+                <a data-tab="container_group_management">Container Group Name Management</a>
                 <a data-tab="allergies">Allergy Management</a>
                 <a data-tab="medical_problems">Medical Problem Management</a>
                 <a data-tab="medication_management">Medication Management</a>
