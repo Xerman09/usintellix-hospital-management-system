@@ -76,8 +76,35 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Admin</span>
             <div class="dropdown-content">
-                <a data-tab="employees">Employees</a>
+                <a data-tab="settings">Config</a>
                 ${role === "admin" ? `
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Clinic
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="visit_categories">Visit Categories</a>
+                        <a data-tab="visit_types">Visit Type</a>
+                        <a data-tab="screening_tools">Screening Tools</a>
+                        <a data-tab="classes">Classes</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Patients
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="carecoordination">Care Teams</a>
+                        <a data-tab="patient_list_creation">Patient List Creation</a>
+                        <a data-tab="allergies">Allergy Management</a>
+                        <a data-tab="medical_problems">Medical Problem Management</a>
+                        <a data-tab="medication_management">Medication Management</a>
+                        <a data-tab="prescription_categories">Prescription Categories</a>
+                        <a data-tab="surgeries">Surgeries</a>
+                    </div>
+                </div>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Practice
@@ -85,21 +112,80 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="business_settings">Practice Settings</a>
+                        <a data-tab="providers">Providers</a>
+                        <a data-tab="provider_categories">Provider Categories</a>
+                        <a data-tab="facilities">Facility</a>
+                        <a data-tab="facility_billings">Facility Billing</a>
                         <a data-tab="pharmacies">Pharmacies</a>
+                        <a data-tab="vendor_management">Vendor Management</a>
+                        <a data-tab="insurances">Insurance Management</a>
+                        <a data-tab="x12_partners">X12 Partner</a>
+                        <a data-tab="price_levels">Price Level Management</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
-                        General Setting
+                        Coding
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="codes">Codes</a>
+                        <a data-tab="icd10_diagnoses">ICD10 Diagnosis</a>
+                        <a data-tab="cvx_codes">CVX Immunization Codes</a>
+                        <a data-tab="cqm_valuesets">CQM Valueset</a>
+                        <a data-tab="cqm_source_of_payments">CQM Source of Payment</a>
+                        <a data-tab="pos_codes">POS Code Management</a>
+                        <a data-tab="payer_types">Payer Type Management</a>
+                        <a data-tab="organization_types">Organization Type Registration</a>
+                        <a data-tab="immunizations">Immunizations</a>
+                        <a data-tab="specimen_sites">Specimen Site Management</a>
+                        <a data-tab="specimen_methods">Specimen Method Management</a>
+                        <a data-tab="specimen_types">Specimen Type Management</a>
+                        <a data-tab="specimen_conditions">Specimen Condition Management</a>
+                        <a data-tab="void_reasons">Void Reason Management</a>
+                        <a data-tab="care_plan_reason_codes">Care Plan Reason Code Management</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Forms
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="manage_modules">Manage Modules</a>
+                        <a data-tab="preference_types">Preference Type</a>
+                        <a data-tab="container_group_management">Container Group Name Management</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Documents
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="procedure_lab_documents">Lab Documents</a>
+                        <a data-tab="admin_document_templates">Templates</a>
+                        <a data-tab="admin_document_categories">Categories</a>
+                    </div>
+                </div>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        System
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="general_settings">Two Factor Authentication</a>
+                        <a data-tab="services_background">Background Services</a>
+                        <a data-tab="services_direct_message_log">Direct Message Log</a>
+                        <a data-tab="services_ip_tracker">IP Tracker</a>
+                        <a data-tab="popup_management">Popups Management</a>
+                        <a data-tab="misc_settings">Miscellaneous Settings</a>
                     </div>
                 </div>
-                <a data-tab="role_management">Role Management</a>
                 ` : ""}
-                <a data-tab="settings">Settings</a>
+                <a data-tab="employees">Users</a>
+                <a data-tab="admin_address_book">Address Book</a>
+                ${role === "admin" ? `<a data-tab="role_management">ACL</a>` : ""}
             </div>
         </div>
         <div class="nav-dropdown">
