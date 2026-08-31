@@ -35,6 +35,22 @@ class PatientDocumentController extends Controller
         $this->success($this->patientDocumentService->listForPatient($patientId), 'Documents retrieved successfully.');
     }
 
+    /**
+     * "Lab Documents" (admin-only): every Lab Result document on file
+     * across all patients, optionally narrowed by ?from=&to=.
+     */
+    public function labDocuments(): void
+    {
+        $request = new Request();
+
+        $from = (string) $request->input('from', '');
+        $to = (string) $request->input('to', '');
+
+        $documents = $this->patientDocumentService->listLabDocuments($from ?: null, $to ?: null);
+
+        $this->success($documents, 'Lab documents retrieved successfully.');
+    }
+
     public function store(): void
     {
         $request = new Request();

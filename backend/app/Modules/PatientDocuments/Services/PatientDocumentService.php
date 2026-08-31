@@ -45,6 +45,42 @@ class PatientDocumentService
     }
 
     /**
+     * Every "Lab Result" document on file across all patients, optionally
+     * narrowed to a date range, for the admin "Lab Documents" screen.
+     * Note: this app has no encounter_id column on patient_documents, so
+     * there's no real encounter to attach to each row.
+     */
+    public function listLabDocuments(?string $from, ?string $to): array
+    {
+        $sql = "SELECT pd.id, pd.original_filename, pd.file_path, pd.description, pd.created_at,
+                       CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.suffix) AS patient_name,
+                       p.patient_no
+                FROM patient_documents pd
+                JOIN patients p ON p.id = pd.patient_id
+                WHERE pd.deleted_at IS NULL
+                  AND pd.category = 'Lab Result'";
+
+        $params = [];
+
+        if (!empty($from)) {
+            $sql .= " AND DATE(pd.created_at) >= :from";
+            $params['from'] = $from;
+        }
+
+        if (!empty($to)) {
+            $sql .= " AND DATE(pd.created_at) <= :to";
+            $params['to'] = $to;
+        }
+
+        $sql .= " ORDER BY pd.created_at DESC, pd.id DESC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Save an uploaded file to disk and record it against the patient.
      */
     public function upload(int $patientId, array $file, array $data, int $userId): array

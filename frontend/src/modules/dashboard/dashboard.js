@@ -39,6 +39,10 @@ import { ContainerGroupsView } from "../container-groups/container-groups.view.j
 import { initContainerGroups } from "../container-groups/container-groups.js";
 import { BatchResultsView } from "../batch-results/batch-results.view.js";
 import { initBatchResults } from "../batch-results/batch-results.js";
+import { ProcedureReportsView } from "../procedure-reports/procedure-reports.view.js";
+import { initProcedureReports } from "../procedure-reports/procedure-reports.js";
+import { LabDocumentsView } from "../lab-documents/lab-documents.view.js";
+import { initLabDocuments } from "../lab-documents/lab-documents.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
 import { SurgeriesView } from "../surgeries/surgeries.view.js";
@@ -354,6 +358,16 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initBatchResults, 0);
                 return BatchResultsView();
+            }, activate);
+        } else if (tabId === 'procedure_electronic_reports') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(() => initProcedureReports(), 0);
+                return ProcedureReportsView();
+            }, activate);
+        } else if (tabId === 'procedure_lab_documents') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initLabDocuments, 0);
+                return LabDocumentsView();
             }, activate);
         } else if (tabId === 'screening_tools') {
             tabManager.openTab(tabId, title, () => {

@@ -26,6 +26,18 @@ export async function uploadPatientDocument(patientId, file, details = {})
     );
 }
 
+export async function fetchLabDocuments(from, to)
+{
+    const params = {};
+
+    if (from) params.from = from;
+    if (to) params.to = to;
+
+    const query = Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : "";
+
+    return await api(`/patient-documents/lab-documents${query}`);
+}
+
 export async function deletePatientDocument(id, patientId)
 {
     return await api(

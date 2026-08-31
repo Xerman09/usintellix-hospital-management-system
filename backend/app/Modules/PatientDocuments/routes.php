@@ -18,3 +18,8 @@ $router->delete('/patient-documents', [PatientDocumentController::class, 'destro
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/patient-documents/lab-documents', [PatientDocumentController::class, 'labDocuments'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
