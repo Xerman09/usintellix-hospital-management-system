@@ -364,6 +364,21 @@ export function Dashboard()
                 setTimeout(() => initProcedureReports(), 0);
                 return ProcedureReportsView();
             }, activate);
+        } else if (tabId === 'procedure_pending_review') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(() => initProcedureReports({ defaultCurrentPatientOnly: true, defaultStatus: 'pending' }), 0);
+                return ProcedureReportsView();
+            }, activate);
+        } else if (tabId === 'procedure_patient_results') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(() => initProcedureReports({ defaultCurrentPatientOnly: true }), 0);
+                return ProcedureReportsView();
+            }, activate);
+        } else if (tabId === 'procedure_lab_overview') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(() => initProcedureReports({ defaultCurrentPatientOnly: true }), 0);
+                return ProcedureReportsView();
+            }, activate);
         } else if (tabId === 'procedure_lab_documents') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initLabDocuments, 0);

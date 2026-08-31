@@ -4,9 +4,12 @@ import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 
-// "Procedure Orders and Reports" backs the "Electronic Reports" nav item.
-// options.defaultCurrentPatientOnly is kept as an entry point so a future
-// caller (e.g. a patient-scoped launch point) can pre-check the filter.
+// "Procedure Orders and Reports" backs "Electronic Reports" (system-wide,
+// no defaults) as well as "Pending Review" / "Patient Results" /
+// "Lab Overview" -- those three only become clickable once a patient
+// chart is active (see .patient-dependent-nav in dashboard.js) and open
+// this same screen pre-scoped to that patient, each with its own
+// natural default status.
 export async function initProcedureReports(options = {})
 {
     const user = getUser();
@@ -17,6 +20,10 @@ export async function initProcedureReports(options = {})
     }
 
     document.getElementById("prCurrentPatientOnly").checked = Boolean(options.defaultCurrentPatientOnly);
+
+    if (options.defaultStatus) {
+        document.getElementById("prStatus").value = options.defaultStatus;
+    }
 
     await Promise.all([loadProviders(), loadLabs()]);
 
