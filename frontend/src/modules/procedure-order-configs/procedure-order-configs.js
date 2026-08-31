@@ -64,7 +64,12 @@ export async function initProcedureOrderConfigs(options = {})
 {
     const user = getUser();
 
-    if (!user || user.role !== "admin") {
+    // As a picker (options.onSelect set), this is embedded inside another
+    // page for any role the backend lets browse the catalog -- only the
+    // standalone management screen (add/edit/delete) stays admin-only.
+    const allowedRoles = options.onSelect ? ["admin", "receptionist", "doctor"] : ["admin"];
+
+    if (!user || !allowedRoles.includes(user.role)) {
         window.location.hash = "#/dashboard";
         return;
     }

@@ -41,6 +41,8 @@ import { BatchResultsView } from "../batch-results/batch-results.view.js";
 import { initBatchResults } from "../batch-results/batch-results.js";
 import { ProcedureReportsView } from "../procedure-reports/procedure-reports.view.js";
 import { initProcedureReports } from "../procedure-reports/procedure-reports.js";
+import { PatientResultsView } from "../patient-results/patient-results.view.js";
+import { initPatientResults } from "../patient-results/patient-results.js";
 import { LabDocumentsView } from "../lab-documents/lab-documents.view.js";
 import { initLabDocuments } from "../lab-documents/lab-documents.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
@@ -371,8 +373,8 @@ export function Dashboard()
             }, activate);
         } else if (tabId === 'procedure_patient_results') {
             tabManager.openTab(tabId, title, () => {
-                setTimeout(() => initProcedureReports({ defaultCurrentPatientOnly: true }), 0);
-                return ProcedureReportsView();
+                setTimeout(initPatientResults, 0);
+                return PatientResultsView();
             }, activate);
         } else if (tabId === 'procedure_lab_overview') {
             tabManager.openTab(tabId, title, () => {
