@@ -49,6 +49,8 @@ import { LabDocumentsView } from "../lab-documents/lab-documents.view.js";
 import { initLabDocuments } from "../lab-documents/lab-documents.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
 import { initScreeningTools } from "../screening-tools/screening-tools.js";
+import { HolidaysView } from "../holidays/holidays.view.js";
+import { initHolidays } from "../holidays/holidays.js";
 import { SurgeriesView } from "../surgeries/surgeries.view.js";
 import { initSurgeries } from "../surgeries/surgeries.js";
 import { PrescriptionCategoriesView } from "../prescription-categories/prescription-categories.view.js";
@@ -392,6 +394,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initScreeningTools, 0);
                 return ScreeningToolsView();
+            }, activate);
+        } else if (tabId === 'admin_clinic_import_holidays') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initHolidays, 0);
+                return HolidaysView();
             }, activate);
         } else if (tabId === 'surgeries') {
             tabManager.openTab(tabId, title, () => {
