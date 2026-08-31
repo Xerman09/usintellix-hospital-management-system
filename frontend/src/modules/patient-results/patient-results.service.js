@@ -46,3 +46,10 @@ export async function savePatientProcedureResults(orderId, results)
         }
     );
 }
+
+export async function fetchPatientProcedureResultsForPatient(patientId)
+{
+    const query = new URLSearchParams({ patient_id: patientId }).toString();
+
+    return await api(`/patient-procedure-results?${query}`);
+}

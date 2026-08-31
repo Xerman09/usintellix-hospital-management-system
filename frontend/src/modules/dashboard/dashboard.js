@@ -43,6 +43,8 @@ import { ProcedureReportsView } from "../procedure-reports/procedure-reports.vie
 import { initProcedureReports } from "../procedure-reports/procedure-reports.js";
 import { PatientResultsView } from "../patient-results/patient-results.view.js";
 import { initPatientResults } from "../patient-results/patient-results.js";
+import { LabsTrendView } from "../labs-trend/labs-trend.view.js";
+import { initLabsTrend } from "../labs-trend/labs-trend.js";
 import { LabDocumentsView } from "../lab-documents/lab-documents.view.js";
 import { initLabDocuments } from "../lab-documents/lab-documents.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
@@ -378,8 +380,8 @@ export function Dashboard()
             }, activate);
         } else if (tabId === 'procedure_lab_overview') {
             tabManager.openTab(tabId, title, () => {
-                setTimeout(() => initProcedureReports({ defaultCurrentPatientOnly: true }), 0);
-                return ProcedureReportsView();
+                setTimeout(initLabsTrend, 0);
+                return LabsTrendView();
             }, activate);
         } else if (tabId === 'procedure_lab_documents') {
             tabManager.openTab(tabId, title, () => {

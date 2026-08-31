@@ -20,13 +20,16 @@ class PatientProcedureResultController extends Controller
     {
         $request = new Request();
         $orderId = (int) $request->input('order_id');
+        $patientId = (int) $request->input('patient_id');
 
-        if ($orderId <= 0) {
-            $this->error('order_id is required.', 422);
+        if ($orderId > 0) {
+            $results = $this->service->listForOrder($orderId);
+        } elseif ($patientId > 0) {
+            $results = $this->service->listForPatient($patientId);
+        } else {
+            $this->error('order_id or patient_id is required.', 422);
             return;
         }
-
-        $results = $this->service->listForOrder($orderId);
 
         $this->success($results, 'Results retrieved successfully.');
     }

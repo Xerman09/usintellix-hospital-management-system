@@ -27,6 +27,28 @@ class PatientProcedureResultService
     }
 
     /**
+     * Every result row ever recorded for a patient, across all their
+     * orders -- the raw material for the "Labs" trend report (its
+     * item picker and both the List and Matrix output modes are all
+     * derived from this same set client-side).
+     */
+    public function listForPatient(int $patientId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT r.id, r.patient_procedure_order_id, r.code, r.name, r.result_date, r.end_date,
+                    r.is_abnormal, r.value, r.units, r.reference_range,
+                    o.order_date, o.id AS order_id
+             FROM patient_procedure_results r
+             JOIN patient_procedure_orders o ON o.id = r.patient_procedure_order_id
+             WHERE o.patient_id = ? AND r.deleted_at IS NULL AND o.deleted_at IS NULL
+             ORDER BY COALESCE(r.result_date, o.order_date) ASC, r.id ASC"
+        );
+        $stmt->execute([$patientId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Replace every result row for an order with the given set in one
      * transaction, matching the screenshot's single "Save" button that
      * commits the whole "Results and Recommendations" table at once.
