@@ -30,6 +30,10 @@ import { initProviderCategories } from "../provider-categories/provider-categori
 import { VisitCategoriesView } from "../visit-categories/visit-categories.view.js";
 import { initVisitCategories } from "../visit-categories/visit-categories.js";
 import { ProcedureOrderConfigsView } from "../procedure-order-configs/procedure-order-configs.view.js";
+import { PracticeRulesView } from "../practice-rules/practice-rules.view.js";
+import { initPracticeRules } from "../practice-rules/practice-rules.js";
+import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
+import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { initProcedureOrderConfigs } from "../procedure-order-configs/procedure-order-configs.js";
 import { LoadCompendiumView } from "../procedure-order-configs/load-compendium.view.js";
 import { initLoadCompendium } from "../procedure-order-configs/load-compendium.js";
@@ -394,6 +398,16 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initScreeningTools, 0);
                 return ScreeningToolsView();
+            }, activate);
+        } else if (tabId === 'admin_patient_reminders') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientReminders, 0);
+                return PatientRemindersView();
+            }, activate);
+        } else if (tabId === 'admin_practice_rules') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPracticeRules, 0);
+                return PracticeRulesView();
             }, activate);
         } else if (tabId === 'admin_clinic_import_holidays') {
             tabManager.openTab(tabId, title, () => {

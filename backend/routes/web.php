@@ -112,5 +112,6 @@ require_once __DIR__ . '/../app/Modules/ProcedureOrderConfigs/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientProcedureOrders/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientProcedureResults/routes.php';
 require_once __DIR__ . '/../app/Modules/Holidays/routes.php';
+require_once __DIR__ . '/../app/Modules/PatientReminders/routes.php';
 
 return $router;

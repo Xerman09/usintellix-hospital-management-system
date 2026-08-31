@@ -11,20 +11,38 @@ class PracticeRuleController extends Controller
 {
     private PracticeRuleService $ruleService;
 
+    private const FIELDS = [
+        'title', 'type', 'bibliographic_citation', 'developer', 'funding_source',
+        'date_last_reviewed', 'release_info', 'web_reference', 'referential_cds',
+        'reminder_intervals', 'demographics_criteria', 'clinical_targets', 'actions_list',
+        'use_patient_race', 'use_patient_ethnicity', 'use_patient_language',
+        'use_patient_sexual_orientation', 'use_patient_gender_identity', 'use_patient_sex',
+        'use_patient_dob', 'use_patient_sdoh', 'use_patient_health_status_assessments'
+    ];
+
     public function __construct()
     {
         $this->ruleService = new PracticeRuleService();
     }
 
     /**
-     * GET /practice-rules
-     * List all rules.
+     * GET /practice-rules -> list all rules.
+     * GET /practice-rules?id=X -> single rule, with JSON fields decoded.
      */
     public function index(): void
     {
-        $user = Session::get('user');
-        if (!$user) {
-            $this->error('Unauthorized', 401);
+        $request = new Request();
+        $id = (int) $request->input('id');
+
+        if ($id > 0) {
+            $result = $this->ruleService->getRule($id);
+
+            if (!$result['success']) {
+                $this->error($result['message'], 404);
+                return;
+            }
+
+            $this->success($result['data']);
             return;
         }
 
@@ -32,48 +50,13 @@ class PracticeRuleController extends Controller
         $this->success($result['data']);
     }
 
-    /**
-     * GET /practice-rules/{id}
-     * Get single rule summary.
-     */
-    public function show(array $params = []): void
-    {
-        $user = Session::get('user');
-        if (!$user) {
-            $this->error('Unauthorized', 401);
-            return;
-        }
-
-        $id = (int) ($params['id'] ?? 0);
-        $result = $this->ruleService->getRule($id);
-
-        if (!$result['success']) {
-            $this->error($result['message'], 404);
-            return;
-        }
-
-        $this->success($result['data']);
-    }
-
-    /**
-     * POST /practice-rules
-     * Create a new rule.
-     */
     public function store(): void
     {
         $user = Session::get('user');
-        if (!$user) {
-            $this->error('Unauthorized', 401);
-            return;
-        }
-
         $request = new Request();
-        $data = $request->getBody();
+        $data = $request->only(self::FIELDS);
 
-        $result = $this->ruleService->createRule(
-            $data,
-            (int) $user['id']
-        );
+        $result = $this->ruleService->createRule($data, (int) $user['id']);
 
         if (!$result['success']) {
             $this->error($result['message'], 422, $result['errors'] ?? null);
@@ -83,57 +66,34 @@ class PracticeRuleController extends Controller
         $this->success($result['data'], $result['message'], 201);
     }
 
-    /**
-     * PUT /practice-rules/{id}
-     * Update an existing rule.
-     */
-    public function update(array $params = []): void
+    public function update(): void
     {
         $user = Session::get('user');
-        if (!$user) {
-            $this->error('Unauthorized', 401);
-            return;
-        }
-
-        $id = (int) ($params['id'] ?? 0);
         $request = new Request();
-        $data = $request->getBody();
+        $id = (int) $request->input('id');
+        $data = $request->only(self::FIELDS);
 
-        $result = $this->ruleService->updateRule(
-            $id,
-            $data,
-            (int) $user['id']
-        );
+        $result = $this->ruleService->updateRule($id, $data, (int) $user['id']);
 
         if (!$result['success']) {
-            $this->error($result['message'], 422, $result['errors'] ?? null);
+            $status = $result['message'] === 'Rule not found' ? 404 : 422;
+            $this->error($result['message'], $status, $result['errors'] ?? null);
             return;
         }
 
         $this->success($result['data'], $result['message']);
     }
 
-    /**
-     * DELETE /practice-rules/{id}
-     * Soft delete a rule.
-     */
-    public function destroy(array $params = []): void
+    public function destroy(): void
     {
         $user = Session::get('user');
-        if (!$user) {
-            $this->error('Unauthorized', 401);
-            return;
-        }
+        $request = new Request();
+        $id = (int) $request->input('id');
 
-        $id = (int) ($params['id'] ?? 0);
-
-        $result = $this->ruleService->softDeleteRule(
-            $id,
-            (int) $user['id']
-        );
+        $result = $this->ruleService->softDeleteRule($id, (int) $user['id']);
 
         if (!$result['success']) {
-            $this->error($result['message'], 400);
+            $this->error($result['message'], 404);
             return;
         }
 

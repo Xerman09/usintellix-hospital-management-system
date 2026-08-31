@@ -4,22 +4,24 @@ use App\Modules\PracticeRules\Controllers\PracticeRuleController;
 
 /** @var \App\Core\Router $router */
 
+// GET /practice-rules -> list all rules
+// GET /practice-rules?id=X -> single rule, with JSON fields decoded
 $router->get('/practice-rules', [PracticeRuleController::class, 'index'], [
-    AuthMiddleware::class
-]);
-
-$router->get('/practice-rules/{id}', [PracticeRuleController::class, 'show'], [
-    AuthMiddleware::class
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
 $router->post('/practice-rules', [PracticeRuleController::class, 'store'], [
-    AuthMiddleware::class
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
 ]);
 
-$router->put('/practice-rules/{id}', [PracticeRuleController::class, 'update'], [
-    AuthMiddleware::class
+$router->put('/practice-rules', [PracticeRuleController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
 ]);
 
-$router->delete('/practice-rules/{id}', [PracticeRuleController::class, 'destroy'], [
-    AuthMiddleware::class
+$router->delete('/practice-rules', [PracticeRuleController::class, 'destroy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
 ]);

@@ -133,8 +133,9 @@ function bindEvents() {
         confirmDeleteBtn.onclick = async () => {
             if (!deleteTargetId) return;
             try {
-                const response = await api(`/practice-rules/${deleteTargetId}`, {
-                    method: "DELETE"
+                const response = await api("/practice-rules", {
+                    method: "DELETE",
+                    body: JSON.stringify({ id: deleteTargetId })
                 });
                 if (response.success) {
                     showToast("Rule soft deleted successfully.", "success");
@@ -213,13 +214,12 @@ function bindEvents() {
                 payload.title = `${categoryPrefix}: ${payload.title}`;
             }
 
-            const endpoint = ruleId ? `/practice-rules/${ruleId}` : "/practice-rules";
             const method = ruleId ? "PUT" : "POST";
 
             try {
-                const response = await api(endpoint, {
+                const response = await api("/practice-rules", {
                     method: method,
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(ruleId ? { id: ruleId, ...payload } : payload)
                 });
 
                 if (response.success) {
@@ -317,7 +317,7 @@ async function openSummaryModal(ruleId) {
     modal.classList.add("active");
 
     try {
-        const response = await api(`/practice-rules/${ruleId}`);
+        const response = await api(`/practice-rules?id=${ruleId}`);
         if (response.success && response.data) {
             const r = response.data;
             
