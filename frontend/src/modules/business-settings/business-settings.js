@@ -9,6 +9,8 @@ import { InsurancesView } from "../insurances/insurances.view.js";
 import { initInsurances } from "../insurances/insurances.js";
 import { X12PartnersView } from "../x12-partners/x12-partners.view.js";
 import { initX12Partners } from "../x12-partners/x12-partners.js";
+import { ProviderInsuranceNumbersView } from "../provider-insurance-numbers/provider-insurance-numbers.view.js";
+import { initProviderInsuranceNumbers } from "../provider-insurance-numbers/provider-insurance-numbers.js";
 
 let currentSettings = null;
 
@@ -26,8 +28,8 @@ const SECTIONS = {
         init: initInsurances
     },
     insurance_numbers: {
-        render: () => PlaceholderSectionView("Insurance Numbers", "This section hasn't been configured yet. Insurance ID number types (e.g. Policy Number, Group Number) will be managed here."),
-        init: () => {}
+        render: ProviderInsuranceNumbersView,
+        init: initProviderInsuranceNumbers
     },
     x12_partners: {
         render: X12PartnersView,
