@@ -40,6 +40,8 @@ import { InstallCodeSetView } from "../install-code-set/install-code-set.view.js
 import { initInstallCodeSet } from "../install-code-set/install-code-set.js";
 import { ExternalDataLoadsView } from "../external-data-loads/external-data-loads.view.js";
 import { initExternalDataLoads } from "../external-data-loads/external-data-loads.js";
+import { FormsAdministrationView } from "../forms-administration/forms-administration.view.js";
+import { initFormsAdministration } from "../forms-administration/forms-administration.js";
 import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
@@ -450,6 +452,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initExternalDataLoads, 0);
                 return ExternalDataLoadsView();
+            }, activate);
+        } else if (tabId === 'admin_forms_administration') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initFormsAdministration, 0);
+                return FormsAdministrationView();
             }, activate);
         } else if (tabId === 'admin_clinic_import_holidays') {
             tabManager.openTab(tabId, title, () => {
