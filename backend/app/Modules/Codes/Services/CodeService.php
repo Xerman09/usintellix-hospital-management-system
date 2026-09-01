@@ -20,7 +20,8 @@ class CodeService
         'NCI_CONCEPT_ID',
         'CQM_VALUESET',
         'OID_VALUESET',
-        'RXCUI'
+        'RXCUI',
+        'SNOMED'
     ];
 
     // Code types with a genuine native-format parser (as opposed to
@@ -379,13 +380,6 @@ class CodeService
      */
     public function installCodeSet(string $codeType, array $file, bool $replaceEntireSet, int $createdBy): array
     {
-        if (!in_array($codeType, self::CODE_TYPES, true)) {
-            return [
-                'success' => false,
-                'message' => 'Invalid code type.'
-            ];
-        }
-
         if (empty($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             return [
                 'success' => false,
@@ -393,8 +387,31 @@ class CodeService
             ];
         }
 
-        $sourcePath = $file['tmp_name'];
-        $originalName = (string) ($file['name'] ?? '');
+        return $this->installFromPath($codeType, $file['tmp_name'], (string) ($file['name'] ?? ''), $replaceEntireSet, $createdBy);
+    }
+
+    /**
+     * Same as installCodeSet(), but takes a source file already sitting
+     * on disk (e.g. a staged External Data Loads file) instead of a
+     * fresh $_FILES upload. Used by installCodeSet() itself and by
+     * ExternalDataLoadService::upgrade().
+     */
+    public function installFromPath(string $codeType, string $sourcePath, string $originalName, bool $replaceEntireSet, int $createdBy): array
+    {
+        if (!in_array($codeType, self::CODE_TYPES, true)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid code type.'
+            ];
+        }
+
+        if (!is_file($sourcePath)) {
+            return [
+                'success' => false,
+                'message' => 'Source file not found.'
+            ];
+        }
+
         $extractedTemp = null;
 
         if ($this->looksLikeZip($sourcePath, $originalName)) {

@@ -8,7 +8,8 @@ export const CODE_TYPES = [
     { value: "NCI_CONCEPT_ID", label: "NCI Concept ID" },
     { value: "CQM_VALUESET", label: "CQM Valueset" },
     { value: "OID_VALUESET", label: "OID Valueset" },
-    { value: "RXCUI", label: "RXCUI Drug/Product Name" }
+    { value: "RXCUI", label: "RXCUI Drug/Product Name" },
+    { value: "SNOMED", label: "SNOMED Clinical Terms" }
 ];
 
 export const CODE_CATEGORIES = [

@@ -1,2 +1,6 @@
 cache/*
 !cache/.gitkeep
+
+external-data-staging/*/*
+external-data-staging/*/installed/*
+!external-data-staging/*/.gitkeep

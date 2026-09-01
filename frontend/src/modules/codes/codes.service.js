@@ -77,3 +77,35 @@ export async function installCodeSet(codeType, file, replaceEntireSet)
         }
     );
 }
+
+export async function fetchExternalDataLoads()
+{
+    return await api("/codes/external-data-loads");
+}
+
+export async function stageExternalDataFile(sectionKey, file)
+{
+    const formData = new FormData();
+    formData.append("section_key", sectionKey);
+    formData.append("file", file);
+
+    return await api(
+        "/codes/external-data-loads/stage",
+        {
+            method: "POST",
+            headers: {},
+            body: formData
+        }
+    );
+}
+
+export async function upgradeExternalDataSet(sectionKey, filename)
+{
+    return await api(
+        "/codes/external-data-loads/upgrade",
+        {
+            method: "POST",
+            body: JSON.stringify({ section_key: sectionKey, filename })
+        }
+    );
+}

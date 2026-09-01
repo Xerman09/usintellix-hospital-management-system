@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Codes\Controllers\CodeController;
+use App\Modules\Codes\Controllers\ExternalDataLoadController;
 
 /** @var \App\Core\Router $router */
 
@@ -30,6 +31,21 @@ $router->post('/codes/import', [CodeController::class, 'import'], [
 ]);
 
 $router->post('/codes/install-code-set', [CodeController::class, 'installCodeSet'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->get('/codes/external-data-loads', [ExternalDataLoadController::class, 'overview'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->post('/codes/external-data-loads/stage', [ExternalDataLoadController::class, 'stage'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->post('/codes/external-data-loads/upgrade', [ExternalDataLoadController::class, 'upgrade'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
