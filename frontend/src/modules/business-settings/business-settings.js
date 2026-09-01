@@ -1,11 +1,76 @@
 import { fetchBusinessSettings, updateBusinessSettings, uploadBusinessLogo, removeBusinessLogo } from "./business-settings.service.js";
+import { BusinessInfoSectionView, PlaceholderSectionView } from "./business-settings.view.js";
 import { API_URL } from "../../core/api.js?v=5";
 import { clearBrandingCache, applyBranding } from "../../core/branding.js";
 import { showToast } from "../../core/toast.js";
+import { PharmaciesView } from "../pharmacies/pharmacies.view.js";
+import { initPharmacies } from "../pharmacies/pharmacies.js";
+import { InsurancesView } from "../insurances/insurances.view.js";
+import { initInsurances } from "../insurances/insurances.js";
+import { X12PartnersView } from "../x12-partners/x12-partners.view.js";
+import { initX12Partners } from "../x12-partners/x12-partners.js";
 
 let currentSettings = null;
 
+const SECTIONS = {
+    general: {
+        render: BusinessInfoSectionView,
+        init: initBusinessInfoSection
+    },
+    pharmacies: {
+        render: PharmaciesView,
+        init: initPharmacies
+    },
+    insurance_companies: {
+        render: InsurancesView,
+        init: initInsurances
+    },
+    insurance_numbers: {
+        render: () => PlaceholderSectionView("Insurance Numbers", "This section hasn't been configured yet. Insurance ID number types (e.g. Policy Number, Group Number) will be managed here."),
+        init: () => {}
+    },
+    x12_partners: {
+        render: X12PartnersView,
+        init: initX12Partners
+    },
+    document_categories: {
+        render: () => PlaceholderSectionView("Document Categories", "This section hasn't been configured yet. Document category management will appear here."),
+        init: () => {}
+    },
+    hl7_viewer: {
+        render: () => PlaceholderSectionView("HL7 Viewer", "This system doesn't currently receive HL7 messages, so there's nothing to view yet."),
+        init: () => {}
+    }
+};
+
 export async function initBusinessSettings()
+{
+    const sidebar = document.getElementById("psSidebar");
+
+    sidebar.querySelectorAll(".ps-nav-link").forEach((link) => {
+        link.addEventListener("click", () => selectSection(link.dataset.section));
+    });
+
+    await selectSection("general");
+}
+
+async function selectSection(sectionKey)
+{
+    const sidebar = document.getElementById("psSidebar");
+    const content = document.getElementById("psContent");
+    const section = SECTIONS[sectionKey];
+
+    if (!section) return;
+
+    sidebar.querySelectorAll(".ps-nav-link").forEach((link) => {
+        link.classList.toggle("active", link.dataset.section === sectionKey);
+    });
+
+    content.innerHTML = section.render();
+    await section.init();
+}
+
+async function initBusinessInfoSection()
 {
     const result = await fetchBusinessSettings();
 

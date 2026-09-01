@@ -2,11 +2,132 @@ export function BusinessSettingsView()
 {
     return `
 <style>
-.biz-page {
+.ps-page {
     width: 100%;
     font-size: 13.5px;
 }
 
+.ps-title {
+    margin: 0 0 16px;
+    font-size: 24px;
+    font-weight: 400;
+    color: #1a2338;
+}
+
+.ps-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: white;
+    overflow: hidden;
+    min-height: 480px;
+}
+
+.ps-sidebar {
+    flex-shrink: 0;
+    width: 220px;
+    border-right: 1px solid #e5e9f0;
+    padding: 8px 0;
+}
+
+.ps-nav-link {
+    display: block;
+    padding: 11px 20px;
+    color: #29323f;
+    text-decoration: none;
+    font-size: 14px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+}
+
+.ps-nav-link:hover {
+    background: #f8fafc;
+}
+
+.ps-nav-link.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 600;
+    border-left-color: var(--accent);
+}
+
+.ps-content {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 32px;
+}
+
+.ps-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+    color: #71809b;
+}
+
+.ps-placeholder .ps-placeholder-icon {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 16px;
+    border-radius: 16px;
+    background: #f1f4fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ps-placeholder .ps-placeholder-icon svg {
+    width: 26px;
+    height: 26px;
+    color: #a2aec4;
+}
+
+.ps-placeholder strong {
+    display: block;
+    color: #34435c;
+    font-size: 16px;
+    margin-bottom: 6px;
+}
+
+.ps-placeholder p {
+    margin: 0;
+    max-width: 380px;
+    font-size: 13.5px;
+}
+
+@media (max-width: 720px) {
+    .ps-layout { flex-direction: column; }
+    .ps-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e9f0; }
+}
+</style>
+
+<div class="ps-page">
+    <h1 class="ps-title">Practice Settings</h1>
+
+    <div class="ps-layout">
+        <div class="ps-sidebar" id="psSidebar">
+            <a class="ps-nav-link active" data-section="general">General</a>
+            <a class="ps-nav-link" data-section="pharmacies">Pharmacies</a>
+            <a class="ps-nav-link" data-section="insurance_companies">Insurance Companies</a>
+            <a class="ps-nav-link" data-section="insurance_numbers">Insurance Numbers</a>
+            <a class="ps-nav-link" data-section="x12_partners">X12 Partners</a>
+            <a class="ps-nav-link" data-section="document_categories">Document Categories</a>
+            <a class="ps-nav-link" data-section="hl7_viewer">HL7 Viewer</a>
+        </div>
+        <div class="ps-content" id="psContent"></div>
+    </div>
+</div>
+`;
+}
+
+export function BusinessInfoSectionView()
+{
+    return `
+<style>
 .biz-card {
     width: 100%;
 }
@@ -183,64 +304,62 @@ export function BusinessSettingsView()
 }
 </style>
 
-<div class="biz-page">
-    <div class="biz-card">
-        <div class="biz-header">
-            <div class="biz-header-title">
-                <div class="biz-logo-menu-wrap" id="logoMenuWrap">
-                    <div class="biz-logo-wrap" id="logoMenuTrigger" title="Change logo">
-                        <img id="logoPreview" src="./assets/logo.png?v=1" alt="Business logo">
-                        <div class="biz-logo-overlay">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                        </div>
+<div class="biz-card">
+    <div class="biz-header">
+        <div class="biz-header-title">
+            <div class="biz-logo-menu-wrap" id="logoMenuWrap">
+                <div class="biz-logo-wrap" id="logoMenuTrigger" title="Change logo">
+                    <img id="logoPreview" src="./assets/logo.png?v=1" alt="Business logo">
+                    <div class="biz-logo-overlay">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                     </div>
-                    <div class="biz-logo-dropdown" id="logoDropdown">
-                        <button type="button" class="biz-logo-dropdown-item" id="chooseLogoBtn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                            Choose Icon
-                        </button>
-                        <button type="button" class="biz-logo-dropdown-item danger" id="removeLogoBtn" style="display:none;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg>
-                            Remove Icon
-                        </button>
-                    </div>
-                    <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" style="display:none;">
                 </div>
-                <div>
-                    <h1 id="businessHeaderName">Business Information</h1>
-                    <p class="form-subtitle" id="businessHeaderSub">View and update your business information.</p>
+                <div class="biz-logo-dropdown" id="logoDropdown">
+                    <button type="button" class="biz-logo-dropdown-item" id="chooseLogoBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        Choose Icon
+                    </button>
+                    <button type="button" class="biz-logo-dropdown-item danger" id="removeLogoBtn" style="display:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"></path></svg>
+                        Remove Icon
+                    </button>
                 </div>
+                <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" style="display:none;">
             </div>
-            <div class="biz-header-actions">
-                <button type="button" class="biz-add-btn" id="openEditBusinessModal">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                    Edit
-                </button>
+            <div>
+                <h1 id="businessHeaderName">Business Information</h1>
+                <p class="form-subtitle" id="businessHeaderSub">View and update your business information.</p>
             </div>
         </div>
+        <div class="biz-header-actions">
+            <button type="button" class="biz-add-btn" id="openEditBusinessModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Edit
+            </button>
+        </div>
+    </div>
 
-        <div id="formAlert"></div>
+    <div id="formAlert"></div>
 
-        <div class="form-grid" style="margin-top: 20px;">
-            <div class="form-group full">
-                <label>Business Name</label>
-                <p id="ro_business_name">-</p>
-            </div>
+    <div class="form-grid" style="margin-top: 20px;">
+        <div class="form-group full">
+            <label>Business Name</label>
+            <p id="ro_business_name">-</p>
+        </div>
 
-            <div class="form-group full">
-                <label>Address</label>
-                <p id="ro_business_address">-</p>
-            </div>
+        <div class="form-group full">
+            <label>Address</label>
+            <p id="ro_business_address">-</p>
+        </div>
 
-            <div class="form-group">
-                <label>Phone</label>
-                <p id="ro_business_phone">-</p>
-            </div>
+        <div class="form-group">
+            <label>Phone</label>
+            <p id="ro_business_phone">-</p>
+        </div>
 
-            <div class="form-group">
-                <label>Email</label>
-                <p id="ro_business_email">-</p>
-            </div>
+        <div class="form-group">
+            <label>Email</label>
+            <p id="ro_business_email">-</p>
         </div>
     </div>
 </div>
@@ -290,4 +409,17 @@ export function BusinessSettingsView()
     </div>
 </div>
 `;
+}
+
+export function PlaceholderSectionView(title, description)
+{
+    return `
+    <div class="ps-placeholder">
+        <div class="ps-placeholder-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        </div>
+        <strong>${title}</strong>
+        <p>${description}</p>
+    </div>
+    `;
 }
