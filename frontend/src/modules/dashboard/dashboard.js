@@ -36,6 +36,8 @@ import { PatientRemindersView } from "../patient-reminders/patient-reminders.vie
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
 import { initPatientMerge } from "../patient-merge/patient-merge.js";
+import { PatientDuplicatesView } from "../patient-duplicates/patient-duplicates.view.js";
+import { initPatientDuplicates } from "../patient-duplicates/patient-duplicates.js";
 import { initProcedureOrderConfigs } from "../procedure-order-configs/procedure-order-configs.js";
 import { LoadCompendiumView } from "../procedure-order-configs/load-compendium.view.js";
 import { initLoadCompendium } from "../procedure-order-configs/load-compendium.js";
@@ -400,6 +402,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initScreeningTools, 0);
                 return ScreeningToolsView();
+            }, activate);
+        } else if (tabId === 'admin_manage_duplicates') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientDuplicates, 0);
+                return PatientDuplicatesView();
             }, activate);
         } else if (tabId === 'admin_merge_patients') {
             tabManager.openTab(tabId, title, () => {
