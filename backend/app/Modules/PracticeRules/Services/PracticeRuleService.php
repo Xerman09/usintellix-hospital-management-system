@@ -2,10 +2,35 @@
 
 namespace App\Modules\PracticeRules\Services;
 
+use App\Core\Database;
 use App\Modules\PracticeRules\Models\PracticeRule;
+use PDO;
+use Throwable;
 
 class PracticeRuleService
 {
+    // The full ACL scope catalog the Alert Manager's "Access Control"
+    // dropdown offers -- mirrors OpenEMR's real access-control list
+    // values, validated server-side so only a real option can be saved.
+    public const ACCESS_CONTROL_OPTIONS = [
+        'acct:bill', 'acct:disc', 'acct:eob', 'acct:rep', 'acct:rep_a',
+        'admin:acl', 'admin:batchcom', 'admin:calendar', 'admin:database', 'admin:drugs',
+        'admin:forms', 'admin:language', 'admin:manage_modules', 'admin:menu', 'admin:practice',
+        'admin:super', 'admin:superbill', 'admin:users',
+        'encounters:auth', 'encounters:auth_a', 'encounters:coding', 'encounters:coding_a',
+        'encounters:date_a', 'encounters:notes', 'encounters:notes_a', 'encounters:relaxed',
+        'lists:country', 'lists:default', 'lists:ethrace', 'lists:language', 'lists:state',
+        'patientportal:portal',
+        'patients:alert', 'patients:amendment', 'patients:appt', 'patients:demo', 'patients:disclosure',
+        'patients:docs', 'patients:docs_rm', 'patients:lab', 'patients:med', 'patients:notes',
+        'patients:pat_rep', 'patients:reminder', 'patients:rx', 'patients:sign', 'patients:trans',
+        'sensitivities:high', 'sensitivities:normal',
+        'placeholder:filler', 'nationnotes:nn_configure', 'menus:modle',
+        'groups:gadd', 'groups:gcalendar', 'groups:gdlog', 'groups:glog', 'groups:gm',
+        'inventory:adjustments', 'inventory:consumption', 'inventory:destruction', 'inventory:lots',
+        'inventory:purchases', 'inventory:reporting', 'inventory:sales', 'inventory:transfers'
+    ];
+
     private PracticeRule $practiceRuleModel;
 
     public function __construct()
@@ -24,6 +49,60 @@ class PracticeRuleService
             'success' => true,
             'data' => $rules
         ];
+    }
+
+    /**
+     * Bulk-save every row's alert-channel flags + access control in one
+     * transaction, matching the Alert Manager grid's single Save button
+     * that commits every row at once.
+     */
+    public function bulkUpdateAlertFlags(array $rows, int $userId): array
+    {
+        $pdo = Database::connection();
+
+        try {
+            $pdo->beginTransaction();
+
+            $stmt = $pdo->prepare(
+                "UPDATE practice_rules
+                 SET is_active_alert = ?, is_passive_alert = ?, is_patient_reminder = ?, access_control = ?,
+                     updated_at = ?, updated_by = ?
+                 WHERE id = ? AND deleted_at IS NULL"
+            );
+
+            $now = date('Y-m-d H:i:s');
+
+            foreach ($rows as $row) {
+                $id = (int) ($row['id'] ?? 0);
+
+                if ($id <= 0) {
+                    continue;
+                }
+
+                $accessControl = $row['access_control'] ?? null;
+
+                if ($accessControl !== null && !in_array($accessControl, self::ACCESS_CONTROL_OPTIONS, true)) {
+                    $accessControl = null;
+                }
+
+                $stmt->execute([
+                    !empty($row['is_active_alert']) ? 1 : 0,
+                    !empty($row['is_passive_alert']) ? 1 : 0,
+                    !empty($row['is_patient_reminder']) ? 1 : 0,
+                    $accessControl,
+                    $now,
+                    $userId,
+                    $id
+                ]);
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Failed to save alert manager changes.'];
+        }
+
+        return ['success' => true, 'message' => 'Alert manager settings saved successfully.'];
     }
 
     /**

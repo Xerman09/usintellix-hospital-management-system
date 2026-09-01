@@ -25,3 +25,8 @@ $router->delete('/practice-rules', [PracticeRuleController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->put('/practice-rules/alert-manager', [PracticeRuleController::class, 'bulkUpdateAlertFlags'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

@@ -84,6 +84,26 @@ class PracticeRuleController extends Controller
         $this->success($result['data'], 'Rule updated successfully.');
     }
 
+    /**
+     * PUT /practice-rules/alert-manager
+     * Bulk-saves every row's alert-channel flags + access control.
+     */
+    public function bulkUpdateAlertFlags(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $rows = (array) $request->input('rows', []);
+
+        $result = $this->ruleService->bulkUpdateAlertFlags($rows, (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 500);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
     public function destroy(): void
     {
         $user = Session::get('user');

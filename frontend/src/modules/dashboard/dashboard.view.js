@@ -109,6 +109,7 @@ function staffNavLinks(role)
                         <a data-tab="business_settings">Practice Settings</a>
                         <a data-tab="admin_practice_rules">Rules</a>
                         <a data-tab="admin_plans_configuration">Plans Configuration</a>
+                        <a data-tab="admin_alert_manager">Alert Manager</a>
                         <a data-tab="admin_practice_alerts">Alerts</a>
                     </div>
                 </div>
