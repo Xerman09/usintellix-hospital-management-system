@@ -59,46 +59,6 @@ export function BusinessSettingsView()
     padding: 28px 32px;
 }
 
-.ps-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 60px 20px;
-    color: #71809b;
-}
-
-.ps-placeholder .ps-placeholder-icon {
-    width: 56px;
-    height: 56px;
-    margin-bottom: 16px;
-    border-radius: 16px;
-    background: #f1f4fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.ps-placeholder .ps-placeholder-icon svg {
-    width: 26px;
-    height: 26px;
-    color: #a2aec4;
-}
-
-.ps-placeholder strong {
-    display: block;
-    color: #34435c;
-    font-size: 16px;
-    margin-bottom: 6px;
-}
-
-.ps-placeholder p {
-    margin: 0;
-    max-width: 380px;
-    font-size: 13.5px;
-}
-
 @media (max-width: 720px) {
     .ps-layout { flex-direction: column; }
     .ps-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e9f0; }
@@ -409,17 +369,4 @@ export function BusinessInfoSectionView()
     </div>
 </div>
 `;
-}
-
-export function PlaceholderSectionView(title, description)
-{
-    return `
-    <div class="ps-placeholder">
-        <div class="ps-placeholder-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-        </div>
-        <strong>${title}</strong>
-        <p>${description}</p>
-    </div>
-    `;
 }

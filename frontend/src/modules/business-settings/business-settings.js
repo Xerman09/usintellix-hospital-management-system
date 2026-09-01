@@ -1,5 +1,5 @@
 import { fetchBusinessSettings, updateBusinessSettings, uploadBusinessLogo, removeBusinessLogo } from "./business-settings.service.js";
-import { BusinessInfoSectionView, PlaceholderSectionView } from "./business-settings.view.js";
+import { BusinessInfoSectionView } from "./business-settings.view.js";
 import { API_URL } from "../../core/api.js?v=5";
 import { clearBrandingCache, applyBranding } from "../../core/branding.js";
 import { showToast } from "../../core/toast.js";
@@ -13,6 +13,8 @@ import { ProviderInsuranceNumbersView } from "../provider-insurance-numbers/prov
 import { initProviderInsuranceNumbers } from "../provider-insurance-numbers/provider-insurance-numbers.js";
 import { DocumentCategoriesView } from "../document-categories/document-categories.view.js";
 import { initDocumentCategories } from "../document-categories/document-categories.js";
+import { Hl7ViewerView } from "../hl7-viewer/hl7-viewer.view.js";
+import { initHl7Viewer } from "../hl7-viewer/hl7-viewer.js";
 
 let currentSettings = null;
 
@@ -42,8 +44,8 @@ const SECTIONS = {
         init: initDocumentCategories
     },
     hl7_viewer: {
-        render: () => PlaceholderSectionView("HL7 Viewer", "This system doesn't currently receive HL7 messages, so there's nothing to view yet."),
-        init: () => {}
+        render: Hl7ViewerView,
+        init: initHl7Viewer
     }
 };
 
