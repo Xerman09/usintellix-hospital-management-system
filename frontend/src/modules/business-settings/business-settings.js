@@ -11,6 +11,8 @@ import { X12PartnersView } from "../x12-partners/x12-partners.view.js";
 import { initX12Partners } from "../x12-partners/x12-partners.js";
 import { ProviderInsuranceNumbersView } from "../provider-insurance-numbers/provider-insurance-numbers.view.js";
 import { initProviderInsuranceNumbers } from "../provider-insurance-numbers/provider-insurance-numbers.js";
+import { DocumentCategoriesView } from "../document-categories/document-categories.view.js";
+import { initDocumentCategories } from "../document-categories/document-categories.js";
 
 let currentSettings = null;
 
@@ -36,8 +38,8 @@ const SECTIONS = {
         init: initX12Partners
     },
     document_categories: {
-        render: () => PlaceholderSectionView("Document Categories", "This section hasn't been configured yet. Document category management will appear here."),
-        init: () => {}
+        render: DocumentCategoriesView,
+        init: initDocumentCategories
     },
     hl7_viewer: {
         render: () => PlaceholderSectionView("HL7 Viewer", "This system doesn't currently receive HL7 messages, so there's nothing to view yet."),
