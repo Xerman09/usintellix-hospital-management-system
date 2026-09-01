@@ -108,6 +108,7 @@ function staffNavLinks(role)
                     <div class="dropdown-submenu-content">
                         <a data-tab="business_settings">Practice Settings</a>
                         <a data-tab="admin_practice_rules">Rules</a>
+                        <a data-tab="admin_plans_configuration">Plans Configuration</a>
                         <a data-tab="admin_practice_alerts">Alerts</a>
                     </div>
                 </div>

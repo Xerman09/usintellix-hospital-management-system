@@ -63,7 +63,7 @@ class PracticeRuleController extends Controller
             return;
         }
 
-        $this->success($result['data'], $result['message'], 201);
+        $this->success($result['data'], 'Rule added successfully.', 201);
     }
 
     public function update(): void
@@ -81,7 +81,7 @@ class PracticeRuleController extends Controller
             return;
         }
 
-        $this->success($result['data'], $result['message']);
+        $this->success($result['data'], 'Rule updated successfully.');
     }
 
     public function destroy(): void

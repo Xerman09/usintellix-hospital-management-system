@@ -1,565 +1,651 @@
 import { api } from "../../core/api.js?v=5";
+import { showToast } from "../../core/toast.js";
+
+const VALID_TYPES = ["Active Alert", "Passive Alert", "Patient Reminder"];
+
+const USAGE_FIELDS = [
+    { label: "Race", key: "race", dataKey: "use_patient_race" },
+    { label: "Ethnicity", key: "ethnicity", dataKey: "use_patient_ethnicity" },
+    { label: "Language", key: "language", dataKey: "use_patient_language" },
+    { label: "Sexual Orientation", key: "sexual_orientation", dataKey: "use_patient_sexual_orientation" },
+    { label: "Gender Identity", key: "gender_identity", dataKey: "use_patient_gender_identity" },
+    { label: "Sex", key: "sex", dataKey: "use_patient_sex" },
+    { label: "Date of Birth", key: "dob", dataKey: "use_patient_dob" },
+    { label: "Social Determinants of Health", key: "sdoh", dataKey: "use_patient_sdoh" },
+    { label: "Health Status Assessments", key: "health_status_assessments", dataKey: "use_patient_health_status_assessments" }
+];
+
+const DEFAULT_UNKNOWN = "The source attribute value is unknown or the DSI developer did not provide any information for this field";
 
 let rulesList = [];
 let deleteTargetId = null;
 
-const DEFAULT_UNKNOWN = "The source attribute value is unknown or the DSI developer did not provide any information for this field";
-
-export function initPracticeRules() {
-    loadRulesList();
-    bindEvents();
+export function initPracticeRules()
+{
+    wireDeleteModal();
+    renderList();
 }
 
-/**
- * Fetch and render rules list in table.
- */
-async function loadRulesList() {
-    const tableBody = document.getElementById("rulesTableBody");
-    if (!tableBody) return;
+/* ===================== List ===================== */
 
-    try {
-        const response = await api("/practice-rules");
-        if (response.success && Array.isArray(response.data)) {
-            rulesList = response.data;
-            renderRulesTable(rulesList);
-        } else {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">
-                        ${response.message || "Failed to load rules list."}
-                    </td>
-                </tr>
-            `;
-        }
-    } catch (err) {
-        console.error("Error loading rules:", err);
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">
-                    Error connecting to backend server.
-                </td>
-            </tr>
-        `;
-    }
-}
+async function renderList()
+{
+    const root = document.getElementById("pr2Root");
+    root.innerHTML = `<div class="pr2-empty">Loading...</div>`;
 
-/**
- * Render table rows with strict columns:
- * No | Type | Name | Created By | Created At | Action
- */
-function renderRulesTable(rules) {
-    const tableBody = document.getElementById("rulesTableBody");
-    if (!tableBody) return;
+    const result = await api("/practice-rules");
 
-    if (rules.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #64748b;">
-                    No practice rules found. Click <strong>Rule Add</strong> to create one.
-                </td>
-            </tr>
-        `;
+    if (!result.success) {
+        root.innerHTML = listShell(`<tr><td colspan="2"><div class="pr2-error">${esc(result.message || "Failed to load rules.")}</div></td></tr>`);
         return;
     }
 
-    tableBody.innerHTML = rules.map((rule, index) => {
-        let badgeClass = "rule-type-active";
-        if (rule.type === "Passive Alert") badgeClass = "rule-type-passive";
-        if (rule.type === "Patient Reminder") badgeClass = "rule-type-reminder";
+    rulesList = result.data || [];
+    root.innerHTML = listShell(renderRows(rulesList));
+    wireList();
+}
 
-        const createdAtFormatted = rule.created_at ? new Date(rule.created_at).toLocaleString() : "N/A";
+function listShell(rowsHtml)
+{
+    return `
+        <div class="pr2-header-row">
+            <h1>Rules Configuration</h1>
+            <button type="button" class="pr2-btn" id="pr2AddBtn">Add new</button>
+        </div>
+        <hr class="pr2-divider">
+        <table class="pr2-table">
+            <thead><tr><th style="width: 160px;">Type</th><th>Name</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+}
 
-        return `
-            <tr>
-                <td style="text-align: center; font-weight: 600; color: #64748b;">${index + 1}</td>
-                <td>
-                    <span class="rule-type-badge ${badgeClass}">${escapeHtml(rule.type)}</span>
-                </td>
-                <td style="font-weight: 600; color: #0f172a;">${escapeHtml(rule.title)}</td>
-                <td>${escapeHtml(rule.created_by_name || "System")}</td>
-                <td style="color: #64748b; font-size: 13px;">${createdAtFormatted}</td>
-                <td style="text-align: center;">
-                    <div class="action-btn-group" style="justify-content: center;">
-                        <button class="btn-action-summary" data-action="summary" data-id="${rule.id}">Summary</button>
-                        <button class="btn-action-edit" data-action="edit" data-id="${rule.id}">Edit</button>
-                        <button class="btn-action-delete" data-action="delete" data-id="${rule.id}">Delete</button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join("");
+function renderRows(rules)
+{
+    if (!rules.length) {
+        return `<tr><td colspan="2" class="pr2-empty">No rules configured yet. Click "Add new" to create one.</td></tr>`;
+    }
 
-    // Attach row action listeners
-    tableBody.querySelectorAll("button[data-action]").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const action = btn.getAttribute("data-action");
-            const id = parseInt(btn.getAttribute("data-id"), 10);
-            const targetRule = rulesList.find(r => r.id === id);
+    return rules.map((rule) => `
+        <tr>
+            <td>${esc(displayType(rule.type))}</td>
+            <td><button type="button" class="pr2-link-btn" data-rule-id="${rule.id}">${esc(rule.title)}</button></td>
+        </tr>
+    `).join("");
+}
 
-            if (action === "summary") {
-                openSummaryModal(id);
-            } else if (action === "edit" && targetRule) {
-                openFormModal(targetRule);
-            } else if (action === "delete" && targetRule) {
-                openDeleteModal(targetRule);
+function displayType(type)
+{
+    return type === "Patient Reminder" ? "Reminder" : type;
+}
+
+function wireList()
+{
+    document.getElementById("pr2AddBtn").addEventListener("click", () => renderAddEdit(null));
+
+    document.querySelectorAll("[data-rule-id]").forEach((btn) => {
+        btn.addEventListener("click", () => renderDetail(Number(btn.dataset.ruleId)));
+    });
+}
+
+/* ===================== Add / Edit ===================== */
+
+async function renderAddEdit(ruleId)
+{
+    const root = document.getElementById("pr2Root");
+    root.innerHTML = `<div class="pr2-empty">Loading...</div>`;
+
+    let rule = null;
+
+    if (ruleId) {
+        const result = await api(`/practice-rules?id=${ruleId}`);
+
+        if (!result.success) {
+            showToast(result.message || "Failed to load rule.", "error");
+            await renderList();
+            return;
+        }
+
+        rule = result.data;
+    }
+
+    root.innerHTML = addEditFormHtml(rule);
+    wireAddEditForm(rule);
+}
+
+function addEditFormHtml(rule)
+{
+    const isEdit = !!rule;
+
+    return `
+        <div class="pr2-form-header">
+            <h1>${isEdit ? "Rule Edit" : "Rule Add"}</h1>
+            <div class="pr2-form-actions-top">
+                <button type="button" class="pr2-btn-secondary" id="pr2CancelBtn">Cancel</button>
+                <button type="submit" form="pr2RuleForm" class="pr2-btn">Save</button>
+            </div>
+        </div>
+        <hr class="pr2-divider">
+        <div id="pr2FormAlert"></div>
+        <form id="pr2RuleForm">
+            <p class="pr2-form-section-label">Summary</p>
+
+            <div class="pr2-form-row">
+                <label>Title <span class="req">*</span></label>
+                <input type="text" id="pr2Title" class="form-input" value="${escAttr(rule?.title)}">
+            </div>
+            <span class="form-error" id="err-title"></span>
+
+            <div class="pr2-form-row">
+                <label>Type <span class="req">*</span></label>
+                <div class="pr2-type-options">
+                    ${VALID_TYPES.map((type) => `
+                        <label class="pr2-type-option">
+                            <input type="checkbox" class="pr2-type-checkbox" value="${type}" ${rule?.type === type ? "checked" : ""}>
+                            ${type}
+                        </label>
+                    `).join("")}
+                </div>
+            </div>
+            <span class="form-error" id="err-type"></span>
+
+            <div class="pr2-form-row">
+                <label>Bibliographic Citation</label>
+                <input type="text" id="pr2Citation" class="form-input" value="${escAttr(rule?.bibliographic_citation)}">
+            </div>
+            <div class="pr2-form-row">
+                <label>Developer</label>
+                <input type="text" id="pr2Developer" class="form-input" value="${escAttr(rule?.developer)}">
+            </div>
+            <div class="pr2-form-row">
+                <label>Funding Source</label>
+                <input type="text" id="pr2Funding" class="form-input" value="${escAttr(rule?.funding_source)}">
+            </div>
+            <div class="pr2-form-row">
+                <label>Date of Last Review or Update</label>
+                <input type="date" id="pr2DateReviewed" class="form-input" value="${escAttr(rule?.date_last_reviewed)}">
+            </div>
+            <div class="pr2-form-row">
+                <label>Web Reference</label>
+                <input type="text" id="pr2WebRef" class="form-input" value="${escAttr(rule?.web_reference)}">
+            </div>
+            <div class="pr2-form-row">
+                <label>Referential CDS (codetype:code)</label>
+                <input type="text" id="pr2RefCds" class="form-input" value="${escAttr(rule?.referential_cds)}">
+            </div>
+
+            <p class="pr2-form-section-label" style="margin-top: 22px;">Rule Usage</p>
+            ${USAGE_FIELDS.map((field) => `
+                <div class="pr2-form-row">
+                    <label>Rule usage of Patient's ${field.label}</label>
+                    <input type="text" id="pr2_${field.key}" class="form-input" value="${escAttr(rule?.[field.dataKey])}">
+                </div>
+            `).join("")}
+
+            <div class="pr2-form-bottom-actions">
+                <span class="pr2-form-footnote"><span class="req">*</span> Required fields</span>
+            </div>
+        </form>
+    `;
+}
+
+function wireAddEditForm(rule)
+{
+    document.getElementById("pr2CancelBtn").addEventListener("click", async () => {
+        if (rule) {
+            await renderDetail(rule.id);
+        } else {
+            await renderList();
+        }
+    });
+
+    const typeBoxes = document.querySelectorAll(".pr2-type-checkbox");
+
+    typeBoxes.forEach((box) => {
+        box.addEventListener("change", () => {
+            if (box.checked) {
+                typeBoxes.forEach((other) => {
+                    if (other !== box) other.checked = false;
+                });
             }
+        });
+    });
+
+    document.getElementById("pr2RuleForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.querySelectorAll("#pr2RuleForm .form-error").forEach((el) => { el.textContent = ""; });
+        document.getElementById("pr2FormAlert").innerHTML = "";
+
+        const selectedType = [...typeBoxes].find((box) => box.checked)?.value || "";
+
+        const basics = {
+            title: document.getElementById("pr2Title").value.trim(),
+            type: selectedType,
+            bibliographic_citation: fieldVal("pr2Citation"),
+            developer: fieldVal("pr2Developer"),
+            funding_source: fieldVal("pr2Funding"),
+            date_last_reviewed: document.getElementById("pr2DateReviewed").value || null,
+            web_reference: fieldVal("pr2WebRef"),
+            referential_cds: fieldVal("pr2RefCds")
+        };
+
+        USAGE_FIELDS.forEach((field) => {
+            basics[field.dataKey] = fieldVal(`pr2_${field.key}`);
+        });
+
+        // Preserve everything this form doesn't edit -- the backend
+        // replaces these arrays wholesale on every PUT, so omitting them
+        // here would silently wipe out reminder intervals / demographics
+        // / targets / actions set via the Rule Detail page.
+        const payload = rule
+            ? {
+                ...basics,
+                reminder_intervals: rule.reminder_intervals,
+                demographics_criteria: rule.demographics_criteria,
+                clinical_targets: rule.clinical_targets,
+                actions_list: rule.actions_list
+            }
+            : basics;
+
+        const result = rule
+            ? await api("/practice-rules", { method: "PUT", body: JSON.stringify({ id: rule.id, ...payload }) })
+            : await api("/practice-rules", { method: "POST", body: JSON.stringify(payload) });
+
+        if (!result.success) {
+            if (result.errors) {
+                Object.entries(result.errors).forEach(([field, message]) => {
+                    const el = document.getElementById(`err-${field}`);
+                    if (el) el.textContent = message;
+                });
+            }
+
+            document.getElementById("pr2FormAlert").innerHTML = `<div class="form-alert error">${esc(result.message || "Failed to save rule.")}</div>`;
+            return;
+        }
+
+        showToast(rule ? "Rule updated successfully." : "Rule added successfully.", "success");
+        await renderDetail(rule ? rule.id : result.data.id);
+    });
+}
+
+function fieldVal(id)
+{
+    return document.getElementById(id).value.trim() || null;
+}
+
+/* ===================== Detail ===================== */
+
+async function renderDetail(ruleId)
+{
+    const root = document.getElementById("pr2Root");
+    root.innerHTML = `<div class="pr2-empty">Loading...</div>`;
+
+    const result = await api(`/practice-rules?id=${ruleId}`);
+
+    if (!result.success) {
+        showToast(result.message || "Failed to load rule.", "error");
+        await renderList();
+        return;
+    }
+
+    root.innerHTML = detailHtml(result.data);
+    wireDetail(result.data);
+}
+
+function detailHtml(rule)
+{
+    const valOrFallback = (val) => (val && String(val).trim() !== "" ? esc(val) : `<span class="muted">${DEFAULT_UNKNOWN}</span>`);
+
+    const ri = rule.reminder_intervals || {};
+    const clinicalDetail = `Warning: ${ri.clinical_warning_val ?? "2"} ${ri.clinical_warning_unit ?? "Week"}s, Past due: ${ri.clinical_past_due_val ?? "1"} ${ri.clinical_past_due_unit ?? "Month"}s`;
+    const patientDetail = `Warning: ${ri.patient_warning_val ?? "2"} ${ri.patient_warning_unit ?? "Week"}s, Past due: ${ri.patient_past_due_val ?? "1"} ${ri.patient_past_due_unit ?? "Month"}s`;
+
+    const demoRows = Array.isArray(rule.demographics_criteria) ? rule.demographics_criteria : [];
+    const targetRows = Array.isArray(rule.clinical_targets) ? rule.clinical_targets : [];
+    const actionRows = Array.isArray(rule.actions_list) ? rule.actions_list : [];
+
+    return `
+        <div class="pr2-header-row">
+            <h1>Rule Detail</h1>
+            <button type="button" class="pr2-btn-secondary" id="pr2BackBtn">&lsaquo; Back</button>
+            <button type="button" class="pr2-btn-secondary" id="pr2DeleteRuleBtn" style="margin-left: auto; color: #dc2626;">Delete Rule</button>
+        </div>
+        <hr class="pr2-divider">
+
+        <div class="pr2-detail-box">
+            <p class="pr2-detail-box-title">Summary <a id="pr2EditSummaryLink">(edit)</a></p>
+            <p class="pr2-detail-name">${esc(rule.title)} (${esc(rule.type)})</p>
+
+            <div class="pr2-detail-field"><strong>Bibliographic Citation:</strong> ${valOrFallback(rule.bibliographic_citation)}</div>
+            <div class="pr2-detail-field"><strong>Developer:</strong> ${valOrFallback(rule.developer)}</div>
+            <div class="pr2-detail-field"><strong>Funding Source:</strong> ${valOrFallback(rule.funding_source)}</div>
+            <div class="pr2-detail-field"><strong>Web Reference:</strong> ${valOrFallback(rule.web_reference)}</div>
+            <div class="pr2-detail-field"><strong>Referential CDS (codetype:code):</strong> ${valOrFallback(rule.referential_cds)}</div>
+            ${USAGE_FIELDS.map((field) => `<div class="pr2-detail-field"><strong>Use of Patient's ${field.label}:</strong> ${valOrFallback(rule[field.dataKey])}</div>`).join("")}
+        </div>
+
+        <div class="pr2-detail-box">
+            <p class="pr2-detail-box-title">Reminder intervals <a id="pr2EditIntervalsLink">(edit)</a></p>
+            <table class="pr2-detail-table">
+                <thead><tr><th>Type</th><th>Detail</th></tr></thead>
+                <tbody>
+                    <tr><td>Clinical</td><td>${esc(clinicalDetail)}</td></tr>
+                    <tr><td>Patient</td><td>${esc(patientDetail)}</td></tr>
+                </tbody>
+            </table>
+            <div class="pr2-inline-add-form" id="pr2IntervalsForm" style="display: none;"></div>
+        </div>
+
+        <div class="pr2-detail-box">
+            <p class="pr2-detail-box-title">Demographics filter criteria <a id="pr2AddDemoLink">(add)</a></p>
+            ${arrayTable(demoRows, [
+                { key: "criteria", label: "Criteria" },
+                { key: "characteristics", label: "Characteristics" },
+                { key: "requirements", label: "Requirements" }
+            ], "demo")}
+            <div class="pr2-inline-add-form" id="pr2DemoAddForm" style="display: none;"></div>
+        </div>
+
+        <div class="pr2-detail-box">
+            <p class="pr2-detail-box-title" style="font-weight: 700; font-size: 15px;">Target/Action Groups</p>
+
+            <div class="pr2-subbox">
+                <p class="pr2-detail-box-title">Clinical targets <a id="pr2AddTargetLink">(add)</a></p>
+                ${arrayTable(targetRows, [
+                    { key: "criteria", label: "Criteria" },
+                    { key: "characteristics", label: "Characteristics" },
+                    { key: "requirements", label: "Requirements" }
+                ], "target")}
+                <div class="pr2-inline-add-form" id="pr2TargetAddForm" style="display: none;"></div>
+            </div>
+
+            <div class="pr2-subbox">
+                <p class="pr2-detail-box-title">Actions <a id="pr2AddActionLink">(add)</a></p>
+                ${arrayTable(actionRows, [{ key: "category_title", label: "Category/Title" }], "action")}
+                <div class="pr2-inline-add-form" id="pr2ActionAddForm" style="display: none;"></div>
+            </div>
+        </div>
+    `;
+}
+
+function arrayTable(rows, columns, rowType)
+{
+    if (!rows.length) {
+        return `<p class="pr2-detail-field muted" style="margin-top: 8px;">None configured yet.</p>`;
+    }
+
+    return `
+        <table class="pr2-detail-table">
+            <thead>
+                <tr>
+                    <th style="width: 90px;"></th>
+                    ${columns.map((col) => `<th>${esc(col.label)}</th>`).join("")}
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map((row, index) => `
+                    <tr data-row-type="${rowType}" data-row-index="${index}">
+                        <td class="pr2-row-actions">
+                            <a class="pr2-inline-link" data-row-edit>(edit)</a>
+                            <a class="pr2-inline-link danger" data-row-delete>(delete)</a>
+                        </td>
+                        ${columns.map((col) => `<td>${esc(row[col.key])}</td>`).join("")}
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+}
+
+function wireDetail(rule)
+{
+    document.getElementById("pr2BackBtn").addEventListener("click", renderList);
+    document.getElementById("pr2DeleteRuleBtn").addEventListener("click", () => openDeleteModal(rule));
+    document.getElementById("pr2EditSummaryLink").addEventListener("click", () => renderAddEdit(rule.id));
+
+    wireIntervalsEditor(rule);
+    wireArrayEditor(rule, "demo", "demographics_criteria", [
+        { key: "criteria", label: "Criteria", placeholder: "e.g. Age Min (Years)" },
+        { key: "characteristics", label: "Characteristics", placeholder: "e.g. 50" },
+        { key: "requirements", label: "Requirements", placeholder: "e.g. Required Inclusion" }
+    ]);
+    wireArrayEditor(rule, "target", "clinical_targets", [
+        { key: "criteria", label: "Criteria", placeholder: "e.g. Assessment - Colon Cancer Screening" },
+        { key: "characteristics", label: "Characteristics", placeholder: "e.g. Completed: Yes | Frequency: >= 1 | Interval: 1 x Months" },
+        { key: "requirements", label: "Requirements", placeholder: "e.g. Required Inclusion" }
+    ]);
+    wireArrayEditor(rule, "action", "actions_list", [
+        { key: "category_title", label: "Category/Title", placeholder: "e.g. Assessment - Colon Cancer Screening" }
+    ]);
+}
+
+/* Reminder intervals editor (single object, not an array) */
+
+function wireIntervalsEditor(rule)
+{
+    document.getElementById("pr2EditIntervalsLink").addEventListener("click", () => {
+        const form = document.getElementById("pr2IntervalsForm");
+        const ri = rule.reminder_intervals || {};
+
+        form.innerHTML = `
+            <input type="number" min="1" class="form-input" id="pr2IntClinicalWarnVal" placeholder="Clinical warning" value="${escAttr(ri.clinical_warning_val ?? "2")}" style="max-width: 90px;">
+            ${unitSelect("pr2IntClinicalWarnUnit", ri.clinical_warning_unit ?? "Week")}
+            <input type="number" min="1" class="form-input" id="pr2IntClinicalPastVal" placeholder="Clinical past due" value="${escAttr(ri.clinical_past_due_val ?? "1")}" style="max-width: 90px;">
+            ${unitSelect("pr2IntClinicalPastUnit", ri.clinical_past_due_unit ?? "Month")}
+            <input type="number" min="1" class="form-input" id="pr2IntPatientWarnVal" placeholder="Patient warning" value="${escAttr(ri.patient_warning_val ?? "2")}" style="max-width: 90px;">
+            ${unitSelect("pr2IntPatientWarnUnit", ri.patient_warning_unit ?? "Week")}
+            <input type="number" min="1" class="form-input" id="pr2IntPatientPastVal" placeholder="Patient past due" value="${escAttr(ri.patient_past_due_val ?? "1")}" style="max-width: 90px;">
+            ${unitSelect("pr2IntPatientPastUnit", ri.patient_past_due_unit ?? "Month")}
+            <button type="button" class="pr2-btn" id="pr2IntSaveBtn">Save</button>
+            <button type="button" class="pr2-btn-secondary" id="pr2IntCancelBtn">Cancel</button>
+        `;
+        form.style.display = "flex";
+
+        document.getElementById("pr2IntCancelBtn").addEventListener("click", () => renderDetail(rule.id));
+
+        document.getElementById("pr2IntSaveBtn").addEventListener("click", async () => {
+            const updated = {
+                clinical_warning_val: document.getElementById("pr2IntClinicalWarnVal").value || "2",
+                clinical_warning_unit: document.getElementById("pr2IntClinicalWarnUnit").value,
+                clinical_past_due_val: document.getElementById("pr2IntClinicalPastVal").value || "1",
+                clinical_past_due_unit: document.getElementById("pr2IntClinicalPastUnit").value,
+                patient_warning_val: document.getElementById("pr2IntPatientWarnVal").value || "2",
+                patient_warning_unit: document.getElementById("pr2IntPatientWarnUnit").value,
+                patient_past_due_val: document.getElementById("pr2IntPatientPastVal").value || "1",
+                patient_past_due_unit: document.getElementById("pr2IntPatientPastUnit").value
+            };
+
+            await savePartial(rule.id, { reminder_intervals: updated }, "Reminder intervals updated successfully.");
         });
     });
 }
 
+function unitSelect(id, selected)
+{
+    const units = ["Day", "Week", "Month", "Year"];
+
+    return `<select id="${id}" class="form-input" style="max-width: 100px;">${units.map((unit) => `<option value="${unit}" ${unit === selected ? "selected" : ""}>${unit}</option>`).join("")}</select>`;
+}
+
+/* Generic add/edit/delete for demographics_criteria, clinical_targets, actions_list */
+
+function wireArrayEditor(rule, rowType, arrayKey, fieldDefs)
+{
+    const addLinkId = { demo: "pr2AddDemoLink", target: "pr2AddTargetLink", action: "pr2AddActionLink" }[rowType];
+    const addFormId = { demo: "pr2DemoAddForm", target: "pr2TargetAddForm", action: "pr2ActionAddForm" }[rowType];
+
+    document.getElementById(addLinkId).addEventListener("click", () => {
+        showRowForm(document.getElementById(addFormId), fieldDefs, {}, async (values) => {
+            const rows = Array.isArray(rule[arrayKey]) ? [...rule[arrayKey]] : [];
+            rows.push(values);
+            await savePartial(rule.id, { [arrayKey]: rows }, "Added successfully.");
+        });
+    });
+
+    document.querySelectorAll(`tr[data-row-type="${rowType}"]`).forEach((row) => {
+        const index = Number(row.dataset.rowIndex);
+
+        row.querySelector("[data-row-edit]").addEventListener("click", () => {
+            const inlineForm = document.createElement("div");
+            inlineForm.className = "pr2-inline-add-form";
+            row.after(wrapInRow(inlineForm, fieldDefs.length + 1));
+
+            showRowForm(inlineForm, fieldDefs, rule[arrayKey][index], async (values) => {
+                const rows = [...rule[arrayKey]];
+                rows[index] = values;
+                await savePartial(rule.id, { [arrayKey]: rows }, "Updated successfully.");
+            });
+        });
+
+        row.querySelector("[data-row-delete]").addEventListener("click", async () => {
+            if (!confirm("Remove this entry?")) return;
+
+            const rows = rule[arrayKey].filter((_, i) => i !== index);
+            await savePartial(rule.id, { [arrayKey]: rows }, "Removed successfully.");
+        });
+    });
+}
+
+function wrapInRow(innerEl, colSpan)
+{
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+
+    td.colSpan = colSpan;
+    td.appendChild(innerEl);
+    tr.appendChild(td);
+
+    return tr;
+}
+
+function showRowForm(container, fieldDefs, current, onSave)
+{
+    container.innerHTML = fieldDefs.map((field) => `
+        <input type="text" class="form-input" id="pr2RowField_${field.key}" placeholder="${escAttr(field.placeholder)}" value="${escAttr(current[field.key])}">
+    `).join("") + `
+        <button type="button" class="pr2-btn" id="pr2RowSaveBtn">Save</button>
+        <button type="button" class="pr2-btn-secondary" id="pr2RowCancelBtn">Cancel</button>
+    `;
+    container.style.display = "flex";
+
+    container.querySelector("#pr2RowCancelBtn").addEventListener("click", () => {
+        container.style.display = "none";
+        container.innerHTML = "";
+    });
+
+    container.querySelector("#pr2RowSaveBtn").addEventListener("click", () => {
+        const values = {};
+        fieldDefs.forEach((field) => {
+            values[field.key] = document.getElementById(`pr2RowField_${field.key}`).value.trim();
+        });
+        onSave(values);
+    });
+}
+
 /**
- * Bind modal toggles and form handlers.
+ * Fetches the current full rule, merges in a partial update, and PUTs
+ * the whole thing back -- the backend replaces title/type/every JSON
+ * field wholesale on every PUT, so a partial-only payload would wipe
+ * out whatever this call doesn't explicitly carry forward.
  */
-function bindEvents() {
-    const openAddBtn = document.getElementById("openAddRuleBtn");
-    const closeFormModalBtn = document.getElementById("closeFormModalBtn");
-    const cancelFormBtn = document.getElementById("cancelFormBtn");
-    const ruleForm = document.getElementById("practiceRuleForm");
+async function savePartial(ruleId, partial, successMessage)
+{
+    const current = await api(`/practice-rules?id=${ruleId}`);
 
-    const closeSummaryBtn = document.getElementById("closeSummaryModalBtn");
-    const closeDeleteBtn = document.getElementById("closeDeleteModalBtn");
-    const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
-    const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
-
-    if (openAddBtn) openAddBtn.onclick = () => openFormModal(null);
-    if (closeFormModalBtn) closeFormModalBtn.onclick = hideFormModal;
-    if (cancelFormBtn) cancelFormBtn.onclick = hideFormModal;
-
-    if (closeSummaryBtn) closeSummaryBtn.onclick = hideSummaryModal;
-    if (closeDeleteBtn) closeDeleteBtn.onclick = hideDeleteModal;
-    if (cancelDeleteBtn) cancelDeleteBtn.onclick = hideDeleteModal;
-
-    if (confirmDeleteBtn) {
-        confirmDeleteBtn.onclick = async () => {
-            if (!deleteTargetId) return;
-            try {
-                const response = await api("/practice-rules", {
-                    method: "DELETE",
-                    body: JSON.stringify({ id: deleteTargetId })
-                });
-                if (response.success) {
-                    showToast("Rule soft deleted successfully.", "success");
-                    hideDeleteModal();
-                    loadRulesList();
-                } else {
-                    showToast(response.message || "Failed to soft delete rule.", "error");
-                }
-            } catch (err) {
-                console.error("Delete error:", err);
-                showToast("Error executing soft delete.", "error");
-            }
-        };
+    if (!current.success) {
+        showToast(current.message || "Failed to load rule.", "error");
+        return;
     }
 
-    if (ruleForm) {
-        ruleForm.onsubmit = async (e) => {
-            e.preventDefault();
-            clearErrors();
+    const merged = { ...current.data, ...partial };
 
-            const ruleId = document.getElementById("ruleId").value;
-            
-            // Build payload
-            const payload = {
-                title: document.getElementById("ruleTitle").value.trim(),
-                type: document.getElementById("ruleType").value,
-                date_last_reviewed: document.getElementById("dateLastReviewed").value || null,
-                developer: document.getElementById("ruleDeveloper").value.trim() || null,
-                funding_source: document.getElementById("fundingSource").value.trim() || null,
-                release_info: document.getElementById("releaseInfo").value.trim() || null,
-                bibliographic_citation: document.getElementById("bibliographicCitation").value.trim() || null,
-                web_reference: document.getElementById("webReference").value.trim() || null,
-                referential_cds: document.getElementById("referentialCds").value.trim() || null,
+    const result = await api("/practice-rules", {
+        method: "PUT",
+        body: JSON.stringify({
+            id: ruleId,
+            title: merged.title,
+            type: merged.type,
+            bibliographic_citation: merged.bibliographic_citation,
+            developer: merged.developer,
+            funding_source: merged.funding_source,
+            date_last_reviewed: merged.date_last_reviewed,
+            release_info: merged.release_info,
+            web_reference: merged.web_reference,
+            referential_cds: merged.referential_cds,
+            reminder_intervals: merged.reminder_intervals,
+            demographics_criteria: merged.demographics_criteria,
+            clinical_targets: merged.clinical_targets,
+            actions_list: merged.actions_list,
+            use_patient_race: merged.use_patient_race,
+            use_patient_ethnicity: merged.use_patient_ethnicity,
+            use_patient_language: merged.use_patient_language,
+            use_patient_sexual_orientation: merged.use_patient_sexual_orientation,
+            use_patient_gender_identity: merged.use_patient_gender_identity,
+            use_patient_sex: merged.use_patient_sex,
+            use_patient_dob: merged.use_patient_dob,
+            use_patient_sdoh: merged.use_patient_sdoh,
+            use_patient_health_status_assessments: merged.use_patient_health_status_assessments
+        })
+    });
 
-                use_patient_race: document.getElementById("usePatientRace").value.trim() || null,
-                use_patient_ethnicity: document.getElementById("usePatientEthnicity").value.trim() || null,
-                use_patient_language: document.getElementById("usePatientLanguage").value.trim() || null,
-                use_patient_sexual_orientation: document.getElementById("usePatientSexualOrientation").value.trim() || null,
-                use_patient_gender_identity: document.getElementById("usePatientGenderIdentity").value.trim() || null,
-                use_patient_sex: document.getElementById("usePatientSex").value.trim() || null,
-                use_patient_dob: document.getElementById("usePatientDob").value.trim() || null,
-                use_patient_sdoh: document.getElementById("usePatientSdoh").value.trim() || null,
-                use_patient_health_status_assessments: document.getElementById("usePatientHealthStatusAssessments").value.trim() || null,
-
-                reminder_intervals: {
-                    clinical_warning_val: document.getElementById("clinicalWarningVal").value || "2",
-                    clinical_warning_unit: document.getElementById("clinicalWarningUnit").value || "Week",
-                    clinical_past_due_val: document.getElementById("clinicalPastDueVal").value || "1",
-                    clinical_past_due_unit: document.getElementById("clinicalPastDueUnit").value || "Month",
-
-                    patient_warning_val: document.getElementById("patientWarningVal").value || "2",
-                    patient_warning_unit: document.getElementById("patientWarningUnit").value || "Week",
-                    patient_past_due_val: document.getElementById("patientPastDueVal").value || "1",
-                    patient_past_due_unit: document.getElementById("patientPastDueUnit").value || "Month"
-                },
-
-                demographics_criteria: [{
-                    criteria: document.getElementById("demoCriteria").value.trim() || "Age Min (Years)",
-                    characteristics: document.getElementById("demoCharacteristics").value.trim() || "50",
-                    requirements: document.getElementById("demoRequirements").value.trim() || "Required Inclusion"
-                }],
-
-                clinical_targets: [{
-                    criteria: document.getElementById("targetCriteria").value.trim() || "Assessment - Colon Cancer Screening",
-                    characteristics: document.getElementById("targetCharacteristics").value.trim() || "Completed: Yes | Frequency: >= 1 | Interval: 1 x Months",
-                    requirements: document.getElementById("targetReq").value.trim() || "Required Inclusion"
-                }],
-
-                actions_list: [{
-                    category_title: document.getElementById("actionTitle").value.trim() || "Assessment - Colon Cancer Screening"
-                }]
-            };
-
-            const categoryPrefix = document.getElementById("ruleCategory").value.trim();
-            if (categoryPrefix && !payload.title.startsWith(categoryPrefix)) {
-                payload.title = `${categoryPrefix}: ${payload.title}`;
-            }
-
-            const method = ruleId ? "PUT" : "POST";
-
-            try {
-                const response = await api("/practice-rules", {
-                    method: method,
-                    body: JSON.stringify(ruleId ? { id: ruleId, ...payload } : payload)
-                });
-
-                if (response.success) {
-                    showToast(ruleId ? "Rule updated successfully!" : "Rule added successfully!", "success");
-                    hideFormModal();
-                    loadRulesList();
-                } else {
-                    if (response.errors) {
-                        for (const key in response.errors) {
-                            const errEl = document.getElementById(`error_${key}`);
-                            if (errEl) errEl.textContent = response.errors[key];
-                        }
-                    }
-                    showToast(response.message || "Please check the form inputs.", "error");
-                }
-            } catch (err) {
-                console.error("Form submit error:", err);
-                showToast("Server communication error.", "error");
-            }
-        };
+    if (!result.success) {
+        showToast(result.message || "Failed to save changes.", "error");
+        return;
     }
+
+    showToast(successMessage, "success");
+    await renderDetail(ruleId);
 }
 
-/**
- * Open Form Modal for Create or Edit
- */
-function openFormModal(rule = null) {
-    clearErrors();
-    const modal = document.getElementById("ruleFormModal");
-    const modalTitle = document.getElementById("modalFormTitle");
-    
-    document.getElementById("ruleId").value = rule ? rule.id : "";
-    document.getElementById("ruleTitle").value = rule ? rule.title : "";
-    document.getElementById("ruleType").value = rule ? rule.type : "Active Alert";
-    document.getElementById("dateLastReviewed").value = rule ? (rule.date_last_reviewed || "") : "";
-    document.getElementById("ruleDeveloper").value = rule ? (rule.developer || "") : "";
-    document.getElementById("fundingSource").value = rule ? (rule.funding_source || "") : "";
-    document.getElementById("releaseInfo").value = rule ? (rule.release_info || "") : "";
-    document.getElementById("bibliographicCitation").value = rule ? (rule.bibliographic_citation || "") : "";
-    document.getElementById("webReference").value = rule ? (rule.web_reference || "") : "";
-    document.getElementById("referentialCds").value = rule ? (rule.referential_cds || "") : "";
+/* ===================== Delete ===================== */
 
-    document.getElementById("usePatientRace").value = rule ? (rule.use_patient_race || "") : "";
-    document.getElementById("usePatientEthnicity").value = rule ? (rule.use_patient_ethnicity || "") : "";
-    document.getElementById("usePatientLanguage").value = rule ? (rule.use_patient_language || "") : "";
-    document.getElementById("usePatientSexualOrientation").value = rule ? (rule.use_patient_sexual_orientation || "") : "";
-    document.getElementById("usePatientGenderIdentity").value = rule ? (rule.use_patient_gender_identity || "") : "";
-    document.getElementById("usePatientSex").value = rule ? (rule.use_patient_sex || "") : "";
-    document.getElementById("usePatientDob").value = rule ? (rule.use_patient_dob || "") : "";
-    document.getElementById("usePatientSdoh").value = rule ? (rule.use_patient_sdoh || "") : "";
-    document.getElementById("usePatientHealthStatusAssessments").value = rule ? (rule.use_patient_health_status_assessments || "") : "";
+function wireDeleteModal()
+{
+    document.getElementById("prDeleteCancelBtn").addEventListener("click", closeDeleteModal);
 
-    const intervals = rule && rule.reminder_intervals ? rule.reminder_intervals : {};
-    document.getElementById("clinicalWarningVal").value = intervals.clinical_warning_val || "2";
-    document.getElementById("clinicalWarningUnit").value = intervals.clinical_warning_unit || "Week";
-    document.getElementById("clinicalPastDueVal").value = intervals.clinical_past_due_val || "1";
-    document.getElementById("clinicalPastDueUnit").value = intervals.clinical_past_due_unit || "Month";
+    document.getElementById("prDeleteConfirmBtn").addEventListener("click", async () => {
+        if (!deleteTargetId) return;
 
-    document.getElementById("patientWarningVal").value = intervals.patient_warning_val || "2";
-    document.getElementById("patientWarningUnit").value = intervals.patient_warning_unit || "Week";
-    document.getElementById("patientPastDueVal").value = intervals.patient_past_due_val || "1";
-    document.getElementById("patientPastDueUnit").value = intervals.patient_past_due_unit || "Month";
+        const result = await api("/practice-rules", { method: "DELETE", body: JSON.stringify({ id: deleteTargetId }) });
 
-    const demo = rule && Array.isArray(rule.demographics_criteria) && rule.demographics_criteria.length > 0 ? rule.demographics_criteria[0] : {};
-    document.getElementById("demoCriteria").value = demo.criteria || "Age Min (Years)";
-    document.getElementById("demoCharacteristics").value = demo.characteristics || "50";
-    document.getElementById("demoRequirements").value = demo.requirements || "Required Inclusion";
+        closeDeleteModal();
 
-    const target = rule && Array.isArray(rule.clinical_targets) && rule.clinical_targets.length > 0 ? rule.clinical_targets[0] : {};
-    document.getElementById("targetCriteria").value = target.criteria || "Assessment - Colon Cancer Screening";
-    document.getElementById("targetCharacteristics").value = target.characteristics || "Completed: Yes | Frequency: >= 1 | Interval: 1 x Months";
-    document.getElementById("targetReq").value = target.requirements || "Required Inclusion";
-
-    const act = rule && Array.isArray(rule.actions_list) && rule.actions_list.length > 0 ? rule.actions_list[0] : {};
-    document.getElementById("actionTitle").value = act.category_title || "Assessment - Colon Cancer Screening";
-
-    modalTitle.textContent = rule ? "Rule Edit" : "Rule Add";
-    modal.classList.add("active");
-}
-
-function hideFormModal() {
-    const modal = document.getElementById("ruleFormModal");
-    if (modal) modal.classList.remove("active");
-}
-
-/**
- * Open Rule Summary Modal
- */
-async function openSummaryModal(ruleId) {
-    const modal = document.getElementById("ruleSummaryModal");
-    const container = document.getElementById("summaryModalContent");
-    if (!modal || !container) return;
-
-    container.innerHTML = '<div style="text-align:center; padding: 30px; color: #64748b;">Loading summary...</div>';
-    modal.classList.add("active");
-
-    try {
-        const response = await api(`/practice-rules?id=${ruleId}`);
-        if (response.success && response.data) {
-            const r = response.data;
-            
-            const valOrFallback = (val) => val && String(val).trim() !== "" ? escapeHtml(val) : DEFAULT_UNKNOWN;
-
-            // Reminder Intervals format
-            const ri = r.reminder_intervals || {};
-            const clinicalWarnVal = ri.clinical_warning_val || ri.clinical_warning || "2";
-            const clinicalWarnUnit = ri.clinical_warning_unit || "Week";
-            const clinicalPastVal = ri.clinical_past_due_val || ri.clinical_past_due || "1";
-            const clinicalPastUnit = ri.clinical_past_due_unit || "Month";
-
-            const patientWarnVal = ri.patient_warning_val || ri.patient_warning || "2";
-            const patientWarnUnit = ri.patient_warning_unit || "Week";
-            const patientPastVal = ri.patient_past_due_val || ri.patient_past_due || "1";
-            const patientPastUnit = ri.patient_past_due_unit || "Month";
-
-            const clinicalDetail = `Warning: ${clinicalWarnVal} ${clinicalWarnUnit}s, Past due: ${clinicalPastVal} ${clinicalPastUnit}s`;
-            const patientDetail = `Warning: ${patientWarnVal} ${patientWarnUnit}s, Past due: ${patientPastVal} ${patientPastUnit}s`;
-
-            const demoList = Array.isArray(r.demographics_criteria) && r.demographics_criteria.length > 0 ? r.demographics_criteria : [
-                { criteria: "Age Min (Years)", characteristics: "50", requirements: "Required Inclusion" }
-            ];
-
-            const targetList = Array.isArray(r.clinical_targets) && r.clinical_targets.length > 0 ? r.clinical_targets : [
-                { criteria: "Assessment - Colon Cancer Screening", characteristics: "Completed: Yes | Frequency: >= 1 | Interval: 1 x Months", requirements: "Required Inclusion" }
-            ];
-
-            const actionList = Array.isArray(r.actions_list) && r.actions_list.length > 0 ? r.actions_list : [
-                { category_title: "Assessment - Colon Cancer Screening" }
-            ];
-
-            container.innerHTML = `
-                <div style="font-family: inherit; font-size: 14px; line-height: 1.6; color: #1e293b;">
-                    <div style="margin-bottom: 20px;">
-                        <span style="font-size: 16px; font-weight: 700; color: #0f172a;">Summary</span>
-                        <a style="color: var(--accent); text-decoration: underline; cursor: pointer; margin-left: 6px; font-size: 13px;" id="summaryEditBtn">(edit)</a>
-                    </div>
-
-                    <div style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0;">
-                        ${escapeHtml(r.title)} (${escapeHtml(r.type)})
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
-                        <div><strong>Bibliographic Citation:</strong> <span style="color: #475569;">${valOrFallback(r.bibliographic_citation)}</span></div>
-                        <div><strong>Developer:</strong> <span style="color: #475569;">${valOrFallback(r.developer)}</span></div>
-                        <div><strong>Funding Source:</strong> <span style="color: #475569;">${valOrFallback(r.funding_source)}</span></div>
-                        <div><strong>Release:</strong> <span style="color: #475569;">${valOrFallback(r.release_info)}</span></div>
-                        <div><strong>Web Reference:</strong> <span style="color: #475569;">${valOrFallback(r.web_reference)}</span></div>
-                        <div><strong>Referential CDS (codetype:code):</strong> <span style="color: #475569;">${valOrFallback(r.referential_cds)}</span></div>
-
-                        <div style="margin-top: 10px;"><strong>Use of Patient's Race:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_race)}</span></div>
-                        <div><strong>Use of Patient's Ethnicity:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_ethnicity)}</span></div>
-                        <div><strong>Use of Patient's Language:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_language)}</span></div>
-                        <div><strong>Use of Patient's Sexual Orientation:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_sexual_orientation)}</span></div>
-                        <div><strong>Use of Patient's Gender Identity:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_gender_identity)}</span></div>
-                        <div><strong>Use of Patient's Sex:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_sex)}</span></div>
-                        <div><strong>Use of Patient's Date of Birth:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_dob)}</span></div>
-                        <div><strong>Use of Patient's Social Determinants of Health:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_sdoh)}</span></div>
-                        <div><strong>Use of Patient's Health Status Assessments:</strong> <span style="color: #475569;">${valOrFallback(r.use_patient_health_status_assessments)}</span></div>
-                    </div>
-
-                    <!-- Reminder Intervals -->
-                    <div style="margin-bottom: 24px;">
-                        <div style="font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 8px;">
-                            Reminder intervals <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(edit)</span>
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                            <thead>
-                                <tr style="background: #f1f5f9; text-align: left;">
-                                    <th style="padding: 10px 14px; font-size: 13px; font-weight: 700; width: 140px;">Type</th>
-                                    <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Detail</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style="border-bottom: 1px solid #e2e8f0;">
-                                    <td style="padding: 10px 14px; font-weight: 600;">Clinical</td>
-                                    <td style="padding: 10px 14px; color: #334155;">${escapeHtml(clinicalDetail)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 10px 14px; font-weight: 600;">Patient</td>
-                                    <td style="padding: 10px 14px; color: #334155;">${escapeHtml(patientDetail)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Demographics Filter Criteria -->
-                    <div style="margin-bottom: 24px;">
-                        <div style="font-weight: 700; font-size: 15px; color: #0f172a; margin-bottom: 8px;">
-                            Demographics filter criteria <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(add)</span>
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                            <thead>
-                                <tr style="background: #f1f5f9; text-align: left;">
-                                    <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Criteria</th>
-                                    <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Characteristics</th>
-                                    <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Requirements</th>
-                                    <th style="padding: 10px 14px; font-size: 13px; font-weight: 700; width: 100px; text-align: center;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${demoList.map(item => `
-                                    <tr>
-                                        <td style="padding: 10px 14px; font-weight: 600;">${escapeHtml(item.criteria)}</td>
-                                        <td style="padding: 10px 14px; color: #334155;">${escapeHtml(item.characteristics)}</td>
-                                        <td style="padding: 10px 14px; color: #334155;">${escapeHtml(item.requirements)}</td>
-                                        <td style="padding: 10px 14px; text-align: center;">
-                                            <span style="color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
-                                            <span style="color: #ef4444; font-size: 12px; cursor: pointer;">(delete)</span>
-                                        </td>
-                                    </tr>
-                                `).join("")}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Target/Action Groups -->
-                    <div style="margin-bottom: 16px;">
-                        <div style="font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
-                            Target/Action Groups
-                        </div>
-
-                        <div style="margin-bottom: 16px;">
-                            <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 8px;">
-                                Clinical targets <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(add)</span>
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                                <thead>
-                                    <tr style="background: #f1f5f9; text-align: left;">
-                                        <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Criteria</th>
-                                        <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Characteristics</th>
-                                        <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Requirements</th>
-                                        <th style="padding: 10px 14px; font-size: 13px; font-weight: 700; width: 100px; text-align: center;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${targetList.map(item => `
-                                        <tr>
-                                            <td style="padding: 10px 14px; font-weight: 600;">${escapeHtml(item.criteria)}</td>
-                                            <td style="padding: 10px 14px; color: #334155; font-size: 13px;">${escapeHtml(item.characteristics)}</td>
-                                            <td style="padding: 10px 14px; color: #334155;">${escapeHtml(item.requirements)}</td>
-                                            <td style="padding: 10px 14px; text-align: center;">
-                                                <span style="color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
-                                                <span style="color: #ef4444; font-size: 12px; cursor: pointer;">(delete)</span>
-                                            </td>
-                                        </tr>
-                                    `).join("")}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div>
-                            <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 8px;">
-                                Actions <span style="color: var(--accent); font-size: 13px; font-weight: normal;">(add)</span>
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                                <thead>
-                                    <tr style="background: #f1f5f9; text-align: left;">
-                                        <th style="padding: 10px 14px; font-size: 13px; font-weight: 700;">Category/Title</th>
-                                        <th style="padding: 10px 14px; font-size: 13px; font-weight: 700; width: 100px; text-align: center;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${actionList.map(item => `
-                                        <tr>
-                                            <td style="padding: 10px 14px; font-weight: 600;">${escapeHtml(item.category_title)}</td>
-                                            <td style="padding: 10px 14px; text-align: center;">
-                                                <span style="color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;">(edit)</span>
-                                                <span style="color: #ef4444; font-size: 12px; cursor: pointer;">(delete)</span>
-                                            </td>
-                                        </tr>
-                                    `).join("")}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const summaryEditBtn = document.getElementById("summaryEditBtn");
-            if (summaryEditBtn) {
-                summaryEditBtn.onclick = () => {
-                    hideSummaryModal();
-                    openFormModal(r);
-                };
-            }
-        } else {
-            container.innerHTML = '<div style="color: #ef4444; padding: 20px;">Failed to load rule summary.</div>';
+        if (!result.success) {
+            showToast(result.message || "Failed to delete rule.", "error");
+            return;
         }
-    } catch (err) {
-        console.error("Summary error:", err);
-        container.innerHTML = '<div style="color: #ef4444; padding: 20px;">Error loading summary data.</div>';
-    }
+
+        showToast("Rule deleted successfully.", "success");
+        await renderList();
+    });
 }
 
-function hideSummaryModal() {
-    const modal = document.getElementById("ruleSummaryModal");
-    if (modal) modal.classList.remove("active");
-}
-
-function openDeleteModal(rule) {
+function openDeleteModal(rule)
+{
     deleteTargetId = rule.id;
-    const modal = document.getElementById("confirmDeleteModal");
-    const nameEl = document.getElementById("deleteRuleName");
-    if (nameEl) nameEl.textContent = `"${rule.title}"`;
-    if (modal) modal.classList.add("active");
+    document.getElementById("prDeleteRuleName").textContent = `"${rule.title}" will be soft-deleted.`;
+    document.getElementById("prDeleteModal").classList.add("open");
 }
 
-function hideDeleteModal() {
+function closeDeleteModal()
+{
     deleteTargetId = null;
-    const modal = document.getElementById("confirmDeleteModal");
-    if (modal) modal.classList.remove("active");
+    document.getElementById("prDeleteModal").classList.remove("open");
 }
 
-function clearErrors() {
-    document.querySelectorAll(".form-error").forEach(el => el.textContent = "");
+/* ===================== Helpers ===================== */
+
+function esc(value)
+{
+    const div = document.createElement("div");
+
+    div.textContent = value ?? "";
+
+    return div.innerHTML;
 }
 
-function showToast(message, type = "info") {
-    const container = document.getElementById("ruleToastContainer");
-    if (!container) return;
-
-    const toast = document.createElement("div");
-    toast.className = `rule-toast ${type}`;
-    toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
-
-    container.appendChild(toast);
-    setTimeout(() => toast.classList.add("show"), 10);
-
-    setTimeout(() => {
-        toast.classList.remove("show");
-        setTimeout(() => toast.remove(), 300);
-    }, 3500);
-}
-
-function escapeHtml(str) {
-    if (!str) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+function escAttr(value)
+{
+    return esc(value ?? "");
 }
