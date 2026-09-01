@@ -7,7 +7,8 @@ export const CODE_TYPES = [
     { value: "PHIN_QUESTIONS", label: "PHIN Questions" },
     { value: "NCI_CONCEPT_ID", label: "NCI Concept ID" },
     { value: "CQM_VALUESET", label: "CQM Valueset" },
-    { value: "OID_VALUESET", label: "OID Valueset" }
+    { value: "OID_VALUESET", label: "OID Valueset" },
+    { value: "RXCUI", label: "RXCUI Drug/Product Name" }
 ];
 
 export const CODE_CATEGORIES = [

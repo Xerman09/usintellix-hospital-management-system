@@ -36,6 +36,8 @@ import { PlansConfigurationView } from "../plans-configuration/plans-configurati
 import { initPlansConfiguration } from "../plans-configuration/plans-configuration.js";
 import { AlertManagerView } from "../alert-manager/alert-manager.view.js";
 import { initAlertManager } from "../alert-manager/alert-manager.js";
+import { InstallCodeSetView } from "../install-code-set/install-code-set.view.js";
+import { initInstallCodeSet } from "../install-code-set/install-code-set.js";
 import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
@@ -436,6 +438,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAlertManager, 0);
                 return AlertManagerView();
+            }, activate);
+        } else if (tabId === 'admin_coding_native_data_loads') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initInstallCodeSet, 0);
+                return InstallCodeSetView();
             }, activate);
         } else if (tabId === 'admin_clinic_import_holidays') {
             tabManager.openTab(tabId, title, () => {

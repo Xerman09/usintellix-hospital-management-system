@@ -19,8 +19,14 @@ class CodeService
         'PHIN_QUESTIONS',
         'NCI_CONCEPT_ID',
         'CQM_VALUESET',
-        'OID_VALUESET'
+        'OID_VALUESET',
+        'RXCUI'
     ];
+
+    // Code types with a genuine native-format parser (as opposed to
+    // this app's own generic CSV import format). Anything not listed
+    // here falls back to the generic CSV format on Install Code Set.
+    public const NATIVE_FORMAT_TYPES = ['RXCUI'];
 
     private const IMPORT_COLUMNS = [
         'code',
@@ -359,6 +365,300 @@ class CodeService
     public function importColumns(): array
     {
         return self::IMPORT_COLUMNS;
+    }
+
+    /**
+     * "Install Code Set" / Native Data Loads: accept an uploaded source
+     * file for a given code type, transparently unzip it if needed,
+     * parse it using the type's native format (falling back to this
+     * app's generic CSV format for types without one), optionally
+     * soft-delete the entire existing set first, then delegate actual
+     * row insertion to import().
+     *
+     * $file is a single $_FILES-style entry: ['name'=>..,'tmp_name'=>..,'error'=>..].
+     */
+    public function installCodeSet(string $codeType, array $file, bool $replaceEntireSet, int $createdBy): array
+    {
+        if (!in_array($codeType, self::CODE_TYPES, true)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid code type.'
+            ];
+        }
+
+        if (empty($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return [
+                'success' => false,
+                'message' => 'No source file was uploaded.'
+            ];
+        }
+
+        $sourcePath = $file['tmp_name'];
+        $originalName = (string) ($file['name'] ?? '');
+        $extractedTemp = null;
+
+        if ($this->looksLikeZip($sourcePath, $originalName)) {
+            $extractedTemp = $this->extractFromZip($sourcePath, $codeType);
+
+            if ($extractedTemp === null) {
+                return [
+                    'success' => false,
+                    'message' => 'Could not find a usable data file for ' . $codeType . ' inside the uploaded ZIP archive.'
+                ];
+            }
+
+            $sourcePath = $extractedTemp;
+        }
+
+        $rows = in_array($codeType, self::NATIVE_FORMAT_TYPES, true)
+            ? $this->parseRxNormRrf($sourcePath)
+            : $this->parseGenericCsv($sourcePath);
+
+        if ($extractedTemp !== null) {
+            @unlink($extractedTemp);
+        }
+
+        if ($rows === null) {
+            return [
+                'success' => false,
+                'message' => 'Unable to parse the uploaded source file.'
+            ];
+        }
+
+        if (empty($rows)) {
+            return [
+                'success' => false,
+                'message' => 'No usable rows were found in the uploaded source file.'
+            ];
+        }
+
+        $replacedCount = 0;
+
+        if ($replaceEntireSet) {
+            $replacedCount = $this->softDeleteAllOfType($codeType, $createdBy);
+        }
+
+        $result = $this->import($codeType, $rows, $createdBy);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $result['data']['replaced_count'] = $replacedCount;
+        $prefix = $replaceEntireSet ? "Replaced {$replacedCount} existing {$codeType} code(s). " : '';
+        $result['message'] = $prefix . $result['message'];
+
+        return $result;
+    }
+
+    /**
+     * Parse a RxNorm RXNCONSO.RRF file: pipe-delimited, no header, 18
+     * columns. Keeps only English RxNorm-source, non-suppressed rows,
+     * deduped by RXCUI (first STR encountered wins), and shapes them
+     * into the associative row format import() expects.
+     */
+    private function parseRxNormRrf(string $path): ?array
+    {
+        $handle = @fopen($path, 'r');
+
+        if (!$handle) {
+            return null;
+        }
+
+        $rows = [];
+        $seen = [];
+
+        while (($line = fgets($handle)) !== false) {
+            $line = rtrim($line, "\r\n");
+
+            if ($line === '') {
+                continue;
+            }
+
+            $fields = explode('|', $line);
+
+            if (count($fields) < 17) {
+                continue;
+            }
+
+            $rxcui = trim($fields[0]);
+            $lat = trim($fields[1]);
+            $sab = trim($fields[11]);
+            $str = trim($fields[14]);
+            $suppress = trim($fields[16]);
+
+            if ($rxcui === '' || $str === '' || $lat !== 'ENG' || $sab !== 'RXNORM') {
+                continue;
+            }
+
+            if (in_array($suppress, ['Y', 'O'], true)) {
+                continue;
+            }
+
+            if (isset($seen[$rxcui])) {
+                continue;
+            }
+
+            $seen[$rxcui] = true;
+
+            $rows[] = [
+                'code' => $rxcui,
+                'description' => $str,
+                'short_description' => mb_strimwidth($str, 0, 100, ''),
+                'category' => 'RxNorm'
+            ];
+        }
+
+        fclose($handle);
+
+        return $rows;
+    }
+
+    /**
+     * Parse this app's generic CSV import format: header row of
+     * IMPORT_COLUMNS names (any subset/order), then one row per line.
+     */
+    private function parseGenericCsv(string $path): ?array
+    {
+        $handle = @fopen($path, 'r');
+
+        if (!$handle) {
+            return null;
+        }
+
+        $header = fgetcsv($handle);
+
+        if (!$header) {
+            fclose($handle);
+            return null;
+        }
+
+        $header = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+        $rows = [];
+
+        while (($line = fgetcsv($handle)) !== false) {
+            $padded = array_pad(array_slice($line, 0, count($header)), count($header), null);
+            $rows[] = array_combine($header, $padded);
+        }
+
+        fclose($handle);
+
+        return $rows;
+    }
+
+    /**
+     * Detect whether the uploaded file is a ZIP archive, by extension
+     * or by its magic bytes (in case the browser mislabels it).
+     */
+    private function looksLikeZip(string $path, string $originalName): bool
+    {
+        if (str_ends_with(strtolower($originalName), '.zip')) {
+            return true;
+        }
+
+        $handle = @fopen($path, 'rb');
+
+        if (!$handle) {
+            return false;
+        }
+
+        $magic = fread($handle, 4);
+        fclose($handle);
+
+        return $magic === "PK\x03\x04";
+    }
+
+    /**
+     * Extract the relevant native data file from a ZIP archive into a
+     * temp file and return its path, or null if nothing usable was found.
+     * Caller is responsible for deleting the returned temp file.
+     */
+    private function extractFromZip(string $zipPath, string $codeType): ?string
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            return null;
+        }
+
+        $zip = new \ZipArchive();
+
+        if ($zip->open($zipPath) !== true) {
+            return null;
+        }
+
+        $targetName = null;
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            $base = basename((string) $name);
+
+            if ($codeType === 'RXCUI' && strcasecmp($base, 'RXNCONSO.RRF') === 0) {
+                $targetName = $name;
+                break;
+            }
+        }
+
+        if ($targetName === null) {
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $name = $zip->getNameIndex($i);
+                $ext = strtolower(pathinfo((string) $name, PATHINFO_EXTENSION));
+
+                if (in_array($codeType, self::NATIVE_FORMAT_TYPES, true) && $ext === 'rrf') {
+                    $targetName = $name;
+                    break;
+                }
+
+                if (!in_array($codeType, self::NATIVE_FORMAT_TYPES, true) && in_array($ext, ['csv', 'txt'], true)) {
+                    $targetName = $name;
+                    break;
+                }
+            }
+        }
+
+        if ($targetName === null) {
+            $zip->close();
+            return null;
+        }
+
+        $stream = $zip->getStream($targetName);
+
+        if (!$stream) {
+            $zip->close();
+            return null;
+        }
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'codeset_');
+        $out = fopen($tempPath, 'w');
+
+        while (!feof($stream)) {
+            fwrite($out, fread($stream, 8192));
+        }
+
+        fclose($stream);
+        fclose($out);
+        $zip->close();
+
+        return $tempPath;
+    }
+
+    /**
+     * Soft-delete every existing (non-deleted) code of the given type.
+     * Used by "Replace entire code set" before installing fresh rows.
+     */
+    private function softDeleteAllOfType(string $codeType, int $deletedBy): int
+    {
+        $stmt = Database::connection()->prepare(
+            "UPDATE codes
+             SET deleted_at = :deleted_at, deleted_by = :deleted_by
+             WHERE code_type = :code_type AND deleted_at IS NULL"
+        );
+
+        $stmt->execute([
+            'deleted_at' => date('Y-m-d H:i:s'),
+            'deleted_by' => $deletedBy,
+            'code_type'  => $codeType
+        ]);
+
+        return $stmt->rowCount();
     }
 
     /**

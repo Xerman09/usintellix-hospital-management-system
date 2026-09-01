@@ -28,3 +28,8 @@ $router->post('/codes/import', [CodeController::class, 'import'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->post('/codes/install-code-set', [CodeController::class, 'installCodeSet'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

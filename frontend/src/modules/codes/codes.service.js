@@ -60,3 +60,20 @@ export async function importCodes(codeType, file)
         }
     );
 }
+
+export async function installCodeSet(codeType, file, replaceEntireSet)
+{
+    const formData = new FormData();
+    formData.append("code_type", codeType);
+    formData.append("replace_entire_set", replaceEntireSet ? "1" : "0");
+    formData.append("file", file);
+
+    return await api(
+        "/codes/install-code-set",
+        {
+            method: "POST",
+            headers: {},
+            body: formData
+        }
+    );
+}

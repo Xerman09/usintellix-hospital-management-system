@@ -160,4 +160,37 @@ class CodeController extends Controller
 
         $this->success($result['data'], $result['message']);
     }
+
+    /**
+     * Install Code Set / Native Data Loads (admin-only): accept a
+     * source file (native format for the code type, e.g. RxNorm's
+     * RXNCONSO.RRF, optionally wrapped in a .zip), parse it, and
+     * install the rows, optionally replacing the entire existing set
+     * for that code type first.
+     */
+    public function installCodeSet(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $codeType = trim((string) $request->input('code_type', ''));
+        $replaceEntireSet = filter_var($request->input('replace_entire_set', false), FILTER_VALIDATE_BOOLEAN);
+
+        $files = $request->files();
+        $file = $files['file'] ?? null;
+
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->error('A source file is required.', 422);
+            return;
+        }
+
+        $result = $this->codeService->installCodeSet($codeType, $file, $replaceEntireSet, (int) $admin['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
 }
