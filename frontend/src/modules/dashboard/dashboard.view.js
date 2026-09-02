@@ -393,6 +393,84 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="help">Help</a>
 `;
 
+const RECEPTIONIST_NAV_LINKS = `
+    <a data-tab="appointments">Calendar</a>
+    <a data-tab="patient_finder">Finder</a>
+    <a data-tab="patient_flow">Flow</a>
+    <a data-tab="recalls">Recalls</a>
+    <div class="nav-dropdown">
+        <span>Patient</span>
+        <div class="dropdown-content">
+            <a data-tab="patients">New/Search</a>
+            <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
+            <div class="dropdown-submenu patient-dependent-nav">
+                <span class="dropdown-submenu-trigger">
+                    Visits
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="patient_create_visit">Create Visit</a>
+                    <a data-tab="patient_current_visit">Current</a>
+                    <a data-tab="patient_visits_history">Visit History</a>
+                </div>
+            </div>
+            <div class="dropdown-submenu patient-dependent-nav">
+                <span class="dropdown-submenu-trigger">
+                    Records
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="patient_records_request">Patient Records Request</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Reports</span>
+        <div class="dropdown-content">
+            <div class="dropdown-submenu">
+                <span class="dropdown-submenu-trigger">
+                    Visits
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="reports_visits_daily">Daily Report</a>
+                    <a data-tab="reports_visits_appointments">Appointments</a>
+                    <a data-tab="reports_visits_flow_board">Patient Flow Board</a>
+                    <a data-tab="reports_visits_eligibility">Eligibility</a>
+                    <a data-tab="reports_visits_eligibility_response">Eligibility Response</a>
+                    <a data-tab="reports_visits_charts_out">Charts Out</a>
+                </div>
+            </div>
+            <div class="dropdown-submenu">
+                <span class="dropdown-submenu-trigger">
+                    Financial
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="reports_financial_front_rec">Front Rec</a>
+                    <a data-tab="reports_financial_cash_rec">Cash Rec</a>
+                    <a data-tab="reports_financial_pmt_method">Pmt Method</a>
+                </div>
+            </div>
+            <a data-tab="insurance_reports">Insurance</a>
+            <a data-tab="patient_list_creation">Patient List Creation</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Miscellaneous</span>
+        <div class="dropdown-content">
+            <a data-tab="misc_settings">Settings</a>
+        </div>
+    </div>
+    <div class="nav-dropdown">
+        <span>Popups</span>
+        <div class="dropdown-content">
+            <a data-tab="popup_management">Management</a>
+        </div>
+    </div>
+`;
+
 const DOCTOR_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
     <div class="nav-dropdown">
@@ -434,6 +512,7 @@ function getNavLinks(role)
 {
     if (role === "patient") return PATIENT_NAV_LINKS;
     if (role === "doctor") return DOCTOR_NAV_LINKS;
+    if (role === "receptionist") return RECEPTIONIST_NAV_LINKS;
     return staffNavLinks(role);
 }
 
