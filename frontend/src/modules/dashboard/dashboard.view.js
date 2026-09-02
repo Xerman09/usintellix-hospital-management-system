@@ -163,7 +163,18 @@ function staffNavLinks(role)
                 <a data-tab="employees">Users</a>
                 ${role === "admin" ? `<a data-tab="general_settings">Two Factor Authentication</a>` : ""}
                 <a data-tab="admin_address_book">Address Book</a>
-                ${role === "admin" ? `<a data-tab="role_management">ACL</a>` : ""}
+                ${role === "admin" ? `
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        ACL
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="role_management">Roles</a>
+                        <a data-tab="admin_acl_administration">Access Control List Administration</a>
+                    </div>
+                </div>
+                ` : ""}
             </div>
         </div>
         <div class="nav-dropdown">

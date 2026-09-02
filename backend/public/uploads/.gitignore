@@ -2,3 +2,5 @@ avatars/*
 !avatars/.gitkeep
 business/*
 !business/.gitkeep
+document_templates/*
+!document_templates/.gitkeep

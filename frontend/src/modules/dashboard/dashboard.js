@@ -42,6 +42,10 @@ import { ExternalDataLoadsView } from "../external-data-loads/external-data-load
 import { initExternalDataLoads } from "../external-data-loads/external-data-loads.js";
 import { FormsAdministrationView } from "../forms-administration/forms-administration.view.js";
 import { initFormsAdministration } from "../forms-administration/forms-administration.js";
+import { DocumentTemplatesView } from "../document-templates/document-templates.view.js";
+import { initDocumentTemplates } from "../document-templates/document-templates.js";
+import { AclGroupsView } from "../acl-groups/acl-groups.view.js";
+import { initAclGroups } from "../acl-groups/acl-groups.js";
 import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
@@ -457,6 +461,16 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initFormsAdministration, 0);
                 return FormsAdministrationView();
+            }, activate);
+        } else if (tabId === 'admin_document_templates') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initDocumentTemplates, 0);
+                return DocumentTemplatesView();
+            }, activate);
+        } else if (tabId === 'admin_acl_administration') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initAclGroups, 0);
+                return AclGroupsView();
             }, activate);
         } else if (tabId === 'admin_clinic_import_holidays') {
             tabManager.openTab(tabId, title, () => {

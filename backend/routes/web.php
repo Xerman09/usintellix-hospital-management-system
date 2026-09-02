@@ -118,5 +118,7 @@ require_once __DIR__ . '/../app/Modules/PatientDuplicates/routes.php';
 require_once __DIR__ . '/../app/Modules/ProviderInsuranceNumbers/routes.php';
 require_once __DIR__ . '/../app/Modules/DocumentCategories/routes.php';
 require_once __DIR__ . '/../app/Modules/FormDefinitions/routes.php';
+require_once __DIR__ . '/../app/Modules/DocumentTemplates/routes.php';
+require_once __DIR__ . '/../app/Modules/AclGroups/routes.php';
 
 return $router;
