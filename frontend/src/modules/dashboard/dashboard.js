@@ -52,6 +52,8 @@ import { PatientEducationView } from "../patient-education/patient-education.vie
 import { initPatientEducation } from "../patient-education/patient-education.js";
 import { ChartTrackerView } from "../chart-tracker/chart-tracker.view.js";
 import { initChartTracker } from "../chart-tracker/chart-tracker.js";
+import { ReferralFormView } from "../reports/referral-form.view.js";
+import { initReferralForm } from "../reports/referral-form.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
 import { initPatientMerge } from "../patient-merge/patient-merge.js";
 import { PatientDuplicatesView } from "../patient-duplicates/patient-duplicates.view.js";
@@ -453,6 +455,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initChartTracker, 0);
                 return ChartTrackerView();
+            }, activate);
+        } else if (tabId === 'misc_blank_forms_referral') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initReferralForm, 0);
+                return ReferralFormView();
             }, activate);
         } else if (tabId === 'admin_practice_rules') {
             tabManager.openTab(tabId, title, () => {
