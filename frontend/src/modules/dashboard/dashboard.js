@@ -48,6 +48,8 @@ import { AclGroupsView } from "../acl-groups/acl-groups.view.js";
 import { initAclGroups } from "../acl-groups/acl-groups.js";
 import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
+import { PatientEducationView } from "../patient-education/patient-education.view.js";
+import { initPatientEducation } from "../patient-education/patient-education.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
 import { initPatientMerge } from "../patient-merge/patient-merge.js";
 import { PatientDuplicatesView } from "../patient-duplicates/patient-duplicates.view.js";
@@ -439,6 +441,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientReminders, 0);
                 return PatientRemindersView();
+            }, activate);
+        } else if (tabId === 'misc_patient_education') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientEducation, 0);
+                return PatientEducationView();
             }, activate);
         } else if (tabId === 'admin_practice_rules') {
             tabManager.openTab(tabId, title, () => {
