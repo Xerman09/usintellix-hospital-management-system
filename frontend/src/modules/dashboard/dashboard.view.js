@@ -421,31 +421,64 @@ const RECEPTIONIST_NAV_LINKS = `
         <div class="dropdown-content">
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
-                    Visits
+                    Clients
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                 </span>
                 <div class="dropdown-submenu-content">
-                    <a data-tab="reports_visits_daily">Daily Report</a>
-                    <a data-tab="reports_visits_appointments">Appointments</a>
-                    <a data-tab="reports_visits_flow_board">Patient Flow Board</a>
-                    <a data-tab="reports_visits_eligibility">Eligibility</a>
-                    <a data-tab="reports_visits_eligibility_response">Eligibility Response</a>
-                    <a data-tab="reports_visits_charts_out">Charts Out</a>
+                    <a data-tab="clients_list">List</a>
                 </div>
             </div>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
-                    Financial
+                    Visits
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                 </span>
                 <div class="dropdown-submenu-content">
-                    <a data-tab="reports_financial_front_rec">Front Rec</a>
-                    <a data-tab="reports_financial_cash_rec">Cash Rec</a>
-                    <a data-tab="reports_financial_pmt_method">Pmt Method</a>
+                    <a data-tab="reports_visits_appointments">Appointments</a>
+                    <a data-tab="reports_visits_flow_board">Patient Flow Board</a>
+                    <a data-tab="reports_visits_eligibility">Eligibility</a>
+                    <a data-tab="reports_visits_eligibility_response">Eligibility Response</a>
+                    <a data-tab="reports_visits_chart_activity">Chart Activity</a>
+                    <a data-tab="reports_visits_charts_out">Charts Out</a>
+                    <a data-tab="reports_visits_services">Services</a>
                 </div>
             </div>
-            <a data-tab="insurance_reports">Insurance</a>
-            <a data-tab="patient_list_creation">Patient List Creation</a>
+            <div class="dropdown-submenu">
+                <span class="dropdown-submenu-trigger">
+                    Insurance
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <a data-tab="reports_insurance_unique_sp">Unique SP</a>
+                </div>
+            </div>
+            <div class="dropdown-submenu">
+                <span class="dropdown-submenu-trigger">
+                    Blank Forms
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                </span>
+                <div class="dropdown-submenu-content">
+                    <div class="dropdown-submenu">
+                        <span class="dropdown-submenu-trigger">
+                            Core
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                        </span>
+                        <div class="dropdown-submenu-content">
+                            <a data-tab="blank_forms_core_demographics">Demographics</a>
+                            <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
+                        </div>
+                    </div>
+                    <div class="dropdown-submenu">
+                        <span class="dropdown-submenu-trigger">
+                            Clinical
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                        </span>
+                        <div class="dropdown-submenu-content">
+                            <a data-tab="blank_forms_clinical_custom">Custom</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <div class="nav-dropdown">
