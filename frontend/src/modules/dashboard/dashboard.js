@@ -267,11 +267,19 @@ export function Dashboard()
     const tabManager = new TabManager('tabBar', 'tabContent');
     window.tabManager = tabManager;
 
-    // Open default dashboard tab
-    tabManager.openTab('dashboard', 'Dashboard', () => {
-        setTimeout(() => initDashboardHome(user), 0);
-        return DashboardHomeView(user);
-    });
+    // Open default landing tab. Receptionists land on the Calendar
+    // instead of the Dashboard -- their nav has no Dashboard link at all.
+    if (user.role === 'receptionist') {
+        tabManager.openTab('appointments', 'Calendar', () => {
+            setTimeout(initAppointmentsList, 0);
+            return AppointmentsListView(user);
+        });
+    } else {
+        tabManager.openTab('dashboard', 'Dashboard', () => {
+            setTimeout(() => initDashboardHome(user), 0);
+            return DashboardHomeView(user);
+        });
+    }
 
     // Opens (or, when restoring saved tabs, merely registers) a dashboard
     // tab by id. `activate` controls whether it's actually rendered into
