@@ -512,7 +512,12 @@ const RECEPTIONIST_NAV_LINKS = `
     <div class="nav-dropdown">
         <span>Popups</span>
         <div class="dropdown-content">
-            <a data-tab="popup_management">Management</a>
+            <a data-tab="popup_export" class="patient-dependent-nav">Export</a>
+            <a data-tab="popup_import" class="patient-dependent-nav">Import</a>
+            <a data-tab="popup_appointments" class="patient-dependent-nav">Appointments</a>
+            <a data-tab="popup_chart_label" class="patient-dependent-nav">Chart Label</a>
+            <a data-tab="popup_barcode_label" class="patient-dependent-nav">Barcode Label</a>
+            <a data-tab="popup_address_label" class="patient-dependent-nav">Address Label</a>
         </div>
     </div>
 `;
