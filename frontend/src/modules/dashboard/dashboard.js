@@ -50,6 +50,8 @@ import { PatientRemindersView } from "../patient-reminders/patient-reminders.vie
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { PatientEducationView } from "../patient-education/patient-education.view.js";
 import { initPatientEducation } from "../patient-education/patient-education.js";
+import { ChartTrackerView } from "../chart-tracker/chart-tracker.view.js";
+import { initChartTracker } from "../chart-tracker/chart-tracker.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
 import { initPatientMerge } from "../patient-merge/patient-merge.js";
 import { PatientDuplicatesView } from "../patient-duplicates/patient-duplicates.view.js";
@@ -446,6 +448,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientEducation, 0);
                 return PatientEducationView();
+            }, activate);
+        } else if (tabId === 'misc_chart_tracker') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initChartTracker, 0);
+                return ChartTrackerView();
             }, activate);
         } else if (tabId === 'admin_practice_rules') {
             tabManager.openTab(tabId, title, () => {

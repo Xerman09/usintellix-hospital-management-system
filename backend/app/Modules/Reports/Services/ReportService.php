@@ -997,20 +997,42 @@ class ReportService
         }
         $patientName = $patient['last_name'] . ', ' . $patient['first_name'];
 
-        // Mock chart activity since there's no chart_locations table in the schema
-        // In a real implementation this would query chart tracking tables
-        
+        $sqlActivity = "SELECT created_at AS time, destination
+                         FROM chart_locations
+                         WHERE patient_id = ?
+                         ORDER BY created_at DESC, id DESC";
+        $stmtActivity = Database::connection()->prepare($sqlActivity);
+        $stmtActivity->execute([$filters['patient_id']]);
+
         return [
             'patient_name' => $patientName,
-            'results' => []
+            'results' => $stmtActivity->fetchAll(\PDO::FETCH_ASSOC)
         ];
     }
 
     public function getChartsOutReport(): array
     {
-        // Mock charts out since there's no chart_locations table in the schema
-        // In a real implementation this would query chart tracking tables for checked out charts
-        return [];
+        // A chart is "out" once it has been checked in to anywhere other
+        // than the default File Room -- a patient with no logged location
+        // is assumed to still be at the File Room, so they're excluded.
+        $sql = "SELECT p.last_name, p.first_name, cl.destination, cl.created_at AS time_out
+                FROM chart_locations cl
+                INNER JOIN (
+                    SELECT patient_id, MAX(created_at) AS max_created_at
+                    FROM chart_locations
+                    GROUP BY patient_id
+                ) latest ON latest.patient_id = cl.patient_id AND latest.max_created_at = cl.created_at
+                INNER JOIN patients p ON p.id = cl.patient_id AND p.deleted_at IS NULL
+                WHERE LOWER(cl.destination) <> 'file room'
+                ORDER BY cl.created_at DESC";
+
+        $stmt = Database::connection()->query($sql);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        return array_map(fn ($row) => [
+            'patient_name' => $row['last_name'] . ', ' . $row['first_name'],
+            'time_out' => $row['time_out']
+        ], $rows);
     }
 
     public function getServicesReport(array $filters = []): array
