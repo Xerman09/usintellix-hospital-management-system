@@ -3,6 +3,7 @@
 namespace App\Modules\Auth\Services;
 
 use App\Core\Database;
+use App\Core\Mailer;
 use App\Core\Session;
 use App\Modules\Auth\Models\TwoFactorCode;
 use App\Modules\Employees\Models\Employee;
@@ -292,16 +293,36 @@ class AuthService
 
         Session::put('pending_2fa_user_id', $user['id']);
 
+        $emailSent = false;
+
+        if ($method === 'email' && !empty($employee['email'])) {
+            $emailSent = (new Mailer())->send(
+                $employee['email'],
+                'Your Intellix Hospital System verification code',
+                "Your verification code is: {$code}\n\n"
+                    . "This code expires in " . self::CODE_TTL_MINUTES . " minutes. "
+                    . "If you didn't request this, you can ignore this email."
+            );
+        }
+
+        $data = [
+            'requires_2fa' => true,
+            'method' => $method,
+            'destination' => $this->maskDestination($method, $employee)
+        ];
+
+        // Mail isn't configured yet (or the send failed) -- fall back to
+        // handing the code back in the response so login still works
+        // while MAIL_PASSWORD is pending, instead of locking everyone out.
+        if (!$emailSent) {
+            $data['dev_mode'] = true;
+            $data['dev_code'] = $code;
+        }
+
         return [
             'success' => true,
             'message' => 'Verification code sent.',
-            'data' => [
-                'requires_2fa' => true,
-                'method' => $method,
-                'destination' => $this->maskDestination($method, $employee),
-                'dev_mode' => true,
-                'dev_code' => $code
-            ]
+            'data' => $data
         ];
     }
 
