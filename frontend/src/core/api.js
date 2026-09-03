@@ -1,6 +1,30 @@
 import { clearSession } from "./session.js";
 
-export const API_URL = "https://ihs.dm3system.com/backend/public";
+const PRODUCTION_API_URL = "https://ihs.dm3system.com/backend/public";
+
+// When the app is opened from a local XAMPP install (e.g.
+// localhost/usintellix-hospital-management-system/frontend/#/login),
+// talk to the local backend under the same project folder instead of
+// always hitting production -- otherwise nothing served from
+// localhost could ever exercise local backend changes (or local-only
+// config like a mail password you don't want to commit).
+function resolveApiUrl()
+{
+    const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+    if (!isLocalHost) {
+        return PRODUCTION_API_URL;
+    }
+
+    const frontendMarker = "/frontend";
+    const path = window.location.pathname;
+    const markerIndex = path.indexOf(frontendMarker);
+    const projectBase = markerIndex !== -1 ? path.slice(0, markerIndex) : "";
+
+    return `${window.location.origin}${projectBase}/backend/public`;
+}
+
+export const API_URL = resolveApiUrl();
 
 // Endpoints where a 401 is a normal form-validation outcome (wrong
 // password / wrong 2FA code), not a sign that the session died -- these
