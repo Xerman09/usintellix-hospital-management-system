@@ -54,6 +54,8 @@ import { ChartTrackerView } from "../chart-tracker/chart-tracker.view.js";
 import { initChartTracker } from "../chart-tracker/chart-tracker.js";
 import { ReferralFormView } from "../reports/referral-form.view.js";
 import { initReferralForm } from "../reports/referral-form.js";
+import { ClinicalBlankFormView } from "../reports/clinical-blank-form.view.js";
+import { initClinicalBlankForm } from "../reports/clinical-blank-form.js";
 import { PatientMergeView } from "../patient-merge/patient-merge.view.js";
 import { initPatientMerge } from "../patient-merge/patient-merge.js";
 import { PatientDuplicatesView } from "../patient-duplicates/patient-duplicates.view.js";
@@ -460,6 +462,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initReferralForm, 0);
                 return ReferralFormView();
+            }, activate);
+        } else if (tabId.startsWith('blank_forms_clinical_')) {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initClinicalBlankForm, 0);
+                return ClinicalBlankFormView(title);
             }, activate);
         } else if (tabId === 'admin_practice_rules') {
             tabManager.openTab(tabId, title, () => {
