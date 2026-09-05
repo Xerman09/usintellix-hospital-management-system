@@ -232,6 +232,8 @@ import { initPendingOrdersReport } from "../reports/pending-res.js";
 import { PendingOrdersReportView } from "../reports/pending-res.view.js";
 import { initProcedureStatisticsReport } from "../reports/procedures-statistics.js";
 import { ProcedureStatisticsReportView } from "../reports/procedures-statistics.view.js";
+import { initSalesByItemReport } from "../reports/sales-by-item.js";
+import { SalesByItemView } from "../reports/sales-by-item.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -882,6 +884,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initProcedureStatisticsReport, 0);
                 return ProcedureStatisticsReportView();
+            }, activate);
+        } else if (tabId === 'reports_financial_sales') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSalesByItemReport, 0);
+                return SalesByItemView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {

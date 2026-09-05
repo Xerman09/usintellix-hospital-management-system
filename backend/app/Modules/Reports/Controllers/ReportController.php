@@ -241,12 +241,20 @@ class ReportController extends Controller
         $request = new Request();
         $filters = $request->only(['facility_id', 'date_from', 'date_to']);
         $data = $this->reportService->getPendingOrdersReport($filters);
-        
+
         $facilities = $this->reportService->getFacilities();
-        
+
         $this->success([
             'results' => $data,
             'facilities' => $facilities
         ], 'Pending orders report retrieved successfully.');
+    }
+
+    public function salesByItemReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'provider_id']);
+        $data = $this->reportService->getSalesByItemReport($filters);
+        $this->success($data, 'Sales by item report retrieved successfully.');
     }
 }

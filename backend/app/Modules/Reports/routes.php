@@ -133,3 +133,8 @@ $router->get('/reports/procedures/pending', [ReportController::class, 'pendingOr
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/financial/sales-by-item', [ReportController::class, 'salesByItemReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

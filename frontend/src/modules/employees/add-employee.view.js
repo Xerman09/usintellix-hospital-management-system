@@ -362,23 +362,6 @@ export function AddEmployeeView()
     100% { background-position: 0 50%; }
 }
 
-.vc-modal-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--accent), var(--accent));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 14px;
-}
-
-.vc-modal-icon svg {
-    width: 20px;
-    height: 20px;
-    color: white;
-}
-
 .vc-form-hint {
     margin: -10px 0 14px;
     font-size: 12px;
@@ -447,9 +430,6 @@ export function AddEmployeeView()
 
 <div class="modal-overlay" id="employeeModalOverlay">
     <div class="modal-box">
-        <div class="vc-modal-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        </div>
         <div class="modal-header">
             <h2 id="employeeModalTitle">Add Employee</h2>
             <button type="button" class="modal-close" id="closeEmployeeModal">&times;</button>

@@ -1154,4 +1154,67 @@ class ReportService
             return [];
         }
     }
+
+    /**
+     * Sales by Item: billed codes within a date range, grouped by the
+     * code catalog's category (falling back to 'Uncategorized' for codes
+     * with no catalog entry, e.g. a code that was later removed from the
+     * catalog). Qty is how many times the code was billed; Amount is the
+     * fee actually snapshotted onto each billed line at the time.
+     */
+    public function getSalesByItemReport(array $filters = []): array
+    {
+        // codes is unique on (code_type, code, modifier) -- a plain join
+        // on (code_type, code) would fan out across modifier variants of
+        // the same code and inflate Qty, so the catalog is collapsed to
+        // one row per (code_type, code) first.
+        $sql = "
+            SELECT
+                COALESCE(c.category, 'Uncategorized') AS category,
+                ebc.code_type,
+                ebc.code,
+                COALESCE(ebc.description, c.description, ebc.code) AS item,
+                COUNT(*) AS qty,
+                SUM(COALESCE(ebc.fee, 0)) AS amount
+            FROM encounter_billing_codes ebc
+            JOIN encounters e ON e.id = ebc.encounter_id
+            LEFT JOIN (
+                SELECT code_type, code, MIN(category) AS category, MIN(description) AS description
+                FROM codes
+                GROUP BY code_type, code
+            ) c ON c.code_type COLLATE utf8mb4_unicode_ci = ebc.code_type
+                AND c.code COLLATE utf8mb4_unicode_ci = ebc.code
+            WHERE e.deleted_at IS NULL
+        ";
+
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND e.date_of_service >= ?";
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND e.date_of_service <= ?";
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        $sql .= " GROUP BY category, ebc.code_type, ebc.code, item
+                  ORDER BY category ASC, item ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }
