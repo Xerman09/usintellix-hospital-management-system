@@ -65,4 +65,40 @@ class EmployeeController extends Controller
 
         $this->success($result['data'], $result['message'], 201);
     }
+
+    /**
+     * Update an existing employee account and record (admin-only).
+     */
+    public function update(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $id = (int) $request->input('id');
+
+        $data = $request->only([
+            'username',
+            'password',
+            'role_id',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'suffix',
+            'sex',
+            'birthdate',
+            'email',
+            'phone',
+            'department_id'
+        ]);
+
+        $result = $this->employeeService->update($id, $data, (int) $admin['id']);
+
+        if (!$result['success']) {
+            $status = $result['message'] === 'Employee not found.' ? 404 : 422;
+            $this->error($result['message'], $status, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
 }

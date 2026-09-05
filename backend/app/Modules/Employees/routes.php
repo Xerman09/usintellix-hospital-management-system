@@ -13,3 +13,8 @@ $router->post('/employees', [EmployeeController::class, 'register'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->put('/employees', [EmployeeController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

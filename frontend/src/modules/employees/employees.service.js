@@ -11,6 +11,22 @@ export async function createEmployee(data)
     );
 }
 
+export async function updateEmployee(id, data)
+{
+    return await api(
+        "/employees",
+        {
+            method:"PUT",
+            body:JSON.stringify({ id, ...data })
+        }
+    );
+}
+
+export async function fetchEmployees()
+{
+    return await api("/employees");
+}
+
 export async function fetchRoles()
 {
     return await api("/roles");

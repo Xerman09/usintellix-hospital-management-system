@@ -17,7 +17,7 @@ class EmployeeService
      */
     public function list(?string $role = null): array
     {
-        $sql = "SELECT e.*, r.name AS role_name, d.name AS department_name
+        $sql = "SELECT e.*, u.username, u.role_id, r.name AS role_name, d.name AS department_name
                 FROM employees e
                 JOIN users u ON u.id = e.user_id
                 JOIN roles r ON r.id = u.role_id
@@ -114,16 +114,97 @@ class EmployeeService
     }
 
     /**
-     * Validate registration input.
+     * Update an existing employee account and record (admin-only).
+     *
+     * Password is optional here -- an empty value leaves the current
+     * password untouched, since re-entering it on every edit would be
+     * an unreasonable ask.
      */
-    private function validate(array $data): array
+    public function update(int $id, array $data, int $updatedBy): array
+    {
+        $employee = (new Employee())->where('id', $id)->first();
+
+        if (!$employee || $employee['deleted_at'] !== null) {
+            return [
+                'success' => false,
+                'message' => 'Employee not found.'
+            ];
+        }
+
+        $errors = $this->validate($data, $id, (int) $employee['user_id']);
+
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $errors
+            ];
+        }
+
+        $db = Database::connection();
+        $db->beginTransaction();
+
+        try {
+            $userUpdate = [
+                'username'   => $data['username'],
+                'role_id'    => $data['role_id'],
+                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_by' => $updatedBy
+            ];
+
+            if (!empty($data['password'])) {
+                $userUpdate['password'] = User::hashPassword($data['password']);
+            }
+
+            (new User())->update($userUpdate, (int) $employee['user_id']);
+
+            (new Employee())->update([
+                'first_name'    => $data['first_name'],
+                'middle_name'   => $data['middle_name'] ?? null,
+                'last_name'     => $data['last_name'],
+                'suffix'        => $data['suffix'] ?? null,
+                'sex'           => $data['sex'],
+                'birthdate'     => $data['birthdate'],
+                'email'         => $data['email'],
+                'phone'         => $data['phone'],
+                'department_id' => $data['department_id'],
+                'updated_at'    => date('Y-m-d H:i:s'),
+                'updated_by'    => $updatedBy
+            ], $id);
+
+            $db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Employee updated successfully.'
+            ];
+        } catch (Throwable $e) {
+            $db->rollBack();
+
+            return [
+                'success' => false,
+                'message' => 'Failed to update employee.'
+            ];
+        }
+    }
+
+    /**
+     * Validate registration/update input. When $ignoreEmployeeId is set
+     * (an update) the password is optional and uniqueness checks skip
+     * the record's own user/employee row.
+     */
+    private function validate(array $data, ?int $ignoreEmployeeId = null, ?int $ignoreUserId = null): array
     {
         $errors = [];
 
         $required = [
-            'username', 'password', 'role_id', 'first_name', 'last_name',
+            'username', 'role_id', 'first_name', 'last_name',
             'sex', 'birthdate', 'email', 'phone', 'department_id'
         ];
+
+        if ($ignoreEmployeeId === null) {
+            $required[] = 'password';
+        }
 
         foreach ($required as $field) {
             if (empty($data[$field])) {
@@ -145,15 +226,21 @@ class EmployeeService
             $errors['birthdate'] = 'Birthdate cannot be in the future.';
         }
 
-        if ((new User())->where('username', $data['username'])->first()) {
+        $existingUser = (new User())->where('username', $data['username'])->first();
+
+        if ($existingUser && (int) $existingUser['id'] !== (int) $ignoreUserId) {
             $errors['username'] = 'Username is already taken.';
         }
 
-        if ((new Employee())->where('email', $data['email'])->first()) {
+        $existingEmail = (new Employee())->where('email', $data['email'])->first();
+
+        if ($existingEmail && (int) $existingEmail['id'] !== (int) $ignoreEmployeeId) {
             $errors['email'] = 'Email is already registered.';
         }
 
-        if ((new Employee())->where('phone', $data['phone'])->first()) {
+        $existingPhone = (new Employee())->where('phone', $data['phone'])->first();
+
+        if ($existingPhone && (int) $existingPhone['id'] !== (int) $ignoreEmployeeId) {
             $errors['phone'] = 'Phone number is already registered.';
         }
 
