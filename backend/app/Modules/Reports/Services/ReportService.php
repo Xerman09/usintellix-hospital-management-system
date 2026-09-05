@@ -531,13 +531,27 @@ class ReportService
         // We'll pull a few active patients from the database and generate 'Passive Alerts' for them.
         
         $limit = 10;
-        $sql = "SELECT id, created_by FROM patients WHERE deleted_at IS NULL LIMIT :limit";
+        $sql = "SELECT p.id, p.first_name, p.last_name, p.created_by,
+                       u.username AS creator_username,
+                       e.first_name AS creator_first_name, e.last_name AS creator_last_name
+                FROM patients p
+                LEFT JOIN users u ON u.id = p.created_by
+                LEFT JOIN employees e ON e.user_id = u.id
+                WHERE p.deleted_at IS NULL
+                LIMIT :limit";
         $stmt = Database::connection()->prepare($sql);
         $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
         $stmt->execute();
-        
+
         $patients = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        
+
+        // facility_id below is a mock constant (there's no real CDS
+        // engine attaching alerts to a real facility yet) -- look its
+        // name up once rather than repeating the query per row.
+        $facilityStmt = Database::connection()->prepare("SELECT name FROM facilities WHERE id = ?");
+        $facilityStmt->execute([3]);
+        $facilityName = $facilityStmt->fetchColumn() ?: 'Unknown Facility';
+
         $results = [];
         $dateStr = date('Y-m-d H:i:s');
         
@@ -564,11 +578,14 @@ class ReportService
                 $newAlerts = $patientAlerts;
             }
 
+            $userName = trim(($patient['creator_first_name'] ?? '') . ' ' . ($patient['creator_last_name'] ?? ''))
+                ?: ($patient['creator_username'] ?? 'Unknown User');
+
             $results[] = [
                 'date' => $dateStr,
-                'patient_id' => $patient['id'],
-                'user_id' => $patient['created_by'] ?: '1',
-                'facility_id' => '3', // Mock facility id
+                'patient_name' => trim($patient['first_name'] . ' ' . $patient['last_name']),
+                'user_name' => $userName,
+                'facility_name' => $facilityName,
                 'category' => 'Passive Alert',
                 'all_alerts' => implode("\n", $patientAlerts),
                 'new_alerts' => implode("\n", $newAlerts)

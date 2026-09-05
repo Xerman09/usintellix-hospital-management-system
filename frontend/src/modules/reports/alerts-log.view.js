@@ -35,9 +35,9 @@ export function AlertsLogView() {
                 <thead>
                     <tr style="border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
                         <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">Date</th>
-                        <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">Patient ID</th>
-                        <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">User ID</th>
-                        <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">Facility ID</th>
+                        <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">Patient</th>
+                        <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">User</th>
+                        <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">Facility</th>
                         <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">Category</th>
                         <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">All Alerts</th>
                         <th style="padding: 12px; font-weight: bold; color: #1a202c; text-align: left;">New Alerts</th>

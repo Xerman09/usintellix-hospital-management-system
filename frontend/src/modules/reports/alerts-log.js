@@ -50,9 +50,9 @@ function renderTable(data) {
         
         tr.innerHTML = `
             <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.date}</td>
-            <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.patient_id}</td>
-            <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.user_id}</td>
-            <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.facility_id}</td>
+            <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.patient_name}</td>
+            <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.user_name}</td>
+            <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.facility_name}</td>
             <td style="padding: 12px; color: #2d3748; vertical-align: top;">${item.category}</td>
             <td style="padding: 12px; color: #2c5282; vertical-align: top;">${allAlertsHtml}</td>
             <td style="padding: 12px; color: #2d3748; vertical-align: top;">${newAlertsHtml}</td>
@@ -66,7 +66,7 @@ function downloadCSV() {
     if (!table || table.children.length === 0) return;
     
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Date,Patient ID,User ID,Facility ID,Category,All Alerts,New Alerts\r\n";
+    csvContent += "Date,Patient,User,Facility,Category,All Alerts,New Alerts\r\n";
     
     Array.from(table.rows).forEach(row => {
         if (row.cells.length === 7) {

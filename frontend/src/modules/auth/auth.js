@@ -40,11 +40,21 @@ export function initLogin()
                 document.getElementById("password").value;
 
 
-            const result =
-                await login(
-                    username,
-                    password
-                );
+            const submitBtn = loginForm.querySelector(".login-btn");
+
+            setButtonLoading(submitBtn, true, "Logging in...");
+
+            let result;
+
+            try {
+                result =
+                    await login(
+                        username,
+                        password
+                    );
+            } finally {
+                setButtonLoading(submitBtn, false);
+            }
 
 
             console.log(result);
@@ -91,8 +101,18 @@ export function initLogin()
             const code =
                 document.getElementById("tfa_code").value.trim();
 
-            const result =
-                await verifyTwoFactor(code);
+            const submitBtn = twoFactorForm.querySelector(".login-btn");
+
+            setButtonLoading(submitBtn, true, "Verifying...");
+
+            let result;
+
+            try {
+                result =
+                    await verifyTwoFactor(code);
+            } finally {
+                setButtonLoading(submitBtn, false);
+            }
 
             if (!result.success) {
                 document.getElementById("err-tfa_code").textContent = result.message;
@@ -127,13 +147,23 @@ export function initLogin()
                 return;
             }
 
-            const result = await completeFirstLogin({
-                username: document.getElementById("fl_username").value.trim(),
-                current_password: document.getElementById("fl_current_password").value,
-                new_password: newPassword,
-                confirm_password: confirmPassword,
-                confirm_email: document.getElementById("fl_confirm_email").value.trim()
-            });
+            const submitBtn = firstLoginForm.querySelector(".login-btn");
+
+            setButtonLoading(submitBtn, true, "Saving...");
+
+            let result;
+
+            try {
+                result = await completeFirstLogin({
+                    username: document.getElementById("fl_username").value.trim(),
+                    current_password: document.getElementById("fl_current_password").value,
+                    new_password: newPassword,
+                    confirm_password: confirmPassword,
+                    confirm_email: document.getElementById("fl_confirm_email").value.trim()
+                });
+            } finally {
+                setButtonLoading(submitBtn, false);
+            }
 
             if (!result.success) {
                 showAlert(result.message, "error");
@@ -254,6 +284,24 @@ function clearErrors()
             errorEl.textContent = "";
         }
     });
+}
+
+function setButtonLoading(button, loading, loadingText)
+{
+    if (!button) {
+        return;
+    }
+
+    if (loading) {
+        button.dataset.originalText = button.textContent;
+        button.disabled = true;
+        button.classList.add("is-loading");
+        button.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span>${loadingText}`;
+    } else {
+        button.disabled = false;
+        button.classList.remove("is-loading");
+        button.textContent = button.dataset.originalText || button.textContent;
+    }
 }
 
 function showAlert(message, type)
