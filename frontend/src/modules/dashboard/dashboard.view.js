@@ -77,6 +77,7 @@ function staffNavLinks(role)
             <span>Admin</span>
             <div class="dropdown-content">
                 <a data-tab="settings">Config</a>
+                ${role === "admin" ? `<a data-tab="global_settings">Global Settings</a>` : ""}
                 ${role === "admin" ? `
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">

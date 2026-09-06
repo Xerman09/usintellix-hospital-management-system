@@ -184,6 +184,8 @@ import { MessagesView } from "../messages/messages.view.js?v=2";
 import { initMessages } from "../messages/messages.js";
 import { SettingsView } from "../settings/settings.view.js";
 import { initSettings } from "../settings/settings.js";
+import { SystemConfigView } from "../system-config/system-config.view.js";
+import { initSystemConfig } from "../system-config/system-config.js";
 import { initRxReport } from "../reports/rx-report.js";
 import { RxReportView } from "../reports/rx-report.view.js";
 import { initPatientListCreationReport } from "../reports/patient-list-creation.js";
@@ -949,6 +951,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initSettings, 0);
                 return SettingsView();
+            }, activate);
+        } else if (tabId === 'global_settings') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initSystemConfig, 0);
+                return SystemConfigView();
             }, activate);
         } else if (tabId === 'help') {
             tabManager.openTab(tabId, title, () => {
