@@ -398,6 +398,179 @@ tr.unread {
     background: #f1f5f9;
     border-color: #c8d2e0;
 }
+
+.rem-priority-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.rem-priority-badge.low {
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.rem-priority-badge.medium {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.rem-priority-badge.high {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.rem-mini-item.completed {
+    opacity: .6;
+}
+
+.rem-complete-btn {
+    flex-shrink: 0;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    background: white;
+    color: #29323f;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.rem-complete-btn:hover {
+    background: #f1f5f9;
+}
+
+.rem-section-label {
+    margin: 18px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e9f0;
+    color: #6b7787;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.rem-section-label:first-child {
+    margin-top: 0;
+}
+
+.rem-select-multiple {
+    width: 100%;
+    min-height: 110px;
+    padding: 6px;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: #29323f;
+    background: white;
+}
+
+.rem-hint {
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: #8b98ac;
+}
+
+.rem-select-all-row {
+    margin-top: 6px;
+}
+
+.rem-due-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rem-due-row .form-group {
+    flex: 1;
+}
+
+.rem-due-or {
+    padding-top: 22px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8b98ac;
+}
+
+.rem-priority-options {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 4px;
+}
+
+.rem-priority-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #42536b;
+    cursor: pointer;
+}
+
+.rem-priority-option input {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.rem-each-complete-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: #42536b;
+    cursor: pointer;
+}
+
+.rem-each-complete-row input {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.rem-chars-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: #8b98ac;
+}
+
+.rem-chars-remaining {
+    width: 50px;
+    padding: 4px 6px;
+    text-align: center;
+    border: 1px solid #dbe1ea;
+    border-radius: 5px;
+    font-size: 11.5px;
+    background: #f8fafc;
+}
+
+.rem-sent-today {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e9f0;
+}
+
+.rem-sent-today h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.rem-log-table th,
+.rem-log-table td {
+    font-size: 12px;
+}
 </style>
 <div class="msg-page">
     <div class="msg-card">
@@ -510,10 +683,22 @@ tr.unread {
         </div>
 
         <div class="modal-tab-panel" data-section-panel="reminders">
-            <div class="msg-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <strong>Reminders</strong>
-                <p>This module is currently under development.</p>
+            <div class="msg-panel-header-row">
+                <h2>Dated Reminders</h2>
+                <div class="msg-toolbar-actions">
+                    <button type="button" class="msg-clear-btn" id="openReminderLogModal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        View Log
+                    </button>
+                    <button type="button" class="msg-add-btn" id="openAddReminderModal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                        Create A Dated Reminder
+                    </button>
+                </div>
+            </div>
+
+            <div class="rec-mini-list" id="remindersMiniList">
+                <p class="table-empty">Loading reminders...</p>
             </div>
         </div>
 
@@ -696,6 +881,139 @@ tr.unread {
                 <button class="login-btn" type="submit">Send Message</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="reminderFormModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Send a Reminder</h2>
+            <button type="button" class="modal-close" id="closeReminderFormModal">&times;</button>
+        </div>
+
+        <div id="reminderFormAlert"></div>
+
+        <form id="reminderForm">
+            <div class="rem-section-label">Message Recipients</div>
+
+            <div class="form-group full" id="reminderPatientFieldGroup">
+                <label>Link To Patient:</label>
+                <div class="msg-picker-row">
+                    <div class="msg-search-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                        <input type="text" class="form-input msg-search-input" id="reminder_patient_search" list="reminderPatientDatalist" placeholder="Click to select patient">
+                        <datalist id="reminderPatientDatalist"></datalist>
+                    </div>
+                    <button type="button" class="msg-clear-btn msg-picker-clear" id="reminderPatientClear">Clear</button>
+                </div>
+            </div>
+
+            <div class="form-group full">
+                <label>Send To: <span class="rem-hint">(ctrl+click or cmd+click on Mac to select multiple)</span></label>
+                <select id="reminder_recipients_select" class="rem-select-multiple" multiple></select>
+                <div class="rem-select-all-row">
+                    <button type="button" class="msg-clear-btn" id="reminderSelectAllRecipients">Select All</button>
+                </div>
+                <span class="form-error" id="err-recipient_ids"></span>
+            </div>
+
+            <label class="rem-each-complete-row">
+                <input type="checkbox" id="reminder_require_each_complete">
+                Each recipient must set their own messages as completed.
+            </label>
+
+            <div class="rem-section-label">Due Date &amp; Priority</div>
+
+            <div class="rem-due-row">
+                <div class="form-group">
+                    <label>Due Date:</label>
+                    <input id="reminder_due_date" type="date" class="form-input">
+                </div>
+                <div class="rem-due-or">OR</div>
+                <div class="form-group">
+                    <label>Select a Time Span:</label>
+                    <select id="reminder_time_span" class="form-input">
+                        <option value="">-- Select a Time Span --</option>
+                        <option value="1d">1 Day</option>
+                        <option value="1w">1 Week</option>
+                        <option value="2w">2 Weeks</option>
+                        <option value="1m">1 Month</option>
+                        <option value="3m">3 Months</option>
+                        <option value="6m">6 Months</option>
+                        <option value="1y">1 Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group full">
+                <label>Priority:</label>
+                <div class="rem-priority-options">
+                    <label class="rem-priority-option">
+                        <input type="radio" name="reminder_priority" value="low" checked>
+                        Low
+                    </label>
+                    <label class="rem-priority-option">
+                        <input type="radio" name="reminder_priority" value="medium">
+                        Medium
+                    </label>
+                    <label class="rem-priority-option">
+                        <input type="radio" name="reminder_priority" value="high">
+                        High
+                    </label>
+                </div>
+            </div>
+
+            <div class="rem-section-label">Message Content</div>
+
+            <div class="form-group full">
+                <label>Type Your Message Here:</label>
+                <textarea id="reminder_body" class="form-input" style="min-height: 110px;" maxlength="160"></textarea>
+                <div class="rem-chars-row">
+                    Characters Remaining:
+                    <input type="text" class="rem-chars-remaining" id="reminderCharsRemaining" value="160" readonly>
+                </div>
+                <span class="form-error" id="err-body"></span>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="resetReminderForm">Reset</button>
+                <button class="login-btn" type="submit">Send This Message</button>
+            </div>
+        </form>
+
+        <div class="rem-sent-today">
+            <h3>Messages Sent Today</h3>
+            <div id="reminderSentTodayList">
+                <p class="table-empty">No Messages Found</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="reminderLogModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Reminder Log</h2>
+            <button type="button" class="modal-close" id="closeReminderLogModal">&times;</button>
+        </div>
+
+        <div class="msg-table-wrap">
+            <table class="msg-table rem-log-table">
+                <thead>
+                    <tr>
+                        <th>Due Date</th>
+                        <th>From</th>
+                        <th>Patient</th>
+                        <th>Message</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="reminderLogTableBody">
+                    <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 `;

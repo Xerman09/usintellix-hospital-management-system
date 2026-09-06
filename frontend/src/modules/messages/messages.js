@@ -9,6 +9,7 @@ import {
 import { fetchMyRecalls, createRecall } from "../recalls/recalls.service.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
+import { fetchMyReminders, createReminder, completeReminder } from "../reminders/reminders.service.js";
 
 let messagesCache = [];
 let selectedIds = new Set();
@@ -19,6 +20,9 @@ let patientLookup = new Map();
 
 let recallsCache = [];
 let recallPatientLookup = new Map();
+
+let remindersCache = [];
+let reminderPatientLookup = new Map();
 
 export async function initMessages()
 {
@@ -36,6 +40,7 @@ export async function initMessages()
     setupFilters();
     setupSelection();
     await setupAddMessageModal();
+    await setupReminders();
     await setupRecalls();
 
     document.getElementById("msgScopeFilter").addEventListener("change", loadMyMessages);
@@ -449,11 +454,15 @@ function escapeHtml(value)
     return div.innerHTML;
 }
 
+const alertTimers = new Map();
+
 function showAlert(containerId, message, type)
 {
     const container = document.getElementById(containerId);
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+
+    scheduleAlertClear(containerId);
 }
 
 function showListAlert(message, type)
@@ -461,6 +470,27 @@ function showListAlert(message, type)
     const container = document.getElementById("listAlert");
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+
+    scheduleAlertClear("listAlert");
+}
+
+function scheduleAlertClear(containerId)
+{
+    if (alertTimers.has(containerId)) {
+        clearTimeout(alertTimers.get(containerId));
+    }
+
+    const timer = setTimeout(() => {
+        const container = document.getElementById(containerId);
+
+        if (container) {
+            container.innerHTML = "";
+        }
+
+        alertTimers.delete(containerId);
+    }, 3000);
+
+    alertTimers.set(containerId, timer);
 }
 
 
@@ -744,4 +774,355 @@ function goToRecallBoard()
         setTimeout(initRecalls, 0);
         return RecallsView();
     }, true);
+}
+
+async function setupReminders()
+{
+    const user = getUser();
+    const isStaff = user?.role !== "patient";
+
+    document.getElementById("reminderPatientFieldGroup").style.display = isStaff ? "" : "none";
+
+    await Promise.all([
+        loadReminderRecipientOptions(),
+        isStaff ? loadReminderPatientOptions() : Promise.resolve()
+    ]);
+
+    setupSearchClear("reminder_patient_search", "reminderPatientClear");
+    setupReminderFormModal();
+    setupReminderLogModal();
+
+    await loadReminders();
+}
+
+async function loadReminderRecipientOptions()
+{
+    const select = document.getElementById("reminder_recipients_select");
+    const user = getUser();
+
+    select.innerHTML = "";
+
+    if (user?.id) {
+        const myselfOption = document.createElement("option");
+
+        myselfOption.value = String(user.id);
+        myselfOption.textContent = "Myself";
+
+        select.appendChild(myselfOption);
+    }
+
+    const result = await fetchRecipientOptions();
+
+    if (!result.success) {
+        return;
+    }
+
+    result.data.forEach((recipient) => {
+        const option = document.createElement("option");
+
+        option.value = String(recipient.id);
+        option.textContent = `${recipient.display_name} (${capitalize(recipient.role)})`;
+
+        select.appendChild(option);
+    });
+}
+
+async function loadReminderPatientOptions()
+{
+    const datalist = document.getElementById("reminderPatientDatalist");
+
+    datalist.innerHTML = "";
+    reminderPatientLookup = new Map();
+
+    const result = await fetchPatients();
+
+    if (!result.success) {
+        return;
+    }
+
+    result.data.forEach((patient) => {
+        const label = `${[patient.first_name, patient.last_name].filter(Boolean).join(" ")} (${patient.patient_no})`;
+
+        reminderPatientLookup.set(label, String(patient.id));
+
+        const option = document.createElement("option");
+
+        option.value = label;
+
+        datalist.appendChild(option);
+    });
+}
+
+function setupReminderFormModal()
+{
+    const modalOverlay = document.getElementById("reminderFormModalOverlay");
+    const form = document.getElementById("reminderForm");
+    const bodyInput = document.getElementById("reminder_body");
+    const charsRemaining = document.getElementById("reminderCharsRemaining");
+
+    const resetForm = () => {
+        form.reset();
+        document.getElementById("reminder_patient_search").value = "";
+        document.getElementById("reminderFormAlert").innerHTML = "";
+        document.getElementById("err-recipient_ids").textContent = "";
+        document.getElementById("err-body").textContent = "";
+        document.querySelectorAll("#reminder_recipients_select option").forEach((opt) => {
+            opt.selected = false;
+        });
+        charsRemaining.value = "160";
+    };
+
+    const openModal = () => {
+        resetForm();
+        renderReminderSentToday();
+        modalOverlay.classList.add("open");
+    };
+
+    const closeModal = () => {
+        modalOverlay.classList.remove("open");
+    };
+
+    document.getElementById("openAddReminderModal").addEventListener("click", openModal);
+    document.getElementById("closeReminderFormModal").addEventListener("click", closeModal);
+    document.getElementById("resetReminderForm").addEventListener("click", resetForm);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    document.getElementById("reminderSelectAllRecipients").addEventListener("click", () => {
+        document.querySelectorAll("#reminder_recipients_select option").forEach((opt) => {
+            opt.selected = true;
+        });
+    });
+
+    bodyInput.addEventListener("input", () => {
+        charsRemaining.value = String(160 - bodyInput.value.length);
+    });
+
+    document.getElementById("reminder_time_span").addEventListener("change", (event) => {
+        const span = event.target.value;
+
+        if (!span) {
+            return;
+        }
+
+        const amount = parseInt(span, 10);
+        const unit = span.slice(-1);
+        const target = new Date();
+
+        if (unit === "d") {
+            target.setDate(target.getDate() + amount);
+        } else if (unit === "w") {
+            target.setDate(target.getDate() + (amount * 7));
+        } else if (unit === "m") {
+            target.setMonth(target.getMonth() + amount);
+        } else if (unit === "y") {
+            target.setFullYear(target.getFullYear() + amount);
+        }
+
+        document.getElementById("reminder_due_date").value = target.toISOString().slice(0, 10);
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("err-recipient_ids").textContent = "";
+        document.getElementById("err-body").textContent = "";
+
+        const recipientIds = Array.from(document.getElementById("reminder_recipients_select").selectedOptions)
+            .map((opt) => Number(opt.value));
+        const patientId = reminderPatientLookup.get(document.getElementById("reminder_patient_search").value.trim()) ?? "";
+        const dueDate = document.getElementById("reminder_due_date").value;
+        const priority = document.querySelector('input[name="reminder_priority"]:checked')?.value || "low";
+        const requireEachComplete = document.getElementById("reminder_require_each_complete").checked;
+        const messageBody = bodyInput.value.trim();
+
+        let hasError = false;
+
+        if (!recipientIds.length) {
+            document.getElementById("err-recipient_ids").textContent = "Choose at least one recipient.";
+            hasError = true;
+        }
+
+        if (!messageBody) {
+            document.getElementById("err-body").textContent = "Message is required.";
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        const result = await createReminder({
+            recipient_ids: recipientIds,
+            patient_id: patientId || null,
+            due_date: dueDate || null,
+            priority,
+            require_each_complete: requireEachComplete,
+            body: messageBody
+        });
+
+        if (!result.success) {
+            showAlert("reminderFormAlert", result.message || "Failed to send reminder.", "error");
+
+            if (result.errors) {
+                Object.entries(result.errors).forEach(([field, message]) => {
+                    const errorEl = document.getElementById(`err-${field}`);
+
+                    if (errorEl) {
+                        errorEl.textContent = message;
+                    }
+                });
+            }
+
+            return;
+        }
+
+        resetForm();
+        showListAlert("Reminder sent successfully.", "success");
+        await loadReminders();
+        renderReminderSentToday();
+    });
+}
+
+function renderReminderSentToday()
+{
+    const container = document.getElementById("reminderSentTodayList");
+    const user = getUser();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const sentToday = remindersCache.filter((reminder) =>
+        reminder.sender_id === user?.id && (reminder.created_at || "").slice(0, 10) === today);
+
+    if (!sentToday.length) {
+        container.innerHTML = `<p class="table-empty">No Messages Found</p>`;
+        return;
+    }
+
+    container.innerHTML = sentToday.map((reminder) => `
+        <div class="rec-mini-item">
+            <div class="rec-mini-info">
+                <strong>${escapeHtml(truncate(reminder.body, 60))}</strong>
+                <span>${escapeHtml(reminder.patient_name || "No patient linked")}</span>
+            </div>
+            <div class="rec-mini-date">
+                <span>${escapeHtml((reminder.created_at || "").slice(11, 16))}</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+async function loadReminders()
+{
+    const result = await fetchMyReminders();
+
+    remindersCache = result.success ? result.data : [];
+
+    renderRemindersMiniList();
+}
+
+function renderRemindersMiniList()
+{
+    const container = document.getElementById("remindersMiniList");
+
+    const pending = remindersCache.filter((reminder) =>
+        Boolean(Number(reminder.is_recipient)) && !reminder.my_completed_at);
+
+    if (!pending.length) {
+        container.innerHTML = `<p class="table-empty">No Reminders</p>`;
+        return;
+    }
+
+    container.innerHTML = pending.map((reminder) => {
+        const patientName = escapeHtml(reminder.patient_name || "No patient linked");
+
+        return `
+        <div class="rec-mini-item">
+            <div class="rec-mini-info">
+                <strong>${escapeHtml(truncate(reminder.body, 80))}</strong>
+                <span>From ${escapeHtml(reminder.sender_name || "—")} &middot; ${patientName}</span>
+            </div>
+            <div class="rec-mini-date">
+                <span class="rem-priority-badge ${escapeHtml(reminder.priority || "low")}">${escapeHtml(reminder.priority || "low")}</span>
+                <span>${escapeHtml(reminder.due_date || "No due date")}</span>
+                <button type="button" class="rem-complete-btn" data-reminder-complete="${reminder.id}">Mark Completed</button>
+            </div>
+        </div>
+        `;
+    }).join("");
+
+    container.querySelectorAll("[data-reminder-complete]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const id = Number(button.getAttribute("data-reminder-complete"));
+
+            const result = await completeReminder(id);
+
+            if (!result.success) {
+                showListAlert(result.message || "Failed to update reminder.", "error");
+                return;
+            }
+
+            showListAlert("Reminder marked as completed.", "success");
+            await loadReminders();
+        });
+    });
+}
+
+function setupReminderLogModal()
+{
+    const modalOverlay = document.getElementById("reminderLogModalOverlay");
+
+    const openModal = () => {
+        renderReminderLog();
+        modalOverlay.classList.add("open");
+    };
+
+    const closeModal = () => {
+        modalOverlay.classList.remove("open");
+    };
+
+    document.getElementById("openReminderLogModal").addEventListener("click", openModal);
+    document.getElementById("closeReminderLogModal").addEventListener("click", closeModal);
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+}
+
+function renderReminderLog()
+{
+    const tbody = document.getElementById("reminderLogTableBody");
+
+    if (!remindersCache.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No reminders found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = remindersCache.map((reminder) => {
+        const isRecipient = Boolean(Number(reminder.is_recipient));
+        const totalRecipients = Number(reminder.recipient_count) || 0;
+        const completedRecipients = Number(reminder.completed_count) || 0;
+
+        let status = "Pending";
+
+        if (isRecipient) {
+            status = reminder.my_completed_at ? "Completed" : "Pending";
+        } else if (totalRecipients > 0 && completedRecipients >= totalRecipients) {
+            status = "Completed";
+        }
+
+        return `
+        <tr>
+            <td>${escapeHtml(reminder.due_date || "—")}</td>
+            <td>${escapeHtml(reminder.sender_name || "—")}</td>
+            <td>${escapeHtml(reminder.patient_name || "—")}</td>
+            <td>${escapeHtml(truncate(reminder.body, 80))}</td>
+            <td><span class="rem-priority-badge ${escapeHtml(reminder.priority || "low")}">${escapeHtml(reminder.priority || "low")}</span></td>
+            <td>${escapeHtml(status)}</td>
+        </tr>
+        `;
+    }).join("");
 }
