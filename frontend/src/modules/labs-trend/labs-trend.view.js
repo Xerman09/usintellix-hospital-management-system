@@ -262,6 +262,21 @@ export function LabsTrendView()
 .lt-empty-cell {
     color: #c3cbd8;
 }
+
+:root[data-theme="dark"] .lt-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .lt-back-btn { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .lt-back-btn:hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .lt-toggle-all,
+:root[data-theme="dark"] .lt-label,
+:root[data-theme="dark"] .lt-radio-label { color: var(--text-primary); }
+:root[data-theme="dark"] .lt-panel { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .lt-multiselect-box { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .lt-filter-input { color: var(--text-primary); }
+:root[data-theme="dark"] .lt-dropdown { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .lt-dropdown-item { color: var(--text-primary); }
+:root[data-theme="dark"] .lt-dropdown-item:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .lt-divider { border-top-color: var(--border-color); }
+:root[data-theme="dark"] .lt-no-params { color: var(--text-muted); }
 </style>
 
 <div class="lt-page">

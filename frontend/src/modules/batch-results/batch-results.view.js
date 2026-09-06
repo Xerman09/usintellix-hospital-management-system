@@ -126,6 +126,18 @@ export function BatchResultsView()
     .br-toolbar { flex-direction: column; align-items: stretch; }
     .br-procedure-input { width: 100%; }
 }
+
+:root[data-theme="dark"] .br-toolbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .br-toolbar label { color: var(--text-primary); }
+:root[data-theme="dark"] .br-procedure-input,
+:root[data-theme="dark"] .br-date-input {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .br-results-empty { color: var(--text-muted); }
+:root[data-theme="dark"] .br-results-empty .br-empty-icon { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .br-results-empty strong { color: var(--text-primary); }
 </style>
 
 <div class="br-page">

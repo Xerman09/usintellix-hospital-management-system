@@ -138,6 +138,10 @@
     color: var(--text-primary);
 }
 
+:root[data-theme="dark"] .table-empty {
+    color: var(--text-muted);
+}
+
 /* Firefox */
 :root[data-theme="dark"] {
     scrollbar-color: #55627a var(--bg-page);
@@ -168,6 +172,115 @@
 
 :root[data-theme="dark"] ::-webkit-scrollbar-corner {
     background: var(--bg-page);
+}
+
+/* ===== Shared "list-page" template dark-mode overrides =====
+   Dozens of admin list pages (Role Management, Providers, Codes,
+   Vendors, Surgeries, ...) were all built from the same template and
+   only differ by a per-module class prefix (vc-, prov-, cdx-, ven-,
+   surg-, ...) baked in at generation time. Rather than patch every
+   file's copy of that template individually, these rules match on the
+   SUFFIX every variant shares, so one rule here covers every page
+   built from it -- including ones added after this was written.
+   Anything a page colors with var(--accent...) already already adapts
+   via the redefinitions above and needs no entry here. */
+
+:root[data-theme="dark"] [class$="-page"],
+:root[data-theme="dark"] [class$="-card"] {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-header"] {
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] [class$="-header-title"] h1,
+:root[data-theme="dark"] [class$="-header"] h1 {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-subtitle"] {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] [class$="-search-input"],
+:root[data-theme="dark"] [class$="-filter-select"],
+:root[data-theme="dark"] [class$="-code-input"] {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-search-clear"] {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] [class$="-table-wrap"] {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] [class$="-table"] th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] [class$="-table"] td {
+    color: var(--text-primary);
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] [class$="-table"] tbody tr:hover {
+    background: var(--bg-surface-alt);
+}
+
+:root[data-theme="dark"] [class$="-name"],
+:root[data-theme="dark"] [class$="-name-cell"] {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-description"],
+:root[data-theme="dark"] [class$="-desc-cell"],
+:root[data-theme="dark"] [class$="-muted"] {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] [class$="-empty-state"] strong {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-empty-state"] p {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] [class$="-empty-icon"] {
+    background: var(--bg-surface-alt);
+}
+
+:root[data-theme="dark"] [class$="-skeleton-bar"] {
+    background: linear-gradient(90deg, #2a3548 25%, #384258 37%, #2a3548 63%);
+    background-size: 400% 100%;
+}
+
+:root[data-theme="dark"] [class$="-code-badge"],
+:root[data-theme="dark"] [class$="-type-badge"] {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-confirm-box"] {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-confirm-title"] {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] [class$="-confirm-desc"] {
+    color: var(--text-muted);
 }
 
 * {
@@ -2751,6 +2864,45 @@ select.form-input {
     color: #71809b;
     padding: 0 5px;
 }
+
+:root[data-theme="dark"] .calendar-header h3 { color: var(--text-primary); }
+:root[data-theme="dark"] .calendar-header button {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .calendar-header button:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .mini-cal-dow,
+:root[data-theme="dark"] .appt-month-dow { color: var(--text-muted); }
+:root[data-theme="dark"] .mini-cal-day,
+:root[data-theme="dark"] .appt-month-day {
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .appt-timeline,
+:root[data-theme="dark"] .appt-week-grid { border-color: var(--border-color); }
+:root[data-theme="dark"] .appt-timeline-time,
+:root[data-theme="dark"] .appt-timeline-events { border-color: var(--border-color); }
+:root[data-theme="dark"] .appt-timeline-time.on-hour { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .appt-timeline-events.on-hour { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .appt-timeline-events.slot-empty:hover,
+:root[data-theme="dark"] .appt-week-cell.slot-empty:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .appt-timeline-empty-note {
+    background: var(--bg-surface-alt);
+    border-bottom-color: var(--border-color);
+    color: var(--text-muted);
+}
+:root[data-theme="dark"] .appt-timeline-card-info,
+:root[data-theme="dark"] .appt-week-card-patient { color: var(--text-primary); }
+:root[data-theme="dark"] .appt-timeline-card-provider,
+:root[data-theme="dark"] .appt-timeline-card-reason,
+:root[data-theme="dark"] .appt-month-more { color: var(--text-muted); }
+:root[data-theme="dark"] .appt-week-corner,
+:root[data-theme="dark"] .appt-week-daycol-header { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .appt-week-daycol-header:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .appt-week-dow { color: var(--text-muted); }
+:root[data-theme="dark"] .appt-week-daynum,
+:root[data-theme="dark"] .appt-month-daynum { color: var(--text-primary); }
+:root[data-theme="dark"] .appt-week-cell { border-color: var(--border-color); }
 
 @media print {
     .top-navbar, .tab-bar, .appt-toolbar, .calendar-panel {

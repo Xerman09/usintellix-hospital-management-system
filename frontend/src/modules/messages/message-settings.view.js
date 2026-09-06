@@ -259,6 +259,9 @@ export function MessageSettingsView()
 @media (max-width: 860px) {
     .mts-grid { grid-template-columns: 1fr; }
 }
+
+:root[data-theme="dark"] .mts-section-header h2 { color: var(--text-primary); }
+:root[data-theme="dark"] .mts-page .table-wrap { border-color: var(--border-color); }
 </style>
 
 <div class="mts-page">

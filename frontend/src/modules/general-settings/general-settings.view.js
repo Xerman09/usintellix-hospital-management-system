@@ -145,6 +145,12 @@ export function GeneralSettingsView()
 .gs-role-checklist input {
     accent-color: var(--accent);
 }
+
+:root[data-theme="dark"] .gs-role-chip { background: var(--bg-surface-alt); color: var(--text-primary); }
+:root[data-theme="dark"] .gs-2fa-toggle label,
+:root[data-theme="dark"] .gs-role-checklist label { color: var(--text-primary); }
+:root[data-theme="dark"] .gs-2fa-detail { border-top-color: var(--border-color); }
+:root[data-theme="dark"] .gs-status-badge.off { background: var(--bg-surface-alt); color: var(--text-muted); }
 </style>
 
 <div class="gs-page">

@@ -179,6 +179,26 @@ export function InstallCodeSetView()
     .ics-field-row .form-input { max-width: none; }
     .ics-checkbox-row, .ics-actions, .ics-warning { margin-left: 0; }
 }
+
+:root[data-theme="dark"] .ics-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .ics-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .ics-field-row label,
+:root[data-theme="dark"] .ics-checkbox-row label { color: var(--text-primary); }
+:root[data-theme="dark"] .ics-results {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .ics-help-card h2,
+:root[data-theme="dark"] .ics-help-card h3 { color: var(--text-primary); }
+:root[data-theme="dark"] .ics-help-card p,
+:root[data-theme="dark"] .ics-help-card li { color: var(--text-muted); }
+:root[data-theme="dark"] .ics-ini-box {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .ics-ini-box code { background: var(--bg-surface); }
 </style>
 
 <div class="ics-page">

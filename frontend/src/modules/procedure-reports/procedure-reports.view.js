@@ -197,6 +197,26 @@ export function ProcedureReportsView()
 @media (max-width: 900px) {
     .pr-toolbar-row { flex-direction: column; align-items: stretch; }
 }
+
+:root[data-theme="dark"] .pr-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pr-select,
+:root[data-theme="dark"] .pr-input {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .pr-checkbox-label,
+:root[data-theme="dark"] .pr-toolbar label:not(.pr-checkbox-label) { color: var(--text-primary); }
+:root[data-theme="dark"] .pr-filter-btn { background: var(--bg-surface); }
+:root[data-theme="dark"] .pr-table thead tr.pr-col-row th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+:root[data-theme="dark"] .pr-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pr-results-empty { color: var(--text-muted); }
+:root[data-theme="dark"] .pr-results-empty .pr-empty-icon { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pr-results-empty strong { color: var(--text-primary); }
 </style>
 
 <div class="pr-page">

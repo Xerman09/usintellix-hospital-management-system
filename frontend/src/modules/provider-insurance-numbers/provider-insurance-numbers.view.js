@@ -74,6 +74,9 @@ export function ProviderInsuranceNumbersView()
     padding: 50px;
     color: #71809b;
 }
+
+:root[data-theme="dark"] .pin-page h1 { border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pin-loading, :root[data-theme="dark"] .pin-empty { color: var(--text-muted); }
 </style>
 
 <div class="pin-page">

@@ -373,6 +373,26 @@ export function PracticeRulesView()
 .pr2-btn-danger:hover {
     background: #b91c1c;
 }
+
+:root[data-theme="dark"] .pr2-page { color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-header-row h1,
+:root[data-theme="dark"] .pr2-form-header h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-btn-secondary { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-btn-secondary:hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .pr2-divider,
+:root[data-theme="dark"] .pr2-form-bottom-actions,
+:root[data-theme="dark"] .pr2-inline-add-form { border-color: var(--border-color); }
+:root[data-theme="dark"] .pr2-form-section-label { border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-form-row label { color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-form-footnote,
+:root[data-theme="dark"] .pr2-empty,
+:root[data-theme="dark"] .pr2-detail-field .muted { color: var(--text-muted); }
+:root[data-theme="dark"] .pr2-detail-box,
+:root[data-theme="dark"] .pr2-subbox { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pr2-detail-box-title { color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-modal-box { background: var(--bg-surface); color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-modal-box h3 { color: var(--text-primary); }
+:root[data-theme="dark"] .pr2-modal-box p { color: var(--text-muted); }
 </style>
 
 <div class="pr2-page" id="pr2Root"></div>

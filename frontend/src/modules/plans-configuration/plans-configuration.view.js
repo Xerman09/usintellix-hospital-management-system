@@ -53,6 +53,10 @@ export function PlansConfigurationView()
     border-top: 1px solid #e5e9f0;
     margin: 0 24px 8px;
 }
+
+:root[data-theme="dark"] .pc-plans-row h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pc-plan-select { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pc-divider { border-top-color: var(--border-color); }
 </style>
 
 <div class="pc-page">

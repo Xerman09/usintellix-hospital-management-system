@@ -109,6 +109,11 @@ export function LoadCompendiumView()
     .lc-field-row label { width: auto; }
     .lc-hint, .lc-actions { margin-left: 0; }
 }
+
+:root[data-theme="dark"] .lc-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .lc-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .lc-field-row label { color: var(--text-primary); }
+:root[data-theme="dark"] .lc-results { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
 </style>
 
 <div class="lc-page">

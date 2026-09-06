@@ -166,6 +166,22 @@ export function FormsAdministrationView()
     margin-left: 4px;
     color: #71809b;
 }
+
+:root[data-theme="dark"] .fa-page h1,
+:root[data-theme="dark"] .fa-section-title { color: var(--text-primary); }
+:root[data-theme="dark"] .fa-toolbar p { color: var(--text-primary); }
+:root[data-theme="dark"] .fa-id-cell,
+:root[data-theme="dark"] .fa-meta-cell,
+:root[data-theme="dark"] .fa-loading,
+:root[data-theme="dark"] .fa-empty,
+:root[data-theme="dark"] .fa-cloud-icon { color: var(--text-muted); }
+:root[data-theme="dark"] .fa-priority-input,
+:root[data-theme="dark"] .fa-text-input,
+:root[data-theme="dark"] .fa-acl-select {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
 </style>
 
 <div class="fa-page">

@@ -123,6 +123,13 @@ export function AlertManagerView()
     padding: 50px;
     color: #71809b;
 }
+
+:root[data-theme="dark"] .am-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .am-toolbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .am-btn-secondary { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .am-btn-secondary:hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .am-acl-select { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .am-loading, :root[data-theme="dark"] .am-empty { color: var(--text-muted); }
 </style>
 
 <div class="am-page">

@@ -40,6 +40,9 @@ export function SettingsView() {
     color: #2563eb;
     font-weight: 400;
 }
+
+:root[data-theme="dark"] .settings-item { background: var(--bg-surface); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .settings-item:hover { background: var(--bg-surface-alt); }
 </style>
 
 <div class="settings-page">

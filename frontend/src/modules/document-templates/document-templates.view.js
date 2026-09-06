@@ -147,6 +147,19 @@ export function DocumentTemplatesView()
 .dtm-alert {
     margin-top: 4px;
 }
+
+:root[data-theme="dark"] .dtm-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .dtm-panel { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .dtm-panel h2 { background: var(--bg-surface-alt); border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .dtm-field-row label { color: var(--text-primary); }
+:root[data-theme="dark"] .dtm-file-input,
+:root[data-theme="dark"] .dtm-text-input,
+:root[data-theme="dark"] .dtm-select {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .dtm-meta { color: var(--text-muted); }
 </style>
 
 <div class="dtm-page">

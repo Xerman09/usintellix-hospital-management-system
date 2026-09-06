@@ -36,6 +36,11 @@ export function BillingView() {
     font-weight: 700;
     color: #0f172a;
 }
+
+:root[data-theme="dark"] .prof-page-modern { color: var(--text-primary); }
+:root[data-theme="dark"] .prof-card-modern { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .prof-header-modern { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .prof-header-modern h1 { color: var(--text-primary); }
 </style>
 
 <div class="prof-page-modern">

@@ -190,6 +190,16 @@ export function DocumentCategoriesView()
     gap: 10px;
     align-items: center;
 }
+
+:root[data-theme="dark"] .dc-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .dc-section-label { border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .dc-toggle { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-muted); }
+:root[data-theme="dark"] .dc-folder-icon { color: var(--text-muted); }
+:root[data-theme="dark"] .dc-form-intro,
+:root[data-theme="dark"] .dc-form-row label { color: var(--text-primary); }
+:root[data-theme="dark"] .dc-save-btn:not(.primary) { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .dc-save-btn:not(.primary):hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .dc-form-empty { color: var(--text-muted); }
 </style>
 
 <div class="dc-page">

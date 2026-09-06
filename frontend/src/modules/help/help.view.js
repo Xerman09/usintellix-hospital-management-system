@@ -47,6 +47,12 @@ export function HelpView() {
     color: #64748b;
     line-height: 1.4;
 }
+
+:root[data-theme="dark"] .help-page-container { background: var(--bg-surface); }
+:root[data-theme="dark"] .help-item { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .help-icon { color: var(--text-muted); }
+:root[data-theme="dark"] .help-title { color: var(--text-primary); }
+:root[data-theme="dark"] .help-description { color: var(--text-muted); }
 </style>
 
 <div class="help-page-container">

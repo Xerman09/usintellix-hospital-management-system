@@ -173,6 +173,17 @@ export function AclGroupsView()
     color: #71809b;
     padding: 20px 0;
 }
+
+:root[data-theme="dark"] .acl-page { color: var(--text-primary); }
+:root[data-theme="dark"] .acl-header { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .acl-body { border-color: var(--border-color); }
+:root[data-theme="dark"] .acl-mode-row { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .acl-panel { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .acl-selected-user { color: var(--text-primary); }
+:root[data-theme="dark"] .acl-listbox { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .acl-move-btn { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .acl-move-btn:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .acl-loading { color: var(--text-muted); }
 </style>
 
 <div class="acl-page">

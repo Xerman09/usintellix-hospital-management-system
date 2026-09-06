@@ -210,6 +210,22 @@ export function ExternalDataLoadsView()
 .edl-section-alert {
     margin-top: 10px;
 }
+
+:root[data-theme="dark"] .edl-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .edl-accordion { border-color: var(--border-color); }
+:root[data-theme="dark"] .edl-section + .edl-section { border-top-color: var(--border-color); }
+:root[data-theme="dark"] .edl-header { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .edl-header:hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .edl-body { background: var(--bg-surface); }
+:root[data-theme="dark"] .edl-panel { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .edl-panel h3 { border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .edl-installed-row { color: var(--text-primary); }
+:root[data-theme="dark"] .edl-installed-row strong { color: var(--text-primary); }
+:root[data-theme="dark"] .edl-staged-item { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .edl-staged-filename { color: var(--text-primary); }
+:root[data-theme="dark"] .edl-stage-form { border-top-color: var(--border-color); }
+:root[data-theme="dark"] .edl-stage-btn { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .edl-stage-btn:hover { background: var(--bg-surface); }
 </style>
 
 <div class="edl-page">

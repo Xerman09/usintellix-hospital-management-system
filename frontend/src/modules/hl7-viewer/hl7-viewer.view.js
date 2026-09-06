@@ -200,6 +200,16 @@ export function Hl7ViewerView()
     color: #991b1b;
     font-size: 13.5px;
 }
+
+:root[data-theme="dark"] .hl7-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .hl7-section-label { border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .hl7-textarea { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .hl7-parse-btn { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .hl7-parse-btn:hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .hl7-meta { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .hl7-meta strong { color: var(--text-primary); }
+:root[data-theme="dark"] .hl7-segment { border-color: var(--border-color); }
+:root[data-theme="dark"] .hl7-component { background: var(--bg-surface-alt); }
 </style>
 
 <div class="hl7-page">

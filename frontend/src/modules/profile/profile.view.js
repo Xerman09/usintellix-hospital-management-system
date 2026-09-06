@@ -135,6 +135,20 @@ export function ProfileView()
 .prof-insurance-table-modern tr:last-child td {
     border-bottom: none;
 }
+
+:root[data-theme="dark"] .prof-page-modern { color: var(--text-primary); }
+:root[data-theme="dark"] .prof-card-modern { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .prof-header-modern { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .prof-header-modern h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .prof-btn-edit-modern { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .prof-btn-edit-modern:hover { background: var(--bg-surface); }
+:root[data-theme="dark"] .prof-section-title-modern { color: var(--text-primary); }
+:root[data-theme="dark"] .prof-label-modern { color: var(--text-muted); }
+:root[data-theme="dark"] .prof-val-modern { color: var(--text-primary); }
+:root[data-theme="dark"] .prof-insurance-panel-modern { border-color: var(--border-color); }
+:root[data-theme="dark"] .prof-insurance-header-modern { background: var(--bg-surface-alt); border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .prof-insurance-table-modern th { color: var(--text-muted); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .prof-insurance-table-modern td { color: var(--text-primary); border-bottom-color: var(--border-color); }
 </style>
 
 <div class="prof-page-modern">

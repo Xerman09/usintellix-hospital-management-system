@@ -336,6 +336,39 @@ export function DashboardHomeView(user)
     .dh-header-actions { width: 100%; }
     .dh-action-btn { flex: 1; justify-content: center; }
 }
+
+:root[data-theme="dark"] .dh-page { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-header-wrap { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .dh-header-text h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-subtitle { color: var(--text-muted); }
+:root[data-theme="dark"] .dh-action-btn {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .dh-action-btn:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .dh-stat-card,
+:root[data-theme="dark"] .dh-panel {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .dh-stat-label { color: var(--text-muted); }
+:root[data-theme="dark"] .dh-stat-icon { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .dh-stat-value { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-stat-value.skeleton {
+    background: linear-gradient(90deg, #2a3548 25%, #384258 37%, #2a3548 63%);
+    background-size: 400% 100%;
+}
+:root[data-theme="dark"] .dh-panel-header { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .dh-panel-header h2 { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-table th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+:root[data-theme="dark"] .dh-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .dh-table tbody tr:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .dh-empty-row { color: var(--text-muted); }
 </style>
 
 <div class="dh-page">

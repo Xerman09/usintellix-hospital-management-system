@@ -63,6 +63,12 @@ export function BusinessSettingsView()
     .ps-layout { flex-direction: column; }
     .ps-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e9f0; }
 }
+
+:root[data-theme="dark"] .ps-title { color: var(--text-primary); }
+:root[data-theme="dark"] .ps-layout { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .ps-sidebar { border-right-color: var(--border-color); }
+:root[data-theme="dark"] .ps-nav-link { color: var(--text-primary); }
+:root[data-theme="dark"] .ps-nav-link:hover { background: var(--bg-surface-alt); }
 </style>
 
 <div class="ps-page">
@@ -262,6 +268,11 @@ export function BusinessInfoSectionView()
     .biz-header { flex-direction: column; align-items: stretch; }
     .biz-header-actions { justify-content: flex-end; }
 }
+
+:root[data-theme="dark"] .biz-logo-wrap { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .biz-logo-dropdown { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .biz-logo-dropdown-item { color: var(--text-primary); }
+:root[data-theme="dark"] .biz-logo-dropdown-item:hover { background: var(--bg-surface-alt); }
 </style>
 
 <div class="biz-card">

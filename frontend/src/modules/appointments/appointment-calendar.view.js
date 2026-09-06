@@ -380,6 +380,32 @@ export function AppointmentCalendarView({ subtitle, showProviderField })
     cursor: not-allowed;
     text-decoration: line-through;
 }
+
+:root[data-theme="dark"] .appt-tool-btn:not(.appt-tool-btn--accent) {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+:root[data-theme="dark"] .appt-tool-btn:not(.appt-tool-btn--accent):hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .appt-nav-label { color: var(--text-primary); }
+:root[data-theme="dark"] .appt-view-switch { border-color: var(--border-color); }
+:root[data-theme="dark"] .appt-view-btn {
+    background: var(--bg-surface);
+    border-left-color: var(--border-color);
+    color: var(--text-muted);
+}
+:root[data-theme="dark"] .appt-datetime-box,
+:root[data-theme="dark"] .appt-recurrence-box {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .fa-day-heading { color: var(--text-primary); }
+:root[data-theme="dark"] .fa-slot-btn {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .fa-slot-btn.booked { background: var(--bg-surface-alt); color: var(--text-muted); }
 </style>
 <div class="appt-page">
     <div class="appt-card">

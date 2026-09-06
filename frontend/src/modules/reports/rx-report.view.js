@@ -118,6 +118,17 @@ export function RxReportView() {
 .rx-table tbody tr:hover {
     background: #f8fafc;
 }
+
+:root[data-theme="dark"] .report-page { color: var(--text-primary); }
+:root[data-theme="dark"] .report-header h2 { color: var(--text-primary); }
+:root[data-theme="dark"] .rx-filter-group label { color: var(--text-muted); }
+:root[data-theme="dark"] .rx-input,
+:root[data-theme="dark"] .rx-button {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .rx-button:hover { background: var(--bg-surface); }
 </style>
 
 <div class="report-page">

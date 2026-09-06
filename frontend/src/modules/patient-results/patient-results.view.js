@@ -260,6 +260,30 @@ export function PatientResultsView()
     font-size: 13px;
     max-width: 420px;
 }
+
+:root[data-theme="dark"] .pt-res-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pt-res-refresh-btn { background: var(--bg-surface); }
+:root[data-theme="dark"] .pt-res-loading { color: var(--text-muted); }
+:root[data-theme="dark"] .pt-res-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pt-res-col-row th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+:root[data-theme="dark"] .pt-res-order-table td,
+:root[data-theme="dark"] .pt-res-results-table td { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pt-res-subtext { color: var(--text-muted); }
+:root[data-theme="dark"] .pt-res-input,
+:root[data-theme="dark"] .pt-res-cell-input {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .pt-res-card-actions { background: var(--bg-surface-alt); border-top-color: var(--border-color); }
+:root[data-theme="dark"] .pt-res-add-row-btn { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-muted); }
+:root[data-theme="dark"] .pt-res-empty { color: var(--text-muted); border-color: var(--border-color); }
+:root[data-theme="dark"] .pt-res-empty-icon { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pt-res-empty strong { color: var(--text-primary); }
 </style>
 
 <div class="pt-res-page">

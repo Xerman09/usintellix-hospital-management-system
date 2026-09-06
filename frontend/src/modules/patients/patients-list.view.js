@@ -442,6 +442,36 @@ export function PatientsListView(user)
     .pat-search-wrap { max-width: none; }
 }
 
+:root[data-theme="dark"] .pat-header { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pat-icon-badge { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pat-icon-badge svg { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-header h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pat-stat-pill { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-search-input,
+:root[data-theme="dark"] .pat-filter-select {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .pat-table-wrap { border-color: var(--border-color); }
+:root[data-theme="dark"] .pat-table th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+:root[data-theme="dark"] .pat-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pat-table tbody tr:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pat-name { color: var(--text-primary); }
+:root[data-theme="dark"] .pat-patient-no,
+:root[data-theme="dark"] .pat-muted { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-tag { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pat-empty-state strong { color: var(--text-primary); }
+:root[data-theme="dark"] .pat-empty-state p { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-skeleton-bar {
+    background: linear-gradient(90deg, #2a3548 25%, #384258 37%, #2a3548 63%);
+    background-size: 400% 100%;
+}
+
 /* ===== Patient Dashboard modal (OpenEMR-style) ===== */
 
 .pd-modal-box {
@@ -2374,6 +2404,36 @@ export function PatientChartView(user)
     .pat-toolbar { flex-direction: column; align-items: stretch; }
     .pat-toolbar-controls { justify-content: stretch; }
     .pat-search-wrap { max-width: none; }
+}
+
+:root[data-theme="dark"] .pat-header { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pat-icon-badge { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pat-icon-badge svg { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-header h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pat-stat-pill { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-search-input,
+:root[data-theme="dark"] .pat-filter-select {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .pat-table-wrap { border-color: var(--border-color); }
+:root[data-theme="dark"] .pat-table th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+:root[data-theme="dark"] .pat-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pat-table tbody tr:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pat-name { color: var(--text-primary); }
+:root[data-theme="dark"] .pat-patient-no,
+:root[data-theme="dark"] .pat-muted { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-tag { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pat-empty-state strong { color: var(--text-primary); }
+:root[data-theme="dark"] .pat-empty-state p { color: var(--text-muted); }
+:root[data-theme="dark"] .pat-skeleton-bar {
+    background: linear-gradient(90deg, #2a3548 25%, #384258 37%, #2a3548 63%);
+    background-size: 400% 100%;
 }
 
 /* ===== Patient Dashboard modal (OpenEMR-style) ===== */

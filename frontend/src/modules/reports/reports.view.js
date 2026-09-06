@@ -294,6 +294,13 @@ export function ReportsView() {
     align-items: center;
     gap: 8px;
 }
+
+:root[data-theme="dark"] .reports-page { color: var(--text-primary); }
+:root[data-theme="dark"] .report-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .report-icon { color: var(--text-muted); }
+:root[data-theme="dark"] .prof-card-modern { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .custom-section-header { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .custom-item-row { border-bottom-color: var(--border-color); }
 </style>
     `;
 }

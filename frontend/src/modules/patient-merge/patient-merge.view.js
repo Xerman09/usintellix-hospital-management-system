@@ -199,6 +199,22 @@ export function PatientMergeView()
 .pm-confirm-summary div:last-child {
     margin-bottom: 0;
 }
+
+:root[data-theme="dark"] .pm-page h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pm-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pm-row { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pm-row-label { color: var(--text-primary); }
+:root[data-theme="dark"] .pm-picker-input { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pm-picker-input.selected { background: var(--bg-surface); color: var(--text-primary); }
+:root[data-theme="dark"] .pm-row-help { color: var(--text-muted); }
+:root[data-theme="dark"] .pm-warning-box { background: var(--bg-surface-alt); color: var(--text-primary); }
+:root[data-theme="dark"] .pm-picker-search { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pm-picker-list { border-color: var(--border-color); }
+:root[data-theme="dark"] .pm-picker-item { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pm-picker-item:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pm-picker-name { color: var(--text-primary); }
+:root[data-theme="dark"] .pm-picker-meta,
+:root[data-theme="dark"] .pm-picker-empty { color: var(--text-muted); }
 </style>
 
 <div class="pm-page">
