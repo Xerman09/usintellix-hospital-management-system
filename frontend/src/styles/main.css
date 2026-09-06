@@ -53,6 +53,10 @@
     border-bottom-color: var(--border-color);
 }
 
+:root[data-theme="dark"] .navbar-logo span {
+    color: var(--text-primary);
+}
+
 :root[data-theme="dark"] .navbar-links a,
 :root[data-theme="dark"] .nav-dropdown > span {
     color: var(--text-muted);
