@@ -281,4 +281,15 @@ class ReportController extends Controller
         $data = $this->reportService->getReceiptsSummaryReport($filters);
         $this->success($data, 'Receipts summary report retrieved successfully.');
     }
+
+    public function collectionsReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only([
+            'facility_id', 'provider_id', 'payor_id', 'date_from', 'date_to',
+            'status', 'age_by', 'aging_columns', 'days_per_col', 'patients_with_debt'
+        ]);
+        $data = $this->reportService->getCollectionsReport($filters);
+        $this->success($data, 'Collections report retrieved successfully.');
+    }
 }

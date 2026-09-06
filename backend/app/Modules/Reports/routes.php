@@ -153,3 +153,8 @@ $router->get('/reports/financial/receipts-summary', [ReportController::class, 'r
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/financial/collections', [ReportController::class, 'collectionsReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

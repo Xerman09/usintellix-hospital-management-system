@@ -1452,4 +1452,234 @@ class ReportService
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Collections and Aging: every billed encounter (an "invoice") with
+     * its charge/adjustment/payment totals, filtered to Open (has a
+     * balance), Closed (fully paid/adjusted), or All, and bucketed into
+     * caller-configurable aging columns (aging_columns of days_per_col
+     * width each, the last column catching everything older). age_by
+     * switches the aging anchor date between the encounter's service
+     * date and its most recent payment date.
+     *
+     * A few of the reference report's columns have no equivalent data
+     * in this schema at all (SSN, Errors, a tracked "Referrer"/"Act
+     * Date" concept) or only a loose approximation (Inactive Days is
+     * read off the primary policy's term date; Act Date is the
+     * patient's registration date). "Prv" is returned as a constant -1
+     * for layout parity only -- there's no prior-collections-run
+     * tracking to report a real value for it.
+     */
+    public function getCollectionsReport(array $filters = []): array
+    {
+        $agingColumns = max(1, (int) ($filters['aging_columns'] ?? 3));
+        $daysPerCol = max(1, (int) ($filters['days_per_col'] ?? 30));
+        $ageBy = ($filters['age_by'] ?? 'service') === 'payment' ? 'payment' : 'service';
+        $status = in_array($filters['status'] ?? 'open', ['open', 'closed', 'all'], true)
+            ? $filters['status']
+            : 'open';
+
+        // "Patients with debt" is the same underlying question as Open
+        // (does this invoice still carry a balance), so it simply forces
+        // that status rather than needing separate query logic.
+        if (!empty($filters['patients_with_debt'])) {
+            $status = 'open';
+        }
+
+        $sql = "
+            SELECT
+                e.id AS encounter_id,
+                e.patient_id,
+                e.date_of_service,
+                e.facility_id,
+                e.encounter_provider_id,
+                e.referring_provider_id,
+                pt.patient_no,
+                pt.first_name,
+                pt.last_name,
+                pt.birthdate,
+                pt.created_at AS patient_created_at,
+                pc.city,
+                COALESCE(pc.home_phone, pc.mobile_phone, pc.work_phone) AS phone,
+                pi.policy_number,
+                pi.group_number,
+                pi.term_date,
+                pi.insurance_id AS payor_id,
+                ins.name AS primary_ins_name,
+                charge.total_charge,
+                COALESCE(pay.total_paid, 0) AS total_paid,
+                COALESCE(pay.total_adjust, 0) AS total_adjust,
+                pay.last_payment_date
+            FROM encounters e
+            JOIN patients pt ON pt.id = e.patient_id
+            LEFT JOIN patient_contacts pc ON pc.patient_id = pt.id
+            LEFT JOIN patient_insurances pi ON pi.patient_id = pt.id
+                AND pi.insurance_type = 'primary' AND pi.deleted_at IS NULL
+            LEFT JOIN insurances ins ON ins.id = pi.insurance_id
+            JOIN (
+                SELECT encounter_id, SUM(fee) AS total_charge
+                FROM encounter_billing_codes
+                GROUP BY encounter_id
+            ) charge ON charge.encounter_id = e.id
+            LEFT JOIN (
+                SELECT encounter_id,
+                       SUM(payment_amount) AS total_paid,
+                       SUM(adjustment_amount) AS total_adjust,
+                       MAX(payment_date) AS last_payment_date
+                FROM patient_ledger_payments
+                WHERE deleted_at IS NULL
+                GROUP BY encounter_id
+            ) pay ON pay.encounter_id = e.id
+            WHERE e.deleted_at IS NULL
+        ";
+
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND e.date_of_service >= ?";
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND e.date_of_service <= ?";
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        if (!empty($filters['payor_id'])) {
+            $sql .= " AND pi.insurance_id = ?";
+            $params[] = $filters['payor_id'];
+        }
+
+        $sql .= " ORDER BY pt.last_name ASC, pt.first_name ASC, e.date_of_service ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $today = new \DateTimeImmutable('today');
+        $results = [];
+
+        foreach ($rows as $row) {
+            $charge = (float) $row['total_charge'];
+            $paid = (float) $row['total_paid'];
+            $adjust = (float) $row['total_adjust'];
+            $balance = round($charge - $paid - $adjust, 2);
+
+            if ($status === 'open' && $balance <= 0) {
+                continue;
+            }
+
+            if ($status === 'closed' && $balance > 0) {
+                continue;
+            }
+
+            $anchorDate = ($ageBy === 'payment' && !empty($row['last_payment_date']))
+                ? $row['last_payment_date']
+                : $row['date_of_service'];
+
+            $ageDays = $today->diff(new \DateTimeImmutable(substr($anchorDate, 0, 10)))->days;
+
+            $bucketIndex = min((int) floor($ageDays / $daysPerCol), $agingColumns - 1);
+            $buckets = array_fill(0, $agingColumns, 0.0);
+            $buckets[$bucketIndex] = $balance;
+
+            $inactiveDays = null;
+            if (!empty($row['term_date']) && $row['term_date'] < $today->format('Y-m-d')) {
+                $inactiveDays = $today->diff(new \DateTimeImmutable($row['term_date']))->days;
+            }
+
+            $results[] = [
+                'encounter_id'           => $row['encounter_id'],
+                'patient_id'             => $row['patient_id'],
+                'invoice'                => $row['patient_id'] . '.' . $row['encounter_id'],
+                'name'                   => $row['last_name'] . ', ' . $row['first_name'],
+                'dob'                    => $row['birthdate'],
+                'patient_no'             => $row['patient_no'],
+                'policy_number'          => $row['policy_number'],
+                'group_number'           => $row['group_number'],
+                'phone'                  => $row['phone'],
+                'city'                   => $row['city'],
+                'primary_ins'            => $row['primary_ins_name'],
+                'referring_provider_id'  => $row['referring_provider_id'],
+                'act_date'               => substr((string) $row['patient_created_at'], 0, 10),
+                'inactive_days'          => $inactiveDays,
+                'svc_date'               => substr($row['date_of_service'], 0, 10),
+                'charge'                 => $charge,
+                'adjust'                 => $adjust,
+                'paid'                   => $paid,
+                'balance'                => $balance,
+                'aging'                  => $buckets,
+                'aging_days'             => $ageDays,
+                'prv'                    => -1
+            ];
+        }
+
+        // Resolve referring-provider display names in one batch instead of
+        // a query per row.
+        $referrerIds = array_values(array_unique(array_filter(array_column($results, 'referring_provider_id'))));
+
+        if (!empty($referrerIds)) {
+            $placeholders = implode(',', array_fill(0, count($referrerIds), '?'));
+            $stmt = Database::connection()->prepare(
+                "SELECT p.id, emp.first_name, emp.last_name
+                 FROM providers p
+                 JOIN employees emp ON emp.id = p.employee_id
+                 WHERE p.id IN ({$placeholders})"
+            );
+            $stmt->execute($referrerIds);
+
+            $names = [];
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $r) {
+                $names[$r['id']] = $r['last_name'] . ', ' . $r['first_name'];
+            }
+
+            foreach ($results as &$result) {
+                $result['referrer'] = $names[$result['referring_provider_id']] ?? null;
+                unset($result['referring_provider_id']);
+            }
+            unset($result);
+        } else {
+            foreach ($results as &$result) {
+                $result['referrer'] = null;
+                unset($result['referring_provider_id']);
+            }
+            unset($result);
+        }
+
+        return [
+            'columns' => $this->buildAgingColumnLabels($agingColumns, $daysPerCol),
+            'rows' => $results
+        ];
+    }
+
+    /**
+     * Build the "0-29", "30-59", ..., "N+" labels for the aging columns.
+     */
+    private function buildAgingColumnLabels(int $agingColumns, int $daysPerCol): array
+    {
+        $labels = [];
+
+        for ($i = 0; $i < $agingColumns; $i++) {
+            $start = $i * $daysPerCol;
+
+            if ($i === $agingColumns - 1) {
+                $labels[] = "{$start}+";
+            } else {
+                $end = $start + $daysPerCol - 1;
+                $labels[] = "{$start}-{$end}";
+            }
+        }
+
+        return $labels;
+    }
 }
