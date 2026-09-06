@@ -238,6 +238,8 @@ import { initCashReceiptsReport } from "../reports/cash-receipts.js";
 import { CashReceiptsView } from "../reports/cash-receipts.view.js";
 import { initFrontReceiptsReport } from "../reports/front-receipts.js";
 import { FrontReceiptsView } from "../reports/front-receipts.view.js";
+import { initReceiptsSummaryReport } from "../reports/receipts-summary.js";
+import { ReceiptsSummaryView } from "../reports/receipts-summary.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -903,6 +905,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initFrontReceiptsReport, 0);
                 return FrontReceiptsView();
+            }, activate);
+        } else if (tabId === 'reports_financial_pmt_method') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initReceiptsSummaryReport, 0);
+                return ReceiptsSummaryView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {

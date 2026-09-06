@@ -1367,4 +1367,89 @@ class ReportService
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Receipts Summary: every patient ledger payment/adjustment line
+     * within a date range, with the patient, primary policy, encounter
+     * and billed procedure it belongs to. report_by picks which field
+     * the frontend groups rows by -- 'method' (payment_type) or 'payer'
+     * (payer_type, patient vs insurance) -- since neither the payer nor
+     * a true payment-method (cash/check/card) exists as separate
+     * columns, both readings use the closest field the schema has.
+     */
+    public function getReceiptsSummaryReport(array $filters = []): array
+    {
+        $reportBy = ($filters['report_by'] ?? 'payer') === 'method' ? 'method' : 'payer';
+        $groupColumn = $reportBy === 'method' ? 'plp.payment_type' : 'plp.payer_type';
+        $dateColumn = (($filters['date_type'] ?? 'payment') === 'encounter') ? 'e.date_of_service' : 'plp.payment_date';
+
+        $sql = "
+            SELECT
+                {$groupColumn} AS group_label,
+                plp.payment_type AS method,
+                plp.notes AS reference,
+                plp.payment_date,
+                plp.encounter_id AS invoice,
+                CONCAT(pt.last_name, ', ', pt.first_name) AS patient_name,
+                pi.policy_number,
+                e.date_of_service,
+                proc.procedure_codes,
+                plp.adjustment_amount,
+                plp.payment_amount
+            FROM patient_ledger_payments plp
+            JOIN patients pt ON pt.id = plp.patient_id
+            LEFT JOIN encounters e ON e.id = plp.encounter_id AND e.deleted_at IS NULL
+            LEFT JOIN patient_insurances pi ON pi.patient_id = plp.patient_id
+                AND pi.insurance_type = 'primary' AND pi.deleted_at IS NULL
+            LEFT JOIN (
+                SELECT encounter_id, GROUP_CONCAT(DISTINCT code ORDER BY code SEPARATOR ', ') AS procedure_codes
+                FROM encounter_billing_codes
+                WHERE code_type IN ('CPT4', 'HCPCS')
+                GROUP BY encounter_id
+            ) proc ON proc.encounter_id = plp.encounter_id
+            WHERE plp.deleted_at IS NULL
+              AND (plp.payment_amount > 0 OR plp.adjustment_amount > 0)
+        ";
+
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND {$dateColumn} >= ?";
+            $params[] = $dateColumn === 'plp.payment_date' ? $filters['date_from'] : $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND {$dateColumn} <= ?";
+            $params[] = $dateColumn === 'plp.payment_date' ? $filters['date_to'] : $filters['date_to'] . ' 23:59:59';
+        }
+
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        if (!empty($filters['procedure_code'])) {
+            $sql .= " AND EXISTS (
+                SELECT 1 FROM encounter_billing_codes ebc
+                WHERE ebc.encounter_id = plp.encounter_id
+                  AND ebc.code_type IN ('CPT4', 'HCPCS')
+                  AND (ebc.code LIKE ? OR ebc.description LIKE ?)
+            )";
+            $like = '%' . $filters['procedure_code'] . '%';
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $sql .= " ORDER BY group_label ASC, plp.payment_date ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

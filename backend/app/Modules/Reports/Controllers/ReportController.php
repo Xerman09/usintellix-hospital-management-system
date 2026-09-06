@@ -273,4 +273,12 @@ class ReportController extends Controller
         $data = $this->reportService->getFrontOfficeReceiptsReport($filters);
         $this->success($data, 'Front office receipts report retrieved successfully.');
     }
+
+    public function receiptsSummaryReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['report_by', 'facility_id', 'provider_id', 'procedure_code', 'date_type', 'date_from', 'date_to']);
+        $data = $this->reportService->getReceiptsSummaryReport($filters);
+        $this->success($data, 'Receipts summary report retrieved successfully.');
+    }
 }
