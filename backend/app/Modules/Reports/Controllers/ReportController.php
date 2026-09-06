@@ -257,4 +257,12 @@ class ReportController extends Controller
         $data = $this->reportService->getSalesByItemReport($filters);
         $this->success($data, 'Sales by item report retrieved successfully.');
     }
+
+    public function cashReceiptsByProviderReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'provider_id', 'date_type', 'procedure_code', 'diagnosis_code']);
+        $data = $this->reportService->getCashReceiptsByProviderReport($filters);
+        $this->success($data, 'Cash receipts by provider report retrieved successfully.');
+    }
 }

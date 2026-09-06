@@ -1217,4 +1217,92 @@ class ReportService
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Cash Receipts by Provider: patient ledger payments within a date
+     * range, attributed to the provider on the payment's encounter (a
+     * payment with no encounter, or whose encounter has no provider
+     * assigned, is bucketed under 'Unassigned'). date_type switches
+     * whether the date range filters on the payment date itself or the
+     * date of the underlying encounter.
+     */
+    public function getCashReceiptsByProviderReport(array $filters = []): array
+    {
+        $dateColumn = (($filters['date_type'] ?? 'payment') === 'encounter') ? 'e.date_of_service' : 'plp.payment_date';
+
+        $sql = "
+            SELECT
+                plp.id,
+                plp.payment_date,
+                plp.payment_amount,
+                COALESCE(emp.last_name, 'Unassigned') AS provider_last_name,
+                COALESCE(emp.first_name, '') AS provider_first_name,
+                proc.procedure_codes
+            FROM patient_ledger_payments plp
+            LEFT JOIN encounters e ON e.id = plp.encounter_id AND e.deleted_at IS NULL
+            LEFT JOIN providers p ON p.id = e.encounter_provider_id AND p.deleted_at IS NULL
+            LEFT JOIN employees emp ON emp.id = p.employee_id
+            LEFT JOIN (
+                SELECT encounter_id, GROUP_CONCAT(DISTINCT code ORDER BY code SEPARATOR ', ') AS procedure_codes
+                FROM encounter_billing_codes
+                WHERE code_type IN ('CPT4', 'HCPCS')
+                GROUP BY encounter_id
+            ) proc ON proc.encounter_id = plp.encounter_id
+            WHERE plp.deleted_at IS NULL
+              AND plp.payment_amount > 0
+        ";
+
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND {$dateColumn} >= ?";
+            $params[] = $dateColumn === 'plp.payment_date' ? $filters['date_from'] : $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND {$dateColumn} <= ?";
+            $params[] = $dateColumn === 'plp.payment_date' ? $filters['date_to'] : $filters['date_to'] . ' 23:59:59';
+        }
+
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        if (!empty($filters['procedure_code'])) {
+            $sql .= " AND EXISTS (
+                SELECT 1 FROM encounter_billing_codes ebc
+                WHERE ebc.encounter_id = plp.encounter_id
+                  AND ebc.code_type IN ('CPT4', 'HCPCS')
+                  AND (ebc.code LIKE ? OR ebc.description LIKE ?)
+            )";
+            $like = '%' . $filters['procedure_code'] . '%';
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        if (!empty($filters['diagnosis_code'])) {
+            $sql .= " AND EXISTS (
+                SELECT 1 FROM encounter_billing_codes ebc
+                WHERE ebc.encounter_id = plp.encounter_id
+                  AND ebc.code_type = 'ICD10'
+                  AND (ebc.code LIKE ? OR ebc.description LIKE ?)
+            )";
+            $like = '%' . $filters['diagnosis_code'] . '%';
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $sql .= " ORDER BY provider_last_name ASC, provider_first_name ASC, plp.payment_date ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }
