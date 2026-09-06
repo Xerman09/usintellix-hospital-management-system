@@ -102,6 +102,7 @@ export function applyTheme(id)
 {
     const theme = getTheme(id);
     const root = document.documentElement.style;
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
 
     root.setProperty("--accent-dark", theme.dark);
     root.setProperty("--accent-mid", theme.mid);
@@ -109,10 +110,22 @@ export function applyTheme(id)
     root.setProperty("--accent-rgb", theme.accentRgb);
     root.setProperty("--accent-hover", theme.hover);
     root.setProperty("--accent-active", theme.active);
-    root.setProperty("--accent-light", theme.light);
-    root.setProperty("--accent-lighter", theme.lighter);
-    root.setProperty("--accent-border", theme.border);
-    root.setProperty("--accent-text", theme.text);
+
+    // These four have dark-mode-specific values defined in main.css
+    // (:root[data-theme="dark"]). Setting them inline would always win over
+    // the stylesheet, so in dark mode we leave them unset and let the
+    // stylesheet rule apply instead.
+    if (isDark) {
+        root.removeProperty("--accent-light");
+        root.removeProperty("--accent-lighter");
+        root.removeProperty("--accent-border");
+        root.removeProperty("--accent-text");
+    } else {
+        root.setProperty("--accent-light", theme.light);
+        root.setProperty("--accent-lighter", theme.lighter);
+        root.setProperty("--accent-border", theme.border);
+        root.setProperty("--accent-text", theme.text);
+    }
 
     localStorage.setItem(STORAGE_KEY, theme.id);
 }

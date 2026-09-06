@@ -995,6 +995,46 @@ export function PatientsListView(user)
     color: #8b98ac;
 }
 
+:root[data-theme="dark"] .pd-topbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-topbar h2,
+:root[data-theme="dark"] .pd-sidebar-name,
+:root[data-theme="dark"] .pd-widget-header h3,
+:root[data-theme="dark"] .pd-related-card-header strong,
+:root[data-theme="dark"] .pd-chart-placeholder strong {
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .pd-topbar p,
+:root[data-theme="dark"] .pd-sidebar-sub,
+:root[data-theme="dark"] .pd-fact-label,
+:root[data-theme="dark"] .pd-chart-nav-empty,
+:root[data-theme="dark"] .pd-chart-placeholder,
+:root[data-theme="dark"] .pd-widget-header-title svg,
+:root[data-theme="dark"] .pd-widget-empty svg,
+:root[data-theme="dark"] .pd-widget-empty p {
+    color: var(--text-muted);
+}
+:root[data-theme="dark"] .pd-sidebar { background: var(--bg-surface-alt); border-right-color: var(--border-color); }
+:root[data-theme="dark"] .pd-fact-list { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-fact-value { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-quick-btn,
+:root[data-theme="dark"] .pd-chart-nav-btn { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-quick-btn svg,
+:root[data-theme="dark"] .pd-chart-nav-btn svg { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-chart-nav { border-top-color: var(--border-color); }
+:root[data-theme="dark"] .pd-chart-placeholder-icon { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pd-widget,
+:root[data-theme="dark"] .pd-related-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-widget-header { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-demo-tabs { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-demo-tab { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-demo-label { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-demo-value { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-allergy-item,
+:root[data-theme="dark"] .pd-visit-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-allergy-name,
+:root[data-theme="dark"] .pd-visit-category { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-visit-date { color: var(--text-muted); }
+
 .pd-allergy-list {
     display: flex;
     flex-direction: column;
@@ -4229,6 +4269,46 @@ textarea.pd-sdoh-readonly {
     font-size: 12px;
     color: #8b98ac;
 }
+
+:root[data-theme="dark"] .pd-topbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-topbar h2,
+:root[data-theme="dark"] .pd-sidebar-name,
+:root[data-theme="dark"] .pd-widget-header h3,
+:root[data-theme="dark"] .pd-related-card-header strong,
+:root[data-theme="dark"] .pd-chart-placeholder strong {
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .pd-topbar p,
+:root[data-theme="dark"] .pd-sidebar-sub,
+:root[data-theme="dark"] .pd-fact-label,
+:root[data-theme="dark"] .pd-chart-nav-empty,
+:root[data-theme="dark"] .pd-chart-placeholder,
+:root[data-theme="dark"] .pd-widget-header-title svg,
+:root[data-theme="dark"] .pd-widget-empty svg,
+:root[data-theme="dark"] .pd-widget-empty p {
+    color: var(--text-muted);
+}
+:root[data-theme="dark"] .pd-sidebar { background: var(--bg-surface-alt); border-right-color: var(--border-color); }
+:root[data-theme="dark"] .pd-fact-list { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-fact-value { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-quick-btn,
+:root[data-theme="dark"] .pd-chart-nav-btn { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-quick-btn svg,
+:root[data-theme="dark"] .pd-chart-nav-btn svg { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-chart-nav { border-top-color: var(--border-color); }
+:root[data-theme="dark"] .pd-chart-placeholder-icon { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pd-widget,
+:root[data-theme="dark"] .pd-related-card { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-widget-header { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-demo-tabs { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-demo-tab { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-demo-label { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-demo-value { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-allergy-item,
+:root[data-theme="dark"] .pd-visit-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-allergy-name,
+:root[data-theme="dark"] .pd-visit-category { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-visit-date { color: var(--text-muted); }
 
 .pd-allergy-list {
     display: flex;

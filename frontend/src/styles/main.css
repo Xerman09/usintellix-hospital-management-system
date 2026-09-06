@@ -94,6 +94,28 @@
     color: var(--text-primary);
 }
 
+:root[data-theme="dark"] .patient-context-bar {
+    background: var(--bg-surface-alt);
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .patient-context-photo {
+    background: var(--bg-surface);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .patient-context-name {
+    color: var(--accent-text);
+}
+
+:root[data-theme="dark"] .patient-context-close {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .patient-context-meta {
+    color: var(--text-muted);
+}
+
 :root[data-theme="dark"] .form-card,
 :root[data-theme="dark"] .dashboard-card,
 :root[data-theme="dark"] .modal-box {

@@ -2,6 +2,8 @@
 // key. Kept here too so any page that needs to *apply* a saved appearance
 // setting (e.g. the dashboard's tab bar on load) doesn't have to duplicate
 // the storage key or parsing logic.
+import { getSavedThemeId, applyTheme } from "./theme.js";
+
 const STORAGE_KEY = "systemConfig.appearance";
 
 export function getAppearanceSettings() {
@@ -26,6 +28,10 @@ export function applyGeneralTheme(theme) {
     } else {
         document.documentElement.removeAttribute("data-theme");
     }
+
+    // Re-run the brand accent color so its dark-conflicting variables get
+    // cleared (entering dark) or restored (leaving dark) to match.
+    applyTheme(getSavedThemeId());
 }
 
 export function applyAppearanceSettings() {
