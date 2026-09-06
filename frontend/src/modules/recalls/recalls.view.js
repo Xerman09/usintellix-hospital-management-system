@@ -336,6 +336,12 @@ export function RecallsView()
     .rec-header { flex-direction: column; align-items: stretch; }
     .rec-filter-group { min-width: 100%; }
 }
+
+:root[data-theme="dark"] .rec-filters { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .rec-filter-group label { color: var(--text-muted); }
+:root[data-theme="dark"] .rec-clear-btn { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .rec-clear-btn:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .rec-stat-pill { background: var(--bg-surface-alt); color: var(--text-muted); }
 </style>
 
 <div class="rec-page">
