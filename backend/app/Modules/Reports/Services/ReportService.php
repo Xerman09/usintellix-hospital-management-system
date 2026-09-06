@@ -1682,4 +1682,200 @@ class ReportService
 
         return $labels;
     }
+
+    /**
+     * Patient Ledger by Date: the same charge/payment merge and running
+     * balance as the single-patient ledger tab in the chart (see
+     * PatientLedgerService::getLedger), generalized to optionally span
+     * every patient at once and filter by facility/provider. The running
+     * balance resets at each patient boundary -- it's a per-patient
+     * running total, not a combined one -- but the grand totals below
+     * are plain sums across every row shown, same as the chart version.
+     */
+    public function getPatientLedgerByDateReport(array $filters = []): array
+    {
+        $patientId = !empty($filters['patient_id']) ? (int) $filters['patient_id'] : null;
+        $facilityId = $filters['facility_id'] ?? null;
+        $providerId = $filters['provider_id'] ?? null;
+        $from = $filters['date_from'] ?? (date('Y') . '-01-01');
+        $to = $filters['date_to'] ?? date('Y-m-d');
+
+        $charges = $this->listLedgerByDateCharges($patientId, $facilityId, $providerId, $from, $to);
+        $payments = $this->listLedgerByDatePayments($patientId, $facilityId, $providerId, $from, $to);
+
+        $byPatient = [];
+        foreach (array_merge($charges, $payments) as $row) {
+            $byPatient[$row['patient_id']][] = $row;
+        }
+
+        $patientNames = $this->getLedgerPatientNames(array_keys($byPatient));
+
+        $allRows = [];
+        $grandCharge = 0.0;
+        $grandPayment = 0.0;
+        $grandAdjustment = 0.0;
+        $grandUnits = 0;
+
+        foreach ($byPatient as $pid => $patientRows) {
+            usort($patientRows, fn ($a, $b) => [$a['entry_date'], $a['id']] <=> [$b['entry_date'], $b['id']]);
+
+            $runningBalance = 0.0;
+
+            foreach ($patientRows as $row) {
+                $runningBalance += $row['charge'] - $row['payment'] - $row['adjustment'];
+                $row['balance'] = round($runningBalance, 2);
+                $row['patient_name'] = $patientNames[$pid] ?? "Patient #{$pid}";
+
+                $grandCharge += $row['charge'];
+                $grandPayment += $row['payment'];
+                $grandAdjustment += $row['adjustment'];
+
+                if ($row['row_type'] === 'charge') {
+                    $grandUnits++;
+                }
+
+                $allRows[] = $row;
+            }
+        }
+
+        return [
+            'rows' => $allRows,
+            'totals' => [
+                'units' => $grandUnits,
+                'charge' => round($grandCharge, 2),
+                'payment' => round($grandPayment, 2),
+                'adjustment' => round($grandAdjustment, 2),
+                'balance' => round($grandCharge - $grandPayment - $grandAdjustment, 2)
+            ]
+        ];
+    }
+
+    private function listLedgerByDateCharges(?int $patientId, $facilityId, $providerId, string $from, string $to): array
+    {
+        $sql = "
+            SELECT ebc.id, ebc.code, ebc.code_type, ebc.description, ebc.fee AS charge, ebc.encounter_id,
+                   e.date_of_service AS entry_date, e.patient_id
+            FROM encounter_billing_codes ebc
+            JOIN encounters e ON e.id = ebc.encounter_id
+            WHERE e.deleted_at IS NULL
+              AND e.date_of_service >= ? AND e.date_of_service <= ?
+        ";
+        $params = [$from . ' 00:00:00', $to . ' 23:59:59'];
+
+        if ($patientId) {
+            $sql .= " AND e.patient_id = ?";
+            $params[] = $patientId;
+        }
+
+        if (!empty($facilityId)) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $facilityId;
+        }
+
+        if (!empty($providerId)) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $providerId;
+        }
+
+        $sql .= " ORDER BY e.date_of_service ASC, ebc.id ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return array_map(function (array $row) {
+            return [
+                'row_type' => 'charge',
+                'id' => 'c' . $row['id'],
+                'code' => $row['code'],
+                'description' => $row['description'],
+                'billed_date' => substr((string) $row['entry_date'], 0, 10),
+                'payor' => null,
+                'type' => $row['code_type'],
+                'units' => 1,
+                'charge' => (float) $row['charge'],
+                'payment' => 0.0,
+                'adjustment' => 0.0,
+                'entry_date' => $row['entry_date'],
+                'encounter_id' => (int) $row['encounter_id'],
+                'patient_id' => (int) $row['patient_id']
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
+    private function listLedgerByDatePayments(?int $patientId, $facilityId, $providerId, string $from, string $to): array
+    {
+        $sql = "
+            SELECT plp.id, plp.patient_id, plp.encounter_id, plp.payer_type, plp.payment_type,
+                   plp.payment_date, plp.payment_amount, plp.adjustment_amount, plp.notes
+            FROM patient_ledger_payments plp
+            LEFT JOIN encounters e ON e.id = plp.encounter_id AND e.deleted_at IS NULL
+            WHERE plp.deleted_at IS NULL
+              AND plp.payment_date >= ? AND plp.payment_date <= ?
+        ";
+        $params = [$from, $to];
+
+        if ($patientId) {
+            $sql .= " AND plp.patient_id = ?";
+            $params[] = $patientId;
+        }
+
+        // A facility/provider filter can only be honored for payments tied
+        // to an encounter -- one with none is excluded rather than guessed at.
+        if (!empty($facilityId)) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $facilityId;
+        }
+
+        if (!empty($providerId)) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $providerId;
+        }
+
+        $sql .= " ORDER BY plp.payment_date ASC, plp.id ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return array_map(function (array $row) {
+            $payorLabel = $row['payer_type'] === 'insurance' ? 'Insurance' : 'Patient';
+
+            return [
+                'row_type' => 'payment',
+                'id' => 'p' . $row['id'],
+                'code' => null,
+                'description' => trim($row['payment_type'] . ' [' . $payorLabel . ' Payment]' . ($row['notes'] ? ' ' . $row['notes'] : '')),
+                'billed_date' => $row['payment_date'],
+                'payor' => $payorLabel,
+                'type' => $payorLabel,
+                'units' => null,
+                'charge' => 0.0,
+                'payment' => (float) $row['payment_amount'],
+                'adjustment' => (float) $row['adjustment_amount'],
+                'entry_date' => $row['payment_date'],
+                'encounter_id' => $row['encounter_id'] !== null ? (int) $row['encounter_id'] : null,
+                'patient_id' => (int) $row['patient_id']
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
+    private function getLedgerPatientNames(array $patientIds): array
+    {
+        if (empty($patientIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($patientIds), '?'));
+        $stmt = Database::connection()->prepare(
+            "SELECT id, first_name, last_name FROM patients WHERE id IN ({$placeholders})"
+        );
+        $stmt->execute($patientIds);
+
+        $names = [];
+
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $r) {
+            $names[$r['id']] = $r['last_name'] . ', ' . $r['first_name'];
+        }
+
+        return $names;
+    }
 }

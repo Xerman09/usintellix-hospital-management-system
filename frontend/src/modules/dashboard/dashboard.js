@@ -242,6 +242,8 @@ import { initReceiptsSummaryReport } from "../reports/receipts-summary.js";
 import { ReceiptsSummaryView } from "../reports/receipts-summary.view.js";
 import { initCollectionsReport } from "../reports/collections.js";
 import { CollectionsView } from "../reports/collections.view.js";
+import { initPatientLedgerByDateReport } from "../reports/patient-ledger-by-date.js";
+import { PatientLedgerByDateView } from "../reports/patient-ledger-by-date.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -917,6 +919,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCollectionsReport, 0);
                 return CollectionsView();
+            }, activate);
+        } else if (tabId === 'reports_financial_pat_ledger') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPatientLedgerByDateReport, 0);
+                return PatientLedgerByDateView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {

@@ -292,4 +292,12 @@ class ReportController extends Controller
         $data = $this->reportService->getCollectionsReport($filters);
         $this->success($data, 'Collections report retrieved successfully.');
     }
+
+    public function patientLedgerByDateReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['patient_id', 'facility_id', 'provider_id', 'date_from', 'date_to']);
+        $data = $this->reportService->getPatientLedgerByDateReport($filters);
+        $this->success($data, 'Patient ledger retrieved successfully.');
+    }
 }

@@ -158,3 +158,8 @@ $router->get('/reports/financial/collections', [ReportController::class, 'collec
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/reports/financial/patient-ledger', [ReportController::class, 'patientLedgerByDateReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
