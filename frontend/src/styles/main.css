@@ -283,6 +283,57 @@
     color: var(--text-muted);
 }
 
+/* ===== Plain inline-styled report pages: safety net =====
+   A separate family of pages (the older visit/financial reports, e.g.
+   Patient List Creation, Daily Summary, Sales by Item) were built with
+   raw inline style="" attributes instead of classes, but they do share
+   one convention: a top-level wrapper div named "<something>-wrapper".
+   Inline styles normally beat any external rule regardless of
+   specificity, so these use !important to win anyway. Scoped to just
+   the near-universally neutral bits (headings, labels, form controls,
+   table structure) -- deliberately NOT buttons or arbitrary containers,
+   since several of these pages use inline color for real semantic
+   meaning (status, danger) that this must not clobber. Any such page
+   with a real legibility problem beyond this should get the same
+   dedicated per-file <style> block the other reports already have. */
+:root[data-theme="dark"] [class$="-wrapper"] h1,
+:root[data-theme="dark"] [class$="-wrapper"] h2,
+:root[data-theme="dark"] [class$="-wrapper"] h3 {
+    color: var(--text-primary) !important;
+}
+
+:root[data-theme="dark"] [class$="-wrapper"] label,
+:root[data-theme="dark"] [class$="-wrapper"] p {
+    color: var(--text-muted) !important;
+}
+
+:root[data-theme="dark"] [class$="-wrapper"] input,
+:root[data-theme="dark"] [class$="-wrapper"] select,
+:root[data-theme="dark"] [class$="-wrapper"] textarea {
+    background-color: var(--bg-surface-alt) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+:root[data-theme="dark"] [class$="-wrapper"] table thead tr {
+    background-color: var(--bg-surface-alt) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border-color) !important;
+}
+
+:root[data-theme="dark"] [class$="-wrapper"] table td,
+:root[data-theme="dark"] [class$="-wrapper"] table th {
+    border-color: var(--border-color) !important;
+}
+
+/* Plain data rows get their text lightened; rows carrying their own
+   inline background (the colored subtotal/status rows several of these
+   reports use, e.g. "Total for category") are left alone so their
+   hand-picked text color stays legible against that background. */
+:root[data-theme="dark"] [class$="-wrapper"] table tbody tr:not([style*="background"]) td {
+    color: var(--text-primary) !important;
+}
+
 * {
     box-sizing: border-box;
     font-family: "Inter", "Segoe UI", sans-serif;

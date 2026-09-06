@@ -3,6 +3,35 @@ export function PatientListCreationView() {
     const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0] + ' 13:00:20';
 
     return `
+        <style>
+            :root[data-theme="dark"] .patient-list-creation-wrapper h2 { color: var(--text-primary) !important; }
+            :root[data-theme="dark"] .patient-list-creation-wrapper label,
+            :root[data-theme="dark"] .patient-list-creation-wrapper p,
+            :root[data-theme="dark"] .patient-list-creation-wrapper span { color: var(--text-muted) !important; }
+            :root[data-theme="dark"] .patient-list-creation-wrapper input,
+            :root[data-theme="dark"] .patient-list-creation-wrapper select {
+                background-color: var(--bg-surface-alt) !important;
+                border-color: var(--border-color) !important;
+                color: var(--text-primary) !important;
+            }
+            :root[data-theme="dark"] .patient-list-creation-wrapper button {
+                background-color: var(--bg-surface-alt) !important;
+                border-color: var(--border-color) !important;
+                color: var(--text-primary) !important;
+            }
+            :root[data-theme="dark"] .patient-list-creation-wrapper > div[style*="overflow-x"] {
+                background: var(--bg-surface) !important;
+                border-color: var(--border-color) !important;
+            }
+            :root[data-theme="dark"] .patient-list-creation-wrapper table thead tr {
+                background-color: var(--bg-surface-alt) !important;
+                color: var(--text-muted) !important;
+                border-bottom-color: var(--border-color) !important;
+            }
+            :root[data-theme="dark"] .patient-list-creation-wrapper table td {
+                color: var(--text-primary) !important;
+            }
+        </style>
         <div class="patient-list-creation-wrapper" style="padding: 20px;">
             <h2 style="font-size: 24px; color: #1a365d; margin-bottom: 24px; font-weight: 500;">Report - Patient List Creation</h2>
             
