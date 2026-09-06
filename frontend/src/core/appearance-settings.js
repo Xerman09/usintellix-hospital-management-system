@@ -20,8 +20,17 @@ export function applyTabsLayoutTheme(theme) {
     }
 }
 
+export function applyGeneralTheme(theme) {
+    if (theme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+        document.documentElement.removeAttribute("data-theme");
+    }
+}
+
 export function applyAppearanceSettings() {
     const settings = getAppearanceSettings();
 
     applyTabsLayoutTheme(settings.scTabsLayoutTheme || "full");
+    applyGeneralTheme(settings.scGeneralTheme || "light");
 }

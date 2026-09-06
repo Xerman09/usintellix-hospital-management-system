@@ -327,6 +327,18 @@ export function SystemConfigView() {
             .sc-panel-footer-label { display: flex; align-items: center; gap: 6px; color: #4a72b0; font-size: 13px; }
 
             .sc-placeholder { color: #718096; font-size: 13px; font-style: italic; }
+
+            :root[data-theme="dark"] .sc-toolbar { border-bottom-color: var(--border-color); }
+            :root[data-theme="dark"] .sc-sidebar { background: var(--bg-surface-alt); border-right-color: var(--border-color); }
+            :root[data-theme="dark"] .sc-sidebar-item { color: var(--text-primary); border-bottom-color: var(--border-color); }
+            :root[data-theme="dark"] .sc-sidebar-item:nth-child(even) { background: var(--bg-surface); }
+            :root[data-theme="dark"] .sc-sidebar-item:hover { background: var(--bg-page); }
+            :root[data-theme="dark"] .sc-content { background: var(--bg-page); }
+            :root[data-theme="dark"] .sc-panel h2 { color: var(--text-primary); }
+            :root[data-theme="dark"] .sc-row { border-bottom-color: var(--border-color); }
+            :root[data-theme="dark"] .sc-row label { color: var(--text-muted); }
+            :root[data-theme="dark"] .sc-field { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+            :root[data-theme="dark"] .sc-search-input { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
         </style>
 
         <div class="sc-wrapper" id="scWrapper">
