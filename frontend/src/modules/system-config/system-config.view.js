@@ -16,8 +16,8 @@ function appearancePanelHtml() {
         <div class="sc-row">
             <label>Tabs Layout Theme*</label>
             <select id="scTabsLayoutTheme" class="sc-field">
-                <option value="full">Full</option>
-                <option value="multiple">Multiple</option>
+                <option value="compact">Compact</option>
+                <option value="full" selected>Full</option>
             </select>
         </div>
 

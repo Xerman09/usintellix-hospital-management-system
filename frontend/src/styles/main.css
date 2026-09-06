@@ -1334,6 +1334,34 @@ body {
     transform: rotate(90deg);
 }
 
+/* Appearance > Tabs Layout Theme = Compact: smaller, truncated tabs so
+   more of them fit across the bar before it needs to scroll. */
+.tab-bar.tabs-compact {
+    padding: 3px 8px 0;
+    gap: 1px;
+}
+
+.tab-bar.tabs-compact .tab-item {
+    padding: 4px 8px;
+    gap: 4px;
+    font-size: 11px;
+    max-width: 130px;
+}
+
+.tab-bar.tabs-compact .tab-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-bar.tabs-compact .tab-item .close-tab,
+.tab-bar.tabs-compact .tab-item .refresh-tab {
+    width: 14px;
+    height: 14px;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
 .tab-content-area {
     flex: 1;
     background: white;

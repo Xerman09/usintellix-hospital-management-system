@@ -1,4 +1,5 @@
 import { showToast } from "../../core/toast.js";
+import { applyTabsLayoutTheme } from "../../core/appearance-settings.js";
 
 const STORAGE_KEY = "systemConfig.appearance";
 
@@ -106,6 +107,7 @@ function wireSave() {
 
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+            applyTabsLayoutTheme(settings.scTabsLayoutTheme);
             showToast("Appearance settings saved on this device. A shared, database-backed settings store hasn't been built yet -- these won't apply for other users or other browsers.", "success");
         } catch (error) {
             showToast("Failed to save settings.", "error");

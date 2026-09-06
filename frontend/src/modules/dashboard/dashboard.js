@@ -256,6 +256,7 @@ import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
 import { initPayment } from "../payment/payment.js";
 import { PaymentView } from "../payment/payment.view.js";
+import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
         <h2>${title}</h2>
@@ -288,6 +289,8 @@ export function Dashboard()
     // Initialize the tab manager and expose to window for inline onclicks
     const tabManager = new TabManager('tabBar', 'tabContent');
     window.tabManager = tabManager;
+
+    applyAppearanceSettings();
 
     // Open default landing tab. Receptionists land on the Calendar
     // instead of the Dashboard -- their nav has no Dashboard link at all.
