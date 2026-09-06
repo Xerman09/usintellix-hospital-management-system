@@ -436,6 +436,12 @@ export function PatientFlowView()
     .pf-header { flex-direction: column; align-items: stretch; }
     .pf-filter-group { min-width: 100%; }
 }
+
+:root[data-theme="dark"] .pf-filters { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pf-filter-group label { color: var(--text-muted); }
+:root[data-theme="dark"] .pf-filter-check { color: var(--text-primary); }
+:root[data-theme="dark"] .pf-clear-btn { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pf-clear-btn:hover { background: var(--bg-surface-alt); }
 </style>
 
 <div class="pf-page">
