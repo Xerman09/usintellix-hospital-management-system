@@ -10,6 +10,7 @@ export async function initFrontReceiptsReport() {
 
     const submitBtn = document.getElementById("frSubmitBtn");
     const printBtn = document.getElementById("frPrintBtn");
+    const csvBtn = document.getElementById("frCsvBtn");
 
     if (submitBtn) {
         submitBtn.addEventListener("click", fetchFrontReceipts);
@@ -17,6 +18,10 @@ export async function initFrontReceiptsReport() {
 
     if (printBtn) {
         printBtn.addEventListener("click", printReport);
+    }
+
+    if (csvBtn) {
+        csvBtn.addEventListener("click", exportToCsv);
     }
 }
 
@@ -61,6 +66,7 @@ async function fetchFrontReceipts() {
     const instructionText = document.getElementById("frInstructionText");
     const resultsArea = document.getElementById("frResultsArea");
     const printBtn = document.getElementById("frPrintBtn");
+    const csvBtn = document.getElementById("frCsvBtn");
     const tbody = document.getElementById("frTableBody");
 
     if (!tbody || !resultsArea) return;
@@ -68,6 +74,7 @@ async function fetchFrontReceipts() {
     if (instructionText) instructionText.style.display = "none";
     resultsArea.style.display = "block";
     if (printBtn) printBtn.style.display = "flex";
+    if (csvBtn) csvBtn.style.display = "flex";
 
     tbody.innerHTML = `<tr><td colspan="8" style="padding: 12px; text-align: center; color: #718096; font-style: italic;">Loading data...</td></tr>`;
 
@@ -140,6 +147,59 @@ function updateTotals(today, previous, grand) {
     document.getElementById("frTotalToday").textContent = Number(today).toFixed(2);
     document.getElementById("frTotalPrevious").textContent = Number(previous).toFixed(2);
     document.getElementById("frTotalGrand").textContent = Number(grand).toFixed(2);
+}
+
+function exportToCsv() {
+    if (currentReportData.length === 0) {
+        alert("No data to export.");
+        return;
+    }
+
+    const headers = ["Time", "Patient", "ID", "Method", "Source", "Today", "Previous", "Total"];
+    const rows = [headers];
+
+    let totalToday = 0;
+    let totalPrevious = 0;
+    let totalGrand = 0;
+
+    currentReportData.forEach((row) => {
+        const today = Number(row.today_amount || 0);
+        const previous = Number(row.previous_amount || 0);
+        const total = Number(row.payment_amount || 0);
+
+        totalToday += today;
+        totalPrevious += previous;
+        totalGrand += total;
+
+        rows.push([
+            row.time || "",
+            row.patient_name || "",
+            row.patient_no || "",
+            row.method || "",
+            row.source || "",
+            today.toFixed(2),
+            previous.toFixed(2),
+            total.toFixed(2)
+        ]);
+    });
+
+    rows.push(["Totals", "", "", "", "", totalToday.toFixed(2), totalPrevious.toFixed(2), totalGrand.toFixed(2)]);
+
+    const csvString = rows
+        .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+    const blob = new Blob([csvString], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.setAttribute("hidden", "");
+    a.setAttribute("href", url);
+    a.setAttribute("download", "front_office_receipts_report.csv");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 }
 
 function printReport() {
