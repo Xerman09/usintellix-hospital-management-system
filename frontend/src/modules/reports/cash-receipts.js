@@ -10,6 +10,7 @@ export async function initCashReceiptsReport() {
 
     const submitBtn = document.getElementById("crSubmitBtn");
     const printBtn = document.getElementById("crPrintBtn");
+    const csvBtn = document.getElementById("crCsvBtn");
     const detailsCheckbox = document.getElementById("crDetails");
     const proceduresCheckbox = document.getElementById("crProcedures");
 
@@ -19,6 +20,10 @@ export async function initCashReceiptsReport() {
 
     if (printBtn) {
         printBtn.addEventListener("click", printReport);
+    }
+
+    if (csvBtn) {
+        csvBtn.addEventListener("click", exportToCsv);
     }
 
     if (detailsCheckbox) {
@@ -202,6 +207,59 @@ function renderTable(data) {
 
 function updateGrandTotal(amount) {
     document.getElementById("crGrandTotal").textContent = Number(amount).toFixed(2);
+}
+
+function exportToCsv() {
+    if (currentReportData.length === 0) {
+        alert("No data to export.");
+        return;
+    }
+
+    const showProcedures = document.getElementById("crProcedures")?.checked;
+    const groups = groupByProvider(currentReportData);
+    const headers = showProcedures
+        ? ["Practitioner", "Procedure", "Date", "Received"]
+        : ["Practitioner", "Date", "Received"];
+    const rows = [headers];
+
+    groups.forEach((group) => {
+        group.payments.forEach((payment, index) => {
+            const row = [index === 0 ? group.name : "", payment.date, payment.amount.toFixed(2)];
+            if (showProcedures) {
+                row.splice(1, 0, payment.procedure);
+            }
+            rows.push(row);
+        });
+
+        const totalRow = ["Totals for " + group.name, "", group.total.toFixed(2)];
+        if (showProcedures) {
+            totalRow.splice(1, 0, "");
+        }
+        rows.push(totalRow);
+    });
+
+    const grandTotal = groups.reduce((sum, g) => sum + g.total, 0);
+    const grandRow = ["Grand Totals", "", grandTotal.toFixed(2)];
+    if (showProcedures) {
+        grandRow.splice(1, 0, "");
+    }
+    rows.push(grandRow);
+
+    const csvString = rows
+        .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+    const blob = new Blob([csvString], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.setAttribute("hidden", "");
+    a.setAttribute("href", url);
+    a.setAttribute("download", "cash_receipts_by_provider_report.csv");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 }
 
 function printReport() {
