@@ -75,6 +75,23 @@
     background: var(--bg-surface-alt);
 }
 
+:root[data-theme="dark"] .dropdown-submenu-trigger {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .dropdown-submenu-trigger svg {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .dropdown-submenu-content {
+    background-color: var(--bg-surface);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .dropdown-submenu-content a {
+    color: var(--text-primary);
+}
+
 :root[data-theme="dark"] .tab-bar {
     background: var(--bg-surface-alt);
     border-bottom-color: var(--border-color);
