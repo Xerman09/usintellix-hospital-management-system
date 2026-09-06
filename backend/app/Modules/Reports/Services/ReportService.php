@@ -1305,4 +1305,66 @@ class ReportService
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Front Office Receipts: individual patient ledger payments within a
+     * date range, split into "Today" (the payment's encounter happened
+     * the same day it was collected) vs "Previous" (paid toward an older
+     * balance, or with no encounter on file at all). Method/Source map
+     * to the closest columns the schema actually has -- payment_type
+     * (COPAY, DEDUCTIBLE, etc.) and payer_type (patient/insurance) --
+     * since there's no dedicated payment-method (cash/check/card) field.
+     */
+    public function getFrontOfficeReceiptsReport(array $filters = []): array
+    {
+        $sql = "
+            SELECT
+                plp.id,
+                TIME(plp.created_at) AS time,
+                pt.patient_no,
+                CONCAT(pt.last_name, ', ', pt.first_name) AS patient_name,
+                plp.payment_type AS method,
+                plp.payer_type AS source,
+                plp.payment_date,
+                plp.payment_amount,
+                CASE WHEN e.date_of_service IS NOT NULL AND DATE(e.date_of_service) = plp.payment_date
+                     THEN plp.payment_amount ELSE 0 END AS today_amount,
+                CASE WHEN e.date_of_service IS NOT NULL AND DATE(e.date_of_service) = plp.payment_date
+                     THEN 0 ELSE plp.payment_amount END AS previous_amount
+            FROM patient_ledger_payments plp
+            JOIN patients pt ON pt.id = plp.patient_id
+            LEFT JOIN encounters e ON e.id = plp.encounter_id AND e.deleted_at IS NULL
+            WHERE plp.deleted_at IS NULL
+              AND plp.payment_amount > 0
+        ";
+
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND plp.payment_date >= ?";
+            $params[] = $filters['date_from'];
+        }
+
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND plp.payment_date <= ?";
+            $params[] = $filters['date_to'];
+        }
+
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        $sql .= " ORDER BY plp.payment_date ASC, plp.created_at ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

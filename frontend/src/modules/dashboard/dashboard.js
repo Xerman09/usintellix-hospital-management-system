@@ -236,6 +236,8 @@ import { initSalesByItemReport } from "../reports/sales-by-item.js";
 import { SalesByItemView } from "../reports/sales-by-item.view.js";
 import { initCashReceiptsReport } from "../reports/cash-receipts.js";
 import { CashReceiptsView } from "../reports/cash-receipts.view.js";
+import { initFrontReceiptsReport } from "../reports/front-receipts.js";
+import { FrontReceiptsView } from "../reports/front-receipts.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -896,6 +898,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCashReceiptsReport, 0);
                 return CashReceiptsView();
+            }, activate);
+        } else if (tabId === 'reports_financial_front_rec') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initFrontReceiptsReport, 0);
+                return FrontReceiptsView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {
