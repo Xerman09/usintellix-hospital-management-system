@@ -19,6 +19,10 @@ use App\Modules\Messaging\Services\MessagingService;
 use App\Modules\Amendments\Services\AmendmentService;
 use App\Modules\Encounters\Services\EncounterService;
 use App\Modules\CareTeams\Services\CareTeamService;
+use App\Modules\PatientInsurances\Services\PatientInsuranceService;
+use App\Modules\EncounterVitals\Services\EncounterVitalService;
+use App\Modules\PatientDocuments\Services\PatientDocumentService;
+use App\Modules\Patients\Models\Patient;
 
 class PatientController extends Controller
 {
@@ -59,11 +63,17 @@ class PatientController extends Controller
      */
     public function dashboardSummary(): void
     {
+        $user = Session::get('user');
         $request = new Request();
         $patientId = (int) $request->input('patient_id');
 
         if (!$patientId) {
             $this->error('Patient is required.', 422);
+            return;
+        }
+
+        if (!$this->ownsPatient($user, $patientId)) {
+            $this->error('Patient not found.', 404);
             return;
         }
 
@@ -85,6 +95,9 @@ class PatientController extends Controller
             'amendments' => fn () => (new AmendmentService())->list($patientId),
             'encounters' => fn () => (new EncounterService())->list($patientId),
             'care_team' => fn () => (new CareTeamService())->show($patientId),
+            'insurance' => fn () => (new PatientInsuranceService())->list($patientId),
+            'vitals_history' => fn () => (new EncounterVitalService())->listForPatient($patientId),
+            'documents' => fn () => (new PatientDocumentService())->listForPatient($patientId),
         ];
 
         $result = [];
@@ -323,5 +336,31 @@ class PatientController extends Controller
         }
 
         $this->success($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * Confirm the given patient exists and, for doctors, is assigned to
+     * them. Admins and receptionists may view any active patient.
+     */
+    private function ownsPatient(array $user, int $patientId): bool
+    {
+        if (!$patientId) {
+            return false;
+        }
+
+        $patient = (new Patient())->where('id', $patientId)->first();
+
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return false;
+        }
+
+        if (($user['role'] ?? '') !== 'doctor') {
+            return true;
+        }
+
+        $provider = $this->providerService->findByUserId((int) $user['id']);
+        $providerId = $provider ? (int) $provider['id'] : 0;
+
+        return (int) $patient['provider_id'] === $providerId;
     }
 }

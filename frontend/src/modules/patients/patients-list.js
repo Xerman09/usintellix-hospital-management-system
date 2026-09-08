@@ -2546,10 +2546,7 @@ export async function initPatientChartTab(patient)
     renderDemographics(patient);
 
     loadPatientDashboardWidgets(patient);
-    loadDashboardInsurance(patient);
-    loadDashboardVitalsHistory(patient);
     loadDashboardAppointments(patient);
-    loadDashboardDocuments(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2645,7 +2642,7 @@ async function loadPatientDashboardWidgets(patient)
     const widgetBodyIds = [
         "pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody",
         "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody", "pdEncountersBody",
-        "pdCareTeamBody", "pdImmunizationsBody"
+        "pdCareTeamBody", "pdImmunizationsBody", "pdInsuranceBody", "pdVitalsHistoryBody", "pdDocumentsBody"
     ];
 
     try {
@@ -2672,6 +2669,9 @@ async function loadPatientDashboardWidgets(patient)
         renderDashboardEncounters(data.encounters || []);
         renderDashboardCareTeam(data.care_team || null);
         renderDashboardImmunizations(data.immunizations || []);
+        renderDashboardInsurance(data.insurance || []);
+        renderDashboardVitalsHistory(data.vitals_history || []);
+        renderDashboardDocuments(data.documents || []);
 
         dashboardRelatedPersons = data.related_persons || [];
         renderDashboardRelatedPersons(dashboardRelatedPersons);
@@ -9321,6 +9321,10 @@ function setupVitalsModal()
         closeForm();
         currentEncounterSummary.vitals = result.data;
         renderVitalsSection();
+
+        if (currentDashboardPatient) {
+            loadDashboardVitalsHistory(currentDashboardPatient);
+        }
     });
 }
 
