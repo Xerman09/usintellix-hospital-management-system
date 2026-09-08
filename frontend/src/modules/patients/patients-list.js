@@ -2610,6 +2610,7 @@ export async function initPatientChartTab(patient)
     setupHealthConcernModals();
     setupMedicationModals();
     setupInsuranceModals();
+    setupVitalsHistoryModal();
     setupDeviceModal();
     setupSurgeryModal();
     setupDentalIssueModal();
@@ -5141,6 +5142,81 @@ function renderDashboardVitalsHistory(vitalsHistory)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
             <p>No vitals recorded yet.</p>
            </div>`;
+}
+
+async function openVitalsHistoryDetailModal(patient)
+{
+    document.getElementById("vitalsHistoryDetailModalOverlay").classList.add("open");
+
+    await loadVitalsHistoryDetailTable(patient);
+}
+
+async function loadVitalsHistoryDetailTable(patient)
+{
+    const tbody = document.getElementById("vitalsHistoryDetailTableBody");
+
+    try {
+        const result = await fetchVitalsHistory(patient.id);
+
+        if (!result.success) {
+            tbody.innerHTML = `<tr><td colspan="9" class="table-empty">${escapeHtml(result.message || "Unable to load vitals.")}</td></tr>`;
+            return;
+        }
+
+        renderVitalsHistoryDetailTable(result.data);
+    } catch (error) {
+        console.error("Failed to load vitals history", error);
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Unable to load vitals right now. Please try again.</td></tr>`;
+    }
+}
+
+function renderVitalsHistoryDetailTable(vitalsHistory)
+{
+    const tbody = document.getElementById("vitalsHistoryDetailTableBody");
+
+    if (!vitalsHistory.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No vitals recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = vitalsHistory.map((vitals) => {
+        const bp = vitals.bp_systolic && vitals.bp_diastolic ? `${vitals.bp_systolic}/${vitals.bp_diastolic}` : "-";
+        const bmi = vitals.bmi ? `${vitals.bmi}${vitals.bmi_status ? ` (${vitals.bmi_status})` : ""}` : "-";
+
+        return `
+        <tr>
+            <td>${escapeHtml(formatDate(vitals.date_of_service) || "-")}</td>
+            <td>${escapeHtml(vitals.weight ?? "-")}</td>
+            <td>${escapeHtml(vitals.height ?? "-")}</td>
+            <td>${escapeHtml(bmi)}</td>
+            <td>${escapeHtml(bp)}</td>
+            <td>${escapeHtml(vitals.pulse ?? "-")}</td>
+            <td>${escapeHtml(vitals.respiration ?? "-")}</td>
+            <td>${escapeHtml(vitals.temperature ?? "-")}</td>
+            <td>${escapeHtml(vitals.oxygen_saturation ?? "-")}</td>
+        </tr>
+        `;
+    }).join("");
+}
+
+function setupVitalsHistoryModal()
+{
+    const detailOverlay = document.getElementById("vitalsHistoryDetailModalOverlay");
+
+    const closeDetail = () => detailOverlay.classList.remove("open");
+
+    document.getElementById("pdVitalsHistoryAddBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openVitalsHistoryDetailModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeVitalsHistoryDetailModal").addEventListener("click", closeDetail);
+    detailOverlay.addEventListener("click", (event) => {
+        if (event.target === detailOverlay) {
+            closeDetail();
+        }
+    });
 }
 
 async function loadDashboardAppointments(patient)

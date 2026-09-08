@@ -4836,7 +4836,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.", { bodyId: "pdImmunizationsBody", addBtnId: "pdImmunizationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
-                    ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.", { bodyId: "pdVitalsHistoryBody" })}
+                    ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.", { bodyId: "pdVitalsHistoryBody", addBtnId: "pdVitalsHistoryAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.", { bodyId: "pdInsuranceBody", addBtnId: "pdInsuranceAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.", { bodyId: "pdAppointmentsBody", addBtnId: "pdAppointmentsAddBtn", addBtnLabel: "+ Add", addBtnDisabled: false })}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { bodyId: "pdDocumentsBody", addBtnId: "pdDocumentsAddBtn", addBtnLabel: "Upload", addBtnDisabled: false, widgetId: "pdWidget-documents" })}
@@ -8442,6 +8442,37 @@ textarea.pd-sdoh-readonly {
                 <button class="login-btn" type="submit">Save Care Team</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="vitalsHistoryDetailModalOverlay">
+    <div class="modal-box" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2>Vitals</h2>
+            <button type="button" class="modal-close" id="closeVitalsHistoryDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Full vitals history for this patient, across every encounter.</p>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Weight (lbs)</th>
+                        <th>Height (in)</th>
+                        <th>BMI</th>
+                        <th>BP (mmHg)</th>
+                        <th>Pulse</th>
+                        <th>Resp.</th>
+                        <th>Temp (F)</th>
+                        <th>O2 Sat (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="vitalsHistoryDetailTableBody">
+                    <tr><td colspan="9" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
