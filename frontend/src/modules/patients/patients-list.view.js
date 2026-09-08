@@ -1034,6 +1034,18 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-allergy-name,
 :root[data-theme="dark"] .pd-visit-category { color: var(--text-primary); }
 :root[data-theme="dark"] .pd-visit-date { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-allergy-item.severity-severe { border-left-color: #f87171; background: rgba(220, 38, 38, .14); }
+:root[data-theme="dark"] .pd-allergy-item.severity-moderate { border-left-color: #fbbf24; background: rgba(217, 119, 6, .14); }
+:root[data-theme="dark"] .pd-allergy-item.severity-mild { border-left-color: #94a3b8; }
+:root[data-theme="dark"] .pd-allergy-sub { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-severity-badge.severe { background: rgba(220, 38, 38, .2); color: #fca5a5; }
+:root[data-theme="dark"] .pd-severity-badge.moderate { background: rgba(217, 119, 6, .2); color: #fcd34d; }
+:root[data-theme="dark"] .pd-severity-badge.mild { background: rgba(99, 102, 241, .2); color: #c7d2fe; }
+:root[data-theme="dark"] .pd-severity-badge.unassigned { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-widget-count { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-allergy-item.status-confirmed { border-left-color: #4ade80; }
+:root[data-theme="dark"] .pd-allergy-item.status-refuted { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pd-allergy-item:hover { border-color: var(--accent); }
 
 .pd-allergy-list {
     display: flex;
@@ -1047,16 +1059,106 @@ export function PatientsListView(user)
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 6px 10px;
+    padding: 7px 10px;
     border: 1px solid #e5e9f0;
+    border-left: 3px solid #dbe1ea;
     border-radius: 6px;
     background: #fbfcfe;
+}
+
+.pd-allergy-item.severity-severe {
+    border-left-color: #dc2626;
+    background: #fef4f4;
+}
+
+.pd-allergy-item.severity-moderate {
+    border-left-color: #d97706;
+    background: #fffaf0;
+}
+
+.pd-allergy-item.severity-mild {
+    border-left-color: #64748b;
+}
+
+.pd-allergy-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
 }
 
 .pd-allergy-name {
     font-size: 12.5px;
     font-weight: 600;
     color: #29323f;
+}
+
+.pd-allergy-sub {
+    font-size: 11px;
+    color: #8b98ac;
+}
+
+.pd-severity-badge {
+    flex-shrink: 0;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+
+.pd-severity-badge.severe { background: #fee2e2; color: #b91c1c; }
+.pd-severity-badge.moderate { background: #fef3c7; color: #92400e; }
+.pd-severity-badge.mild { background: #e0e7ff; color: #3730a3; }
+.pd-severity-badge.unassigned { background: #f1f5f9; color: #64748b; }
+
+.pd-widget-header-title {
+    flex-wrap: wrap;
+}
+
+.pd-widget-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.pd-widget-count[hidden] {
+    display: none;
+}
+
+.pd-allergy-item {
+    transition: border-color .12s ease;
+}
+
+.pd-allergy-item:hover {
+    border-color: var(--accent);
+}
+
+.pd-allergy-item.status-confirmed {
+    border-left-color: #16a34a;
+}
+
+.pd-allergy-item.status-refuted {
+    opacity: .6;
+}
+
+.pd-allergy-item.status-refuted .pd-allergy-name,
+.pd-allergy-item.status-inactive .pd-allergy-name {
+    text-decoration: line-through;
+}
+
+.pd-allergy-item.status-inactive {
+    opacity: .65;
 }
 
 .pd-visit-list {
@@ -4309,6 +4411,18 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-allergy-name,
 :root[data-theme="dark"] .pd-visit-category { color: var(--text-primary); }
 :root[data-theme="dark"] .pd-visit-date { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-allergy-item.severity-severe { border-left-color: #f87171; background: rgba(220, 38, 38, .14); }
+:root[data-theme="dark"] .pd-allergy-item.severity-moderate { border-left-color: #fbbf24; background: rgba(217, 119, 6, .14); }
+:root[data-theme="dark"] .pd-allergy-item.severity-mild { border-left-color: #94a3b8; }
+:root[data-theme="dark"] .pd-allergy-sub { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-severity-badge.severe { background: rgba(220, 38, 38, .2); color: #fca5a5; }
+:root[data-theme="dark"] .pd-severity-badge.moderate { background: rgba(217, 119, 6, .2); color: #fcd34d; }
+:root[data-theme="dark"] .pd-severity-badge.mild { background: rgba(99, 102, 241, .2); color: #c7d2fe; }
+:root[data-theme="dark"] .pd-severity-badge.unassigned { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-widget-count { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-allergy-item.status-confirmed { border-left-color: #4ade80; }
+:root[data-theme="dark"] .pd-allergy-item.status-refuted { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pd-allergy-item:hover { border-color: var(--accent); }
 
 .pd-allergy-list {
     display: flex;
@@ -4322,16 +4436,106 @@ textarea.pd-sdoh-readonly {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 6px 10px;
+    padding: 7px 10px;
     border: 1px solid #e5e9f0;
+    border-left: 3px solid #dbe1ea;
     border-radius: 6px;
     background: #fbfcfe;
+}
+
+.pd-allergy-item.severity-severe {
+    border-left-color: #dc2626;
+    background: #fef4f4;
+}
+
+.pd-allergy-item.severity-moderate {
+    border-left-color: #d97706;
+    background: #fffaf0;
+}
+
+.pd-allergy-item.severity-mild {
+    border-left-color: #64748b;
+}
+
+.pd-allergy-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
 }
 
 .pd-allergy-name {
     font-size: 12.5px;
     font-weight: 600;
     color: #29323f;
+}
+
+.pd-allergy-sub {
+    font-size: 11px;
+    color: #8b98ac;
+}
+
+.pd-severity-badge {
+    flex-shrink: 0;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+
+.pd-severity-badge.severe { background: #fee2e2; color: #b91c1c; }
+.pd-severity-badge.moderate { background: #fef3c7; color: #92400e; }
+.pd-severity-badge.mild { background: #e0e7ff; color: #3730a3; }
+.pd-severity-badge.unassigned { background: #f1f5f9; color: #64748b; }
+
+.pd-widget-header-title {
+    flex-wrap: wrap;
+}
+
+.pd-widget-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.pd-widget-count[hidden] {
+    display: none;
+}
+
+.pd-allergy-item {
+    transition: border-color .12s ease;
+}
+
+.pd-allergy-item:hover {
+    border-color: var(--accent);
+}
+
+.pd-allergy-item.status-confirmed {
+    border-left-color: #16a34a;
+}
+
+.pd-allergy-item.status-refuted {
+    opacity: .6;
+}
+
+.pd-allergy-item.status-refuted .pd-allergy-name,
+.pd-allergy-item.status-inactive .pd-allergy-name {
+    text-decoration: line-through;
+}
+
+.pd-allergy-item.status-inactive {
+    opacity: .65;
 }
 
 .pd-visit-list {
@@ -10005,6 +10209,7 @@ function dashboardWidget(title, iconPath, emptyText, options = {})
             <div class="pd-widget-header-title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg>
                 <h3>${title}</h3>
+                ${bodyId ? `<span class="pd-widget-count" id="${bodyId}Count" hidden>0</span>` : ""}
             </div>
             <button type="button" class="pd-widget-add"${addBtnId ? ` id="${addBtnId}"` : ""}${addBtnDisabled ? " disabled" : ""}>${addBtnLabel}</button>
         </div>

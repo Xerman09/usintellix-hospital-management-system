@@ -2999,6 +2999,18 @@ function renderRelatedPersonsPanel(persons)
     }).join("");
 }
 
+function setWidgetCount(bodyId, count)
+{
+    const el = document.getElementById(`${bodyId}Count`);
+
+    if (!el) {
+        return;
+    }
+
+    el.textContent = String(count);
+    el.hidden = count === 0;
+}
+
 async function loadDashboardAllergies(patient)
 {
     const body = document.getElementById("pdAllergiesBody");
@@ -3025,13 +3037,24 @@ function renderDashboardAllergies(allergies)
         return;
     }
 
+    setWidgetCount("pdAllergiesBody", allergies.length);
+
     body.innerHTML = allergies.length
         ? `<div class="pd-allergy-list">
-            ${allergies.map((allergy) => `
-                <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">${escapeHtml(allergy.name)}</span>
+            ${allergies.map((allergy) => {
+                const severity = (allergy.severity || "").toLowerCase();
+                const severityClass = ["severe", "moderate", "mild"].includes(severity) ? severity : "";
+
+                return `
+                <div class="pd-allergy-item${severityClass ? ` severity-${severityClass}` : ""}">
+                    <div class="pd-allergy-main">
+                        <span class="pd-allergy-name">${escapeHtml(allergy.name)}</span>
+                        ${allergy.reaction ? `<span class="pd-allergy-sub">${escapeHtml(allergy.reaction)}</span>` : ""}
+                    </div>
+                    ${allergy.severity ? `<span class="pd-severity-badge ${severityClass || "unassigned"}">${escapeHtml(allergy.severity)}</span>` : ""}
                 </div>
-            `).join("")}
+                `;
+            }).join("")}
            </div>`
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
@@ -3057,6 +3080,21 @@ async function loadDashboardProblems(patient)
     }
 }
 
+function verificationStatusClass(status)
+{
+    const value = (status || "").toLowerCase();
+
+    if (value === "confirmed") {
+        return "status-confirmed";
+    }
+
+    if (value === "refuted" || value === "entered in error") {
+        return "status-refuted";
+    }
+
+    return "";
+}
+
 function renderDashboardProblems(problems)
 {
     const body = document.getElementById("pdProblemsBody");
@@ -3067,11 +3105,16 @@ function renderDashboardProblems(problems)
 
     const active = problems.filter((problem) => !problem.end_date);
 
+    setWidgetCount("pdProblemsBody", active.length);
+
     body.innerHTML = active.length
         ? `<div class="pd-allergy-list">
             ${active.map((problem) => `
-                <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">${escapeHtml(problem.title)}</span>
+                <div class="pd-allergy-item ${verificationStatusClass(problem.verification_status)}">
+                    <div class="pd-allergy-main">
+                        <span class="pd-allergy-name">${escapeHtml(problem.title)}</span>
+                        ${problem.begin_date ? `<span class="pd-allergy-sub">Since ${escapeHtml(formatDate(problem.begin_date))}</span>` : ""}
+                    </div>
                 </div>
             `).join("")}
            </div>`
@@ -3091,11 +3134,16 @@ function renderDashboardHealthConcerns(concerns)
 
     const active = concerns.filter((concern) => !concern.end_date);
 
+    setWidgetCount("pdHealthConcernsBody", active.length);
+
     body.innerHTML = active.length
         ? `<div class="pd-allergy-list">
             ${active.map((concern) => `
-                <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">${escapeHtml(concern.title)}</span>
+                <div class="pd-allergy-item ${verificationStatusClass(concern.verification_status)}">
+                    <div class="pd-allergy-main">
+                        <span class="pd-allergy-name">${escapeHtml(concern.title)}</span>
+                        ${concern.begin_date ? `<span class="pd-allergy-sub">Since ${escapeHtml(formatDate(concern.begin_date))}</span>` : ""}
+                    </div>
                 </div>
             `).join("")}
            </div>`
@@ -10073,6 +10121,8 @@ function renderDashboardCareTeam(careTeam)
     const members = (careTeam && careTeam.members) || [];
     const isActive = !careTeam || careTeam.status !== "inactive";
 
+    setWidgetCount("pdCareTeamBody", members.length);
+
     if (!careTeam || !careTeam.id) {
         body.innerHTML = `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path></svg>
@@ -10088,15 +10138,29 @@ function renderDashboardCareTeam(careTeam)
                 <span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span>
             </div>
             ${members.length
-                ? members.map((member) => `
-                    <div class="pd-allergy-item">
-                        <span class="pd-allergy-name">${escapeHtml(
-                            member.member_type === "provider"
-                                ? (member.user_name || "Unassigned provider")
-                                : (member.related_person_name || "Unassigned related person")
-                        )}${member.role_name ? ` &middot; ${escapeHtml(member.role_name)}` : ""}</span>
+                ? members.map((member) => {
+                    const memberName = member.member_type === "provider"
+                        ? (member.user_name || "Unassigned provider")
+                        : (member.related_person_name || "Unassigned related person");
+
+                    const subParts = [
+                        member.role_name,
+                        member.facility_name,
+                        member.member_since ? `Since ${formatDate(member.member_since)}` : null
+                    ].filter(Boolean);
+
+                    const memberInactive = member.status === "inactive";
+
+                    return `
+                    <div class="pd-allergy-item${memberInactive ? " status-inactive" : ""}">
+                        <div class="pd-allergy-main">
+                            <span class="pd-allergy-name">${escapeHtml(memberName)}</span>
+                            ${subParts.length ? `<span class="pd-allergy-sub">${escapeHtml(subParts.join(" · "))}</span>` : ""}
+                        </div>
+                        ${memberInactive ? `<span class="status-badge cancelled">Inactive</span>` : ""}
                     </div>
-                `).join("")
+                    `;
+                }).join("")
                 : `<div class="pd-allergy-item"><span class="pd-allergy-name">No team members added yet.</span></div>`
             }
         </div>
