@@ -8741,29 +8741,8 @@ async function openEncounterFormModal(existingRecord)
     document.getElementById("err-encounter_visit_category_id").textContent = "";
     document.getElementById("err-encounter_date_of_service").textContent = "";
 
-    await loadEncounterCatalogsIfNeeded();
-
-    fillEncounterSelect("encounter_visit_category_id", encounterVisitCategories, (c) => c.name, "-- Select One --");
-    fillEncounterSelect("encounter_class_id", encounterClasses, (c) => c.name, "-- Select One --");
-    fillEncounterSelect("encounter_visit_type_id", encounterVisitTypes, (t) => t.type, "-- Select One --");
-    fillEncounterSelect("encounter_encounter_provider_id", encounterProviders, providerLabel, "-- Select One --");
-    fillEncounterSelect(
-        "encounter_referring_provider_id", encounterProviders, providerLabel,
-        encounterProviders.length ? "-- Select One --" : "No available providers"
-    );
-    fillEncounterSelect("encounter_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
-    fillEncounterSelect("encounter_billing_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
-    fillEncounterSelect("encounter_discharge_disposition_id", encounterDischargeDispositions, (d) => d.name, "-- Select One --");
-
-    const issuesResult = await fetchLinkableIssues(currentDashboardPatient.id);
-
-    encounterLinkableIssues = issuesResult.success ? issuesResult.data : [];
-
-    const linkedKeys = existingRecord && existingRecord.linked_issues
-        ? existingRecord.linked_issues.split(",")
-        : [];
-
-    renderEncounterIssuesList(linkedKeys);
+    const title = document.getElementById("encounterFormTitle");
+    const recordIdInput = document.getElementById("encounter_record_id");
 
     encounterBillingCodesDraft = existingRecord && existingRecord.billing_codes_summary
         ? existingRecord.billing_codes_summary.split("||").map((entry) => {
@@ -8773,26 +8752,23 @@ async function openEncounterFormModal(existingRecord)
         : [];
 
     renderEncounterBillingCodesList();
+    document.getElementById("encounterIssuesList").innerHTML = `<p class="pd-chart-nav-empty">Loading...</p>`;
 
-    const title = document.getElementById("encounterFormTitle");
-    const recordIdInput = document.getElementById("encounter_record_id");
-
+    // Everything that doesn't depend on a network round-trip gets set
+    // immediately, and the modal opens right away. It used to await the
+    // catalogs + linkable-issues fetches (each a fresh remote-DB
+    // connection) before ever adding the "open" class, so clicking
+    // "Create Visit" looked like a dead click for a second or more with
+    // no feedback -- now the shell appears instantly and the
+    // provider/facility/etc. selects hydrate a beat later.
     if (existingRecord) {
         title.textContent = "Edit Encounter";
         recordIdInput.value = existingRecord.id;
 
-        document.getElementById("encounter_visit_category_id").value = existingRecord.visit_category_id ?? "";
-        document.getElementById("encounter_class_id").value = existingRecord.class_id ?? "";
-        document.getElementById("encounter_visit_type_id").value = existingRecord.visit_type_id ?? "";
         document.getElementById("encounter_sensitivity").value = existingRecord.sensitivity || "normal";
-        document.getElementById("encounter_encounter_provider_id").value = existingRecord.encounter_provider_id ?? "";
-        document.getElementById("encounter_referring_provider_id").value = existingRecord.referring_provider_id ?? "";
-        document.getElementById("encounter_facility_id").value = existingRecord.facility_id ?? "";
-        document.getElementById("encounter_billing_facility_id").value = existingRecord.billing_facility_id ?? "";
         document.getElementById("encounter_date_of_service").value = (existingRecord.date_of_service || "").slice(0, 16).replace(" ", "T");
         document.getElementById("encounter_onset_date").value = (existingRecord.onset_date || "").slice(0, 10);
         document.getElementById("encounter_in_collection").value = Number(existingRecord.in_collection) ? "1" : "0";
-        document.getElementById("encounter_discharge_disposition_id").value = existingRecord.discharge_disposition_id ?? "";
         document.getElementById("encounter_reason_for_visit").value = existingRecord.reason_for_visit || "";
     } else {
         title.textContent = "New Encounter";
@@ -8811,6 +8787,42 @@ async function openEncounterFormModal(existingRecord)
     syncEncounterInCollectionUI();
 
     document.getElementById("encounterFormModalOverlay").classList.add("open");
+
+    const [, issuesResult] = await Promise.all([
+        loadEncounterCatalogsIfNeeded(),
+        fetchLinkableIssues(currentDashboardPatient.id)
+    ]);
+
+    fillEncounterSelect("encounter_visit_category_id", encounterVisitCategories, (c) => c.name, "-- Select One --");
+    fillEncounterSelect("encounter_class_id", encounterClasses, (c) => c.name, "-- Select One --");
+    fillEncounterSelect("encounter_visit_type_id", encounterVisitTypes, (t) => t.type, "-- Select One --");
+    fillEncounterSelect("encounter_encounter_provider_id", encounterProviders, providerLabel, "-- Select One --");
+    fillEncounterSelect(
+        "encounter_referring_provider_id", encounterProviders, providerLabel,
+        encounterProviders.length ? "-- Select One --" : "No available providers"
+    );
+    fillEncounterSelect("encounter_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
+    fillEncounterSelect("encounter_billing_facility_id", encounterFacilities, (f) => f.name, "-- Select One --");
+    fillEncounterSelect("encounter_discharge_disposition_id", encounterDischargeDispositions, (d) => d.name, "-- Select One --");
+
+    if (existingRecord) {
+        document.getElementById("encounter_visit_category_id").value = existingRecord.visit_category_id ?? "";
+        document.getElementById("encounter_class_id").value = existingRecord.class_id ?? "";
+        document.getElementById("encounter_visit_type_id").value = existingRecord.visit_type_id ?? "";
+        document.getElementById("encounter_encounter_provider_id").value = existingRecord.encounter_provider_id ?? "";
+        document.getElementById("encounter_referring_provider_id").value = existingRecord.referring_provider_id ?? "";
+        document.getElementById("encounter_facility_id").value = existingRecord.facility_id ?? "";
+        document.getElementById("encounter_billing_facility_id").value = existingRecord.billing_facility_id ?? "";
+        document.getElementById("encounter_discharge_disposition_id").value = existingRecord.discharge_disposition_id ?? "";
+    }
+
+    encounterLinkableIssues = issuesResult.success ? issuesResult.data : [];
+
+    const linkedKeys = existingRecord && existingRecord.linked_issues
+        ? existingRecord.linked_issues.split(",")
+        : [];
+
+    renderEncounterIssuesList(linkedKeys);
 }
 
 function renderEncounterIssuesList(linkedKeys)
