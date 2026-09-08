@@ -8929,124 +8929,362 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<style>
+#encounterFormModalOverlay .modal-box {
+    max-width: 800px;
+    border-radius: 0;
+    padding: 30px 34px;
+}
+
+#encounterFormModalOverlay .modal-header {
+    align-items: flex-start;
+    margin-bottom: 2px;
+}
+
+#encounterFormModalOverlay .modal-header h2 {
+    font-size: 19px;
+    letter-spacing: -.2px;
+}
+
+.ef-form .form-error {
+    display: block;
+    margin-top: 4px;
+}
+
+.ef-section {
+    padding: 16px 0;
+    border-bottom: 1px solid #eef1f6;
+}
+
+.ef-section:first-of-type {
+    padding-top: 18px;
+}
+
+.ef-section:last-of-type {
+    border-bottom: none;
+    padding-bottom: 6px;
+}
+
+.ef-section-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #6b7787;
+}
+
+.ef-section-label::before {
+    content: "";
+    width: 3px;
+    height: 12px;
+    border-radius: 0;
+    background: var(--accent, #4338ca);
+}
+
+.ef-grid {
+    display: grid;
+    gap: 14px 16px;
+}
+
+.ef-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.ef-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+.ef-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #42536b;
+}
+
+.ef-form .form-input {
+    height: 37px;
+    padding: 0 12px;
+    border-radius: 0;
+    border: 1px solid #dde3ec;
+    font-size: 13.5px;
+    background: #fff;
+    transition: border-color .12s, box-shadow .12s;
+}
+
+.ef-form .form-input:focus {
+    border-color: var(--accent, #4338ca);
+    box-shadow: 0 0 0 3px var(--accent-lighter, rgba(67, 56, 202, .12));
+}
+
+.ef-form textarea.form-input {
+    height: auto;
+    padding: 9px 12px;
+    min-height: 60px;
+    resize: vertical;
+}
+
+.ef-form select.form-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 13px;
+}
+
+.ef-segmented {
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: #f4f6f9;
+    gap: 2px;
+}
+
+.ef-segment {
+    border: none;
+    background: transparent;
+    padding: 6px 13px;
+    border-radius: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: background-color .12s, color .12s;
+    white-space: nowrap;
+}
+
+.ef-segment:hover {
+    color: #29323f;
+}
+
+.ef-segment.active {
+    background: white;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
+}
+
+.ef-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border: 1px solid #eef1f6;
+    border-radius: 0;
+    background: #fbfcfe;
+    cursor: pointer;
+}
+
+.ef-toggle-row span:first-child {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #42536b;
+}
+
+.ef-toggle {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.ef-toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.ef-toggle-track {
+    position: absolute;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 999px;
+    transition: background-color .15s;
+}
+
+.ef-toggle-track::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,.25);
+    transition: transform .15s;
+}
+
+.ef-toggle input:checked + .ef-toggle-track {
+    background: var(--accent, #4338ca);
+}
+
+.ef-toggle input:checked + .ef-toggle-track::before {
+    transform: translateX(16px);
+}
+
+.ef-add-code-btn {
+    margin-top: 10px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12.5px;
+}
+
+@media (max-width: 640px) {
+    .ef-grid-2, .ef-grid-3 { grid-template-columns: 1fr; }
+}
+
+:root[data-theme="dark"] .ef-section { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .ef-section-label { color: var(--text-muted); }
+:root[data-theme="dark"] .ef-field label { color: var(--text-muted); }
+:root[data-theme="dark"] .ef-form .form-input { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .ef-form select.form-input { background-color: var(--bg-surface-alt); }
+:root[data-theme="dark"] .ef-segmented { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .ef-segment { color: var(--text-muted); }
+:root[data-theme="dark"] .ef-segment.active { background: var(--bg-surface); color: var(--text-primary); }
+:root[data-theme="dark"] .ef-toggle-row { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .ef-toggle-row span:first-child { color: var(--text-muted); }
+</style>
+
 <div class="modal-overlay" id="encounterFormModalOverlay">
-    <div class="modal-box" style="max-width: 720px;">
+    <div class="modal-box">
         <div class="modal-header">
-            <h2 id="encounterFormTitle">New Encounter Form</h2>
+            <h2 id="encounterFormTitle">New Encounter</h2>
             <button type="button" class="modal-close" id="closeEncounterFormModal">&times;</button>
         </div>
         <p class="form-subtitle">Record a visit for this patient.</p>
 
         <div id="encounterFormAlert"></div>
 
-        <form id="encounterForm">
+        <form id="encounterForm" class="ef-form">
             <input type="hidden" id="encounter_record_id">
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Visit Category</label>
-                    <select id="encounter_visit_category_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
-                    <span class="form-error" id="err-encounter_visit_category_id"></span>
+            <div class="ef-section">
+                <div class="ef-section-label">Visit</div>
+                <div class="ef-grid ef-grid-3">
+                    <div class="ef-field">
+                        <label>Visit Category</label>
+                        <select id="encounter_visit_category_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
+                        <span class="form-error" id="err-encounter_visit_category_id"></span>
+                    </div>
+
+                    <div class="ef-field">
+                        <label>Class</label>
+                        <select id="encounter_class_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
+
+                    <div class="ef-field">
+                        <label>Type</label>
+                        <select id="encounter_visit_type_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Class</label>
-                    <select id="encounter_class_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Type</label>
-                    <select id="encounter_visit_type_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
+                <div class="ef-field" style="margin-top: 14px;">
                     <label>Sensitivity</label>
-                    <select id="encounter_sensitivity" class="form-input">
-                        <option value="normal">Normal</option>
-                        <option value="sensitive">Sensitive</option>
-                        <option value="very sensitive">Very Sensitive</option>
-                    </select>
+                    <div class="ef-segmented" id="encounter_sensitivity_group">
+                        <button type="button" class="ef-segment active" data-value="normal">Normal</button>
+                        <button type="button" class="ef-segment" data-value="sensitive">Sensitive</button>
+                        <button type="button" class="ef-segment" data-value="very sensitive">Very Sensitive</button>
+                    </div>
+                    <input type="hidden" id="encounter_sensitivity" value="normal">
                 </div>
+            </div>
 
-                <div class="form-group">
-                    <label>Encounter Provider</label>
-                    <select id="encounter_encounter_provider_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
+            <div class="ef-section">
+                <div class="ef-section-label">Care Team &amp; Location</div>
+                <div class="ef-grid ef-grid-2">
+                    <div class="ef-field">
+                        <label>Encounter Provider</label>
+                        <select id="encounter_encounter_provider_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
+
+                    <div class="ef-field">
+                        <label>Referring Provider</label>
+                        <select id="encounter_referring_provider_id" class="form-input">
+                            <option value="">No available providers</option>
+                        </select>
+                    </div>
+
+                    <div class="ef-field">
+                        <label>Facility</label>
+                        <select id="encounter_facility_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
+
+                    <div class="ef-field">
+                        <label>Billing Facility</label>
+                        <select id="encounter_billing_facility_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
                 </div>
+            </div>
 
-                <div class="form-group">
-                    <label>Referring Provider</label>
-                    <select id="encounter_referring_provider_id" class="form-input">
-                        <option value="">No available providers</option>
-                    </select>
-                </div>
+            <div class="ef-section">
+                <div class="ef-section-label">Timing &amp; Status</div>
+                <div class="ef-grid ef-grid-3">
+                    <div class="ef-field">
+                        <label>Date of Service</label>
+                        <input id="encounter_date_of_service" type="datetime-local" class="form-input">
+                        <span class="form-error" id="err-encounter_date_of_service"></span>
+                    </div>
 
-                <div class="form-group">
-                    <label>Facility</label>
-                    <select id="encounter_facility_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
-                </div>
+                    <div class="ef-field">
+                        <label>Onset / Hosp. Date</label>
+                        <input id="encounter_onset_date" type="date" class="form-input">
+                    </div>
 
-                <div class="form-group">
-                    <label>Billing Facility</label>
-                    <select id="encounter_billing_facility_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Date of Service</label>
-                    <input id="encounter_date_of_service" type="datetime-local" class="form-input">
-                    <span class="form-error" id="err-encounter_date_of_service"></span>
-                </div>
-
-                <div class="form-group">
-                    <label>Onset/hosp. date</label>
-                    <input id="encounter_onset_date" type="date" class="form-input">
-                </div>
-
-                <div class="form-group">
-                    <label>In Collection</label>
-                    <select id="encounter_in_collection" class="form-input">
-                        <option value="0">No</option>
-                        <option value="1">Yes</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Discharge Disposition</label>
-                    <select id="encounter_discharge_disposition_id" class="form-input">
-                        <option value="">-- Select One --</option>
-                    </select>
-                </div>
-
-                <div class="form-group full">
-                    <label>Reason for Visit</label>
-                    <textarea id="encounter_reason_for_visit" class="form-input" style="min-height: 70px;"></textarea>
-                </div>
-
-                <div class="form-group full">
-                    <label>Link Issues to This Visit</label>
-                    <div id="encounterIssuesList" class="encounter-issues-list">
-                        <p class="pd-chart-nav-empty">No allergies, problems, medications, or health concerns recorded yet.</p>
+                    <div class="ef-field">
+                        <label>Discharge Disposition</label>
+                        <select id="encounter_discharge_disposition_id" class="form-input">
+                            <option value="">Select...</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="form-group full">
-                    <label>Billing Codes</label>
-                    <div id="encounterBillingCodesList" class="encounter-issues-list">
-                        <p class="pd-chart-nav-empty">No billing codes attached yet.</p>
-                    </div>
-                    <button type="button" class="btn-secondary" id="addEncounterBillingCodeBtn" style="margin-top: 8px;">+ Add Code</button>
+                <label class="ef-toggle-row" for="encounter_in_collection_toggle">
+                    <span>In Collection</span>
+                    <span class="ef-toggle">
+                        <input type="checkbox" id="encounter_in_collection_toggle">
+                        <span class="ef-toggle-track"></span>
+                    </span>
+                </label>
+                <input type="hidden" id="encounter_in_collection" value="0">
+            </div>
+
+            <div class="ef-section">
+                <div class="ef-section-label">Reason for Visit</div>
+                <textarea id="encounter_reason_for_visit" class="form-input"></textarea>
+            </div>
+
+            <div class="ef-section">
+                <div class="ef-section-label">Linked Issues</div>
+                <div id="encounterIssuesList" class="encounter-issues-list">
+                    <p class="pd-chart-nav-empty">No allergies, problems, medications, or health concerns recorded yet.</p>
                 </div>
+            </div>
+
+            <div class="ef-section">
+                <div class="ef-section-label">Billing Codes</div>
+                <div id="encounterBillingCodesList" class="encounter-issues-list">
+                    <p class="pd-chart-nav-empty">No billing codes attached yet.</p>
+                </div>
+                <button type="button" class="btn-secondary ef-add-code-btn" id="addEncounterBillingCodeBtn">+ Add Code</button>
             </div>
 
             <div class="form-actions">

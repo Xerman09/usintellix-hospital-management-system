@@ -8488,6 +8488,17 @@ function setupEncounterModals()
         openEncounterFormModal(null);
     });
 
+    document.querySelectorAll("#encounter_sensitivity_group .ef-segment").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            document.getElementById("encounter_sensitivity").value = btn.getAttribute("data-value");
+            syncEncounterSensitivityUI();
+        });
+    });
+
+    document.getElementById("encounter_in_collection_toggle").addEventListener("change", (event) => {
+        document.getElementById("encounter_in_collection").value = event.target.checked ? "1" : "0";
+    });
+
     document.getElementById("addEncounterBillingCodeBtn").addEventListener("click", () => {
         openCodePicker({
             defaultType: "CPT4",
@@ -8708,6 +8719,21 @@ function providerLabel(provider)
     return `${provider.first_name} ${provider.last_name}${provider.specialty ? ` — ${provider.specialty}` : ""}`;
 }
 
+function syncEncounterSensitivityUI()
+{
+    const value = document.getElementById("encounter_sensitivity").value || "normal";
+
+    document.querySelectorAll("#encounter_sensitivity_group .ef-segment").forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-value") === value);
+    });
+}
+
+function syncEncounterInCollectionUI()
+{
+    document.getElementById("encounter_in_collection_toggle").checked =
+        document.getElementById("encounter_in_collection").value === "1";
+}
+
 async function openEncounterFormModal(existingRecord)
 {
     document.getElementById("encounterFormAlert").innerHTML = "";
@@ -8769,7 +8795,7 @@ async function openEncounterFormModal(existingRecord)
         document.getElementById("encounter_discharge_disposition_id").value = existingRecord.discharge_disposition_id ?? "";
         document.getElementById("encounter_reason_for_visit").value = existingRecord.reason_for_visit || "";
     } else {
-        title.textContent = "New Encounter Form";
+        title.textContent = "New Encounter";
         recordIdInput.value = "";
         document.getElementById("encounter_sensitivity").value = "normal";
         document.getElementById("encounter_in_collection").value = "0";
@@ -8780,6 +8806,9 @@ async function openEncounterFormModal(existingRecord)
         document.getElementById("encounter_date_of_service").value =
             `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     }
+
+    syncEncounterSensitivityUI();
+    syncEncounterInCollectionUI();
 
     document.getElementById("encounterFormModalOverlay").classList.add("open");
 }
