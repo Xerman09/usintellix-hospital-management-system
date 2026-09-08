@@ -2,6 +2,11 @@ import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
 import { formatApptDate, formatApptTime } from "../appointments/appointment-format.js";
+import { setPendingAppointmentPatient } from "../../core/pending-appointment.js";
+import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=7";
+import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
+import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
+import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
@@ -2592,6 +2597,14 @@ export async function initPatientChartTab(patient)
         }
     });
 
+    document.getElementById("pdAppointmentsAddBtn").addEventListener("click", () => {
+        if (!currentDashboardPatient) {
+            return;
+        }
+
+        goToScheduleAppointment(currentDashboardPatient.id, currentDashboardPatient.provider_id);
+    });
+
     setupAllergyModals();
     setupProblemModals();
     setupHealthConcernModals();
@@ -5180,6 +5193,25 @@ function renderDashboardAppointments(appointments)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
             <p>No upcoming appointments.</p>
            </div>`;
+}
+
+function goToScheduleAppointment(patientId, providerId)
+{
+    setPendingAppointmentPatient(patientId, providerId);
+
+    const user = getUser();
+    const isDoctor = user?.role === "doctor";
+
+    // openOrReplaceTab, not openTab: the Calendar tab may already be open
+    // from earlier navigation, and openTab no-ops (just switches to it)
+    // when a tab id already exists -- it would keep that tab's original
+    // renderFn instead of this one, so the setTimeout below (which is
+    // what consumes the pending patient and pops the Add Appointment
+    // modal open) would never run.
+    window.tabManager.openOrReplaceTab("appointments", "Calendar", () => {
+        setTimeout(() => (isDoctor ? initDoctorCalendar() : initAppointmentsList()), 0);
+        return isDoctor ? DoctorCalendarView() : AppointmentsListView();
+    }, true);
 }
 
 async function loadDashboardDocuments(patient)

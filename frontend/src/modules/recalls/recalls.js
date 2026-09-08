@@ -579,7 +579,13 @@ function goToScheduleAppointment(patientId, providerId)
     const user = getUser();
     const isDoctor = user?.role === "doctor";
 
-    window.tabManager.openTab("appointments", "Calendar", () => {
+    // openOrReplaceTab, not openTab: the Calendar tab may already be open
+    // from earlier navigation, and openTab no-ops (just switches to it)
+    // when a tab id already exists -- it would keep that tab's original
+    // renderFn instead of this one, so the setTimeout below (which is
+    // what consumes the pending patient and pops the Add Appointment
+    // modal open) would never run.
+    window.tabManager.openOrReplaceTab("appointments", "Calendar", () => {
         setTimeout(() => (isDoctor ? initDoctorCalendar() : initAppointmentsList()), 0);
         return isDoctor ? DoctorCalendarView() : AppointmentsListView();
     }, true);
