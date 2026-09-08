@@ -342,6 +342,46 @@ export function RecallsView()
 :root[data-theme="dark"] .rec-clear-btn { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
 :root[data-theme="dark"] .rec-clear-btn:hover { background: var(--bg-surface-alt); }
 :root[data-theme="dark"] .rec-stat-pill { background: var(--bg-surface-alt); color: var(--text-muted); }
+
+.rec-section-label {
+    margin: 18px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e9f0;
+    color: #6b7787;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.rec-demo-note {
+    margin: 0 0 14px;
+    font-size: 11.5px;
+    font-style: italic;
+    color: #8b98ac;
+}
+
+.rec-yesno {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 38px;
+}
+
+.rec-yesno label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #42536b;
+    cursor: pointer;
+}
+
+.rec-yesno input {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
 </style>
 
 <div class="rec-page">
@@ -451,6 +491,7 @@ export function RecallsView()
 
         <form id="recallForm">
             <input type="hidden" id="recall_id">
+            <input type="hidden" id="recall_current_patient_id">
 
             <div class="form-group full" id="recallPatientFieldGroup">
                 <label>Patient</label>
@@ -525,6 +566,70 @@ export function RecallsView()
                 <div class="form-group full">
                     <label>Notes</label>
                     <textarea id="recall_notes" class="form-input" style="min-height: 90px;" placeholder="Optional"></textarea>
+                </div>
+            </div>
+
+            <div class="rec-section-label">Contact Information</div>
+            <p class="rec-demo-note">* Demographic changes made here are recorded system-wide.</p>
+
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Address</label>
+                    <input id="recall_address_line" class="form-input" placeholder="Street address">
+                </div>
+
+                <div class="form-group">
+                    <label>City</label>
+                    <input id="recall_city" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>State</label>
+                    <input id="recall_state" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>ZIP Code</label>
+                    <input id="recall_zip_code" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Home Phone</label>
+                    <input id="recall_home_phone" class="form-input" type="tel">
+                </div>
+
+                <div class="form-group">
+                    <label>Mobile Phone</label>
+                    <input id="recall_mobile_phone" class="form-input" type="tel">
+                </div>
+
+                <div class="form-group full">
+                    <label>E-Mail</label>
+                    <input id="recall_email" class="form-input" type="email">
+                </div>
+
+                <div class="form-group">
+                    <label>SMS OK</label>
+                    <div class="rec-yesno">
+                        <label><input type="radio" name="recall_sms_ok" value="yes"> Yes</label>
+                        <label><input type="radio" name="recall_sms_ok" value="no"> No</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>AVM OK</label>
+                    <div class="rec-yesno">
+                        <label><input type="radio" name="recall_avm_ok" value="yes"> Yes</label>
+                        <label><input type="radio" name="recall_avm_ok" value="no"> No</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>E-mail OK</label>
+                    <div class="rec-yesno">
+                        <label><input type="radio" name="recall_email_ok" value="yes"> Yes</label>
+                        <label><input type="radio" name="recall_email_ok" value="no"> No</label>
+                    </div>
                 </div>
             </div>
 

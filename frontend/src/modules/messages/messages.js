@@ -1,5 +1,5 @@
 import { getUser } from "../../core/session.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { fetchPatients, updatePatient } from "../patients/patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import {
@@ -20,6 +20,7 @@ let patientLookup = new Map();
 
 let recallsCache = [];
 let recallPatientLookup = new Map();
+let recallPatientById = new Map();
 
 let remindersCache = [];
 let reminderPatientLookup = new Map();
@@ -549,6 +550,7 @@ async function loadRecallPatientOptions()
 
     datalist.innerHTML = "";
     recallPatientLookup = new Map();
+    recallPatientById = new Map();
 
     const result = await fetchPatients();
 
@@ -559,8 +561,10 @@ async function loadRecallPatientOptions()
     result.data.forEach((patient) => {
         const fullName = [patient.first_name, patient.last_name].filter(Boolean).join(" ");
         const label = `${fullName} (${patient.patient_no})`;
+        const id = String(patient.id);
 
-        recallPatientLookup.set(label, { id: String(patient.id), birthdate: patient.birthdate });
+        recallPatientLookup.set(label, { id, birthdate: patient.birthdate });
+        recallPatientById.set(id, patient);
 
         const option = document.createElement("option");
 
@@ -603,6 +607,74 @@ function renderPatientDobAge(birthdate)
     el.textContent = `${birthdate} (${age} ${age === 1 ? "yr" : "yrs"} old)`;
 }
 
+function renderPatientContactFields(patient)
+{
+    document.getElementById("recall_address_line").value = patient?.contact_address_line || "";
+    document.getElementById("recall_city").value = patient?.contact_city || "";
+    document.getElementById("recall_state").value = patient?.contact_province || "";
+    document.getElementById("recall_zip_code").value = patient?.contact_zip_code || "";
+    document.getElementById("recall_home_phone").value = patient?.contact_home_phone || "";
+    document.getElementById("recall_mobile_phone").value = patient?.contact_mobile_phone || "";
+    document.getElementById("recall_email").value = patient?.contact_email || "";
+    setYesNoRadio("recall_sms_ok", patient?.allow_sms);
+    setYesNoRadio("recall_avm_ok", patient?.allow_voice_calls);
+    setYesNoRadio("recall_email_ok", patient?.allow_email);
+}
+
+function setYesNoRadio(name, value)
+{
+    document.querySelectorAll(`input[name="${name}"]`).forEach((radio) => {
+        radio.checked = radio.value === value;
+    });
+}
+
+function getYesNoRadio(name)
+{
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+
+    return checked ? checked.value : null;
+}
+
+function readRecallContactFields()
+{
+    return {
+        address_line: document.getElementById("recall_address_line").value.trim() || null,
+        city: document.getElementById("recall_city").value.trim() || null,
+        province: document.getElementById("recall_state").value.trim() || null,
+        zip_code: document.getElementById("recall_zip_code").value.trim() || null,
+        home_phone: document.getElementById("recall_home_phone").value.trim() || null,
+        mobile_phone: document.getElementById("recall_mobile_phone").value.trim() || null,
+        contact_email: document.getElementById("recall_email").value.trim() || null,
+        allow_sms: getYesNoRadio("recall_sms_ok"),
+        allow_voice_calls: getYesNoRadio("recall_avm_ok"),
+        allow_email: getYesNoRadio("recall_email_ok")
+    };
+}
+
+function buildPatientUpdatePayload(patient, contactFields)
+{
+    return {
+        first_name: patient.first_name,
+        middle_name: patient.middle_name,
+        last_name: patient.last_name,
+        suffix: patient.suffix,
+        sex: patient.sex,
+        birthdate: patient.birthdate,
+        civil_status: patient.civil_status,
+        blood_type: patient.blood_type,
+        race: patient.race,
+        ethnicity: patient.ethnicity,
+        religion: patient.religion,
+        language: patient.language,
+        height: patient.height,
+        weight: patient.weight,
+        provider_id: patient.provider_id,
+        allow_hie: patient.allow_hie,
+        allow_postcard: patient.allow_postcard,
+        ...contactFields
+    };
+}
+
 function setupRecallFormModal()
 {
     const modalOverlay = document.getElementById("recallFormModalOverlay");
@@ -611,6 +683,7 @@ function setupRecallFormModal()
     const resetForm = () => {
         form.reset();
         document.getElementById("recall_id").value = "";
+        document.getElementById("recall_current_patient_id").value = "";
         document.getElementById("recall_patient_search").value = "";
         document.getElementById("recall_status").value = "pending";
         document.getElementById("recallFormAlert").innerHTML = "";
@@ -620,6 +693,7 @@ function setupRecallFormModal()
         document.getElementById("err-facility_id").textContent = "";
         document.getElementById("err-reason").textContent = "";
         renderPatientDobAge(null);
+        renderPatientContactFields(null);
     };
 
     const openAddModal = () => {
@@ -645,6 +719,8 @@ function setupRecallFormModal()
         const patient = recallPatientLookup.get(event.target.value.trim());
 
         renderPatientDobAge(patient ? patient.birthdate : null);
+        renderPatientContactFields(patient ? recallPatientById.get(patient.id) : null);
+        document.getElementById("recall_current_patient_id").value = patient ? patient.id : "";
     });
 
     document.querySelectorAll('input[name="recall_date_quickpick"]').forEach((radio) => {
@@ -723,6 +799,16 @@ function setupRecallFormModal()
             }
 
             return;
+        }
+
+        const currentPatientId = document.getElementById("recall_current_patient_id").value;
+        const existingPatient = currentPatientId ? recallPatientById.get(currentPatientId) : null;
+
+        if (existingPatient) {
+            await updatePatient(
+                Number(currentPatientId),
+                buildPatientUpdatePayload(existingPatient, readRecallContactFields())
+            );
         }
 
         closeModal();
