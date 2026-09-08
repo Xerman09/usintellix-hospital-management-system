@@ -8445,27 +8445,276 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<style>
+.vh-modal-box {
+    max-width: 960px;
+}
+
+.vh-header-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.vh-icon-badge {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent-lighter, #eef2ff), var(--accent-bg, #e0e7ff));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vh-icon-badge svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent, #4338ca);
+}
+
+.vh-header-text h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.vh-header-text .form-subtitle {
+    margin: 2px 0 0;
+}
+
+.vh-latest {
+    margin: 20px 0 22px;
+}
+
+.vh-latest-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #8b98ac;
+}
+
+.vh-latest-label .vh-latest-date {
+    font-weight: 700;
+    color: #42536b;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 12.5px;
+}
+
+.vh-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+    gap: 10px;
+}
+
+.vh-stat-tile {
+    position: relative;
+    padding: 12px 14px;
+    border: 1px solid #e5e9f0;
+    border-radius: 10px;
+    background: #fbfcfe;
+}
+
+.vh-stat-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+.vh-stat-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -.2px;
+}
+
+.vh-stat-unit {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-left: 2px;
+}
+
+.vh-stat-tile.vh-flag-high,
+.vh-stat-tile.vh-flag-low,
+.vh-stat-tile.vh-flag-abnormal {
+    background: #fef4f4;
+    border-color: #f8d7d7;
+}
+
+.vh-stat-tile.vh-flag-low {
+    background: #f0f6ff;
+    border-color: #cfe2ff;
+}
+
+.vh-stat-flag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #dc2626;
+}
+
+.vh-stat-flag.vh-flag-low {
+    background: #2563eb;
+}
+
+.vh-stat-flag.vh-flag-abnormal {
+    background: #d97706;
+}
+
+.vh-bmi-badge {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.vh-bmi-badge.underweight { background: #dbeafe; color: #1d4ed8; }
+.vh-bmi-badge.normal { background: #dcfce7; color: #15803d; }
+.vh-bmi-badge.overweight { background: #fef3c7; color: #92400e; }
+.vh-bmi-badge.obesity-i,
+.vh-bmi-badge.obesity-ii,
+.vh-bmi-badge.obesity-iii { background: #fee2e2; color: #b91c1c; }
+
+.vh-table-section-label {
+    margin: 22px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e9f0;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #6b7787;
+}
+
+.vh-table-wrap {
+    max-height: 360px;
+    overflow-y: auto;
+    border: 1px solid #e5e9f0;
+    border-radius: 10px;
+}
+
+.vh-table {
+    font-size: 13px;
+}
+
+.vh-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.vh-table .vh-num {
+    text-align: right;
+}
+
+.vh-table tbody tr:nth-child(even) {
+    background: #fbfcfe;
+}
+
+.vh-table tbody tr:hover {
+    background: #f1f5f9;
+}
+
+.vh-table td.vh-date-cell {
+    font-weight: 600;
+    color: #29323f;
+}
+
+.vh-abn-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    margin-right: 5px;
+    vertical-align: middle;
+    background: #dc2626;
+}
+
+.vh-abn-dot.vh-flag-low { background: #2563eb; }
+.vh-abn-dot.vh-flag-abnormal { background: #d97706; }
+
+.vh-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 10px;
+    color: #8b98ac;
+}
+
+.vh-empty svg {
+    width: 26px;
+    height: 26px;
+    color: #c3cbd9;
+}
+
+:root[data-theme="dark"] .vh-header-text h2 { color: var(--text-primary); }
+:root[data-theme="dark"] .vh-latest-label { color: var(--text-muted); }
+:root[data-theme="dark"] .vh-latest-label .vh-latest-date { color: var(--text-primary); }
+:root[data-theme="dark"] .vh-stat-tile { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .vh-stat-label { color: var(--text-muted); }
+:root[data-theme="dark"] .vh-stat-value { color: var(--text-primary); }
+:root[data-theme="dark"] .vh-stat-tile.vh-flag-high,
+:root[data-theme="dark"] .vh-stat-tile.vh-flag-abnormal { background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .3); }
+:root[data-theme="dark"] .vh-stat-tile.vh-flag-low { background: rgba(37, 99, 235, .12); border-color: rgba(37, 99, 235, .3); }
+:root[data-theme="dark"] .vh-table-section-label { color: var(--text-muted); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .vh-table-wrap { border-color: var(--border-color); }
+:root[data-theme="dark"] .vh-table thead th { background: var(--bg-surface-alt); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .vh-table tbody tr:nth-child(even) { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .vh-table tbody tr:hover { background: var(--bg-surface-alt2, rgba(255,255,255,.06)); }
+:root[data-theme="dark"] .vh-table td.vh-date-cell { color: var(--text-primary); }
+:root[data-theme="dark"] .vh-empty { color: var(--text-muted); }
+</style>
+
 <div class="modal-overlay" id="vitalsHistoryDetailModalOverlay">
-    <div class="modal-box" style="max-width: 900px;">
+    <div class="modal-box vh-modal-box">
         <div class="modal-header">
-            <h2>Vitals</h2>
+            <div class="vh-header-row">
+                <div class="vh-icon-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                </div>
+                <div class="vh-header-text">
+                    <h2>Vitals History</h2>
+                    <p class="form-subtitle">Every recorded reading for this patient, across all encounters.</p>
+                </div>
+            </div>
             <button type="button" class="modal-close" id="closeVitalsHistoryDetailModal">&times;</button>
         </div>
-        <p class="form-subtitle">Full vitals history for this patient, across every encounter.</p>
 
-        <div class="table-wrap">
-            <table class="data-table">
+        <div class="vh-latest" id="vitalsHistoryLatestSummary"></div>
+
+        <div class="vh-table-section-label">All Readings</div>
+
+        <div class="table-wrap vh-table-wrap">
+            <table class="data-table vh-table">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Weight (lbs)</th>
-                        <th>Height (in)</th>
-                        <th>BMI</th>
-                        <th>BP (mmHg)</th>
-                        <th>Pulse</th>
-                        <th>Resp.</th>
-                        <th>Temp (F)</th>
-                        <th>O2 Sat (%)</th>
+                        <th class="vh-num">Weight</th>
+                        <th class="vh-num">Height</th>
+                        <th class="vh-num">BMI</th>
+                        <th class="vh-num">BP</th>
+                        <th class="vh-num">Pulse</th>
+                        <th class="vh-num">Resp.</th>
+                        <th class="vh-num">Temp</th>
+                        <th class="vh-num">O2 Sat</th>
                     </tr>
                 </thead>
                 <tbody id="vitalsHistoryDetailTableBody">

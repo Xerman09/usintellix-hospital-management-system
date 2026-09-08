@@ -5170,30 +5170,118 @@ async function loadVitalsHistoryDetailTable(patient)
     }
 }
 
+function vitalsBmiClass(status)
+{
+    const value = (status || "").toLowerCase().replace(/\s+/g, "-");
+
+    return ["underweight", "normal", "overweight", "obesity-i", "obesity-ii", "obesity-iii"].includes(value) ? value : "";
+}
+
+function vitalsAbnClass(abn)
+{
+    const value = (abn || "").toLowerCase();
+
+    if (value === "high") return "vh-flag-high";
+    if (value === "low") return "vh-flag-low";
+    if (value === "abnormal") return "vh-flag-abnormal";
+
+    return "";
+}
+
+function vitalsAbnDot(abn)
+{
+    const cls = vitalsAbnClass(abn);
+
+    return cls ? `<span class="vh-abn-dot ${cls}" title="${escapeHtml(abn)}"></span>` : "";
+}
+
+function vitalsBmiBadge(bmiStatus)
+{
+    return bmiStatus ? ` <span class="vh-bmi-badge ${vitalsBmiClass(bmiStatus)}">${escapeHtml(bmiStatus)}</span>` : "";
+}
+
+function renderVitalsHistoryLatestSummary(latest)
+{
+    const container = document.getElementById("vitalsHistoryLatestSummary");
+
+    if (!latest) {
+        container.innerHTML = "";
+        return;
+    }
+
+    const bp = latest.bp_systolic && latest.bp_diastolic ? `${latest.bp_systolic}/${latest.bp_diastolic}` : null;
+
+    const tiles = [
+        { label: "Weight", value: latest.weight, unit: "lbs", abnClass: vitalsAbnClass(latest.weight_abn) },
+        { label: "Height", value: latest.height, unit: "in", abnClass: vitalsAbnClass(latest.height_abn) },
+        { label: "BMI", value: latest.bmi, unit: "", abnClass: "", badge: vitalsBmiBadge(latest.bmi_status) },
+        { label: "BP", value: bp, unit: "mmHg", abnClass: vitalsAbnClass(latest.bp_systolic_abn || latest.bp_diastolic_abn) },
+        { label: "Pulse", value: latest.pulse, unit: "/min", abnClass: vitalsAbnClass(latest.pulse_abn) },
+        { label: "Resp.", value: latest.respiration, unit: "/min", abnClass: vitalsAbnClass(latest.respiration_abn) },
+        { label: "Temp", value: latest.temperature, unit: "F", abnClass: vitalsAbnClass(latest.temperature_abn) },
+        { label: "O2 Sat", value: latest.oxygen_saturation, unit: "%", abnClass: vitalsAbnClass(latest.oxygen_saturation_abn) }
+    ];
+
+    container.innerHTML = `
+        <div class="vh-latest-label">Latest Reading <span class="vh-latest-date">&middot; ${escapeHtml(formatDate(latest.date_of_service) || "-")}</span></div>
+        <div class="vh-stat-grid">
+            ${tiles.map((tile) => {
+                if (tile.value === null || tile.value === undefined || tile.value === "") {
+                    return `
+                    <div class="vh-stat-tile">
+                        <span class="vh-stat-label">${escapeHtml(tile.label)}</span>
+                        <span class="vh-stat-value" style="color:#c3cbd9;">&mdash;</span>
+                    </div>
+                    `;
+                }
+
+                return `
+                <div class="vh-stat-tile ${tile.abnClass}">
+                    ${tile.abnClass ? `<span class="vh-stat-flag ${tile.abnClass}"></span>` : ""}
+                    <span class="vh-stat-label">${escapeHtml(tile.label)}</span>
+                    <span class="vh-stat-value">${escapeHtml(tile.value)}${tile.unit ? `<span class="vh-stat-unit">${escapeHtml(tile.unit)}</span>` : ""}</span>
+                    ${tile.badge || ""}
+                </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
 function renderVitalsHistoryDetailTable(vitalsHistory)
 {
     const tbody = document.getElementById("vitalsHistoryDetailTableBody");
 
+    renderVitalsHistoryLatestSummary(vitalsHistory[0] || null);
+
     if (!vitalsHistory.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No vitals recorded for this patient.</td></tr>`;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9">
+                    <div class="vh-empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                        <p>No vitals recorded for this patient.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
         return;
     }
 
     tbody.innerHTML = vitalsHistory.map((vitals) => {
-        const bp = vitals.bp_systolic && vitals.bp_diastolic ? `${vitals.bp_systolic}/${vitals.bp_diastolic}` : "-";
-        const bmi = vitals.bmi ? `${vitals.bmi}${vitals.bmi_status ? ` (${vitals.bmi_status})` : ""}` : "-";
+        const bp = vitals.bp_systolic && vitals.bp_diastolic ? `${vitals.bp_systolic}/${vitals.bp_diastolic}` : null;
 
         return `
         <tr>
-            <td>${escapeHtml(formatDate(vitals.date_of_service) || "-")}</td>
-            <td>${escapeHtml(vitals.weight ?? "-")}</td>
-            <td>${escapeHtml(vitals.height ?? "-")}</td>
-            <td>${escapeHtml(bmi)}</td>
-            <td>${escapeHtml(bp)}</td>
-            <td>${escapeHtml(vitals.pulse ?? "-")}</td>
-            <td>${escapeHtml(vitals.respiration ?? "-")}</td>
-            <td>${escapeHtml(vitals.temperature ?? "-")}</td>
-            <td>${escapeHtml(vitals.oxygen_saturation ?? "-")}</td>
+            <td class="vh-date-cell">${escapeHtml(formatDate(vitals.date_of_service) || "-")}</td>
+            <td class="vh-num">${vitals.weight ? `${vitalsAbnDot(vitals.weight_abn)}${escapeHtml(vitals.weight)}` : "-"}</td>
+            <td class="vh-num">${vitals.height ? `${vitalsAbnDot(vitals.height_abn)}${escapeHtml(vitals.height)}` : "-"}</td>
+            <td class="vh-num">${vitals.bmi ? `${escapeHtml(vitals.bmi)}${vitalsBmiBadge(vitals.bmi_status)}` : "-"}</td>
+            <td class="vh-num">${bp ? `${vitalsAbnDot(vitals.bp_systolic_abn || vitals.bp_diastolic_abn)}${escapeHtml(bp)}` : "-"}</td>
+            <td class="vh-num">${vitals.pulse ? `${vitalsAbnDot(vitals.pulse_abn)}${escapeHtml(vitals.pulse)}` : "-"}</td>
+            <td class="vh-num">${vitals.respiration ? `${vitalsAbnDot(vitals.respiration_abn)}${escapeHtml(vitals.respiration)}` : "-"}</td>
+            <td class="vh-num">${vitals.temperature ? `${vitalsAbnDot(vitals.temperature_abn)}${escapeHtml(vitals.temperature)}` : "-"}</td>
+            <td class="vh-num">${vitals.oxygen_saturation ? `${vitalsAbnDot(vitals.oxygen_saturation_abn)}${escapeHtml(vitals.oxygen_saturation)}` : "-"}</td>
         </tr>
         `;
     }).join("");
