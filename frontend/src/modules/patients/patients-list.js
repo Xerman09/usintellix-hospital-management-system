@@ -2765,6 +2765,52 @@ async function loadDashboardAmendments(patient)
     }
 }
 
+/**
+ * Wires click + Enter/Space keyboard activation on every dashboard widget
+ * row carrying `idAttr`, resolving the matching record from `items` by id
+ * and passing it to `openFn`. Shared by every list-style dashboard widget
+ * so clicking a row opens that specific item instead of doing nothing.
+ */
+function wireDashboardItemClicks(container, idAttr, items, openFn)
+{
+    container.querySelectorAll(`[${idAttr}]`).forEach((el) => {
+        const activate = () => {
+            const id = el.getAttribute(idAttr);
+            const item = items.find((entry) => String(entry.id) === id);
+
+            if (item) {
+                openFn(item);
+            }
+        };
+
+        el.addEventListener("click", activate);
+        el.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                activate();
+            }
+        });
+    });
+}
+
+/**
+ * Like wireDashboardItemClicks, but for widgets with no per-item detail
+ * view (e.g. Messages, Vitals History) -- every row does the same thing:
+ * open that widget's full read-only history list.
+ */
+function wireDashboardPanelClicks(container, selector, onActivate)
+{
+    container.querySelectorAll(selector).forEach((el) => {
+        el.addEventListener("click", onActivate);
+        el.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onActivate();
+            }
+        });
+    });
+}
+
 function renderDashboardAmendments(amendments)
 {
     const body = document.getElementById("pdAmendmentsBody");
@@ -2773,10 +2819,12 @@ function renderDashboardAmendments(amendments)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
     body.innerHTML = amendments.length
         ? `<div class="pd-allergy-list">
             ${amendments.map((amendment) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-amendment-id="${amendment.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(truncate(amendment.description, 60))}${amendment.status ? ` &middot; ${escapeHtml(amendment.status)}` : ""}</span>
                 </div>
             `).join("")}
@@ -2785,6 +2833,10 @@ function renderDashboardAmendments(amendments)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
             <p>No amendment requests available.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-amendment-id", amendments, openAmendmentFormModal);
+    }
 }
 
 function renderDashboardEncounters(encounters)
@@ -2795,10 +2847,13 @@ function renderDashboardEncounters(encounters)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const recentEncounters = encounters.slice(0, 5);
+
     body.innerHTML = encounters.length
         ? `<div class="pd-visit-list">
-            ${encounters.slice(0, 5).map((encounter) => `
-                <div class="pd-visit-item">
+            ${recentEncounters.map((encounter) => `
+                <div class="pd-visit-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-encounter-id="${encounter.id}" tabindex="0" role="button"` : ""}>
                     <div class="pd-visit-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
                     </div>
@@ -2813,6 +2868,10 @@ function renderDashboardEncounters(encounters)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path></svg>
             <p>No visits recorded for this patient.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-encounter-id", recentEncounters, openEncounterFormModal);
+    }
 }
 
 function truncate(text, length)
@@ -2851,7 +2910,7 @@ function renderDashboardMessages(messages)
     body.innerHTML = messages.length
         ? `<div class="pd-allergy-list">
             ${messages.slice(0, 5).map((message) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item pd-item-clickable" tabindex="0" role="button">
                     <span class="pd-allergy-name">${escapeHtml(message.sender_name || "Unknown")}${message.type_name ? ` &middot; ${escapeHtml(message.type_name)}` : ""}</span>
                 </div>
             `).join("")}
@@ -2860,6 +2919,12 @@ function renderDashboardMessages(messages)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="m4 6 8 7 8-7"></path></svg>
             <p>No messages recorded for this patient.</p>
            </div>`;
+
+    // No per-message edit view exists, so every row opens the same full
+    // message history (the widget's "Edit" link opens the identical modal).
+    if (messages.length && currentDashboardPatient) {
+        wireDashboardPanelClicks(body, ".pd-allergy-item", () => openMessageDetailModal(currentDashboardPatient));
+    }
 }
 
 async function loadDashboardDisclosures(patient)
@@ -2888,10 +2953,12 @@ function renderDashboardDisclosures(disclosures)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
     body.innerHTML = disclosures.length
         ? `<div class="pd-allergy-list">
             ${disclosures.map((disclosure) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-disclosure-id="${disclosure.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(disclosure.recipient)}${disclosure.disclosure_type ? ` &middot; ${escapeHtml(disclosure.disclosure_type)}` : ""}</span>
                 </div>
             `).join("")}
@@ -2900,6 +2967,10 @@ function renderDashboardDisclosures(disclosures)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path></svg>
             <p>No disclosures recorded for this patient.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-disclosure-id", disclosures, openDisclosureFormModal);
+    }
 }
 
 function renderDashboardRelatedPersons(persons)
@@ -2910,6 +2981,8 @@ function renderDashboardRelatedPersons(persons)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
     body.innerHTML = persons.length
         ? `<div class="pd-allergy-list">
             ${persons.map((person) => {
@@ -2917,7 +2990,7 @@ function renderDashboardRelatedPersons(persons)
                 const relationship = person.relationship ? ` (${escapeHtml(person.relationship)})` : "";
 
                 return `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-related-person-id="${person.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(fullName)}${relationship}</span>
                 </div>
                 `;
@@ -2927,6 +3000,28 @@ function renderDashboardRelatedPersons(persons)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
             <p>No related persons recorded.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-related-person-id", persons, openRelatedPersonFromDashboard);
+    }
+}
+
+/**
+ * Opens a related person's detail/edit view directly from the dashboard
+ * widget. Goes through loadRelatedPersons() first (not just
+ * openRelatedPersonDetailModal() on its own) so currentRelatedPersonPatientId
+ * -- used when saving relationship/telecom/address changes -- is actually
+ * set for this patient, the same as it would be if the user had opened it
+ * via the Edit Patient modal's Related Persons tab.
+ */
+async function openRelatedPersonFromDashboard(person)
+{
+    if (!currentDashboardPatient) {
+        return;
+    }
+
+    await loadRelatedPersons(currentDashboardPatient.id);
+    await openRelatedPersonDetailModal(person);
 }
 
 function renderDemographics(patient)
@@ -3110,7 +3205,7 @@ function renderDashboardAllergies(allergies)
                 const severityClass = ["severe", "moderate", "mild"].includes(severity) ? severity : "";
 
                 return `
-                <div class="pd-allergy-item${severityClass ? ` severity-${severityClass}` : ""}${canManage ? " pd-allergy-item-clickable" : ""}"${canManage ? ` data-allergy-id="${allergy.id}" tabindex="0" role="button"` : ""}>
+                <div class="pd-allergy-item${severityClass ? ` severity-${severityClass}` : ""}${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-allergy-id="${allergy.id}" tabindex="0" role="button"` : ""}>
                     <div class="pd-allergy-main">
                         <span class="pd-allergy-name">${escapeHtml(allergy.name)}</span>
                         ${allergy.reaction ? `<span class="pd-allergy-sub">${escapeHtml(allergy.reaction)}</span>` : ""}
@@ -3125,27 +3220,9 @@ function renderDashboardAllergies(allergies)
             <p>No known allergies recorded.</p>
            </div>`;
 
-    if (!canManage) {
-        return;
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-allergy-id", allergies, openAllergyFormModal);
     }
-
-    body.querySelectorAll("[data-allergy-id]").forEach((item) => {
-        const openThisAllergy = () => {
-            const allergy = allergies.find((a) => String(a.id) === item.getAttribute("data-allergy-id"));
-
-            if (allergy) {
-                openAllergyFormModal(allergy);
-            }
-        };
-
-        item.addEventListener("click", openThisAllergy);
-        item.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openThisAllergy();
-            }
-        });
-    });
 }
 
 async function loadDashboardProblems(patient)
@@ -3190,13 +3267,14 @@ function renderDashboardProblems(problems)
     }
 
     const active = problems.filter((problem) => !problem.end_date);
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
 
     setWidgetCount("pdProblemsBody", active.length);
 
     body.innerHTML = active.length
         ? `<div class="pd-allergy-list">
             ${active.map((problem) => `
-                <div class="pd-allergy-item ${verificationStatusClass(problem.verification_status)}">
+                <div class="pd-allergy-item ${verificationStatusClass(problem.verification_status)}${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-problem-id="${problem.id}" tabindex="0" role="button"` : ""}>
                     <div class="pd-allergy-main">
                         <span class="pd-allergy-name">${escapeHtml(problem.title)}</span>
                         ${problem.begin_date ? `<span class="pd-allergy-sub">Since ${escapeHtml(formatDate(problem.begin_date))}</span>` : ""}
@@ -3208,6 +3286,10 @@ function renderDashboardProblems(problems)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>
             <p>No active problems recorded.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-problem-id", active, openProblemFormModal);
+    }
 }
 
 function renderDashboardHealthConcerns(concerns)
@@ -3219,13 +3301,14 @@ function renderDashboardHealthConcerns(concerns)
     }
 
     const active = concerns.filter((concern) => !concern.end_date);
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
 
     setWidgetCount("pdHealthConcernsBody", active.length);
 
     body.innerHTML = active.length
         ? `<div class="pd-allergy-list">
             ${active.map((concern) => `
-                <div class="pd-allergy-item ${verificationStatusClass(concern.verification_status)}">
+                <div class="pd-allergy-item ${verificationStatusClass(concern.verification_status)}${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-concern-id="${concern.id}" tabindex="0" role="button"` : ""}>
                     <div class="pd-allergy-main">
                         <span class="pd-allergy-name">${escapeHtml(concern.title)}</span>
                         ${concern.begin_date ? `<span class="pd-allergy-sub">Since ${escapeHtml(formatDate(concern.begin_date))}</span>` : ""}
@@ -3237,6 +3320,10 @@ function renderDashboardHealthConcerns(concerns)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>
             <p>No health concerns recorded.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-concern-id", active, openHealthConcernFormModal);
+    }
 }
 
 async function loadDashboardMedications(patient)
@@ -3266,11 +3353,12 @@ function renderDashboardMedications(medications)
     }
 
     const active = medications.filter((medication) => !medication.end_date);
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
 
     body.innerHTML = active.length
         ? `<div class="pd-allergy-list">
             ${active.map((medication) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-medication-id="${medication.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(medication.title)}</span>
                 </div>
             `).join("")}
@@ -3279,6 +3367,10 @@ function renderDashboardMedications(medications)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path></svg>
             <p>No active medications recorded.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-medication-id", active, openMedicationFormModal);
+    }
 }
 
 async function loadDashboardImmunizations(patient)
@@ -3307,10 +3399,12 @@ function renderDashboardImmunizations(immunizations)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
     body.innerHTML = immunizations.length
         ? `<div class="pd-allergy-list">
             ${immunizations.map((immunization) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-immunization-id="${immunization.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(immunization.vaccine_name || immunization.cvx_code)}${immunization.administered_at ? ` &middot; ${escapeHtml(immunization.administered_at.slice(0, 10))}` : ""}</span>
                 </div>
             `).join("")}
@@ -3319,6 +3413,10 @@ function renderDashboardImmunizations(immunizations)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path></svg>
             <p>No immunization records yet.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-immunization-id", immunizations, openImmunizationFormModal);
+    }
 }
 
 async function loadDashboardPrescriptions(patient)
@@ -3348,11 +3446,12 @@ function renderDashboardPrescriptions(prescriptions)
     }
 
     const active = prescriptions.filter((prescription) => !prescription.end_date);
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
 
     body.innerHTML = active.length
         ? `<div class="pd-allergy-list">
             ${active.map((prescription) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-prescription-id="${prescription.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(prescription.title)}</span>
                 </div>
             `).join("")}
@@ -3361,6 +3460,10 @@ function renderDashboardPrescriptions(prescriptions)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path></svg>
             <p>No prescriptions recorded.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-prescription-id", active, openPrescriptionFormModal);
+    }
 }
 
 function setupAllergyModals()
@@ -3781,7 +3884,7 @@ function renderAllergyDetailTable(patient, allergies)
             <td>${escapeHtml(allergy.reaction || "-")}</td>
             <td>${escapeHtml(allergy.severity || "-")}</td>
             <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
-            <td>${escapeHtml((allergy.updated_at || allergy.created_at || "").slice(0, 10))}</td>
+            <td>${escapeHtml(formatDate(allergy.updated_at || allergy.created_at))}</td>
             <td class="table-actions">
                 ${canManage
                     ? `<button class="btn-edit" data-edit-allergy="${allergy.id}">Edit</button>
@@ -4020,7 +4123,7 @@ function renderProblemDetailTable(patient, problems)
             <td>${escapeHtml(problem.title)}</td>
             <td>${escapeHtml(problem.occurrence || "-")}</td>
             <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
-            <td>${escapeHtml((problem.updated_at || problem.created_at || "").slice(0, 10))}</td>
+            <td>${escapeHtml(formatDate(problem.updated_at || problem.created_at))}</td>
             <td class="table-actions">
                 ${canManage
                     ? `<button class="btn-edit" data-edit-problem="${problem.id}">Edit</button>
@@ -4775,7 +4878,7 @@ function renderHealthConcernDetailTable(patient, concerns)
             <td>${escapeHtml(concern.title)}</td>
             <td>${escapeHtml(concern.occurrence || "-")}</td>
             <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
-            <td>${escapeHtml((concern.updated_at || concern.created_at || "").slice(0, 10))}</td>
+            <td>${escapeHtml(formatDate(concern.updated_at || concern.created_at))}</td>
             <td class="table-actions">
                 ${canManage
                     ? `<button class="btn-edit" data-edit-healthconcern="${concern.id}">Edit</button>
@@ -5010,7 +5113,7 @@ function renderMedicationDetailTable(patient, medications)
             <td>${escapeHtml(medication.title)}</td>
             <td>${escapeHtml(medication.occurrence || "-")}</td>
             <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
-            <td>${escapeHtml((medication.updated_at || medication.created_at || "").slice(0, 10))}</td>
+            <td>${escapeHtml(formatDate(medication.updated_at || medication.created_at))}</td>
             <td class="table-actions">
                 ${canManage
                     ? `<button class="btn-edit" data-edit-medication="${medication.id}">Edit</button>
@@ -5149,10 +5252,12 @@ function renderDashboardInsurance(insurances)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
     body.innerHTML = insurances.length
         ? `<div class="pd-allergy-list">
             ${insurances.map((insurance) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-insurance-id="${insurance.id}" tabindex="0" role="button"` : ""}>
                     <span class="pd-allergy-name">${escapeHtml(insurance.insurance_type)}: ${escapeHtml(insurance.insurance_name)}</span>
                 </div>
             `).join("")}
@@ -5161,6 +5266,10 @@ function renderDashboardInsurance(insurances)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path></svg>
             <p>No insurance on file.</p>
            </div>`;
+
+    if (canManage) {
+        wireDashboardItemClicks(body, "data-insurance-id", insurances, openInsuranceFormModal);
+    }
 }
 
 async function loadDashboardVitalsHistory(patient)
@@ -5205,7 +5314,7 @@ function renderDashboardVitalsHistory(vitalsHistory)
     body.innerHTML = vitalsHistory.length
         ? `<div class="pd-allergy-list">
             ${vitalsHistory.map((vitals) => `
-                <div class="pd-allergy-item">
+                <div class="pd-allergy-item pd-item-clickable" tabindex="0" role="button">
                     <span class="pd-allergy-name">${escapeHtml(formatDate(vitals.date_of_service) || "-")} &middot; ${escapeHtml(summarizeVitalsEntry(vitals))}</span>
                 </div>
             `).join("")}
@@ -5214,6 +5323,12 @@ function renderDashboardVitalsHistory(vitalsHistory)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
             <p>No vitals recorded yet.</p>
            </div>`;
+
+    // No per-entry vitals edit view exists, so every row opens the full
+    // vitals history (same modal the widget's own "Edit" link opens).
+    if (vitalsHistory.length && currentDashboardPatient) {
+        wireDashboardPanelClicks(body, ".pd-allergy-item", () => openVitalsHistoryDetailModal(currentDashboardPatient));
+    }
 }
 
 async function openVitalsHistoryDetailModal(patient)
@@ -5419,7 +5534,7 @@ function renderDashboardAppointments(appointments)
                     .filter(Boolean).join(" ");
 
                 return `
-                    <div class="pd-allergy-item">
+                    <div class="pd-allergy-item pd-item-clickable" tabindex="0" role="button">
                         <span class="pd-allergy-name">${escapeHtml(formatApptDate(appt.appointment_date))} ${escapeHtml(time)} &middot; ${escapeHtml(label)}</span>
                     </div>
                 `;
@@ -5429,6 +5544,21 @@ function renderDashboardAppointments(appointments)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
             <p>No upcoming appointments.</p>
            </div>`;
+
+    // There's no per-appointment detail view reachable from outside the
+    // Calendar module, so the closest available "show me this" action is
+    // jumping to the Calendar tab -- same destination as the widget's own
+    // "+Add" button, just without also popping the Add Appointment modal.
+    if (appointments.length) {
+        wireDashboardPanelClicks(body, ".pd-allergy-item", () => {
+            const isDoctor = getUser()?.role === "doctor";
+
+            window.tabManager.openOrReplaceTab("appointments", "Calendar", () => {
+                setTimeout(() => (isDoctor ? initDoctorCalendar() : initAppointmentsList()), 0);
+                return isDoctor ? DoctorCalendarView() : AppointmentsListView();
+            }, true);
+        });
+    }
 }
 
 function goToScheduleAppointment(patientId, providerId)
@@ -8135,7 +8265,7 @@ function renderPrescriptionDetailTable(patient, prescriptions)
             <td>${escapeHtml(prescription.title)}</td>
             <td>${escapeHtml(prescription.dosage || "-")}</td>
             <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
-            <td>${escapeHtml((prescription.updated_at || prescription.created_at || "").slice(0, 10))}</td>
+            <td>${escapeHtml(formatDate(prescription.updated_at || prescription.created_at))}</td>
             <td class="table-actions">
                 ${canManage
                     ? `<button class="btn-edit" data-edit-prescription="${prescription.id}">Edit</button>
@@ -10539,9 +10669,13 @@ function renderDashboardCareTeam(careTeam)
         return;
     }
 
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+    const clickableClass = canManage ? " pd-item-clickable" : "";
+    const clickableAttrs = canManage ? ` tabindex="0" role="button"` : "";
+
     body.innerHTML = `
         <div class="pd-allergy-list">
-            <div class="pd-allergy-item">
+            <div class="pd-allergy-item${clickableClass}"${clickableAttrs}>
                 <span class="pd-allergy-name">${escapeHtml(careTeam.name || "Care Team")}</span>
                 <span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span>
             </div>
@@ -10560,7 +10694,7 @@ function renderDashboardCareTeam(careTeam)
                     const memberInactive = member.status === "inactive";
 
                     return `
-                    <div class="pd-allergy-item${memberInactive ? " status-inactive" : ""}">
+                    <div class="pd-allergy-item${memberInactive ? " status-inactive" : ""}${clickableClass}"${clickableAttrs}>
                         <div class="pd-allergy-main">
                             <span class="pd-allergy-name">${escapeHtml(memberName)}</span>
                             ${subParts.length ? `<span class="pd-allergy-sub">${escapeHtml(subParts.join(" · "))}</span>` : ""}
@@ -10573,6 +10707,13 @@ function renderDashboardCareTeam(careTeam)
             }
         </div>
     `;
+
+    // The whole panel manages one Care Team record (name/status + its
+    // member list) through a single form -- there's no separate per-member
+    // edit view, so every row (including the header row) opens that form.
+    if (canManage) {
+        wireDashboardPanelClicks(body, ".pd-item-clickable", () => openCareTeamModal(currentDashboardPatient));
+    }
 }
 
 async function loadDashboardCareTeam(patient)

@@ -1151,11 +1151,11 @@ export function PatientsListView(user)
     border-color: var(--accent);
 }
 
-.pd-allergy-item-clickable {
+.pd-item-clickable {
     cursor: pointer;
 }
 
-.pd-allergy-item-clickable:focus-visible {
+.pd-item-clickable:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
@@ -4651,11 +4651,11 @@ textarea.pd-sdoh-readonly {
     border-color: var(--accent);
 }
 
-.pd-allergy-item-clickable {
+.pd-item-clickable {
     cursor: pointer;
 }
 
-.pd-allergy-item-clickable:focus-visible {
+.pd-item-clickable:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
