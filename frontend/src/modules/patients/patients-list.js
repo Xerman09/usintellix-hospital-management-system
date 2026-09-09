@@ -2605,6 +2605,12 @@ export async function initPatientChartTab(patient)
         goToScheduleAppointment(currentDashboardPatient.id, currentDashboardPatient.provider_id);
     });
 
+    document.getElementById("pdEditDemographicsBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openEditModal(currentDashboardPatient);
+        }
+    });
+
     setupAllergyModals();
     setupProblemModals();
     setupHealthConcernModals();
@@ -2637,7 +2643,7 @@ export async function initPatientChartTab(patient)
     setupRelatedPersonModals();
     setupSelectCodesModal();
 
-    if (user.role !== "doctor") {
+    if (user.role !== "patient") {
         await setupEditPatientModal(user);
     }
 
