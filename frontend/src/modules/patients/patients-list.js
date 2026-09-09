@@ -5463,7 +5463,23 @@ function openDocumentUploadModal()
 {
     document.getElementById("patientDocumentFormAlert").innerHTML = "";
     document.getElementById("patientDocumentForm").reset();
+    showSelectedDocumentFile(null);
     document.getElementById("patientDocumentModalOverlay").classList.add("open");
+}
+
+/**
+ * Toggle the Upload Document dropzone between its empty state and the
+ * selected-file preview (name + size + remove button).
+ */
+function showSelectedDocumentFile(file)
+{
+    document.getElementById("patientDocumentDropzoneEmpty").hidden = !!file;
+    document.getElementById("patientDocumentDropzoneFile").hidden = !file;
+
+    if (file) {
+        document.getElementById("patientDocumentFileName").textContent = file.name;
+        document.getElementById("patientDocumentFileSize").textContent = formatDocumentFileSize(file.size);
+    }
 }
 
 function setupPatientRecordRequestModal()
@@ -5500,6 +5516,42 @@ function setupDocumentUploadModal()
     formOverlay.addEventListener("click", (event) => {
         if (event.target === formOverlay) {
             closeForm();
+        }
+    });
+
+    const dropzone = document.getElementById("patientDocumentDropzone");
+    const fileInput = document.getElementById("patientDocument_file");
+
+    fileInput.addEventListener("change", () => {
+        showSelectedDocumentFile(fileInput.files[0] || null);
+    });
+
+    document.getElementById("patientDocumentFileRemove").addEventListener("click", (event) => {
+        event.preventDefault();
+        fileInput.value = "";
+        showSelectedDocumentFile(null);
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropzone.classList.add("drag-over");
+        });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("drag-over");
+        });
+    });
+
+    dropzone.addEventListener("drop", (event) => {
+        const file = event.dataTransfer.files[0];
+
+        if (file) {
+            fileInput.files = event.dataTransfer.files;
+            showSelectedDocumentFile(file);
         }
     });
 

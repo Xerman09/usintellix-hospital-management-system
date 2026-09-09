@@ -9312,8 +9312,197 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<style>
+#patientDocumentModalOverlay .modal-box {
+    max-width: 480px;
+    border-radius: 0;
+    padding: 30px 34px;
+}
+
+#patientDocumentModalOverlay .modal-header h2 {
+    font-size: 19px;
+    letter-spacing: -.2px;
+}
+
+.doc-field {
+    margin-bottom: 16px;
+}
+
+.doc-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #42536b;
+}
+
+.doc-form .form-input {
+    height: 37px;
+    padding: 0 12px;
+    border-radius: 0;
+    border: 1px solid #dde3ec;
+    font-size: 13.5px;
+    background: #fff;
+    transition: border-color .12s, box-shadow .12s;
+}
+
+.doc-form .form-input:focus {
+    border-color: var(--accent, #4338ca);
+    box-shadow: 0 0 0 3px var(--accent-lighter, rgba(67, 56, 202, .12));
+}
+
+.doc-form textarea.form-input {
+    height: auto;
+    padding: 9px 12px;
+    min-height: 60px;
+    resize: vertical;
+}
+
+.doc-form select.form-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 13px;
+}
+
+.doc-dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 104px;
+    padding: 18px 16px;
+    border: 1px dashed #cbd5e1;
+    background: #fbfcfe;
+    text-align: center;
+    transition: border-color .12s, background-color .12s;
+}
+
+.doc-dropzone.drag-over {
+    border-color: var(--accent, #4338ca);
+    background: var(--accent-lighter, rgba(67, 56, 202, .06));
+}
+
+.doc-dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.doc-dropzone-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+}
+
+.doc-dropzone-empty[hidden],
+.doc-dropzone-file[hidden] {
+    display: none;
+}
+
+.doc-dropzone-empty svg {
+    width: 26px;
+    height: 26px;
+}
+
+.doc-dropzone-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #42536b;
+}
+
+.doc-dropzone-title span {
+    color: var(--accent, #4338ca);
+}
+
+.doc-dropzone-hint {
+    font-size: 11.5px;
+    color: #94a3b8;
+}
+
+.doc-dropzone-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.doc-dropzone-file svg {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    color: var(--accent, #4338ca);
+}
+
+.doc-dropzone-file-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    text-align: left;
+}
+
+.doc-dropzone-file-name {
+    max-width: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-dropzone-file-size {
+    font-size: 11.5px;
+    color: #94a3b8;
+}
+
+.doc-dropzone-remove {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: #eef1f6;
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.doc-dropzone-remove:hover {
+    background: #e2e8f0;
+    color: #29323f;
+}
+
+:root[data-theme="dark"] .doc-field label { color: var(--text-muted); }
+:root[data-theme="dark"] .doc-form .form-input { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .doc-form select.form-input { background-color: var(--bg-surface-alt); }
+:root[data-theme="dark"] .doc-dropzone { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .doc-dropzone-title { color: var(--text-primary); }
+:root[data-theme="dark"] .doc-dropzone-file-name { color: var(--text-primary); }
+:root[data-theme="dark"] .doc-dropzone-remove { background: var(--bg-surface); color: var(--text-muted); }
+</style>
+
 <div class="modal-overlay" id="patientDocumentModalOverlay">
-    <div class="modal-box" style="max-width: 480px;">
+    <div class="modal-box">
         <div class="modal-header">
             <h2>Upload Document</h2>
             <button type="button" class="modal-close" id="closePatientDocumentModal">&times;</button>
@@ -9321,30 +9510,43 @@ textarea.pd-sdoh-readonly {
 
         <div id="patientDocumentFormAlert"></div>
 
-        <form id="patientDocumentForm">
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label>File</label>
-                    <input type="file" id="patientDocument_file" class="form-input" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx">
+        <form id="patientDocumentForm" class="doc-form">
+            <div class="doc-field">
+                <label>File</label>
+                <div class="doc-dropzone" id="patientDocumentDropzone">
+                    <input type="file" id="patientDocument_file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx">
+                    <div class="doc-dropzone-empty" id="patientDocumentDropzoneEmpty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M17 8l-5-5-5 5"></path><path d="M12 3v12"></path></svg>
+                        <span class="doc-dropzone-title"><span>Click to upload</span> or drag and drop</span>
+                        <span class="doc-dropzone-hint">PDF, image, Word, or Excel file</span>
+                    </div>
+                    <div class="doc-dropzone-file" id="patientDocumentDropzoneFile" hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
+                        <div class="doc-dropzone-file-info">
+                            <span class="doc-dropzone-file-name" id="patientDocumentFileName"></span>
+                            <span class="doc-dropzone-file-size" id="patientDocumentFileSize"></span>
+                        </div>
+                        <button type="button" class="doc-dropzone-remove" id="patientDocumentFileRemove" aria-label="Remove file">&times;</button>
+                    </div>
                 </div>
+            </div>
 
-                <div class="form-group full">
-                    <label>Category</label>
-                    <select id="patientDocument_category" class="form-input">
-                        <option value="">-- Please Select --</option>
-                        <option value="Lab Result">Lab Result</option>
-                        <option value="Imaging">Imaging</option>
-                        <option value="Insurance Card">Insurance Card</option>
-                        <option value="Consent Form">Consent Form</option>
-                        <option value="Referral">Referral</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
+            <div class="doc-field">
+                <label>Category</label>
+                <select id="patientDocument_category" class="form-input">
+                    <option value="">-- Please Select --</option>
+                    <option value="Lab Result">Lab Result</option>
+                    <option value="Imaging">Imaging</option>
+                    <option value="Insurance Card">Insurance Card</option>
+                    <option value="Consent Form">Consent Form</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
 
-                <div class="form-group full">
-                    <label>Description</label>
-                    <textarea id="patientDocument_description" class="form-input" rows="3"></textarea>
-                </div>
+            <div class="doc-field" style="margin-bottom: 0;">
+                <label>Description</label>
+                <textarea id="patientDocument_description" class="form-input" rows="3" placeholder="Optional notes about this document"></textarea>
             </div>
 
             <div class="form-actions">
