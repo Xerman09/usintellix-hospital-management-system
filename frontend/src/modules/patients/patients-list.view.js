@@ -6413,7 +6413,7 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Allergies</h2>
-            <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="modal-header-actions">
                 <button type="button" class="btn-primary-inline" id="openAddAllergyBtn">+ Add Allergy</button>
                 <button type="button" class="modal-close" id="closeAllergyDetailModal">&times;</button>
             </div>
@@ -6584,15 +6584,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Medical Problems</h2>
-            <button type="button" class="modal-close" id="closeProblemDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddProblemBtn">+ Add Problem</button>
+                <button type="button" class="modal-close" id="closeProblemDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full problem history for this patient.</p>
 
         <div id="problemDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddProblemBtn">+ Add Problem</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -7084,15 +7083,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Health Concerns</h2>
-            <button type="button" class="modal-close" id="closeHealthConcernDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddHealthConcernBtn">+ Add</button>
+                <button type="button" class="modal-close" id="closeHealthConcernDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full health concern history for this patient.</p>
 
         <div id="healthConcernDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddHealthConcernBtn">+ Add</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -7228,15 +7226,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Medications</h2>
-            <button type="button" class="modal-close" id="closeMedicationDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddMedicationBtn">+ Add Medication</button>
+                <button type="button" class="modal-close" id="closeMedicationDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full medication history for this patient.</p>
 
         <div id="medicationDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddMedicationBtn">+ Add Medication</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -7419,15 +7416,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Insurance</h2>
-            <button type="button" class="modal-close" id="closeInsuranceDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddInsuranceBtn">+ Add Insurance</button>
+                <button type="button" class="modal-close" id="closeInsuranceDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Insurance on file for this patient.</p>
 
         <div id="insuranceDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddInsuranceBtn">+ Add Insurance</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -7721,15 +7717,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Immunizations</h2>
-            <button type="button" class="modal-close" id="closeImmunizationDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddImmunizationBtn">+ Add Immunization</button>
+                <button type="button" class="modal-close" id="closeImmunizationDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full immunization history for this patient.</p>
 
         <div id="immunizationDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddImmunizationBtn">+ Add Immunization</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -8294,15 +8289,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Prescriptions</h2>
-            <button type="button" class="modal-close" id="closePrescriptionDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddPrescriptionBtn">+ Add Prescription</button>
+                <button type="button" class="modal-close" id="closePrescriptionDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full prescription history for this patient.</p>
 
         <div id="prescriptionDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddPrescriptionBtn">+ Add Prescription</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -8503,15 +8497,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Disclosures</h2>
-            <button type="button" class="modal-close" id="closeDisclosureDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddDisclosureBtn">+ Add Disclosure</button>
+                <button type="button" class="modal-close" id="closeDisclosureDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full disclosure history for this patient.</p>
 
         <div id="disclosureDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddDisclosureBtn">+ Add Disclosure</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -8925,15 +8918,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Messages</h2>
-            <button type="button" class="modal-close" id="closeMessageDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddMessageModalPd">+ Add Message</button>
+                <button type="button" class="modal-close" id="closeMessageDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full message history for this patient.</p>
 
         <div id="messageDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddMessageModalPd">+ Add Message</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -9007,15 +8999,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Amendments</h2>
-            <button type="button" class="modal-close" id="closeAmendmentDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddAmendmentBtn">+ Add Amendment</button>
+                <button type="button" class="modal-close" id="closeAmendmentDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full amendment request history for this patient.</p>
 
         <div id="amendmentDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddAmendmentBtn">+ Add Amendment</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
@@ -9096,15 +9087,14 @@ textarea.pd-sdoh-readonly {
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
             <h2>Visits</h2>
-            <button type="button" class="modal-close" id="closeEncounterDetailModal">&times;</button>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddEncounterBtn">+ New Encounter</button>
+                <button type="button" class="modal-close" id="closeEncounterDetailModal">&times;</button>
+            </div>
         </div>
         <p class="form-subtitle">Full visit history for this patient.</p>
 
         <div id="encounterDetailAlert"></div>
-
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 14px;">
-            <button type="button" class="btn-primary-inline" id="openAddEncounterBtn">+ New Encounter</button>
-        </div>
 
         <div class="table-wrap">
             <table class="data-table">
