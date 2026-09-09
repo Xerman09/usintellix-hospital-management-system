@@ -1,3 +1,32 @@
+// A small categorical palette so tabs are visually distinguishable at a
+// glance even though they're all rendered at the same fixed width now --
+// each tab id deterministically maps to the same color every time (same
+// idea as Slack channel icons / GitHub label colors), so it needs no
+// per-tab-type maintenance as new tab types are added.
+const TAB_ACCENT_COLORS = [
+    '#4f46e5', '#0891b2', '#059669', '#d97706',
+    '#dc2626', '#db2777', '#7c3aed', '#0284c7'
+];
+
+function tabAccentColor(id) {
+    let hash = 0;
+
+    for (let i = 0; i < id.length; i++) {
+        hash = (hash * 31 + id.charCodeAt(i)) | 0;
+    }
+
+    return TAB_ACCENT_COLORS[Math.abs(hash) % TAB_ACCENT_COLORS.length];
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 export class TabManager {
     constructor(tabBarId, tabContentId) {
         this.tabBar = document.getElementById(tabBarId);
@@ -108,12 +137,16 @@ export class TabManager {
         for (const [id, tab] of this.tabs.entries()) {
             const isActive = this.activeTabId === id;
 
+            const accentColor = tabAccentColor(id);
+
             const tabEl = document.createElement('div');
             tabEl.className = `tab-item ${isActive ? 'active' : ''}`;
+            tabEl.style.borderLeftColor = accentColor;
             tabEl.onclick = () => this.switchTab(id);
 
             tabEl.innerHTML = `
-                <span>${tab.title}</span>
+                <span class="tab-dot" style="background-color: ${accentColor}"></span>
+                <span class="tab-title">${escapeHtml(tab.title)}</span>
                 <div class="refresh-tab" title="Refresh" onclick="event.stopPropagation(); window.tabManager.refreshTab('${id}', event)">⟳</div>
                 <div class="close-tab" title="Close" onclick="event.stopPropagation(); window.tabManager.closeTab('${id}', event)">✕</div>
             `;
