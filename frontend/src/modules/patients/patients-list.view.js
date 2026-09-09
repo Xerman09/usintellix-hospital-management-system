@@ -1151,6 +1151,15 @@ export function PatientsListView(user)
     border-color: var(--accent);
 }
 
+.pd-allergy-item-clickable {
+    cursor: pointer;
+}
+
+.pd-allergy-item-clickable:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .pd-allergy-item.status-confirmed {
     border-left-color: #16a34a;
 }
@@ -4640,6 +4649,15 @@ textarea.pd-sdoh-readonly {
 
 .pd-allergy-item:hover {
     border-color: var(--accent);
+}
+
+.pd-allergy-item-clickable {
+    cursor: pointer;
+}
+
+.pd-allergy-item-clickable:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .pd-allergy-item.status-confirmed {

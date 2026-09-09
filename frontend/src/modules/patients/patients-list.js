@@ -3098,6 +3098,11 @@ function renderDashboardAllergies(allergies)
 
     setWidgetCount("pdAllergiesBody", allergies.length);
 
+    // Only staff who can actually edit allergies get a clickable card here
+    // -- matches the same role gate the full Allergies list modal already
+    // uses to show/hide its Edit and Delete buttons.
+    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+
     body.innerHTML = allergies.length
         ? `<div class="pd-allergy-list">
             ${allergies.map((allergy) => {
@@ -3105,7 +3110,7 @@ function renderDashboardAllergies(allergies)
                 const severityClass = ["severe", "moderate", "mild"].includes(severity) ? severity : "";
 
                 return `
-                <div class="pd-allergy-item${severityClass ? ` severity-${severityClass}` : ""}">
+                <div class="pd-allergy-item${severityClass ? ` severity-${severityClass}` : ""}${canManage ? " pd-allergy-item-clickable" : ""}"${canManage ? ` data-allergy-id="${allergy.id}" tabindex="0" role="button"` : ""}>
                     <div class="pd-allergy-main">
                         <span class="pd-allergy-name">${escapeHtml(allergy.name)}</span>
                         ${allergy.reaction ? `<span class="pd-allergy-sub">${escapeHtml(allergy.reaction)}</span>` : ""}
@@ -3119,6 +3124,28 @@ function renderDashboardAllergies(allergies)
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
             <p>No known allergies recorded.</p>
            </div>`;
+
+    if (!canManage) {
+        return;
+    }
+
+    body.querySelectorAll("[data-allergy-id]").forEach((item) => {
+        const openThisAllergy = () => {
+            const allergy = allergies.find((a) => String(a.id) === item.getAttribute("data-allergy-id"));
+
+            if (allergy) {
+                openAllergyFormModal(allergy);
+            }
+        };
+
+        item.addEventListener("click", openThisAllergy);
+        item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openThisAllergy();
+            }
+        });
+    });
 }
 
 async function loadDashboardProblems(patient)
