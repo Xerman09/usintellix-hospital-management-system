@@ -5494,6 +5494,7 @@ function setupDocumentUploadModal()
     const closeForm = () => formOverlay.classList.remove("open");
 
     document.getElementById("pdDocumentsAddBtn").addEventListener("click", openDocumentUploadModal);
+    document.getElementById("pdNewDocumentBtn").addEventListener("click", openDocumentUploadModal);
     document.getElementById("closePatientDocumentModal").addEventListener("click", closeForm);
     document.getElementById("cancelPatientDocumentForm").addEventListener("click", closeForm);
     formOverlay.addEventListener("click", (event) => {
