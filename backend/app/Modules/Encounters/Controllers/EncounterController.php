@@ -8,6 +8,11 @@ use App\Core\Session;
 use App\Modules\Encounters\Services\EncounterService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Providers\Services\ProviderService;
+use App\Modules\VisitCategories\Services\VisitCategoryService;
+use App\Modules\Classes\Services\ClassService;
+use App\Modules\VisitTypes\Services\VisitTypeService;
+use App\Modules\Facilities\Services\FacilityService;
+use App\Modules\DischargeDispositions\Services\DischargeDispositionService;
 
 class EncounterController extends Controller
 {
@@ -62,6 +67,48 @@ class EncounterController extends Controller
         $issues = $this->encounterService->listLinkableIssues($patientId);
 
         $this->success($issues, 'Linkable issues retrieved successfully.');
+    }
+
+    /**
+     * Everything the "Create Visit" form's dropdowns and linked-issues
+     * picker need, gathered into one response. These used to be 6
+     * separate catalog requests plus the linkable-issues request, each
+     * paying a fresh remote-DB connection round-trip on this app's setup
+     * (see PatientController::dashboardSummary() for the same
+     * reasoning). Batching them into one request pays that cost once.
+     */
+    public function formOptions(): void
+    {
+        $request = new Request();
+        $patientId = (int) $request->input('patient_id');
+
+        if (!$patientId) {
+            $this->error('Patient is required.', 422);
+            return;
+        }
+
+        $sections = [
+            'visit_categories' => fn () => (new VisitCategoryService())->list(),
+            'classes' => fn () => (new ClassService())->list(),
+            'visit_types' => fn () => (new VisitTypeService())->list(),
+            'providers' => fn () => $this->providerService->list(),
+            'facilities' => fn () => (new FacilityService())->list(),
+            'discharge_dispositions' => fn () => (new DischargeDispositionService())->list(),
+            'linkable_issues' => fn () => $this->encounterService->listLinkableIssues($patientId),
+        ];
+
+        $result = [];
+
+        foreach ($sections as $key => $fetch) {
+            try {
+                $result[$key] = $fetch();
+            } catch (\Throwable $e) {
+                error_log("formOptions: failed to load '{$key}': " . $e->getMessage());
+                $result[$key] = [];
+            }
+        }
+
+        $this->success($result, 'Encounter form options retrieved successfully.');
     }
 
     /**

@@ -14,6 +14,13 @@ export async function fetchLinkableIssues(patientId)
     return await api(`/encounters/issues?${query}`);
 }
 
+export async function fetchEncounterFormOptions(patientId)
+{
+    const query = new URLSearchParams({ patient_id: patientId }).toString();
+
+    return await api(`/encounters/form-options?${query}`);
+}
+
 export async function addEncounter(patientId, details = {}, issues = [], billingCodes = [])
 {
     return await api(

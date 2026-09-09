@@ -14,6 +14,11 @@ $router->get('/encounters/issues', [EncounterController::class, 'issuesIndex'], 
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/encounters/form-options', [EncounterController::class, 'formOptions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/encounters', [EncounterController::class, 'store'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

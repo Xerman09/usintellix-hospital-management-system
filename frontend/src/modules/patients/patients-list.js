@@ -96,7 +96,7 @@ import {
 import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js";
 import {
     fetchPatientEncounters, fetchLinkableIssues, addEncounter, updateEncounter, removeEncounter,
-    fetchDischargeDispositions, updateEncounterBillingNote
+    fetchDischargeDispositions, updateEncounterBillingNote, fetchEncounterFormOptions
 } from "../encounters/encounters.service.js";
 import { fetchCareTeam, fetchCareTeamOptions, saveCareTeam } from "../care-team/care-team.service.js";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
@@ -8788,10 +8788,20 @@ async function openEncounterFormModal(existingRecord)
 
     document.getElementById("encounterFormModalOverlay").classList.add("open");
 
-    const [, issuesResult] = await Promise.all([
-        loadEncounterCatalogsIfNeeded(),
-        fetchLinkableIssues(currentDashboardPatient.id)
-    ]);
+    // One combined request instead of 6 catalog fetches + the linkable-
+    // issues fetch: each used to be its own HTTP request, and on this
+    // app's remote (unpooled) DB that meant paying a fresh connection
+    // round-trip up to 7 times just to populate this form's dropdowns.
+    const optionsResult = await fetchEncounterFormOptions(currentDashboardPatient.id);
+    const options = optionsResult.success ? optionsResult.data : {};
+
+    encounterVisitCategories = options.visit_categories || [];
+    encounterClasses = options.classes || [];
+    encounterVisitTypes = options.visit_types || [];
+    encounterProviders = options.providers || [];
+    encounterFacilities = options.facilities || [];
+    encounterDischargeDispositions = options.discharge_dispositions || [];
+    encounterCatalogsLoaded = true;
 
     fillEncounterSelect("encounter_visit_category_id", encounterVisitCategories, (c) => c.name, "-- Select One --");
     fillEncounterSelect("encounter_class_id", encounterClasses, (c) => c.name, "-- Select One --");
@@ -8816,7 +8826,7 @@ async function openEncounterFormModal(existingRecord)
         document.getElementById("encounter_discharge_disposition_id").value = existingRecord.discharge_disposition_id ?? "";
     }
 
-    encounterLinkableIssues = issuesResult.success ? issuesResult.data : [];
+    encounterLinkableIssues = options.linkable_issues || [];
 
     const linkedKeys = existingRecord && existingRecord.linked_issues
         ? existingRecord.linked_issues.split(",")
