@@ -5729,6 +5729,35 @@ textarea.pd-sdoh-readonly {
                     </div>
                 </div>
 
+                <div class="pd-transactions-panel" id="pdDocumentsPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <h2>Documents</h2>
+                        <div class="pd-report-header-actions">
+                            <button type="button" class="pd-report-btn" id="pdDocumentsPanelUploadBtn">+ Upload</button>
+                        </div>
+                    </div>
+
+                    <div id="pdDocumentsPanelAlert"></div>
+
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Uploaded</th>
+                                    <th>Size</th>
+                                    <th>Uploaded By</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdDocumentsPanelTableBody">
+                                <tr><td colspan="6" class="table-empty">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="pd-transactions-panel" id="pdVisitHistoryPanel" style="display: none;">
                     <div class="pd-report-card-header">
                         <h2>Visit History</h2>

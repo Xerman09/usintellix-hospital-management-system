@@ -406,12 +406,6 @@ const CHART_NAV_LABELS = {
     external_data: "External Data"
 };
 
-// Sections with an existing widget on the dashboard grid scroll straight to
-// it; everything else (no backend/UI built yet) shows the placeholder panel.
-// "issues" has its own dedicated panel instead (see showChartSection).
-const CHART_NAV_WIDGET_TARGETS = {
-    documents: "pdWidget-documents"
-};
 
 function setupChartNav()
 {
@@ -1691,7 +1685,7 @@ function showChartSection(key)
     const visitHistoryPanel = document.getElementById("pdVisitHistoryPanel");
     const encounterSummaryPanel = document.getElementById("pdEncounterSummaryPanel");
     const ledgerPanel = document.getElementById("pdLedgerPanel");
-    const widgetTarget = CHART_NAV_WIDGET_TARGETS[key];
+    const documentsPanel = document.getElementById("pdDocumentsPanel");
 
     widgetGrid.style.display = "none";
     placeholder.style.display = "none";
@@ -1703,16 +1697,14 @@ function showChartSection(key)
     visitHistoryPanel.style.display = "none";
     encounterSummaryPanel.style.display = "none";
     ledgerPanel.style.display = "none";
+    documentsPanel.style.display = "none";
 
-    if (key === "dashboard" || widgetTarget) {
+    if (key === "dashboard") {
         widgetGrid.style.display = "";
 
         const pdMain = document.querySelector(".pd-main");
-        const target = widgetTarget ? document.getElementById(widgetTarget) : null;
 
-        if (target && pdMain) {
-            pdMain.scrollTo({ top: target.offsetTop - 12, behavior: "smooth" });
-        } else if (pdMain) {
+        if (pdMain) {
             pdMain.scrollTo({ top: 0, behavior: "smooth" });
         }
     } else if (key === "history") {
@@ -1740,6 +1732,11 @@ function showChartSection(key)
         ledgerPanel.style.display = "block";
         if (currentDashboardPatient) {
             loadLedger(currentDashboardPatient);
+        }
+    } else if (key === "documents") {
+        documentsPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            loadDocumentsPanel(currentDashboardPatient);
         }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
@@ -5658,6 +5655,87 @@ function renderDashboardDocuments(documents)
 
             if (result.success) {
                 loadDashboardDocuments(currentDashboardPatient);
+                refreshDocumentsPanelIfVisible();
+            }
+        });
+    });
+}
+
+function refreshDocumentsPanelIfVisible()
+{
+    const panel = document.getElementById("pdDocumentsPanel");
+
+    if (panel && panel.style.display !== "none" && currentDashboardPatient) {
+        loadDocumentsPanel(currentDashboardPatient);
+    }
+}
+
+/**
+ * The full "Documents" chart-nav section -- unlike the dashboard widget's
+ * 3-row preview, this lists every document on file with delete actions,
+ * the same data reused via fetchPatientDocuments().
+ */
+async function loadDocumentsPanel(patient)
+{
+    const tbody = document.getElementById("pdDocumentsPanelTableBody");
+
+    if (!tbody) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientDocuments(patient.id);
+
+        renderDocumentsPanelTable(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load documents", error);
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Unable to load documents right now.</td></tr>`;
+    }
+}
+
+function renderDocumentsPanelTable(documents)
+{
+    const tbody = document.getElementById("pdDocumentsPanelTableBody");
+
+    if (!tbody) {
+        return;
+    }
+
+    if (!documents.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No documents uploaded yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = documents.map((doc) => {
+        // Legacy documents uploaded before the title field existed have no
+        // doc.title -- fall back to the raw filename rather than a blank cell.
+        const displayName = doc.title || doc.original_filename;
+
+        return `
+        <tr>
+            <td><a href="${API_URL}${doc.file_path}" target="_blank" rel="noopener">${escapeHtml(displayName)}</a></td>
+            <td>${escapeHtml(doc.category || "-")}</td>
+            <td>${escapeHtml(formatDate(doc.created_at) || "-")}</td>
+            <td>${escapeHtml(formatDocumentFileSize(doc.file_size))}</td>
+            <td>${escapeHtml(doc.uploaded_by_name || "-")}</td>
+            <td class="table-actions">
+                <button class="btn-danger" data-delete-doc-panel-id="${doc.id}">Delete</button>
+            </td>
+        </tr>
+        `;
+    }).join("");
+
+    tbody.querySelectorAll("[data-delete-doc-panel-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Delete this document?")) {
+                return;
+            }
+
+            const result = await deletePatientDocument(btn.getAttribute("data-delete-doc-panel-id"), currentDashboardPatient.id);
+
+            if (result.success) {
+                loadDocumentsPanel(currentDashboardPatient);
+                loadDashboardDocuments(currentDashboardPatient);
             }
         });
     });
@@ -5716,6 +5794,7 @@ function setupDocumentUploadModal()
 
     document.getElementById("pdDocumentsAddBtn").addEventListener("click", openDocumentUploadModal);
     document.getElementById("pdNewDocumentBtn").addEventListener("click", openDocumentUploadModal);
+    document.getElementById("pdDocumentsPanelUploadBtn").addEventListener("click", openDocumentUploadModal);
     document.getElementById("closePatientDocumentModal").addEventListener("click", closeForm);
     document.getElementById("cancelPatientDocumentForm").addEventListener("click", closeForm);
     formOverlay.addEventListener("click", (event) => {
@@ -5800,6 +5879,7 @@ function setupDocumentUploadModal()
 
         closeForm();
         await loadDashboardDocuments(currentDashboardPatient);
+        refreshDocumentsPanelIfVisible();
     });
 }
 
