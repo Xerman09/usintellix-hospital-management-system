@@ -2611,6 +2611,14 @@ export async function initPatientChartTab(patient)
         }
     });
 
+    document.getElementById("pdScheduleAppointmentBtn").addEventListener("click", () => {
+        if (!currentDashboardPatient) {
+            return;
+        }
+
+        goToScheduleAppointment(currentDashboardPatient.id, currentDashboardPatient.provider_id);
+    });
+
     setupAllergyModals();
     setupProblemModals();
     setupHealthConcernModals();
