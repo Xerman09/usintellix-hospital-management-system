@@ -2153,8 +2153,9 @@ select.form-input {
     overflow-y: auto;
     background: white;
     padding: 36px;
-    border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    border-radius: 0;
+    border: 1px solid #e2e8f0;
+    box-shadow: none;
 }
 
 .modal-header {
@@ -2166,7 +2167,8 @@ select.form-input {
 
 .modal-header h2 {
     margin: 0;
-    font-size: 22px;
+    font-size: 20px;
+    letter-spacing: -.2px;
     color: #25324b;
 }
 
@@ -2186,20 +2188,20 @@ select.form-input {
 .modal-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin: 18px 0 22px;
-    border-bottom: 2px solid #eef1f7;
+    gap: 2px;
+    margin: 16px 0 20px;
+    border-bottom: 1px solid #e5e9f0;
 }
 
 .modal-tab {
-    padding: 10px 16px;
-    margin-bottom: -2px;
+    padding: 9px 13px;
+    margin-bottom: -1px;
     background: none;
     border: none;
-    border-bottom: 3px solid transparent;
+    border-bottom: 2px solid transparent;
     color: #71809b;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 12.5px;
     cursor: pointer;
 }
 
@@ -2214,6 +2216,35 @@ select.form-input {
 
 .modal-tab-panel.active {
     display: block;
+}
+
+/* Every modal's fields get the sharper, more compact treatment already
+   proven out on the Encounter Form / Upload Document / Edit Patient
+   modals. Scoped to .modal-box (not the bare .form-input) so full-page
+   forms outside a modal -- the login page, Add Patient, etc. -- are
+   untouched. */
+.modal-box .form-input {
+    height: 37px;
+    padding: 0 12px;
+    border-radius: 0;
+    font-size: 13.5px;
+}
+
+.modal-box textarea.form-input {
+    height: auto;
+    padding: 9px 12px;
+    min-height: 60px;
+    resize: vertical;
+}
+
+.modal-box select.form-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 13px;
 }
 
 /* =========================

@@ -1380,17 +1380,13 @@ export function PatientsListView(user)
 </div>
 
 <style>
+/* Sharp corners, compact tabs, and tightened form-input sizing now come
+   from the global .modal-box / .modal-tab / .modal-box .form-input rules
+   in main.css -- only this modal's genuine deltas from that default are
+   declared here. */
 #editPatientModalOverlay .modal-box {
     max-width: 820px;
-    border-radius: 0;
     padding: 32px 36px;
-    box-shadow: none;
-    border: 1px solid #e2e8f0;
-}
-
-#editPatientModalOverlay .modal-header h2 {
-    font-size: 20px;
-    letter-spacing: -.2px;
 }
 
 #editPatientModalOverlay .form-subtitle {
@@ -1399,22 +1395,11 @@ export function PatientsListView(user)
 }
 
 #editPatientModalOverlay .modal-tabs {
-    gap: 2px;
-    margin: 0 0 20px;
-    border-bottom: 1px solid #e5e9f0;
-}
-
-#editPatientModalOverlay .modal-tab {
-    padding: 9px 13px;
-    font-size: 12.5px;
+    margin-top: 0;
 }
 
 #editPatientModalOverlay .form-input {
-    height: 37px;
-    padding: 0 12px;
-    border-radius: 0;
     border: 1px solid #dde3ec;
-    font-size: 13.5px;
     background: #fff;
     transition: border-color .12s, box-shadow .12s;
 }
@@ -1424,26 +1409,7 @@ export function PatientsListView(user)
     box-shadow: 0 0 0 3px var(--accent-lighter, rgba(67, 56, 202, .12));
 }
 
-#editPatientModalOverlay textarea.form-input {
-    height: auto;
-    padding: 9px 12px;
-    min-height: 60px;
-    resize: vertical;
-}
-
-#editPatientModalOverlay select.form-input {
-    appearance: none;
-    -webkit-appearance: none;
-    padding-right: 30px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 9px center;
-    background-size: 13px;
-}
-
 :root[data-theme="dark"] #editPatientModalOverlay .modal-tabs { border-bottom-color: var(--border-color); }
-:root[data-theme="dark"] #editPatientModalOverlay .form-input { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
-:root[data-theme="dark"] #editPatientModalOverlay select.form-input { background-color: var(--bg-surface-alt); }
 </style>
 
 <div class="modal-overlay" id="editPatientModalOverlay">
@@ -9014,7 +8980,6 @@ textarea.pd-sdoh-readonly {
 <style>
 #encounterFormModalOverlay .modal-box {
     max-width: 800px;
-    border-radius: 0;
     padding: 30px 34px;
 }
 
@@ -9084,11 +9049,7 @@ textarea.pd-sdoh-readonly {
 }
 
 .ef-form .form-input {
-    height: 37px;
-    padding: 0 12px;
-    border-radius: 0;
     border: 1px solid #dde3ec;
-    font-size: 13.5px;
     background: #fff;
     transition: border-color .12s, box-shadow .12s;
 }
@@ -9096,23 +9057,6 @@ textarea.pd-sdoh-readonly {
 .ef-form .form-input:focus {
     border-color: var(--accent, #4338ca);
     box-shadow: 0 0 0 3px var(--accent-lighter, rgba(67, 56, 202, .12));
-}
-
-.ef-form textarea.form-input {
-    height: auto;
-    padding: 9px 12px;
-    min-height: 60px;
-    resize: vertical;
-}
-
-.ef-form select.form-input {
-    appearance: none;
-    -webkit-appearance: none;
-    padding-right: 30px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 9px center;
-    background-size: 13px;
 }
 
 .ef-segmented {
@@ -9397,7 +9341,6 @@ textarea.pd-sdoh-readonly {
 <style>
 #patientDocumentModalOverlay .modal-box {
     max-width: 480px;
-    border-radius: 0;
     padding: 30px 34px;
 }
 
@@ -9419,11 +9362,7 @@ textarea.pd-sdoh-readonly {
 }
 
 .doc-form .form-input {
-    height: 37px;
-    padding: 0 12px;
-    border-radius: 0;
     border: 1px solid #dde3ec;
-    font-size: 13.5px;
     background: #fff;
     transition: border-color .12s, box-shadow .12s;
 }
@@ -9431,23 +9370,6 @@ textarea.pd-sdoh-readonly {
 .doc-form .form-input:focus {
     border-color: var(--accent, #4338ca);
     box-shadow: 0 0 0 3px var(--accent-lighter, rgba(67, 56, 202, .12));
-}
-
-.doc-form textarea.form-input {
-    height: auto;
-    padding: 9px 12px;
-    min-height: 60px;
-    resize: vertical;
-}
-
-.doc-form select.form-input {
-    appearance: none;
-    -webkit-appearance: none;
-    padding-right: 30px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 9px center;
-    background-size: 13px;
 }
 
 .doc-dropzone {
@@ -10614,17 +10536,13 @@ textarea.pd-sdoh-readonly {
 </div>
 
 <style>
+/* Sharp corners, compact tabs, and tightened form-input sizing now come
+   from the global .modal-box / .modal-tab / .modal-box .form-input rules
+   in main.css -- only this modal's genuine deltas from that default are
+   declared here. */
 #editPatientModalOverlay .modal-box {
     max-width: 820px;
-    border-radius: 0;
     padding: 32px 36px;
-    box-shadow: none;
-    border: 1px solid #e2e8f0;
-}
-
-#editPatientModalOverlay .modal-header h2 {
-    font-size: 20px;
-    letter-spacing: -.2px;
 }
 
 #editPatientModalOverlay .form-subtitle {
@@ -10633,22 +10551,11 @@ textarea.pd-sdoh-readonly {
 }
 
 #editPatientModalOverlay .modal-tabs {
-    gap: 2px;
-    margin: 0 0 20px;
-    border-bottom: 1px solid #e5e9f0;
-}
-
-#editPatientModalOverlay .modal-tab {
-    padding: 9px 13px;
-    font-size: 12.5px;
+    margin-top: 0;
 }
 
 #editPatientModalOverlay .form-input {
-    height: 37px;
-    padding: 0 12px;
-    border-radius: 0;
     border: 1px solid #dde3ec;
-    font-size: 13.5px;
     background: #fff;
     transition: border-color .12s, box-shadow .12s;
 }
@@ -10658,26 +10565,7 @@ textarea.pd-sdoh-readonly {
     box-shadow: 0 0 0 3px var(--accent-lighter, rgba(67, 56, 202, .12));
 }
 
-#editPatientModalOverlay textarea.form-input {
-    height: auto;
-    padding: 9px 12px;
-    min-height: 60px;
-    resize: vertical;
-}
-
-#editPatientModalOverlay select.form-input {
-    appearance: none;
-    -webkit-appearance: none;
-    padding-right: 30px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371809b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 9px center;
-    background-size: 13px;
-}
-
 :root[data-theme="dark"] #editPatientModalOverlay .modal-tabs { border-bottom-color: var(--border-color); }
-:root[data-theme="dark"] #editPatientModalOverlay .form-input { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
-:root[data-theme="dark"] #editPatientModalOverlay select.form-input { background-color: var(--bg-surface-alt); }
 </style>
 
 <div class="modal-overlay" id="editPatientModalOverlay">
