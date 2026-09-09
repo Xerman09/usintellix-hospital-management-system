@@ -1244,6 +1244,80 @@ export function PatientsListView(user)
     text-decoration: underline;
 }
 
+.pd-doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.pd-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #e5e9f0;
+    border-left: 3px solid #94a3b8;
+    border-radius: 6px;
+    background: #fbfcfe;
+    transition: border-color .12s ease;
+}
+
+.pd-doc-item:hover {
+    border-color: var(--accent);
+}
+
+.pd-doc-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #eef2f7;
+    color: #64748b;
+}
+
+.pd-doc-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.pd-doc-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.pd-doc-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent, #4338ca);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pd-doc-name:hover {
+    text-decoration: underline;
+}
+
+.pd-doc-meta {
+    font-size: 11px;
+    color: #8b98ac;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+:root[data-theme="dark"] .pd-doc-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-doc-icon { background: var(--bg-surface); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-doc-meta { color: var(--text-muted); }
+
 .pd-allergy-form {
     display: flex;
     gap: 6px;
@@ -4660,6 +4734,80 @@ textarea.pd-sdoh-readonly {
 .pd-allergy-remove:hover {
     text-decoration: underline;
 }
+
+.pd-doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.pd-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #e5e9f0;
+    border-left: 3px solid #94a3b8;
+    border-radius: 6px;
+    background: #fbfcfe;
+    transition: border-color .12s ease;
+}
+
+.pd-doc-item:hover {
+    border-color: var(--accent);
+}
+
+.pd-doc-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #eef2f7;
+    color: #64748b;
+}
+
+.pd-doc-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.pd-doc-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.pd-doc-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent, #4338ca);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pd-doc-name:hover {
+    text-decoration: underline;
+}
+
+.pd-doc-meta {
+    font-size: 11px;
+    color: #8b98ac;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+:root[data-theme="dark"] .pd-doc-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-doc-icon { background: var(--bg-surface); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-doc-meta { color: var(--text-muted); }
 
 .pd-allergy-form {
     display: flex;
@@ -9515,6 +9663,12 @@ textarea.pd-sdoh-readonly {
         <div id="patientDocumentFormAlert"></div>
 
         <form id="patientDocumentForm" class="doc-form">
+            <div class="doc-field">
+                <label>Title</label>
+                <input type="text" id="patientDocument_title" class="form-input" placeholder="e.g. CBC Lab Result - Sep 2026" maxlength="255">
+                <span class="form-error" id="err-patientDocument_title"></span>
+            </div>
+
             <div class="doc-field">
                 <label>File</label>
                 <div class="doc-dropzone" id="patientDocumentDropzone">

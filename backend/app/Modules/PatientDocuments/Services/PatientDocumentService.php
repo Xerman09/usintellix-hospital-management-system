@@ -30,7 +30,7 @@ class PatientDocumentService
     public function listForPatient(int $patientId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT pd.id, pd.category, pd.original_filename, pd.file_path, pd.mime_type, pd.file_size,
+            "SELECT pd.id, pd.category, pd.title, pd.original_filename, pd.file_path, pd.mime_type, pd.file_size,
                     pd.description, pd.created_at,
                     COALESCE(NULLIF(TRIM(CONCAT(emp.first_name, ' ', emp.last_name)), ''), u.username) AS uploaded_by_name
              FROM patient_documents pd
@@ -89,6 +89,10 @@ class PatientDocumentService
             return ['success' => false, 'message' => 'No file was uploaded.'];
         }
 
+        if (empty(trim($data['title'] ?? ''))) {
+            return ['success' => false, 'message' => 'Title is required.', 'errors' => ['title' => 'Title is required.']];
+        }
+
         $mimeType = mime_content_type($file['tmp_name']);
 
         if (!isset(self::ALLOWED_TYPES[$mimeType])) {
@@ -116,6 +120,7 @@ class PatientDocumentService
         $id = (new PatientDocument())->create([
             'patient_id' => $patientId,
             'category' => $data['category'] ?: null,
+            'title' => trim($data['title']),
             'original_filename' => $file['name'],
             'stored_filename' => $storedFilename,
             'file_path' => '/uploads/patient_documents/' . $storedFilename,

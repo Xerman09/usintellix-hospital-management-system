@@ -68,12 +68,12 @@ class PatientDocumentController extends Controller
         $result = $this->patientDocumentService->upload(
             $patientId,
             $files['file'] ?? [],
-            $request->only(['category', 'description']),
+            $request->only(['title', 'category', 'description']),
             (int) $user['id']
         );
 
         if (!$result['success']) {
-            $this->error($result['message'], 422);
+            $this->error($result['message'], 422, $result['errors'] ?? null);
             return;
         }
 

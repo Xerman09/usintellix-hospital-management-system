@@ -5458,17 +5458,33 @@ function renderDashboardDocuments(documents)
     }
 
     body.innerHTML = documents.length
-        ? `<div class="pd-allergy-list">
-            ${documents.map((doc) => `
-                <div class="pd-allergy-item">
-                    <span class="pd-allergy-name">
-                        <a href="${API_URL}${doc.file_path}" target="_blank" rel="noopener">${escapeHtml(doc.original_filename)}</a>
-                        ${doc.category ? ` &middot; ${escapeHtml(doc.category)}` : ""} &middot; ${escapeHtml((doc.created_at || "").slice(0, 10) || "-")} &middot; ${formatDocumentFileSize(doc.file_size)}
-                        ${doc.uploaded_by_name ? ` &middot; by ${escapeHtml(doc.uploaded_by_name)}` : ""}
-                    </span>
+        ? `<div class="pd-doc-list">
+            ${documents.map((doc) => {
+                const metaParts = [
+                    doc.category,
+                    formatDate(doc.created_at) || "-",
+                    formatDocumentFileSize(doc.file_size),
+                    doc.uploaded_by_name ? `by ${doc.uploaded_by_name}` : ""
+                ].filter(Boolean);
+
+                // Legacy documents uploaded before the title field existed
+                // have no doc.title -- fall back to the raw filename rather
+                // than showing a blank name.
+                const displayName = doc.title || doc.original_filename;
+
+                return `
+                <div class="pd-doc-item">
+                    <div class="pd-doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
+                    </div>
+                    <div class="pd-doc-main">
+                        <a class="pd-doc-name" href="${API_URL}${doc.file_path}" target="_blank" rel="noopener" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</a>
+                        <span class="pd-doc-meta">${escapeHtml(metaParts.join(" · "))}</span>
+                    </div>
                     <button type="button" class="pd-allergy-remove" data-delete-doc-id="${doc.id}" title="Delete document">&times;</button>
                 </div>
-            `).join("")}
+                `;
+            }).join("")}
            </div>`
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
@@ -5493,6 +5509,7 @@ function renderDashboardDocuments(documents)
 function openDocumentUploadModal()
 {
     document.getElementById("patientDocumentFormAlert").innerHTML = "";
+    document.getElementById("err-patientDocument_title").textContent = "";
     document.getElementById("patientDocumentForm").reset();
     showSelectedDocumentFile(null);
     document.getElementById("patientDocumentModalOverlay").classList.add("open");
@@ -5589,6 +5606,15 @@ function setupDocumentUploadModal()
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
+        document.getElementById("err-patientDocument_title").textContent = "";
+
+        const title = document.getElementById("patientDocument_title").value.trim();
+
+        if (!title) {
+            document.getElementById("err-patientDocument_title").textContent = "Title is required.";
+            return;
+        }
+
         const fileInput = document.getElementById("patientDocument_file");
         const file = fileInput.files[0];
 
@@ -5598,6 +5624,7 @@ function setupDocumentUploadModal()
         }
 
         const details = {
+            title,
             category: document.getElementById("patientDocument_category").value,
             description: document.getElementById("patientDocument_description").value.trim()
         };
@@ -5606,6 +5633,11 @@ function setupDocumentUploadModal()
 
         if (!result.success) {
             showAlert("patientDocumentFormAlert", result.message || "Failed to upload document.", "error");
+
+            if (result.errors?.title) {
+                document.getElementById("err-patientDocument_title").textContent = result.errors.title;
+            }
+
             return;
         }
 

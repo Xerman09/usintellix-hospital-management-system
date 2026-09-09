@@ -13,6 +13,7 @@ export async function uploadPatientDocument(patientId, file, details = {})
 
     formData.append("patient_id", patientId);
     formData.append("file", file);
+    formData.append("title", details.title || "");
     formData.append("category", details.category || "");
     formData.append("description", details.description || "");
 
