@@ -2,6 +2,7 @@
 
 namespace App\Modules\VisitTypes\Services;
 
+use App\Core\Cache;
 use App\Core\Database;
 use App\Modules\VisitTypes\Models\VisitType;
 use PDO;
@@ -10,21 +11,26 @@ use Throwable;
 
 class VisitTypeService
 {
+    private const CACHE_KEY = 'visit_types:list';
+
     /**
-     * List all active (non-deleted) visit types.
+     * List all active (non-deleted) visit types, cached since this lookup
+     * table rarely changes and is fetched on every encounter form load.
      */
     public function list(): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT id, type, description, created_at, updated_at
-             FROM visit_types
-             WHERE deleted_at IS NULL
-             ORDER BY type"
-        );
+        return Cache::remember(self::CACHE_KEY, 3600, function () {
+            $stmt = Database::connection()->prepare(
+                "SELECT id, type, description, created_at, updated_at
+                 FROM visit_types
+                 WHERE deleted_at IS NULL
+                 ORDER BY type"
+            );
 
-        $stmt->execute();
+            $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        });
     }
 
     /**
@@ -53,6 +59,8 @@ class VisitTypeService
             if (!$visitTypeId) {
                 throw new \RuntimeException('Failed to create visit type record.');
             }
+
+            Cache::forget(self::CACHE_KEY);
 
             return [
                 'success' => true,
@@ -121,6 +129,8 @@ class VisitTypeService
                 ];
             }
 
+            Cache::forget(self::CACHE_KEY);
+
             return [
                 'success' => true,
                 'message' => 'Visit type updated successfully.'
@@ -166,6 +176,8 @@ class VisitTypeService
             'deleted_by' => $deletedBy,
             'id'         => $id
         ]);
+
+        Cache::forget(self::CACHE_KEY);
 
         return [
             'success' => true,

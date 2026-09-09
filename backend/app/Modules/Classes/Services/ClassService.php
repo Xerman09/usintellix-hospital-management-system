@@ -2,6 +2,7 @@
 
 namespace App\Modules\Classes\Services;
 
+use App\Core\Cache;
 use App\Core\Database;
 use App\Modules\Classes\Models\ClassModel;
 use PDO;
@@ -10,21 +11,26 @@ use Throwable;
 
 class ClassService
 {
+    private const CACHE_KEY = 'classes:list';
+
     /**
-     * List all active (non-deleted) classes.
+     * List all active (non-deleted) classes, cached since this lookup
+     * table rarely changes and is fetched on every encounter form load.
      */
     public function list(): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT id, name, description, created_at, updated_at
-             FROM classes
-             WHERE deleted_at IS NULL
-             ORDER BY name"
-        );
+        return Cache::remember(self::CACHE_KEY, 3600, function () {
+            $stmt = Database::connection()->prepare(
+                "SELECT id, name, description, created_at, updated_at
+                 FROM classes
+                 WHERE deleted_at IS NULL
+                 ORDER BY name"
+            );
 
-        $stmt->execute();
+            $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        });
     }
 
     /**
@@ -53,6 +59,8 @@ class ClassService
             if (!$classId) {
                 throw new \RuntimeException('Failed to create class record.');
             }
+
+            Cache::forget(self::CACHE_KEY);
 
             return [
                 'success' => true,
@@ -121,6 +129,8 @@ class ClassService
                 ];
             }
 
+            Cache::forget(self::CACHE_KEY);
+
             return [
                 'success' => true,
                 'message' => 'Class updated successfully.'
@@ -166,6 +176,8 @@ class ClassService
             'deleted_by' => $deletedBy,
             'id'         => $id
         ]);
+
+        Cache::forget(self::CACHE_KEY);
 
         return [
             'success' => true,

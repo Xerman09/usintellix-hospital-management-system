@@ -2,6 +2,7 @@
 
 namespace App\Modules\VisitCategories\Services;
 
+use App\Core\Cache;
 use App\Core\Database;
 use App\Modules\VisitCategories\Models\VisitCategory;
 use PDO;
@@ -9,21 +10,27 @@ use Throwable;
 
 class VisitCategoryService
 {
+    private const CACHE_KEY = 'visit_categories:list';
+
     /**
-     * List all active (non-deleted) visit categories.
+     * List all active (non-deleted) visit categories, cached since this
+     * lookup table rarely changes and is fetched on every encounter form
+     * load.
      */
     public function list(): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT id, name, description, created_at, updated_at
-             FROM visit_categories
-             WHERE deleted_at IS NULL
-             ORDER BY name"
-        );
+        return Cache::remember(self::CACHE_KEY, 3600, function () {
+            $stmt = Database::connection()->prepare(
+                "SELECT id, name, description, created_at, updated_at
+                 FROM visit_categories
+                 WHERE deleted_at IS NULL
+                 ORDER BY name"
+            );
 
-        $stmt->execute();
+            $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        });
     }
 
     /**
@@ -52,6 +59,8 @@ class VisitCategoryService
             if (!$categoryId) {
                 throw new \RuntimeException('Failed to create visit category record.');
             }
+
+            Cache::forget(self::CACHE_KEY);
 
             return [
                 'success' => true,
@@ -106,6 +115,8 @@ class VisitCategoryService
             ];
         }
 
+        Cache::forget(self::CACHE_KEY);
+
         return [
             'success' => true,
             'message' => 'Visit category updated successfully.'
@@ -137,6 +148,8 @@ class VisitCategoryService
             'deleted_by' => $deletedBy,
             'id'         => $id
         ]);
+
+        Cache::forget(self::CACHE_KEY);
 
         return [
             'success' => true,

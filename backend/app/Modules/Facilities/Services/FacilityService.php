@@ -2,6 +2,7 @@
 
 namespace App\Modules\Facilities\Services;
 
+use App\Core\Cache;
 use App\Core\Database;
 use App\Modules\Facilities\Models\Facility;
 use App\Modules\OrganizationTypes\Models\OrganizationType;
@@ -12,6 +13,8 @@ use Throwable;
 
 class FacilityService
 {
+    private const CACHE_KEY = 'facilities:list';
+
     private const FIELDS = [
         'name',
         'physical_address_line1', 'physical_city', 'physical_state', 'physical_zip', 'physical_country',
@@ -33,23 +36,27 @@ class FacilityService
 
     /**
      * List all active (non-deleted) facilities, with related lookup names.
+     * Cached since this lookup table rarely changes and is fetched on
+     * every encounter form load.
      */
     public function list(): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT f.*,
-                    ot.name AS organization_type_name,
-                    pc.code AS pos_code_code, pc.name AS pos_code_name
-             FROM facilities f
-             LEFT JOIN organization_types ot ON ot.id = f.organization_type_id
-             LEFT JOIN pos_codes pc ON pc.id = f.pos_code_id
-             WHERE f.deleted_at IS NULL
-             ORDER BY f.name"
-        );
+        return Cache::remember(self::CACHE_KEY, 3600, function () {
+            $stmt = Database::connection()->prepare(
+                "SELECT f.*,
+                        ot.name AS organization_type_name,
+                        pc.code AS pos_code_code, pc.name AS pos_code_name
+                 FROM facilities f
+                 LEFT JOIN organization_types ot ON ot.id = f.organization_type_id
+                 LEFT JOIN pos_codes pc ON pc.id = f.pos_code_id
+                 WHERE f.deleted_at IS NULL
+                 ORDER BY f.name"
+            );
 
-        $stmt->execute();
+            $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        });
     }
 
     /**
@@ -79,6 +86,8 @@ class FacilityService
             if (!$facilityId) {
                 throw new \RuntimeException('Failed to create facility record.');
             }
+
+            Cache::forget(self::CACHE_KEY);
 
             return [
                 'success' => true,
@@ -148,6 +157,8 @@ class FacilityService
                 ];
             }
 
+            Cache::forget(self::CACHE_KEY);
+
             return [
                 'success' => true,
                 'message' => 'Facility updated successfully.'
@@ -193,6 +204,8 @@ class FacilityService
             'deleted_by' => $deletedBy,
             'id'         => $id
         ]);
+
+        Cache::forget(self::CACHE_KEY);
 
         return [
             'success' => true,
