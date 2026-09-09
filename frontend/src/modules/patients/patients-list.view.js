@@ -887,7 +887,7 @@ export function PatientsListView(user)
 }
 
 .pd-demo-tab {
-    padding: 8px 12px;
+    padding: 9px 13px;
     border: none;
     background: none;
     font-size: 12px;
@@ -896,6 +896,7 @@ export function PatientsListView(user)
     cursor: pointer;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
+    transition: color .12s, border-color .12s;
 }
 
 .pd-demo-tab:hover {
@@ -910,13 +911,16 @@ export function PatientsListView(user)
 .pd-demo-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px 28px;
+    gap: 10px;
 }
 
 .pd-demo-field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 1px solid #eef1f6;
+    background: #fbfcfe;
 }
 
 .pd-demo-label {
@@ -929,10 +933,12 @@ export function PatientsListView(user)
 
 .pd-demo-value {
     font-size: 13.5px;
+    font-weight: 600;
     color: #25324b;
 }
 
 .pd-demo-value.empty {
+    font-weight: 400;
     color: #c3cbd9;
     font-style: italic;
 }
@@ -1027,6 +1033,7 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-widget-header { border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .pd-demo-tabs { border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .pd-demo-tab { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-demo-field { background: var(--bg-surface-alt); border-color: var(--border-color); }
 :root[data-theme="dark"] .pd-demo-label { color: var(--text-muted); }
 :root[data-theme="dark"] .pd-demo-value { color: var(--text-primary); }
 :root[data-theme="dark"] .pd-allergy-item,
@@ -4264,7 +4271,7 @@ textarea.pd-sdoh-readonly {
 }
 
 .pd-demo-tab {
-    padding: 8px 12px;
+    padding: 9px 13px;
     border: none;
     background: none;
     font-size: 12px;
@@ -4273,6 +4280,7 @@ textarea.pd-sdoh-readonly {
     cursor: pointer;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
+    transition: color .12s, border-color .12s;
 }
 
 .pd-demo-tab:hover {
@@ -4287,13 +4295,16 @@ textarea.pd-sdoh-readonly {
 .pd-demo-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px 28px;
+    gap: 10px;
 }
 
 .pd-demo-field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 1px solid #eef1f6;
+    background: #fbfcfe;
 }
 
 .pd-demo-label {
@@ -4306,10 +4317,12 @@ textarea.pd-sdoh-readonly {
 
 .pd-demo-value {
     font-size: 13.5px;
+    font-weight: 600;
     color: #25324b;
 }
 
 .pd-demo-value.empty {
+    font-weight: 400;
     color: #c3cbd9;
     font-style: italic;
 }
@@ -4404,6 +4417,7 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-widget-header { border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .pd-demo-tabs { border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .pd-demo-tab { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-demo-field { background: var(--bg-surface-alt); border-color: var(--border-color); }
 :root[data-theme="dark"] .pd-demo-label { color: var(--text-muted); }
 :root[data-theme="dark"] .pd-demo-value { color: var(--text-primary); }
 :root[data-theme="dark"] .pd-allergy-item,
@@ -4816,6 +4830,7 @@ textarea.pd-sdoh-readonly {
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h16M9 4v16"></path></svg>
                                 <h3>Demographics</h3>
                             </div>
+                            <button type="button" class="pd-widget-add" id="pdDemoEditBtn">Edit</button>
                         </div>
                         <div class="pd-demo-tabs" id="pdDemoTabs">
                             <button type="button" class="pd-demo-tab active" data-demo-tab="who">Who</button>

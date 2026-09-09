@@ -293,6 +293,18 @@ let currentEditPatient = null;
 let activeDemoTab = "who";
 let dashboardRelatedPersons = [];
 
+// Maps the Demographics widget's tab names to the Edit Patient modal's
+// tab names, so its "Edit" button can jump straight to the matching tab.
+// "who" has no entry: it maps to the edit modal's default active tab.
+const DEMO_TAB_TO_EDIT_TAB = {
+    contact: "contact",
+    choices: "choices",
+    employer: "employer",
+    stats: "stats",
+    misc: "misc",
+    related: "related_persons"
+};
+
 // Which CCD report layout ("ccd" or "ccd_detailed") was generated most
 // recently, so the Download button can re-render and print the same one
 // the user was just looking at instead of always defaulting to one format.
@@ -2608,6 +2620,25 @@ export async function initPatientChartTab(patient)
     document.getElementById("pdEditDemographicsBtn").addEventListener("click", () => {
         if (currentDashboardPatient) {
             openEditModal(currentDashboardPatient);
+        }
+    });
+
+    // Edit on the Demographics widget jumps into the Edit Patient modal's
+    // matching tab, so editing the "Contact" panel you're already looking
+    // at doesn't dump you back on Basic Info.
+    document.getElementById("pdDemoEditBtn").addEventListener("click", () => {
+        if (!currentDashboardPatient) {
+            return;
+        }
+
+        openEditModal(currentDashboardPatient);
+
+        const editModalBox = document.getElementById("editPatientModalOverlay").querySelector(".modal-box");
+        const targetTab = DEMO_TAB_TO_EDIT_TAB[activeDemoTab];
+        const tabBtn = targetTab && editModalBox.querySelector(`.modal-tab[data-tab="${targetTab}"]`);
+
+        if (tabBtn) {
+            tabBtn.click();
         }
     });
 
