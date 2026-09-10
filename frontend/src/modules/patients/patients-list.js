@@ -9,6 +9,7 @@ import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7"
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
+import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import { PatientChartView } from "./patients-list.view.js?v=50";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
@@ -1686,6 +1687,7 @@ function showChartSection(key)
     const encounterSummaryPanel = document.getElementById("pdEncounterSummaryPanel");
     const ledgerPanel = document.getElementById("pdLedgerPanel");
     const documentsPanel = document.getElementById("pdDocumentsPanel");
+    const externalDataPanel = document.getElementById("pdExternalDataPanel");
 
     widgetGrid.style.display = "none";
     placeholder.style.display = "none";
@@ -1698,6 +1700,7 @@ function showChartSection(key)
     encounterSummaryPanel.style.display = "none";
     ledgerPanel.style.display = "none";
     documentsPanel.style.display = "none";
+    externalDataPanel.style.display = "none";
 
     if (key === "dashboard") {
         widgetGrid.style.display = "";
@@ -1737,6 +1740,11 @@ function showChartSection(key)
         documentsPanel.style.display = "block";
         if (currentDashboardPatient) {
             loadDocumentsPanel(currentDashboardPatient);
+        }
+    } else if (key === "external_data") {
+        externalDataPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            loadExternalDataPanel(currentDashboardPatient);
         }
     } else {
         document.getElementById("pdChartPlaceholderTitle").textContent = CHART_NAV_LABELS[key] || "Section";
@@ -2669,6 +2677,7 @@ export async function initPatientChartTab(patient)
     setupVitalsModal();
     setupLedgerPanel();
     setupDocumentUploadModal();
+    setupExternalDataUploadModal();
     setupPrescriptionModals();
     setupDisclosureModals();
     setupMessageModals();
@@ -5741,6 +5750,71 @@ function renderDocumentsPanelTable(documents)
     });
 }
 
+/**
+ * The "External Data" chart-nav section: records/documents received
+ * about this patient from an outside source (another provider, a Health
+ * Information Exchange) rather than uploaded by staff.
+ */
+async function loadExternalDataPanel(patient)
+{
+    const tbody = document.getElementById("pdExternalDataPanelTableBody");
+
+    if (!tbody) {
+        return;
+    }
+
+    try {
+        const result = await fetchPatientExternalData(patient.id);
+
+        renderExternalDataPanelTable(result.success ? result.data : []);
+    } catch (error) {
+        console.error("Failed to load external data", error);
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Unable to load external data right now.</td></tr>`;
+    }
+}
+
+function renderExternalDataPanelTable(records)
+{
+    const tbody = document.getElementById("pdExternalDataPanelTableBody");
+
+    if (!tbody) {
+        return;
+    }
+
+    if (!records.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No external data recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = records.map((record) => `
+        <tr>
+            <td><a href="${API_URL}${record.file_path}" target="_blank" rel="noopener">${escapeHtml(record.title)}</a></td>
+            <td>${escapeHtml(record.source_name)}</td>
+            <td>${escapeHtml(record.document_type || "-")}</td>
+            <td>${escapeHtml(formatDate(record.received_at) || "-")}</td>
+            <td>${escapeHtml(formatDocumentFileSize(record.file_size))}</td>
+            <td>${escapeHtml(record.added_by_name || "-")}</td>
+            <td class="table-actions">
+                <button class="btn-danger" data-delete-external-data-id="${record.id}">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-delete-external-data-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Delete this external data record?")) {
+                return;
+            }
+
+            const result = await deletePatientExternalData(btn.getAttribute("data-delete-external-data-id"), currentDashboardPatient.id);
+
+            if (result.success) {
+                loadExternalDataPanel(currentDashboardPatient);
+            }
+        });
+    });
+}
+
 function openDocumentUploadModal()
 {
     document.getElementById("patientDocumentFormAlert").innerHTML = "";
@@ -5763,6 +5837,145 @@ function showSelectedDocumentFile(file)
         document.getElementById("patientDocumentFileName").textContent = file.name;
         document.getElementById("patientDocumentFileSize").textContent = formatDocumentFileSize(file.size);
     }
+}
+
+function openExternalDataUploadModal()
+{
+    document.getElementById("patientExternalDataFormAlert").innerHTML = "";
+    document.getElementById("err-externalData_title").textContent = "";
+    document.getElementById("err-externalData_source_name").textContent = "";
+    document.getElementById("patientExternalDataForm").reset();
+    showSelectedExternalDataFile(null);
+    document.getElementById("patientExternalDataModalOverlay").classList.add("open");
+}
+
+/**
+ * Toggle the Add External Data dropzone between its empty state and the
+ * selected-file preview (name + size + remove button).
+ */
+function showSelectedExternalDataFile(file)
+{
+    document.getElementById("externalDataDropzoneEmpty").hidden = !!file;
+    document.getElementById("externalDataDropzoneFile").hidden = !file;
+
+    if (file) {
+        document.getElementById("externalDataFileName").textContent = file.name;
+        document.getElementById("externalDataFileSize").textContent = formatDocumentFileSize(file.size);
+    }
+}
+
+function setupExternalDataUploadModal()
+{
+    const formOverlay = document.getElementById("patientExternalDataModalOverlay");
+    const form = document.getElementById("patientExternalDataForm");
+
+    const closeForm = () => formOverlay.classList.remove("open");
+
+    document.getElementById("pdExternalDataPanelAddBtn").addEventListener("click", openExternalDataUploadModal);
+    document.getElementById("closePatientExternalDataModal").addEventListener("click", closeForm);
+    document.getElementById("cancelPatientExternalDataForm").addEventListener("click", closeForm);
+    formOverlay.addEventListener("click", (event) => {
+        if (event.target === formOverlay) {
+            closeForm();
+        }
+    });
+
+    const dropzone = document.getElementById("externalDataDropzone");
+    const fileInput = document.getElementById("externalData_file");
+
+    fileInput.addEventListener("change", () => {
+        showSelectedExternalDataFile(fileInput.files[0] || null);
+    });
+
+    document.getElementById("externalDataFileRemove").addEventListener("click", (event) => {
+        event.preventDefault();
+        fileInput.value = "";
+        showSelectedExternalDataFile(null);
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropzone.classList.add("drag-over");
+        });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("drag-over");
+        });
+    });
+
+    dropzone.addEventListener("drop", (event) => {
+        const file = event.dataTransfer.files[0];
+
+        if (file) {
+            fileInput.files = event.dataTransfer.files;
+            showSelectedExternalDataFile(file);
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("err-externalData_title").textContent = "";
+        document.getElementById("err-externalData_source_name").textContent = "";
+
+        const title = document.getElementById("externalData_title").value.trim();
+        const sourceName = document.getElementById("externalData_source_name").value.trim();
+
+        let hasError = false;
+
+        if (!title) {
+            document.getElementById("err-externalData_title").textContent = "Title is required.";
+            hasError = true;
+        }
+
+        if (!sourceName) {
+            document.getElementById("err-externalData_source_name").textContent = "Source is required.";
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        const fileInput = document.getElementById("externalData_file");
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showAlert("patientExternalDataFormAlert", "Please choose a file to upload.", "error");
+            return;
+        }
+
+        const details = {
+            title,
+            source_name: sourceName,
+            document_type: document.getElementById("externalData_document_type").value.trim(),
+            received_at: document.getElementById("externalData_received_at").value,
+            description: document.getElementById("externalData_description").value.trim()
+        };
+
+        const result = await uploadPatientExternalData(currentDashboardPatient.id, file, details);
+
+        if (!result.success) {
+            showAlert("patientExternalDataFormAlert", result.message || "Failed to save external data.", "error");
+
+            if (result.errors?.title) {
+                document.getElementById("err-externalData_title").textContent = result.errors.title;
+            }
+
+            if (result.errors?.source_name) {
+                document.getElementById("err-externalData_source_name").textContent = result.errors.source_name;
+            }
+
+            return;
+        }
+
+        closeForm();
+        await loadExternalDataPanel(currentDashboardPatient);
+    });
 }
 
 function setupPatientRecordRequestModal()

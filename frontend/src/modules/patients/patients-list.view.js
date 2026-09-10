@@ -5758,6 +5758,37 @@ textarea.pd-sdoh-readonly {
                     </div>
                 </div>
 
+                <div class="pd-transactions-panel" id="pdExternalDataPanel" style="display: none;">
+                    <div class="pd-report-card-header">
+                        <h2>External Data</h2>
+                        <div class="pd-report-header-actions">
+                            <button type="button" class="pd-report-btn" id="pdExternalDataPanelAddBtn">+ Add External Data</button>
+                        </div>
+                    </div>
+                    <p class="form-subtitle">Records received about this patient from another provider or a Health Information Exchange (HIE).</p>
+
+                    <div id="pdExternalDataPanelAlert"></div>
+
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Source</th>
+                                    <th>Type</th>
+                                    <th>Received</th>
+                                    <th>Size</th>
+                                    <th>Added By</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdExternalDataPanelTableBody">
+                                <tr><td colspan="7" class="table-empty">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="pd-transactions-panel" id="pdVisitHistoryPanel" style="display: none;">
                     <div class="pd-report-card-header">
                         <h2>Visit History</h2>
@@ -9534,6 +9565,16 @@ textarea.pd-sdoh-readonly {
     letter-spacing: -.2px;
 }
 
+#patientExternalDataModalOverlay .modal-box {
+    max-width: 480px;
+    padding: 30px 34px;
+}
+
+#patientExternalDataModalOverlay .modal-header h2 {
+    font-size: 19px;
+    letter-spacing: -.2px;
+}
+
 .doc-field {
     margin-bottom: 16px;
 }
@@ -9747,6 +9788,71 @@ textarea.pd-sdoh-readonly {
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelPatientDocumentForm">Cancel</button>
                 <button class="login-btn" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="patientExternalDataModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Add External Data</h2>
+            <button type="button" class="modal-close" id="closePatientExternalDataModal">&times;</button>
+        </div>
+
+        <div id="patientExternalDataFormAlert"></div>
+
+        <form id="patientExternalDataForm" class="doc-form">
+            <div class="doc-field">
+                <label>Title</label>
+                <input type="text" id="externalData_title" class="form-input" placeholder="e.g. CCD from City General Hospital" maxlength="255">
+                <span class="form-error" id="err-externalData_title"></span>
+            </div>
+
+            <div class="doc-field">
+                <label>Source</label>
+                <input type="text" id="externalData_source_name" class="form-input" placeholder="e.g. Regional HIE, City General Hospital" maxlength="150">
+                <span class="form-error" id="err-externalData_source_name"></span>
+            </div>
+
+            <div class="doc-field">
+                <label>File</label>
+                <div class="doc-dropzone" id="externalDataDropzone">
+                    <input type="file" id="externalData_file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.xml">
+                    <div class="doc-dropzone-empty" id="externalDataDropzoneEmpty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M17 8l-5-5-5 5"></path><path d="M12 3v12"></path></svg>
+                        <span class="doc-dropzone-title"><span>Click to upload</span> or drag and drop</span>
+                        <span class="doc-dropzone-hint">PDF, image, Word, Excel, or CCD/XML file</span>
+                    </div>
+                    <div class="doc-dropzone-file" id="externalDataDropzoneFile" hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
+                        <div class="doc-dropzone-file-info">
+                            <span class="doc-dropzone-file-name" id="externalDataFileName"></span>
+                            <span class="doc-dropzone-file-size" id="externalDataFileSize"></span>
+                        </div>
+                        <button type="button" class="doc-dropzone-remove" id="externalDataFileRemove" aria-label="Remove file">&times;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="doc-field">
+                <label>Document Type</label>
+                <input type="text" id="externalData_document_type" class="form-input" placeholder="e.g. CCD, Discharge Summary, Lab Result" maxlength="100">
+            </div>
+
+            <div class="doc-field">
+                <label>Received Date</label>
+                <input type="date" id="externalData_received_at" class="form-input">
+            </div>
+
+            <div class="doc-field" style="margin-bottom: 0;">
+                <label>Description</label>
+                <textarea id="externalData_description" class="form-input" rows="3" placeholder="Optional notes about this record"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelPatientExternalDataForm">Cancel</button>
+                <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
     </div>
