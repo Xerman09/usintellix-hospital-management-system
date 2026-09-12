@@ -37,10 +37,33 @@ export function BillingView() {
     color: #0f172a;
 }
 
+.prof-section-title-modern {
+    margin-bottom: 24px;
+    font-size: 18px;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.prof-patient-subtitle {
+    margin: 4px 0 0 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.billing-label {
+    font-weight: 600;
+    color: #64748b;
+    font-size: 12px;
+    display: block;
+    margin-bottom: 6px;
+}
+
 :root[data-theme="dark"] .prof-page-modern { color: var(--text-primary); }
 :root[data-theme="dark"] .prof-card-modern { background: var(--bg-surface); border-color: var(--border-color); }
 :root[data-theme="dark"] .prof-header-modern { border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .prof-header-modern h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .prof-section-title-modern { color: var(--text-primary); }
+:root[data-theme="dark"] .billing-label { color: var(--text-muted); }
 </style>
 
 <div class="prof-page-modern">
@@ -48,19 +71,19 @@ export function BillingView() {
         <div class="prof-header-modern">
             <div>
                 <h1>${name}</h1>
-                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">Patient No: ${user.patient_no || 'N/A'}</p>
+                <p class="prof-patient-subtitle">Patient No: ${user.patient_no || 'N/A'}</p>
             </div>
         </div>
-        
+
         <div>
-            <h2 style="margin-bottom: 24px; font-size: 18px; color: #0f172a; font-weight: 600;">Patient Billing Summary</h2>
+            <h2 class="prof-section-title-modern">Patient Billing Summary</h2>
             <form id="billingSummaryForm" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-weight: 600; color: #64748b; font-size: 12px; display: block; margin-bottom: 6px;">FROM</label>
+                    <label class="billing-label">FROM</label>
                     <input type="date" id="billing_from" class="form-input" style="width: 150px;">
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-weight: 600; color: #64748b; font-size: 12px; display: block; margin-bottom: 6px;">TO</label>
+                    <label class="billing-label">TO</label>
                     <input type="date" id="billing_to" class="form-input" style="width: 150px;">
                 </div>
                 <button type="submit" class="login-btn" style="padding: 10px 24px; height: auto;">Submit</button>
