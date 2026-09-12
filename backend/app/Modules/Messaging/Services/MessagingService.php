@@ -6,6 +6,8 @@ use App\Core\Database;
 use App\Modules\Messaging\Models\Conversation;
 use App\Modules\Messaging\Models\ConversationParticipant;
 use App\Modules\Messaging\Models\Message;
+use App\Modules\Patients\Models\Patient;
+use App\Modules\Providers\Services\ProviderService;
 use PDO;
 
 class MessagingService
@@ -16,6 +18,13 @@ class MessagingService
             NULLIF(TRIM(CONCAT(sp.first_name, ' ', sp.last_name)), ''),
             su.username
         )";
+
+    private ProviderService $providerService;
+
+    public function __construct()
+    {
+        $this->providerService = new ProviderService();
+    }
 
     /**
      * List the conversations the given user participates in, most
@@ -190,11 +199,19 @@ class MessagingService
     }
 
     /**
-     * Users available to start a new conversation with (everyone but
-     * the current user).
+     * Users available to start a new conversation with. Staff get
+     * everyone (minus themselves) as before; a patient only gets their
+     * own care team — their assigned provider plus front-desk staff —
+     * rather than the entire user directory.
      */
-    public function listRecipients(int $userId): array
+    public function listRecipients(array $user): array
     {
+        $userId = (int) $user['id'];
+
+        if (($user['role'] ?? '') === 'patient') {
+            return $this->listCareTeamRecipients($userId);
+        }
+
         $stmt = Database::connection()->prepare(
             "SELECT u.id,
                     COALESCE(r.name, 'patient') AS role,
@@ -212,6 +229,38 @@ class MessagingService
         );
 
         $stmt->execute(['user_id' => $userId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * A patient's own care team: their assigned provider (if any) plus
+     * every receptionist, for general/administrative questions when no
+     * provider is assigned or the question isn't clinical. Deliberately
+     * excludes every other doctor, admin, and patient in the system.
+     */
+    private function listCareTeamRecipients(int $userId): array
+    {
+        $patient = (new Patient())->where('user_id', $userId)->first();
+        $providerUserId = 0;
+
+        if ($patient && !empty($patient['provider_id'])) {
+            $providerUserId = $this->providerService->findUserIdByProviderId((int) $patient['provider_id']) ?? 0;
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT u.id,
+                    COALESCE(r.name, 'staff') AS role,
+                    COALESCE(NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), ''), u.username) AS display_name
+             FROM users u
+             LEFT JOIN roles r ON r.id = u.role_id
+             LEFT JOIN employees e ON e.user_id = u.id AND e.deleted_at IS NULL
+             WHERE u.deleted_at IS NULL
+               AND (u.id = :provider_user_id OR r.name = 'receptionist')
+             ORDER BY display_name"
+        );
+
+        $stmt->execute(['provider_user_id' => $providerUserId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

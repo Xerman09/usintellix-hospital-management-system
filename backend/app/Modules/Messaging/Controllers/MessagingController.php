@@ -39,6 +39,11 @@ class MessagingController extends Controller
 
     /**
      * Create a new conversation. Body: { participant_ids: [...], subject? }
+     * A patient may only start a conversation with someone on their own
+     * care team (their assigned provider + receptionists) — the recipient
+     * picker already only offers those, but that's a UI convenience, not
+     * a security boundary, so it's enforced again here against whatever
+     * the client actually submits.
      */
     public function store(): void
     {
@@ -50,6 +55,23 @@ class MessagingController extends Controller
         if (!is_array($participantIds)) {
             $this->error('participant_ids must be an array.', 422);
             return;
+        }
+
+        if (($user['role'] ?? '') === 'patient') {
+            $allowedIds = array_map(
+                fn(array $recipient): int => (int) $recipient['id'],
+                $this->messagingService->listRecipients($user)
+            );
+
+            $participantIds = array_values(array_intersect(
+                array_map('intval', $participantIds),
+                $allowedIds
+            ));
+
+            if (empty($participantIds)) {
+                $this->error('You can only message your care team.', 403);
+                return;
+            }
         }
 
         $result = $this->messagingService->createConversation(
@@ -88,7 +110,7 @@ class MessagingController extends Controller
     {
         $user = Session::get('user');
 
-        $recipients = $this->messagingService->listRecipients((int) $user['id']);
+        $recipients = $this->messagingService->listRecipients($user);
 
         $this->success($recipients, 'Recipients retrieved successfully.');
     }
