@@ -55,6 +55,27 @@ class ProviderService
     }
 
     /**
+     * Find the user_id (login account) behind a provider record, e.g. to
+     * route a patient-initiated message to that provider's inbox.
+     */
+    public function findUserIdByProviderId(int $providerId): ?int
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT e.user_id
+             FROM providers p
+             JOIN employees e ON e.id = p.employee_id
+             WHERE p.id = :provider_id AND p.deleted_at IS NULL
+             LIMIT 1"
+        );
+
+        $stmt->execute(['provider_id' => $providerId]);
+
+        $userId = $stmt->fetchColumn();
+
+        return $userId !== false ? (int) $userId : null;
+    }
+
+    /**
      * Register a new provider from an existing employee (admin-only).
      */
     public function register(array $data, int $createdBy): array

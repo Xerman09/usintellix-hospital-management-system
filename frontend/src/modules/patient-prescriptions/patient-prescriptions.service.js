@@ -2,9 +2,20 @@ import { api } from "../../core/api.js?v=5";
 
 export async function fetchPatientPrescriptions(patientId)
 {
-    const query = new URLSearchParams({ patient_id: patientId }).toString();
+    const query = patientId ? `?${new URLSearchParams({ patient_id: patientId }).toString()}` : "";
 
-    return await api(`/patient-prescriptions?${query}`);
+    return await api(`/patient-prescriptions${query}`);
+}
+
+export async function requestPrescriptionRefill(prescriptionId)
+{
+    return await api(
+        "/patient-prescriptions/refill-request",
+        {
+            method: "POST",
+            body: JSON.stringify({ prescription_id: prescriptionId })
+        }
+    );
 }
 
 export async function addPatientPrescription(patientId, medicationId, details = {})

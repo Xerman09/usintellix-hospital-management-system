@@ -1,6 +1,8 @@
 import { fetchHealthSummary } from "./health-records.service.js";
 import { HRS_SECTIONS } from "./health-summary.view.js?v=2";
 import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js";
+import { requestPrescriptionRefill } from "../patient-prescriptions/patient-prescriptions.service.js";
+import { showToast } from "../../core/toast.js";
 
 // Sections with their own detailed-table renderer, as opposed to the
 // generic "N record(s) on file" placeholder used for the rest.
@@ -31,7 +33,7 @@ export async function initHealthSummary(options = {})
     renderEncounters(result.data.encounters);
     renderImmunizations(result.data.immunizations);
     renderDrugTable("hrs-medications", result.data.medications, "No records found.");
-    renderDrugTable("hrs-prescriptions", result.data.prescriptions, "No Results");
+    renderPrescriptionsTable(result.data.prescriptions);
     renderProblems(result.data.problems);
     renderEmptySections(result.data);
 }
@@ -175,6 +177,71 @@ function renderDrugTable(elementId, records, emptyMessage)
             </tr>
         `
     );
+}
+
+function renderPrescriptionsTable(records)
+{
+    const el = document.getElementById("hrs-prescriptions");
+
+    if (!el) return;
+
+    if (!records || !records.length) {
+        el.innerHTML = `<p class="hrs-widget-empty-text">No Results</p>`;
+        return;
+    }
+
+    el.innerHTML = `
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Drug</th><th>Dosage</th><th>Start Date</th><th>End Date</th><th></th></tr>
+                </thead>
+                <tbody>
+                    ${records.map((rx) => `
+                        <tr>
+                            <td>${escapeHtml(rx.title)}</td>
+                            <td>${escapeHtml(rx.dosage || "-")}</td>
+                            <td>${formatDate(rx.begin_date)}</td>
+                            <td>${formatDate(rx.end_date)}</td>
+                            <td>${rx.end_date ? "" : `<button type="button" class="hrs-refill-btn" data-rx-id="${rx.id}">Request Refill</button>`}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    el.querySelectorAll(".hrs-refill-btn").forEach((btn) => {
+        btn.addEventListener("click", () => handleRefillRequest(btn));
+    });
+}
+
+async function handleRefillRequest(btn)
+{
+    const prescriptionId = btn.getAttribute("data-rx-id");
+    const originalText = btn.textContent;
+
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+
+    try {
+        const result = await requestPrescriptionRefill(prescriptionId);
+
+        if (!result.success) {
+            showToast(result.message || "Failed to send refill request.", "error");
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
+        }
+
+        showToast("Refill request sent to your provider.", "success");
+        btn.textContent = "Requested";
+    } catch (error) {
+        console.error("Failed to request refill", error);
+        showToast("Unable to reach the server. Please try again.", "error");
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
 }
 
 function renderProblems(problems)

@@ -6,7 +6,15 @@ use App\Modules\PatientPrescriptions\Controllers\PatientPrescriptionController;
 
 $router->get('/patient-prescriptions', [PatientPrescriptionController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
+]);
+
+// A patient requesting a refill on one of their own active prescriptions —
+// sends a message to their assigned provider. Not a staff action, so it
+// doesn't belong alongside store/update/destroy above.
+$router->post('/patient-prescriptions/refill-request', [PatientPrescriptionController::class, 'requestRefill'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
 ]);
 
 $router->post('/patient-prescriptions', [PatientPrescriptionController::class, 'store'], [

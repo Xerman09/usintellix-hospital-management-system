@@ -2525,6 +2525,27 @@ select.form-input {
     gap: 24px;
 }
 
+.hrs-refill-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--accent-border, #bfdbfe);
+    border-radius: 6px;
+    background: var(--accent-light, #eff6ff);
+    color: var(--accent-text, #1e40af);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.hrs-refill-btn:hover {
+    background: var(--accent-lighter, #dbeafe);
+}
+
+.hrs-refill-btn:disabled {
+    opacity: .65;
+    cursor: default;
+}
+
 @media (max-width: 860px) {
     .hrs-widget-grid { grid-template-columns: 1fr; }
 }
