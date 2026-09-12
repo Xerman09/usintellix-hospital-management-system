@@ -6,7 +6,7 @@ use App\Modules\PatientLedger\Controllers\PatientLedgerController;
 
 $router->get('/patient-ledger', [PatientLedgerController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->post('/patient-ledger', [PatientLedgerController::class, 'store'], [

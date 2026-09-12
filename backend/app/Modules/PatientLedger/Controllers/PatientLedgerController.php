@@ -22,16 +22,32 @@ class PatientLedgerController extends Controller
         $this->providerService = new ProviderService();
     }
 
+    /**
+     * A patient always gets their own ledger, resolved from session —
+     * never the client-supplied patient_id, since ownsPatient() only
+     * ever restricted doctors, not patients, to their own record.
+     */
     public function index(): void
     {
         $request = new Request();
         $user = Session::get('user');
 
-        $patientId = (int) $request->input('patient_id');
+        if (($user['role'] ?? '') === 'patient') {
+            $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
 
-        if (!$this->ownsPatient($user, $patientId)) {
-            $this->error('Patient not found.', 404);
-            return;
+            if (!$patient) {
+                $this->error('Patient record not found.', 404);
+                return;
+            }
+
+            $patientId = (int) $patient['id'];
+        } else {
+            $patientId = (int) $request->input('patient_id');
+
+            if (!$this->ownsPatient($user, $patientId)) {
+                $this->error('Patient not found.', 404);
+                return;
+            }
         }
 
         $from = (string) $request->input('from', date('Y') . '-01-01');

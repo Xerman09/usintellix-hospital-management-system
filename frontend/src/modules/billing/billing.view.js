@@ -58,12 +58,59 @@ export function BillingView() {
     margin-bottom: 6px;
 }
 
+.billing-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.billing-summary-item {
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+
+.billing-summary-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.billing-summary-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.billing-summary-balance {
+    background: var(--accent-light);
+    border-color: var(--accent-border);
+}
+
+.billing-summary-balance .billing-summary-value {
+    color: var(--accent-text, #1e40af);
+}
+
+@media (max-width: 640px) {
+    .billing-summary { grid-template-columns: 1fr 1fr; }
+}
+
 :root[data-theme="dark"] .prof-page-modern { color: var(--text-primary); }
 :root[data-theme="dark"] .prof-card-modern { background: var(--bg-surface); border-color: var(--border-color); }
 :root[data-theme="dark"] .prof-header-modern { border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .prof-header-modern h1 { color: var(--text-primary); }
 :root[data-theme="dark"] .prof-section-title-modern { color: var(--text-primary); }
 :root[data-theme="dark"] .billing-label { color: var(--text-muted); }
+:root[data-theme="dark"] .billing-summary-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .billing-summary-label { color: var(--text-muted); }
+:root[data-theme="dark"] .billing-summary-value { color: var(--text-primary); }
 </style>
 
 <div class="prof-page-modern">
