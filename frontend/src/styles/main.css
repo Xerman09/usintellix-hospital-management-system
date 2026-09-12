@@ -77,6 +77,10 @@
     background: var(--bg-surface-alt);
 }
 
+:root[data-theme="dark"] .profile-header { color: var(--text-primary); }
+:root[data-theme="dark"] .profile-header div { color: var(--text-muted); }
+:root[data-theme="dark"] .profile-dropdown hr { border-top-color: var(--border-color); }
+
 :root[data-theme="dark"] .dropdown-submenu-trigger {
     color: var(--text-primary);
 }
