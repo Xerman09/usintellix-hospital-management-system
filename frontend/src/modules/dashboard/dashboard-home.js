@@ -78,11 +78,13 @@ function renderStaffStats(stats)
     if (layout) layout.style.gridTemplateColumns = "1fr";
 
     setStatsGrid([
-        { icon: "patients", variant: "", value: stats.patients_total, label: "Total Patients", trend: 12 },
-        { icon: "staff", variant: "alt", value: stats.staff_total, label: "Active Staff", trend: 2 },
+        { icon: "patients", variant: "", value: stats.patients_total, label: "Total Patients" },
+        { icon: "staff", variant: "alt", value: stats.staff_total, label: "Active Staff" },
         { icon: "calendarToday", variant: "warn", value: stats.appointments_today, label: "Today's Volume" },
-        { icon: "calendarWeek", variant: "", value: stats.appointments_this_week, label: "Weekly Volume", trend: 15 }
+        { icon: "calendarWeek", variant: "", value: stats.appointments_this_week, label: "Weekly Volume" }
     ]);
+
+    renderCharts(stats);
 }
 
 function renderDoctorStats(stats)
@@ -91,10 +93,12 @@ function renderDoctorStats(stats)
     if (layout) layout.style.gridTemplateColumns = "1fr";
 
     setStatsGrid([
-        { icon: "patients", variant: "", value: stats.patients_total, label: "My Patients", trend: 4 },
+        { icon: "patients", variant: "", value: stats.patients_total, label: "My Patients" },
         { icon: "calendarToday", variant: "warn", value: stats.appointments_today, label: "Today's Volume" },
         { icon: "upcoming", variant: "alt", value: stats.appointments_upcoming, label: "Upcoming Appts" }
     ]);
+
+    renderCharts(stats);
 }
 
 function renderPatientStats(stats)
@@ -176,6 +180,311 @@ function setStatsGrid(cards)
         </div>
         `;
     }).join("");
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Colors are CSS custom properties (defined on .dh-page, themed for dark
+// mode) from the dataviz skill's validated 4-slot categorical order --
+// see the comment beside --dh-status-scheduled in dashboard-home.view.js.
+const APPOINTMENT_STATUS_META = {
+    scheduled: { label: "Scheduled", color: "var(--dh-status-scheduled)" },
+    completed: { label: "Completed", color: "var(--dh-status-completed)" },
+    cancelled: { label: "Cancelled", color: "var(--dh-status-cancelled)" },
+    no_show: { label: "No Show", color: "var(--dh-status-no_show)" }
+};
+
+function renderCharts(stats)
+{
+    const grid = document.getElementById("dhChartsGrid");
+
+    if (!grid) {
+        return;
+    }
+
+    grid.className = "dh-charts-grid two-col";
+    grid.innerHTML = `
+        <div class="dh-chart-panel">
+            <h3 class="dh-chart-title">Appointment Volume</h3>
+            <p class="dh-chart-subtitle">Last 14 days</p>
+            <div class="dh-chart-wrap" id="dhTrendChartWrap"></div>
+        </div>
+        <div class="dh-chart-panel">
+            <h3 class="dh-chart-title">Appointments by Status</h3>
+            <p class="dh-chart-subtitle">Last 30 days</p>
+            <div class="dh-chart-wrap" id="dhStatusChartWrap"></div>
+        </div>
+    `;
+
+    renderAppointmentTrendChart(document.getElementById("dhTrendChartWrap"), stats.appointment_trend || []);
+    renderStatusBreakdownChart(document.getElementById("dhStatusChartWrap"), stats.appointment_status_breakdown || {});
+}
+
+/**
+ * A line chart of daily appointment volume with a crosshair + tooltip that
+ * snaps to the nearest day, keyboard-focusable the same as hover per the
+ * dataviz interaction contract.
+ */
+function renderAppointmentTrendChart(container, trend)
+{
+    if (!container) {
+        return;
+    }
+
+    if (!trend.length || trend.every((day) => day.count === 0)) {
+        container.innerHTML = `<div class="dh-chart-empty">No appointment activity in the last 14 days.</div>`;
+        return;
+    }
+
+    const width = 560;
+    const height = 180;
+    const padTop = 16;
+    const padBottom = 24;
+    const padLeft = 8;
+    const padRight = 32;
+    const plotWidth = width - padLeft - padRight;
+    const plotHeight = height - padTop - padBottom;
+    const baselineY = padTop + plotHeight;
+
+    const maxCount = Math.max(1, ...trend.map((day) => day.count));
+    const stepX = trend.length > 1 ? plotWidth / (trend.length - 1) : 0;
+
+    const points = trend.map((day, i) => ({
+        x: padLeft + stepX * i,
+        y: padTop + plotHeight - (day.count / maxCount) * plotHeight,
+        date: day.date,
+        count: day.count
+    }));
+
+    const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const last = points[points.length - 1];
+    const areaPath = `${linePath} L${last.x.toFixed(1)},${baselineY} L${points[0].x.toFixed(1)},${baselineY} Z`;
+
+    container.innerHTML = "";
+
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("class", "dh-chart-svg");
+    svg.setAttribute("role", "img");
+    svg.setAttribute(
+        "aria-label",
+        `Appointment volume over the last 14 days, ending at ${last.count} on ${formatFullDate(last.date)}`
+    );
+
+    const baseline = document.createElementNS(SVG_NS, "line");
+    baseline.setAttribute("x1", String(padLeft));
+    baseline.setAttribute("x2", String(width - padRight));
+    baseline.setAttribute("y1", String(baselineY));
+    baseline.setAttribute("y2", String(baselineY));
+    baseline.setAttribute("class", "dh-line-baseline");
+    svg.appendChild(baseline);
+
+    const area = document.createElementNS(SVG_NS, "path");
+    area.setAttribute("d", areaPath);
+    area.setAttribute("class", "dh-line-area");
+    svg.appendChild(area);
+
+    const line = document.createElementNS(SVG_NS, "path");
+    line.setAttribute("d", linePath);
+    line.setAttribute("class", "dh-line-path");
+    svg.appendChild(line);
+
+    const endLabel = document.createElementNS(SVG_NS, "text");
+    endLabel.setAttribute("x", String(last.x - 4));
+    endLabel.setAttribute("y", String(Math.max(12, last.y - 8)));
+    endLabel.setAttribute("text-anchor", "end");
+    endLabel.setAttribute("class", "dh-line-endlabel");
+    endLabel.textContent = String(last.count);
+    svg.appendChild(endLabel);
+
+    const firstDateLabel = document.createElementNS(SVG_NS, "text");
+    firstDateLabel.setAttribute("x", String(points[0].x));
+    firstDateLabel.setAttribute("y", String(height - 4));
+    firstDateLabel.setAttribute("class", "dh-line-axislabel");
+    firstDateLabel.textContent = formatShortDate(points[0].date);
+    svg.appendChild(firstDateLabel);
+
+    const lastDateLabel = document.createElementNS(SVG_NS, "text");
+    lastDateLabel.setAttribute("x", String(last.x));
+    lastDateLabel.setAttribute("y", String(height - 4));
+    lastDateLabel.setAttribute("text-anchor", "end");
+    lastDateLabel.setAttribute("class", "dh-line-axislabel");
+    lastDateLabel.textContent = formatShortDate(last.date);
+    svg.appendChild(lastDateLabel);
+
+    const crosshair = document.createElementNS(SVG_NS, "line");
+    crosshair.setAttribute("y1", String(padTop));
+    crosshair.setAttribute("y2", String(baselineY));
+    crosshair.setAttribute("class", "dh-line-crosshair");
+    svg.appendChild(crosshair);
+
+    const dot = document.createElementNS(SVG_NS, "circle");
+    dot.setAttribute("r", "4");
+    dot.setAttribute("class", "dh-line-dot");
+    svg.appendChild(dot);
+
+    const tooltip = document.createElement("div");
+    tooltip.className = "dh-chart-tooltip";
+
+    const hitWidth = plotWidth / trend.length;
+
+    points.forEach((p) => {
+        const hit = document.createElementNS(SVG_NS, "rect");
+        hit.setAttribute("x", String(Math.max(0, p.x - hitWidth / 2)));
+        hit.setAttribute("y", "0");
+        hit.setAttribute("width", String(hitWidth));
+        hit.setAttribute("height", String(height));
+        hit.setAttribute("class", "dh-line-hit");
+        hit.setAttribute("tabindex", "0");
+        hit.setAttribute("role", "button");
+        hit.setAttribute("aria-label", `${formatFullDate(p.date)}: ${p.count} appointment${p.count === 1 ? "" : "s"}`);
+
+        const activate = () => {
+            crosshair.setAttribute("x1", String(p.x));
+            crosshair.setAttribute("x2", String(p.x));
+            crosshair.style.opacity = "1";
+            dot.setAttribute("cx", String(p.x));
+            dot.setAttribute("cy", String(p.y));
+            dot.style.opacity = "1";
+
+            tooltip.innerHTML = "";
+
+            const valueEl = document.createElement("strong");
+            valueEl.textContent = `${p.count} appointment${p.count === 1 ? "" : "s"}`;
+            tooltip.appendChild(valueEl);
+            tooltip.appendChild(document.createElement("br"));
+            tooltip.appendChild(document.createTextNode(formatFullDate(p.date)));
+
+            tooltip.style.left = `${(p.x / width) * 100}%`;
+            tooltip.style.top = `${(p.y / height) * 100}%`;
+            tooltip.classList.add("visible");
+        };
+
+        const deactivate = () => {
+            crosshair.style.opacity = "0";
+            dot.style.opacity = "0";
+            tooltip.classList.remove("visible");
+        };
+
+        hit.addEventListener("pointerenter", activate);
+        hit.addEventListener("pointermove", activate);
+        hit.addEventListener("pointerleave", deactivate);
+        hit.addEventListener("focus", activate);
+        hit.addEventListener("blur", deactivate);
+
+        svg.appendChild(hit);
+    });
+
+    container.appendChild(svg);
+    container.appendChild(tooltip);
+}
+
+/**
+ * A horizontal bar breakdown of appointments by status, reusing this app's
+ * existing status-badge colors so the chart and the badges elsewhere on
+ * this page speak the same color language.
+ */
+function renderStatusBreakdownChart(container, breakdown)
+{
+    if (!container) {
+        return;
+    }
+
+    const entries = Object.keys(APPOINTMENT_STATUS_META).map((key) => ({
+        key,
+        label: APPOINTMENT_STATUS_META[key].label,
+        color: APPOINTMENT_STATUS_META[key].color,
+        count: breakdown[key] || 0
+    }));
+
+    const total = entries.reduce((sum, entry) => sum + entry.count, 0);
+
+    if (!total) {
+        container.innerHTML = `<div class="dh-chart-empty">No appointments in the last 30 days.</div>`;
+        return;
+    }
+
+    const maxCount = Math.max(...entries.map((entry) => entry.count), 1);
+
+    container.innerHTML = "";
+
+    const bars = document.createElement("div");
+    bars.className = "dh-bars";
+
+    const tooltip = document.createElement("div");
+    tooltip.className = "dh-chart-tooltip";
+
+    entries.forEach((entry) => {
+        const pct = Math.round((entry.count / total) * 100);
+
+        const row = document.createElement("div");
+        row.className = "dh-bar-row";
+
+        const label = document.createElement("div");
+        label.className = "dh-bar-label";
+        label.textContent = entry.label;
+
+        const track = document.createElement("div");
+        track.className = "dh-bar-track";
+        track.setAttribute("tabindex", "0");
+        track.setAttribute("role", "img");
+        track.setAttribute("aria-label", `${entry.label}: ${entry.count} appointments, ${pct}%`);
+
+        const fill = document.createElement("div");
+        fill.className = "dh-bar-fill";
+        fill.style.width = `${(entry.count / maxCount) * 100}%`;
+        fill.style.background = entry.color;
+        track.appendChild(fill);
+
+        const value = document.createElement("div");
+        value.className = "dh-bar-value";
+        value.textContent = String(entry.count);
+
+        const showTooltip = () => {
+            row.classList.add("is-hovered");
+            tooltip.innerHTML = "";
+
+            const strong = document.createElement("strong");
+            strong.textContent = `${entry.count} (${pct}%)`;
+            tooltip.appendChild(strong);
+            tooltip.appendChild(document.createElement("br"));
+            tooltip.appendChild(document.createTextNode(entry.label));
+
+            const rowRect = row.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            tooltip.style.left = `${rowRect.left - containerRect.left + rowRect.width / 2}px`;
+            tooltip.style.top = `${rowRect.top - containerRect.top}px`;
+            tooltip.classList.add("visible");
+        };
+
+        const hideTooltip = () => {
+            row.classList.remove("is-hovered");
+            tooltip.classList.remove("visible");
+        };
+
+        track.addEventListener("pointerenter", showTooltip);
+        track.addEventListener("pointerleave", hideTooltip);
+        track.addEventListener("focus", showTooltip);
+        track.addEventListener("blur", hideTooltip);
+
+        row.appendChild(label);
+        row.appendChild(track);
+        row.appendChild(value);
+        bars.appendChild(row);
+    });
+
+    container.appendChild(bars);
+    container.appendChild(tooltip);
+}
+
+function formatShortDate(dateStr)
+{
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatFullDate(dateStr)
+{
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
 function renderActivityTable(scope, rows, title)

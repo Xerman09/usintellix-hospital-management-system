@@ -866,6 +866,13 @@ export function PatientsListView(user)
     padding: 2px 4px;
 }
 
+.pd-widget-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
 .pd-widget-add:hover {
     text-decoration: underline;
 }
@@ -4361,6 +4368,13 @@ textarea.pd-sdoh-readonly {
     padding: 2px 4px;
 }
 
+.pd-widget-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
 .pd-widget-add:hover {
     text-decoration: underline;
 }
@@ -5050,7 +5064,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.", { bodyId: "pdImmunizationsBody", addBtnId: "pdImmunizationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
-                    ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.", { bodyId: "pdVitalsHistoryBody", addBtnId: "pdVitalsHistoryAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
+                    ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.", { bodyId: "pdVitalsHistoryBody", addBtnId: "pdVitalsHistoryAddBtn", addBtnLabel: "View All", addBtnDisabled: false, extraButtons: [{ id: "pdVitalsGraphBtn", label: "View Graph" }] })}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.", { bodyId: "pdInsuranceBody", addBtnId: "pdInsuranceAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.", { bodyId: "pdAppointmentsBody", addBtnId: "pdAppointmentsAddBtn", addBtnLabel: "+ Add", addBtnDisabled: false })}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { bodyId: "pdDocumentsBody", addBtnId: "pdDocumentsAddBtn", addBtnLabel: "Upload", addBtnDisabled: false, widgetId: "pdWidget-documents" })}
@@ -8992,6 +9006,244 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<style>
+#vitalsGraphModalOverlay .modal-box {
+    max-width: 920px;
+    /* Validated categorical colors (see dataviz skill) for the 4 vitals
+       panels below -- the one same-chart pair (systolic/diastolic) is the
+       adjacent pairing that matters most and is confirmed CVD-safe; the
+       other panels are single-series and independently titled. */
+    --vg-color-systolic: #2a78d6;
+    --vg-color-diastolic: #eb6834;
+    --vg-color-pulse: #1baf7a;
+    --vg-color-temp: #eda100;
+    --vg-color-weight: #4a3aa7;
+}
+
+:root[data-theme="dark"] #vitalsGraphModalOverlay .modal-box {
+    --vg-color-systolic: #3987e5;
+    --vg-color-diastolic: #d95926;
+    --vg-color-pulse: #199e70;
+    --vg-color-temp: #c98500;
+    --vg-color-weight: #9085e9;
+}
+
+.vg-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.vg-chart-panel {
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    padding: 14px 16px 10px;
+    background: #fbfcfe;
+}
+
+.vg-chart-title {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.vg-chart-title .vg-legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+
+.vg-chart-wrap {
+    position: relative;
+}
+
+.vg-chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.vg-chart-empty {
+    padding: 24px 0;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12.5px;
+}
+
+.vg-line-path {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.vg-line-baseline {
+    stroke: #e1e0d9;
+    stroke-width: 1;
+}
+
+.vg-line-crosshair {
+    stroke: #c3c2b7;
+    stroke-width: 1;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.vg-line-dot {
+    stroke: #fbfcfe;
+    stroke-width: 2;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.vg-line-axislabel {
+    font-size: 9.5px;
+    fill: #898781;
+}
+
+.vg-line-hit {
+    fill: transparent;
+    cursor: crosshair;
+}
+
+.vg-chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 11.5px;
+    line-height: 1.4;
+    padding: 5px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    transition: opacity .08s;
+    z-index: 5;
+}
+
+.vg-chart-tooltip.visible {
+    opacity: 1;
+}
+
+.vg-chart-tooltip strong {
+    font-weight: 700;
+}
+
+.vg-ai-panel {
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.vg-ai-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e9f0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #29323f;
+}
+
+.vg-ai-header svg {
+    width: 15px;
+    height: 15px;
+    color: var(--accent, #4338ca);
+}
+
+.vg-ai-body {
+    padding: 16px;
+    font-size: 13px;
+    color: #29323f;
+}
+
+.vg-ai-skeleton {
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 37%, #e2e8f0 63%);
+    background-size: 400% 100%;
+    animation: vg-shimmer 1.4s ease infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes vg-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+:root[data-theme="dark"] .vg-chart-panel { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .vg-chart-title { color: var(--text-primary); }
+:root[data-theme="dark"] .vg-line-baseline { stroke: var(--border-color); }
+:root[data-theme="dark"] .vg-line-crosshair { stroke: var(--border-color); }
+:root[data-theme="dark"] .vg-line-dot { stroke: var(--bg-surface-alt); }
+:root[data-theme="dark"] .vg-line-axislabel { fill: var(--text-muted); }
+:root[data-theme="dark"] .vg-ai-panel { border-color: var(--border-color); }
+:root[data-theme="dark"] .vg-ai-header { background: var(--bg-surface-alt); border-bottom-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .vg-ai-body { color: var(--text-primary); }
+
+@media (max-width: 720px) {
+    .vg-charts-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="modal-overlay" id="vitalsGraphModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="vh-header-row">
+                <div class="vh-icon-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                </div>
+                <div class="vh-header-text">
+                    <h2>Vitals Graph</h2>
+                    <p class="form-subtitle">Trends across every recorded reading for this patient.</p>
+                </div>
+            </div>
+            <button type="button" class="modal-close" id="closeVitalsGraphModal">&times;</button>
+        </div>
+
+        <div id="vitalsGraphAlert"></div>
+
+        <div class="vg-charts-grid" id="vitalsGraphChartsGrid">
+            <div class="vg-chart-panel">
+                <h4 class="vg-chart-title"><span class="vg-legend-dot" style="background:var(--vg-color-systolic);"></span>Systolic <span class="vg-legend-dot" style="background:var(--vg-color-diastolic);"></span>Diastolic &middot; Blood Pressure</h4>
+                <div class="vg-chart-wrap" id="vgBpChartWrap"></div>
+            </div>
+            <div class="vg-chart-panel">
+                <h4 class="vg-chart-title"><span class="vg-legend-dot" style="background:var(--vg-color-pulse);"></span>Pulse (bpm)</h4>
+                <div class="vg-chart-wrap" id="vgPulseChartWrap"></div>
+            </div>
+            <div class="vg-chart-panel">
+                <h4 class="vg-chart-title"><span class="vg-legend-dot" style="background:var(--vg-color-temp);"></span>Temperature (&deg;F)</h4>
+                <div class="vg-chart-wrap" id="vgTempChartWrap"></div>
+            </div>
+            <div class="vg-chart-panel">
+                <h4 class="vg-chart-title"><span class="vg-legend-dot" style="background:var(--vg-color-weight);"></span>Weight (lbs)</h4>
+                <div class="vg-chart-wrap" id="vgWeightChartWrap"></div>
+            </div>
+        </div>
+
+        <div class="vg-ai-panel">
+            <div class="vg-ai-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-1.17 2.83L21 16v2a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-1H8v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2l6.17-6.17A4 4 0 0 1 8 7V6a4 4 0 0 1 4-4Z"></path></svg>
+                AI Explanation
+            </div>
+            <div class="vg-ai-body" id="vitalsGraphAiContent">
+                <div class="vg-ai-skeleton" style="width:100%;"></div>
+                <div class="vg-ai-skeleton" style="width:85%;"></div>
+                <div class="vg-ai-skeleton" style="width:92%;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="messageDetailModalOverlay">
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-header">
@@ -11241,7 +11493,7 @@ textarea.pd-sdoh-readonly {
 
 function dashboardWidget(title, iconPath, emptyText, options = {})
 {
-    const { bodyId, addBtnId, addBtnLabel = "+ Add", addBtnDisabled = true, widgetId } = options;
+    const { bodyId, addBtnId, addBtnLabel = "+ Add", addBtnDisabled = true, widgetId, extraButtons = [] } = options;
 
     const body = bodyId
         ? `<div class="pd-widget-body" id="${bodyId}">
@@ -11265,7 +11517,12 @@ function dashboardWidget(title, iconPath, emptyText, options = {})
                 <h3>${title}</h3>
                 ${bodyId ? `<span class="pd-widget-count" id="${bodyId}Count" hidden>0</span>` : ""}
             </div>
-            <button type="button" class="pd-widget-add"${addBtnId ? ` id="${addBtnId}"` : ""}${addBtnDisabled ? " disabled" : ""}>${addBtnLabel}</button>
+            ${extraButtons.length
+                ? `<div class="pd-widget-header-actions">
+                    <button type="button" class="pd-widget-add"${addBtnId ? ` id="${addBtnId}"` : ""}${addBtnDisabled ? " disabled" : ""}>${addBtnLabel}</button>
+                    ${extraButtons.map((btn) => `<button type="button" class="pd-widget-add" id="${btn.id}">${btn.label}</button>`).join("")}
+                   </div>`
+                : `<button type="button" class="pd-widget-add"${addBtnId ? ` id="${addBtnId}"` : ""}${addBtnDisabled ? " disabled" : ""}>${addBtnLabel}</button>`}
         </div>
         ${body}
     </div>

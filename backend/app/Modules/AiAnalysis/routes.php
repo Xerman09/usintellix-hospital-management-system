@@ -2,6 +2,9 @@
 
 use App\Modules\AiAnalysis\Controllers\AiAnalysisController;
 
-global $router;
+/** @var \App\Core\Router $router */
 
-$router->post('/api/ai/health-assessment', [AiAnalysisController::class, 'healthAssessment']);
+$router->post('/ai/health-assessment', [AiAnalysisController::class, 'healthAssessment'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
+]);

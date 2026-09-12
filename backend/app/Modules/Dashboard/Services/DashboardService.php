@@ -59,7 +59,9 @@ class DashboardService
             'staff_total' => $staffTotal,
             'appointments_today' => $appointmentsToday,
             'appointments_this_week' => $appointmentsThisWeek,
-            'recent_appointments' => $this->recentAppointments()
+            'recent_appointments' => $this->recentAppointments(),
+            'appointment_trend' => $this->appointmentTrend(),
+            'appointment_status_breakdown' => $this->appointmentStatusBreakdown()
         ];
     }
 
@@ -111,7 +113,9 @@ class DashboardService
             'patients_total' => $patientsTotal,
             'appointments_today' => $appointmentsToday,
             'appointments_upcoming' => $appointmentsUpcoming,
-            'recent_appointments' => $this->recentAppointments($providerId)
+            'recent_appointments' => $this->recentAppointments($providerId),
+            'appointment_trend' => $this->appointmentTrend($providerId),
+            'appointment_status_breakdown' => $this->appointmentStatusBreakdown($providerId)
         ];
     }
 
@@ -206,5 +210,86 @@ class DashboardService
         $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Daily appointment volume for the last 14 days (today inclusive),
+     * hospital-wide or scoped to a provider. Every day in the range is
+     * present even with zero appointments, so the trend chart never has
+     * to guess at a gap.
+     */
+    private function appointmentTrend(?int $providerId = null): array
+    {
+        $db = Database::connection();
+        $start = date('Y-m-d', strtotime('-13 days'));
+        $today = date('Y-m-d');
+
+        $sql = "SELECT appointment_date, COUNT(*) AS cnt
+                FROM appointments
+                WHERE appointment_date BETWEEN :start AND :end
+                  AND status != 'cancelled' AND deleted_at IS NULL";
+        $params = ['start' => $start, 'end' => $today];
+
+        if ($providerId !== null) {
+            $sql .= " AND provider_id = :provider_id";
+            $params['provider_id'] = $providerId;
+        }
+
+        $sql .= " GROUP BY appointment_date";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+
+        $counts = [];
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $counts[$row['appointment_date']] = (int) $row['cnt'];
+        }
+
+        $trend = [];
+
+        for ($i = 13; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-{$i} days"));
+            $trend[] = ['date' => $date, 'count' => $counts[$date] ?? 0];
+        }
+
+        return $trend;
+    }
+
+    /**
+     * Appointment counts by status over the last 30 days, hospital-wide or
+     * scoped to a provider -- unlike appointmentTrend(), cancellations and
+     * no-shows are included since the whole point here is seeing them.
+     */
+    private function appointmentStatusBreakdown(?int $providerId = null): array
+    {
+        $db = Database::connection();
+        $start = date('Y-m-d', strtotime('-29 days'));
+        $today = date('Y-m-d');
+
+        $sql = "SELECT status, COUNT(*) AS cnt
+                FROM appointments
+                WHERE appointment_date BETWEEN :start AND :end AND deleted_at IS NULL";
+        $params = ['start' => $start, 'end' => $today];
+
+        if ($providerId !== null) {
+            $sql .= " AND provider_id = :provider_id";
+            $params['provider_id'] = $providerId;
+        }
+
+        $sql .= " GROUP BY status";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+
+        $counts = ['scheduled' => 0, 'completed' => 0, 'cancelled' => 0, 'no_show' => 0];
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if (isset($counts[$row['status']])) {
+                $counts[$row['status']] = (int) $row['cnt'];
+            }
+        }
+
+        return $counts;
     }
 }

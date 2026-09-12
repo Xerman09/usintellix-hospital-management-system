@@ -9,6 +9,29 @@ export function DashboardHomeView(user)
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: #0f172a;
     padding-bottom: 40px;
+    /* Validated 4-slot categorical order (see dataviz skill) for the
+       Appointments-by-Status chart -- passes CVD/contrast checks in this
+       exact adjacent sequence; reordering these requires re-validating. */
+    --dh-status-scheduled: #2a78d6;
+    --dh-status-completed: #eb6834;
+    --dh-status-cancelled: #1baf7a;
+    --dh-status-no_show: #eda100;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .dh-page {
+        --dh-status-scheduled: #3987e5;
+        --dh-status-completed: #d95926;
+        --dh-status-cancelled: #199e70;
+        --dh-status-no_show: #c98500;
+    }
+}
+
+:root[data-theme="dark"] .dh-page {
+    --dh-status-scheduled: #3987e5;
+    --dh-status-completed: #d95926;
+    --dh-status-cancelled: #199e70;
+    --dh-status-no_show: #c98500;
 }
 
 /* Header Area */
@@ -295,7 +318,7 @@ export function DashboardHomeView(user)
 
 .status-badge.scheduled { background: #e0f2fe; color: #0369a1; }
 .status-badge.completed { background: #dcfce7; color: #166534; }
-.status-badge.canceled { background: #fee2e2; color: #991b1b; }
+.status-badge.cancelled { background: #fee2e2; color: #991b1b; }
 .status-badge.no_show { background: #ffedd5; color: #9a3412; }
 
 
@@ -330,6 +353,199 @@ export function DashboardHomeView(user)
     font-size: 15px;
     color: #cbd5e1;
 }
+
+/* Charts */
+.dh-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.dh-charts-grid.two-col {
+    grid-template-columns: 1.3fr 1fr;
+}
+
+.dh-chart-panel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px 24px 16px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+}
+
+.dh-chart-title {
+    margin: 0 0 2px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.dh-chart-subtitle {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.dh-chart-wrap {
+    position: relative;
+}
+
+.dh-chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.dh-chart-empty {
+    padding: 40px 0;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.dh-line-path {
+    fill: none;
+    stroke: var(--accent, #1d4ed8);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.dh-line-area {
+    fill: var(--accent, #1d4ed8);
+    opacity: 0.08;
+}
+
+.dh-line-baseline {
+    stroke: #e1e0d9;
+    stroke-width: 1;
+}
+
+.dh-line-crosshair {
+    stroke: #c3c2b7;
+    stroke-width: 1;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dh-line-dot {
+    fill: var(--accent, #1d4ed8);
+    stroke: #ffffff;
+    stroke-width: 2;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dh-line-endlabel {
+    font-size: 12px;
+    font-weight: 700;
+    fill: #0f172a;
+}
+
+.dh-line-axislabel {
+    font-size: 10px;
+    fill: #898781;
+}
+
+.dh-line-hit {
+    fill: transparent;
+    cursor: crosshair;
+}
+
+.dh-line-hit:focus-visible {
+    outline: none;
+}
+
+.dh-chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    transition: opacity .08s;
+    z-index: 5;
+}
+
+.dh-chart-tooltip.visible {
+    opacity: 1;
+}
+
+.dh-chart-tooltip strong {
+    font-weight: 700;
+}
+
+.dh-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.dh-bar-row {
+    display: grid;
+    grid-template-columns: 84px 1fr 34px;
+    align-items: center;
+    gap: 10px;
+}
+
+.dh-bar-row.is-hovered .dh-bar-track {
+    background: #e2e8f0;
+}
+
+.dh-bar-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.dh-bar-track {
+    position: relative;
+    height: 16px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: background-color .12s;
+}
+
+.dh-bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 4px;
+    transition: width .3s ease;
+}
+
+.dh-bar-value {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+    .dh-charts-grid.two-col { grid-template-columns: 1fr; }
+}
+
+:root[data-theme="dark"] .dh-chart-panel { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .dh-chart-title { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-chart-subtitle { color: var(--text-muted); }
+:root[data-theme="dark"] .dh-line-baseline { stroke: var(--border-color); }
+:root[data-theme="dark"] .dh-line-crosshair { stroke: var(--border-color); }
+:root[data-theme="dark"] .dh-line-dot { stroke: var(--bg-surface); }
+:root[data-theme="dark"] .dh-line-endlabel { fill: var(--text-primary); }
+:root[data-theme="dark"] .dh-line-axislabel { fill: var(--text-muted); }
+:root[data-theme="dark"] .dh-bar-label { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-bar-track { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .dh-bar-row.is-hovered .dh-bar-track { background: var(--border-color); }
+:root[data-theme="dark"] .dh-bar-value { color: var(--text-primary); }
+:root[data-theme="dark"] .dh-chart-empty { color: var(--text-muted); }
 
 @media (max-width: 640px) {
     .dh-header-wrap { flex-direction: column; align-items: flex-start; gap: 16px; }
@@ -387,6 +603,8 @@ export function DashboardHomeView(user)
         <div class="dh-stat-card"><div class="dh-stat-header"><div class="dh-stat-label">Initializing</div></div><div class="dh-stat-body"><div class="dh-stat-value skeleton"></div></div></div>
         <div class="dh-stat-card"><div class="dh-stat-header"><div class="dh-stat-label">Initializing</div></div><div class="dh-stat-body"><div class="dh-stat-value skeleton"></div></div></div>
     </div>
+
+    <div class="dh-charts-grid" id="dhChartsGrid"></div>
 
     <div class="dh-layout-grid">
         <div class="dh-panel">

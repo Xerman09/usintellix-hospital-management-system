@@ -5498,6 +5498,310 @@ function setupVitalsHistoryModal()
             closeDetail();
         }
     });
+
+    const graphOverlay = document.getElementById("vitalsGraphModalOverlay");
+    const closeGraph = () => graphOverlay.classList.remove("open");
+
+    document.getElementById("pdVitalsGraphBtn").addEventListener("click", () => {
+        if (currentDashboardPatient) {
+            openVitalsGraphModal(currentDashboardPatient);
+        }
+    });
+
+    document.getElementById("closeVitalsGraphModal").addEventListener("click", closeGraph);
+    graphOverlay.addEventListener("click", (event) => {
+        if (event.target === graphOverlay) {
+            closeGraph();
+        }
+    });
+}
+
+async function openVitalsGraphModal(patient)
+{
+    document.getElementById("vitalsGraphAlert").innerHTML = "";
+    document.getElementById("vitalsGraphModalOverlay").classList.add("open");
+
+    document.getElementById("vitalsGraphAiContent").innerHTML = `
+        <div class="vg-ai-skeleton" style="width:100%;"></div>
+        <div class="vg-ai-skeleton" style="width:85%;"></div>
+        <div class="vg-ai-skeleton" style="width:92%;"></div>
+    `;
+
+    ["vgBpChartWrap", "vgPulseChartWrap", "vgTempChartWrap", "vgWeightChartWrap"].forEach((id) => {
+        document.getElementById(id).innerHTML = `<div class="vg-chart-empty">Loading...</div>`;
+    });
+
+    const result = await fetchVitalsHistory(patient.id);
+
+    if (!result.success) {
+        showAlert("vitalsGraphAlert", result.message || "Unable to load vitals.", "error");
+        return;
+    }
+
+    // Oldest first, so every chart reads left-to-right chronologically.
+    const vitals = [...result.data].reverse();
+
+    renderVitalsLineChart(document.getElementById("vgBpChartWrap"), vitals, [
+        { key: "bp_systolic", color: "var(--vg-color-systolic)" },
+        { key: "bp_diastolic", color: "var(--vg-color-diastolic)" }
+    ], "mmHg");
+    renderVitalsLineChart(document.getElementById("vgPulseChartWrap"), vitals, [
+        { key: "pulse", color: "var(--vg-color-pulse)" }
+    ], "bpm");
+    renderVitalsLineChart(document.getElementById("vgTempChartWrap"), vitals, [
+        { key: "temperature", color: "var(--vg-color-temp)" }
+    ], "°F");
+    renderVitalsLineChart(document.getElementById("vgWeightChartWrap"), vitals, [
+        { key: "weight", color: "var(--vg-color-weight)" }
+    ], "lbs");
+
+    loadVitalsAiExplanation(patient, result.data);
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * A small multi-series line chart for one vitals panel (e.g. Blood
+ * Pressure's systolic+diastolic, or a single-series one like Pulse).
+ * Every reading shares the same X position (its index in the full vitals
+ * list) so all four panels stay chronologically aligned; a series simply
+ * has no dot/line segment on a visit where that field wasn't recorded,
+ * rather than interpolating or plotting a false zero.
+ */
+function renderVitalsLineChart(container, vitals, seriesConfigs, unit)
+{
+    if (!container) {
+        return;
+    }
+
+    const width = 260;
+    const height = 130;
+    const padTop = 10;
+    const padBottom = 18;
+    const padLeft = 6;
+    const padRight = 6;
+    const plotWidth = width - padLeft - padRight;
+    const plotHeight = height - padTop - padBottom;
+
+    const seriesData = seriesConfigs.map((cfg) => ({
+        ...cfg,
+        points: vitals
+            .map((v, i) => {
+                const raw = v[cfg.key];
+                const value = raw !== null && raw !== undefined && raw !== "" ? parseFloat(raw) : NaN;
+                return { i, value };
+            })
+            .filter((p) => !Number.isNaN(p.value))
+    }));
+
+    const allValues = seriesData.flatMap((s) => s.points.map((p) => p.value));
+
+    if (!allValues.length) {
+        container.innerHTML = `<div class="vg-chart-empty">No readings recorded yet.</div>`;
+        return;
+    }
+
+    const minValue = Math.min(...allValues);
+    const maxValue = Math.max(...allValues);
+    const valueRange = maxValue - minValue || 1;
+    const stepX = vitals.length > 1 ? plotWidth / (vitals.length - 1) : 0;
+
+    const xFor = (i) => padLeft + stepX * i;
+    const yFor = (value) => padTop + plotHeight - ((value - minValue) / valueRange) * plotHeight;
+
+    container.innerHTML = "";
+
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("class", "vg-chart-svg");
+    svg.setAttribute("role", "img");
+
+    const baseline = document.createElementNS(SVG_NS, "line");
+    baseline.setAttribute("x1", String(padLeft));
+    baseline.setAttribute("x2", String(width - padRight));
+    baseline.setAttribute("y1", String(padTop + plotHeight));
+    baseline.setAttribute("y2", String(padTop + plotHeight));
+    baseline.setAttribute("class", "vg-line-baseline");
+    svg.appendChild(baseline);
+
+    const readingsByIndex = new Map();
+
+    seriesData.forEach((series) => {
+        if (!series.points.length) {
+            return;
+        }
+
+        if (series.points.length > 1) {
+            const path = series.points
+                .map((p, idx) => `${idx === 0 ? "M" : "L"}${xFor(p.i).toFixed(1)},${yFor(p.value).toFixed(1)}`)
+                .join(" ");
+
+            const line = document.createElementNS(SVG_NS, "path");
+            line.setAttribute("d", path);
+            line.setAttribute("class", "vg-line-path");
+            line.style.stroke = series.color;
+            svg.appendChild(line);
+        }
+
+        series.points.forEach((p) => {
+            const dot = document.createElementNS(SVG_NS, "circle");
+            dot.setAttribute("cx", String(xFor(p.i)));
+            dot.setAttribute("cy", String(yFor(p.value)));
+            dot.setAttribute("r", series.points.length === 1 ? "3" : "2.5");
+            dot.style.fill = series.color;
+            svg.appendChild(dot);
+
+            if (!readingsByIndex.has(p.i)) {
+                readingsByIndex.set(p.i, []);
+            }
+
+            readingsByIndex.get(p.i).push({ value: p.value, color: series.color });
+        });
+    });
+
+    const crosshair = document.createElementNS(SVG_NS, "line");
+    crosshair.setAttribute("y1", String(padTop));
+    crosshair.setAttribute("y2", String(padTop + plotHeight));
+    crosshair.setAttribute("class", "vg-line-crosshair");
+    svg.appendChild(crosshair);
+
+    const hoverDot = document.createElementNS(SVG_NS, "circle");
+    hoverDot.setAttribute("r", "4");
+    hoverDot.setAttribute("class", "vg-line-dot");
+    svg.appendChild(hoverDot);
+
+    const firstLabel = document.createElementNS(SVG_NS, "text");
+    firstLabel.setAttribute("x", String(padLeft));
+    firstLabel.setAttribute("y", String(height - 3));
+    firstLabel.setAttribute("class", "vg-line-axislabel");
+    firstLabel.textContent = formatShortVitalsDate(vitals[0].date_of_service);
+    svg.appendChild(firstLabel);
+
+    const lastLabel = document.createElementNS(SVG_NS, "text");
+    lastLabel.setAttribute("x", String(width - padRight));
+    lastLabel.setAttribute("y", String(height - 3));
+    lastLabel.setAttribute("text-anchor", "end");
+    lastLabel.setAttribute("class", "vg-line-axislabel");
+    lastLabel.textContent = formatShortVitalsDate(vitals[vitals.length - 1].date_of_service);
+    svg.appendChild(lastLabel);
+
+    const tooltip = document.createElement("div");
+    tooltip.className = "vg-chart-tooltip";
+
+    const hitWidth = vitals.length > 1 ? plotWidth / vitals.length : plotWidth;
+
+    vitals.forEach((v, i) => {
+        const readingsHere = readingsByIndex.get(i);
+
+        if (!readingsHere || !readingsHere.length) {
+            return;
+        }
+
+        const hit = document.createElementNS(SVG_NS, "rect");
+        hit.setAttribute("x", String(Math.max(0, xFor(i) - hitWidth / 2)));
+        hit.setAttribute("y", "0");
+        hit.setAttribute("width", String(hitWidth));
+        hit.setAttribute("height", String(height));
+        hit.setAttribute("class", "vg-line-hit");
+        hit.setAttribute("tabindex", "0");
+        hit.setAttribute("role", "button");
+
+        const label = readingsHere.map((r) => `${r.value}${unit ? ` ${unit}` : ""}`).join(" / ");
+        hit.setAttribute("aria-label", `${formatFullVitalsDate(v.date_of_service)}: ${label}`);
+
+        const activate = () => {
+            const first = readingsHere[0];
+
+            crosshair.setAttribute("x1", String(xFor(i)));
+            crosshair.setAttribute("x2", String(xFor(i)));
+            crosshair.style.opacity = "1";
+            hoverDot.setAttribute("cx", String(xFor(i)));
+            hoverDot.setAttribute("cy", String(yFor(first.value)));
+            hoverDot.style.fill = first.color;
+            hoverDot.style.opacity = "1";
+
+            tooltip.innerHTML = "";
+            const strong = document.createElement("strong");
+            strong.textContent = label;
+            tooltip.appendChild(strong);
+            tooltip.appendChild(document.createElement("br"));
+            tooltip.appendChild(document.createTextNode(formatFullVitalsDate(v.date_of_service)));
+            tooltip.style.left = `${(xFor(i) / width) * 100}%`;
+            tooltip.style.top = `${(yFor(first.value) / height) * 100}%`;
+            tooltip.classList.add("visible");
+        };
+
+        const deactivate = () => {
+            crosshair.style.opacity = "0";
+            hoverDot.style.opacity = "0";
+            tooltip.classList.remove("visible");
+        };
+
+        hit.addEventListener("pointerenter", activate);
+        hit.addEventListener("pointermove", activate);
+        hit.addEventListener("pointerleave", deactivate);
+        hit.addEventListener("focus", activate);
+        hit.addEventListener("blur", deactivate);
+
+        svg.appendChild(hit);
+    });
+
+    container.appendChild(svg);
+    container.appendChild(tooltip);
+}
+
+function formatShortVitalsDate(dateStr)
+{
+    if (!dateStr) {
+        return "";
+    }
+
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatFullVitalsDate(dateStr)
+{
+    if (!dateStr) {
+        return "";
+    }
+
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+async function loadVitalsAiExplanation(patient, vitals)
+{
+    const container = document.getElementById("vitalsGraphAiContent");
+
+    try {
+        const result = await fetchAiHealthAssessment(patient.id, { context: "vitals", vitals });
+
+        if (!result.success) {
+            container.innerHTML = `<p style="color:#b91c1c;">Failed to generate AI explanation: ${escapeHtml(result.message || "")}</p>`;
+            return;
+        }
+
+        renderVitalsAiExplanation(container, result.data.analysis || {});
+    } catch (error) {
+        console.error("Failed to generate vitals AI explanation", error);
+        container.innerHTML = `<p style="color:#b91c1c;">An error occurred while analyzing this patient's vitals.</p>`;
+    }
+}
+
+function renderVitalsAiExplanation(container, data)
+{
+    const warningsHtml = (data.warnings || []).map((w) => `<li style="margin-bottom:6px;">${escapeHtml(w)}</li>`).join("");
+    const recsHtml = (data.recommendations || []).map((r) => `<li style="margin-bottom:6px;">${escapeHtml(r)}</li>`).join("");
+
+    container.innerHTML = `
+        <p style="margin:0 0 14px; font-style:italic; color:#55647c;">${escapeHtml(data.summary || "")}</p>
+        <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#b91c1c; margin-bottom:6px;">Findings</div>
+        <ul style="margin:0 0 16px; padding-left:18px;">${warningsHtml || "<li>No concerning patterns identified in the recorded vitals.</li>"}</ul>
+        <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#047857; margin-bottom:6px;">Recommendations</div>
+        <ul style="margin:0; padding-left:18px;">${recsHtml || "<li>Continue routine monitoring.</li>"}</ul>
+        <div style="font-size:11px; color:#8b98ac; border-top:1px solid #e5e9f0; padding-top:10px; margin-top:14px;">
+            AI-generated from this patient's recorded vitals history. Not a substitute for clinical judgement. Generated at ${escapeHtml(data.generated_at || "")}
+        </div>
+    `;
 }
 
 async function loadDashboardAppointments(patient)
