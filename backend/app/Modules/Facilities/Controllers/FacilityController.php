@@ -29,11 +29,27 @@ class FacilityController extends Controller
     }
 
     /**
-     * List facilities.
+     * List facilities. Patients (picking a location to self-schedule at)
+     * only get name/city/state/phone — not tax IDs, IBAN, CLIA numbers, or
+     * other billing/business details the full staff listing includes.
      */
     public function index(): void
     {
+        $user = Session::get('user');
         $facilities = $this->facilityService->list();
+
+        if (($user['role'] ?? '') === 'patient') {
+            $facilities = array_values(array_map(
+                fn(array $facility): array => [
+                    'id' => $facility['id'],
+                    'name' => $facility['name'],
+                    'physical_city' => $facility['physical_city'],
+                    'physical_state' => $facility['physical_state'],
+                    'phone' => $facility['phone']
+                ],
+                array_filter($facilities, fn(array $facility): bool => empty($facility['is_inactive']))
+            ));
+        }
 
         $this->success($facilities, 'Facilities retrieved successfully.');
     }

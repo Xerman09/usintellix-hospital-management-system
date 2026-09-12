@@ -49,7 +49,9 @@ class AppointmentController extends Controller
 
     /**
      * Schedule a new appointment. Admin/receptionist can pick any provider;
-     * a doctor is always locked to their own provider record.
+     * a doctor is always locked to their own provider record; a patient is
+     * always locked to their own patient record (self-scheduling) and can
+     * never create a provider block.
      */
     public function store(): void
     {
@@ -57,9 +59,15 @@ class AppointmentController extends Controller
         $request = new Request();
 
         $restrictProviderId = $this->resolveProviderId($user);
+        $restrictPatientId = $this->resolvePatientId($user);
 
         if ($restrictProviderId === 0) {
             $this->error('You are not registered as a provider.', 403);
+            return;
+        }
+
+        if ($restrictPatientId === 0) {
+            $this->error('Patient record not found.', 403);
             return;
         }
 
@@ -88,6 +96,11 @@ class AppointmentController extends Controller
 
         if ($restrictProviderId !== null) {
             $data['provider_id'] = $restrictProviderId;
+        }
+
+        if ($restrictPatientId !== null) {
+            $data['patient_id'] = $restrictPatientId;
+            $data['is_provider_block'] = false;
         }
 
         $result = $this->appointmentService->store(

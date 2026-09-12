@@ -1,5 +1,8 @@
-import { fetchAppointments } from "./appointments.service.js";
+import { fetchAppointments, createAppointment, fetchAvailableSlots } from "./appointments.service.js";
 import { formatApptTime, statusLabel, escapeHtml, toDateStr, formatMonthLabel } from "./appointment-format.js";
+import { fetchProviders } from "../providers/providers.service.js";
+import { fetchFacilities } from "../facilities/facilities.service.js";
+import { showToast } from "../../core/toast.js";
 
 const WEEKDAY_FORMAT = { weekday: "short" };
 const MONTH_FORMAT = { month: "short" };
@@ -10,6 +13,9 @@ let allAppointments = [];
 let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
 let selectedDate = null;
+
+let pickersLoaded = false;
+let selectedSlotTime = null;
 
 export async function initPatientAppointments()
 {
@@ -22,6 +28,15 @@ export async function initPatientAppointments()
 
     setupViewSwitch();
     setupCalendarNav();
+    setupRequestModal();
+
+    await loadAppointments();
+}
+
+async function loadAppointments()
+{
+    const upcomingList = document.getElementById("apptUpcomingList");
+    const pastList = document.getElementById("apptPastList");
 
     try {
         const result = await fetchAppointments();
@@ -32,6 +47,10 @@ export async function initPatientAppointments()
 
         allAppointments = result.data || [];
         renderAppointments(allAppointments);
+
+        if (!document.getElementById("apptCalendarView").hidden) {
+            renderCalendar();
+        }
     } catch (error) {
         console.error("Failed to load appointments", error);
         upcomingList.innerHTML = `<div class="appt-empty">Unable to load appointments right now.</div>`;
@@ -85,6 +104,246 @@ function setupCalendarNav()
 
         renderCalendar();
     });
+}
+
+function setupRequestModal()
+{
+    const openBtn = document.getElementById("apptRequestBtn");
+    const overlay = document.getElementById("apptRequestModalOverlay");
+    const closeBtn = document.getElementById("apptRequestCloseBtn");
+    const cancelBtn = document.getElementById("apptRequestCancelBtn");
+    const form = document.getElementById("apptRequestForm");
+    const providerSelect = document.getElementById("apptReqProvider");
+    const dateInput = document.getElementById("apptReqDate");
+
+    const openModal = async () => {
+        clearRequestErrors();
+        document.getElementById("apptRequestAlert").innerHTML = "";
+
+        if (!pickersLoaded) {
+            pickersLoaded = true;
+            await loadPickers();
+        }
+
+        const today = toDateStr(new Date());
+
+        dateInput.min = today;
+
+        if (!dateInput.value) {
+            dateInput.value = today;
+        }
+
+        resetSlotPicker();
+        loadSlotsForSelection();
+
+        overlay.classList.add("open");
+    };
+
+    const closeModal = () => {
+        overlay.classList.remove("open");
+    };
+
+    openBtn.addEventListener("click", openModal);
+    closeBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            closeModal();
+        }
+    });
+
+    providerSelect.addEventListener("change", loadSlotsForSelection);
+    dateInput.addEventListener("change", loadSlotsForSelection);
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearRequestErrors();
+        document.getElementById("apptRequestAlert").innerHTML = "";
+
+        const providerId = providerSelect.value;
+        const date = dateInput.value;
+
+        let hasError = false;
+
+        if (!providerId) {
+            showFieldError("provider_id", "Please select a provider.");
+            hasError = true;
+        }
+
+        if (!date) {
+            showFieldError("appointment_date", "Please select a date.");
+            hasError = true;
+        }
+
+        if (!selectedSlotTime) {
+            showFieldError("appointment_time", "Please select an available time.");
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        const submitBtn = document.getElementById("apptRequestSubmitBtn");
+        const originalLabel = submitBtn.textContent;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Requesting...";
+
+        try {
+            const facilityId = document.getElementById("apptReqFacility").value;
+            const reason = document.getElementById("apptReqReason").value.trim();
+            const notes = document.getElementById("apptReqNotes").value.trim();
+
+            const result = await createAppointment({
+                provider_id: providerId,
+                facility_id: facilityId || null,
+                appointment_date: date,
+                appointment_time: selectedSlotTime,
+                reason: reason || null,
+                notes: notes || null
+            });
+
+            if (!result.success) {
+                if (result.errors) {
+                    Object.entries(result.errors).forEach(([field, message]) => {
+                        showFieldError(field, message);
+                    });
+                } else {
+                    document.getElementById("apptRequestAlert").innerHTML =
+                        `<div class="form-alert error">${escapeHtml(result.message || "Failed to request appointment.")}</div>`;
+                }
+
+                return;
+            }
+
+            closeModal();
+            form.reset();
+            selectedSlotTime = null;
+            resetSlotPicker();
+            showToast("Appointment requested successfully.", "success");
+            await loadAppointments();
+        } catch (error) {
+            console.error("Failed to request appointment", error);
+            document.getElementById("apptRequestAlert").innerHTML =
+                `<div class="form-alert error">Unable to reach the server. Please try again.</div>`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalLabel;
+        }
+    });
+}
+
+async function loadPickers()
+{
+    const providerSelect = document.getElementById("apptReqProvider");
+    const facilitySelect = document.getElementById("apptReqFacility");
+
+    try {
+        const result = await fetchProviders();
+
+        if (result.success) {
+            (result.data || []).forEach((provider) => {
+                const name = [provider.first_name, provider.last_name].filter(Boolean).join(" ");
+                const option = document.createElement("option");
+
+                option.value = provider.id;
+                option.textContent = provider.specialty ? `Dr. ${name} — ${provider.specialty}` : `Dr. ${name}`;
+                providerSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error("Failed to load providers", error);
+    }
+
+    try {
+        const result = await fetchFacilities();
+
+        if (result.success) {
+            (result.data || []).forEach((facility) => {
+                const option = document.createElement("option");
+
+                option.value = facility.id;
+                option.textContent = facility.name;
+                facilitySelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error("Failed to load facilities", error);
+    }
+}
+
+function resetSlotPicker()
+{
+    selectedSlotTime = null;
+    document.getElementById("apptSlotPicker").innerHTML =
+        `<div class="appt-slot-empty">Choose a provider and date to see open times.</div>`;
+}
+
+async function loadSlotsForSelection()
+{
+    const providerId = document.getElementById("apptReqProvider").value;
+    const date = document.getElementById("apptReqDate").value;
+    const picker = document.getElementById("apptSlotPicker");
+
+    selectedSlotTime = null;
+
+    if (!providerId || !date) {
+        picker.innerHTML = `<div class="appt-slot-empty">Choose a provider and date to see open times.</div>`;
+        return;
+    }
+
+    picker.innerHTML = `<div class="appt-slot-empty">Loading available times...</div>`;
+
+    try {
+        const result = await fetchAvailableSlots({ provider_id: providerId, start_date: date, days: 1 });
+
+        if (!result.success || !result.data?.length) {
+            picker.innerHTML = `<div class="appt-slot-empty">Unable to load available times.</div>`;
+            return;
+        }
+
+        const slots = result.data[0]?.slots || [];
+
+        if (!slots.length) {
+            picker.innerHTML = `<div class="appt-slot-empty">No times found for this date.</div>`;
+            return;
+        }
+
+        if (!slots.some((slot) => slot.available)) {
+            picker.innerHTML = `<div class="appt-slot-empty">This provider is fully booked on this date. Try another date.</div>`;
+            return;
+        }
+
+        picker.innerHTML = `<div class="appt-slot-grid">${slots.map((slot) => `
+            <button type="button" class="appt-slot-btn ${slot.available ? "" : "unavailable"}" data-time="${slot.time}" ${slot.available ? "" : "disabled"}>${formatApptTime(slot.time)}</button>
+        `).join("")}</div>`;
+
+        picker.querySelectorAll(".appt-slot-btn:not(.unavailable)").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                picker.querySelectorAll(".appt-slot-btn").forEach((b) => b.classList.remove("selected"));
+                btn.classList.add("selected");
+                selectedSlotTime = btn.getAttribute("data-time");
+            });
+        });
+    } catch (error) {
+        console.error("Failed to load available slots", error);
+        picker.innerHTML = `<div class="appt-slot-empty">Unable to load available times.</div>`;
+    }
+}
+
+function showFieldError(field, message)
+{
+    const el = document.getElementById(`err-${field}`);
+
+    if (el) {
+        el.textContent = message;
+    }
+}
+
+function clearRequestErrors()
+{
+    ["provider_id", "appointment_date", "appointment_time"].forEach((field) => showFieldError(field, ""));
 }
 
 function renderAppointments(appointments)

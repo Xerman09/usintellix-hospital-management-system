@@ -17,11 +17,29 @@ class ProviderController extends Controller
     }
 
     /**
-     * List providers.
+     * List providers. Patients (picking a provider to self-schedule with)
+     * only get name/specialty/department — not NPI/license/DEA numbers or
+     * personal contact info, which the full staff listing includes.
      */
     public function index(): void
     {
+        $user = Session::get('user');
         $providers = $this->providerService->list();
+
+        if (($user['role'] ?? '') === 'patient') {
+            $providers = array_map(
+                fn(array $provider): array => [
+                    'id' => $provider['id'],
+                    'first_name' => $provider['first_name'],
+                    'middle_name' => $provider['middle_name'],
+                    'last_name' => $provider['last_name'],
+                    'suffix' => $provider['suffix'],
+                    'specialty' => $provider['specialty'],
+                    'department_name' => $provider['department_name']
+                ],
+                $providers
+            );
+        }
 
         $this->success($providers, 'Providers retrieved successfully.');
     }

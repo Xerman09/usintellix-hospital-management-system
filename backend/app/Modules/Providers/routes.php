@@ -6,7 +6,7 @@ use App\Modules\Providers\Controllers\ProviderController;
 
 $router->get('/providers', [ProviderController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->post('/providers', [ProviderController::class, 'register'], [

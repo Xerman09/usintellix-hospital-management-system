@@ -11,7 +11,7 @@ $router->get('/appointments', [AppointmentController::class, 'index'], [
 
 $router->post('/appointments', [AppointmentController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->put('/appointments', [AppointmentController::class, 'update'], [
@@ -28,5 +28,5 @@ $router->delete('/appointments', [AppointmentController::class, 'destroy'], [
 // free slots. Query: ?provider_id=&start_date=&days=
 $router->get('/appointments/available-slots', [AppointmentController::class, 'availableSlots'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);

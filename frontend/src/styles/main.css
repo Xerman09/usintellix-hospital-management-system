@@ -2052,6 +2052,16 @@ select.form-input {
 
 }
 
+:root[data-theme="dark"] .form-alert.error {
+    background: rgba(220, 38, 38, .18);
+    color: #fca5a5;
+}
+
+:root[data-theme="dark"] .form-alert.success {
+    background: rgba(21, 128, 61, .2);
+    color: #86efac;
+}
+
 
 /* =========================
    DATA TABLES (Providers, Patients list)
@@ -3395,6 +3405,84 @@ select.form-input {
 }
 
 :root[data-theme="dark"] .pt-appt-card--past .pt-appt-card-day { color: var(--text-muted); }
+
+.pt-appt-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pt-appt-request-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pt-appt-request-btn:hover {
+    background: var(--accent-hover);
+}
+
+.pt-appt-request-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.appt-slot-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.appt-slot-btn {
+    padding: 7px 12px;
+    border: 1px solid #dbe1ea;
+    border-radius: 6px;
+    background: white;
+    color: #25324b;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.appt-slot-btn:hover {
+    border-color: var(--accent);
+}
+
+.appt-slot-btn.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.appt-slot-btn.unavailable {
+    background: #f1f5f9;
+    border-color: #e5e9f0;
+    color: #b7c0cf;
+    cursor: not-allowed;
+    text-decoration: line-through;
+}
+
+.appt-slot-empty {
+    padding: 12px;
+    text-align: center;
+    color: #8b98ac;
+    font-size: 12.5px;
+}
+
+:root[data-theme="dark"] .appt-slot-btn { background: var(--bg-surface-alt); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .appt-slot-btn.unavailable { background: var(--bg-page); color: var(--text-muted); border-color: var(--border-color); }
+:root[data-theme="dark"] .appt-slot-empty { color: var(--text-muted); }
 
 /* =========================
    PATIENT DOCUMENTS
