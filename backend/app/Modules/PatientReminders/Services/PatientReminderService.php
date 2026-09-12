@@ -61,6 +61,24 @@ class PatientReminderService
     }
 
     /**
+     * The current patient's own health maintenance reminders (no
+     * cross-patient data, no consent/contact columns) -- due/past-due
+     * preventive care items only.
+     */
+    public function listForPatient(int $patientId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT id, item_label, due_status, date_created, date_sent
+             FROM patient_reminders
+             WHERE deleted_at IS NULL AND patient_id = ?
+             ORDER BY (due_status = 'past_due') DESC, date_created DESC"
+        );
+        $stmt->execute([$patientId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Evaluate every active "Patient Reminder" type practice_rules row
      * against every active patient's demographics, and upsert one
      * patient_reminders row per (rule, patient) match. Re-running is

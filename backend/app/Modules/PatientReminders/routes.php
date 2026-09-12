@@ -4,6 +4,11 @@ use App\Modules\PatientReminders\Controllers\PatientReminderController;
 
 /** @var \App\Core\Router $router */
 
+$router->get('/patient-reminders/mine', [PatientReminderController::class, 'mine'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
 $router->get('/patient-reminders', [PatientReminderController::class, 'index'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

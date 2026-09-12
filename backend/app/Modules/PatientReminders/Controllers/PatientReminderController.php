@@ -5,6 +5,7 @@ namespace App\Modules\PatientReminders\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Patients\Models\Patient;
 use App\Modules\PatientReminders\Services\PatientReminderService;
 
 class PatientReminderController extends Controller
@@ -14,6 +15,24 @@ class PatientReminderController extends Controller
     public function __construct()
     {
         $this->service = new PatientReminderService();
+    }
+
+    /**
+     * The logged-in patient's own health maintenance reminders.
+     */
+    public function mine(): void
+    {
+        $user = Session::get('user');
+        $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+
+        if (!$patient) {
+            $this->error('Patient record not found.', 404);
+            return;
+        }
+
+        $reminders = $this->service->listForPatient((int) $patient['id']);
+
+        $this->success($reminders, 'Reminders retrieved successfully.');
     }
 
     public function index(): void

@@ -16,3 +16,8 @@ export async function processAndSendReminders()
 {
     return await api("/patient-reminders/process-and-send", { method: "POST" });
 }
+
+export async function fetchMyReminders()
+{
+    return await api("/patient-reminders/mine");
+}

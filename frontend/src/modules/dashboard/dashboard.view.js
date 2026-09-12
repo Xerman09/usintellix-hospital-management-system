@@ -384,6 +384,7 @@ const PATIENT_NAV_LINKS = `
     </div>
     <a data-tab="messaging">Messaging</a>
     <a data-tab="recalls">Recalls</a>
+    <a data-tab="health_reminders">Health Reminders</a>
 
     <a data-tab="medications">Medications</a>
     <a data-tab="billing">Billing</a>

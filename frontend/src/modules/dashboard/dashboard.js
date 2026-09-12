@@ -13,6 +13,8 @@ import { PatientMedicationsView } from "../patient-medications/patient-medicatio
 import { initPatientMedications } from "../patient-medications/patient-medications.js";
 import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
 import { initPatientRecalls } from "../patient-recalls/patient-recalls.js";
+import { HealthRemindersView } from "../health-reminders/health-reminders.view.js";
+import { initHealthReminders } from "../health-reminders/health-reminders.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
@@ -781,6 +783,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initReports, 0);
                 return ReportsView();
+            }, activate);
+        } else if (tabId === 'health_reminders' && user.role === 'patient') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initHealthReminders, 0);
+                return HealthRemindersView();
             }, activate);
         } else if (tabId === 'clients_list') {
             tabManager.openTab(tabId, title, () => {

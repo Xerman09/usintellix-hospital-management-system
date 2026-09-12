@@ -3189,6 +3189,21 @@ select.form-input {
     color: #92400e;
 }
 
+.status-badge.due {
+    background: var(--accent-lighter);
+    color: var(--accent-text);
+}
+
+.status-badge.past_due {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+:root[data-theme="dark"] .status-badge.past_due {
+    background: rgba(220, 38, 38, .2);
+    color: #fca5a5;
+}
+
 :root[data-theme="dark"] .status-badge.completed {
     background: rgba(21, 128, 61, .2);
     color: #86efac;
