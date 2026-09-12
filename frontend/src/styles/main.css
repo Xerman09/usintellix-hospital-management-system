@@ -3503,6 +3503,54 @@ select.form-input {
     line-height: 1.6;
 }
 
+.docs-editing-bar {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 40px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.docs-editing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2563eb;
+}
+
+.docs-editing-label {
+    font-weight: 600;
+    color: #334155;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.docs-form-dropdown {
+    background: white;
+}
+
+.docs-form-option {
+    color: #475569;
+}
+
+:root[data-theme="dark"] .docs-topbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .docs-topbar h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .docs-topbar p { color: var(--text-muted); }
+:root[data-theme="dark"] .docs-tool-btn { background: var(--bg-surface); color: var(--accent-text); }
+:root[data-theme="dark"] .docs-tool-btn:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .docs-instructions h2 { color: var(--text-primary); }
+:root[data-theme="dark"] .docs-instructions-welcome,
+:root[data-theme="dark"] .docs-instructions li { color: var(--text-primary); }
+:root[data-theme="dark"] .docs-editing-bar { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .docs-editing-label { color: var(--text-primary); }
+:root[data-theme="dark"] .docs-form-dropdown { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .docs-form-option { color: var(--text-primary); border-bottom-color: var(--border-color) !important; }
+:root[data-theme="dark"] .docs-form-option:hover { background: var(--bg-surface-alt); }
+
 /* =========================
    TOAST NOTIFICATIONS
 ========================= */
