@@ -24,6 +24,8 @@
    reached by this and will still render light until they're moved onto
    these variables too. */
 :root[data-theme="dark"] {
+    color-scheme: dark;
+
     --bg-page: #0f172a;
     --bg-surface: #1e293b;
     --bg-surface-alt: #172033;
