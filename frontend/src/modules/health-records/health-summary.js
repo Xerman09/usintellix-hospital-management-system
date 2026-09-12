@@ -6,15 +6,11 @@ import { showToast } from "../../core/toast.js";
 
 // Sections with their own detailed-table renderer, as opposed to the
 // generic "N record(s) on file" placeholder used for the rest.
-const CUSTOM_RENDERED_KEYS = ["care_provider", "encounters", "allergies", "medications", "prescriptions", "problems", "immunizations"];
+const CUSTOM_RENDERED_KEYS = ["care_provider", "encounters", "allergies", "medications", "prescriptions", "problems", "immunizations", "results"];
 
 const EMPTY_SECTION_KEYS = HRS_SECTIONS
     .map((section) => section.key)
     .filter((key) => !CUSTOM_RENDERED_KEYS.includes(key));
-
-const EMPTY_TEXT_OVERRIDES = {
-    results: "No Results"
-};
 
 export async function initHealthSummary(options = {})
 {
@@ -35,6 +31,7 @@ export async function initHealthSummary(options = {})
     renderDrugTable("hrs-medications", result.data.medications, "No records found.");
     renderPrescriptionsTable(result.data.prescriptions);
     renderProblems(result.data.problems);
+    renderResultsTable(result.data.results);
     renderEmptySections(result.data);
 }
 
@@ -244,6 +241,43 @@ async function handleRefillRequest(btn)
     }
 }
 
+function renderResultsTable(records)
+{
+    const el = document.getElementById("hrs-results");
+
+    if (!el) return;
+
+    if (!records || !records.length) {
+        el.innerHTML = `<p class="hrs-widget-empty-text">No Results</p>`;
+        return;
+    }
+
+    el.innerHTML = `
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Test</th><th>Result</th><th>Reference Range</th><th>Date</th></tr>
+                </thead>
+                <tbody>
+                    ${records.map((result) => {
+                        const abnormal = Number(result.is_abnormal) === 1;
+                        const value = [result.value, result.units].filter(Boolean).join(" ") || "-";
+
+                        return `
+                            <tr class="${abnormal ? "hrs-result-abnormal" : ""}">
+                                <td>${escapeHtml(result.name)}</td>
+                                <td>${escapeHtml(value)}${abnormal ? ` <span class="hrs-abnormal-flag">Abnormal</span>` : ""}</td>
+                                <td>${escapeHtml(result.reference_range || "-")}</td>
+                                <td>${formatDate(result.result_date) || "-"}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderProblems(problems)
 {
     renderListTable(
@@ -339,10 +373,9 @@ function renderEmptySections(data)
         if (!el) return;
 
         const records = data[key];
-        const emptyText = EMPTY_TEXT_OVERRIDES[key] || "No data recorded on file.";
 
         el.innerHTML = (Array.isArray(records) && records.length)
             ? `<p class="hrs-widget-empty-text">${records.length} record(s) on file.</p>`
-            : `<p class="hrs-widget-empty-text">${emptyText}</p>`;
+            : `<p class="hrs-widget-empty-text">No data recorded on file.</p>`;
     });
 }

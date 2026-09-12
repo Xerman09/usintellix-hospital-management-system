@@ -10,6 +10,7 @@ use App\Modules\PatientImmunizations\Services\PatientImmunizationService;
 use App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService;
 use App\Modules\PatientMedications\Services\PatientMedicationService;
 use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
+use App\Modules\PatientProcedureResults\Services\PatientProcedureResultService;
 use PDO;
 
 class HealthRecordSummaryService
@@ -20,6 +21,7 @@ class HealthRecordSummaryService
     private PatientMedicalProblemService $patientMedicalProblemService;
     private PatientMedicationService $patientMedicationService;
     private PatientPrescriptionService $patientPrescriptionService;
+    private PatientProcedureResultService $patientProcedureResultService;
 
     public function __construct()
     {
@@ -29,6 +31,7 @@ class HealthRecordSummaryService
         $this->patientMedicalProblemService = new PatientMedicalProblemService();
         $this->patientMedicationService = new PatientMedicationService();
         $this->patientPrescriptionService = new PatientPrescriptionService();
+        $this->patientProcedureResultService = new PatientProcedureResultService();
     }
 
     /**
@@ -92,7 +95,7 @@ class HealthRecordSummaryService
             'clinical_reminders'   => [],
             'problems'             => $this->patientMedicalProblemService->list($patientId),
             'procedures'           => [],
-            'results'              => [],
+            'results'              => $this->patientProcedureResultService->listForPatient($patientId),
             'advance_directives'   => [],
             'functional_status'    => [],
             'encounters'           => $this->appointmentService->list(null, $patientId),

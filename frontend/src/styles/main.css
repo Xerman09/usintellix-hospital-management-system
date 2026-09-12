@@ -2546,6 +2546,32 @@ select.form-input {
     cursor: default;
 }
 
+.hrs-result-abnormal {
+    background: #fef2f2;
+}
+
+.hrs-abnormal-flag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+
+:root[data-theme="dark"] .hrs-result-abnormal {
+    background: rgba(220, 38, 38, .12);
+}
+
+:root[data-theme="dark"] .hrs-abnormal-flag {
+    background: rgba(220, 38, 38, .25);
+    color: #fca5a5;
+}
+
 @media (max-width: 860px) {
     .hrs-widget-grid { grid-template-columns: 1fr; }
 }
