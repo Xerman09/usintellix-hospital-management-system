@@ -3339,6 +3339,39 @@ select.form-input {
     color: #b91c1c;
 }
 
+:root[data-theme="dark"] .pt-appt-topbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pt-appt-topbar h1 { color: var(--text-primary); }
+:root[data-theme="dark"] .pt-appt-topbar p { color: var(--text-muted); }
+:root[data-theme="dark"] .pt-appt-view-switch { border-color: var(--border-color); }
+:root[data-theme="dark"] .pt-appt-view-btn { background: var(--bg-surface); border-left-color: var(--border-color); color: var(--text-muted); }
+:root[data-theme="dark"] .pt-appt-view-btn.active { background: var(--accent); color: white; }
+:root[data-theme="dark"] .pt-appt-nav-btn { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+:root[data-theme="dark"] .pt-appt-nav-btn:hover { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .pt-appt-cal-label,
+:root[data-theme="dark"] .appt-section-title { color: var(--text-primary); }
+
+:root[data-theme="dark"] .appt-empty { background: var(--bg-surface-alt); color: var(--text-muted); }
+
+:root[data-theme="dark"] .pt-appt-card {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme="dark"] .pt-appt-card-time,
+:root[data-theme="dark"] .pt-appt-card-with { color: var(--text-primary); }
+
+:root[data-theme="dark"] .pt-appt-card-reason,
+:root[data-theme="dark"] .pt-appt-card-location { color: var(--text-muted); }
+
+:root[data-theme="dark"] .pt-appt-card--past .pt-appt-card-date {
+    background: var(--bg-surface-alt);
+    border-right-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .pt-appt-card--past .pt-appt-card-day { color: var(--text-muted); }
+
 /* =========================
    PATIENT DOCUMENTS
 ========================= */
