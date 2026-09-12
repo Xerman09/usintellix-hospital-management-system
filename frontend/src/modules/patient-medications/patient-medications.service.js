@@ -2,9 +2,9 @@ import { api } from "../../core/api.js?v=5";
 
 export async function fetchPatientMedications(patientId)
 {
-    const query = new URLSearchParams({ patient_id: patientId }).toString();
+    const query = patientId ? `?${new URLSearchParams({ patient_id: patientId }).toString()}` : "";
 
-    return await api(`/patient-medications?${query}`);
+    return await api(`/patient-medications${query}`);
 }
 
 export async function addPatientMedication(patientId, medicationId, details = {})

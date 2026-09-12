@@ -3362,13 +3362,20 @@ function renderDashboardMedications(medications)
     const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
 
     body.innerHTML = active.length
-        ? `<div class="pd-allergy-list">
-            ${active.map((medication) => `
-                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-medication-id="${medication.id}" tabindex="0" role="button"` : ""}>
-                    <span class="pd-allergy-name">${escapeHtml(medication.title)}</span>
-                </div>
-            `).join("")}
-           </div>`
+        ? `<table class="pd-med-table">
+            <thead>
+                <tr><th>Medication</th><th>Start Date</th><th>End Date</th></tr>
+            </thead>
+            <tbody>
+                ${active.map((medication) => `
+                    <tr${canManage ? ` class="pd-item-clickable" data-medication-id="${medication.id}" tabindex="0" role="button"` : ""}>
+                        <td>${escapeHtml(medication.title)}</td>
+                        <td>${formatDate(medication.begin_date) || "-"}</td>
+                        <td>${formatDate(medication.end_date) || "-"}</td>
+                    </tr>
+                `).join("")}
+            </tbody>
+           </table>`
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path></svg>
             <p>No active medications recorded.</p>

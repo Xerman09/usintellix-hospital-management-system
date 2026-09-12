@@ -27,16 +27,30 @@ class PatientMedicationController extends Controller
     }
 
     /**
-     * List a patient's recorded medications.
+     * List a patient's recorded medications. Patients may only view their
+     * own; staff must supply the patient_id they're looking up.
      */
     public function index(): void
     {
         $request = new Request();
-        $patientId = (int) $request->input('patient_id');
+        $user = Session::get('user');
 
-        if (!$patientId) {
-            $this->error('Patient is required.', 422);
-            return;
+        if (($user['role'] ?? '') === 'patient') {
+            $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+
+            if (!$patient) {
+                $this->error('Patient record not found.', 404);
+                return;
+            }
+
+            $patientId = (int) $patient['id'];
+        } else {
+            $patientId = (int) $request->input('patient_id');
+
+            if (!$patientId) {
+                $this->error('Patient is required.', 422);
+                return;
+            }
         }
 
         $medications = $this->patientMedicationService->list($patientId);

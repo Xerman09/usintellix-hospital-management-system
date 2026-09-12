@@ -6,7 +6,7 @@ use App\Modules\PatientMedications\Controllers\PatientMedicationController;
 
 $router->get('/patient-medications', [PatientMedicationController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->post('/patient-medications', [PatientMedicationController::class, 'store'], [

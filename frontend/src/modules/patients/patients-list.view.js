@@ -1060,6 +1060,9 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-allergy-item.status-confirmed { border-left-color: #4ade80; }
 :root[data-theme="dark"] .pd-allergy-item.status-refuted { background: var(--bg-surface-alt); }
 :root[data-theme="dark"] .pd-allergy-item:hover { border-color: var(--accent); }
+:root[data-theme="dark"] .pd-med-table th { color: var(--text-muted); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-med-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-med-table tbody tr.pd-item-clickable:hover { background: var(--bg-surface-alt); }
 
 .pd-allergy-list {
     display: flex;
@@ -1182,6 +1185,37 @@ export function PatientsListView(user)
 
 .pd-allergy-item.status-inactive {
     opacity: .65;
+}
+
+.pd-med-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.pd-med-table th {
+    text-align: left;
+    padding: 6px 8px;
+    color: #8b98ac;
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .2px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pd-med-table td {
+    padding: 7px 8px;
+    color: #29323f;
+    border-bottom: 1px solid #eef1f5;
+}
+
+.pd-med-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.pd-med-table tbody tr.pd-item-clickable:hover {
+    background: #fbfcfe;
 }
 
 .pd-visit-list {
@@ -4567,6 +4601,9 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-allergy-item.status-confirmed { border-left-color: #4ade80; }
 :root[data-theme="dark"] .pd-allergy-item.status-refuted { background: var(--bg-surface-alt); }
 :root[data-theme="dark"] .pd-allergy-item:hover { border-color: var(--accent); }
+:root[data-theme="dark"] .pd-med-table th { color: var(--text-muted); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-med-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .pd-med-table tbody tr.pd-item-clickable:hover { background: var(--bg-surface-alt); }
 
 .pd-allergy-list {
     display: flex;
@@ -4689,6 +4726,37 @@ textarea.pd-sdoh-readonly {
 
 .pd-allergy-item.status-inactive {
     opacity: .65;
+}
+
+.pd-med-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.pd-med-table th {
+    text-align: left;
+    padding: 6px 8px;
+    color: #8b98ac;
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .2px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.pd-med-table td {
+    padding: 7px 8px;
+    color: #29323f;
+    border-bottom: 1px solid #eef1f5;
+}
+
+.pd-med-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.pd-med-table tbody tr.pd-item-clickable:hover {
+    background: #fbfcfe;
 }
 
 .pd-visit-list {
