@@ -2510,6 +2510,15 @@ select.form-input {
     }
 }
 
+:root[data-theme="dark"] .hrs-topbar { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .hrs-topbar h2 { color: var(--text-primary); }
+:root[data-theme="dark"] .hrs-topbar p { color: var(--text-muted); }
+:root[data-theme="dark"] .hrs-widget { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .hrs-widget-header { border-bottom-color: var(--border-color); }
+:root[data-theme="dark"] .hrs-widget-body .data-table th { background: var(--bg-surface-alt); }
+:root[data-theme="dark"] .hrs-widget-empty-text { color: var(--text-muted); }
+:root[data-theme="dark"] .hrs-subcard-label { color: var(--text-primary); }
+
 /* =========================
    APPOINTMENTS CALENDAR
    Small month calendar (upper-left) driving a day timeline that fills
