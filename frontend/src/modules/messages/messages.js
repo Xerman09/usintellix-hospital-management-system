@@ -510,7 +510,7 @@ async function setupRecalls()
     ]);
 
     setupSearchClear("recall_patient_search", "recallPatientClear");
-    setupRecallFormModal();
+    setupRecallFormModal(isStaff);
 
     document.getElementById("goToRecallBoard").addEventListener("click", goToRecallBoard);
 
@@ -675,7 +675,7 @@ function buildPatientUpdatePayload(patient, contactFields)
     };
 }
 
-function setupRecallFormModal()
+function setupRecallFormModal(isStaff)
 {
     const modalOverlay = document.getElementById("recallFormModalOverlay");
     const form = document.getElementById("recallForm");
@@ -706,7 +706,10 @@ function setupRecallFormModal()
         modalOverlay.classList.remove("open");
     };
 
-    document.getElementById("openAddRecallModal").addEventListener("click", openAddModal);
+    if (isStaff) {
+        document.getElementById("openAddRecallModal").addEventListener("click", openAddModal);
+    }
+
     document.getElementById("closeRecallFormModal").addEventListener("click", closeModal);
     document.getElementById("cancelRecallForm").addEventListener("click", closeModal);
     modalOverlay.addEventListener("click", (event) => {

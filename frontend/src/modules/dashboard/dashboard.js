@@ -11,6 +11,8 @@ import { HelpView } from "../help/help.view.js";
 import { initHelp } from "../help/help.js";
 import { PatientMedicationsView } from "../patient-medications/patient-medications.view.js";
 import { initPatientMedications } from "../patient-medications/patient-medications.js";
+import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
+import { initPatientRecalls } from "../patient-recalls/patient-recalls.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
@@ -722,6 +724,11 @@ export function Dashboard()
             }, activate);
         } else if (tabId === 'recalls') {
             tabManager.openTab(tabId, title, () => {
+                if (user.role === 'patient') {
+                    setTimeout(initPatientRecalls, 0);
+                    return PatientRecallsView();
+                }
+
                 setTimeout(initRecalls, 0);
                 return RecallsView();
             }, activate);

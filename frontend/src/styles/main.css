@@ -3142,7 +3142,8 @@ select.form-input {
     white-space: nowrap;
 }
 
-.status-badge.scheduled {
+.status-badge.scheduled,
+.status-badge.pending {
     background: var(--accent-lighter);
     color: var(--accent-text);
 }
@@ -3160,6 +3161,21 @@ select.form-input {
 .status-badge.no_show {
     background: #fef3c7;
     color: #92400e;
+}
+
+:root[data-theme="dark"] .status-badge.completed {
+    background: rgba(21, 128, 61, .2);
+    color: #86efac;
+}
+
+:root[data-theme="dark"] .status-badge.cancelled {
+    background: rgba(220, 38, 38, .2);
+    color: #fca5a5;
+}
+
+:root[data-theme="dark"] .status-badge.no_show {
+    background: rgba(146, 64, 14, .25);
+    color: #fcd34d;
 }
 
 /* =========================
