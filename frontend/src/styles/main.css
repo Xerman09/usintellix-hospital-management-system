@@ -2097,6 +2097,15 @@ select.form-input {
     background: #fecaca;
 }
 
+:root[data-theme="dark"] .btn-danger {
+    background: #3f1d1d;
+    color: #fca5a5;
+}
+
+:root[data-theme="dark"] .btn-danger:hover {
+    background: #55201f;
+}
+
 .btn-edit {
     background: var(--accent-lighter);
     color: var(--accent-text);

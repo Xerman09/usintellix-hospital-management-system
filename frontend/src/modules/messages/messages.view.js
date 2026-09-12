@@ -611,6 +611,69 @@ tr.unread {
     accent-color: var(--accent);
     cursor: pointer;
 }
+
+:root[data-theme="dark"] .msg-icon-badge {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .msg-icon-badge svg {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .msg-panel-header-row h2,
+:root[data-theme="dark"] .rem-sent-today h3 {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .msg-stat-pill {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .msg-filter-input,
+:root[data-theme="dark"] .rem-select-multiple,
+:root[data-theme="dark"] .rem-chars-remaining {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .msg-clear-btn,
+:root[data-theme="dark"] .rem-complete-btn {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .msg-clear-btn:hover,
+:root[data-theme="dark"] .rem-complete-btn:hover {
+    background: var(--bg-surface);
+}
+
+:root[data-theme="dark"] .rec-mini-item {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .rec-mini-info strong {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .rec-mini-date span {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .rec-readonly-field {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .rem-sent-today {
+    border-top-color: var(--border-color);
+    color: var(--text-muted);
+}
 </style>
 <div class="msg-page">
     <div class="msg-card">
