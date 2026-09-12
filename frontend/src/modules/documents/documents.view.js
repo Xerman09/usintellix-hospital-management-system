@@ -123,7 +123,7 @@ export function DocumentsView()
             <button type="button" id="docsFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 13px; cursor: pointer;">Dismiss Form</button>
         </div>
 
-        <div style="padding: 24px 40px; background: white; border: 1px solid #e2e8f0; border-top: none; min-height: 500px;" id="docsFormContent">
+        <div class="docs-paper" style="padding: 24px 40px; border-top: none; min-height: 500px;" id="docsFormContent">
             <!-- HIPAA Form Content -->
             <div id="docsHipaaFormContent">
                 <h2 style="font-size: 24px; font-weight: normal; margin-bottom: 16px;">HIPAA Declaration</h2>
@@ -166,7 +166,7 @@ export function DocumentsView()
 
                 <div style="margin-bottom: 24px; display: flex; align-items: flex-end; gap: 8px;">
                     <span>Patient Signature: </span>
-                    <div style="min-width: 200px; border-bottom: 1px solid black; padding-bottom: 4px; display: inline-block;">
+                    <div class="docs-paper-line" style="min-width: 200px; padding-bottom: 4px; display: inline-block;">
                         <img id="hipaaSignatureImg" src="" style="display: none; max-height: 50px; margin-top: -20px;" alt="Signature">
                         <span id="hipaaSignaturePlaceholder" style="color: #ef4444; font-size: 14px; cursor: pointer;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px; vertical-align: text-bottom;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -212,8 +212,8 @@ export function DocumentsView()
             </div>
             <button type="button" id="docsInsuranceFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 12px; cursor: pointer;">Dismiss Form</button>
         </div>
-        <div style="padding: 40px; display: flex; justify-content: center; background: #f8fafc;">
-            <div style="background: white; border: 1px solid #e2e8f0; max-width: 800px; width: 100%; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div class="docs-paper-wrap" style="padding: 40px; display: flex; justify-content: center;">
+            <div class="docs-paper" style="max-width: 800px; width: 100%; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                 <h2 style="text-align: center; margin-top: 0; margin-bottom: 24px; font-weight: normal; font-size: 24px;">INSURANCE INFORMATION</h2>
 
                 <div style="display: flex; gap: 24px; margin-bottom: 24px;">
@@ -320,9 +320,9 @@ export function DocumentsView()
             </div>
             <button type="button" id="docsMedicalFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; font-size: 12px; cursor: pointer;">Dismiss Form</button>
         </div>
-        <div style="padding: 40px; display: flex; justify-content: center; background: #f8fafc;">
-            <div style="background: white; border: 1px solid #e2e8f0; max-width: 900px; width: 100%; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                <h2 style="margin-top: 0; margin-bottom: 24px; font-weight: normal; font-size: 24px; color: #1e293b;">History</h2>
+        <div class="docs-paper-wrap" style="padding: 40px; display: flex; justify-content: center;">
+            <div class="docs-paper" style="max-width: 900px; width: 100%; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <h2 style="margin-top: 0; margin-bottom: 24px; font-weight: normal; font-size: 24px;">History</h2>
 
                 <div style="margin-bottom: 12px;">
                     <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
@@ -330,8 +330,8 @@ export function DocumentsView()
                     </label>
                 </div>
 
-                <div style="background: #cbd5e1; padding: 24px; border-radius: 4px; margin-bottom: 32px; display: grid; grid-template-columns: 150px 1fr; gap: 16px; color: #0f172a;">
-                    
+                <div class="docs-paper-highlight" style="padding: 24px; border-radius: 4px; margin-bottom: 32px; display: grid; grid-template-columns: 150px 1fr; gap: 16px;">
+
                     <div style="font-weight: bold;">Risk Factors:</div>
                     <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px;">
                         <label><input type="checkbox"> Varicose Veins</label>
@@ -357,7 +357,7 @@ export function DocumentsView()
                     </div>
 
                     <div style="font-weight: bold; margin-top: 24px;">Exams/Tests:</div>
-                    <div style="margin-top: 24px; background: white; border: 1px solid #94a3b8; border-radius: 2px;">
+                    <div class="docs-paper-subbox" style="margin-top: 24px; border-radius: 2px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                             <thead>
                                 <tr style="border-bottom: 1px solid #94a3b8;">
@@ -484,7 +484,7 @@ export function DocumentsView()
                         <input type="checkbox" id="chkFamilyHistory"> Family History
                     </label>
                 </div>
-                <div id="secFamilyHistory" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px; color: #0f172a;">
+                <div id="secFamilyHistory" class="docs-paper-highlight" style="display: none; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px;">
                     <div style="display: grid; grid-template-columns: 100px 1fr; gap: 12px; align-items: center;">
                         <label style="font-weight: bold;">Father:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
                         <label style="font-weight: bold;">Siblings:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
@@ -501,7 +501,7 @@ export function DocumentsView()
                         <input type="checkbox" id="chkRelatives"> Relatives
                     </label>
                 </div>
-                <div id="secRelatives" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px; color: #0f172a;">
+                <div id="secRelatives" class="docs-paper-highlight" style="display: none; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px;">
                     <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center;">
                         <label style="font-weight: bold;">Cancer:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
                         <label style="font-weight: bold;">Diabetes:</label> <input type="text" style="border: 1px solid #cbd5e1; padding: 4px;">
@@ -522,7 +522,7 @@ export function DocumentsView()
                         <input type="checkbox" id="chkLifestyle"> Lifestyle
                     </label>
                 </div>
-                <div id="secLifestyle" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 150px 1fr; gap: 16px; color: #0f172a;">
+                <div id="secLifestyle" class="docs-paper-highlight" style="display: none; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 150px 1fr; gap: 16px;">
                     <div style="font-weight: bold;">Tobacco:</div>
                     <div>
                         <input type="text" style="border: 1px solid #cbd5e1; padding: 4px; width: 150px; margin-bottom: 12px; display: block;">
@@ -631,7 +631,7 @@ export function DocumentsView()
                         <input type="checkbox" id="chkOther"> Other
                     </label>
                 </div>
-                <div id="secOther" style="display: none; background: #e2e8f0; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px; color: #0f172a;">
+                <div id="secOther" class="docs-paper-highlight" style="display: none; padding: 24px; border-radius: 4px; margin-bottom: 32px; grid-template-columns: 1fr 1fr; gap: 24px;">
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center;">
                             <label style="font-weight: bold;">Name/Value:</label>
@@ -676,13 +676,13 @@ export function DocumentsView()
 </div>
 
 <div id="docsPrivacyFormBody" style="display: none;">
-    <div style="background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column;">
+    <div class="docs-paper" style="display: flex; flex-direction: column;">
         <div style="background: #0f172a; color: white; padding: 4px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold;">
             <div>Editing <span style="background: white; color: black; padding: 2px 4px; margin: 0 4px;">Privacy Document</span> New Version: Dated:<span id="docsPrivacyFormHeaderDate"></span> Status:<span id="docsPrivacyFormHeaderStatus"></span></div>
             <button type="button" id="docsPrivacyFormDismissBtn" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 2px 12px; font-size: 12px; cursor: pointer;">Dismiss Form</button>
         </div>
 
-        <div style="padding: 24px; font-size: 13px; line-height: 1.5; color: #334155; max-height: calc(100vh - 200px); overflow-y: auto;">
+        <div style="padding: 24px; font-size: 13px; line-height: 1.5; max-height: calc(100vh - 200px); overflow-y: auto;">
             <div style="margin-bottom: 24px;">
                 NOTICE OF PRIVACY PRACTICES PATIENT ACKNOWLEDGEMENT AND CONSENT TO MEDICAL TREATMENT<br>
                 Patient Name: <span id="privacyPatientName" style="font-style: italic;"></span><br>
@@ -737,7 +737,7 @@ export function DocumentsView()
 
 
 
-<div id="docsUploadContainer" style="display: none; width: 100%; background: #ffffff;">
+<div id="docsUploadContainer" style="display: none; width: 100%; background: #ffffff; color-scheme: light;">
     <div style="display: flex; align-items: center; background-color: #0f172a; color: white; padding: 12px 16px; width: 100%; box-sizing: border-box;">
         <button type="button" id="docsUploadCancelBtn" style="background: white; border: 1px solid #ccc; padding: 4px 12px; border-radius: 2px; color: black; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 4px; margin-right: 16px;">
             &larr; Back
@@ -799,10 +799,10 @@ export function DocumentsView()
 
 <div class="modal-overlay" id="docsDeleteConfirmModalOverlay" style="display: none;">
     <div class="modal-box" style="max-width: 400px; text-align: center;">
-        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 18px; font-weight: 600; color: #0f172a;">Confirm Deletion</h3>
-        <p style="margin-bottom: 24px; color: #475569; font-size: 14px;">Are you sure you want to delete this document? This action cannot be undone.</p>
+        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 18px; font-weight: 600;">Confirm Deletion</h3>
+        <p class="form-subtitle" style="margin-bottom: 24px; font-size: 14px;">Are you sure you want to delete this document? This action cannot be undone.</p>
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
-            <button type="button" id="docsDeleteCancelModalBtn" class="btn-secondary" style="padding: 8px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <button type="button" id="docsDeleteCancelModalBtn" class="btn-secondary" style="padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
             <button type="button" id="docsDeleteConfirmModalBtn" style="padding: 8px 16px; background: #ef4444; border: none; color: white; border-radius: 4px; cursor: pointer;">Delete</button>
         </div>
     </div>

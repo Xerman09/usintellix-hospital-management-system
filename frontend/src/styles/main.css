@@ -3551,6 +3551,36 @@ select.form-input {
 :root[data-theme="dark"] .docs-form-option { color: var(--text-primary); border-bottom-color: var(--border-color) !important; }
 :root[data-theme="dark"] .docs-form-option:hover { background: var(--bg-surface-alt); }
 
+.docs-paper-wrap {
+    background: #f8fafc;
+}
+
+.docs-paper {
+    background: white;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+}
+
+.docs-paper-highlight {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.docs-paper-subbox {
+    background: white;
+    border: 1px solid #94a3b8;
+}
+
+.docs-paper-line {
+    border-bottom: 1px solid black;
+}
+
+:root[data-theme="dark"] .docs-paper-wrap { background: var(--bg-page); }
+:root[data-theme="dark"] .docs-paper { background: var(--bg-surface); color: var(--text-primary); border-color: var(--border-color); }
+:root[data-theme="dark"] .docs-paper-highlight { background: var(--bg-surface-alt); color: var(--text-primary); }
+:root[data-theme="dark"] .docs-paper-subbox { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .docs-paper-line { border-bottom-color: var(--text-muted); }
+
 /* =========================
    TOAST NOTIFICATIONS
 ========================= */
