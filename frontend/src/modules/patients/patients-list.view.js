@@ -1534,6 +1534,16 @@ export function PatientsListView(user)
 }
 
 :root[data-theme="dark"] #editPatientModalOverlay .modal-tabs { border-bottom-color: var(--border-color); }
+
+:root[data-theme="dark"] #editPatientModalOverlay .form-input {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] #editPatientModalOverlay .form-input:focus {
+    background: var(--bg-surface);
+}
 </style>
 
 <div class="modal-overlay" id="editPatientModalOverlay">
@@ -11198,6 +11208,16 @@ textarea.pd-sdoh-readonly {
 }
 
 :root[data-theme="dark"] #editPatientModalOverlay .modal-tabs { border-bottom-color: var(--border-color); }
+
+:root[data-theme="dark"] #editPatientModalOverlay .form-input {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] #editPatientModalOverlay .form-input:focus {
+    background: var(--bg-surface);
+}
 </style>
 
 <div class="modal-overlay" id="editPatientModalOverlay">
