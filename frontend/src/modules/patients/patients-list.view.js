@@ -3409,6 +3409,29 @@ export function PatientChartView(user)
     border-color: var(--border-color);
 }
 
+:root[data-theme="dark"] .pd-toolbar-btn {
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-toolbar-btn-disabled {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .pd-toolbar-icon-btn {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-toolbar-icon-btn:hover {
+    background: var(--bg-surface-alt);
+}
+
+:root[data-theme="dark"] .pd-card-collapse-toggle {
+    color: var(--text-muted);
+}
+
 .pd-fee-price-input {
     width: 90px;
     padding: 5px 8px;
