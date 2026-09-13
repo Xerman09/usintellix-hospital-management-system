@@ -4217,6 +4217,95 @@ textarea.pd-sdoh-readonly {
     }
 }
 
+.pd-gh-specify-input {
+    background: white;
+    color: #25324b;
+}
+
+:root[data-theme="dark"] .pd-history-content {
+    background: var(--bg-surface);
+}
+
+:root[data-theme="dark"] .pd-history-category-header {
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-history-section-label,
+:root[data-theme="dark"] .pd-history-empty strong,
+:root[data-theme="dark"] .pd-gh-view-label,
+:root[data-theme="dark"] .pd-gh-edit-label,
+:root[data-theme="dark"] .pd-fh-cell-label,
+:root[data-theme="dark"] .pd-rel-label,
+:root[data-theme="dark"] .pd-life-label,
+:root[data-theme="dark"] .pd-life-status-label,
+:root[data-theme="dark"] .pd-other-label {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-history-empty {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .pd-history-empty-icon {
+    background: var(--bg-surface-alt);
+}
+
+:root[data-theme="dark"] .pd-gh-view-item,
+:root[data-theme="dark"] .pd-gh-check,
+:root[data-theme="dark"] .pd-life-radio,
+:root[data-theme="dark"] .pd-fh-code-input {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-life-pack-years span {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .pd-gh-view-row,
+:root[data-theme="dark"] .pd-gh-edit-row,
+:root[data-theme="dark"] .pd-life-row,
+:root[data-theme="dark"] .pd-life-pack-years-view,
+:root[data-theme="dark"] .pd-fh-row {
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-life-pack-years {
+    border-top-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-gh-specify-input {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-gh-specify-input:focus {
+    background: var(--bg-surface);
+}
+
+:root[data-theme="dark"] .pd-gh-exam-table-wrap {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-gh-exam-table th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-gh-exam-table td {
+    color: var(--text-primary);
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-fh-code-input {
+    background: var(--bg-surface-alt);
+}
+
+:root[data-theme="dark"] .pd-fh-code-input:hover {
+    border-color: var(--border-color);
+}
+
 .code-picker-box {
     max-width: 720px;
     width: 100%;
