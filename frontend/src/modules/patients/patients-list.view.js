@@ -1023,7 +1023,8 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-chart-placeholder,
 :root[data-theme="dark"] .pd-widget-header-title svg,
 :root[data-theme="dark"] .pd-widget-empty svg,
-:root[data-theme="dark"] .pd-widget-empty p {
+:root[data-theme="dark"] .pd-widget-empty p,
+:root[data-theme="dark"] .pd-chart-nav-submenu-item {
     color: var(--text-muted);
 }
 :root[data-theme="dark"] .pd-sidebar { background: var(--bg-surface-alt); border-right-color: var(--border-color); }
@@ -3685,6 +3686,53 @@ textarea.pd-sdoh-readonly {
     }
 }
 
+:root[data-theme="dark"] .pd-sdoh-panel {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-sdoh-content {
+    background: var(--bg-surface);
+}
+
+:root[data-theme="dark"] .pd-sdoh-content h4 {
+    color: var(--text-primary);
+    border-top-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-sdoh-loinc,
+:root[data-theme="dark"] .pd-sdoh-helper,
+:root[data-theme="dark"] .pd-sdoh-summary-meta {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .pd-sdoh-domain-box,
+:root[data-theme="dark"] .pd-sdoh-concern-item {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-sdoh-domain-title {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-sdoh-concern-item {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-sdoh-status-positive {
+    background: rgba(220, 38, 38, .2);
+    color: #fca5a5;
+}
+
+:root[data-theme="dark"] .pd-sdoh-status-negative {
+    background: rgba(21, 128, 61, .2);
+    color: #86efac;
+}
+
+:root[data-theme="dark"] .pd-sdoh-status-none {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+}
+
 .pd-history-tabs {
     display: flex;
     gap: 4px;
@@ -4663,7 +4711,8 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-chart-placeholder,
 :root[data-theme="dark"] .pd-widget-header-title svg,
 :root[data-theme="dark"] .pd-widget-empty svg,
-:root[data-theme="dark"] .pd-widget-empty p {
+:root[data-theme="dark"] .pd-widget-empty p,
+:root[data-theme="dark"] .pd-chart-nav-submenu-item {
     color: var(--text-muted);
 }
 :root[data-theme="dark"] .pd-sidebar { background: var(--bg-surface-alt); border-right-color: var(--border-color); }
