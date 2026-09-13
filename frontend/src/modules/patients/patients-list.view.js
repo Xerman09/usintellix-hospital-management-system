@@ -3377,6 +3377,38 @@ export function PatientChartView(user)
     display: none;
 }
 
+:root[data-theme="dark"] .pd-report-panel {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-report-content {
+    background: var(--bg-surface);
+}
+
+:root[data-theme="dark"] .pd-report-unavailable-note,
+:root[data-theme="dark"] .pd-report-note {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .pd-report-card {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .pd-report-card h4 {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-report-checkbox-inline,
+:root[data-theme="dark"] .pd-report-checklist label {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .pd-report-btn-secondary {
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
 .pd-fee-price-input {
     width: 90px;
     padding: 5px 8px;
@@ -6595,10 +6627,10 @@ textarea.pd-sdoh-readonly {
                             </label>
                             
                             <div id="pdCcrDateRangeContainer" style="display: none; align-items: center; gap: 10px; margin-top: 12px; margin-bottom: 12px; font-size: 13px;">
-                                <label style="font-weight: 600; color: #1c2534;">Start Date:</label>
-                                <input type="date" id="pdCcrStartDate" style="width: 140px; height: 28px; border: 1px solid #d7dee8; border-radius: 4px; padding: 0 8px;">
-                                <label style="font-weight: 600; color: #1c2534; margin-left: 10px;">End Date:</label>
-                                <input type="date" id="pdCcrEndDate" style="width: 140px; height: 28px; border: 1px solid #d7dee8; border-radius: 4px; padding: 0 8px;">
+                                <label style="font-weight: 600; color: var(--text-primary, #1c2534);">Start Date:</label>
+                                <input type="date" id="pdCcrStartDate" class="form-input" style="width: 140px; height: 28px; padding: 0 8px;">
+                                <label style="font-weight: 600; color: var(--text-primary, #1c2534); margin-left: 10px;">End Date:</label>
+                                <input type="date" id="pdCcrEndDate" class="form-input" style="width: 140px; height: 28px; padding: 0 8px;">
                             </div>
 
                             <div class="pd-report-actions">
