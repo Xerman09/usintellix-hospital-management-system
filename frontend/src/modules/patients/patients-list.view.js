@@ -10703,6 +10703,17 @@ textarea.pd-sdoh-readonly {
     font-size: 14px;
 }
 
+:root[data-theme="dark"] .pd-loading-modal-box {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+:root[data-theme="dark"] .pd-loading-spinner {
+    border-color: var(--border-color);
+    border-top-color: var(--accent);
+}
+
 .pd-loading-spinner-lg {
     width: 28px;
     height: 28px;
