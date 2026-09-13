@@ -7,12 +7,14 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\PatientMedications\Services\PatientMedicationService;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 
 class PatientMedicationController extends Controller
 {
     private PatientMedicationService $patientMedicationService;
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     private const DETAIL_FIELDS = [
         'title', 'begin_date', 'end_date', 'medication_usage', 'request_intent',
@@ -24,6 +26,7 @@ class PatientMedicationController extends Controller
     {
         $this->patientMedicationService = new PatientMedicationService();
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -36,7 +39,7 @@ class PatientMedicationController extends Controller
         $user = Session::get('user');
 
         if (($user['role'] ?? '') === 'patient') {
-            $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+            $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
             if (!$patient) {
                 $this->error('Patient record not found.', 404);

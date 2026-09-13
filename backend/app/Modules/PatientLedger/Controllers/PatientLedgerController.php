@@ -7,12 +7,14 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\PatientLedger\Services\PatientLedgerService;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 
 class PatientLedgerController extends Controller
 {
     private PatientLedgerService $patientLedgerService;
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     private const DETAIL_FIELDS = ['encounter_id', 'payer_type', 'payment_type', 'payment_date', 'payment_amount', 'adjustment_amount', 'notes'];
 
@@ -20,6 +22,7 @@ class PatientLedgerController extends Controller
     {
         $this->patientLedgerService = new PatientLedgerService();
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -33,7 +36,7 @@ class PatientLedgerController extends Controller
         $user = Session::get('user');
 
         if (($user['role'] ?? '') === 'patient') {
-            $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+            $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
             if (!$patient) {
                 $this->error('Patient record not found.', 404);

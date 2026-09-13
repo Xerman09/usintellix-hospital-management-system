@@ -123,5 +123,6 @@ require_once __DIR__ . '/../app/Modules/DocumentCategories/routes.php';
 require_once __DIR__ . '/../app/Modules/FormDefinitions/routes.php';
 require_once __DIR__ . '/../app/Modules/DocumentTemplates/routes.php';
 require_once __DIR__ . '/../app/Modules/AclGroups/routes.php';
+require_once __DIR__ . '/../app/Modules/ProxyAccess/routes.php';
 
 return $router;

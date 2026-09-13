@@ -6,7 +6,7 @@ use App\Core\Database;
 use App\Modules\Messaging\Models\Conversation;
 use App\Modules\Messaging\Models\ConversationParticipant;
 use App\Modules\Messaging\Models\Message;
-use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 use PDO;
 
@@ -20,10 +20,12 @@ class MessagingService
         )";
 
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     public function __construct()
     {
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -209,7 +211,7 @@ class MessagingService
         $userId = (int) $user['id'];
 
         if (($user['role'] ?? '') === 'patient') {
-            return $this->listCareTeamRecipients($userId);
+            return $this->listCareTeamRecipients($user);
         }
 
         $stmt = Database::connection()->prepare(
@@ -239,9 +241,9 @@ class MessagingService
      * provider is assigned or the question isn't clinical. Deliberately
      * excludes every other doctor, admin, and patient in the system.
      */
-    private function listCareTeamRecipients(int $userId): array
+    private function listCareTeamRecipients(array $user): array
     {
-        $patient = (new Patient())->where('user_id', $userId)->first();
+        $patient = $this->patientAccessService->resolveEffectivePatient($user);
         $providerUserId = 0;
 
         if ($patient && !empty($patient['provider_id'])) {

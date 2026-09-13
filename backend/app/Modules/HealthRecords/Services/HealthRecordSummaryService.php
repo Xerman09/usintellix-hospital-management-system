@@ -114,14 +114,6 @@ class HealthRecordSummaryService
     }
 
     /**
-     * Fetch the patient record belonging to a logged-in patient user (self-view).
-     */
-    public function fetchPatientByUserId(int $userId): ?array
-    {
-        return $this->fetchPatientBy('p.user_id', $userId);
-    }
-
-    /**
      * Fetch a single patient with contact and care provider details.
      */
     public function fetchPatient(int $patientId): ?array

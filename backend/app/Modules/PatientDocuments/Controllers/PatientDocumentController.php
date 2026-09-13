@@ -7,17 +7,20 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\PatientDocuments\Services\PatientDocumentService;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 
 class PatientDocumentController extends Controller
 {
     private PatientDocumentService $patientDocumentService;
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     public function __construct()
     {
         $this->patientDocumentService = new PatientDocumentService();
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     public function index(): void
@@ -110,7 +113,7 @@ class PatientDocumentController extends Controller
     private function resolvePatientId(array $user, Request $request): ?int
     {
         if (($user['role'] ?? '') === 'patient') {
-            $patient = (new Patient())->where('user_id', $user['id'])->first();
+            $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
             return ($patient && $patient['deleted_at'] === null) ? (int) $patient['id'] : null;
         }

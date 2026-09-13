@@ -5,16 +5,18 @@ namespace App\Modules\PatientReminders\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
-use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\PatientReminders\Services\PatientReminderService;
 
 class PatientReminderController extends Controller
 {
     private PatientReminderService $service;
+    private PatientAccessService $patientAccessService;
 
     public function __construct()
     {
         $this->service = new PatientReminderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -23,7 +25,7 @@ class PatientReminderController extends Controller
     public function mine(): void
     {
         $user = Session::get('user');
-        $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+        $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
         if (!$patient) {
             $this->error('Patient record not found.', 404);

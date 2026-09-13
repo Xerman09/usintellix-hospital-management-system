@@ -4,6 +4,7 @@ namespace App\Modules\Recalls\Services;
 
 use App\Core\Database;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 use App\Modules\Recalls\Models\Recall;
 use PDO;
@@ -13,10 +14,12 @@ class RecallService
     private const STATUSES = ['pending', 'completed', 'cancelled'];
 
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     public function __construct()
     {
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -46,9 +49,9 @@ class RecallService
             $sql .= " AND p.provider_id = :provider_id";
             $params['provider_id'] = $provider ? (int) $provider['id'] : 0;
         } elseif ($role === 'patient') {
-            $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+            $patientId = $this->patientAccessService->resolveEffectivePatientId($user);
             $sql .= " AND r.patient_id = :patient_id";
-            $params['patient_id'] = $patient ? (int) $patient['id'] : 0;
+            $params['patient_id'] = $patientId ?? 0;
         }
 
         $sql .= " ORDER BY (r.recall_date IS NULL), r.recall_date ASC, r.id DESC";

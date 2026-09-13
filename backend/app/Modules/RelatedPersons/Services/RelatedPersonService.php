@@ -6,6 +6,7 @@ use App\Core\Database;
 use App\Modules\RelatedPersons\Models\RelatedPerson;
 use App\Modules\RelatedPersons\Models\RelatedPersonAddress;
 use App\Modules\RelatedPersons\Models\RelatedPersonTelecom;
+use App\Modules\Users\Models\User;
 use PDO;
 
 class RelatedPersonService
@@ -39,8 +40,10 @@ class RelatedPersonService
         $stmt = Database::connection()->prepare(
             "SELECT rp.*,
                     (SELECT COUNT(*) FROM related_person_telecoms t WHERE t.related_person_id = rp.id AND t.deleted_at IS NULL) AS telecom_count,
-                    (SELECT COUNT(*) FROM related_person_addresses a WHERE a.related_person_id = rp.id AND a.deleted_at IS NULL) AS address_count
+                    (SELECT COUNT(*) FROM related_person_addresses a WHERE a.related_person_id = rp.id AND a.deleted_at IS NULL) AS address_count,
+                    pu.username AS proxy_username
              FROM related_persons rp
+             LEFT JOIN users pu ON pu.id = rp.proxy_user_id
              WHERE rp.patient_id = :patient_id AND rp.deleted_at IS NULL
              ORDER BY rp.last_name, rp.first_name"
         );
@@ -271,6 +274,107 @@ class RelatedPersonService
         ], $id);
 
         return ['success' => true, 'message' => 'Address removed successfully.'];
+    }
+
+
+    // ---- Proxy portal access ----
+
+    /**
+     * Existing patient-portal users a related person could be linked to
+     * as a proxy, matched by name or username. Excludes the patient's
+     * own login (a patient can't be a proxy for themselves) and anyone
+     * already linked as an active proxy for this same related person.
+     */
+    public function searchProxyCandidates(string $query, int $excludePatientId): array
+    {
+        $query = trim($query);
+
+        if ($query === '') {
+            return [];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT u.id AS user_id, u.username, p.id AS patient_id, p.patient_no,
+                    p.first_name, p.last_name
+             FROM users u
+             JOIN patients p ON p.user_id = u.id AND p.deleted_at IS NULL
+             WHERE u.role_id IS NULL
+               AND u.deleted_at IS NULL
+               AND p.id != :exclude_patient_id
+               AND (
+                    u.username LIKE :q
+                    OR CONCAT(p.first_name, ' ', p.last_name) LIKE :q
+               )
+             ORDER BY p.last_name, p.first_name
+             LIMIT 20"
+        );
+
+        $stmt->execute([
+            'exclude_patient_id' => $excludePatientId,
+            'q' => '%' . $query . '%'
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Grant an existing related person portal (proxy) access, linking
+     * them to their own login. Staff-only action; the related person
+     * must already exist as a contact record on the patient's chart.
+     */
+    public function linkProxy(int $relatedPersonId, int $proxyUserId, int $linkedBy): array
+    {
+        $record = $this->find($relatedPersonId);
+
+        if (!$record || $record['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Related person not found.'];
+        }
+
+        $user = (new User())->where('id', $proxyUserId)->first();
+
+        if (!$user || $user['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'That portal account was not found.'];
+        }
+
+        (new RelatedPerson())->update([
+            'proxy_user_id'    => $proxyUserId,
+            'proxy_status'     => 'active',
+            'proxy_linked_at'  => date('Y-m-d H:i:s'),
+            'proxy_linked_by'  => $linkedBy,
+            'proxy_revoked_at' => null,
+            'proxy_revoked_by' => null,
+            'updated_at'       => date('Y-m-d H:i:s'),
+            'updated_by'       => $linkedBy
+        ], $relatedPersonId);
+
+        return ['success' => true, 'message' => 'Proxy access granted successfully.'];
+    }
+
+    /**
+     * Revoke a related person's proxy access. The link (proxy_user_id)
+     * is kept for audit history; only the status flips.
+     */
+    public function revokeProxy(int $relatedPersonId, int $revokedBy): array
+    {
+        $record = $this->find($relatedPersonId);
+
+        if (!$record || $record['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Related person not found.'];
+        }
+
+        if ($record['proxy_status'] !== 'active') {
+            return ['success' => false, 'message' => 'This related person does not have active proxy access.'];
+        }
+
+        (new RelatedPerson())->update([
+            'proxy_status'     => 'revoked',
+            'proxy_revoked_at' => date('Y-m-d H:i:s'),
+            'proxy_revoked_by' => $revokedBy,
+            'updated_at'       => date('Y-m-d H:i:s'),
+            'updated_by'       => $revokedBy
+        ], $relatedPersonId);
+
+        return ['success' => true, 'message' => 'Proxy access revoked successfully.'];
     }
 
 

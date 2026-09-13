@@ -15,6 +15,7 @@ import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
 import { initPatientRecalls } from "../patient-recalls/patient-recalls.js";
 import { HealthRemindersView } from "../health-reminders/health-reminders.view.js";
 import { initHealthReminders } from "../health-reminders/health-reminders.js";
+import { fetchAccessiblePatients, switchPatient } from "../proxy-access/proxy-access.service.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
@@ -1136,6 +1137,10 @@ export function Dashboard()
     const profileRole = document.getElementById('profileRole');
     if (profileRole) profileRole.textContent = user.role || "patient";
 
+    if (user.role === 'patient') {
+        setupProxySwitcher();
+    }
+
     // Restore tabs from the state we saved before initialization. Only the
     // tab that ends up active is actually rendered+initialized; the rest
     // are just re-registered in the tab bar (see openDashboardTab above).
@@ -1173,4 +1178,63 @@ export function Dashboard()
     if (hasPendingPatientView()) {
         openDashboardTab('patients', 'Patients');
     }
+}
+
+/**
+ * Populates and wires the "Viewing: X" proxy switcher in the navbar.
+ * Stays hidden entirely for patients with no proxy access (the common
+ * case) -- it only appears once there's more than one chart to choose
+ * from (the patient's own, plus any active proxy grants).
+ */
+async function setupProxySwitcher() {
+    const switcherEl = document.getElementById('proxySwitcher');
+    const labelEl = document.getElementById('proxySwitcherLabel');
+    const menuEl = document.getElementById('proxySwitcherMenu');
+
+    if (!switcherEl || !labelEl || !menuEl) return;
+
+    try {
+        const result = await fetchAccessiblePatients();
+
+        if (!result.success || !Array.isArray(result.data) || result.data.length < 2) {
+            return;
+        }
+
+        const active = result.data.find((p) => p.is_active) || result.data[0];
+
+        labelEl.innerHTML = `Viewing: <strong>${escapeHtmlBasic(active.first_name)}</strong>`;
+
+        menuEl.innerHTML = result.data.map((p) => `
+            <a href="#" data-patient-id="${p.patient_id}" class="${p.is_active ? 'proxy-switcher-active' : ''}">
+                ${escapeHtmlBasic(p.first_name)} ${escapeHtmlBasic(p.last_name)}
+                <span style="display: block; font-size: 11px; opacity: .7;">${escapeHtmlBasic(p.relationship)}</span>
+            </a>
+        `).join('');
+
+        menuEl.querySelectorAll('a[data-patient-id]').forEach((link) => {
+            link.addEventListener('click', async (e) => {
+                e.preventDefault();
+
+                const patientId = parseInt(link.getAttribute('data-patient-id'), 10);
+
+                if (link.classList.contains('proxy-switcher-active')) return;
+
+                const switchResult = await switchPatient(patientId);
+
+                if (switchResult.success) {
+                    window.location.reload();
+                }
+            });
+        });
+
+        switcherEl.style.display = 'flex';
+    } catch (error) {
+        console.error('Failed to load proxy access list', error);
+    }
+}
+
+function escapeHtmlBasic(value) {
+    const div = document.createElement('div');
+    div.textContent = value ?? '';
+    return div.innerHTML;
 }

@@ -86,3 +86,24 @@ export async function removeAddress(id)
         { method: "DELETE", body: JSON.stringify({ id }) }
     );
 }
+
+export async function searchProxyCandidates(relatedPersonId, q)
+{
+    return await api(`/related-persons/proxy/candidates?${new URLSearchParams({ related_person_id: relatedPersonId, q }).toString()}`);
+}
+
+export async function linkProxy(relatedPersonId, userId)
+{
+    return await api(
+        "/related-persons/proxy/link",
+        { method: "POST", body: JSON.stringify({ id: relatedPersonId, user_id: userId }) }
+    );
+}
+
+export async function revokeProxy(relatedPersonId)
+{
+    return await api(
+        "/related-persons/proxy/revoke",
+        { method: "POST", body: JSON.stringify({ id: relatedPersonId }) }
+    );
+}

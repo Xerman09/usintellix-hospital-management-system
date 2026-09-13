@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 use App\Modules\Messaging\Services\MessagingService;
 use App\Modules\Messaging\Models\MessageType;
@@ -16,6 +17,7 @@ class PatientPrescriptionController extends Controller
     private PatientPrescriptionService $patientPrescriptionService;
     private ProviderService $providerService;
     private MessagingService $messagingService;
+    private PatientAccessService $patientAccessService;
 
     private const DETAIL_FIELDS = [
         'title', 'begin_date', 'end_date', 'quantity', 'dosage', 'route',
@@ -29,6 +31,7 @@ class PatientPrescriptionController extends Controller
         $this->patientPrescriptionService = new PatientPrescriptionService();
         $this->providerService = new ProviderService();
         $this->messagingService = new MessagingService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -41,7 +44,7 @@ class PatientPrescriptionController extends Controller
         $user = Session::get('user');
 
         if (($user['role'] ?? '') === 'patient') {
-            $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+            $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
             if (!$patient) {
                 $this->error('Patient record not found.', 404);
@@ -73,7 +76,7 @@ class PatientPrescriptionController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+        $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
         if (!$patient) {
             $this->error('Patient record not found.', 404);

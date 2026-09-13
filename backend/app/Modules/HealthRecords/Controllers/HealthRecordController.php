@@ -6,17 +6,20 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\HealthRecords\Services\HealthRecordSummaryService;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 
 class HealthRecordController extends Controller
 {
     private HealthRecordSummaryService $summaryService;
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     public function __construct()
     {
         $this->summaryService = new HealthRecordSummaryService();
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -29,7 +32,7 @@ class HealthRecordController extends Controller
         $request = new Request();
 
         if ($user['role'] === 'patient') {
-            $patient = $this->summaryService->fetchPatientByUserId((int) $user['id']);
+            $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
             if (!$patient) {
                 $this->error('Patient record not found.', 404);

@@ -87,7 +87,8 @@ import {
 import {
     fetchRelatedPersons, addRelatedPerson, updateRelatedPerson, removeRelatedPerson,
     fetchTelecoms, addTelecom, updateTelecom, removeTelecom,
-    fetchAddresses, addAddress, updateAddress, removeAddress
+    fetchAddresses, addAddress, updateAddress, removeAddress,
+    searchProxyCandidates, linkProxy, revokeProxy
 } from "../related-persons/related-persons.service.js";
 import { fetchCountries, fetchPhProvinces, isPhilippines } from "../related-persons/geography.service.js";
 import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure } from "../disclosures/disclosures.service.js";
@@ -12314,6 +12315,129 @@ function setupRelatedPersonModals()
 
     setupTelecomInlineForm();
     setupAddressInlineForm();
+    setupProxySearch();
+}
+
+// ---- Proxy Portal Access (nested under a related person) ----
+
+let proxySearchDebounce = null;
+
+function setupProxySearch()
+{
+    const input = document.getElementById("rpProxySearchInput");
+
+    input.addEventListener("input", () => {
+        clearTimeout(proxySearchDebounce);
+
+        const query = input.value.trim();
+        const resultsBox = document.getElementById("rpProxyCandidates");
+
+        if (query.length < 2) {
+            resultsBox.innerHTML = "";
+            return;
+        }
+
+        proxySearchDebounce = setTimeout(async () => {
+            const relatedPersonId = document.getElementById("rpd_id").value;
+            const result = await searchProxyCandidates(relatedPersonId, query);
+
+            if (!result.success) {
+                resultsBox.innerHTML = `<div class="rp-proxy-candidate-row">Search failed.</div>`;
+                return;
+            }
+
+            const candidates = result.data || [];
+
+            resultsBox.innerHTML = candidates.length
+                ? candidates.map((c) => `
+                    <div class="rp-proxy-candidate-row">
+                        <span>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)} <span style="color: #94a3b8;">(${escapeHtml(c.username)})</span></span>
+                        <button type="button" class="btn-edit" data-proxy-user-id="${c.user_id}">Grant Access</button>
+                    </div>
+                `).join("")
+                : `<div class="rp-proxy-candidate-row">No matching portal accounts found.</div>`;
+
+            resultsBox.querySelectorAll("button[data-proxy-user-id]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    const userId = btn.getAttribute("data-proxy-user-id");
+                    const linkResult = await linkProxy(relatedPersonId, userId);
+
+                    if (!linkResult.success) {
+                        showAlert("rpDetailAlert", linkResult.message || "Failed to grant proxy access.", "error");
+                        return;
+                    }
+
+                    showAlert("rpDetailAlert", "Proxy access granted.", "success");
+                    input.value = "";
+                    resultsBox.innerHTML = "";
+                    await refreshProxyStatus(relatedPersonId);
+                });
+            });
+        }, 300);
+    });
+}
+
+async function refreshProxyStatus(relatedPersonId)
+{
+    const result = await fetchRelatedPersons(currentRelatedPersonPatientId);
+
+    if (!result.success) return;
+
+    dashboardRelatedPersons = result.data || [];
+
+    const person = dashboardRelatedPersons.find((p) => String(p.id) === String(relatedPersonId));
+
+    if (person) renderProxyStatus(person);
+}
+
+function renderProxyStatus(person)
+{
+    const statusBox = document.getElementById("rpProxyStatus");
+    const searchWrap = document.getElementById("rpProxySearchWrap");
+
+    document.getElementById("rpProxySearchInput").value = "";
+    document.getElementById("rpProxyCandidates").innerHTML = "";
+
+    if (person.proxy_status === "active") {
+        statusBox.innerHTML = `
+            <div class="rp-proxy-status-box active">
+                <div>
+                    <div class="rp-proxy-status-name">Linked to ${escapeHtml(person.proxy_username || "a portal account")}</div>
+                    <div class="rp-proxy-status-meta">Active since ${formatDate(person.proxy_linked_at)}</div>
+                </div>
+                <button type="button" class="btn-danger" id="rpProxyRevokeBtn">Revoke Access</button>
+            </div>
+        `;
+
+        searchWrap.hidden = true;
+
+        document.getElementById("rpProxyRevokeBtn").addEventListener("click", async () => {
+            const result = await revokeProxy(person.id);
+
+            if (!result.success) {
+                showAlert("rpDetailAlert", result.message || "Failed to revoke proxy access.", "error");
+                return;
+            }
+
+            showAlert("rpDetailAlert", "Proxy access revoked.", "success");
+            await refreshProxyStatus(person.id);
+        });
+
+        return;
+    }
+
+    const revokedNote = person.proxy_status === "revoked"
+        ? `<div class="rp-proxy-status-meta" style="margin-bottom: 10px;">Previously linked to ${escapeHtml(person.proxy_username || "a portal account")}; access was revoked${person.proxy_revoked_at ? ` on ${formatDate(person.proxy_revoked_at)}` : ""}.</div>`
+        : "";
+
+    statusBox.innerHTML = `
+        ${revokedNote}
+        <div class="rp-proxy-status-box">
+            <div class="rp-proxy-status-meta">No active portal access linked.</div>
+        </div>
+    `;
+
+    searchWrap.hidden = false;
 }
 
 function closeAddRelatedPersonModal()
@@ -12438,6 +12562,8 @@ async function openRelatedPersonDetailModal(person)
     document.getElementById("rpd_is_emergency_contact").checked = Boolean(Number(person.is_emergency_contact));
     document.getElementById("rpd_can_make_medical_decisions").checked = Boolean(Number(person.can_make_medical_decisions));
     document.getElementById("rpd_can_receive_medical_info").checked = Boolean(Number(person.can_receive_medical_info));
+
+    renderProxyStatus(person);
 
     hideTelecomForm();
     hideAddressForm();

@@ -65,3 +65,20 @@ $router->delete('/related-persons/addresses', [RelatedPersonController::class, '
     AuthMiddleware::class,
     [RoleMiddleware::class, $allowedRoles]
 ]);
+
+// Proxy portal access -- linking/revoking is staff-only (admin/receptionist);
+// doctors manage clinical data, not portal account access.
+$router->get('/related-persons/proxy/candidates', [RelatedPersonController::class, 'proxyCandidates'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist']]
+]);
+
+$router->post('/related-persons/proxy/link', [RelatedPersonController::class, 'proxyLink'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist']]
+]);
+
+$router->post('/related-persons/proxy/revoke', [RelatedPersonController::class, 'proxyRevoke'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist']]
+]);

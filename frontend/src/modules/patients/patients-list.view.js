@@ -10972,6 +10972,21 @@ textarea.pd-sdoh-readonly {
                 <label class="rp-checkbox"><input type="checkbox" id="rpd_can_receive_medical_info"> Receive Medical Info</label>
             </div>
 
+        <div class="rp-nested-section" id="rpProxySection">
+            <h3 class="rp-section-title">Proxy Portal Access</h3>
+            <p class="rp-proxy-help">Link this related person to their own portal login so they can view and act on this patient's chart (appointments, records, messages, and more) as a proxy.</p>
+
+            <div id="rpProxyStatus"></div>
+
+            <div class="rp-proxy-search" id="rpProxySearchWrap" hidden>
+                <div class="form-group">
+                    <label>Find their portal account (name or username)</label>
+                    <input type="text" id="rpProxySearchInput" class="form-input" placeholder="Start typing to search...">
+                </div>
+                <div id="rpProxyCandidates" class="rp-proxy-candidates"></div>
+            </div>
+        </div>
+
         <div class="rp-nested-section">
             <div class="rp-nested-header">
                 <h3 class="rp-section-title">Telecom Contacts</h3>

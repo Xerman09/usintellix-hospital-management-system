@@ -231,4 +231,71 @@ class RelatedPersonController extends Controller
 
         $this->success(null, $result['message']);
     }
+
+
+    /**
+     * GET /related-persons/proxy/candidates?related_person_id=&q=
+     */
+    public function proxyCandidates(): void
+    {
+        $request = new Request();
+        $relatedPersonId = (int) $request->input('related_person_id');
+        $record = $this->service->find($relatedPersonId);
+
+        if (!$record || $record['deleted_at'] !== null) {
+            $this->error('Related person not found.', 404);
+            return;
+        }
+
+        $candidates = $this->service->searchProxyCandidates(
+            (string) $request->input('q', ''),
+            (int) $record['patient_id']
+        );
+
+        $this->success($candidates, 'Candidates retrieved successfully.');
+    }
+
+    /**
+     * POST /related-persons/proxy/link
+     * Body: { id (related_person_id), user_id }
+     */
+    public function proxyLink(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->service->linkProxy(
+            (int) $request->input('id'),
+            (int) $request->input('user_id'),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $status = $result['message'] === 'Related person not found.' ? 404 : 422;
+            $this->error($result['message'], $status);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * POST /related-persons/proxy/revoke
+     * Body: { id (related_person_id) }
+     */
+    public function proxyRevoke(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->service->revokeProxy((int) $request->input('id'), (int) $user['id']);
+
+        if (!$result['success']) {
+            $status = $result['message'] === 'Related person not found.' ? 404 : 422;
+            $this->error($result['message'], $status);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
 }

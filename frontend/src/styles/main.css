@@ -1480,6 +1480,33 @@ body {
     padding: 0 8px;
 }
 
+.proxy-switcher {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 10px;
+    font-size: 12.5px;
+    color: #64748b;
+    cursor: pointer;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.proxy-switcher strong {
+    color: var(--accent);
+    margin-left: 4px;
+}
+
+.proxy-switcher .dropdown-content a.proxy-switcher-active {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+:root[data-theme="dark"] .proxy-switcher {
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+
 .nav-profile .avatar {
     width: 32px;
     height: 32px;
@@ -4079,4 +4106,60 @@ select.form-input {
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
+}
+
+.rp-proxy-help {
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: #6b7686;
+}
+
+.rp-proxy-status-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    margin-bottom: 12px;
+}
+
+.rp-proxy-status-box.active {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.rp-proxy-status-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: #25324b;
+}
+
+.rp-proxy-status-meta {
+    font-size: 12px;
+    color: #6b7686;
+}
+
+.rp-proxy-candidates {
+    margin-top: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+}
+
+.rp-proxy-candidate-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #eef1f6;
+    font-size: 13px;
+}
+
+.rp-proxy-candidate-row:last-child {
+    border-bottom: none;
 }

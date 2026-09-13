@@ -3,17 +3,19 @@
 namespace App\Modules\Dashboard\Services;
 
 use App\Core\Database;
-use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
 use PDO;
 
 class DashboardService
 {
     private ProviderService $providerService;
+    private PatientAccessService $patientAccessService;
 
     public function __construct()
     {
         $this->providerService = new ProviderService();
+        $this->patientAccessService = new PatientAccessService();
     }
 
     /**
@@ -124,7 +126,7 @@ class DashboardService
      */
     private function getPatientStats(array $user): array
     {
-        $patient = (new Patient())->where('user_id', (int) $user['id'])->first();
+        $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
         if (!$patient) {
             return [
