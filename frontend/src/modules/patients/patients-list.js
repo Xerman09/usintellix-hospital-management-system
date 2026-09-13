@@ -12185,6 +12185,7 @@ function setupRelatedPersonModals()
         addForm.reset();
         document.getElementById("relatedPersonFormAlert").innerHTML = "";
         clearRelatedPersonBasicErrors();
+        hideEditPatientBehindChildModal();
         addOverlay.classList.add("open");
     });
 
@@ -12444,6 +12445,7 @@ function closeAddRelatedPersonModal()
 {
     document.getElementById("addRelatedPersonModalOverlay").classList.remove("open");
     document.getElementById("addRelatedPersonForm").reset();
+    restoreEditPatientBehindChildModal();
 }
 
 function closeRelatedPersonDetailModal()
@@ -12451,6 +12453,36 @@ function closeRelatedPersonDetailModal()
     document.getElementById("relatedPersonDetailModalOverlay").classList.remove("open");
     hideTelecomForm();
     hideAddressForm();
+    restoreEditPatientBehindChildModal();
+}
+
+/**
+ * Related Person sub-modals (Add / Detail) open without closing the Edit
+ * Patient modal underneath, so both end up simultaneously ".open" --
+ * two independently-centered, semi-transparent .modal-overlay boxes of
+ * different heights, which looks like one modal's header/footer peeking
+ * out above/below the other. Hiding Edit Patient for the duration of the
+ * child modal (and restoring it after) avoids that without touching the
+ * shared .modal-overlay stacking used everywhere else.
+ */
+function hideEditPatientBehindChildModal()
+{
+    const editOverlay = document.getElementById("editPatientModalOverlay");
+
+    if (editOverlay && editOverlay.classList.contains("open")) {
+        editOverlay.classList.remove("open");
+        editOverlay.dataset.hiddenForChildModal = "1";
+    }
+}
+
+function restoreEditPatientBehindChildModal()
+{
+    const editOverlay = document.getElementById("editPatientModalOverlay");
+
+    if (editOverlay && editOverlay.dataset.hiddenForChildModal === "1") {
+        delete editOverlay.dataset.hiddenForChildModal;
+        editOverlay.classList.add("open");
+    }
 }
 
 function clearRelatedPersonBasicErrors()
@@ -12568,6 +12600,7 @@ async function openRelatedPersonDetailModal(person)
     hideTelecomForm();
     hideAddressForm();
 
+    hideEditPatientBehindChildModal();
     document.getElementById("relatedPersonDetailModalOverlay").classList.add("open");
 
     await Promise.all([
