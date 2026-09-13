@@ -80,7 +80,11 @@ class EncounterClinicalInstructionItemController extends Controller
             return;
         }
 
-        $result = $this->encounterClinicalInstructionItemService->update($id, $request->only(self::DETAIL_FIELDS));
+        $result = $this->encounterClinicalInstructionItemService->update(
+            $id,
+            $request->only(self::DETAIL_FIELDS),
+            (int) $user['id']
+        );
 
         if (!$result['success']) {
             $this->error($result['message'], 422, $result['errors'] ?? null);
