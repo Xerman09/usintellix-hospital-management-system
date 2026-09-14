@@ -56,11 +56,11 @@ class PatientLedgerService
     private function listCharges(int $patientId, string $from, string $to): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT ebc.id, ebc.code, ebc.code_type, ebc.description, ebc.fee AS charge, ebc.encounter_id,
+            "SELECT ebc.id, ebc.code, ebc.code_type, ebc.description, ebc.fee, ebc.units, ebc.encounter_id,
                     e.date_of_service AS entry_date
              FROM encounter_billing_codes ebc
              JOIN encounters e ON e.id = ebc.encounter_id
-             WHERE e.patient_id = :patient_id AND e.deleted_at IS NULL
+             WHERE e.patient_id = :patient_id AND e.deleted_at IS NULL AND ebc.deleted_at IS NULL
                AND e.date_of_service >= :from AND e.date_of_service <= :to
              ORDER BY e.date_of_service ASC, ebc.id ASC"
         );
@@ -69,6 +69,9 @@ class PatientLedgerService
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return array_map(function (array $row) {
+            $units = (int) $row['units'] ?: 1;
+            $fee = (float) $row['fee'];
+
             return [
                 'row_type' => 'charge',
                 'id' => 'c' . $row['id'],
@@ -77,8 +80,8 @@ class PatientLedgerService
                 'billed_date' => substr((string) $row['entry_date'], 0, 10),
                 'payor' => null,
                 'type' => $row['code_type'],
-                'units' => 1,
-                'charge' => (float) $row['charge'],
+                'units' => $units,
+                'charge' => round($fee * $units, 2),
                 'payment' => 0.0,
                 'adjustment' => 0.0,
                 'entry_date' => $row['entry_date'],

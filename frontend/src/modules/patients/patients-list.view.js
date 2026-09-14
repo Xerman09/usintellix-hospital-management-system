@@ -3441,6 +3441,41 @@ export function PatientChartView(user)
     vertical-align: middle;
 }
 
+.pd-fee-modifier-input {
+    width: 70px;
+    padding: 5px 8px;
+}
+
+.pd-fee-qty-input {
+    width: 60px;
+    padding: 5px 8px;
+}
+
+.pd-fee-auth-input {
+    width: 90px;
+    padding: 5px 8px;
+}
+
+.pd-fee-justify-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 90px;
+}
+
+.pd-fee-justify-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 12px;
+    color: #52627a;
+    cursor: pointer;
+}
+
+:root[data-theme="dark"] .pd-fee-justify-check {
+    color: var(--text-muted);
+}
+
 .pd-receipt-amount-col,
 .pd-receipt-table .pd-receipt-amount {
     text-align: right;
@@ -6582,8 +6617,33 @@ textarea.pd-sdoh-readonly {
 
                     <div class="pd-report-card">
                         <div class="pd-report-card-header">
+                            <h3>Diagnoses</h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetAddDiagnosisBtn">+ Add Diagnosis</button>
+                            </div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="data-table pd-fee-sheet-dx-table" id="pdFeeSheetDxTable">
+                                <thead>
+                                    <tr>
+                                        <th>Dx</th>
+                                        <th>Code</th>
+                                        <th>Description</th>
+                                        <th>Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pdFeeSheetDxTableBody">
+                                    <tr><td colspan="4" class="table-empty">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="pd-report-card">
+                        <div class="pd-report-card-header">
                             <h3>Selected Fee Sheet Codes and Charges for Current Encounter</h3>
                             <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetAddItemBtn">+ Add More Items</button>
                                 <button type="button" class="pd-report-btn" id="pdFeeSheetAddCopayBtn">+ Add Copay</button>
                             </div>
                         </div>
@@ -6594,11 +6654,11 @@ textarea.pd-sdoh-readonly {
                                         <th>Type</th>
                                         <th>Code</th>
                                         <th>Description</th>
-                                        <th>Modifiers</th>
+                                        <th>Modifier</th>
                                         <th>Price</th>
                                         <th>Qty</th>
+                                        <th>Total</th>
                                         <th>Justify</th>
-                                        <th>Note Codes</th>
                                         <th>Auth</th>
                                         <th>Delete</th>
                                     </tr>
@@ -6630,7 +6690,6 @@ textarea.pd-sdoh-readonly {
                         <button type="button" class="pd-report-btn" id="pdFeeSheetNewAppointmentBtn">+ New Appointment</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetShowReceiptBtn">Show Receipt</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Void Checkout and Re-Open</button>
-                        <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Add More Items</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetCancelBtn">Cancel</button>
                     </div>
                 </div>

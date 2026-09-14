@@ -39,10 +39,10 @@ class EncounterService
                  WHERE ei.encounter_id = e.id) AS linked_issues,
                 (SELECT GROUP_CONCAT(CONCAT(ebc.code_type, ':', ebc.code, ':', ebc.description) SEPARATOR '||')
                  FROM encounter_billing_codes ebc
-                 WHERE ebc.encounter_id = e.id) AS billing_codes_summary,
-                (SELECT SUM(ebc.fee)
+                 WHERE ebc.encounter_id = e.id AND ebc.deleted_at IS NULL) AS billing_codes_summary,
+                (SELECT SUM(ebc.fee * ebc.units)
                  FROM encounter_billing_codes ebc
-                 WHERE ebc.encounter_id = e.id) AS billing_fee_total
+                 WHERE ebc.encounter_id = e.id AND ebc.deleted_at IS NULL) AS billing_fee_total
          FROM encounters e
          LEFT JOIN visit_categories vc ON vc.id = e.visit_category_id
          LEFT JOIN classes cl ON cl.id = e.class_id
@@ -302,6 +302,7 @@ class EncounterService
             }
 
             $fee = $entry['fee'] ?? null;
+            $units = isset($entry['units']) && $entry['units'] !== '' ? max(1, (int) $entry['units']) : 1;
 
             (new EncounterBillingCode())->create([
                 'encounter_id' => $encounterId,
@@ -309,6 +310,10 @@ class EncounterService
                 'code' => $code,
                 'description' => $entry['description'] ?? null,
                 'fee' => ($fee === '' || $fee === null) ? null : $fee,
+                'units' => $units,
+                'modifier' => $entry['modifier'] ?? null,
+                'justify' => $entry['justify'] ?? null,
+                'auth_number' => $entry['auth_number'] ?? null,
                 'created_at' => $now
             ]);
         }

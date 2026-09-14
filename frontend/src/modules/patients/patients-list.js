@@ -8,10 +8,16 @@ import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
+import {
+    fetchEncounterBillingCodes, addEncounterBillingCode, updateEncounterBillingCode, removeEncounterBillingCode
+} from "../encounter-billing-codes/encounter-billing-codes.service.js";
+import {
+    fetchEncounterDiagnoses, addEncounterDiagnosis, removeEncounterDiagnosis
+} from "../encounter-diagnoses/encounter-diagnoses.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=50";
+import { PatientChartView } from "./patients-list.view.js?v=51";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2056,8 +2062,12 @@ function printPatientLedger(patient, data)
     reportWindow.document.close();
 }
 
-function openLedgerPaymentModal()
+let ledgerPaymentEncounterId = null;
+
+function openLedgerPaymentModal(encounterId = null)
 {
+    ledgerPaymentEncounterId = encounterId;
+
     document.getElementById("ledgerPaymentFormAlert").innerHTML = "";
     document.getElementById("ledgerPaymentForm").reset();
     document.getElementById("ledgerPayment_payment_type").value = "COPAY";
@@ -2084,6 +2094,7 @@ function setupLedgerPaymentModal()
         event.preventDefault();
 
         const details = {
+            encounter_id: ledgerPaymentEncounterId,
             payer_type: document.getElementById("ledgerPayment_payer_type").value,
             payment_type: document.getElementById("ledgerPayment_payment_type").value.trim() || "COPAY",
             payment_date: document.getElementById("ledgerPayment_payment_date").value,
@@ -2100,7 +2111,12 @@ function setupLedgerPaymentModal()
         }
 
         closeForm();
-        await loadLedger(currentDashboardPatient);
+
+        if (ledgerPaymentEncounterId && document.getElementById("pdFeeSheetPanel").style.display !== "none") {
+            await openFeeSheetReceipt();
+        } else {
+            await loadLedger(currentDashboardPatient);
+        }
     });
 }
 
@@ -9644,6 +9660,30 @@ async function openEncounterFormModal(existingRecord)
         : [];
 
     renderEncounterBillingCodesList();
+
+    // The summary string above only carries type/code/description (no
+    // fee/units/modifier/justify/auth) -- resubmitting it as-is would
+    // silently wipe those fields since saving the form replaces every
+    // billing code row wholesale. Refresh from the real rows once they
+    // arrive so a save made without touching billing codes doesn't lose
+    // anything added since via the Fee Sheet.
+    if (existingRecord) {
+        fetchEncounterBillingCodes(existingRecord.id).then((result) => {
+            if (result.success && recordIdInput.value === String(existingRecord.id)) {
+                encounterBillingCodesDraft = result.data.map((row) => ({
+                    code_type: row.code_type,
+                    code: row.code,
+                    description: row.description,
+                    fee: row.fee,
+                    units: row.units,
+                    modifier: row.modifier,
+                    justify: row.justify.join(","),
+                    auth_number: row.auth_number
+                }));
+                renderEncounterBillingCodesList();
+            }
+        });
+    }
     document.getElementById("encounterIssuesList").innerHTML = `<p class="pd-chart-nav-empty">Loading...</p>`;
 
     // Everything that doesn't depend on a network round-trip gets set
@@ -10816,6 +10856,8 @@ function setupMiscBillingOptionsModal()
 }
 
 let feeSheetRows = [];
+let feeSheetDiagnoses = [];
+let feeSheetPayments = [];
 
 function openFeeSheet()
 {
@@ -10840,24 +10882,56 @@ async function loadFeeSheet()
     document.getElementById("pdFeeSheetTitle").textContent =
         `Fee Sheet for ${patientName} for Encounter on ${(encounter.date_of_service || "").slice(0, 10)}`;
 
-    feeSheetRows = encounter.billing_codes_summary
-        ? encounter.billing_codes_summary.split("||").map((entry) => {
-            const parts = entry.split(":");
-            return {
-                type: parts[0],
-                code: parts[1],
-                description: parts.slice(2).join(":"),
-                editable: false
-            };
-        })
-        : [];
+    document.getElementById("pdFeeSheetTableBody").innerHTML = `<tr><td colspan="10" class="table-empty">Loading...</td></tr>`;
+    document.getElementById("pdFeeSheetDxTableBody").innerHTML = `<tr><td colspan="4" class="table-empty">Loading...</td></tr>`;
 
+    const [codesResult, dxResult] = await Promise.all([
+        fetchEncounterBillingCodes(encounter.id),
+        fetchEncounterDiagnoses(encounter.id)
+    ]);
+
+    feeSheetRows = codesResult.success ? codesResult.data : [];
+    feeSheetDiagnoses = dxResult.success ? dxResult.data : [];
+
+    renderFeeSheetDxTable();
     renderFeeSheetTable();
 
     await loadEncounterCatalogsIfNeeded();
 
     fillEncounterSelect("pdFeeSheetRenderingProvider", encounterProviders, providerLabel, "-- Select One --");
     fillEncounterSelect("pdFeeSheetSupervisingProvider", encounterProviders, providerLabel, "-- Select One --");
+}
+
+function renderFeeSheetDxTable()
+{
+    const tbody = document.getElementById("pdFeeSheetDxTableBody");
+
+    tbody.innerHTML = feeSheetDiagnoses.length
+        ? feeSheetDiagnoses.map((dx, index) => `
+            <tr>
+                <td>Dx${index + 1}</td>
+                <td>${escapeHtml(dx.code)}</td>
+                <td>${escapeHtml(dx.description || "-")}</td>
+                <td><button type="button" class="btn-danger" data-remove-fee-dx="${dx.id}">Delete</button></td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="4" class="table-empty">No diagnoses added yet -- add one to justify charges against.</td></tr>`;
+
+    tbody.querySelectorAll("[data-remove-fee-dx]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const result = await removeEncounterDiagnosis(btn.getAttribute("data-remove-fee-dx"));
+
+            if (!result.success) {
+                showAlert("pdFeeSheetAlert", result.message || "Failed to remove diagnosis.", "error");
+                return;
+            }
+
+            const dxResult = await fetchEncounterDiagnoses(currentEncounterSummary.encounter.id);
+            feeSheetDiagnoses = dxResult.success ? dxResult.data : [];
+            renderFeeSheetDxTable();
+            renderFeeSheetTable();
+        });
+    });
 }
 
 function renderFeeSheetTable()
@@ -10869,66 +10943,159 @@ function renderFeeSheetTable()
         return;
     }
 
-    tbody.innerHTML = feeSheetRows.map((row, index) => {
-        if (!row.editable) {
-            return `
-                <tr>
-                    <td>${escapeHtml(row.type || "-")}</td>
-                    <td>${escapeHtml(row.code || "-")}</td>
-                    <td>${escapeHtml(row.description || "-")}</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td><input type="checkbox" checked disabled></td>
-                    <td><input type="checkbox" disabled></td>
-                </tr>
-            `;
-        }
+    tbody.innerHTML = feeSheetRows.map((row) => {
+        const justifyBoxes = feeSheetDiagnoses.map((dx, index) => `
+            <label class="pd-fee-justify-check">
+                <input type="checkbox" data-fee-justify="${row.id}" value="${dx.id}" ${row.justify.includes(dx.id) ? "checked" : ""}>
+                ${index + 1}
+            </label>
+        `).join("");
 
         return `
-            <tr>
-                <td>COPAY</td>
-                <td>-</td>
-                <td>Cash</td>
-                <td>-</td>
-                <td><input type="text" class="form-input pd-fee-price-input" value="0" data-fee-price-index="${index}"></td>
-                <td>-</td>
-                <td>-</td>
-                <td>-</td>
-                <td><input type="checkbox" checked></td>
-                <td><input type="checkbox"></td>
+            <tr data-fee-row="${row.id}">
+                <td>${escapeHtml(row.code_type || "-")}</td>
+                <td>${escapeHtml(row.code || "-")}</td>
+                <td>${escapeHtml(row.description || "-")}</td>
+                <td><input type="text" class="form-input pd-fee-modifier-input" value="${escapeHtml(row.modifier || "")}" data-fee-field="modifier" data-fee-id="${row.id}"></td>
+                <td>${row.fee ? "$" + formatCurrency(row.fee) : "-"}</td>
+                <td><input type="number" min="1" class="form-input pd-fee-qty-input" value="${row.units}" data-fee-field="units" data-fee-id="${row.id}"></td>
+                <td>$${formatCurrency(row.total)}</td>
+                <td class="pd-fee-justify-cell">${justifyBoxes || "-"}</td>
+                <td><input type="text" class="form-input pd-fee-auth-input" value="${escapeHtml(row.auth_number || "")}" data-fee-field="auth_number" data-fee-id="${row.id}"></td>
+                <td><button type="button" class="btn-danger" data-remove-fee-row="${row.id}">Delete</button></td>
             </tr>
         `;
     }).join("");
-}
 
-function computeFeeSheetReceipt()
-{
-    const encounterDate = (currentEncounterSummary.encounter.date_of_service || "").slice(0, 10);
-    const patientNo = currentDashboardPatient?.patient_no || "";
+    tbody.querySelectorAll("[data-fee-field]").forEach((input) => {
+        const commit = async () => {
+            const id = input.getAttribute("data-fee-id");
+            const field = input.getAttribute("data-fee-field");
+            const value = field === "units" ? Math.max(1, parseInt(input.value, 10) || 1) : input.value.trim();
 
-    let totalCharges = 0;
-    const paymentLines = [];
+            const result = await updateEncounterBillingCode(id, { [field]: value });
 
-    document.querySelectorAll("#pdFeeSheetTableBody [data-fee-price-index]").forEach((input) => {
-        const amount = parseFloat(input.value);
+            if (!result.success) {
+                showAlert("pdFeeSheetAlert", result.message || "Failed to update charge.", "error");
+                return;
+            }
 
-        if (!amount) {
-            return;
-        }
+            const row = feeSheetRows.find((r) => String(r.id) === String(id));
 
-        if (amount > 0) {
-            totalCharges += amount;
-        } else {
-            paymentLines.push({ date: encounterDate, description: `Payment Pt ${patientNo}`, amount });
-        }
+            if (row) {
+                row[field] = value;
+
+                if (field === "units") {
+                    row.total = Math.round(row.fee * row.units * 100) / 100;
+                    renderFeeSheetTable();
+                }
+            }
+        };
+
+        input.addEventListener("change", commit);
     });
 
-    const balanceDue = totalCharges + paymentLines.reduce((sum, line) => sum + line.amount, 0);
+    tbody.querySelectorAll("[data-fee-justify]").forEach((checkbox) => {
+        checkbox.addEventListener("change", async () => {
+            const id = checkbox.getAttribute("data-fee-justify");
+            const row = feeSheetRows.find((r) => String(r.id) === String(id));
 
-    return { totalCharges, paymentLines, balanceDue };
+            if (!row) return;
+
+            const dxId = Number(checkbox.value);
+            row.justify = checkbox.checked
+                ? [...row.justify, dxId]
+                : row.justify.filter((j) => j !== dxId);
+
+            const result = await updateEncounterBillingCode(id, { justify: row.justify.join(",") });
+
+            if (!result.success) {
+                showAlert("pdFeeSheetAlert", result.message || "Failed to update justification.", "error");
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-remove-fee-row]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const result = await removeEncounterBillingCode(btn.getAttribute("data-remove-fee-row"));
+
+            if (!result.success) {
+                showAlert("pdFeeSheetAlert", result.message || "Failed to remove charge.", "error");
+                return;
+            }
+
+            const codesResult = await fetchEncounterBillingCodes(currentEncounterSummary.encounter.id);
+            feeSheetRows = codesResult.success ? codesResult.data : [];
+            renderFeeSheetTable();
+        });
+    });
+}
+
+async function addFeeSheetDiagnosis()
+{
+    openCodePicker({
+        defaultType: "ICD10",
+        onSelect: async ({ code, description }) => {
+            const result = await addEncounterDiagnosis(currentEncounterSummary.encounter.id, { code, description });
+
+            if (!result.success) {
+                showAlert("pdFeeSheetAlert", result.message || "Failed to add diagnosis.", "error");
+                return;
+            }
+
+            const dxResult = await fetchEncounterDiagnoses(currentEncounterSummary.encounter.id);
+            feeSheetDiagnoses = dxResult.success ? dxResult.data : [];
+            renderFeeSheetDxTable();
+            renderFeeSheetTable();
+        }
+    });
+}
+
+function addFeeSheetItem()
+{
+    openCodePicker({
+        defaultType: "CPT4",
+        onSelect: async ({ code, description, code_type, fee }) => {
+            const result = await addEncounterBillingCode(currentEncounterSummary.encounter.id, {
+                code, description, code_type: code_type || "CPT4", fee, units: 1
+            });
+
+            if (!result.success) {
+                showAlert("pdFeeSheetAlert", result.message || "Failed to add charge.", "error");
+                return;
+            }
+
+            const codesResult = await fetchEncounterBillingCodes(currentEncounterSummary.encounter.id);
+            feeSheetRows = codesResult.success ? codesResult.data : [];
+            renderFeeSheetTable();
+        }
+    });
+}
+
+function computeFeeSheetTotals()
+{
+    const totalCharges = feeSheetRows.reduce((sum, row) => sum + row.total, 0);
+    const totalPayments = feeSheetPayments.reduce((sum, p) => sum + p.payment + p.adjustment, 0);
+    const balanceDue = totalCharges - totalPayments;
+
+    return { totalCharges, totalPayments, balanceDue };
+}
+
+async function loadFeeSheetPayments()
+{
+    const { encounter } = currentEncounterSummary;
+    const serviceDate = (encounter.date_of_service || "").slice(0, 10);
+
+    if (!currentDashboardPatient || !serviceDate) {
+        feeSheetPayments = [];
+        return;
+    }
+
+    const result = await fetchPatientLedger(currentDashboardPatient.id, serviceDate, serviceDate);
+
+    feeSheetPayments = result.success
+        ? (result.data.rows || []).filter((row) => row.row_type === "payment" && row.encounter_id === encounter.id)
+        : [];
 }
 
 function renderFeeSheetReceipt()
@@ -10936,25 +11103,40 @@ function renderFeeSheetReceipt()
     const patientName = currentDashboardPatient
         ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
         : "";
+    const encounterDate = (currentEncounterSummary.encounter.date_of_service || "").slice(0, 10);
 
     document.getElementById("pdFeeSheetReceiptPatientName").textContent = patientName;
 
-    const { totalCharges, paymentLines, balanceDue } = computeFeeSheetReceipt();
+    const { totalCharges, totalPayments, balanceDue } = computeFeeSheetTotals();
 
-    const paymentRowsHtml = paymentLines.map((line) => `
+    const chargeRowsHtml = feeSheetRows.map((row) => `
         <tr>
-            <td>${escapeHtml(line.date)}</td>
-            <td>${escapeHtml(line.description)}</td>
-            <td class="pd-receipt-amount">${formatCurrency(line.amount)}</td>
+            <td>${escapeHtml(encounterDate)}</td>
+            <td>${escapeHtml(row.code)} - ${escapeHtml(row.description || "")}${row.units > 1 ? ` x${row.units}` : ""}</td>
+            <td class="pd-receipt-amount">${formatCurrency(row.total)}</td>
+        </tr>
+    `).join("");
+
+    const paymentRowsHtml = feeSheetPayments.map((row) => `
+        <tr>
+            <td>${escapeHtml(row.billed_date)}</td>
+            <td>${escapeHtml(row.description)}</td>
+            <td class="pd-receipt-amount">-${formatCurrency(row.payment + row.adjustment)}</td>
         </tr>
     `).join("");
 
     document.getElementById("pdFeeSheetReceiptBody").innerHTML = `
+        ${chargeRowsHtml || `<tr><td colspan="3" class="table-empty">No charges recorded.</td></tr>`}
         <tr class="pd-receipt-total-row">
             <td colspan="2">Total Charges</td>
             <td class="pd-receipt-amount">$${formatCurrency(totalCharges)}</td>
         </tr>
         ${paymentRowsHtml}
+        ${totalPayments ? `
+        <tr class="pd-receipt-total-row">
+            <td colspan="2">Total Payments</td>
+            <td class="pd-receipt-amount">-$${formatCurrency(totalPayments)}</td>
+        </tr>` : ""}
         <tr class="pd-receipt-total-row">
             <td colspan="2">Balance Due</td>
             <td class="pd-receipt-amount">$${formatCurrency(balanceDue)}</td>
@@ -10962,8 +11144,9 @@ function renderFeeSheetReceipt()
     `;
 }
 
-function openFeeSheetReceipt()
+async function openFeeSheetReceipt()
 {
+    await loadFeeSheetPayments();
     renderFeeSheetReceipt();
     document.getElementById("pdFeeSheetReceiptModalOverlay").classList.add("open");
 }
@@ -11007,12 +11190,6 @@ function printFeeSheetReceipt()
     reportWindow.document.open();
     reportWindow.document.write(html);
     reportWindow.document.close();
-}
-
-function addFeeSheetCopayRow()
-{
-    feeSheetRows.push({ type: "COPAY", code: "", description: "Cash", editable: true });
-    renderFeeSheetTable();
 }
 
 let feeSheetRoomsLoaded = false;
@@ -11142,7 +11319,13 @@ function setupFeeSheetPanel()
         backToEncounterSummaryFromFeeSheet();
     });
 
-    document.getElementById("pdFeeSheetAddCopayBtn").addEventListener("click", () => addFeeSheetCopayRow());
+    document.getElementById("pdFeeSheetAddCopayBtn").addEventListener("click", () => {
+        openLedgerPaymentModal(currentEncounterSummary.encounter.id);
+    });
+
+    document.getElementById("pdFeeSheetAddDiagnosisBtn").addEventListener("click", () => addFeeSheetDiagnosis());
+
+    document.getElementById("pdFeeSheetAddItemBtn").addEventListener("click", () => addFeeSheetItem());
 
     document.getElementById("pdFeeSheetNewAppointmentBtn").addEventListener("click", () => openNewAppointmentFromFeeSheet());
 
