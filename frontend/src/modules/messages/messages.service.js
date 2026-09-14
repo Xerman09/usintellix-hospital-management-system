@@ -32,6 +32,24 @@ export async function sendMessage(conversationId, body, extra = {})
     );
 }
 
+export async function fetchConversation(conversationId)
+{
+    return await api(`/messages/conversation?${new URLSearchParams({ conversation_id: conversationId }).toString()}`);
+}
+
+export async function fetchConversationMessages(conversationId)
+{
+    return await api(`/messages/conversation/messages?${new URLSearchParams({ conversation_id: conversationId }).toString()}`);
+}
+
+export async function markConversationRead(conversationId)
+{
+    return await api(
+        "/messages/conversation/read",
+        { method: "POST", body: JSON.stringify({ conversation_id: conversationId }) }
+    );
+}
+
 export async function deleteMessage(messageId)
 {
     return await api(

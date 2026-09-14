@@ -399,6 +399,76 @@ tr.unread {
     border-color: #c8d2e0;
 }
 
+.msg-table tbody tr[data-conversation-id] {
+    cursor: pointer;
+}
+
+.msg-detail-box {
+    max-width: 680px;
+}
+
+.msg-detail-participants {
+    margin-bottom: 16px;
+}
+
+.msg-thread {
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-right: 4px;
+}
+
+.msg-thread-item {
+    border: 1px solid #e5e9f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #f8fafc;
+}
+
+.msg-thread-item.own {
+    background: var(--accent-lighter);
+    border-color: var(--accent-border);
+}
+
+.msg-thread-item-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.msg-thread-item-sender {
+    font-size: 13px;
+    font-weight: 700;
+    color: #25324b;
+}
+
+.msg-thread-item-date {
+    font-size: 11.5px;
+    color: #8b98ac;
+    white-space: nowrap;
+}
+
+.msg-thread-item-body {
+    font-size: 13.5px;
+    color: #334155;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.msg-reply-form {
+    border-top: 1px solid #e5e9f0;
+    padding-top: 14px;
+}
+
+.msg-reply-form .form-actions {
+    margin-top: 10px;
+}
+
 .rem-priority-badge {
     display: inline-block;
     padding: 2px 8px;
@@ -610,6 +680,32 @@ tr.unread {
 .rec-yesno input {
     accent-color: var(--accent);
     cursor: pointer;
+}
+
+:root[data-theme="dark"] .msg-thread-item {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .msg-thread-item.own {
+    background: var(--accent-lighter);
+    border-color: var(--accent-border);
+}
+
+:root[data-theme="dark"] .msg-thread-item-sender {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .msg-thread-item-date {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .msg-thread-item-body {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .msg-reply-form {
+    border-top-color: var(--border-color);
 }
 
 :root[data-theme="dark"] .msg-icon-badge {
@@ -1047,6 +1143,29 @@ tr.unread {
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelAddMessage">Cancel</button>
                 <button class="login-btn" type="submit">Send Message</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="messageDetailModalOverlay">
+    <div class="modal-box msg-detail-box">
+        <div class="modal-header">
+            <h2 id="msgDetailSubject">Conversation</h2>
+            <button type="button" class="modal-close" id="closeMessageDetailModal">&times;</button>
+        </div>
+        <p class="form-subtitle msg-detail-participants" id="msgDetailParticipants"></p>
+
+        <div id="msgDetailAlert"></div>
+
+        <div class="msg-thread" id="msgThreadBody">
+            <div class="table-empty">Loading...</div>
+        </div>
+
+        <form id="msgReplyForm" class="msg-reply-form">
+            <textarea id="msgReplyBody" class="form-input" placeholder="Write a reply..." rows="3"></textarea>
+            <div class="form-actions">
+                <button class="login-btn" type="submit">Reply</button>
             </div>
         </form>
     </div>

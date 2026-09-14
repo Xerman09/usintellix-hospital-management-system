@@ -4,7 +4,8 @@ import { fetchProviders } from "../providers/providers.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import {
     fetchMyMessages, fetchRecipientOptions, createConversation, sendMessage, deleteMessage,
-    fetchMessageTypes, fetchMessageStatuses
+    fetchMessageTypes, fetchMessageStatuses,
+    fetchConversation, fetchConversationMessages, markConversationRead
 } from "./messages.service.js";
 import { fetchMyRecalls, createRecall } from "../recalls/recalls.service.js";
 import { RecallsView } from "../recalls/recalls.view.js";
@@ -41,6 +42,7 @@ export async function initMessages()
     setupFilters();
     setupSelection();
     await setupAddMessageModal();
+    setupMessageDetailModal();
     await setupReminders();
     await setupRecalls();
 
@@ -403,13 +405,13 @@ function renderMyMessagesTable()
             : `<span class="msg-badge neutral">${message.status_name ? escapeHtml(message.status_name) : "&mdash;"}</span>`;
 
         return `
-        <tr class="${isUnread && !isInactive ? "unread" : ""}">
+        <tr class="${isUnread && !isInactive ? "unread" : ""}" data-conversation-id="${message.conversation_id}">
             <td><input type="checkbox" data-row-select value="${message.id}" ${selectedIds.has(message.id) ? "checked" : ""}></td>
             <td>${senderLabel}</td>
             <td>${escapeHtml(message.type_name || "—")}</td>
             <td>${escapeHtml(message.patient_name || "—")}</td>
             <td>${escapeHtml(truncate(message.body, 80))}</td>
-            <td>${escapeHtml((message.created_at || "").slice(0, 16).replace("T", " "))}</td>
+            <td>${formatThreadDate(message.created_at)}</td>
             <td>${statusBadge}</td>
         </tr>
         `;
@@ -427,9 +429,154 @@ function renderMyMessagesTable()
 
             updateDeleteButtonState();
         });
+
+        box.addEventListener("click", (event) => event.stopPropagation());
+    });
+
+    tbody.querySelectorAll("tr[data-conversation-id]").forEach((row) => {
+        row.addEventListener("click", () => {
+            openMessageDetailModal(Number(row.getAttribute("data-conversation-id")));
+        });
     });
 
     updateDeleteButtonState();
+}
+
+let currentThreadConversationId = null;
+
+function setupMessageDetailModal()
+{
+    const overlay = document.getElementById("messageDetailModalOverlay");
+    const replyForm = document.getElementById("msgReplyForm");
+
+    document.getElementById("closeMessageDetailModal").addEventListener("click", closeMessageDetailModal);
+
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            closeMessageDetailModal();
+        }
+    });
+
+    replyForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!currentThreadConversationId) {
+            return;
+        }
+
+        const bodyInput = document.getElementById("msgReplyBody");
+        const body = bodyInput.value.trim();
+
+        if (!body) {
+            return;
+        }
+
+        const submitBtn = replyForm.querySelector("button[type=submit]");
+        submitBtn.disabled = true;
+
+        const result = await sendMessage(currentThreadConversationId, body);
+
+        submitBtn.disabled = false;
+
+        if (!result.success) {
+            showAlert("msgDetailAlert", result.message || "Failed to send reply.", "error");
+            return;
+        }
+
+        bodyInput.value = "";
+        await renderThread(currentThreadConversationId);
+        await loadMyMessages();
+    });
+}
+
+async function openMessageDetailModal(conversationId)
+{
+    currentThreadConversationId = conversationId;
+
+    document.getElementById("msgDetailAlert").innerHTML = "";
+    document.getElementById("msgReplyBody").value = "";
+    document.getElementById("messageDetailModalOverlay").classList.add("open");
+
+    const user = getUser();
+
+    const [conversationResult] = await Promise.all([
+        fetchConversation(conversationId),
+        renderThread(conversationId)
+    ]);
+
+    if (conversationResult.success) {
+        const conversation = conversationResult.data;
+
+        document.getElementById("msgDetailSubject").textContent = conversation.subject || "Conversation";
+
+        const others = (conversation.participants || [])
+            .filter((p) => p.id !== user?.id)
+            .map((p) => p.display_name)
+            .join(", ");
+
+        document.getElementById("msgDetailParticipants").textContent = others
+            ? `With: ${others}`
+            : "";
+    }
+
+    markConversationRead(conversationId).then(() => {
+        messagesCache
+            .filter((m) => m.conversation_id === conversationId)
+            .forEach((m) => { m.is_unread = 0; });
+
+        renderMyMessagesTable();
+    });
+}
+
+async function renderThread(conversationId)
+{
+    const threadBody = document.getElementById("msgThreadBody");
+    const user = getUser();
+
+    const result = await fetchConversationMessages(conversationId);
+
+    if (!result.success) {
+        threadBody.innerHTML = `<div class="table-empty">Unable to load this conversation.</div>`;
+        return;
+    }
+
+    const items = result.data || [];
+
+    threadBody.innerHTML = items.length
+        ? items.map((item) => {
+            const isOwn = item.sender_id === user?.id;
+            const senderLabel = isOwn ? "You" : (item.sender_name || "Unknown");
+
+            return `
+                <div class="msg-thread-item ${isOwn ? "own" : ""}">
+                    <div class="msg-thread-item-header">
+                        <span class="msg-thread-item-sender">${escapeHtml(senderLabel)}</span>
+                        <span class="msg-thread-item-date">${formatThreadDate(item.created_at)}</span>
+                    </div>
+                    <div class="msg-thread-item-body">${escapeHtml(item.body)}</div>
+                </div>
+            `;
+        }).join("")
+        : `<div class="table-empty">No messages in this conversation.</div>`;
+
+    threadBody.scrollTop = threadBody.scrollHeight;
+}
+
+function closeMessageDetailModal()
+{
+    document.getElementById("messageDetailModalOverlay").classList.remove("open");
+    currentThreadConversationId = null;
+}
+
+function formatThreadDate(value)
+{
+    if (!value) return "";
+
+    const date = new Date(value.replace(" ", "T"));
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 function truncate(text, length)

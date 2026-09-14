@@ -13,11 +13,14 @@ class Mailer
     private $socket;
 
     /**
-     * Send a plain-text email. Returns false (and logs why) instead of
-     * throwing, since a failed/misconfigured mail send should never take
-     * down the request that triggered it.
+     * Send an email. Plain-text only by default; pass $htmlBody to send a
+     * multipart/alternative message (a styled HTML version alongside the
+     * plain-text fallback) so it renders as a proper formatted email in
+     * clients like Gmail instead of a raw text blob. Returns false (and
+     * logs why) instead of throwing, since a failed/misconfigured mail
+     * send should never take down the request that triggered it.
      */
-    public function send(string $to, string $subject, string $body): bool
+    public function send(string $to, string $subject, string $body, ?string $htmlBody = null): bool
     {
         $config = require __DIR__ . '/../../config/mail.php';
 
@@ -81,7 +84,6 @@ class Mailer
                 "To: <{$to}>",
                 "Subject: {$subject}",
                 'MIME-Version: 1.0',
-                'Content-Type: text/plain; charset=UTF-8',
                 'Date: ' . date('r'),
             ];
 
@@ -90,9 +92,28 @@ class Mailer
             // terminator (RFC 5321 dot-stuffing).
             $escapedBody = preg_replace('/^\./m', '..', $body);
 
+            if ($htmlBody !== null) {
+                $boundary = 'b' . bin2hex(random_bytes(16));
+                $escapedHtml = preg_replace('/^\./m', '..', $htmlBody);
+
+                $headers[] = "Content-Type: multipart/alternative; boundary=\"{$boundary}\"";
+
+                $payload =
+                    "--{$boundary}\r\n" .
+                    "Content-Type: text/plain; charset=UTF-8\r\n\r\n" .
+                    $escapedBody . "\r\n\r\n" .
+                    "--{$boundary}\r\n" .
+                    "Content-Type: text/html; charset=UTF-8\r\n\r\n" .
+                    $escapedHtml . "\r\n\r\n" .
+                    "--{$boundary}--";
+            } else {
+                $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+                $payload = $escapedBody;
+            }
+
             fwrite(
                 $this->socket,
-                implode("\r\n", $headers) . "\r\n\r\n" . $escapedBody . "\r\n.\r\n"
+                implode("\r\n", $headers) . "\r\n\r\n" . $payload . "\r\n.\r\n"
             );
             $this->expect('250');
 
