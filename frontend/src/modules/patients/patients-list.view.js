@@ -3441,6 +3441,19 @@ export function PatientChartView(user)
     vertical-align: middle;
 }
 
+.pd-fee-encounter-select-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted, #8b98ac);
+    align-self: center;
+    margin-right: 4px;
+}
+
+#pdFeeSheetEncounterSelect {
+    width: auto;
+    min-width: 220px;
+}
+
 .pd-fee-modifier-input {
     width: 70px;
     padding: 5px 8px;
@@ -5330,6 +5343,10 @@ textarea.pd-sdoh-readonly {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path></svg>
                         Encounter
                     </button>
+                    <button type="button" class="pd-chart-nav-btn" data-chart-nav="fee_sheet">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 8h8M8 12h5M8 16h3"></path></svg>
+                        Fee Sheet
+                    </button>
                     <button type="button" class="pd-chart-nav-btn" data-chart-nav="ledger">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path></svg>
                         Ledger
@@ -6608,8 +6625,11 @@ textarea.pd-sdoh-readonly {
                 <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">
                     <div class="pd-report-card-header">
                         <div>
-                            <a href="#" class="pd-back-link" id="pdFeeSheetBackBtn">&larr; Back to Encounter Summary</a>
-                            <h2 id="pdFeeSheetTitle" style="margin-top: 6px;">Fee Sheet</h2>
+                            <h2 id="pdFeeSheetTitle">Fee Sheet</h2>
+                        </div>
+                        <div class="pd-report-header-actions">
+                            <label for="pdFeeSheetEncounterSelect" class="pd-fee-encounter-select-label">Visit</label>
+                            <select class="form-input" id="pdFeeSheetEncounterSelect"></select>
                         </div>
                     </div>
 
@@ -6641,7 +6661,7 @@ textarea.pd-sdoh-readonly {
 
                     <div class="pd-report-card">
                         <div class="pd-report-card-header">
-                            <h3>Selected Fee Sheet Codes and Charges for Current Encounter</h3>
+                            <h3>Selected Fee Sheet Codes and Charges for Selected Visit</h3>
                             <div class="pd-report-header-actions">
                                 <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetAddItemBtn">+ Add More Items</button>
                                 <button type="button" class="pd-report-btn" id="pdFeeSheetAddCopayBtn">+ Add Copay</button>
@@ -6690,7 +6710,7 @@ textarea.pd-sdoh-readonly {
                         <button type="button" class="pd-report-btn" id="pdFeeSheetNewAppointmentBtn">+ New Appointment</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetShowReceiptBtn">Show Receipt</button>
                         <button type="button" class="pd-report-btn pd-report-btn-secondary" disabled>Void Checkout and Re-Open</button>
-                        <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetCancelBtn">Cancel</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdFeeSheetCancelBtn">Close</button>
                     </div>
                 </div>
 

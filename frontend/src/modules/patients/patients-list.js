@@ -17,7 +17,7 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=51";
+import { PatientChartView } from "./patients-list.view.js?v=52";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -410,6 +410,7 @@ const CHART_NAV_LABELS = {
     transactions: "Transactions",
     issues: "Issues",
     encounter: "Encounter",
+    fee_sheet: "Fee Sheet",
     ledger: "Ledger",
     external_data: "External Data"
 };
@@ -1677,7 +1678,7 @@ function activateChartNavButton(activeBtn)
     });
 }
 
-function showChartSection(key)
+function showChartSection(key, feeSheetEncounterId)
 {
     if (currentDashboardPatient) {
         setLastActiveChartSection(currentDashboardPatient.patient_no, key);
@@ -1692,6 +1693,7 @@ function showChartSection(key)
     const issuesPanel = document.getElementById("pdIssuesPanel");
     const visitHistoryPanel = document.getElementById("pdVisitHistoryPanel");
     const encounterSummaryPanel = document.getElementById("pdEncounterSummaryPanel");
+    const feeSheetPanel = document.getElementById("pdFeeSheetPanel");
     const ledgerPanel = document.getElementById("pdLedgerPanel");
     const documentsPanel = document.getElementById("pdDocumentsPanel");
     const externalDataPanel = document.getElementById("pdExternalDataPanel");
@@ -1705,6 +1707,7 @@ function showChartSection(key)
     issuesPanel.style.display = "none";
     visitHistoryPanel.style.display = "none";
     encounterSummaryPanel.style.display = "none";
+    feeSheetPanel.style.display = "none";
     ledgerPanel.style.display = "none";
     documentsPanel.style.display = "none";
     externalDataPanel.style.display = "none";
@@ -1737,6 +1740,11 @@ function showChartSection(key)
         visitHistoryPanel.style.display = "block";
         if (currentDashboardPatient) {
             loadVisitHistoryList(currentDashboardPatient);
+        }
+    } else if (key === "fee_sheet") {
+        feeSheetPanel.style.display = "block";
+        if (currentDashboardPatient) {
+            openFeeSheetModule(feeSheetEncounterId);
         }
     } else if (key === "ledger") {
         ledgerPanel.style.display = "block";
@@ -10701,7 +10709,7 @@ function setupEncounterSummaryPanel()
 
     document.getElementById("pdEncSummaryFeeSheetLink").addEventListener("click", (event) => {
         event.preventDefault();
-        openFeeSheet();
+        openFeeSheetForEncounter(currentEncounterSummary?.encounter?.id);
     });
 
     document.getElementById("pdEncSummaryMiscBillingLink").addEventListener("click", (event) => {
@@ -10858,29 +10866,94 @@ function setupMiscBillingOptionsModal()
 let feeSheetRows = [];
 let feeSheetDiagnoses = [];
 let feeSheetPayments = [];
+let feeSheetEncounter = null;
+let feeSheetEncounterOptions = [];
 
-function openFeeSheet()
+// Fee Sheet is its own top-level chart section (peer of Ledger, Visit
+// History, etc.) -- it is not nested inside the Encounter Summary view.
+// It picks the patient's most recent visit by default, but the visit
+// selector lets the user work the fee sheet for any prior encounter
+// without first opening that encounter's full summary.
+function openFeeSheetForEncounter(encounterId)
 {
-    document.getElementById("pdEncounterSummaryPanel").style.display = "none";
-    document.getElementById("pdFeeSheetPanel").style.display = "block";
-    loadFeeSheet();
+    const btn = document.querySelector('#pdChartNav [data-chart-nav="fee_sheet"]');
+
+    if (btn) {
+        activateChartNavButton(btn);
+    }
+
+    showChartSection("fee_sheet", encounterId);
 }
 
-function backToEncounterSummaryFromFeeSheet()
+function closeFeeSheetModule()
 {
-    document.getElementById("pdFeeSheetPanel").style.display = "none";
-    document.getElementById("pdEncounterSummaryPanel").style.display = "block";
+    const btn = document.querySelector('#pdChartNav [data-chart-nav="dashboard"]');
+
+    if (btn) {
+        activateChartNavButton(btn);
+    }
+
+    showChartSection("dashboard");
+}
+
+async function loadFeeSheetEncounterOptions(preferredEncounterId)
+{
+    const select = document.getElementById("pdFeeSheetEncounterSelect");
+
+    if (!currentDashboardPatient) {
+        feeSheetEncounterOptions = [];
+        feeSheetEncounter = null;
+        select.innerHTML = "";
+        return;
+    }
+
+    const result = await fetchPatientEncounters(currentDashboardPatient.id);
+    feeSheetEncounterOptions = result.success ? result.data : [];
+
+    if (!feeSheetEncounterOptions.length) {
+        select.innerHTML = `<option value="">No visits recorded</option>`;
+        feeSheetEncounter = null;
+        return;
+    }
+
+    select.innerHTML = feeSheetEncounterOptions.map((enc) => `
+        <option value="${enc.id}">${escapeHtml((enc.date_of_service || "").slice(0, 10))} -- ${escapeHtml(enc.reason || enc.visit_category_name || "Visit")}</option>
+    `).join("");
+
+    const targetId = (preferredEncounterId && feeSheetEncounterOptions.some((enc) => String(enc.id) === String(preferredEncounterId)))
+        ? preferredEncounterId
+        : feeSheetEncounterOptions[0].id;
+
+    select.value = targetId;
+    feeSheetEncounter = feeSheetEncounterOptions.find((enc) => String(enc.id) === String(targetId)) || null;
+}
+
+async function openFeeSheetModule(preferredEncounterId)
+{
+    document.getElementById("pdFeeSheetTableBody").innerHTML = `<tr><td colspan="10" class="table-empty">Loading...</td></tr>`;
+    document.getElementById("pdFeeSheetDxTableBody").innerHTML = `<tr><td colspan="4" class="table-empty">Loading...</td></tr>`;
+
+    await loadFeeSheetEncounterOptions(preferredEncounterId);
+
+    if (!feeSheetEncounter) {
+        document.getElementById("pdFeeSheetTitle").textContent = "Fee Sheet";
+        document.getElementById("pdFeeSheetTableBody").innerHTML = `<tr><td colspan="10" class="table-empty">No visits recorded for this patient yet -- create a visit before using the Fee Sheet.</td></tr>`;
+        document.getElementById("pdFeeSheetDxTableBody").innerHTML = `<tr><td colspan="4" class="table-empty">No visits recorded yet.</td></tr>`;
+        return;
+    }
+
+    await loadFeeSheet();
 }
 
 async function loadFeeSheet()
 {
-    const { encounter } = currentEncounterSummary;
+    const encounter = feeSheetEncounter;
     const patientName = currentDashboardPatient
         ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
         : "";
 
     document.getElementById("pdFeeSheetTitle").textContent =
-        `Fee Sheet for ${patientName} for Encounter on ${(encounter.date_of_service || "").slice(0, 10)}`;
+        `Fee Sheet for ${patientName} for Visit on ${(encounter.date_of_service || "").slice(0, 10)}`;
 
     document.getElementById("pdFeeSheetTableBody").innerHTML = `<tr><td colspan="10" class="table-empty">Loading...</td></tr>`;
     document.getElementById("pdFeeSheetDxTableBody").innerHTML = `<tr><td colspan="4" class="table-empty">Loading...</td></tr>`;
@@ -10926,7 +10999,7 @@ function renderFeeSheetDxTable()
                 return;
             }
 
-            const dxResult = await fetchEncounterDiagnoses(currentEncounterSummary.encounter.id);
+            const dxResult = await fetchEncounterDiagnoses(feeSheetEncounter.id);
             feeSheetDiagnoses = dxResult.success ? dxResult.data : [];
             renderFeeSheetDxTable();
             renderFeeSheetTable();
@@ -11024,7 +11097,7 @@ function renderFeeSheetTable()
                 return;
             }
 
-            const codesResult = await fetchEncounterBillingCodes(currentEncounterSummary.encounter.id);
+            const codesResult = await fetchEncounterBillingCodes(feeSheetEncounter.id);
             feeSheetRows = codesResult.success ? codesResult.data : [];
             renderFeeSheetTable();
         });
@@ -11036,14 +11109,14 @@ async function addFeeSheetDiagnosis()
     openCodePicker({
         defaultType: "ICD10",
         onSelect: async ({ code, description }) => {
-            const result = await addEncounterDiagnosis(currentEncounterSummary.encounter.id, { code, description });
+            const result = await addEncounterDiagnosis(feeSheetEncounter.id, { code, description });
 
             if (!result.success) {
                 showAlert("pdFeeSheetAlert", result.message || "Failed to add diagnosis.", "error");
                 return;
             }
 
-            const dxResult = await fetchEncounterDiagnoses(currentEncounterSummary.encounter.id);
+            const dxResult = await fetchEncounterDiagnoses(feeSheetEncounter.id);
             feeSheetDiagnoses = dxResult.success ? dxResult.data : [];
             renderFeeSheetDxTable();
             renderFeeSheetTable();
@@ -11056,7 +11129,7 @@ function addFeeSheetItem()
     openCodePicker({
         defaultType: "CPT4",
         onSelect: async ({ code, description, code_type, fee }) => {
-            const result = await addEncounterBillingCode(currentEncounterSummary.encounter.id, {
+            const result = await addEncounterBillingCode(feeSheetEncounter.id, {
                 code, description, code_type: code_type || "CPT4", fee, units: 1
             });
 
@@ -11065,7 +11138,7 @@ function addFeeSheetItem()
                 return;
             }
 
-            const codesResult = await fetchEncounterBillingCodes(currentEncounterSummary.encounter.id);
+            const codesResult = await fetchEncounterBillingCodes(feeSheetEncounter.id);
             feeSheetRows = codesResult.success ? codesResult.data : [];
             renderFeeSheetTable();
         }
@@ -11083,7 +11156,7 @@ function computeFeeSheetTotals()
 
 async function loadFeeSheetPayments()
 {
-    const { encounter } = currentEncounterSummary;
+    const encounter = feeSheetEncounter;
     const serviceDate = (encounter.date_of_service || "").slice(0, 10);
 
     if (!currentDashboardPatient || !serviceDate) {
@@ -11103,7 +11176,7 @@ function renderFeeSheetReceipt()
     const patientName = currentDashboardPatient
         ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
         : "";
-    const encounterDate = (currentEncounterSummary.encounter.date_of_service || "").slice(0, 10);
+    const encounterDate = (feeSheetEncounter.date_of_service || "").slice(0, 10);
 
     document.getElementById("pdFeeSheetReceiptPatientName").textContent = patientName;
 
@@ -11314,13 +11387,20 @@ function setupFeeSheetAppointmentModal()
 
 function setupFeeSheetPanel()
 {
-    document.getElementById("pdFeeSheetBackBtn").addEventListener("click", (event) => {
-        event.preventDefault();
-        backToEncounterSummaryFromFeeSheet();
+    document.getElementById("pdFeeSheetEncounterSelect").addEventListener("change", async (event) => {
+        const id = event.target.value;
+
+        feeSheetEncounter = feeSheetEncounterOptions.find((enc) => String(enc.id) === String(id)) || null;
+
+        if (feeSheetEncounter) {
+            await loadFeeSheet();
+        }
     });
 
     document.getElementById("pdFeeSheetAddCopayBtn").addEventListener("click", () => {
-        openLedgerPaymentModal(currentEncounterSummary.encounter.id);
+        if (feeSheetEncounter) {
+            openLedgerPaymentModal(feeSheetEncounter.id);
+        }
     });
 
     document.getElementById("pdFeeSheetAddDiagnosisBtn").addEventListener("click", () => addFeeSheetDiagnosis());
@@ -11331,7 +11411,7 @@ function setupFeeSheetPanel()
 
     document.getElementById("pdFeeSheetShowReceiptBtn").addEventListener("click", () => openFeeSheetReceipt());
 
-    document.getElementById("pdFeeSheetCancelBtn").addEventListener("click", () => backToEncounterSummaryFromFeeSheet());
+    document.getElementById("pdFeeSheetCancelBtn").addEventListener("click", () => closeFeeSheetModule());
 
     setupFeeSheetAppointmentModal();
     setupFeeSheetReceiptModal();
@@ -13475,6 +13555,16 @@ export async function triggerCurrentVisit() {
     } catch (e) {
         showToast("Failed to fetch current visit.", "error");
     }
+}
+
+// Fee Sheet is its own top-level chart section now, not a view nested
+// inside a specific encounter -- it resolves its own default visit (the
+// most recent one) and exposes a visit selector so the user can work any
+// prior encounter's charges without drilling into that encounter first.
+export function triggerFeeSheet() {
+    if (!currentDashboardPatient) return;
+
+    openFeeSheetForEncounter();
 }
 
 export function triggerVisitHistory() {
