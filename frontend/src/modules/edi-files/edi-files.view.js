@@ -73,6 +73,13 @@ export function EdiFilesView() {
     margin-bottom: 14px;
 }
 
+.edi-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0 14px;
+}
+
 .edi-file-view-row {
     display: flex;
     flex-wrap: wrap;
@@ -439,18 +446,40 @@ export function EdiFilesView() {
 
     <div class="edi-tab-panel" id="ediNotesPanel" data-edi-panel="notes">
         <div class="edi-panel-body">
-            <div class="edi-file-picker">
-                <label style="display:block; font-size:12.5px; font-weight:600; color:var(--text-primary); margin-bottom:5px;">File:</label>
-                <select id="ediNotesFileSelect"><option value="">-- Select a file --</option></select>
-            </div>
+            <div class="edi-columns">
+                <div class="edi-column" style="flex:1.4;">
+                    <h3>Inspect the log</h3>
 
-            <div id="ediNotesAlert" class="edi-alert-area"></div>
+                    <div class="edi-field" style="max-width:420px;">
+                        <label>View Log</label>
+                        <select id="ediNotesFileSelect"><option value="">-- Choose from list --</option></select>
+                    </div>
 
-            <ul class="edi-notes-list" id="ediNotesList"></ul>
+                    <div class="edi-actions-row">
+                        <button type="button" class="edi-btn" id="ediNotesSubmitBtn">+ Submit</button>
+                        <button type="button" class="edi-btn secondary" id="ediNotesArchiveBtn">Archive</button>
+                        <button type="button" class="edi-btn secondary" id="ediNotesCloseBtn">&times; Close</button>
+                    </div>
 
-            <div class="edi-note-form">
-                <input type="text" id="ediNoteInput" placeholder="Add a note..." disabled>
-                <button type="button" class="edi-btn" id="ediAddNoteBtn" disabled>Add Note</button>
+                    <div id="ediNotesAlert" class="edi-alert-area"></div>
+
+                    <ul class="edi-notes-list" id="ediNotesList"></ul>
+                </div>
+
+                <div class="edi-column">
+                    <h3>Notes</h3>
+
+                    <div class="edi-field">
+                        <label>Notes</label>
+                        <input type="text" id="ediNoteInput" placeholder="Add a note..." disabled>
+                    </div>
+
+                    <div class="edi-actions-row">
+                        <button type="button" class="edi-btn secondary" id="ediNoteOpenBtn">Open</button>
+                        <button type="button" class="edi-btn" id="ediAddNoteBtn" disabled>&check; Save</button>
+                        <button type="button" class="edi-btn secondary" id="ediNoteCloseBtn">&times; Close</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

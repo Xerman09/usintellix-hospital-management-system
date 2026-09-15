@@ -43,12 +43,50 @@ export async function initEdiFiles() {
         document.getElementById("ediPreviewBox").style.display = "none";
     });
 
-    document.getElementById("ediNotesFileSelect").addEventListener("change", (event) => {
-        selectedNotesFileId = event.target.value || null;
+    document.getElementById("ediNotesSubmitBtn").addEventListener("click", () => {
+        document.getElementById("ediNotesAlert").innerHTML = "";
+
+        const value = document.getElementById("ediNotesFileSelect").value;
+
+        if (!value) {
+            showAlert("ediNotesAlert", "Choose a file first.", "error");
+            return;
+        }
+
+        selectedNotesFileId = value;
         loadNotes();
     });
 
+    document.getElementById("ediNotesArchiveBtn").addEventListener("click", async () => {
+        if (!selectedNotesFileId) {
+            showAlert("ediNotesAlert", "Submit a file first.", "error");
+            return;
+        }
+
+        await toggleArchive(Number(selectedNotesFileId), true);
+    });
+
+    document.getElementById("ediNotesCloseBtn").addEventListener("click", closeNotesLog);
+
+    document.getElementById("ediNoteOpenBtn").addEventListener("click", () => {
+        if (!selectedNotesFileId) {
+            showAlert("ediNotesAlert", "Submit a file on the left first.", "error");
+            return;
+        }
+
+        const input = document.getElementById("ediNoteInput");
+        input.disabled = false;
+        document.getElementById("ediAddNoteBtn").disabled = false;
+        input.focus();
+    });
+
     document.getElementById("ediAddNoteBtn").addEventListener("click", addNote);
+    document.getElementById("ediNoteCloseBtn").addEventListener("click", () => {
+        const input = document.getElementById("ediNoteInput");
+        input.value = "";
+        input.disabled = true;
+        document.getElementById("ediAddNoteBtn").disabled = true;
+    });
     document.getElementById("ediNoteInput").addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
             event.preventDefault();
@@ -334,22 +372,27 @@ async function loadPreview() {
     box.textContent = (result.data.content || "(empty file)") + (result.data.truncated ? "\n\n... (truncated)" : "");
 }
 
+function closeNotesLog() {
+    selectedNotesFileId = null;
+    document.getElementById("ediNotesFileSelect").value = "";
+    document.getElementById("ediNotesAlert").innerHTML = "";
+    document.getElementById("ediNotesList").innerHTML = "";
+
+    const input = document.getElementById("ediNoteInput");
+    input.value = "";
+    input.disabled = true;
+    document.getElementById("ediAddNoteBtn").disabled = true;
+}
+
 async function loadNotes() {
     const list = document.getElementById("ediNotesList");
-    const input = document.getElementById("ediNoteInput");
-    const addBtn = document.getElementById("ediAddNoteBtn");
 
     document.getElementById("ediNotesAlert").innerHTML = "";
 
     if (!selectedNotesFileId) {
         list.innerHTML = "";
-        input.disabled = true;
-        addBtn.disabled = true;
         return;
     }
-
-    input.disabled = false;
-    addBtn.disabled = false;
 
     list.innerHTML = `<li class="edi-empty-state">Loading...</li>`;
 
