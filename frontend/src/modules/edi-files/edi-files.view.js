@@ -73,6 +73,17 @@ export function EdiFilesView() {
     margin-bottom: 14px;
 }
 
+.edi-file-view-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 14px;
+    margin-bottom: 6px;
+}
+
+.edi-file-view-row .edi-field { width: auto; }
+.edi-file-view-row input[type="checkbox"] { width: 20px; height: 34px; }
+
 .edi-field label {
     display: block;
     font-size: 12px;
@@ -397,11 +408,30 @@ export function EdiFilesView() {
 
     <div class="edi-tab-panel" id="ediFilePanel" data-edi-panel="file">
         <div class="edi-panel-body">
-            <div class="edi-file-picker">
-                <label style="display:block; font-size:12.5px; font-weight:600; color:var(--text-primary); margin-bottom:5px;">File:</label>
-                <select id="ediFileSelect"><option value="">-- Select a file --</option></select>
+            <h3 style="margin:0 0 14px; font-size:15px; font-weight:700; color:var(--text-primary);">View EDI x12 file:</h3>
+
+            <div class="edi-file-view-row">
+                <div class="edi-field">
+                    <label>Report?</label>
+                    <input type="checkbox" id="ediFileReport" disabled title="Needs a real X12 835/837 parser -- not available in this build">
+                </div>
+                <div class="edi-field" style="min-width:240px;">
+                    <label>Choose File:</label>
+                    <select id="ediFileSelect"><option value="">-- Select a file --</option></select>
+                </div>
+                <div class="edi-field">
+                    <label>&nbsp;</label>
+                    <button type="button" class="edi-btn" id="ediFileSubmitBtn">+ Submit</button>
+                </div>
+                <div class="edi-field">
+                    <label>&nbsp;</label>
+                    <button type="button" class="edi-btn secondary" id="ediFileResetBtn">&times; Reset</button>
+                </div>
             </div>
 
+            <p class="edi-disabled-note">"Report?" would render a formatted 835/837 report and needs a real X12 parser -- not available in this build. Submit shows the file's raw contents instead.</p>
+
+            <div id="ediFileAlert" class="edi-alert-area"></div>
             <div id="ediFileMeta"></div>
             <div class="edi-preview-box" id="ediPreviewBox" style="display:none;"></div>
         </div>

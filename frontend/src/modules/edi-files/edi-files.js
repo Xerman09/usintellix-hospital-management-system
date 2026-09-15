@@ -20,9 +20,27 @@ export async function initEdiFiles() {
         document.getElementById("ediUploadAlert").innerHTML = "";
     });
 
-    document.getElementById("ediFileSelect").addEventListener("change", (event) => {
-        selectedPreviewFileId = event.target.value || null;
+    document.getElementById("ediFileSubmitBtn").addEventListener("click", () => {
+        document.getElementById("ediFileAlert").innerHTML = "";
+
+        const value = document.getElementById("ediFileSelect").value;
+
+        if (!value) {
+            showAlert("ediFileAlert", "Choose a file first.", "error");
+            return;
+        }
+
+        selectedPreviewFileId = value;
         loadPreview();
+    });
+
+    document.getElementById("ediFileResetBtn").addEventListener("click", () => {
+        selectedPreviewFileId = null;
+        document.getElementById("ediFileSelect").value = "";
+        document.getElementById("ediFileReport").checked = false;
+        document.getElementById("ediFileAlert").innerHTML = "";
+        document.getElementById("ediFileMeta").innerHTML = "";
+        document.getElementById("ediPreviewBox").style.display = "none";
     });
 
     document.getElementById("ediNotesFileSelect").addEventListener("change", (event) => {
