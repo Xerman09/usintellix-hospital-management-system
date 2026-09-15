@@ -1744,7 +1744,7 @@ function showChartSection(key, feeSheetEncounterId)
     } else if (key === "fee_sheet") {
         feeSheetPanel.style.display = "block";
         if (currentDashboardPatient) {
-            openFeeSheetModule(feeSheetEncounterId);
+            return openFeeSheetModule(feeSheetEncounterId);
         }
     } else if (key === "ledger") {
         ledgerPanel.style.display = "block";
@@ -10874,7 +10874,7 @@ let feeSheetEncounterOptions = [];
 // It picks the patient's most recent visit by default, but the visit
 // selector lets the user work the fee sheet for any prior encounter
 // without first opening that encounter's full summary.
-function openFeeSheetForEncounter(encounterId)
+export function openFeeSheetForEncounter(encounterId)
 {
     const btn = document.querySelector('#pdChartNav [data-chart-nav="fee_sheet"]');
 
@@ -10882,7 +10882,7 @@ function openFeeSheetForEncounter(encounterId)
         activateChartNavButton(btn);
     }
 
-    showChartSection("fee_sheet", encounterId);
+    return showChartSection("fee_sheet", encounterId);
 }
 
 function closeFeeSheetModule()
@@ -13565,6 +13565,23 @@ export function triggerFeeSheet() {
     if (!currentDashboardPatient) return;
 
     openFeeSheetForEncounter();
+}
+
+// Checkout is the same Fee Sheet module, jumped straight to the "receive
+// payment" step: it resolves the patient's most recent visit (or keeps
+// whichever one the visit selector already has picked) and opens the
+// receipt/balance-due view immediately, instead of landing on the plain
+// charges table and requiring an extra "Show Receipt" click.
+export async function triggerCheckout() {
+    if (!currentDashboardPatient) return;
+
+    await openFeeSheetForEncounter();
+
+    if (feeSheetEncounter) {
+        await openFeeSheetReceipt();
+    } else {
+        showToast("No current visit found for this patient -- create a visit before checking out.", "error");
+    }
 }
 
 export function triggerVisitHistory() {

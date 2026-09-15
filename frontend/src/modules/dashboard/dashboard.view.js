@@ -45,7 +45,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <a data-tab="fee_sheet" class="patient-dependent-nav">Fee Sheet</a>
                 <a data-tab="payment">Payment</a>
-                <a data-tab="checkout">Checkout</a>
+                <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>
                 <a data-tab="billing_manager">Billing Manager</a>
                 <a data-tab="batch_payments">Batch Payments</a>
                 <a data-tab="posting_payments">Posting Payments</a>

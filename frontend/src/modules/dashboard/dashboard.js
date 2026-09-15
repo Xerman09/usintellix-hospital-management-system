@@ -21,7 +21,9 @@ import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=52";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet } from "../patients/patients-list.js?v=52";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=54";
+import { BillingManagerView } from "../billing-manager/billing-manager.view.js";
+import { initBillingManager } from "../billing-manager/billing-manager.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
@@ -319,7 +321,7 @@ export function Dashboard()
     // -- activating each of them in turn would render, then immediately
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
-        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_records_request' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit' || tabId === 'fee_sheet') {
+        if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_records_request' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit' || tabId === 'fee_sheet' || tabId === 'checkout') {
             const activePatient = getLastActivePatientChart();
             if (!activePatient || activePatient === "null") {
                 showToast("Please select a patient first.", "error");
@@ -343,6 +345,8 @@ export function Dashboard()
                     triggerRecordsRequest();
                 } else if (action === 'fee_sheet') {
                     triggerFeeSheet();
+                } else if (action === 'checkout') {
+                    triggerCheckout();
                 } else if (action === 'patient_dashboard') {
                     // For dashboard, there's no specific 'dashboard' view inside patient chart?
                     // Actually there's showChartSection("dashboard");
@@ -363,6 +367,8 @@ export function Dashboard()
                         setTimeout(() => triggerRecordsRequest(), 200);
                     } else if (action === 'fee_sheet') {
                         setTimeout(() => triggerFeeSheet(), 200);
+                    } else if (action === 'checkout') {
+                        setTimeout(() => triggerCheckout(), 200);
                     }
                 });
             }
@@ -393,6 +399,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initProviders, 0);
                 return ProvidersView();
+            }, activate);
+        } else if (tabId === 'billing_manager') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initBillingManager, 0);
+                return BillingManagerView();
             }, activate);
         } else if (tabId === 'provider_categories') {
             tabManager.openTab(tabId, title, () => {

@@ -226,6 +226,294 @@ class EncounterService
     }
 
     /**
+     * The types of criteria the Billing Manager's "Choose Criteria"
+     * builder accepts, in the order they're offered to the user.
+     */
+    public const BILLING_CRITERIA_TYPES = [
+        'date_of_service', 'date_of_entry', 'billing_status', 'claim_type',
+        'patient_name', 'patient_id', 'insurance', 'encounter', 'provider', 'facility'
+    ];
+
+    /**
+     * Practice-wide billing worklist for the Billing Manager screen,
+     * grouped by patient then by encounter (each encounter is one
+     * "claim" in OpenEMR terms), with that encounter's charge lines.
+     * Matches encounters against an arbitrary AND-combined list of
+     * criteria built by the frontend's criteria picker -- each entry is
+     * ['type' => one of BILLING_CRITERIA_TYPES, ...type-specific fields].
+     * $providerId (set only when the caller is a doctor) restricts
+     * results to that provider's own assigned patients, same scoping
+     * rule EncounterController::ownsPatient() enforces for
+     * single-encounter actions elsewhere.
+     *
+     * Capped at 200 matching encounters -- a practice-wide worklist
+     * screen showing more than that at once wouldn't be usable anyway;
+     * criteria are meant to narrow it down first, same as the real
+     * screen this is modeled on.
+     */
+    public function listBillableGrouped(array $criteria, ?int $providerId): array
+    {
+        $where = ['e.deleted_at IS NULL'];
+        $params = [];
+        $i = 0;
+
+        if ($providerId) {
+            $where[] = 'p.provider_id = :provider_id';
+            $params['provider_id'] = $providerId;
+        }
+
+        foreach ($criteria as $criterion) {
+            $type = $criterion['type'] ?? '';
+            $i++;
+
+            if (!in_array($type, self::BILLING_CRITERIA_TYPES, true)) {
+                continue;
+            }
+
+            if ($type === 'date_of_service' || $type === 'date_of_entry') {
+                $column = $type === 'date_of_service' ? 'e.date_of_service' : 'e.created_at';
+                $from = $criterion['from'] ?? null;
+                $to = $criterion['to'] ?? null;
+
+                if ($from) {
+                    $where[] = "{$column} >= :from{$i}";
+                    $params["from{$i}"] = $from;
+                }
+
+                if ($to) {
+                    $where[] = "{$column} <= :to{$i}";
+                    $params["to{$i}"] = $to . ' 23:59:59';
+                }
+
+                continue;
+            }
+
+            $value = trim((string) ($criterion['value'] ?? ''));
+
+            if ($value === '') {
+                continue;
+            }
+
+            switch ($type) {
+                case 'billing_status':
+                    if (in_array($value, ['unassigned', 'cleared'], true)) {
+                        $where[] = "e.bill_status = :bill_status{$i}";
+                        $params["bill_status{$i}"] = $value;
+                    }
+                    break;
+
+                case 'claim_type':
+                    if (in_array($value, ['primary', 'secondary', 'tertiary'], true)) {
+                        $where[] = "EXISTS (SELECT 1 FROM patient_insurances pi
+                                            WHERE pi.patient_id = e.patient_id AND pi.deleted_at IS NULL
+                                              AND pi.insurance_type = :claim_type{$i})";
+                        $params["claim_type{$i}"] = $value;
+                    }
+                    break;
+
+                case 'patient_name':
+                    $where[] = "(p.first_name LIKE :pname{$i} OR p.last_name LIKE :pname{$i})";
+                    $params["pname{$i}"] = '%' . $value . '%';
+                    break;
+
+                case 'patient_id':
+                    $where[] = "p.patient_no LIKE :pno{$i}";
+                    $params["pno{$i}"] = '%' . $value . '%';
+                    break;
+
+                case 'insurance':
+                    $where[] = "EXISTS (SELECT 1 FROM patient_insurances pi
+                                        WHERE pi.patient_id = e.patient_id AND pi.deleted_at IS NULL
+                                          AND pi.insurance_id = :insurance{$i})";
+                    $params["insurance{$i}"] = (int) $value;
+                    break;
+
+                case 'encounter':
+                    $where[] = "e.id = :encounter_id{$i}";
+                    $params["encounter_id{$i}"] = (int) $value;
+                    break;
+
+                case 'provider':
+                    $where[] = "e.encounter_provider_id = :enc_provider{$i}";
+                    $params["enc_provider{$i}"] = (int) $value;
+                    break;
+
+                case 'facility':
+                    $where[] = "e.facility_id = :facility{$i}";
+                    $params["facility{$i}"] = (int) $value;
+                    break;
+            }
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT e.id AS encounter_id, e.patient_id, e.date_of_service, e.bill_status, e.x12_status,
+                    p.patient_no, TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name, p.birthdate,
+                    EXISTS (SELECT 1 FROM patient_insurances pi WHERE pi.patient_id = e.patient_id AND pi.deleted_at IS NULL) AS has_insurance
+             FROM encounters e
+             JOIN patients p ON p.id = e.patient_id AND p.deleted_at IS NULL
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY e.date_of_service DESC, e.id DESC
+             LIMIT 200"
+        );
+
+        $stmt->execute($params);
+
+        $encounterRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$encounterRows) {
+            return ['patients' => [], 'summary' => ['patient_count' => 0, 'encounter_count' => 0, 'total_charges' => 0]];
+        }
+
+        $encounterIds = array_map(fn ($row) => (int) $row['encounter_id'], $encounterRows);
+        $placeholders = implode(',', array_fill(0, count($encounterIds), '?'));
+
+        $chargeStmt = Database::connection()->prepare(
+            "SELECT ebc.id, ebc.encounter_id, ebc.code_type, ebc.code, ebc.description, ebc.fee, ebc.units,
+                    NULLIF(TRIM(CONCAT(epe.first_name, ' ', epe.last_name)), '') AS provider_name
+             FROM encounter_billing_codes ebc
+             JOIN encounters e ON e.id = ebc.encounter_id
+             LEFT JOIN providers ep ON ep.id = e.encounter_provider_id
+             LEFT JOIN employees epe ON epe.id = ep.employee_id
+             WHERE ebc.encounter_id IN ({$placeholders}) AND ebc.deleted_at IS NULL
+             ORDER BY ebc.id ASC"
+        );
+        $chargeStmt->execute($encounterIds);
+
+        $chargesByEncounter = [];
+
+        foreach ($chargeStmt->fetchAll(PDO::FETCH_ASSOC) as $charge) {
+            $encId = (int) $charge['encounter_id'];
+            $fee = (float) $charge['fee'];
+            $units = (int) $charge['units'] ?: 1;
+
+            $chargesByEncounter[$encId][] = [
+                'id' => (int) $charge['id'],
+                'code_type' => $charge['code_type'],
+                'code' => $charge['code'],
+                'description' => $charge['description'],
+                'fee' => $fee,
+                'units' => $units,
+                'total' => round($fee * $units, 2),
+                'provider_name' => $charge['provider_name']
+            ];
+        }
+
+        $patients = [];
+        $totalCharges = 0.0;
+
+        foreach ($encounterRows as $row) {
+            $patientId = (int) $row['patient_id'];
+            $encounterId = (int) $row['encounter_id'];
+            $charges = $chargesByEncounter[$encounterId] ?? [];
+            $encounterTotal = array_sum(array_column($charges, 'total'));
+            $totalCharges += $encounterTotal;
+
+            if (!isset($patients[$patientId])) {
+                $patients[$patientId] = [
+                    'patient_id' => $patientId,
+                    'patient_no' => $row['patient_no'],
+                    'patient_name' => $row['patient_name'],
+                    'age' => $this->calculateAge($row['birthdate']),
+                    'has_insurance' => (bool) $row['has_insurance'],
+                    'encounters' => []
+                ];
+            }
+
+            $patients[$patientId]['encounters'][] = [
+                'encounter_id' => $encounterId,
+                'date_of_service' => $row['date_of_service'],
+                'bill_status' => $row['bill_status'],
+                'x12_status' => $row['x12_status'],
+                'total_charges' => round($encounterTotal, 2),
+                'charges' => $charges
+            ];
+        }
+
+        $patients = array_values($patients);
+
+        return [
+            'patients' => $patients,
+            'summary' => [
+                'patient_count' => count($patients),
+                'encounter_count' => count($encounterRows),
+                'total_charges' => round($totalCharges, 2)
+            ]
+        ];
+    }
+
+    private function calculateAge(?string $birthdate): ?int
+    {
+        if (!$birthdate) {
+            return null;
+        }
+
+        $dob = date_create($birthdate);
+
+        if (!$dob) {
+            return null;
+        }
+
+        return (int) date_create('now')->diff($dob)->y;
+    }
+
+    /**
+     * Bulk-set the claim-level bill_status for a set of encounters
+     * ("Mark as Cleared" / "Re-Open" on the Billing Manager screen).
+     */
+    public function setBillStatus(array $encounterIds, string $status, int $userId): array
+    {
+        $encounterIds = array_values(array_unique(array_map('intval', $encounterIds)));
+
+        if (!$encounterIds || !in_array($status, ['unassigned', 'cleared'], true)) {
+            return ['success' => false, 'message' => 'No visits selected.'];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($encounterIds), '?'));
+
+        if ($status === 'cleared') {
+            $setSql = 'bill_status = ?, billed_at = ?, billed_by = ?';
+            $params = [$status, date('Y-m-d H:i:s'), $userId, ...$encounterIds];
+        } else {
+            $setSql = 'bill_status = ?, billed_at = NULL, billed_by = NULL';
+            $params = [$status, ...$encounterIds];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "UPDATE encounters SET {$setSql} WHERE id IN ({$placeholders}) AND deleted_at IS NULL"
+        );
+        $stmt->execute($params);
+
+        return ['success' => true, 'message' => $status === 'cleared' ? 'Marked as cleared.' : 'Re-opened.'];
+    }
+
+    /**
+     * Set the manually-tracked X12 status label for one encounter/claim.
+     * There's no real clearinghouse behind this -- it's the same kind of
+     * staff-set tracking flag the real screen uses, just not wired to an
+     * actual X12 837 transmission in this app.
+     */
+    public function setX12Status(int $encounterId, string $status, int $userId): array
+    {
+        if (!in_array($status, ['unassigned', 'sent', 'accepted', 'rejected'], true)) {
+            return ['success' => false, 'message' => 'Invalid X12 status.'];
+        }
+
+        $record = (new Encounter())->where('id', $encounterId)->first();
+
+        if (!$record || $record['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Encounter not found.'];
+        }
+
+        (new Encounter())->update([
+            'x12_status' => $status,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $userId
+        ], $encounterId);
+
+        return ['success' => true, 'message' => 'X12 status updated.'];
+    }
+
+    /**
      * Set an encounter's billing note. Kept separate from update() since
      * it's edited standalone from the Visit History billing view, not
      * through the full encounter form -- it shouldn't require the rest
