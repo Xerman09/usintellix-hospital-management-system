@@ -47,6 +47,28 @@ class EdiFileController extends Controller
     }
 
     /**
+     * "View CSV tables" / "Per Encounter". Query: table=charges|payments,
+     * from?, to?, encounter_id? (encounter_id, when given, overrides the
+     * date range entirely).
+     */
+    public function csvTable(): void
+    {
+        $request = new Request();
+
+        $table = (string) $request->input('table', 'charges');
+        $encounterId = (int) $request->input('encounter_id', 0);
+
+        $result = $this->service->csvTable(
+            $table === 'payments' ? 'payments' : 'charges',
+            $request->input('from') ?: null,
+            $request->input('to') ?: null,
+            $encounterId ?: null
+        );
+
+        $this->success($result, 'CSV table retrieved successfully.');
+    }
+
+    /**
      * Raw-text preview of one file's contents, for the "EDI File" tab.
      */
     public function preview(): void

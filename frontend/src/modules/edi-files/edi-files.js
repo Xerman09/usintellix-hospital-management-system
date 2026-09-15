@@ -1,11 +1,13 @@
 import {
-    fetchEdiFiles, uploadEdiFiles, fetchEdiFilePreview, fetchEdiFileNotes, addEdiFileNote, setEdiFileArchived
+    fetchEdiFiles, uploadEdiFiles, fetchEdiFilePreview, fetchEdiFileNotes, addEdiFileNote, setEdiFileArchived,
+    fetchCsvTable
 } from "./edi-files.service.js";
 import { showToast } from "../../core/toast.js";
 
 let allFiles = [];
 let selectedPreviewFileId = null;
 let selectedNotesFileId = null;
+let currentCsvResult = null;
 
 export async function initEdiFiles() {
     document.querySelectorAll("[data-edi-tab]").forEach((btn) => {
@@ -36,7 +38,115 @@ export async function initEdiFiles() {
         }
     });
 
+    setupCsvTablesTab();
+
     await Promise.all([loadNewFiles(), loadArchivedFiles(), loadFilePickerOptions()]);
+}
+
+function setupCsvTablesTab() {
+    const periodSelect = document.getElementById("ediCsvPeriod");
+
+    applyPeriod(periodSelect.value);
+
+    periodSelect.addEventListener("change", () => applyPeriod(periodSelect.value));
+
+    document.getElementById("ediCsvSubmitBtn").addEventListener("click", () => runCsvTable());
+    document.getElementById("ediCsvEncounterSubmitBtn").addEventListener("click", () => {
+        const encounter = document.getElementById("ediCsvEncounter").value;
+
+        if (!encounter) {
+            showAlert("ediCsvAlert", "Enter an encounter number.", "error");
+            return;
+        }
+
+        runCsvTable(Number(encounter));
+    });
+
+    document.getElementById("ediCsvDownloadBtn").addEventListener("click", downloadCsv);
+}
+
+function applyPeriod(days) {
+    if (!days) return;
+
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - Number(days));
+
+    document.getElementById("ediCsvEndDate").value = to.toISOString().slice(0, 10);
+    document.getElementById("ediCsvStartDate").value = from.toISOString().slice(0, 10);
+}
+
+async function runCsvTable(encounterId) {
+    document.getElementById("ediCsvAlert").innerHTML = "";
+
+    const resultsWrap = document.getElementById("ediCsvResultsWrap");
+    const tbody = document.getElementById("ediCsvTableBody");
+    const thead = document.getElementById("ediCsvTableHead");
+
+    resultsWrap.style.display = "block";
+    thead.innerHTML = "";
+    tbody.innerHTML = `<tr><td class="edi-empty-state">Loading...</td></tr>`;
+
+    const result = await fetchCsvTable({
+        table: document.getElementById("ediCsvTableSelect").value,
+        from: document.getElementById("ediCsvStartDate").value,
+        to: document.getElementById("ediCsvEndDate").value,
+        encounterId
+    });
+
+    if (!result.success) {
+        currentCsvResult = null;
+        thead.innerHTML = "";
+        tbody.innerHTML = `<tr><td class="edi-empty-state">Failed to load the table.</td></tr>`;
+        return;
+    }
+
+    currentCsvResult = result.data;
+    renderCsvTable(currentCsvResult);
+}
+
+function renderCsvTable({ columns, rows }) {
+    const thead = document.getElementById("ediCsvTableHead");
+    const tbody = document.getElementById("ediCsvTableBody");
+
+    thead.innerHTML = `<tr>${columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="${columns.length}" class="edi-empty-state">No records match.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map((row) => `
+        <tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>
+    `).join("");
+}
+
+function downloadCsv() {
+    if (!currentCsvResult || !currentCsvResult.rows.length) {
+        showToast("Nothing to download yet -- run a search first.", "error");
+        return;
+    }
+
+    const escapeCsvCell = (value) => {
+        const text = String(value ?? "");
+        return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+
+    const lines = [
+        currentCsvResult.columns.map(escapeCsvCell).join(","),
+        ...currentCsvResult.rows.map((row) => row.map(escapeCsvCell).join(","))
+    ];
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `edi_csv_table_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 function switchTab(tab) {

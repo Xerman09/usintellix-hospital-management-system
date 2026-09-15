@@ -62,6 +62,38 @@ export function EdiFilesView() {
     color: var(--text-primary);
 }
 
+.edi-column {
+    min-width: 260px;
+}
+
+.edi-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.edi-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.edi-field input,
+.edi-field select {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
 .edi-file-input-row {
     display: flex;
     gap: 0;
@@ -303,9 +335,62 @@ export function EdiFilesView() {
 
     <div class="edi-tab-panel" id="ediCsvPanel" data-edi-panel="csv">
         <div class="edi-panel-body">
-            <div class="edi-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h6"></path></svg>
-                <p><strong>CSV Tables needs a real X12 835/837 parser.</strong><br>This tab would show the structured claim/payment records extracted by "Process New Files" -- since that parsing step isn't available in this build, there's nothing real to show here.</p>
+            <p class="edi-disabled-note" style="max-width:640px; margin-bottom:16px;">
+                This app has no real X12 835/837 parser, so these tables aren't parsed-EDI output -- they browse the real Charges and Payments already posted through Fee Sheet, Checkout, Billing Manager, Payments, and Posting Payments.
+            </p>
+
+            <div id="ediCsvAlert" class="edi-alert-area"></div>
+
+            <div class="edi-columns">
+                <div class="edi-column">
+                    <h3>View CSV tables:</h3>
+                    <p style="margin:0 0 10px; font-size:12px; color:var(--text-muted);">Choose a period or dates (YYYY-MM-DD)</p>
+
+                    <div class="edi-form-grid">
+                        <div class="edi-field">
+                            <label>Choose CSV table:</label>
+                            <select id="ediCsvTableSelect">
+                                <option value="charges">Charges</option>
+                                <option value="payments">Payments</option>
+                            </select>
+                        </div>
+                        <div class="edi-field">
+                            <label>From Period:</label>
+                            <select id="ediCsvPeriod">
+                                <option value="">Custom</option>
+                                <option value="7">1 week</option>
+                                <option value="14" selected>2 weeks</option>
+                                <option value="30">1 month</option>
+                                <option value="90">3 months</option>
+                                <option value="365">1 year</option>
+                            </select>
+                        </div>
+                        <div class="edi-field"><label>Start Date:</label><input type="date" id="ediCsvStartDate"></div>
+                        <div class="edi-field"><label>End Date:</label><input type="date" id="ediCsvEndDate"></div>
+                    </div>
+
+                    <button type="button" class="edi-btn" id="ediCsvSubmitBtn">+ Submit</button>
+                </div>
+
+                <div class="edi-column">
+                    <h3>Per Encounter</h3>
+                    <p style="margin:0 0 10px; font-size:12px; color:var(--text-muted);">Enter Encounter Number</p>
+
+                    <div class="edi-form-grid" style="grid-template-columns: 160px auto;">
+                        <div class="edi-field"><label>Encounter:</label><input type="number" id="ediCsvEncounter"></div>
+                        <div class="edi-field" style="align-self:end;"><button type="button" class="edi-btn" id="ediCsvEncounterSubmitBtn">+ Submit</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="edi-table-wrap" id="ediCsvResultsWrap" style="display:none;">
+                <div style="display:flex; justify-content:flex-end; padding:10px 12px; border-bottom:1px solid var(--border-color); background:var(--bg-surface-alt);">
+                    <button type="button" class="edi-btn secondary" id="ediCsvDownloadBtn">Download CSV</button>
+                </div>
+                <table class="edi-table">
+                    <thead id="ediCsvTableHead"></thead>
+                    <tbody id="ediCsvTableBody"></tbody>
+                </table>
             </div>
         </div>
     </div>

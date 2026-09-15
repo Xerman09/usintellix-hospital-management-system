@@ -16,6 +16,19 @@ export async function uploadEdiFiles(fileList) {
     });
 }
 
+export async function fetchCsvTable({ table, from, to, encounterId }) {
+    const params = new URLSearchParams({ table });
+
+    if (encounterId) {
+        params.set("encounter_id", encounterId);
+    } else {
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+    }
+
+    return api(`/edi-files/csv-table?${params.toString()}`);
+}
+
 export async function fetchEdiFilePreview(id) {
     return api(`/edi-files/preview?id=${id}`);
 }

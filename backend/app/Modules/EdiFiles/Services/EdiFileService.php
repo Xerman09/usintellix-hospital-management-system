@@ -13,14 +13,20 @@ use PDO;
  *
  * Deliberately NOT built: the real screen's "Process new files for CSV
  * records" step (parsing an 835/837 into structured claim/payment line
- * items) and its "CSV Tables" tab that would display the parsed output.
- * That requires a real X12 EDI parser and payer/clearinghouse
+ * items). That requires a real X12 EDI parser and payer/clearinghouse
  * conventions this app has no infrastructure for -- faking it would
  * mean inventing numbers that look like real remittance data but
- * aren't, which is worse than not having the feature. The Controller
- * exposes upload/list/preview/notes/archive only; the frontend renders
- * the "Process" controls as disabled with an explanation instead of
- * wiring them to anything.
+ * aren't, which is worse than not having the feature.
+ *
+ * The "CSV Tables" tab, though, doesn't have to depend on that parser to
+ * be real: in real OpenEMR it browses the *result* of processing --
+ * tabular claim/payment records for a date range or one encounter. This
+ * app already has real tabular billing data (encounter_billing_codes,
+ * patient_ledger_payments) from every other billing feature built this
+ * session, so csvTable() browses *that* instead of fabricating parsed-EDI
+ * rows. It's an honest reinterpretation, not the original feature: the
+ * frontend labels the two table choices "Charges" / "Payments" rather
+ * than implying they came from a processed EDI file.
  */
 class EdiFileService
 {
@@ -228,5 +234,98 @@ class EdiFileService
         ], $id);
 
         return ['success' => true, 'message' => $archived ? 'File archived.' : 'File restored.'];
+    }
+
+    /**
+     * "View CSV tables" / "Per Encounter": real charge or payment rows,
+     * filtered by a date range or a specific encounter number. See the
+     * class doc-comment for why this queries real billing tables instead
+     * of parsed-EDI output.
+     */
+    public function csvTable(string $table, ?string $from, ?string $to, ?int $encounterId): array
+    {
+        if ($table === 'payments') {
+            return $this->paymentsCsvTable($from, $to, $encounterId);
+        }
+
+        return $this->chargesCsvTable($from, $to, $encounterId);
+    }
+
+    private function chargesCsvTable(?string $from, ?string $to, ?int $encounterId): array
+    {
+        $where = ['ebc.deleted_at IS NULL', 'e.deleted_at IS NULL'];
+        $params = [];
+
+        if ($encounterId) {
+            $where[] = 'e.id = :encounter_id';
+            $params['encounter_id'] = $encounterId;
+        } else {
+            if ($from) {
+                $where[] = 'e.date_of_service >= :from';
+                $params['from'] = $from;
+            }
+            if ($to) {
+                $where[] = 'e.date_of_service <= :to';
+                $params['to'] = $to . ' 23:59:59';
+            }
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT ebc.id, e.id AS encounter_id, e.date_of_service,
+                    p.patient_no, TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name,
+                    ebc.code_type, ebc.code, ebc.description, ebc.fee, ebc.units,
+                    (ebc.fee * ebc.units) AS total
+             FROM encounter_billing_codes ebc
+             JOIN encounters e ON e.id = ebc.encounter_id
+             JOIN patients p ON p.id = e.patient_id AND p.deleted_at IS NULL
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY e.date_of_service DESC, ebc.id DESC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return ['columns' => ['Date of Service', 'Patient', 'Chart ID', 'Encounter', 'Type', 'Code', 'Description', 'Fee', 'Units', 'Total'],
+                'rows' => array_map(fn ($r) => [
+                    substr((string) $r['date_of_service'], 0, 10), $r['patient_name'], $r['patient_no'], $r['encounter_id'],
+                    $r['code_type'], $r['code'], $r['description'], round((float) $r['fee'], 2), (int) $r['units'], round((float) $r['total'], 2)
+                ], $stmt->fetchAll(PDO::FETCH_ASSOC))];
+    }
+
+    private function paymentsCsvTable(?string $from, ?string $to, ?int $encounterId): array
+    {
+        $where = ['plp.deleted_at IS NULL'];
+        $params = [];
+
+        if ($encounterId) {
+            $where[] = 'plp.encounter_id = :encounter_id';
+            $params['encounter_id'] = $encounterId;
+        } else {
+            if ($from) {
+                $where[] = 'plp.payment_date >= :from';
+                $params['from'] = $from;
+            }
+            if ($to) {
+                $where[] = 'plp.payment_date <= :to';
+                $params['to'] = $to;
+            }
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT plp.id, plp.payment_date, plp.encounter_id,
+                    p.patient_no, TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name,
+                    plp.payer_type, plp.payment_type, plp.payment_amount, plp.adjustment_amount, plp.notes
+             FROM patient_ledger_payments plp
+             JOIN patients p ON p.id = plp.patient_id AND p.deleted_at IS NULL
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY plp.payment_date DESC, plp.id DESC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return ['columns' => ['Payment Date', 'Patient', 'Chart ID', 'Encounter', 'Payer', 'Type', 'Payment', 'Adjustment', 'Notes'],
+                'rows' => array_map(fn ($r) => [
+                    substr((string) $r['payment_date'], 0, 10), $r['patient_name'], $r['patient_no'], $r['encounter_id'] ?: '-',
+                    ucfirst($r['payer_type']), $r['payment_type'], round((float) $r['payment_amount'], 2), round((float) $r['adjustment_amount'], 2), $r['notes'] ?: ''
+                ], $stmt->fetchAll(PDO::FETCH_ASSOC))];
     }
 }

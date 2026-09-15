@@ -14,6 +14,11 @@ $router->post('/edi-files', [EdiFileController::class, 'store'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/edi-files/csv-table', [EdiFileController::class, 'csvTable'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/edi-files/preview', [EdiFileController::class, 'preview'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
