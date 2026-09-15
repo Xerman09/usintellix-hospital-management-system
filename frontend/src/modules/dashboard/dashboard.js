@@ -24,6 +24,8 @@ import { PatientsListView } from "../patients/patients-list.view.js?v=52";
 import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=54";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js";
 import { initBillingManager } from "../billing-manager/billing-manager.js";
+import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
+import { initBatchPayments } from "../batch-payments/batch-payments.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
@@ -404,6 +406,16 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initBillingManager, 0);
                 return BillingManagerView();
+            }, activate);
+        } else if (tabId === 'payment' || tabId === 'batch_payments') {
+            // Both nav entries open the same real OpenEMR "Payments" screen
+            // (New Payment/Search Payment/ERA Posting) -- "Batch Payments"
+            // isn't a separate feature there, it's the name of the entry
+            // form on the New Payment tab, so there's nothing distinct to
+            // build for it as its own page.
+            tabManager.openTab('payment', 'Payments', () => {
+                setTimeout(initBatchPayments, 0);
+                return BatchPaymentsView();
             }, activate);
         } else if (tabId === 'provider_categories') {
             tabManager.openTab(tabId, title, () => {

@@ -127,5 +127,6 @@ require_once __DIR__ . '/../app/Modules/ProxyAccess/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterDiagnoses/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterBillingCodes/routes.php';
 require_once __DIR__ . '/../app/Modules/BillingManager/routes.php';
+require_once __DIR__ . '/../app/Modules/BatchPayments/routes.php';
 
 return $router;
