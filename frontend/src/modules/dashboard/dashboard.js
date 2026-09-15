@@ -26,6 +26,8 @@ import { BillingManagerView } from "../billing-manager/billing-manager.view.js";
 import { initBillingManager } from "../billing-manager/billing-manager.js";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
 import { initBatchPayments } from "../batch-payments/batch-payments.js";
+import { EobPostingView } from "../eob-posting/eob-posting.view.js";
+import { initEobPosting } from "../eob-posting/eob-posting.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
@@ -416,6 +418,11 @@ export function Dashboard()
             tabManager.openTab('payment', 'Payments', () => {
                 setTimeout(initBatchPayments, 0);
                 return BatchPaymentsView();
+            }, activate);
+        } else if (tabId === 'posting_payments') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initEobPosting, 0);
+                return EobPostingView();
             }, activate);
         } else if (tabId === 'provider_categories') {
             tabManager.openTab(tabId, title, () => {
