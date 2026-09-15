@@ -32,6 +32,8 @@ import { EdiFilesView } from "../edi-files/edi-files.view.js";
 import { initEdiFiles } from "../edi-files/edi-files.js";
 import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js";
 import { initDrugInventory } from "../drug-inventory/drug-inventory.js";
+import { WarehousesView } from "../warehouses/warehouses.view.js";
+import { initWarehouses } from "../warehouses/warehouses.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
@@ -437,6 +439,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Drug Inventory', () => {
                 setTimeout(initDrugInventory, 0);
                 return DrugInventoryView();
+            }, activate);
+        } else if (tabId === 'inventory_warehouses') {
+            tabManager.openTab(tabId, 'Manage Warehouses', () => {
+                setTimeout(initWarehouses, 0);
+                return WarehousesView();
             }, activate);
         } else if (tabId === 'provider_categories') {
             tabManager.openTab(tabId, title, () => {
