@@ -515,9 +515,13 @@ export function PatientsListView(user)
 
 .pd-topbar-avatar img,
 .pd-sidebar-avatar img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    transform: scale(1.3);
+    transform-origin: center;
 }
 
 .pd-topbar h2 {
@@ -551,30 +555,30 @@ export function PatientsListView(user)
 
 .pd-sidebar-avatar-wrap {
     position: relative;
-    width: 52px;
-    height: 52px;
-    margin: 0 0 6px;
+    width: 96px;
+    height: 96px;
+    margin: 0 0 10px;
     cursor: pointer;
 }
 
 .pd-sidebar-avatar {
-    width: 52px;
-    height: 52px;
-    border-radius: 8px;
+    width: 96px;
+    height: 96px;
+    border-radius: 16px;
     background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 19px;
+    font-size: 34px;
     overflow: hidden;
 }
 
 .pd-sidebar-avatar-overlay {
     position: absolute;
     inset: 0;
-    border-radius: 8px;
+    border-radius: 16px;
     background: rgba(20, 24, 31, 0.55);
     color: white;
     display: flex;
@@ -590,8 +594,8 @@ export function PatientsListView(user)
 }
 
 .pd-sidebar-avatar-overlay svg {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
 }
 
 .pd-sidebar-remove-photo {
@@ -2796,9 +2800,13 @@ export function PatientChartView(user)
 
 .pd-topbar-avatar img,
 .pd-sidebar-avatar img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+    transform: scale(1.3);
+    transform-origin: center;
 }
 
 .pd-topbar h2 {
@@ -2832,30 +2840,30 @@ export function PatientChartView(user)
 
 .pd-sidebar-avatar-wrap {
     position: relative;
-    width: 52px;
-    height: 52px;
-    margin: 0 0 6px;
+    width: 96px;
+    height: 96px;
+    margin: 0 0 10px;
     cursor: pointer;
 }
 
 .pd-sidebar-avatar {
-    width: 52px;
-    height: 52px;
-    border-radius: 8px;
+    width: 96px;
+    height: 96px;
+    border-radius: 16px;
     background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 19px;
+    font-size: 34px;
     overflow: hidden;
 }
 
 .pd-sidebar-avatar-overlay {
     position: absolute;
     inset: 0;
-    border-radius: 8px;
+    border-radius: 16px;
     background: rgba(20, 24, 31, 0.55);
     color: white;
     display: flex;
@@ -2871,8 +2879,8 @@ export function PatientChartView(user)
 }
 
 .pd-sidebar-avatar-overlay svg {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
 }
 
 .pd-sidebar-remove-photo {
