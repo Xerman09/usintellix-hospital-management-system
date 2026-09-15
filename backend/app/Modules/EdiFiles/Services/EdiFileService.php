@@ -237,6 +237,52 @@ class EdiFileService
     }
 
     /**
+     * "Archive old files" -- files still in 'new' status older than the
+     * given age, for the Report preview and as the target set for
+     * bulkArchive(). Real OpenEMR's wording is "removed from folders and
+     * tables" (a hard delete); this app archives instead (status flip,
+     * fully restorable), matching its soft-delete-everywhere convention
+     * used for every other record in this codebase -- the frontend's
+     * copy is worded to say so honestly rather than parrot OpenEMR's.
+     */
+    public function listOlderThan(int $days): array
+    {
+        $cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+        $stmt = Database::connection()->prepare(
+            "SELECT ef.*, COALESCE(NULLIF(TRIM(CONCAT(emp.first_name, ' ', emp.last_name)), ''), u.username) AS uploaded_by_name
+             FROM edi_files ef
+             LEFT JOIN users u ON u.id = ef.created_by
+             LEFT JOIN employees emp ON emp.user_id = ef.created_by
+             WHERE ef.deleted_at IS NULL AND ef.status = 'new' AND ef.created_at < :cutoff
+             ORDER BY ef.created_at ASC"
+        );
+        $stmt->execute(['cutoff' => $cutoff]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function bulkArchive(int $days, int $userId): array
+    {
+        $matches = $this->listOlderThan($days);
+
+        if (!$matches) {
+            return ['success' => true, 'message' => 'No files older than that were found.', 'data' => ['count' => 0]];
+        }
+
+        $ids = array_column($matches, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $stmt = Database::connection()->prepare(
+            "UPDATE edi_files SET status = 'archived', archived_at = ?, archived_by = ?
+             WHERE id IN ({$placeholders}) AND deleted_at IS NULL"
+        );
+        $stmt->execute([date('Y-m-d H:i:s'), $userId, ...$ids]);
+
+        return ['success' => true, 'message' => count($ids) . ' file(s) archived.', 'data' => ['count' => count($ids)]];
+    }
+
+    /**
      * "View CSV tables" / "Per Encounter": real charge or payment rows,
      * filtered by a date range or a specific encounter number. See the
      * class doc-comment for why this queries real billing tables instead

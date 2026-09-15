@@ -38,3 +38,13 @@ $router->put('/edi-files/archive', [EdiFileController::class, 'setArchived'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/edi-files/older-than', [EdiFileController::class, 'olderThanReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/edi-files/bulk-archive', [EdiFileController::class, 'bulkArchive'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

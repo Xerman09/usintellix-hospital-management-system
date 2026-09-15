@@ -1,6 +1,6 @@
 import {
     fetchEdiFiles, uploadEdiFiles, fetchEdiFilePreview, fetchEdiFileNotes, addEdiFileNote, setEdiFileArchived,
-    fetchCsvTable
+    fetchCsvTable, fetchOlderThanReport, bulkArchiveOlderThan
 } from "./edi-files.service.js";
 import { showToast } from "../../core/toast.js";
 
@@ -95,8 +95,84 @@ export async function initEdiFiles() {
     });
 
     setupCsvTablesTab();
+    setupArchiveTab();
 
     await Promise.all([loadNewFiles(), loadArchivedFiles(), loadFilePickerOptions()]);
+}
+
+function setupArchiveTab() {
+    document.getElementById("ediArchiveReportBtn").addEventListener("click", runOlderThanReport);
+
+    document.getElementById("ediArchiveBulkBtn").addEventListener("click", async () => {
+        const days = document.getElementById("ediArchiveOlderThan").value;
+
+        if (!days) {
+            showAlert("ediArchiveAlert", "Choose an age threshold first.", "error");
+            return;
+        }
+
+        if (!confirm(`Archive every New file older than the chosen threshold? This can be undone with Restore.`)) {
+            return;
+        }
+
+        const result = await bulkArchiveOlderThan(Number(days));
+
+        if (!result.success) {
+            showAlert("ediArchiveAlert", result.message || "Failed to archive files.", "error");
+            return;
+        }
+
+        showToast(result.message || "Archived.", "success");
+        document.getElementById("ediArchiveReportWrap").style.display = "none";
+        await Promise.all([loadNewFiles(), loadArchivedFiles(), loadFilePickerOptions()]);
+    });
+
+    document.getElementById("ediRestoreBtn").addEventListener("click", async () => {
+        const id = document.getElementById("ediRestoreSelect").value;
+
+        if (!id) {
+            showAlert("ediArchiveAlert", "Choose an archived file to restore first.", "error");
+            return;
+        }
+
+        await toggleArchive(Number(id), false);
+    });
+}
+
+async function runOlderThanReport() {
+    document.getElementById("ediArchiveAlert").innerHTML = "";
+
+    const days = document.getElementById("ediArchiveOlderThan").value;
+
+    if (!days) {
+        showAlert("ediArchiveAlert", "Choose an age threshold first.", "error");
+        return;
+    }
+
+    const wrap = document.getElementById("ediArchiveReportWrap");
+    const tbody = document.getElementById("ediArchiveReportBody");
+
+    wrap.style.display = "block";
+    tbody.innerHTML = `<tr><td colspan="3" class="edi-empty-state">Loading...</td></tr>`;
+
+    const result = await fetchOlderThanReport(Number(days));
+
+    if (!result.success) {
+        tbody.innerHTML = `<tr><td colspan="3" class="edi-empty-state">Failed to load the report.</td></tr>`;
+        return;
+    }
+
+    const rows = result.data || [];
+
+    tbody.innerHTML = rows.length
+        ? rows.map((row) => `
+            <tr>
+                <td>${escapeHtml(row.original_filename)}</td>
+                <td>${escapeHtml(row.uploaded_by_name || "-")}</td>
+                <td>${escapeHtml(formatDateTime(row.created_at))}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="3" class="edi-empty-state">No files older than that.</td></tr>`;
 }
 
 function setupCsvTablesTab() {
@@ -266,7 +342,18 @@ async function loadArchivedFiles() {
         return;
     }
 
-    renderArchiveTable(tbody, result.data || []);
+    const rows = result.data || [];
+
+    renderArchiveTable(tbody, rows);
+    renderRestoreSelect(rows);
+}
+
+function renderRestoreSelect(rows) {
+    const select = document.getElementById("ediRestoreSelect");
+
+    select.innerHTML = rows.length
+        ? rows.map((row) => `<option value="${row.id}">${escapeHtml(row.original_filename)}</option>`).join("")
+        : `<option value="">No Archives</option>`;
 }
 
 function renderFilesTable(tbody, rows, actionMode) {

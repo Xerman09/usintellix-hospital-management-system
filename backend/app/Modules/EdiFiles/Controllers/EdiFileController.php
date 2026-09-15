@@ -136,6 +136,44 @@ class EdiFileController extends Controller
     }
 
     /**
+     * "Report" preview for "Archive old files" -- which New files are
+     * older than the chosen threshold, without archiving anything yet.
+     */
+    public function olderThanReport(): void
+    {
+        $request = new Request();
+        $days = (int) $request->input('days');
+
+        if (!$days) {
+            $this->error('Choose an age threshold first.', 422);
+            return;
+        }
+
+        $this->success($this->service->listOlderThan($days), 'Report retrieved successfully.');
+    }
+
+    /**
+     * "Archive" button in "Archive old files" -- bulk-archives every New
+     * file older than the chosen threshold.
+     */
+    public function bulkArchive(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $days = (int) $request->input('days');
+
+        if (!$days) {
+            $this->error('Choose an age threshold first.', 422);
+            return;
+        }
+
+        $result = $this->service->bulkArchive($days, (int) $user['id']);
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
      * PHP's $_FILES shape for a multi-file <input name="files[]"
      * multiple> field is column-oriented (name/tmp_name/error/... each an
      * array keyed by index), not the row-oriented list every consumer

@@ -486,6 +486,60 @@ export function EdiFilesView() {
 
     <div class="edi-tab-panel" id="ediArchivePanel" data-edi-panel="archive">
         <div class="edi-panel-body">
+            <p class="edi-disabled-note" style="max-width:680px; margin-bottom:16px;">
+                Selected files are archived, not permanently deleted -- unlike real OpenEMR's wording, this app never hard-deletes records, so anything archived here can always be restored below.
+            </p>
+
+            <div id="ediArchiveAlert" class="edi-alert-area"></div>
+
+            <div class="edi-columns">
+                <div class="edi-column">
+                    <h3>Archive old files</h3>
+
+                    <div class="edi-field" style="max-width:220px;">
+                        <label>Older than:</label>
+                        <select id="ediArchiveOlderThan">
+                            <option value="">Choose</option>
+                            <option value="7">1 week</option>
+                            <option value="14">2 weeks</option>
+                            <option value="30">1 month</option>
+                            <option value="90">3 months</option>
+                            <option value="180">6 months</option>
+                            <option value="365">1 year</option>
+                        </select>
+                    </div>
+
+                    <div class="edi-actions-row">
+                        <span style="font-size:12.5px; font-weight:600; color:var(--text-primary);">Report:</span>
+                        <button type="button" class="edi-btn secondary" id="ediArchiveReportBtn">Report</button>
+                        <span style="font-size:12.5px; font-weight:600; color:var(--text-primary); margin-left:6px;">Archive:</span>
+                        <button type="button" class="edi-btn" id="ediArchiveBulkBtn">Archive</button>
+                    </div>
+
+                    <div class="edi-table-wrap" id="ediArchiveReportWrap" style="display:none;">
+                        <table class="edi-table">
+                            <thead><tr><th>Filename</th><th>Uploaded By</th><th>Uploaded At</th></tr></thead>
+                            <tbody id="ediArchiveReportBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="edi-column">
+                    <h3>Restore Archive</h3>
+
+                    <div class="edi-field" style="max-width:280px;">
+                        <label>Restore:</label>
+                        <select id="ediRestoreSelect"><option value="">No Archives</option></select>
+                    </div>
+
+                    <div class="edi-actions-row">
+                        <span style="font-size:12.5px; font-weight:600; color:var(--text-primary);">Restore:</span>
+                        <button type="button" class="edi-btn" id="ediRestoreBtn">Restore</button>
+                    </div>
+                </div>
+            </div>
+
+            <h3 style="margin:22px 0 12px; font-size:15px; font-weight:700; color:var(--text-primary);">Archived Files</h3>
             <div class="edi-table-wrap">
                 <table class="edi-table">
                     <thead><tr><th>Filename</th><th>Uploaded By</th><th>Uploaded At</th><th>Archived At</th><th></th></tr></thead>

@@ -50,3 +50,14 @@ export async function setEdiFileArchived(id, archived) {
         body: JSON.stringify({ id, archived })
     });
 }
+
+export async function fetchOlderThanReport(days) {
+    return api(`/edi-files/older-than?days=${days}`);
+}
+
+export async function bulkArchiveOlderThan(days) {
+    return api("/edi-files/bulk-archive", {
+        method: "POST",
+        body: JSON.stringify({ days })
+    });
+}
