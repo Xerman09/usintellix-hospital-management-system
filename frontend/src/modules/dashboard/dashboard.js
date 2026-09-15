@@ -30,6 +30,8 @@ import { EobPostingView } from "../eob-posting/eob-posting.view.js";
 import { initEobPosting } from "../eob-posting/eob-posting.js";
 import { EdiFilesView } from "../edi-files/edi-files.view.js";
 import { initEdiFiles } from "../edi-files/edi-files.js";
+import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js";
+import { initDrugInventory } from "../drug-inventory/drug-inventory.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
@@ -430,6 +432,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initEdiFiles, 0);
                 return EdiFilesView();
+            }, activate);
+        } else if (tabId === 'inventory_management') {
+            tabManager.openTab(tabId, 'Drug Inventory', () => {
+                setTimeout(initDrugInventory, 0);
+                return DrugInventoryView();
             }, activate);
         } else if (tabId === 'provider_categories') {
             tabManager.openTab(tabId, title, () => {
