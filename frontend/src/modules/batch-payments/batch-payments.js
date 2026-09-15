@@ -92,6 +92,7 @@ function resetForm() {
     document.getElementById("bp_distributed_to_global").disabled = true;
     document.getElementById("bpUndistributedBox").textContent = "0.00";
     document.getElementById("bpFormAlert").innerHTML = "";
+    clearFieldErrors();
     document.getElementById("bpSaveBtn").textContent = "";
     document.getElementById("bpSaveBtn").innerHTML = `
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -132,8 +133,16 @@ function readHeaderForm() {
     };
 }
 
+function clearFieldErrors() {
+    ["payment_date", "post_to_date", "payment_amount", "paying_entity"].forEach((field) => {
+        const el = document.getElementById(`err-bp_${field}`);
+        if (el) el.textContent = "";
+    });
+}
+
 async function saveBatch() {
     document.getElementById("bpFormAlert").innerHTML = "";
+    clearFieldErrors();
 
     const details = readHeaderForm();
 
@@ -142,7 +151,21 @@ async function saveBatch() {
         : await createBatchPayment(details);
 
     if (!result.success) {
-        showAlert("bpFormAlert", result.message || "Failed to save the payment.", "error");
+        const hasFieldErrors = result.errors && Object.keys(result.errors).length > 0;
+
+        showAlert(
+            "bpFormAlert",
+            hasFieldErrors ? Object.values(result.errors).join(" ") : (result.message || "Failed to save the payment."),
+            "error"
+        );
+
+        if (hasFieldErrors) {
+            Object.entries(result.errors).forEach(([field, message]) => {
+                const el = document.getElementById(`err-bp_${field}`);
+                if (el) el.textContent = message;
+            });
+        }
+
         return;
     }
 

@@ -358,8 +358,8 @@ export function BatchPaymentsView() {
             <h2>Batch Payment Entry</h2>
 
             <div class="bp-form-grid">
-                <div class="bp-field"><label>Date:</label><input type="date" id="bp_payment_date"></div>
-                <div class="bp-field"><label>Post To Date:</label><input type="date" id="bp_post_to_date"></div>
+                <div class="bp-field"><label>Date:</label><input type="date" id="bp_payment_date"><span class="form-error" id="err-bp_payment_date"></span></div>
+                <div class="bp-field"><label>Post To Date:</label><input type="date" id="bp_post_to_date"><span class="form-error" id="err-bp_post_to_date"></span></div>
                 <div class="bp-field">
                     <label>Payment Method:</label>
                     <select id="bp_payment_method">
@@ -372,7 +372,7 @@ export function BatchPaymentsView() {
                 </div>
                 <div class="bp-field"><label>Check Number:</label><input type="text" id="bp_check_number"></div>
 
-                <div class="bp-field"><label>Payment Amount:</label><input type="number" step="0.01" min="0" id="bp_payment_amount" value="0.00"></div>
+                <div class="bp-field"><label>Payment Amount:</label><input type="number" step="0.01" min="0" id="bp_payment_amount" value="0.00"><span class="form-error" id="err-bp_payment_amount"></span></div>
                 <div class="bp-field">
                     <label>Paying Entity:</label>
                     <select id="bp_paying_entity">
@@ -380,6 +380,7 @@ export function BatchPaymentsView() {
                         <option value="patient">Patient</option>
                         <option value="other">Other</option>
                     </select>
+                    <span class="form-error" id="err-bp_paying_entity"></span>
                 </div>
                 <div class="bp-field">
                     <label>Payment Category:</label>
