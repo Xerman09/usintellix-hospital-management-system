@@ -60,6 +60,13 @@ function staffNavLinks(role)
             </div>
         </div>
         <div class="nav-dropdown">
+            <span>Inventory</span>
+            <div class="dropdown-content">
+                <a data-tab="inventory_management">Management</a>
+                <a data-tab="inventory_destroyed">Destroyed</a>
+            </div>
+        </div>
+        <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
                 <a data-tab="providers">Providers</a>
