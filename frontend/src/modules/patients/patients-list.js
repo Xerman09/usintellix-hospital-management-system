@@ -6354,7 +6354,95 @@ function setupPatientBraceletModal(patient)
             document.getElementById("pbProvider").textContent = patient.provider_last_name ? patient.provider_last_name.toUpperCase() : "-";
             document.getElementById("pbAdmDate").textContent = patient.admission_date ? String(patient.admission_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
             
+            if (typeof window.JsBarcode !== "undefined") {
+                window.JsBarcode("#pbBarcodeSvg", patient.patient_no || "000000", {
+                    format: "CODE128",
+                    displayValue: false,
+                    height: 30,
+                    margin: 0,
+                    width: 2,
+                    background: "transparent"
+                });
+            }
+
             overlay.classList.add("open");
+        });
+    }
+
+    const pdfBtn = document.getElementById("pbDownloadPdfBtn");
+    if (pdfBtn) {
+        pdfBtn.addEventListener("click", () => {
+            const name = [patient.first_name, patient.last_name].filter(Boolean).join(" ");
+            const sex = patient.sex ? patient.sex.charAt(0).toUpperCase() : "-";
+            const bloodType = patient.blood_type || "-";
+            const provider = patient.provider_last_name ? patient.provider_last_name.toUpperCase() : "-";
+            const admDate = patient.admission_date ? String(patient.admission_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
+            const patNo = patient.patient_no || "000000";
+
+            const printWindow = window.open("", "_blank", "width=850,height=600");
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Print Patient Bracelet</title>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>
+                    <style>
+                        @page { size: auto; margin: 0mm; }
+                        body { margin: 0; padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; justify-content: center; }
+                    </style>
+                </head>
+                <body>
+                    <div style="background: #fff; width: 500px; border-radius: 40px; border: 2px solid #ccc; padding: 10px 20px 20px; display: flex; align-items: center; justify-content: space-between; position: relative; min-height: 140px;">
+                        <!-- Holes -->
+                        <div style="position: absolute; top: 12px; left: 0; right: 0; display: flex; justify-content: space-evenly; opacity: 0.8;">
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                            <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                        </div>
+                        
+                        <div style="margin-left: 20px; margin-top: 20px;">
+                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTEwLDEwaDEwdjEwaC0xMHogbTIwLDBoMTB2MTBoLTEweiBtLTEwLDEwaDEwdjEwaC0xMHogbS0xMCwxMGgxMHYxMGgtMTB6IG0yMCwwaDEwdjEwaC0xMHoiIGZpbGw9IiMwMDAiLz48L3N2Zz4=" style="width: 60px; height: 60px;" alt="QR Code">
+                        </div>
+                        
+                        <div style="flex-grow: 1; padding: 25px 20px 0; text-align: left; color: #000;">
+                            <div style="font-size: 26px; margin-bottom: 2px;">${name || "Unknown"}</div>
+                            <div style="font-size: 13px; margin-bottom: 2px;">SEX ${sex} &nbsp; TYPE ${bloodType}</div>
+                            <div style="font-size: 13px; margin-bottom: 2px;">DR ${provider}</div>
+                            <div style="font-size: 13px; margin-bottom: 2px;">ADM ${admDate}</div>
+                            <div style="font-size: 13px;">SATO Hospital</div>
+                            <div style="margin-top: 4px; display: flex; justify-content: flex-start;">
+                                <svg id="printBarcodeSvg" style="height: 30px; width: 100%;"></svg>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-right: 20px; margin-top: 20px;">
+                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTEwLDEwaDEwdjEwaC0xMHogbTIwLDBoMTB2MTBoLTEweiBtLTEwLDEwaDEwdjEwaC0xMHogbS0xMCwxMGgxMHYxMGgtMTB6IG0yMCwwaDEwdjEwaC0xMHoiIGZpbGw9IiMwMDAiLz48L3N2Zz4=" style="width: 60px; height: 60px;" alt="QR Code">
+                        </div>
+                        
+                        <div style="position: absolute; right: -8px; top: 50%; transform: translateY(-50%); width: 16px; height: 40px; background: #ddd; border-radius: 4px; border: 1px solid #bbb;"></div>
+                    </div>
+                    <script>
+                        window.onload = function () {
+                            JsBarcode("#printBarcodeSvg", "${patNo}", {
+                                format: "CODE128",
+                                displayValue: false,
+                                height: 30,
+                                margin: 0,
+                                width: 2,
+                                background: "transparent"
+                            });
+                            window.focus();
+                            window.print();
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         });
     }
 

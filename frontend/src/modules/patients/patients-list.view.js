@@ -8491,11 +8491,8 @@ textarea.pd-sdoh-readonly {
                     <div style="font-size: 13px; margin-bottom: 2px;">ADM <span id="pbAdmDate">12-19-2016</span></div>
                     <div style="font-size: 13px;">SATO Hospital</div>
                     <!-- Barcode -->
-                    <div style="margin-top: 4px;">
-                        <svg width="100%" height="20" preserveAspectRatio="none">
-                            <rect width="100%" height="100%" fill="#fff"/>
-                            <path d="M0,0h2v20h-2z M4,0h1v20h-1z M7,0h3v20h-3z M12,0h1v20h-1z M15,0h2v20h-2z M20,0h4v20h-4z M26,0h1v20h-1z M29,0h3v20h-3z M34,0h1v20h-1z M37,0h2v20h-2z M41,0h4v20h-4z M47,0h1v20h-1z" fill="#000" transform="scale(3.5, 1)"/>
-                        </svg>
+                    <div style="margin-top: 4px; display: flex; justify-content: flex-start;">
+                        <svg id="pbBarcodeSvg" style="height: 30px; width: 100%;"></svg>
                     </div>
                 </div>
                 
@@ -8507,6 +8504,9 @@ textarea.pd-sdoh-readonly {
                 <!-- Clip at the end -->
                 <div style="position: absolute; right: -8px; top: 50%; transform: translateY(-50%); width: 16px; height: 40px; background: #f0f0f0; border-radius: 4px; box-shadow: -2px 0 4px rgba(0,0,0,0.2);"></div>
             </div>
+        </div>
+        <div class="form-actions" style="margin-top: 16px; justify-content: center;">
+            <button type="button" class="btn-secondary" id="pbDownloadPdfBtn">Download PDF</button>
         </div>
     </div>
 </div>
