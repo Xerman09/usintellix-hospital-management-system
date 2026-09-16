@@ -108,6 +108,53 @@ export function PatientLedgerByDateView() {
                 position: absolute;
                 left: 0;
             }
+
+            :root[data-theme="dark"] .pl-filter-panel {
+                background: var(--bg-surface-alt);
+                border-color: var(--border-color);
+            }
+
+            :root[data-theme="dark"] .pl-filter-group label {
+                color: var(--text-muted);
+            }
+
+            :root[data-theme="dark"] .pl-filter-panel select,
+            :root[data-theme="dark"] .pl-filter-panel input[type="date"] {
+                background: var(--bg-surface);
+                border-color: var(--border-color);
+                color: var(--text-primary);
+                color-scheme: dark;
+            }
+
+            :root[data-theme="dark"] .pl-patient-btn {
+                background: var(--bg-surface);
+                border-color: var(--border-color);
+                color: var(--text-primary);
+            }
+
+            :root[data-theme="dark"] .pl-divider {
+                background: var(--border-color);
+            }
+
+            :root[data-theme="dark"] #plInstructionText {
+                color: var(--text-muted) !important;
+            }
+
+            :root[data-theme="dark"] .pl-table th {
+                background: var(--bg-surface-alt);
+            }
+
+            :root[data-theme="dark"] .pl-table td {
+                border-bottom-color: var(--border-color);
+            }
+
+            :root[data-theme="dark"] .pl-table tbody tr.pl-row-payment {
+                background: rgba(21, 128, 61, .2);
+            }
+
+            :root[data-theme="dark"] .pl-table tfoot td {
+                border-top-color: var(--border-color);
+            }
         </style>
 
         <div class="pl-report-wrapper" id="plWrapper">
