@@ -144,6 +144,11 @@ $router->get('/reports/financial/summary-by-service-code', [ReportController::cl
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/reports/financial/payment-processing', [ReportController::class, 'paymentProcessingReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/reports/financial/cash-receipts', [ReportController::class, 'cashReceiptsByProviderReport'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

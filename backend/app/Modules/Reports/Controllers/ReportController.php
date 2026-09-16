@@ -266,6 +266,14 @@ class ReportController extends Controller
         $this->success($data, 'Financial summary by service code report retrieved successfully.');
     }
 
+    public function paymentProcessingReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['service', 'patient', 'date_from', 'date_to', 'ticket', 'transaction_id']);
+        $data = $this->reportService->getPaymentProcessingReport($filters);
+        $this->success($data, 'Payment processing report retrieved successfully.');
+    }
+
     public function cashReceiptsByProviderReport(): void
     {
         $request = new Request();

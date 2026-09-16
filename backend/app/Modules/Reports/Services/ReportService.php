@@ -1283,6 +1283,96 @@ class ReportService
     }
 
     /**
+     * Payment Processing: a searchable log of every batch payment this
+     * system has actually processed (Payments > New/Search Payment),
+     * reframed as the "Service/Ticket/Transaction ID" terminology the
+     * reference report uses. This app has no real payment-gateway
+     * integration (no Stripe/InstaMed/etc. -- every "credit card"
+     * payment here is a manually recorded batch payment, not a live
+     * card-processor transaction), so there is no gateway "Action"
+     * (Sale/Refund/Void/Capture) to filter on -- that field is left as
+     * an honest disabled placeholder on the frontend rather than
+     * fabricated. Everything else maps onto real, existing columns:
+     * "Service" -> `payment_method`, "Ticket" -> the batch payment's own
+     * id, "Transaction ID" -> `check_number` (the closest thing this
+     * table has to a reference/confirmation number), "Patient" ->
+     * whoever the payment was allocated to (or `payment_from` for a
+     * payment not yet allocated to anyone).
+     */
+    public function getPaymentProcessingReport(array $filters = []): array
+    {
+        $where = ['bp.deleted_at IS NULL'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'bp.payment_date >= :date_from';
+            $params['date_from'] = $filters['date_from'];
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'bp.payment_date <= :date_to';
+            $params['date_to'] = $filters['date_to'];
+        }
+
+        if (!empty($filters['service'])) {
+            $where[] = 'bp.payment_method = :service';
+            $params['service'] = $filters['service'];
+        }
+
+        if (!empty($filters['ticket'])) {
+            $where[] = 'bp.id = :ticket';
+            $params['ticket'] = (int) $filters['ticket'];
+        }
+
+        if (!empty($filters['transaction_id'])) {
+            $where[] = 'bp.check_number LIKE :transaction_id';
+            $params['transaction_id'] = '%' . $filters['transaction_id'] . '%';
+        }
+
+        if (!empty($filters['patient'])) {
+            $where[] = '(bp.id IN (
+                SELECT bpa2.batch_payment_id
+                FROM batch_payment_allocations bpa2
+                JOIN patients p2 ON p2.id = bpa2.patient_id
+                WHERE bpa2.deleted_at IS NULL
+                  AND CONCAT(p2.first_name, \' \', p2.last_name) LIKE :patient1
+            ) OR bp.payment_from LIKE :patient2)';
+            $params['patient1'] = '%' . $filters['patient'] . '%';
+            $params['patient2'] = '%' . $filters['patient'] . '%';
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT
+                bp.id AS ticket,
+                bp.payment_date,
+                bp.payment_method AS service,
+                bp.check_number AS transaction_id,
+                bp.payment_amount AS amount,
+                bp.payment_from,
+                GROUP_CONCAT(DISTINCT TRIM(CONCAT(p.first_name, ' ', p.last_name)) SEPARATOR ', ') AS patient_names
+             FROM batch_payments bp
+             LEFT JOIN batch_payment_allocations bpa ON bpa.batch_payment_id = bp.id AND bpa.deleted_at IS NULL
+             LEFT JOIN patients p ON p.id = bpa.patient_id
+             WHERE " . implode(' AND ', $where) . "
+             GROUP BY bp.id
+             ORDER BY bp.payment_date DESC, bp.id DESC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return array_map(function (array $r) {
+            return [
+                'ticket' => (int) $r['ticket'],
+                'payment_date' => $r['payment_date'],
+                'service' => $r['service'],
+                'transaction_id' => $r['transaction_id'],
+                'amount' => (float) $r['amount'],
+                'patient' => $r['patient_names'] ?: $r['payment_from']
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
+    /**
      * Cash Receipts by Provider: patient ledger payments within a date
      * range, attributed to the provider on the payment's encounter (a
      * payment with no encounter, or whose encounter has no provider
