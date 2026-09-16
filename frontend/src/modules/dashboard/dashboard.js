@@ -285,6 +285,7 @@ import { initUniqueSeenPatientsReport } from "../reports/unique-seen-patients.js
 import { UniqueSeenPatientsView } from "../reports/unique-seen-patients.view.js";
 import { openIssuesPopup } from "../patient-issues/patient-issues.js";
 import { openExportPopup } from "../patient-export/patient-export.js";
+import { openImportPopup } from "../patient-import/patient-import.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -363,6 +364,11 @@ export function Dashboard()
 
         if (tabId === 'popup_export') {
             openExportPopup();
+            return;
+        }
+
+        if (tabId === 'popup_import') {
+            openImportPopup();
             return;
         }
 
