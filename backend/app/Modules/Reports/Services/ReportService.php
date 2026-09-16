@@ -1522,6 +1522,79 @@ class ReportService
         }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 
+    /**
+     * Reports > Insurance > Unique SP ("Unique Seen Patients"): one row
+     * per distinct patient who had at least one visit in the date
+     * range, with their visit count and last visit date in that range,
+     * plus demographics and both primary and secondary insurance.
+     * Reuses the same "resolve to exactly one row per patient per
+     * insurance_type via MAX(id)" dedup pattern as the Distribution
+     * report just above -- done twice here (once for primary, once for
+     * secondary) since a patient can likewise accumulate more than one
+     * row of either type over time, and this report needs both
+     * columns simultaneously rather than grouping by just one.
+     */
+    public function getUniqueSeenPatientsReport(array $filters = []): array
+    {
+        $where = ['e.deleted_at IS NULL'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'e.date_of_service >= ?';
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'e.date_of_service <= ?';
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT
+                p.id AS patient_id,
+                TRIM(CONCAT(p.last_name, ', ', p.first_name)) AS patient_name,
+                MAX(e.date_of_service) AS last_visit,
+                COUNT(e.id) AS visits,
+                TIMESTAMPDIFF(YEAR, p.birthdate, CURDATE()) AS age,
+                p.sex,
+                p.race,
+                COALESCE(ipri.name, 'Self-Pay / No Insurance') AS primary_insurance,
+                isec.name AS secondary_insurance
+             FROM encounters e
+             JOIN patients p ON p.id = e.patient_id AND p.deleted_at IS NULL
+             LEFT JOIN (
+                 SELECT patient_id, MAX(id) AS pi_id FROM patient_insurances
+                 WHERE insurance_type = 'primary' AND deleted_at IS NULL GROUP BY patient_id
+             ) curp ON curp.patient_id = p.id
+             LEFT JOIN patient_insurances pip ON pip.id = curp.pi_id
+             LEFT JOIN insurances ipri ON ipri.id = pip.insurance_id AND ipri.deleted_at IS NULL
+             LEFT JOIN (
+                 SELECT patient_id, MAX(id) AS pi_id FROM patient_insurances
+                 WHERE insurance_type = 'secondary' AND deleted_at IS NULL GROUP BY patient_id
+             ) curs ON curs.patient_id = p.id
+             LEFT JOIN patient_insurances pis ON pis.id = curs.pi_id
+             LEFT JOIN insurances isec ON isec.id = pis.insurance_id AND isec.deleted_at IS NULL
+             WHERE " . implode(' AND ', $where) . "
+             GROUP BY p.id
+             ORDER BY last_visit DESC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return array_map(function (array $r) {
+            return [
+                'patient_name' => $r['patient_name'],
+                'last_visit' => $r['last_visit'],
+                'visits' => (int) $r['visits'],
+                'age' => $r['age'] !== null ? (int) $r['age'] : null,
+                'sex' => $r['sex'],
+                'race' => $r['race'],
+                'primary_insurance' => $r['primary_insurance'],
+                'secondary_insurance' => $r['secondary_insurance']
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
     public function getPrepaymentBalancesReport(array $filters = []): array
     {
         $where = ['bp.deleted_at IS NULL'];

@@ -290,6 +290,14 @@ class ReportController extends Controller
         $this->success($data, 'Indigent patients report retrieved successfully.');
     }
 
+    public function uniqueSeenPatientsReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to']);
+        $data = $this->reportService->getUniqueSeenPatientsReport($filters);
+        $this->success($data, 'Unique seen patients report retrieved successfully.');
+    }
+
     public function prepaymentBalancesReport(): void
     {
         $request = new Request();

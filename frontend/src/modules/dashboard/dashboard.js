@@ -281,6 +281,8 @@ import { initInsuranceDistributionReport } from "../reports/insurance-distributi
 import { InsuranceDistributionView } from "../reports/insurance-distribution.view.js";
 import { initIndigentPatientsReport } from "../reports/indigent-patients.js";
 import { IndigentPatientsView } from "../reports/indigent-patients.view.js";
+import { initUniqueSeenPatientsReport } from "../reports/unique-seen-patients.js";
+import { UniqueSeenPatientsView } from "../reports/unique-seen-patients.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -1062,6 +1064,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initIndigentPatientsReport, 0);
                 return IndigentPatientsView();
+            }, activate);
+        } else if (tabId === 'reports_insurance_unique_sp') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initUniqueSeenPatientsReport, 0);
+                return UniqueSeenPatientsView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {
