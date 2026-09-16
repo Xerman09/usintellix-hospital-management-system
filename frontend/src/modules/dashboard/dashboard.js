@@ -271,6 +271,12 @@ import { initPaymentProcessingReport } from "../reports/payment-processing.js";
 import { PaymentProcessingView } from "../reports/payment-processing.view.js";
 import { initPrepaymentBalancesReport } from "../reports/prepayment-balances.js";
 import { PrepaymentBalancesView } from "../reports/prepayment-balances.view.js";
+import { initInventoryListReport } from "../reports/inventory-list.js";
+import { InventoryListReportView } from "../reports/inventory-list.view.js";
+import { initInventoryActivityReport } from "../reports/inventory-activity.js";
+import { InventoryActivityReportView } from "../reports/inventory-activity.view.js";
+import { initInventoryTransactionsReport } from "../reports/inventory-transactions.js";
+import { InventoryTransactionsReportView } from "../reports/inventory-transactions.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -1027,6 +1033,21 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPrepaymentBalancesReport, 0);
                 return PrepaymentBalancesView();
+            }, activate);
+        } else if (tabId === 'reports_inventory_list') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initInventoryListReport, 0);
+                return InventoryListReportView();
+            }, activate);
+        } else if (tabId === 'reports_inventory_activity') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initInventoryActivityReport, 0);
+                return InventoryActivityReportView();
+            }, activate);
+        } else if (tabId === 'reports_inventory_transactions') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initInventoryTransactionsReport, 0);
+                return InventoryTransactionsReportView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {

@@ -282,6 +282,22 @@ class ReportController extends Controller
         $this->success($data, 'Prepayment balances report retrieved successfully.');
     }
 
+    public function inventoryActivityReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to']);
+        $data = $this->reportService->getInventoryActivityReport($filters);
+        $this->success($data, 'Inventory activity report retrieved successfully.');
+    }
+
+    public function inventoryTransactionsReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to']);
+        $data = $this->reportService->getInventoryTransactionsReport($filters);
+        $this->success($data, 'Inventory transactions report retrieved successfully.');
+    }
+
     public function cashReceiptsByProviderReport(): void
     {
         $request = new Request();

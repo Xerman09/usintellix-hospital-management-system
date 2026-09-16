@@ -1456,6 +1456,121 @@ class ReportService
     }
 
     /**
+     * Reports > Inventory > Activity: a combined, chronological audit
+     * trail of everything that has actually happened to drug inventory
+     * -- Transfers and Destructions, the two real event types this app
+     * tracks (`drug_inventory_transfers` / `drug_inventory_destructions`).
+     * Deliberately does NOT include "lot created" as a third event type:
+     * a lot's `quantity_on_hand` is a live running balance that mutates
+     * on every later transfer/destruction, so by the time this report
+     * runs there's no reliable way to know what quantity was originally
+     * received on a given lot without a dedicated immutable "received"
+     * log this app doesn't have -- showing the current balance next to
+     * a creation date would misrepresent it as the received amount.
+     */
+    public function getInventoryActivityReport(array $filters = []): array
+    {
+        $transferWhere = ['1 = 1'];
+        $destroyWhere = ['1 = 1'];
+        $transferParams = [];
+        $destroyParams = [];
+
+        // Each half of the UNION filters its own date column
+        // (transfers use created_at, destructions use their own
+        // destroyed_date) with its own placeholder list, in the same
+        // order the "?" marks appear in that half's WHERE clause.
+        if (!empty($filters['date_from'])) {
+            $transferWhere[] = 'dit.created_at >= ?';
+            $transferParams[] = $filters['date_from'] . ' 00:00:00';
+
+            $destroyWhere[] = 'did.destroyed_date >= ?';
+            $destroyParams[] = $filters['date_from'];
+        }
+
+        if (!empty($filters['date_to'])) {
+            $transferWhere[] = 'dit.created_at <= ?';
+            $transferParams[] = $filters['date_to'] . ' 23:59:59';
+
+            $destroyWhere[] = 'did.destroyed_date <= ?';
+            $destroyParams[] = $filters['date_to'];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT 'Transfer' AS type, dit.created_at AS event_date, d.name AS drug_name, d.ndc, dit.quantity,
+                    CONCAT('From ', fw.name, ' (Lot ', fl.lot_number, ') to ', tw.name, ' (Lot ', tl.lot_number, ')') AS detail,
+                    COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
+             FROM drug_inventory_transfers dit
+             JOIN drugs d ON d.id = dit.drug_id
+             JOIN drug_inventory_lots fl ON fl.id = dit.from_lot_id
+             JOIN drug_inventory_lots tl ON tl.id = dit.to_lot_id
+             JOIN warehouses fw ON fw.id = fl.warehouse_id
+             JOIN warehouses tw ON tw.id = tl.warehouse_id
+             LEFT JOIN users u ON u.id = dit.created_by
+             LEFT JOIN employees e ON e.user_id = u.id
+             WHERE " . implode(' AND ', $transferWhere) . "
+             UNION ALL
+             SELECT 'Destroyed' AS type, did.created_at AS event_date, d.name, d.ndc, did.quantity,
+                    CONCAT('Lot ', dil.lot_number, ' - ', COALESCE(did.method, 'Unspecified method'), ' (Witness: ', COALESCE(did.witness, 'none'), ')') AS detail,
+                    COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
+             FROM drug_inventory_destructions did
+             JOIN drugs d ON d.id = did.drug_id
+             JOIN drug_inventory_lots dil ON dil.id = did.lot_id
+             LEFT JOIN users u ON u.id = did.created_by
+             LEFT JOIN employees e ON e.user_id = u.id
+             WHERE " . implode(' AND ', $destroyWhere) . "
+             ORDER BY event_date DESC
+             LIMIT 500"
+        );
+        $stmt->execute(array_merge($transferParams, $destroyParams));
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Reports > Inventory > Transactions: just the stock-movement half
+     * of Activity (transfers between warehouses/facilities), with the
+     * extra from/to detail a focused "where did this stock move"
+     * ledger needs. Destructions are excluded here -- nothing "changes
+     * hands" on a destruction the way it does on a transfer.
+     */
+    public function getInventoryTransactionsReport(array $filters = []): array
+    {
+        $where = ['1 = 1'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'dit.created_at >= ?';
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'dit.created_at <= ?';
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT dit.created_at AS event_date, d.name AS drug_name, d.ndc, dit.quantity, dit.notes,
+                    fw.name AS from_warehouse, fl.lot_number AS from_lot,
+                    tw.name AS to_warehouse, tl.lot_number AS to_lot,
+                    COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
+             FROM drug_inventory_transfers dit
+             JOIN drugs d ON d.id = dit.drug_id
+             JOIN drug_inventory_lots fl ON fl.id = dit.from_lot_id
+             JOIN drug_inventory_lots tl ON tl.id = dit.to_lot_id
+             JOIN warehouses fw ON fw.id = fl.warehouse_id
+             JOIN warehouses tw ON tw.id = tl.warehouse_id
+             LEFT JOIN users u ON u.id = dit.created_by
+             LEFT JOIN employees e ON e.user_id = u.id
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY dit.created_at DESC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Cash Receipts by Provider: patient ledger payments within a date
      * range, attributed to the provider on the payment's encounter (a
      * payment with no encounter, or whose encounter has no provider

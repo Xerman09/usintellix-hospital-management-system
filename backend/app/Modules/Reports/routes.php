@@ -154,6 +154,16 @@ $router->get('/reports/financial/prepayment-balances', [ReportController::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/reports/inventory/activity', [ReportController::class, 'inventoryActivityReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/reports/inventory/transactions', [ReportController::class, 'inventoryTransactionsReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/reports/financial/cash-receipts', [ReportController::class, 'cashReceiptsByProviderReport'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

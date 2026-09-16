@@ -254,7 +254,17 @@ function staffNavLinks(role)
                         <a data-tab="reports_financial_prepayment_balances">Prepayment Balances</a>
                     </div>
                 </div>
-                <a data-tab="reports_inventory">Inventory</a>
+                <div class="dropdown-submenu">
+                    <span class="dropdown-submenu-trigger">
+                        Inventory
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </span>
+                    <div class="dropdown-submenu-content">
+                        <a data-tab="reports_inventory_list">List</a>
+                        <a data-tab="reports_inventory_activity">Activity</a>
+                        <a data-tab="reports_inventory_transactions">Transactions</a>
+                    </div>
+                </div>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Procedures
