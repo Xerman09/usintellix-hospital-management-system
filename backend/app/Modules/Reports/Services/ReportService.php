@@ -1373,6 +1373,89 @@ class ReportService
     }
 
     /**
+     * Prepayment Balances: batch payments (Payments > New/Search Payment)
+     * that still have an unapplied balance -- money received but not yet
+     * fully allocated to a patient/encounter or deliberately parked in
+     * the "Distributed to Global" bucket. Balance = payment_amount -
+     * distributed_to_global - SUM of active allocations, the exact same
+     * "undistributed" figure `BatchPaymentService::withTotals()` computes
+     * for the Batch Payments screen itself -- this report is just a
+     * filtered, date-rangeable view over the same underlying number.
+     */
+    public function getPrepaymentBalancesReport(array $filters = []): array
+    {
+        $where = ['bp.deleted_at IS NULL'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'bp.payment_date >= :date_from';
+            $params['date_from'] = $filters['date_from'];
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'bp.payment_date <= :date_to';
+            $params['date_to'] = $filters['date_to'];
+        }
+
+        if (!empty($filters['patient_id'])) {
+            $where[] = 'bp.id IN (
+                SELECT bpa3.batch_payment_id
+                FROM batch_payment_allocations bpa3
+                WHERE bpa3.deleted_at IS NULL AND bpa3.patient_id = :patient_id
+            )';
+            $params['patient_id'] = (int) $filters['patient_id'];
+        }
+
+        $having = '(bp.payment_amount - bp.distributed_to_global - allocated_to_patients) > 0.004';
+
+        if (!empty($filters['global_only'])) {
+            $having .= ' AND bp.distributed_to_global > 0';
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT
+                bp.id AS ticket,
+                bp.payment_date,
+                bp.payment_method,
+                bp.check_number,
+                bp.payment_amount,
+                bp.distributed_to_global,
+                bp.payment_from,
+                COALESCE((SELECT SUM(bpa.payment_amount + bpa.adjustment_amount)
+                          FROM batch_payment_allocations bpa
+                          WHERE bpa.batch_payment_id = bp.id AND bpa.deleted_at IS NULL), 0) AS allocated_to_patients,
+                GROUP_CONCAT(DISTINCT TRIM(CONCAT(p.first_name, ' ', p.last_name)) SEPARATOR ', ') AS patient_names
+             FROM batch_payments bp
+             LEFT JOIN batch_payment_allocations bpa2 ON bpa2.batch_payment_id = bp.id AND bpa2.deleted_at IS NULL
+             LEFT JOIN patients p ON p.id = bpa2.patient_id
+             WHERE " . implode(' AND ', $where) . "
+             GROUP BY bp.id
+             HAVING " . $having . "
+             ORDER BY bp.payment_date DESC, bp.id DESC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return array_map(function (array $r) {
+            $amount = (float) $r['payment_amount'];
+            $global = (float) $r['distributed_to_global'];
+            $allocated = (float) $r['allocated_to_patients'];
+
+            return [
+                'ticket' => (int) $r['ticket'],
+                'payment_date' => $r['payment_date'],
+                'payment_method' => $r['payment_method'],
+                'check_number' => $r['check_number'],
+                'payment_amount' => $amount,
+                'distributed_to_global' => $global,
+                'allocated_to_patients' => $allocated,
+                'balance' => round($amount - $global - $allocated, 2),
+                'patient' => $r['patient_names'] ?: $r['payment_from']
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
+    /**
      * Cash Receipts by Provider: patient ledger payments within a date
      * range, attributed to the provider on the payment's encounter (a
      * payment with no encounter, or whose encounter has no provider

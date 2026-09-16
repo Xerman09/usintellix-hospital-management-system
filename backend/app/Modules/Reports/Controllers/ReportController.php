@@ -274,6 +274,14 @@ class ReportController extends Controller
         $this->success($data, 'Payment processing report retrieved successfully.');
     }
 
+    public function prepaymentBalancesReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['date_from', 'date_to', 'patient_id', 'global_only']);
+        $data = $this->reportService->getPrepaymentBalancesReport($filters);
+        $this->success($data, 'Prepayment balances report retrieved successfully.');
+    }
+
     public function cashReceiptsByProviderReport(): void
     {
         $request = new Request();

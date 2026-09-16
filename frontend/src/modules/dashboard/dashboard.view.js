@@ -251,6 +251,7 @@ function staffNavLinks(role)
                         <a data-tab="reports_financial_pat_ledger">Pat Ledger</a>
                         <a data-tab="reports_financial_summary_service_code">Financial Summary by Service Code</a>
                         <a data-tab="reports_financial_payment_processing">Payment Processing</a>
+                        <a data-tab="reports_financial_prepayment_balances">Prepayment Balances</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">

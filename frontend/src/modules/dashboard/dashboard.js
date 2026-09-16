@@ -269,6 +269,8 @@ import { initFinancialSummaryServiceCodeReport } from "../reports/financial-summ
 import { FinancialSummaryServiceCodeView } from "../reports/financial-summary-service-code.view.js";
 import { initPaymentProcessingReport } from "../reports/payment-processing.js";
 import { PaymentProcessingView } from "../reports/payment-processing.view.js";
+import { initPrepaymentBalancesReport } from "../reports/prepayment-balances.js";
+import { PrepaymentBalancesView } from "../reports/prepayment-balances.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -1020,6 +1022,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPaymentProcessingReport, 0);
                 return PaymentProcessingView();
+            }, activate);
+        } else if (tabId === 'reports_financial_prepayment_balances') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initPrepaymentBalancesReport, 0);
+                return PrepaymentBalancesView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {
