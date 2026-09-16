@@ -284,6 +284,7 @@ import { IndigentPatientsView } from "../reports/indigent-patients.view.js";
 import { initUniqueSeenPatientsReport } from "../reports/unique-seen-patients.js";
 import { UniqueSeenPatientsView } from "../reports/unique-seen-patients.view.js";
 import { openIssuesPopup } from "../patient-issues/patient-issues.js";
+import { openExportPopup } from "../patient-export/patient-export.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -357,6 +358,11 @@ export function Dashboard()
         // from whatever tab is currently active, not replace it.
         if (tabId === 'popup_issues') {
             openIssuesPopup();
+            return;
+        }
+
+        if (tabId === 'popup_export') {
+            openExportPopup();
             return;
         }
 
