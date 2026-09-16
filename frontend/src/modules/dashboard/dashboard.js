@@ -301,6 +301,7 @@ import { openCheckoutPopup } from "../popup-checkout/popup-checkout.js";
 import { openLetterPopup } from "../popup-letter/popup-letter.js";
 import { openChartLabelPopup } from "../popup-chart-label/popup-chart-label.js";
 import { openBarcodeLabelPopup } from "../popup-barcode-label/popup-barcode-label.js";
+import { openAddressLabelPopup } from "../popup-address-label/popup-address-label.js";
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -409,6 +410,11 @@ export function Dashboard()
 
         if (tabId === 'popup_barcode_label') {
             openBarcodeLabelPopup();
+            return;
+        }
+
+        if (tabId === 'popup_address_label') {
+            openAddressLabelPopup();
             return;
         }
 
