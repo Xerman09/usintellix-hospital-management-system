@@ -2703,6 +2703,7 @@ export async function initPatientChartTab(patient)
     setupSpeechDictationModal();
     setupVitalsModal();
     setupLedgerPanel();
+    setupPatientBraceletModal(patient);
     setupDocumentUploadModal();
     setupExternalDataUploadModal();
     setupPrescriptionModals();
@@ -6334,6 +6335,35 @@ function setupPatientRecordRequestModal()
             }
         });
     }
+}
+
+function setupPatientBraceletModal(patient)
+{
+    const overlay = document.getElementById("patientBraceletModalOverlay");
+    if (!overlay) return;
+
+    const closeModal = () => overlay.classList.remove("open");
+
+    const printBtn = document.getElementById("pdPrintBraceletBtn");
+    if (printBtn) {
+        printBtn.addEventListener("click", () => {
+            const name = [patient.first_name, patient.last_name].filter(Boolean).join(" ");
+            document.getElementById("pbPatientName").textContent = name || "Unknown";
+            document.getElementById("pbSex").textContent = patient.sex ? patient.sex.charAt(0).toUpperCase() : "-";
+            document.getElementById("pbBloodType").textContent = patient.blood_type || "-";
+            document.getElementById("pbProvider").textContent = patient.provider_last_name ? patient.provider_last_name.toUpperCase() : "-";
+            document.getElementById("pbAdmDate").textContent = patient.admission_date ? String(patient.admission_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
+            
+            overlay.classList.add("open");
+        });
+    }
+
+    document.getElementById("closePatientBraceletModal").addEventListener("click", closeModal);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            closeModal();
+        }
+    });
 }
 
 function setupDocumentUploadModal()

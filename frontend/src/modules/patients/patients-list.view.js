@@ -5312,6 +5312,10 @@ textarea.pd-sdoh-readonly {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
                         New Document
                     </button>
+                    <button type="button" class="pd-quick-btn" id="pdPrintBraceletBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v10H4z"></path><path d="M4 12h16"></path><path d="M8 7v10"></path></svg>
+                        Patient Bracelet
+                    </button>
                 </div>
 
                 <div class="pd-chart-nav" id="pdChartNav">
@@ -8450,6 +8454,59 @@ textarea.pd-sdoh-readonly {
                 </thead>
                 <tbody id="carePlanReasonPickerTableBody"></tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="patientBraceletModalOverlay">
+    <div class="modal-box" style="max-width: 620px; text-align: center;">
+        <div class="modal-header">
+            <h2>Patient Bracelet</h2>
+            <button type="button" class="modal-close" id="closePatientBraceletModal">&times;</button>
+        </div>
+        <div style="background: #000; padding: 40px; display: flex; justify-content: center; align-items: center; border-radius: 8px; overflow-x: auto;">
+            <div style="background: #fff; width: 500px; border-radius: 40px; padding: 10px 20px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.5); position: relative; min-height: 140px;">
+                <!-- Bracelet Holes -->
+                <div style="position: absolute; top: 12px; left: 0; right: 0; display: flex; justify-content: space-evenly; opacity: 0.8;">
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                    <div style="width: 12px; height: 12px; background: #000; border-radius: 50%;"></div>
+                </div>
+                
+                <!-- Left QR -->
+                <div style="margin-left: 20px; margin-top: 20px;">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTEwLDEwaDEwdjEwaC0xMHogbTIwLDBoMTB2MTBoLTEweiBtLTEwLDEwaDEwdjEwaC0xMHogbS0xMCwxMGgxMHYxMGgtMTB6IG0yMCwwaDEwdjEwaC0xMHoiIGZpbGw9IiMwMDAiLz48L3N2Zz4=" style="width: 60px; height: 60px;" alt="QR Code">
+                </div>
+                
+                <!-- Patient Info -->
+                <div style="flex-grow: 1; padding: 25px 20px 0; text-align: left; color: #000; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+                    <div id="pbPatientName" style="font-size: 26px; font-weight: normal; margin-bottom: 2px;">Michelle Teoh</div>
+                    <div style="font-size: 13px; margin-bottom: 2px; text-transform: uppercase;">SEX <span id="pbSex">F</span> &nbsp; TYPE <span id="pbBloodType">A+</span></div>
+                    <div style="font-size: 13px; margin-bottom: 2px; text-transform: uppercase;">DR <span id="pbProvider">PAUL JOHNSON</span></div>
+                    <div style="font-size: 13px; margin-bottom: 2px;">ADM <span id="pbAdmDate">12-19-2016</span></div>
+                    <div style="font-size: 13px;">SATO Hospital</div>
+                    <!-- Barcode -->
+                    <div style="margin-top: 4px;">
+                        <svg width="100%" height="20" preserveAspectRatio="none">
+                            <rect width="100%" height="100%" fill="#fff"/>
+                            <path d="M0,0h2v20h-2z M4,0h1v20h-1z M7,0h3v20h-3z M12,0h1v20h-1z M15,0h2v20h-2z M20,0h4v20h-4z M26,0h1v20h-1z M29,0h3v20h-3z M34,0h1v20h-1z M37,0h2v20h-2z M41,0h4v20h-4z M47,0h1v20h-1z" fill="#000" transform="scale(3.5, 1)"/>
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Right QR -->
+                <div style="margin-right: 20px; margin-top: 20px;">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTEwLDEwaDEwdjEwaC0xMHogbTIwLDBoMTB2MTBoLTEweiBtLTEwLDEwaDEwdjEwaC0xMHogbS0xMCwxMGgxMHYxMGgtMTB6IG0yMCwwaDEwdjEwaC0xMHoiIGZpbGw9IiMwMDAiLz48L3N2Zz4=" style="width: 60px; height: 60px;" alt="QR Code">
+                </div>
+                
+                <!-- Clip at the end -->
+                <div style="position: absolute; right: -8px; top: 50%; transform: translateY(-50%); width: 16px; height: 40px; background: #f0f0f0; border-radius: 4px; box-shadow: -2px 0 4px rgba(0,0,0,0.2);"></div>
+            </div>
         </div>
     </div>
 </div>
