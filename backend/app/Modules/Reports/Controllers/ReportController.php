@@ -258,6 +258,14 @@ class ReportController extends Controller
         $this->success($data, 'Sales by item report retrieved successfully.');
     }
 
+    public function financialSummaryByServiceCodeReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only(['facility_id', 'date_from', 'date_to', 'provider_id']);
+        $data = $this->reportService->getFinancialSummaryByServiceCodeReport($filters);
+        $this->success($data, 'Financial summary by service code report retrieved successfully.');
+    }
+
     public function cashReceiptsByProviderReport(): void
     {
         $request = new Request();

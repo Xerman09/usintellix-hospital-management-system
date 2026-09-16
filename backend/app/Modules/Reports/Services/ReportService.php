@@ -1219,6 +1219,70 @@ class ReportService
     }
 
     /**
+     * Financial Summary by Service Code: billed codes within a date
+     * range, grouped by the individual code itself (not by catalog
+     * category, unlike Sales by Item) -- one row per code_type+code with
+     * its total quantity billed and total charges. Qty sums the line's
+     * own `units` column (how many units of that code were billed on
+     * that line), not a row count, since a single billed line can carry
+     * more than one unit. Payments/adjustments/balance are deliberately
+     * left off this report -- this app's payments (`patient_ledger_payments`)
+     * are recorded at the encounter/patient level, never allocated to an
+     * individual billing code line, so there is no real per-code payment
+     * figure to show without fabricating one.
+     */
+    public function getFinancialSummaryByServiceCodeReport(array $filters = []): array
+    {
+        $sql = "
+            SELECT
+                ebc.code_type,
+                ebc.code,
+                COALESCE(ebc.description, c.description, ebc.code) AS description,
+                SUM(COALESCE(ebc.units, 1)) AS qty,
+                SUM(COALESCE(ebc.fee, 0)) AS charges
+            FROM encounter_billing_codes ebc
+            JOIN encounters e ON e.id = ebc.encounter_id
+            LEFT JOIN (
+                SELECT code_type, code, MIN(description) AS description
+                FROM codes
+                GROUP BY code_type, code
+            ) c ON c.code_type COLLATE utf8mb4_unicode_ci = ebc.code_type
+                AND c.code COLLATE utf8mb4_unicode_ci = ebc.code
+            WHERE e.deleted_at IS NULL
+        ";
+
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND e.date_of_service >= ?";
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND e.date_of_service <= ?";
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        if (!empty($filters['facility_id'])) {
+            $sql .= " AND e.facility_id = ?";
+            $params[] = $filters['facility_id'];
+        }
+
+        if (!empty($filters['provider_id'])) {
+            $sql .= " AND e.encounter_provider_id = ?";
+            $params[] = $filters['provider_id'];
+        }
+
+        $sql .= " GROUP BY ebc.code_type, ebc.code, description
+                  ORDER BY ebc.code_type ASC, ebc.code ASC";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Cash Receipts by Provider: patient ledger payments within a date
      * range, attributed to the provider on the payment's encounter (a
      * payment with no encounter, or whose encounter has no provider
