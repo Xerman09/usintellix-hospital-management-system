@@ -1591,43 +1591,82 @@ class ReportService
     }
 
     /**
-     * Reports > Inventory > Transactions: just the stock-movement half
-     * of Activity (transfers between warehouses/facilities), with the
-     * extra from/to detail a focused "where did this stock move"
-     * ledger needs. Destructions are excluded here -- nothing "changes
-     * hands" on a destruction the way it does on a transfer.
+     * Reports > Inventory > Transactions: the same combined Transfer +
+     * Destruction event log as Activity's own "Details" view, but as
+     * its own screen with a simple "Type: All/Transfer/Destroyed"
+     * filter instead of Activity's By/For grouping-and-scoping controls
+     * -- confirmed against the real reference screen's own toolbar
+     * (Type/From/To/Submit, no By/For). `type` skips building the
+     * irrelevant half of the UNION entirely rather than filtering it
+     * out afterward, so picking one type doesn't waste a join on data
+     * that will just be thrown away.
      */
     public function getInventoryTransactionsReport(array $filters = []): array
     {
-        $where = ['1 = 1'];
+        $type = in_array($filters['type'] ?? '', ['transfer', 'destroyed'], true) ? $filters['type'] : '';
+
+        $selects = [];
         $params = [];
 
-        if (!empty($filters['date_from'])) {
-            $where[] = 'dit.created_at >= ?';
-            $params[] = $filters['date_from'] . ' 00:00:00';
+        if ($type !== 'destroyed') {
+            $transferWhere = ['1 = 1'];
+            $transferParams = [];
+
+            if (!empty($filters['date_from'])) {
+                $transferWhere[] = 'dit.created_at >= ?';
+                $transferParams[] = $filters['date_from'] . ' 00:00:00';
+            }
+
+            if (!empty($filters['date_to'])) {
+                $transferWhere[] = 'dit.created_at <= ?';
+                $transferParams[] = $filters['date_to'] . ' 23:59:59';
+            }
+
+            $selects[] = "
+                SELECT 'Transfer' AS type, dit.created_at AS event_date, d.name AS drug_name, d.ndc, dit.quantity,
+                       CONCAT('From ', fw.name, ' (Lot ', fl.lot_number, ') to ', tw.name, ' (Lot ', tl.lot_number, ')') AS detail,
+                       COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
+                FROM drug_inventory_transfers dit
+                JOIN drugs d ON d.id = dit.drug_id
+                JOIN drug_inventory_lots fl ON fl.id = dit.from_lot_id
+                JOIN drug_inventory_lots tl ON tl.id = dit.to_lot_id
+                JOIN warehouses fw ON fw.id = fl.warehouse_id
+                JOIN warehouses tw ON tw.id = tl.warehouse_id
+                LEFT JOIN users u ON u.id = dit.created_by
+                LEFT JOIN employees e ON e.user_id = u.id
+                WHERE " . implode(' AND ', $transferWhere);
+            $params = array_merge($params, $transferParams);
         }
 
-        if (!empty($filters['date_to'])) {
-            $where[] = 'dit.created_at <= ?';
-            $params[] = $filters['date_to'] . ' 23:59:59';
+        if ($type !== 'transfer') {
+            $destroyWhere = ['1 = 1'];
+            $destroyParams = [];
+
+            if (!empty($filters['date_from'])) {
+                $destroyWhere[] = 'did.destroyed_date >= ?';
+                $destroyParams[] = $filters['date_from'];
+            }
+
+            if (!empty($filters['date_to'])) {
+                $destroyWhere[] = 'did.destroyed_date <= ?';
+                $destroyParams[] = $filters['date_to'];
+            }
+
+            $selects[] = "
+                SELECT 'Destroyed' AS type, did.created_at AS event_date, d.name, d.ndc, did.quantity,
+                       CONCAT('Lot ', dil.lot_number, ' - ', COALESCE(did.method, 'Unspecified method'), ' (Witness: ', COALESCE(did.witness, 'none'), ')') AS detail,
+                       COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
+                FROM drug_inventory_destructions did
+                JOIN drugs d ON d.id = did.drug_id
+                JOIN drug_inventory_lots dil ON dil.id = did.lot_id
+                LEFT JOIN users u ON u.id = did.created_by
+                LEFT JOIN employees e ON e.user_id = u.id
+                WHERE " . implode(' AND ', $destroyWhere);
+            $params = array_merge($params, $destroyParams);
         }
 
         $stmt = Database::connection()->prepare(
-            "SELECT dit.created_at AS event_date, d.name AS drug_name, d.ndc, dit.quantity, dit.notes,
-                    fw.name AS from_warehouse, fl.lot_number AS from_lot,
-                    tw.name AS to_warehouse, tl.lot_number AS to_lot,
-                    COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
-             FROM drug_inventory_transfers dit
-             JOIN drugs d ON d.id = dit.drug_id
-             JOIN drug_inventory_lots fl ON fl.id = dit.from_lot_id
-             JOIN drug_inventory_lots tl ON tl.id = dit.to_lot_id
-             JOIN warehouses fw ON fw.id = fl.warehouse_id
-             JOIN warehouses tw ON tw.id = tl.warehouse_id
-             LEFT JOIN users u ON u.id = dit.created_by
-             LEFT JOIN employees e ON e.user_id = u.id
-             WHERE " . implode(' AND ', $where) . "
-             ORDER BY dit.created_at DESC
-             LIMIT 500"
+            implode(' UNION ALL ', $selects) . " ORDER BY event_date DESC LIMIT 500"
         );
         $stmt->execute($params);
 

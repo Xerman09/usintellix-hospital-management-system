@@ -11,10 +11,11 @@ export function InventoryTransactionsReportView() {
 }
 
 .it-title {
-    margin: 0 0 14px;
-    font-size: 20px;
-    font-weight: 700;
+    margin: 0 0 18px;
+    font-size: 26px;
+    font-weight: 600;
     color: var(--text-primary);
+    text-align: center;
 }
 
 .it-filter-panel {
@@ -41,6 +42,7 @@ export function InventoryTransactionsReportView() {
     white-space: nowrap;
 }
 
+.it-filter-panel select,
 .it-filter-panel input[type="date"] {
     height: 32px;
     padding: 0 10px;
@@ -49,19 +51,27 @@ export function InventoryTransactionsReportView() {
     background: var(--bg-surface);
     color: var(--text-primary);
     font-size: 13px;
+    min-width: 150px;
     color-scheme: light;
 }
 
+:root[data-theme="dark"] .it-filter-panel select,
 :root[data-theme="dark"] .it-filter-panel input[type="date"] {
     color-scheme: dark;
 }
 
-.it-refresh-btn {
+.it-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border-color);
+}
+
+.it-submit-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     height: 32px;
-    padding: 0 16px;
+    padding: 0 18px;
     border-radius: 5px;
     border: 1px solid var(--accent);
     background: var(--accent);
@@ -69,10 +79,11 @@ export function InventoryTransactionsReportView() {
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
+    white-space: nowrap;
     margin-left: auto;
 }
 
-.it-refresh-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.it-submit-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .it-table-wrap {
     overflow-x: auto;
@@ -104,10 +115,33 @@ export function InventoryTransactionsReportView() {
     border-bottom: 1px solid var(--border-color);
     color: var(--text-primary);
     vertical-align: middle;
-    white-space: nowrap;
 }
 
 .it-table tbody tr:last-child td { border-bottom: none; }
+
+.it-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.it-type-badge.transfer {
+    background: var(--accent-light);
+    color: var(--accent-text);
+}
+
+.it-type-badge.destroyed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+:root[data-theme="dark"] .it-type-badge.destroyed {
+    background: rgba(220, 38, 38, .2);
+    color: #fca5a5;
+}
 
 .it-empty-state {
     padding: 26px 16px;
@@ -118,9 +152,17 @@ export function InventoryTransactionsReportView() {
 </style>
 
 <div class="it-page">
-    <h2 class="it-title">Report - Inventory Transactions</h2>
+    <h2 class="it-title">Inventory Transactions</h2>
 
     <div class="it-filter-panel">
+        <div class="it-filter-group">
+            <label>Type:</label>
+            <select id="itType">
+                <option value="">All</option>
+                <option value="transfer">Transfer</option>
+                <option value="destroyed">Destroyed</option>
+            </select>
+        </div>
         <div class="it-filter-group">
             <label>From:</label>
             <input type="date" id="itDateFrom" value="${from}">
@@ -129,18 +171,22 @@ export function InventoryTransactionsReportView() {
             <label>To:</label>
             <input type="date" id="itDateTo" value="${to}">
         </div>
-        <button type="button" class="it-refresh-btn" id="itRefreshBtn">Refresh</button>
+        <div class="it-divider"></div>
+        <button type="button" class="it-submit-btn" id="itSubmitBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Submit
+        </button>
     </div>
 
     <div class="it-table-wrap">
         <table class="it-table">
             <thead>
                 <tr>
-                    <th>Date</th><th>Drug</th><th>NDC</th><th style="text-align: right;">Qty</th>
-                    <th>From</th><th>To</th><th>Notes</th><th>Recorded By</th>
+                    <th>Date</th><th>Type</th><th>Drug</th><th>NDC</th>
+                    <th style="text-align: right;">Qty</th><th>Detail</th><th>Recorded By</th>
                 </tr>
             </thead>
-            <tbody id="itTableBody"><tr><td colspan="8" class="it-empty-state">Loading...</td></tr></tbody>
+            <tbody id="itTableBody"><tr><td colspan="7" class="it-empty-state">Click Submit to view inventory transactions.</td></tr></tbody>
         </table>
     </div>
 </div>
