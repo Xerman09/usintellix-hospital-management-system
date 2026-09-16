@@ -138,6 +138,31 @@ class PatientController extends Controller
     }
 
     /**
+     * Flips a patient's is_indigent flag -- see PatientService::setIndigentStatus().
+     */
+    public function setIndigentStatus(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $id = (int) $request->input('id');
+
+        if (!$id) {
+            $this->error('Patient is required.', 422);
+            return;
+        }
+
+        $result = $this->patientService->setIndigentStatus($id, (bool) $request->input('is_indigent'), (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
      * Update an existing patient's demographic record.
      */
     public function update(): void

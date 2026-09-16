@@ -111,6 +111,32 @@ class PatientService
     }
 
     /**
+     * Flips a patient's `is_indigent` flag -- used by Reports > Insurance
+     * > Indigents to mark/unmark who belongs on that report. Deliberately
+     * separate from update() rather than folded into it: update() always
+     * requires a full, valid demographics payload (name/sex/birthdate/
+     * height/weight, etc.), and a screen whose whole job is toggling one
+     * unrelated boolean shouldn't have to round-trip the patient's entire
+     * record just to avoid failing that validation.
+     */
+    public function setIndigentStatus(int $id, bool $isIndigent, int $updatedBy): array
+    {
+        $patient = (new Patient())->where('id', $id)->first();
+
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        (new Patient())->update([
+            'is_indigent' => $isIndigent ? 1 : 0,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $updatedBy
+        ], $id);
+
+        return ['success' => true, 'message' => 'Updated successfully.'];
+    }
+
+    /**
      * Update an existing patient's demographic record.
      */
     public function update(int $id, array $data, int $updatedBy): array

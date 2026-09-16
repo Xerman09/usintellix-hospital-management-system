@@ -38,6 +38,17 @@ export async function updatePatient(id, data)
     );
 }
 
+export async function setPatientIndigentStatus(id, isIndigent)
+{
+    return await api(
+        "/patients/indigent",
+        {
+            method:"PUT",
+            body:JSON.stringify({ id, is_indigent: isIndigent ? 1 : 0 })
+        }
+    );
+}
+
 export async function fetchPatientDashboardSummary(patientId)
 {
     const query = new URLSearchParams({ patient_id: patientId }).toString();

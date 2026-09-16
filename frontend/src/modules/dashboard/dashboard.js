@@ -279,6 +279,8 @@ import { initInventoryTransactionsReport } from "../reports/inventory-transactio
 import { InventoryTransactionsReportView } from "../reports/inventory-transactions.view.js";
 import { initInsuranceDistributionReport } from "../reports/insurance-distribution.js";
 import { InsuranceDistributionView } from "../reports/insurance-distribution.view.js";
+import { initIndigentPatientsReport } from "../reports/indigent-patients.js";
+import { IndigentPatientsView } from "../reports/indigent-patients.view.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -1055,6 +1057,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initInsuranceDistributionReport, 0);
                 return InsuranceDistributionView();
+            }, activate);
+        } else if (tabId === 'reports_insurance_indigents') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initIndigentPatientsReport, 0);
+                return IndigentPatientsView();
             }, activate);
         } else if (tabId === 'blank_forms_core_demographics') {
             tabManager.openTab(tabId, title, () => {

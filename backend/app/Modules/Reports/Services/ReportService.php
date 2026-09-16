@@ -1456,6 +1456,72 @@ class ReportService
         }, $rows);
     }
 
+    /**
+     * Reports > Insurance > Indigents: one row per billed encounter
+     * ("invoice", same convention as the Collections report) for
+     * patients flagged `is_indigent` (see [[patients.is_indigent]],
+     * `PatientService::setIndigentStatus()` -- a real, settable flag
+     * added specifically to back this report, not a proxy for
+     * something else). Charges/Paid are pulled via subqueries rather
+     * than joins so a patient with several billing-code lines or
+     * several payments on the same encounter doesn't fan out and
+     * double-count either figure -- same discipline as Sales by Item's
+     * own collapsed-catalog-join comment further up this file.
+     *
+     * Two of the reference report's columns have no equivalent data in
+     * this schema at all -- SSN (never collected anywhere in this app)
+     * and Due Date (no invoice/terms concept exists for a billed
+     * encounter) -- both returned blank rather than invented, the same
+     * "layout parity, not fabrication" choice already made for
+     * Collections' own SSN/Errors/Referrer columns.
+     */
+    public function getIndigentPatientsReport(array $filters = []): array
+    {
+        $where = ['e.deleted_at IS NULL', 'p.is_indigent = 1'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'e.date_of_service >= ?';
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'e.date_of_service <= ?';
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT
+                e.id AS invoice,
+                TRIM(CONCAT(p.last_name, ', ', p.first_name)) AS patient_name,
+                e.date_of_service AS svc_date,
+                COALESCE((SELECT SUM(ebc.fee) FROM encounter_billing_codes ebc WHERE ebc.encounter_id = e.id AND ebc.deleted_at IS NULL), 0) AS amount,
+                COALESCE((SELECT SUM(plp.payment_amount) FROM patient_ledger_payments plp WHERE plp.encounter_id = e.id AND plp.deleted_at IS NULL), 0) AS paid
+             FROM encounters e
+             JOIN patients p ON p.id = e.patient_id AND p.deleted_at IS NULL
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY e.date_of_service ASC
+             LIMIT 500"
+        );
+        $stmt->execute($params);
+
+        return array_map(function (array $r) {
+            $amount = (float) $r['amount'];
+            $paid = (float) $r['paid'];
+
+            return [
+                'invoice' => (int) $r['invoice'],
+                'patient_name' => $r['patient_name'],
+                'ssn' => '',
+                'svc_date' => $r['svc_date'],
+                'due_date' => '',
+                'amount' => $amount,
+                'paid' => $paid,
+                'balance' => round($amount - $paid, 2)
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+    }
+
     public function getPrepaymentBalancesReport(array $filters = []): array
     {
         $where = ['bp.deleted_at IS NULL'];

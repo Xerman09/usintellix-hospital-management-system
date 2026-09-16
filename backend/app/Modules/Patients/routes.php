@@ -29,6 +29,11 @@ $router->put('/patients', [PatientController::class, 'update'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->put('/patients/indigent', [PatientController::class, 'setIndigentStatus'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/patients/photo', [PatientController::class, 'uploadPhoto'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
