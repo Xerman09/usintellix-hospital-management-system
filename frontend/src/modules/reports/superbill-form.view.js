@@ -19,6 +19,20 @@ export function SuperbillFormView() {
                 .sb-checkbox { width: 25px; border-right: 1px solid #000; }
                 .sb-header-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; font-size: 12px; }
                 .sb-line { border-bottom: 1px solid #000; display: inline-block; width: 150px; }
+
+                /* main.css's generic dark-mode safety net inverts anything
+                   named *-table (meant for real in-app data tables);
+                   .sb-table matches that suffix by coincidence and washes
+                   this printed-page replica's text to near-invisible
+                   light-on-white, same bug fixed in the Popups > Superbill
+                   version of this layout -- forced back to real paper
+                   colors here too. */
+                :root[data-theme="dark"] .superbill-form-wrapper .sb-table th,
+                :root[data-theme="dark"] .superbill-form-wrapper .sb-table td {
+                    background: #fff !important;
+                    color: #000 !important;
+                    border-color: #000 !important;
+                }
             </style>
             
             <div class="no-print" style="margin-bottom: 20px; text-align: right;">

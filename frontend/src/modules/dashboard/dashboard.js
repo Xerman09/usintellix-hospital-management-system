@@ -296,8 +296,7 @@ import { initServicesBackgroundReport } from "../reports/services-background.js"
 import { ServicesBackgroundView } from "../reports/services-background.view.js";
 import { initMessageListReport } from "../reports/message-list.js";
 import { MessageListView } from "../reports/message-list.view.js";
-import { initPayment } from "../payment/payment.js";
-import { PaymentView } from "../payment/payment.view.js";
+import { openPaymentPopup } from "../payment/payment.js";
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -381,6 +380,11 @@ export function Dashboard()
 
         if (tabId === 'popup_superbill') {
             openSuperbillPopup();
+            return;
+        }
+
+        if (tabId === 'popup_payment') {
+            openPaymentPopup();
             return;
         }
 
@@ -1147,11 +1151,6 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCareCoordination, 0);
                 return CareCoordinationView();
-            }, activate);
-        } else if (tabId === 'payment') {
-            tabManager.openTab(tabId, title, () => {
-                setTimeout(initPayment, 0);
-                return PaymentView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);

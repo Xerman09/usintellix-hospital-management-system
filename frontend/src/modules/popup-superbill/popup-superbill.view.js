@@ -69,6 +69,22 @@ export function SuperbillPopupMarkup() {
 .psb-doc .sb-charges-list { font-size: 11px; padding: 4px; list-style: none; margin: 0; }
 .psb-doc .sb-charges-list li { padding: 2px 0; border-bottom: 1px dashed #ccc; }
 .psb-doc .sb-empty-note { color: #666; font-style: italic; }
+
+/* main.css's generic dark-mode safety net inverts anything named
+   *-table (it's meant for real in-app data tables) -- .sb-table
+   matches that suffix by coincidence, which washed this printed-page
+   replica's text out to near-invisible light-on-white. Force it back
+   to real paper colors, same as the rest of .psb-doc. */
+:root[data-theme="dark"] .psb-doc,
+:root[data-theme="dark"] .psb-doc .sb-table th,
+:root[data-theme="dark"] .psb-doc .sb-table td {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #000 !important;
+}
+:root[data-theme="dark"] .psb-doc .sb-empty-note {
+    color: #666 !important;
+}
 </style>
 
 <div class="psb-overlay" id="superbillPopupOverlay">

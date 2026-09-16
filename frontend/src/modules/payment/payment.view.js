@@ -1,112 +1,150 @@
-export function PaymentView() {
-    let patientName = "Unknown Patient";
-    const nameEl = document.getElementById("patientContextName");
-    if (nameEl && nameEl.textContent.trim() && nameEl.textContent.trim() !== String.fromCharCode(160)) {
-        patientName = nameEl.textContent.trim();
-    }
-    
+export function PaymentPopupMarkup() {
     return `
-    <div class="payment-container" style="padding: 20px; font-family: 'Inter', sans-serif;">
-        <div style="background: #4472c4; color: white; padding: 10px; font-weight: 500; font-size: 16px;">
-            Accept Payment - ${patientName}
+<style>
+.pmt-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .55);
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+.pmt-overlay.open { display: flex; }
+.pmt-box {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-radius: 10px;
+    width: min(950px, 96vw);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+.pmt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.pmt-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.pmt-close {
+    border: none;
+    background: none;
+    font-size: 20px;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+.pmt-body { overflow-y: auto; padding: 20px; }
+</style>
+
+<div class="pmt-overlay" id="paymentPopupOverlay">
+    <div class="pmt-box">
+        <div class="pmt-header">
+            <h2>Payment</h2>
+            <button type="button" class="pmt-close" id="pmtCloseBtn">&times;</button>
         </div>
-        
-        <div style="background: #e9ecef; padding: 5px 10px; font-weight: 600; font-size: 18px; margin-top: 10px;">
-            Payment
-        </div>
-        
-        <div style="padding: 10px; font-size: 14px;">
-            <div style="margin-bottom: 10px;">
-                <label style="display: block; margin-bottom: 5px;">Payment Method:</label>
-                <select id="paymentMethod" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+        <div class="pmt-body" id="paymentPopupBody"></div>
+    </div>
+</div>
+    `;
+}
+
+export function PaymentView(patientName) {
+    return `
+    <div class="payment-container">
+        <style>
+            .payment-container { font-size: 14px; }
+            .pmt-accept-bar { background: var(--accent); color: #fff; padding: 10px 14px; font-weight: 500; font-size: 16px; border-radius: 4px 4px 0 0; }
+            .pmt-section-header { background: var(--bg-surface-alt); color: var(--text-primary); padding: 6px 14px; font-weight: 600; font-size: 15px; }
+            .pmt-fields { padding: 12px 14px; border: 1px solid var(--border-color); border-top: none; }
+            .pmt-fields label { display: block; margin-bottom: 5px; color: var(--text-primary); }
+            .pmt-fields .pmt-field { margin-bottom: 14px; }
+            .pmt-select, .pmt-input {
+                width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 3px;
+                background: var(--bg-surface); color: var(--text-primary);
+            }
+            .pmt-radio-row label { display: inline-block; margin-right: 14px; font-weight: normal; }
+            .pmt-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-top: none; }
+            .pmt-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+            .pmt-table thead th { padding: 10px; background: var(--bg-surface-alt); color: var(--text-primary); border-bottom: 1px solid var(--border-color); }
+            .pmt-table tbody td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+            .pmt-pay-input { width: 70px; padding: 4px; border: 1px solid var(--border-color); border-radius: 3px; background: var(--bg-surface); color: var(--text-primary); text-align: right; }
+            .pmt-muted { color: var(--text-muted); font-style: italic; }
+            .pmt-total-bar { background: var(--bg-surface-alt); border: 1px solid var(--border-color); border-top: none; padding: 10px 14px; text-align: right; }
+            .pmt-total-input { width: 80px; padding: 5px; border: 1px solid var(--border-color); background: var(--accent-lighter); color: var(--accent-text); border-radius: 3px; text-align: center; font-weight: 600; }
+            .pmt-actions { text-align: center; margin-top: 20px; }
+            .pmt-btn { border: none; padding: 8px 16px; border-radius: 3px; font-size: 14px; cursor: pointer; margin: 0 6px; }
+            .pmt-btn-primary { background: var(--accent); color: #fff; }
+            .pmt-btn-primary:hover { background: var(--accent-hover); }
+            .pmt-btn-secondary { background: var(--bg-surface-alt); color: var(--text-primary); border: 1px solid var(--border-color); }
+        </style>
+
+        <div class="pmt-accept-bar">Accept Payment - ${patientName}</div>
+
+        <div class="pmt-section-header">Payment</div>
+        <div class="pmt-fields">
+            <div class="pmt-field">
+                <label>Payment Method:</label>
+                <select id="paymentMethod" class="pmt-select">
                     <option>Check Payment</option>
                     <option>Cash</option>
                     <option>Credit Card</option>
                 </select>
             </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px;">Check or Reference Number:</label>
-                <input id="paymentRef" type="text" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+
+            <div class="pmt-field">
+                <label>Check or Reference Number:</label>
+                <input id="paymentRef" type="text" class="pmt-input">
             </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px;">Patient Coverage:</label>
-                <label style="margin-right: 10px;"><input type="radio" name="coverage" value="self"> Self</label>
+
+            <div class="pmt-field pmt-radio-row">
+                <label style="display:block;">Patient Coverage:</label>
+                <label><input type="radio" name="coverage" value="self"> Self</label>
                 <label><input type="radio" name="coverage" value="insurance" checked> Insurance</label>
             </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px;">Payment against:</label>
-                <label style="margin-right: 10px;"><input type="radio" name="against" value="copay" checked> Co Pay</label>
-                <label style="margin-right: 10px;"><input type="radio" name="against" value="invoice"> Invoice Balance</label>
+
+            <div class="pmt-field pmt-radio-row">
+                <label style="display:block;">Payment against:</label>
+                <label><input type="radio" name="against" value="copay" checked> Co Pay</label>
+                <label><input type="radio" name="against" value="invoice"> Invoice Balance</label>
                 <label><input type="radio" name="against" value="prepay"> Pre Pay</label>
             </div>
         </div>
-        
-        <div style="background: #e9ecef; padding: 5px 10px; font-weight: 600; font-size: 18px; margin-top: 10px;">
-            Collect For
-        </div>
-        
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center;">
+
+        <div class="pmt-section-header">Collect For</div>
+        <div class="pmt-table-wrap">
+            <table class="pmt-table">
                 <thead>
-                    <tr style="background: #6a8cbd; color: black;">
-                        <th style="padding: 10px;">DOS</th>
-                        <th style="padding: 10px;">Encounter</th>
-                        <th style="padding: 10px;">Total Charge</th>
-                        <th style="padding: 10px;">Insurance<br>Payment</th>
-                        <th style="padding: 10px;">Patient<br>Payment</th>
-                        <th style="padding: 10px;">Co Pay Paid</th>
-                        <th style="padding: 10px;">Required Co<br>Pay</th>
-                        <th style="padding: 10px;">Insurance<br>Balance</th>
-                        <th style="padding: 10px;">Patient<br>Balance</th>
-                        <th style="padding: 10px;">Paying</th>
+                    <tr>
+                        <th>DOS</th>
+                        <th>Encounter</th>
+                        <th>Total Charge</th>
+                        <th>Insurance<br>Payment</th>
+                        <th>Patient<br>Payment</th>
+                        <th>Co Pay Paid</th>
+                        <th>Required Co<br>Pay</th>
+                        <th>Insurance<br>Balance</th>
+                        <th>Patient<br>Balance</th>
+                        <th>Paying</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 10px;">2026-08-27</td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td style="padding: 10px;"><input type="text" style="width: 60px; padding: 3px; border: 1px solid #ccc; border-radius: 3px;"></td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 10px;">2014-02-01</td>
-                        <td>5</td>
-                        <td>175.00</td>
-                        <td></td>
-                        <td></td>
-                        <td>-25.00</td>
-                        <td>0.00</td>
-                        <td>175.00</td>
-                        <td></td>
-                        <td style="padding: 10px;"><input type="text" style="width: 60px; padding: 3px; border: 1px solid #ccc; border-radius: 3px;"></td>
-                    </tr>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
-        
-        <div style="background: #d9d9d9; padding: 10px; text-align: right; margin-top: 20px;">
-            <span style="font-weight: bold; margin-right: 10px; font-size: 14px;">Total</span>
-            <input type="text" value="0.00" readonly style="width: 60px; padding: 5px; border: 1px solid #ccc; background: #e6f9e6; color: #2e7d32; border-radius: 3px; text-align: center;">
+
+        <div class="pmt-total-bar">
+            <span style="font-weight: bold; margin-right: 10px;">Total</span>
+            <input type="text" id="pmtTotalInput" value="0.00" readonly class="pmt-total-input">
         </div>
-        
-        <div style="text-align: center; margin-top: 20px;">
-            <button id="generateInvoiceBtn" style="background: #3b5998; color: white; border: none; padding: 8px 15px; border-radius: 3px; font-size: 14px; cursor: pointer; margin-right: 10px;">
-                <svg style="width: 14px; height: 14px; vertical-align: middle; margin-right: 5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Generate Invoice
-            </button>
-            <button style="background: #4a76c8; color: white; border: none; padding: 8px 15px; border-radius: 3px; font-size: 14px; cursor: pointer;">
-                <svg style="width: 14px; height: 14px; vertical-align: middle; margin-right: 5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                Cancel
-            </button>
+
+        <div class="pmt-actions">
+            <button id="generateInvoiceBtn" type="button" class="pmt-btn pmt-btn-primary">Generate Invoice</button>
+            <button id="pmtCancelBtn" type="button" class="pmt-btn pmt-btn-secondary">Cancel</button>
         </div>
     </div>
     `;
