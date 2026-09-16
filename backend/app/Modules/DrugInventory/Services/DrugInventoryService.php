@@ -4,6 +4,7 @@ namespace App\Modules\DrugInventory\Services;
 
 use App\Core\Database;
 use App\Modules\DrugInventory\Models\Drug;
+use App\Modules\DrugInventory\Models\DrugInventoryDestruction;
 use App\Modules\DrugInventory\Models\DrugInventoryLot;
 use App\Modules\DrugInventory\Models\DrugInventoryTransfer;
 use App\Modules\DrugInventory\Models\DrugPrescriptionTemplate;
@@ -12,6 +13,8 @@ use PDO;
 class DrugInventoryService
 {
     public const PRODUCT_TYPES = ['Drug', 'Supply', 'Vaccine', 'Equipment', 'Other'];
+
+    public const DESTRUCTION_METHODS = ['Incineration', 'Return to Manufacturer', 'Sewer/Drain Disposal', 'Reverse Distributor', 'Other'];
 
     public const FORMS = ['Tablet', 'Capsule', 'Liquid', 'Injection', 'Cream', 'Ointment', 'Patch', 'Inhaler', 'Drops', 'Suppository', 'Other'];
 
@@ -307,6 +310,100 @@ class DrugInventoryService
         ]);
 
         return ['success' => true, 'message' => 'Transferred successfully.'];
+    }
+
+    /**
+     * "Destroy" -- permanently removes quantity from a lot (expired,
+     * damaged, or recalled stock) and logs the destruction for
+     * compliance record-keeping. Unlike transfer(), the quantity never
+     * lands anywhere else.
+     */
+    public function destroyLot(int $lotId, array $data, int $userId): array
+    {
+        $lot = (new DrugInventoryLot())->where('id', $lotId)->first();
+
+        if (!$lot || $lot['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Lot not found.'];
+        }
+
+        $quantity = round((float) ($data['quantity'] ?? 0), 3);
+
+        if ($quantity <= 0) {
+            return ['success' => false, 'message' => 'Enter a quantity greater than zero.'];
+        }
+
+        if ($quantity > (float) $lot['quantity_on_hand']) {
+            return ['success' => false, 'message' => 'Only ' . $lot['quantity_on_hand'] . ' available in this lot.'];
+        }
+
+        $destroyedDate = $data['destroyed_date'] ?: date('Y-m-d');
+
+        (new DrugInventoryLot())->update([
+            'quantity_on_hand' => (float) $lot['quantity_on_hand'] - $quantity,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $userId
+        ], $lotId);
+
+        (new DrugInventoryDestruction())->create([
+            'drug_id' => $lot['drug_id'],
+            'lot_id' => $lotId,
+            'quantity' => $quantity,
+            'destroyed_date' => $destroyedDate,
+            'method' => $data['method'] ?: null,
+            'witness' => trim((string) ($data['witness'] ?? '')) ?: null,
+            'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
+            'created_at' => date('Y-m-d H:i:s'),
+            'created_by' => $userId
+        ]);
+
+        return ['success' => true, 'message' => 'Drug destroyed and recorded successfully.'];
+    }
+
+    /**
+     * Inventory > Destroyed: destruction log joined with drug and lot
+     * details, filtered by a From/To destroyed_date range (both optional
+     * -- an open range shows everything).
+     */
+    public function listDestructions(array $filters): array
+    {
+        $where = ['1 = 1'];
+        $params = [];
+
+        if (!empty($filters['from'])) {
+            $where[] = 'did.destroyed_date >= :from';
+            $params['from'] = $filters['from'];
+        }
+
+        if (!empty($filters['to'])) {
+            $where[] = 'did.destroyed_date <= :to';
+            $params['to'] = $filters['to'];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT did.id, did.quantity, did.destroyed_date, did.method, did.witness, did.notes,
+                    d.name AS drug_name, d.ndc, dil.lot_number
+             FROM drug_inventory_destructions did
+             JOIN drugs d ON d.id = did.drug_id
+             JOIN drug_inventory_lots dil ON dil.id = did.lot_id
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY did.destroyed_date DESC, did.id DESC
+             LIMIT 1000"
+        );
+        $stmt->execute($params);
+
+        return array_map(function (array $r) {
+            return [
+                'id' => (int) $r['id'],
+                'drug_name' => $r['drug_name'],
+                'ndc' => $r['ndc'],
+                'lot_number' => $r['lot_number'],
+                'quantity' => (float) $r['quantity'],
+                'destroyed_date' => $r['destroyed_date'],
+                'method' => $r['method'],
+                'witness' => $r['witness'],
+                'notes' => $r['notes']
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
     private function validateDrug(array $data): array

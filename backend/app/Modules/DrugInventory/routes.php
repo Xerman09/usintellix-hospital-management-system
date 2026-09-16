@@ -25,6 +25,16 @@ $router->post('/drug-inventory/transfer', [DrugInventoryController::class, 'tran
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->post('/drug-inventory/destroy', [DrugInventoryController::class, 'destroy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/drug-inventory/destroyed', [DrugInventoryController::class, 'destroyedList'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/warehouses', [WarehouseController::class, 'index'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

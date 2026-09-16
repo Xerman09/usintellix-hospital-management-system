@@ -34,6 +34,8 @@ import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js";
 import { initDrugInventory } from "../drug-inventory/drug-inventory.js";
 import { WarehousesView } from "../warehouses/warehouses.view.js";
 import { initWarehouses } from "../warehouses/warehouses.js";
+import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
+import { initDestroyedDrugs } from "../destroyed-drugs/destroyed-drugs.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
 import { initPatientFinder } from "../patients/patient-finder.js";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
@@ -444,6 +446,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Manage Warehouses', () => {
                 setTimeout(initWarehouses, 0);
                 return WarehousesView();
+            }, activate);
+        } else if (tabId === 'inventory_destroyed') {
+            tabManager.openTab(tabId, 'Destroyed Drugs', () => {
+                setTimeout(initDestroyedDrugs, 0);
+                return DestroyedDrugsView();
             }, activate);
         } else if (tabId === 'provider_categories') {
             tabManager.openTab(tabId, title, () => {

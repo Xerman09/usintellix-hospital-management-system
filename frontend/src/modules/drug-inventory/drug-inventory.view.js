@@ -158,6 +158,21 @@ export function DrugInventoryView() {
 
 .di-tran-btn:hover { background: var(--accent-light); border-color: var(--accent); }
 
+.di-destroy-btn {
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.di-destroy-btn:hover { background: #fee2e2; border-color: #b91c1c; color: #b91c1c; }
+:root[data-theme="dark"] .di-destroy-btn:hover { background: #450a0a; border-color: #fca5a5; color: #fca5a5; }
+
 .di-expired { color: #b91c1c; font-weight: 600; }
 :root[data-theme="dark"] .di-expired { color: #fca5a5; }
 
@@ -409,10 +424,10 @@ export function DrugInventoryView() {
             <thead>
                 <tr>
                     <th>Name</th><th>Act</th><th>Cons</th><th>NDC</th><th>Form</th><th>Size</th><th>Unit</th>
-                    <th>Tran</th><th>Lot</th><th>Facility</th><th>Warehouse</th><th>QOH</th><th>Expires</th>
+                    <th>Tran</th><th>Destroy</th><th>Lot</th><th>Facility</th><th>Warehouse</th><th>QOH</th><th>Expires</th>
                 </tr>
             </thead>
-            <tbody id="diTableBody"><tr><td colspan="13" class="di-empty-state">Loading...</td></tr></tbody>
+            <tbody id="diTableBody"><tr><td colspan="14" class="di-empty-state">Loading...</td></tr></tbody>
         </table>
     </div>
 
@@ -559,6 +574,41 @@ export function DrugInventoryView() {
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="diCancelTransfer">Cancel</button>
                 <button class="login-btn" type="submit">Transfer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="diDestroyModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Destroy Stock</h2>
+            <button type="button" class="modal-close" id="diCloseDestroyModal">&times;</button>
+        </div>
+
+        <div class="di-modal-readonly" id="diDestroySource"></div>
+
+        <div id="diDestroyAlert"></div>
+
+        <form id="diDestroyForm">
+            <div class="di-form-grid">
+                <div class="di-field">
+                    <label>Quantity</label>
+                    <input type="number" step="0.001" id="di_destroy_quantity">
+                    <span class="form-error" id="err-di_destroy_quantity"></span>
+                </div>
+                <div class="di-field"><label>Date Destroyed</label><input type="date" id="di_destroy_date"></div>
+                <div class="di-field">
+                    <label>Method</label>
+                    <select id="di_destroy_method"></select>
+                </div>
+                <div class="di-field"><label>Witness</label><input type="text" id="di_destroy_witness"></div>
+                <div class="di-field" style="grid-column:1 / -1;"><label>Notes</label><input type="text" id="di_destroy_notes"></div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelDestroy">Cancel</button>
+                <button class="login-btn" type="submit">Destroy</button>
             </div>
         </form>
     </div>

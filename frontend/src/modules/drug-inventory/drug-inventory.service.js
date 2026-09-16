@@ -31,3 +31,10 @@ export async function transferDrugLot(lotId, details) {
         body: JSON.stringify({ lot_id: lotId, ...details })
     });
 }
+
+export async function destroyDrugLot(lotId, details) {
+    return api("/drug-inventory/destroy", {
+        method: "POST",
+        body: JSON.stringify({ lot_id: lotId, ...details })
+    });
+}

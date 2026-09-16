@@ -1,5 +1,5 @@
 import {
-    fetchDrugInventory, fetchDrugInventoryOptions, createDrug, transferDrugLot
+    fetchDrugInventory, fetchDrugInventoryOptions, createDrug, transferDrugLot, destroyDrugLot
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
 
@@ -9,8 +9,9 @@ let currentPage = 1;
 let pageSize = 10;
 let searchTerm = "";
 
-let options = { warehouses: [], facilities: [], product_types: [], forms: [], routes: [], units: [], intervals: [] };
+let options = { warehouses: [], facilities: [], product_types: [], forms: [], routes: [], units: [], intervals: [], destruction_methods: [] };
 let activeTransferLot = null;
+let activeDestroyLot = null;
 let templateRowCount = 0;
 
 export async function initDrugInventory() {
@@ -38,13 +39,14 @@ export async function initDrugInventory() {
 
     setupAddDrugModal();
     setupTransferModal();
+    setupDestroyModal();
 
     await loadInventory();
 }
 
 async function loadOptions() {
     const result = await fetchDrugInventoryOptions();
-    options = result.success ? result.data : { warehouses: [], facilities: [], product_types: [], forms: [], routes: [], units: [], intervals: [] };
+    options = result.success ? result.data : { warehouses: [], facilities: [], product_types: [], forms: [], routes: [], units: [], intervals: [], destruction_methods: [] };
 
     const facilityFilter = document.getElementById("diFacilityFilter");
     const warehouseFilter = document.getElementById("diWarehouseFilter");
@@ -78,11 +80,14 @@ async function loadOptions() {
     formField.innerHTML = `<option value="">-- Select --</option>` + options.forms.map((f) => `<option value="${f}">${f}</option>`).join("");
     unitField.innerHTML = `<option value="">-- Select --</option>` + options.units.map((u) => `<option value="${u}">${u}</option>`).join("");
     routeField.innerHTML = `<option value="">-- Select --</option>` + options.routes.map((r) => `<option value="${r}">${r}</option>`).join("");
+
+    const destroyMethodField = document.getElementById("di_destroy_method");
+    destroyMethodField.innerHTML = `<option value="">-- Select --</option>` + options.destruction_methods.map((m) => `<option value="${m}">${m}</option>`).join("");
 }
 
 async function loadInventory() {
     const tbody = document.getElementById("diTableBody");
-    tbody.innerHTML = `<tr><td colspan="13" class="di-empty-state">Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" class="di-empty-state">Loading...</td></tr>`;
 
     const result = await fetchDrugInventory({
         facility_id: document.getElementById("diFacilityFilter").value,
@@ -93,7 +98,7 @@ async function loadInventory() {
     });
 
     if (!result.success) {
-        tbody.innerHTML = `<tr><td colspan="13" class="di-empty-state">Failed to load inventory.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" class="di-empty-state">Failed to load inventory.</td></tr>`;
         return;
     }
 
@@ -127,7 +132,7 @@ function renderTable(rows) {
     const tbody = document.getElementById("diTableBody");
 
     if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="13" class="di-empty-state">No inventory records match.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" class="di-empty-state">No inventory records match.</td></tr>`;
         return;
     }
 
@@ -146,6 +151,7 @@ function renderTable(rows) {
                 <td>${row.size != null ? row.size : "-"}</td>
                 <td>${escapeHtml(row.unit || "-")}</td>
                 <td><button type="button" class="di-tran-btn" data-tran-lot="${row.lot_id}">Tran</button></td>
+                <td><button type="button" class="di-destroy-btn" data-destroy-lot="${row.lot_id}">Destroy</button></td>
                 <td>${escapeHtml(row.lot_number)}</td>
                 <td>${escapeHtml(row.facility_name || "N/A")}</td>
                 <td>${escapeHtml(row.warehouse_name)}</td>
@@ -157,6 +163,10 @@ function renderTable(rows) {
 
     tbody.querySelectorAll("[data-tran-lot]").forEach((btn) => {
         btn.addEventListener("click", () => openTransferModal(Number(btn.getAttribute("data-tran-lot"))));
+    });
+
+    tbody.querySelectorAll("[data-destroy-lot]").forEach((btn) => {
+        btn.addEventListener("click", () => openDestroyModal(Number(btn.getAttribute("data-destroy-lot"))));
     });
 }
 
@@ -358,6 +368,63 @@ function openTransferModal(lotId) {
     document.getElementById("di_tran_notes").value = "";
 
     document.getElementById("diTransferModalOverlay").classList.add("open");
+}
+
+function setupDestroyModal() {
+    const overlay = document.getElementById("diDestroyModalOverlay");
+    const form = document.getElementById("diDestroyForm");
+
+    const closeModal = () => overlay.classList.remove("open");
+
+    document.getElementById("diCloseDestroyModal").addEventListener("click", closeModal);
+    document.getElementById("diCancelDestroy").addEventListener("click", closeModal);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) closeModal(); });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("diDestroyAlert").innerHTML = "";
+        document.querySelectorAll("#diDestroyForm .form-error").forEach((el) => { el.textContent = ""; });
+
+        const result = await destroyDrugLot(activeDestroyLot.lot_id, {
+            quantity: document.getElementById("di_destroy_quantity").value,
+            destroyed_date: document.getElementById("di_destroy_date").value,
+            method: document.getElementById("di_destroy_method").value,
+            witness: document.getElementById("di_destroy_witness").value.trim(),
+            notes: document.getElementById("di_destroy_notes").value.trim()
+        });
+
+        if (!result.success) {
+            showAlert("diDestroyAlert", result.message || "Failed to destroy.", "error");
+            return;
+        }
+
+        closeModal();
+        showToast("Drug destroyed and recorded successfully.", "success");
+        await loadInventory();
+    });
+}
+
+function openDestroyModal(lotId) {
+    activeDestroyLot = allRows.find((r) => r.lot_id === lotId);
+
+    if (!activeDestroyLot) return;
+
+    document.getElementById("diDestroySource").innerHTML = `
+        <strong>${escapeHtml(activeDestroyLot.name)}</strong> &middot; Lot ${escapeHtml(activeDestroyLot.lot_number)}
+        &middot; ${formatQuantity(activeDestroyLot.quantity_on_hand)} on hand at ${escapeHtml(activeDestroyLot.warehouse_name)}
+    `;
+
+    document.getElementById("diDestroyAlert").innerHTML = "";
+    document.querySelectorAll("#diDestroyForm .form-error").forEach((el) => { el.textContent = ""; });
+
+    document.getElementById("di_destroy_quantity").value = "";
+    document.getElementById("di_destroy_date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("di_destroy_method").value = "";
+    document.getElementById("di_destroy_witness").value = "";
+    document.getElementById("di_destroy_notes").value = "";
+
+    document.getElementById("diDestroyModalOverlay").classList.add("open");
 }
 
 function formatQuantity(value) {

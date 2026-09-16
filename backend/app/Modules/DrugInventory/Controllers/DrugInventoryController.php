@@ -48,7 +48,8 @@ class DrugInventoryController extends Controller
             'forms' => DrugInventoryService::FORMS,
             'routes' => DrugInventoryService::ROUTES,
             'units' => DrugInventoryService::UNITS,
-            'intervals' => DrugInventoryService::INTERVALS
+            'intervals' => DrugInventoryService::INTERVALS,
+            'destruction_methods' => DrugInventoryService::DESTRUCTION_METHODS
         ];
 
         try {
@@ -113,5 +114,46 @@ class DrugInventoryController extends Controller
         }
 
         $this->success(null, $result['message']);
+    }
+
+    public function destroy(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $lotId = (int) $request->input('lot_id');
+
+        if (!$lotId) {
+            $this->error('Lot is required.', 422);
+            return;
+        }
+
+        $result = $this->service->destroyLot(
+            $lotId,
+            $request->only(['quantity', 'destroyed_date', 'method', 'witness', 'notes']),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * Inventory > Destroyed list. Query: from?, to? (date range, both optional).
+     */
+    public function destroyedList(): void
+    {
+        $request = new Request();
+
+        $rows = $this->service->listDestructions([
+            'from' => $request->input('from'),
+            'to' => $request->input('to')
+        ]);
+
+        $this->success($rows, 'Destroyed drugs retrieved successfully.');
     }
 }
