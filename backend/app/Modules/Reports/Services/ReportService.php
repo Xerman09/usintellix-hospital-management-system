@@ -1467,9 +1467,28 @@ class ReportService
      * received on a given lot without a dedicated immutable "received"
      * log this app doesn't have -- showing the current balance next to
      * a creation date would misrepresent it as the received amount.
+     *
+     * Filters: date_from/date_to, `by` (product|warehouse|facility --
+     * both the "For:" picker's own dimension and, when `details` is
+     * false, the grouping column for the summary rollup), `for_id`
+     * (narrow to one specific product/warehouse/facility), `details`
+     * (false = one aggregated row per group with total transferred/
+     * destroyed quantity and an event count; true = the full itemized
+     * event list, each still taggable to the same `by`/`for_id` filter).
+     * For warehouse/facility grouping, a transfer is attributed to its
+     * *source* location (where the stock left from) -- the "From X to Y"
+     * detail text already carries the destination for anyone who needs
+     * it, so this avoids double-counting the same transfer under two
+     * different warehouses.
      */
     public function getInventoryActivityReport(array $filters = []): array
     {
+        $by = in_array($filters['by'] ?? 'product', ['product', 'warehouse', 'facility'], true)
+            ? $filters['by']
+            : 'product';
+        $forId = !empty($filters['for_id']) ? (int) $filters['for_id'] : null;
+        $details = !empty($filters['details']);
+
         $transferWhere = ['1 = 1'];
         $destroyWhere = ['1 = 1'];
         $transferParams = [];
@@ -1495,33 +1514,78 @@ class ReportService
             $destroyParams[] = $filters['date_to'];
         }
 
+        if ($forId !== null) {
+            $transferCol = $by === 'warehouse' ? 'fl.warehouse_id' : ($by === 'facility' ? 'fl.facility_id' : 'dit.drug_id');
+            $destroyCol = $by === 'warehouse' ? 'dil.warehouse_id' : ($by === 'facility' ? 'dil.facility_id' : 'did.drug_id');
+
+            $transferWhere[] = $transferCol . ' = ?';
+            $transferParams[] = $forId;
+
+            $destroyWhere[] = $destroyCol . ' = ?';
+            $destroyParams[] = $forId;
+        }
+
+        $eventsSql = "
+            SELECT 'Transfer' AS type, dit.created_at AS event_date, dit.quantity,
+                   d.id AS drug_id, d.name AS drug_name, d.ndc,
+                   fw.id AS warehouse_id, fw.name AS warehouse_name,
+                   fl.facility_id AS facility_id, ff.name AS facility_name,
+                   CONCAT('From ', fw.name, ' (Lot ', fl.lot_number, ') to ', tw.name, ' (Lot ', tl.lot_number, ')') AS detail,
+                   COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
+            FROM drug_inventory_transfers dit
+            JOIN drugs d ON d.id = dit.drug_id
+            JOIN drug_inventory_lots fl ON fl.id = dit.from_lot_id
+            JOIN drug_inventory_lots tl ON tl.id = dit.to_lot_id
+            JOIN warehouses fw ON fw.id = fl.warehouse_id
+            JOIN warehouses tw ON tw.id = tl.warehouse_id
+            LEFT JOIN facilities ff ON ff.id = fl.facility_id
+            LEFT JOIN users u ON u.id = dit.created_by
+            LEFT JOIN employees e ON e.user_id = u.id
+            WHERE " . implode(' AND ', $transferWhere) . "
+            UNION ALL
+            SELECT 'Destroyed' AS type, did.created_at AS event_date, did.quantity,
+                   d.id, d.name, d.ndc,
+                   dil.warehouse_id, w.name,
+                   dil.facility_id, ff2.name,
+                   CONCAT('Lot ', dil.lot_number, ' - ', COALESCE(did.method, 'Unspecified method'), ' (Witness: ', COALESCE(did.witness, 'none'), ')'),
+                   COALESCE(CONCAT(e2.first_name, ' ', e2.last_name), u2.username)
+            FROM drug_inventory_destructions did
+            JOIN drugs d ON d.id = did.drug_id
+            JOIN drug_inventory_lots dil ON dil.id = did.lot_id
+            JOIN warehouses w ON w.id = dil.warehouse_id
+            LEFT JOIN facilities ff2 ON ff2.id = dil.facility_id
+            LEFT JOIN users u2 ON u2.id = did.created_by
+            LEFT JOIN employees e2 ON e2.user_id = u2.id
+            WHERE " . implode(' AND ', $destroyWhere) . "
+        ";
+
+        $params = array_merge($transferParams, $destroyParams);
+
+        if ($details) {
+            $stmt = Database::connection()->prepare(
+                "SELECT type, event_date, drug_name, ndc, quantity, detail, recorded_by
+                 FROM ({$eventsSql}) events
+                 ORDER BY event_date DESC
+                 LIMIT 500"
+            );
+            $stmt->execute($params);
+
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
+
+        $groupCol = $by === 'warehouse' ? 'warehouse_id' : ($by === 'facility' ? 'facility_id' : 'drug_id');
+        $labelCol = $by === 'warehouse' ? 'warehouse_name' : ($by === 'facility' ? 'facility_name' : 'drug_name');
+
         $stmt = Database::connection()->prepare(
-            "SELECT 'Transfer' AS type, dit.created_at AS event_date, d.name AS drug_name, d.ndc, dit.quantity,
-                    CONCAT('From ', fw.name, ' (Lot ', fl.lot_number, ') to ', tw.name, ' (Lot ', tl.lot_number, ')') AS detail,
-                    COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
-             FROM drug_inventory_transfers dit
-             JOIN drugs d ON d.id = dit.drug_id
-             JOIN drug_inventory_lots fl ON fl.id = dit.from_lot_id
-             JOIN drug_inventory_lots tl ON tl.id = dit.to_lot_id
-             JOIN warehouses fw ON fw.id = fl.warehouse_id
-             JOIN warehouses tw ON tw.id = tl.warehouse_id
-             LEFT JOIN users u ON u.id = dit.created_by
-             LEFT JOIN employees e ON e.user_id = u.id
-             WHERE " . implode(' AND ', $transferWhere) . "
-             UNION ALL
-             SELECT 'Destroyed' AS type, did.created_at AS event_date, d.name, d.ndc, did.quantity,
-                    CONCAT('Lot ', dil.lot_number, ' - ', COALESCE(did.method, 'Unspecified method'), ' (Witness: ', COALESCE(did.witness, 'none'), ')') AS detail,
-                    COALESCE(CONCAT(e.first_name, ' ', e.last_name), u.username) AS recorded_by
-             FROM drug_inventory_destructions did
-             JOIN drugs d ON d.id = did.drug_id
-             JOIN drug_inventory_lots dil ON dil.id = did.lot_id
-             LEFT JOIN users u ON u.id = did.created_by
-             LEFT JOIN employees e ON e.user_id = u.id
-             WHERE " . implode(' AND ', $destroyWhere) . "
-             ORDER BY event_date DESC
-             LIMIT 500"
+            "SELECT {$groupCol} AS group_id, COALESCE({$labelCol}, 'Unassigned') AS group_label,
+                    SUM(CASE WHEN type = 'Transfer' THEN quantity ELSE 0 END) AS transferred_qty,
+                    SUM(CASE WHEN type = 'Destroyed' THEN quantity ELSE 0 END) AS destroyed_qty,
+                    COUNT(*) AS event_count
+             FROM ({$eventsSql}) events
+             GROUP BY {$groupCol}, {$labelCol}
+             ORDER BY group_label ASC"
         );
-        $stmt->execute(array_merge($transferParams, $destroyParams));
+        $stmt->execute($params);
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }

@@ -285,7 +285,7 @@ class ReportController extends Controller
     public function inventoryActivityReport(): void
     {
         $request = new Request();
-        $filters = $request->only(['date_from', 'date_to']);
+        $filters = $request->only(['date_from', 'date_to', 'by', 'for_id', 'details']);
         $data = $this->reportService->getInventoryActivityReport($filters);
         $this->success($data, 'Inventory activity report retrieved successfully.');
     }

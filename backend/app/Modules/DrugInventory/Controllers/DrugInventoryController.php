@@ -45,6 +45,7 @@ class DrugInventoryController extends Controller
         $result = [
             'warehouses' => [],
             'facilities' => [],
+            'drugs' => [],
             'product_types' => DrugInventoryService::PRODUCT_TYPES,
             'forms' => DrugInventoryService::FORMS,
             'routes' => DrugInventoryService::ROUTES,
@@ -63,6 +64,12 @@ class DrugInventoryController extends Controller
             $result['facilities'] = (new FacilityService())->list();
         } catch (\Throwable $e) {
             error_log('drug-inventory options: facilities failed: ' . $e->getMessage());
+        }
+
+        try {
+            $result['drugs'] = $this->service->listDrugs();
+        } catch (\Throwable $e) {
+            error_log('drug-inventory options: drugs failed: ' . $e->getMessage());
         }
 
         $this->success($result, 'Options retrieved successfully.');

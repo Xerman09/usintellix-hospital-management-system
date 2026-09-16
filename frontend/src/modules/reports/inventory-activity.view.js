@@ -11,22 +11,36 @@ export function InventoryActivityReportView() {
 }
 
 .ia-title {
-    margin: 0 0 14px;
-    font-size: 20px;
-    font-weight: 700;
+    margin: 0 0 18px;
+    font-size: 26px;
+    font-weight: 600;
     color: var(--text-primary);
+    text-align: center;
 }
 
 .ia-filter-panel {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 16px 24px;
+    gap: 24px;
     background: var(--bg-surface-alt);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 14px 18px;
     margin-bottom: 14px;
+}
+
+.ia-filter-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+}
+
+.ia-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 24px;
 }
 
 .ia-filter-group {
@@ -41,6 +55,7 @@ export function InventoryActivityReportView() {
     white-space: nowrap;
 }
 
+.ia-filter-panel select,
 .ia-filter-panel input[type="date"] {
     height: 32px;
     padding: 0 10px;
@@ -49,19 +64,35 @@ export function InventoryActivityReportView() {
     background: var(--bg-surface);
     color: var(--text-primary);
     font-size: 13px;
+    min-width: 170px;
     color-scheme: light;
 }
 
+:root[data-theme="dark"] .ia-filter-panel select,
 :root[data-theme="dark"] .ia-filter-panel input[type="date"] {
     color-scheme: dark;
 }
 
-.ia-refresh-btn {
+.ia-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.ia-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border-color);
+}
+
+.ia-submit-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 32px;
-    padding: 0 16px;
+    height: 34px;
+    padding: 0 18px;
     border-radius: 5px;
     border: 1px solid var(--accent);
     background: var(--accent);
@@ -69,10 +100,10 @@ export function InventoryActivityReportView() {
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
-    margin-left: auto;
+    white-space: nowrap;
 }
 
-.ia-refresh-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.ia-submit-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .ia-table-wrap {
     overflow-x: auto;
@@ -141,29 +172,52 @@ export function InventoryActivityReportView() {
 </style>
 
 <div class="ia-page">
-    <h2 class="ia-title">Report - Inventory Activity</h2>
+    <h2 class="ia-title">Inventory Activity</h2>
 
     <div class="ia-filter-panel">
-        <div class="ia-filter-group">
-            <label>From:</label>
-            <input type="date" id="iaDateFrom" value="${from}">
+        <div class="ia-filter-fields">
+            <div class="ia-filter-row">
+                <div class="ia-filter-group">
+                    <label>By:</label>
+                    <select id="iaBy">
+                        <option value="product">Product</option>
+                        <option value="warehouse">Warehouse</option>
+                        <option value="facility">Facility</option>
+                    </select>
+                </div>
+                <div class="ia-filter-group">
+                    <label>From:</label>
+                    <input type="date" id="iaDateFrom" value="${from}">
+                </div>
+                <div class="ia-filter-group">
+                    <label>To:</label>
+                    <input type="date" id="iaDateTo" value="${to}">
+                </div>
+            </div>
+            <div class="ia-filter-row">
+                <div class="ia-filter-group">
+                    <label>For:</label>
+                    <select id="iaFor"><option value="">-- All Products --</option></select>
+                </div>
+                <label class="ia-checkbox-label">
+                    <input type="checkbox" id="iaDetails">
+                    Details
+                </label>
+            </div>
         </div>
-        <div class="ia-filter-group">
-            <label>To:</label>
-            <input type="date" id="iaDateTo" value="${to}">
-        </div>
-        <button type="button" class="ia-refresh-btn" id="iaRefreshBtn">Refresh</button>
+
+        <div class="ia-divider"></div>
+
+        <button type="button" class="ia-submit-btn" id="iaSubmitBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Submit
+        </button>
     </div>
 
     <div class="ia-table-wrap">
         <table class="ia-table">
-            <thead>
-                <tr>
-                    <th>Date</th><th>Type</th><th>Drug</th><th>NDC</th>
-                    <th style="text-align: right;">Qty</th><th>Detail</th><th>Recorded By</th>
-                </tr>
-            </thead>
-            <tbody id="iaTableBody"><tr><td colspan="7" class="ia-empty-state">Loading...</td></tr></tbody>
+            <thead id="iaTableHead"></thead>
+            <tbody id="iaTableBody"><tr><td colspan="7" class="ia-empty-state">Click Submit to view inventory activity.</td></tr></tbody>
         </table>
     </div>
 </div>

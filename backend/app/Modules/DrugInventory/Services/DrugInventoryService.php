@@ -124,6 +124,20 @@ class DrugInventoryService
     }
 
     /**
+     * Plain id+name drug list -- used by Reports > Inventory > Activity's
+     * "For:" picker when grouping "By: Product".
+     */
+    public function listDrugs(): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT id, name FROM drugs WHERE deleted_at IS NULL AND is_active = 1 ORDER BY name"
+        );
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Creates a drug catalog entry together with its first inventory lot
      * -- the "Add Drug" form captures both in one step, matching the
      * screen it's modeled on (there's no separate "register a drug with

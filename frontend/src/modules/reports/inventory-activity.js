@@ -1,18 +1,68 @@
 import { fetchInventoryActivity } from "./inventory-activity.service.js";
+import { fetchDrugInventoryOptions } from "../drug-inventory/drug-inventory.service.js";
+
+const FOR_OPTIONS = {
+    product: { placeholder: "-- All Products --", key: "drugs" },
+    warehouse: { placeholder: "-- All Warehouses --", key: "warehouses" },
+    facility: { placeholder: "-- All Facilities --", key: "facilities" }
+};
+
+const GROUP_LABELS = {
+    product: "Product",
+    warehouse: "Warehouse",
+    facility: "Facility"
+};
+
+let options = { drugs: [], warehouses: [], facilities: [] };
 
 export async function initInventoryActivityReport() {
-    document.getElementById("iaRefreshBtn").addEventListener("click", loadActivity);
+    await loadOptions();
+    populateForSelect("product");
 
-    await loadActivity();
+    document.getElementById("iaBy").addEventListener("change", (event) => {
+        populateForSelect(event.target.value);
+    });
+
+    document.getElementById("iaSubmitBtn").addEventListener("click", loadActivity);
+}
+
+async function loadOptions() {
+    const result = await fetchDrugInventoryOptions();
+
+    if (result.success) {
+        options = {
+            drugs: result.data.drugs || [],
+            warehouses: result.data.warehouses || [],
+            facilities: result.data.facilities || []
+        };
+    }
+}
+
+function populateForSelect(by) {
+    const config = FOR_OPTIONS[by] || FOR_OPTIONS.product;
+    const select = document.getElementById("iaFor");
+
+    select.innerHTML = `<option value="">${config.placeholder}</option>`;
+    (options[config.key] || []).forEach((item) => {
+        select.appendChild(new Option(item.name, item.id));
+    });
 }
 
 async function loadActivity() {
+    const by = document.getElementById("iaBy").value;
+    const forId = document.getElementById("iaFor").value;
+    const details = document.getElementById("iaDetails").checked;
+
     const tbody = document.getElementById("iaTableBody");
+    renderHead(details, by);
     tbody.innerHTML = `<tr><td colspan="7" class="ia-empty-state">Loading...</td></tr>`;
 
     const result = await fetchInventoryActivity({
         date_from: document.getElementById("iaDateFrom").value,
-        date_to: document.getElementById("iaDateTo").value
+        date_to: document.getElementById("iaDateTo").value,
+        by,
+        for_id: forId,
+        details
     });
 
     if (!result.success) {
@@ -20,14 +70,26 @@ async function loadActivity() {
         return;
     }
 
-    renderTable(result.data || []);
+    if (details) {
+        renderDetailTable(result.data || []);
+    } else {
+        renderSummaryTable(result.data || [], by);
+    }
 }
 
-function renderTable(rows) {
+function renderHead(details, by) {
+    const thead = document.getElementById("iaTableHead");
+
+    thead.innerHTML = details
+        ? `<tr><th>Date</th><th>Type</th><th>Drug</th><th>NDC</th><th style="text-align: right;">Qty</th><th>Detail</th><th>Recorded By</th></tr>`
+        : `<tr><th>${GROUP_LABELS[by] || "Group"}</th><th style="text-align: right;">Transferred</th><th style="text-align: right;">Destroyed</th><th style="text-align: right;">Events</th></tr>`;
+}
+
+function renderDetailTable(rows) {
     const tbody = document.getElementById("iaTableBody");
 
     if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="ia-empty-state">No inventory activity found for the selected range.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="ia-empty-state">No inventory activity found for the selected criteria.</td></tr>`;
         return;
     }
 
@@ -46,6 +108,24 @@ function renderTable(rows) {
             </tr>
         `;
     }).join("");
+}
+
+function renderSummaryTable(rows) {
+    const tbody = document.getElementById("iaTableBody");
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="ia-empty-state">No inventory activity found for the selected criteria.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map((row) => `
+        <tr>
+            <td>${escapeHtml(row.group_label)}</td>
+            <td style="text-align: right;">${formatQuantity(row.transferred_qty)}</td>
+            <td style="text-align: right;">${formatQuantity(row.destroyed_qty)}</td>
+            <td style="text-align: right;">${row.event_count}</td>
+        </tr>
+    `).join("");
 }
 
 function formatQuantity(value) {
