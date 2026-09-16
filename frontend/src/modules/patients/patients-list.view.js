@@ -1,6 +1,6 @@
 export function PatientsListView(user)
 {
-    const canAdd = user?.role === "receptionist" || user?.role === "doctor";
+    const canAdd = user?.role === "admin" || user?.role === "receptionist" || user?.role === "doctor";
     const canDelete = user?.role === "admin";
     const subtitle = user?.role === "doctor"
         ? "Patients assigned to you."

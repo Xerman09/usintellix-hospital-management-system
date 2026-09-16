@@ -1,10 +1,15 @@
 import { getUser } from "../../core/session.js";
 import { fetchPatients } from "./patients.service.js";
-import { openPatientChartTab } from "./patients-list.js?v=54";
-import { patientAvatarHtml } from "../../core/patient-avatar.js";
+import { openPatientChartTab, initPatientsList } from "./patients-list.js?v=55";
+import { PatientsListView } from "./patients-list.view.js?v=53";
 import { consumePendingFinderSearch } from "../../core/pending-finder-search.js";
+import { setPendingPatientView } from "../../core/pending-patient-view.js";
+import { getRecentPatients } from "../../core/recent-patients.js";
 
 let finderPatientsCache = [];
+let currentPage = 1;
+let sortKey = null;
+let sortDir = "asc";
 
 export async function initPatientFinder()
 {
@@ -24,141 +29,295 @@ export async function initPatientFinder()
     pageRoot.dataset.wired = "true";
 
     const result = await fetchPatients();
-
     finderPatientsCache = result.success ? result.data : [];
 
-    const searchInput = document.getElementById("finderSearchInput");
-
-    searchInput.addEventListener("input", () => renderFinderResults(searchInput.value));
+    wireTabs();
+    wireListControls();
 
     const pendingTerm = consumePendingFinderSearch();
+    if (pendingTerm) {
+        document.getElementById("fndGlobalSearch").value = pendingTerm;
+    }
 
-    searchInput.value = pendingTerm || "";
-    searchInput.focus();
-
-    renderFinderResults(searchInput.value);
+    currentPage = 1;
+    renderList();
 }
 
-function renderFinderResults(term)
+function wireTabs()
 {
-    const body = document.getElementById("finderResultsBody");
-    const query = term.trim().toLowerCase();
+    const tabList = document.getElementById("fndTabList");
+    const tabRecent = document.getElementById("fndTabRecent");
+    const panelList = document.getElementById("fndListPanel");
+    const panelRecent = document.getElementById("fndRecentPanel");
 
-    if (!body) {
-        return;
-    }
-
-    if (query === "") {
-        body.innerHTML = `
-            <tr>
-                <td colspan="6">
-                    <div class="fnd-empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-                        <strong>Start typing to search</strong>
-                        <p>Search by patient name or patient number.</p>
-                    </div>
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    const matches = finderPatientsCache.filter((patient) => {
-        const haystack = [
-            patient.patient_no,
-            patient.first_name,
-            patient.middle_name,
-            patient.last_name,
-            patient.suffix
-        ].filter(Boolean).join(" ").toLowerCase();
-
-        return haystack.includes(query);
+    tabList.addEventListener("click", () => {
+        tabList.classList.add("active");
+        tabRecent.classList.remove("active");
+        panelList.style.display = "";
+        panelRecent.style.display = "none";
     });
 
-    if (!matches.length) {
-        body.innerHTML = `
-            <tr>
-                <td colspan="6">
-                    <div class="fnd-empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-                        <strong>No matching patients</strong>
-                        <p>Try a different name or patient number.</p>
-                    </div>
-                </td>
-            </tr>
-        `;
-        return;
-    }
+    tabRecent.addEventListener("click", () => {
+        tabRecent.classList.add("active");
+        tabList.classList.remove("active");
+        panelList.style.display = "none";
+        panelRecent.style.display = "";
+        renderRecent();
+    });
+}
 
-    body.innerHTML = matches.map((patient) => {
-        const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
-        const sex = (patient.sex || "").toLowerCase();
-        const sexLabel = sex ? sex.charAt(0).toUpperCase() + sex.slice(1) : "Not set";
-        const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
-
-        return `
-        <tr class="fnd-row" data-row-id="${patient.id}">
-            <td><span class="fnd-patient-no">${escapeHtml(patient.patient_no)}</span></td>
-            <td>
-                <div class="fnd-name-cell">
-                    <div class="fnd-avatar">${patientAvatarHtml(patient)}</div>
-                    <span class="fnd-name">${escapeHtml(fullName)}</span>
-                </div>
-            </td>
-            <td><span class="fnd-muted ${sex ? "" : "empty"}">${escapeHtml(sexLabel)}</span></td>
-            <td class="fnd-muted ${patient.birthdate ? "" : "empty"}">${escapeHtml(patient.birthdate ? formatDate(patient.birthdate) : "No birthdate")}</td>
-            <td><span class="fnd-tag ${providerName ? "" : "empty"}">${providerName ? escapeHtml(providerName) : "Unassigned"}</span></td>
-            <td>
-                <button type="button" class="fnd-view-btn" data-view-id="${patient.id}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    View Chart
-                </button>
-            </td>
-        </tr>
-        `;
-    }).join("");
-
-    body.querySelectorAll("[data-view-id]").forEach((btn) => {
-        btn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            openPatientFromFinder(btn.getAttribute("data-view-id"));
+function wireListControls()
+{
+    ["fndFilterName", "fndFilterPhone", "fndFilterSsn", "fndFilterDob", "fndFilterExternal", "fndGlobalSearch"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+            currentPage = 1;
+            renderList();
         });
     });
 
-    body.querySelectorAll(".fnd-row").forEach((row) => {
-        row.addEventListener("click", () => openPatientFromFinder(row.getAttribute("data-row-id")));
+    document.getElementById("fndExactMethod").addEventListener("change", () => {
+        currentPage = 1;
+        renderList();
+    });
+
+    document.getElementById("fndPageSize").addEventListener("change", () => {
+        currentPage = 1;
+        renderList();
+    });
+
+    document.getElementById("fndPrevBtn").addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage--;
+            renderList();
+        }
+    });
+
+    document.getElementById("fndNextBtn").addEventListener("click", () => {
+        currentPage++;
+        renderList();
+    });
+
+    document.querySelectorAll(".fnd-header-row th[data-sort-key]").forEach((th) => {
+        th.addEventListener("click", () => {
+            const key = th.getAttribute("data-sort-key");
+            if (sortKey === key) {
+                sortDir = sortDir === "asc" ? "desc" : "asc";
+            } else {
+                sortKey = key;
+                sortDir = "asc";
+            }
+            renderList();
+        });
+    });
+
+    document.getElementById("fndFocusSearchBtn").addEventListener("click", () => {
+        document.getElementById("fndGlobalSearch").focus();
+    });
+
+    document.getElementById("fndAddPatientBtn").addEventListener("click", openAddPatientFromFinder);
+}
+
+function patientRowData(patient)
+{
+    return {
+        patient,
+        name: [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" "),
+        phone: patient.contact_home_phone || "",
+        // Neither is tracked anywhere in this system's data model -- kept
+        // as real, honestly-empty fields (never fabricated) rather than
+        // dropped, so the column/filter structure still matches the
+        // reference layout; a typed SSN/External ID filter will correctly
+        // never match anything, same as it would against real blank data.
+        ssn: "",
+        dob: patient.birthdate ? String(patient.birthdate).slice(0, 10) : "",
+        external: ""
+    };
+}
+
+function matchesField(fieldValue, filterValue, exact)
+{
+    if (!filterValue) return true;
+    if (!fieldValue) return false;
+
+    return exact
+        ? fieldValue.toLowerCase() === filterValue.toLowerCase()
+        : fieldValue.toLowerCase().includes(filterValue.toLowerCase());
+}
+
+function getFilteredRows()
+{
+    const nameFilter = document.getElementById("fndFilterName").value.trim();
+    const phoneFilter = document.getElementById("fndFilterPhone").value.trim();
+    const ssnFilter = document.getElementById("fndFilterSsn").value.trim();
+    const dobFilter = document.getElementById("fndFilterDob").value.trim();
+    const externalFilter = document.getElementById("fndFilterExternal").value.trim();
+    const globalTerm = document.getElementById("fndGlobalSearch").value.trim();
+    const exact = document.getElementById("fndExactMethod").checked;
+
+    const hasAnyFilter = !!(nameFilter || phoneFilter || ssnFilter || dobFilter || externalFilter || globalTerm);
+
+    const rows = finderPatientsCache.map(patientRowData).filter((row) => {
+        if (!matchesField(row.name, nameFilter, exact)) return false;
+        if (!matchesField(row.phone, phoneFilter, exact)) return false;
+        if (!matchesField(row.ssn, ssnFilter, exact)) return false;
+        if (!matchesField(row.dob, dobFilter, exact)) return false;
+        if (!matchesField(row.external, externalFilter, exact)) return false;
+
+        if (globalTerm) {
+            const haystack = [row.name, row.phone, row.dob, row.patient.patient_no].filter(Boolean).join(" ").toLowerCase();
+            const needle = globalTerm.toLowerCase();
+            const isMatch = exact ? haystack === needle : haystack.includes(needle);
+            if (!isMatch) return false;
+        }
+
+        return true;
+    });
+
+    if (sortKey) {
+        rows.sort((a, b) => {
+            const cmp = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""));
+            return sortDir === "asc" ? cmp : -cmp;
+        });
+    }
+
+    return { rows, hasAnyFilter };
+}
+
+function renderList()
+{
+    const { rows, hasAnyFilter } = getFilteredRows();
+    const pageSize = parseInt(document.getElementById("fndPageSize").value, 10) || 10;
+    const totalFiltered = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const start = (currentPage - 1) * pageSize;
+    const pageRows = rows.slice(start, start + pageSize);
+
+    updateSortIndicators();
+
+    const tbody = document.getElementById("fndResultsBody");
+
+    if (pageRows.length === 0) {
+        tbody.innerHTML = `<tr class="fnd-empty-row"><td colspan="5">No matching records found</td></tr>`;
+    } else {
+        tbody.innerHTML = pageRows.map((row) => `
+            <tr class="fnd-row" data-patient-id="${row.patient.id}">
+                <td class="fnd-name">${escapeHtml(row.name)}</td>
+                <td>${row.phone ? escapeHtml(row.phone) : `<span class="fnd-muted">&mdash;</span>`}</td>
+                <td><span class="fnd-muted">&mdash;</span></td>
+                <td>${row.dob ? escapeHtml(row.dob) : `<span class="fnd-muted">&mdash;</span>`}</td>
+                <td><span class="fnd-muted">&mdash;</span></td>
+            </tr>
+        `).join("");
+
+        tbody.querySelectorAll(".fnd-row").forEach((tr) => {
+            tr.addEventListener("click", () => openPatientFromFinder(tr.getAttribute("data-patient-id")));
+        });
+    }
+
+    const infoEl = document.getElementById("fndPaginationInfo");
+    if (totalFiltered === 0) {
+        infoEl.textContent = hasAnyFilter
+            ? `Showing 0 to 0 of 0 entries (filtered from ${finderPatientsCache.length} total entries)`
+            : "Showing 0 to 0 of 0 entries";
+    } else {
+        const shownFrom = start + 1;
+        const shownTo = Math.min(start + pageSize, totalFiltered);
+        infoEl.textContent = hasAnyFilter
+            ? `Showing ${shownFrom} to ${shownTo} of ${totalFiltered} entries (filtered from ${finderPatientsCache.length} total entries)`
+            : `Showing ${shownFrom} to ${shownTo} of ${totalFiltered} entries`;
+    }
+
+    document.getElementById("fndPrevBtn").disabled = currentPage <= 1;
+    document.getElementById("fndNextBtn").disabled = currentPage >= totalPages;
+}
+
+function updateSortIndicators()
+{
+    document.querySelectorAll(".fnd-header-row th[data-sort-key]").forEach((th) => {
+        const key = th.getAttribute("data-sort-key");
+        const baseLabel = th.textContent.replace(/[▲▼]\s*$/, "").trim();
+        th.textContent = baseLabel;
+
+        if (sortKey === key) {
+            const arrow = document.createElement("span");
+            arrow.className = "fnd-sort-arrow";
+            arrow.textContent = sortDir === "asc" ? "▲" : "▼";
+            th.appendChild(arrow);
+        }
+    });
+}
+
+function renderRecent()
+{
+    const tbody = document.getElementById("fndRecentBody");
+    const recents = getRecentPatients();
+
+    if (recents.length === 0) {
+        tbody.innerHTML = `<tr class="fnd-empty-row"><td colspan="4">No recently viewed patients yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = recents.map((patient) => {
+        const name = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
+        const dob = patient.birthdate ? String(patient.birthdate).slice(0, 10) : "";
+        const viewedAt = patient.viewed_at ? new Date(patient.viewed_at).toLocaleString() : "";
+
+        return `
+            <tr class="fnd-row" data-patient-id="${patient.id}">
+                <td class="fnd-name">${escapeHtml(name)}</td>
+                <td>${patient.contact_home_phone ? escapeHtml(patient.contact_home_phone) : `<span class="fnd-muted">&mdash;</span>`}</td>
+                <td>${dob ? escapeHtml(dob) : `<span class="fnd-muted">&mdash;</span>`}</td>
+                <td class="fnd-muted">${escapeHtml(viewedAt)}</td>
+            </tr>
+        `;
+    }).join("");
+
+    tbody.querySelectorAll(".fnd-row").forEach((tr) => {
+        tr.addEventListener("click", () => openPatientFromFinder(tr.getAttribute("data-patient-id")));
     });
 }
 
 function openPatientFromFinder(id)
 {
-    const patient = finderPatientsCache.find((p) => String(p.id) === id);
+    const patient = finderPatientsCache.find((p) => String(p.id) === id)
+        || getRecentPatients().find((p) => String(p.id) === id);
 
-    if (patient) {
-        openPatientChartTab(patient);
+    if (!patient) return;
+
+    const openInNewTab = document.getElementById("fndOpenNewTab")?.checked;
+
+    if (openInNewTab) {
+        // Same cross-window hand-off dashboard.js already supports for a
+        // brand-new tab/window: stash the patient, then let that window's
+        // own dashboard bootstrap consume it (see pending-patient-view.js).
+        setPendingPatientView(patient.patient_no);
+        window.open(window.location.href, "_blank");
+        return;
     }
+
+    openPatientChartTab(patient);
+}
+
+async function openAddPatientFromFinder()
+{
+    const user = getUser();
+
+    window.tabManager.openTab("patients", "Patients", () => {
+        setTimeout(async () => {
+            await initPatientsList();
+            document.getElementById("openAddPatientModal")?.click();
+        }, 0);
+        return PatientsListView(user);
+    });
 }
 
 function escapeHtml(value)
 {
     const div = document.createElement("div");
-
     div.textContent = value ?? "";
-
     return div.innerHTML;
-}
-
-function formatDate(value)
-{
-    if (!value) {
-        return "";
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }

@@ -1,5 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
+import { recordRecentPatient } from "../../core/recent-patients.js";
 import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
 import { formatApptDate, formatApptTime } from "../appointments/appointment-format.js";
 import { setPendingAppointmentPatient } from "../../core/pending-appointment.js";
@@ -17,7 +18,7 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=52";
+import { PatientChartView } from "./patients-list.view.js?v=53";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -393,7 +394,7 @@ export async function initPatientsList()
         await setupEditPatientModal(user);
     }
 
-    if (user.role === "receptionist" || user.role === "doctor") {
+    if (user.role === "admin" || user.role === "receptionist" || user.role === "doctor") {
         await setupAddPatientModal(user);
     }
 
@@ -2516,6 +2517,7 @@ export function openPatientChartTab(patient, activate = true)
     const fullName = [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ");
 
     setLastActivePatientChart(patient.patient_no);
+    recordRecentPatient(patient);
 
     window.tabManager.openOrReplaceTab('patient_chart', fullName || 'Patient Chart', () => {
         setTimeout(() => initPatientChartTab(patient), 0);
