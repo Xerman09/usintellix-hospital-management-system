@@ -64,6 +64,24 @@
     color: var(--text-muted);
 }
 
+:root[data-theme="dark"] .nav-search {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .nav-search::placeholder {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .nav-search:focus {
+    background: var(--bg-surface);
+}
+
+:root[data-theme="dark"] .nav-search-wrap svg {
+    color: var(--text-muted);
+}
+
 :root[data-theme="dark"] .dropdown-content {
     background-color: var(--bg-surface);
     border-color: var(--border-color);
