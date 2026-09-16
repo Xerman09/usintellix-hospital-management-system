@@ -5391,6 +5391,14 @@ textarea.pd-sdoh-readonly {
                         </div>
                         <div class="pd-widget-body" id="pdDemoPanels"></div>
                     </div>
+                    <style>
+                        #pdClinicalRemindersBody { padding: 0 16px; }
+                        #pdWidget-clinical-reminders .pd-widget-header-title h3,
+                        #pdWidget-clinical-reminders .pd-widget-header-title svg { color: #0b5030 !important; }
+                        #pdWidget-clinical-reminders .pd-widget-add { color: #0b5030 !important; padding: 0; background: transparent; border: none; }
+                        #pdWidget-clinical-reminders .pd-widget-add svg { width: 16px; height: 16px; }
+                    </style>
+                    ${dashboardWidget("Clinical Reminders", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>', "No clinical reminders.", { bodyId: "pdClinicalRemindersBody", addBtnId: "pdClinicalRemindersAddBtn", addBtnLabel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>', addBtnDisabled: false, widgetId: "pdWidget-clinical-reminders" })}
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No care team recorded yet.", { bodyId: "pdCareTeamBody", addBtnId: "pdCareTeamAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}

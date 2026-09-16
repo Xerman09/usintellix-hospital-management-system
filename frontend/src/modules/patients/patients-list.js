@@ -2751,6 +2751,7 @@ async function loadPatientDashboardWidgets(patient)
 
         const data = result.data || {};
 
+        renderDashboardClinicalReminders();
         renderDashboardAllergies(data.allergies || []);
         renderDashboardProblems(data.problems || []);
         renderDashboardHealthConcerns(data.health_concerns || []);
@@ -3215,6 +3216,46 @@ async function loadDashboardAllergies(patient)
         console.error("Failed to load allergies", error);
         body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load allergies right now.</p></div>`;
     }
+}
+
+function renderDashboardClinicalReminders()
+{
+    const body = document.getElementById("pdClinicalRemindersBody");
+
+    if (!body) {
+        return;
+    }
+
+    const reminders = [
+        { label: "Assessment: Colon Cancer Screening", status: "Past Due" },
+        { label: "Assessment: Prostate Cancer Screening", status: "Past Due" },
+        { label: "Measurement: Blood Pressure", status: "Past Due" },
+        { label: "Treatment: Influenza Vaccine", status: "Past Due" },
+        { label: "Assessment: Tobacco", status: "Past Due" }
+    ];
+
+    setWidgetCount("pdClinicalRemindersBody", reminders.length);
+
+    body.innerHTML = `
+        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;">
+            ${reminders.map((reminder) => `
+                <li style="border-bottom: 1px solid #e5e9f0; padding: 8px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13.5px;">
+                    <div style="color: #0b5030;">${escapeHtml(reminder.label)}</div>
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #cf2a4a;">
+                        <span style="font-size: 12.5px; margin-bottom: 2px;">${escapeHtml(reminder.status)}</span>
+                        <svg style="width: 15px; height: 15px;" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path fill="#fff" d="M12 16a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm0-10c-1.66 0-3 1.34-3 3h2c0-.55.45-1 1-1s1 .45 1 1c0 1-2 1.25-2 3.5h2c0-1.5 2-1.75 2-3.5 0-1.66-1.34-3-3-3z"></path>
+                        </svg>
+                    </div>
+                </li>
+            `).join("")}
+        </ul>
+    `;
+    
+    // Remove the last border
+    const items = body.querySelectorAll("li");
+    if (items.length) items[items.length - 1].style.borderBottom = "none";
 }
 
 function renderDashboardAllergies(allergies)
