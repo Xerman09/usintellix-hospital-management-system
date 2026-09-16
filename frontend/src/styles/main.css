@@ -346,6 +346,23 @@
    meaning (status, danger) that this must not clobber. Any such page
    with a real legibility problem beyond this should get the same
    dedicated per-file <style> block the other reports already have. */
+/* The wrapper div itself carries the inline white card background
+   (`background-color: #fff` on nearly all of these) -- without this,
+   the child-element overrides below (which assume a dark ancestor
+   background) just repaint text in light colors that then sit on a
+   still-white card, i.e. washed-out/near-invisible text instead of a
+   fix. Excludes the handful of "*-form-wrapper" pages (demographics,
+   referral, superbill, clinical-blank forms) which are deliberately
+   forced-light printable-paper replicas with their own dense inline
+   color:#000 throughout -- inverting just the outer background there
+   would strand most of their body text unreadable; those need the
+   same dedicated per-file treatment the docs-paper forms got, not
+   this blanket rule. */
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+}
+
 :root[data-theme="dark"] [class$="-wrapper"] h1,
 :root[data-theme="dark"] [class$="-wrapper"] h2,
 :root[data-theme="dark"] [class$="-wrapper"] h3 {
@@ -376,11 +393,27 @@
     border-color: var(--border-color) !important;
 }
 
+/* th cells carry their own inline dark text color (e.g.
+   style="color:#1a202c"), which wins over the `thead tr` color
+   override above since it's declared directly on the element, not
+   inherited -- left the header text unreadably dark against the now
+   dark-forced thead-row background. */
+:root[data-theme="dark"] [class$="-wrapper"] table thead th {
+    color: var(--text-muted) !important;
+}
+
 /* Plain data rows get their text lightened; rows carrying their own
    inline background (the colored subtotal/status rows several of these
    reports use, e.g. "Total for category") are left alone so their
    hand-picked text color stays legible against that background. */
 :root[data-theme="dark"] [class$="-wrapper"] table tbody tr:not([style*="background"]) td {
+    color: var(--text-primary) !important;
+}
+
+/* Grand-total rows live in a <tfoot>, not <tbody> -- same inline dark
+   text problem as the header cells above, just missed by the tbody-
+   scoped rule since it's a different table section entirely. */
+:root[data-theme="dark"] [class$="-wrapper"] table tfoot tr:not([style*="background"]) td {
     color: var(--text-primary) !important;
 }
 
