@@ -19,6 +19,16 @@ $router->get('/encounters/form-options', [EncounterController::class, 'formOptio
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->post('/encounters/issues/link', [EncounterController::class, 'linkIssue'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/encounters/issues/unlink', [EncounterController::class, 'unlinkIssue'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/encounters', [EncounterController::class, 'store'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

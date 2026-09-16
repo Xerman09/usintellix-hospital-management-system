@@ -70,6 +70,44 @@ class EncounterController extends Controller
     }
 
     /**
+     * Popups > Issues' click-to-relate action -- links one issue to one
+     * encounter. See EncounterService::linkIssue() for why this is
+     * separate from update()'s full issues/billing-codes resync.
+     */
+    public function linkIssue(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $result = $this->encounterService->linkIssue(
+            (int) $request->input('encounter_id'),
+            (string) $request->input('issue_type'),
+            (int) $request->input('issue_id'),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    public function unlinkIssue(): void
+    {
+        $request = new Request();
+
+        $result = $this->encounterService->unlinkIssue(
+            (int) $request->input('encounter_id'),
+            (string) $request->input('issue_type'),
+            (int) $request->input('issue_id')
+        );
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
      * Everything the "Create Visit" form's dropdowns and linked-issues
      * picker need, gathered into one response. These used to be 6
      * separate catalog requests plus the linkable-issues request, each

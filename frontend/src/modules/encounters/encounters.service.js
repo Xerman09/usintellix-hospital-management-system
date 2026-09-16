@@ -69,3 +69,25 @@ export async function fetchDischargeDispositions()
 {
     return await api("/discharge-dispositions");
 }
+
+export async function linkIssueToEncounter(encounterId, issueType, issueId)
+{
+    return await api(
+        "/encounters/issues/link",
+        {
+            method: "POST",
+            body: JSON.stringify({ encounter_id: encounterId, issue_type: issueType, issue_id: issueId })
+        }
+    );
+}
+
+export async function unlinkIssueFromEncounter(encounterId, issueType, issueId)
+{
+    return await api(
+        "/encounters/issues/unlink",
+        {
+            method: "POST",
+            body: JSON.stringify({ encounter_id: encounterId, issue_type: issueType, issue_id: issueId })
+        }
+    );
+}

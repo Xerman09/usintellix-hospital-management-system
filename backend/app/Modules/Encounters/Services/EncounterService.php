@@ -104,6 +104,18 @@ class EncounterService
              FROM patient_health_concerns phc
              WHERE phc.patient_id = :patient_id4 AND phc.deleted_at IS NULL
 
+             UNION ALL
+
+             SELECT 'surgery' AS issue_type, ps.id AS issue_id, ps.title AS label
+             FROM patient_surgeries ps
+             WHERE ps.patient_id = :patient_id5 AND ps.deleted_at IS NULL
+
+             UNION ALL
+
+             SELECT 'dental' AS issue_type, pdi.id AS issue_id, pdi.title AS label
+             FROM patient_dental_issues pdi
+             WHERE pdi.patient_id = :patient_id6 AND pdi.deleted_at IS NULL
+
              ORDER BY issue_type, label"
         );
 
@@ -111,10 +123,71 @@ class EncounterService
             'patient_id1' => $patientId,
             'patient_id2' => $patientId,
             'patient_id3' => $patientId,
-            'patient_id4' => $patientId
+            'patient_id4' => $patientId,
+            'patient_id5' => $patientId,
+            'patient_id6' => $patientId
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Links one existing patient issue to an encounter (idempotent -- a
+     * duplicate link is silently a no-op rather than an error), for
+     * Popups > Issues' click-to-relate action. Deliberately NOT routed
+     * through update()/syncIssues(): that path does a full delete-and-
+     * recreate of both the encounter's issue links *and* its billing
+     * codes together, and reconstructing "the rest of the encounter
+     * unchanged" from the list-row shape alone would lose each billing
+     * code's fee/units (the row summary that shape is built from never
+     * carries them). This touches only `encounter_issues`, nothing else
+     * on the encounter.
+     */
+    public function linkIssue(int $encounterId, string $issueType, int $issueId, int $userId): array
+    {
+        $validTypes = ['allergy', 'problem', 'medication', 'health_concern', 'surgery', 'dental'];
+
+        if (!in_array($issueType, $validTypes, true) || !$issueId) {
+            return ['success' => false, 'message' => 'A valid issue is required.'];
+        }
+
+        $encounter = (new Encounter())->where('id', $encounterId)->first();
+
+        if (!$encounter || $encounter['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Encounter not found.'];
+        }
+
+        $existing = (new EncounterIssue())
+            ->where('encounter_id', $encounterId)
+            ->where('issue_type', $issueType)
+            ->where('issue_id', $issueId)
+            ->first();
+
+        if (!$existing) {
+            (new EncounterIssue())->create([
+                'encounter_id' => $encounterId,
+                'issue_type' => $issueType,
+                'issue_id' => $issueId,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+
+        return ['success' => true, 'message' => 'Linked successfully.'];
+    }
+
+    /**
+     * Removes one issue-to-encounter link. See linkIssue() for why this
+     * bypasses update()/syncIssues().
+     */
+    public function unlinkIssue(int $encounterId, string $issueType, int $issueId): array
+    {
+        (new EncounterIssue())
+            ->where('encounter_id', $encounterId)
+            ->where('issue_type', $issueType)
+            ->where('issue_id', $issueId)
+            ->delete();
+
+        return ['success' => true, 'message' => 'Unlinked successfully.'];
     }
 
     /**

@@ -283,6 +283,7 @@ import { initIndigentPatientsReport } from "../reports/indigent-patients.js";
 import { IndigentPatientsView } from "../reports/indigent-patients.view.js";
 import { initUniqueSeenPatientsReport } from "../reports/unique-seen-patients.js";
 import { UniqueSeenPatientsView } from "../reports/unique-seen-patients.view.js";
+import { openIssuesPopup } from "../patient-issues/patient-issues.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";
@@ -351,6 +352,14 @@ export function Dashboard()
     // -- activating each of them in turn would render, then immediately
     // clobber, every earlier tab's DOM before its deferred init() runs.
     function openDashboardTab(tabId, title, activate = true) {
+        // Issues is a global overlay modal (like the reference OpenEMR
+        // popup it's named after), not a tab -- it needs to be reachable
+        // from whatever tab is currently active, not replace it.
+        if (tabId === 'popup_issues') {
+            openIssuesPopup();
+            return;
+        }
+
         if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_records_request' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit' || tabId === 'fee_sheet' || tabId === 'checkout') {
             const activePatient = getLastActivePatientChart();
             if (!activePatient || activePatient === "null") {
