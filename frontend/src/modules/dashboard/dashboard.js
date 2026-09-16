@@ -286,6 +286,7 @@ import { UniqueSeenPatientsView } from "../reports/unique-seen-patients.view.js"
 import { openIssuesPopup } from "../patient-issues/patient-issues.js";
 import { openExportPopup } from "../patient-export/patient-export.js";
 import { openImportPopup } from "../patient-import/patient-import.js";
+import { openAppointmentsPopup } from "../popup-appointments/popup-appointments.js";
 import { initDemographicsForm } from "../reports/demographics-form.js";
 import { DemographicsFormView } from "../reports/demographics-form.view.js";
 import { initSuperbillForm } from "../reports/superbill-form.js";

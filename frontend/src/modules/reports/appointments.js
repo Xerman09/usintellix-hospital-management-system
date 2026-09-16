@@ -1,5 +1,8 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
+import { fetchFacilities } from "../facilities/facilities.service.js";
+import { fetchProviders } from "../providers/providers.service.js";
+import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
 
 async function fetchAppointments() {
     const facilityId = document.getElementById("aptFacility")?.value || "";
@@ -105,9 +108,41 @@ function renderTable(data) {
     if (totalCanceledEl) totalCanceledEl.textContent = totalCanceled;
 }
 
-export function initAppointmentsReport() {
+export async function initAppointmentsReport() {
     const submitBtn = document.getElementById("aptSubmitBtn");
     if (submitBtn) {
         submitBtn.addEventListener("click", fetchAppointments);
+    }
+
+    await loadFilterOptions();
+}
+
+async function loadFilterOptions() {
+    const facilitySelect = document.getElementById("aptFacility");
+    const providerSelect = document.getElementById("aptProvider");
+    const categorySelect = document.getElementById("aptCategory");
+
+    const [facilitiesRes, providersRes, categoriesRes] = await Promise.all([
+        fetchFacilities(),
+        fetchProviders(),
+        fetchVisitCategories()
+    ]);
+
+    if (facilitySelect && facilitiesRes.success) {
+        facilitiesRes.data.forEach((facility) => {
+            facilitySelect.appendChild(new Option(facility.name, facility.id));
+        });
+    }
+
+    if (providerSelect && providersRes.success) {
+        providersRes.data.forEach((provider) => {
+            providerSelect.appendChild(new Option(`${provider.last_name}, ${provider.first_name}`, provider.id));
+        });
+    }
+
+    if (categorySelect && categoriesRes.success) {
+        categoriesRes.data.forEach((category) => {
+            categorySelect.appendChild(new Option(category.name, category.id));
+        });
     }
 }

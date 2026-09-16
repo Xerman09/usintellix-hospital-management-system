@@ -648,110 +648,104 @@ class ReportService
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Popups > Appointments / Reports > Visits > Appointments (same
+     * screen, reached two ways -- see frontend/src/modules/patient-
+     * appointments-popup/). Rewritten from an earlier version of this
+     * method that: joined `users` directly on `a.provider_id` even
+     * though that column is a `providers.id` FK (a different id space
+     * entirely -- effectively a broken join, matching a real user
+     * against the wrong table by coincidental id overlap or nothing at
+     * all), showed the login username instead of a real display name,
+     * hardcoded fake phone numbers ('333-444-2222' for every row) with
+     * a comment claiming the schema "might lack" phone columns (it
+     * doesn't -- they're on `patient_contacts`, one join away), ignored
+     * the `category` filter entirely despite the UI offering it, and
+     * always labelled every row "Established Patient" regardless of
+     * whether that was true. All fixed below with real joins/columns.
+     */
     public function getAppointmentsReport(array $filters = []): array
     {
-        // For appointments report, we fetch from appointments table and join with patients and users.
-        $sql = "
-            SELECT 
-                COALESCE(u.username, 'Unassigned') as provider,
-                COALESCE(u.username, 'Unassigned') as provider_display,
-                TIME_FORMAT(a.appointment_time, '%H:%i') as time,
-                CONCAT(p.first_name, ' ', p.last_name) as patient,
-                a.id as id,
-                p.phone_home as home,
-                p.phone_cell as cell,
-                'Established Patient' as type, -- simplified logic for mock UI parity
-                CONCAT('@ ', a.status) as status
-            FROM appointments a
-            LEFT JOIN users u ON a.provider_id = u.id
-            LEFT JOIN patients p ON a.patient_id = p.id
-            WHERE a.deleted_at IS NULL
-        ";
+        $where = ['a.deleted_at IS NULL'];
+        $params = [];
 
-        $params = [];
-        
         if (!empty($filters['date_from'])) {
-            $sql .= " AND a.appointment_date >= :date_from";
-            $params[':date_from'] = $filters['date_from'];
-        }
-        
-        if (!empty($filters['date_to'])) {
-            $sql .= " AND a.appointment_date <= :date_to";
-            $params[':date_to'] = $filters['date_to'];
-        }
-        
-        if (!empty($filters['facility_id']) && $filters['facility_id'] !== 'all') {
-            $sql .= " AND a.facility_id = :facility_id";
-            $params[':facility_id'] = $filters['facility_id'];
-        }
-        
-        if (!empty($filters['provider_id']) && $filters['provider_id'] !== 'all') {
-            // Can be comma separated if multiple selected
-            $providerIds = explode(',', $filters['provider_id']);
-            $inQuery = implode(',', array_fill(0, count($providerIds), '?'));
-            $sql .= " AND a.provider_id IN ($inQuery)";
-            foreach ($providerIds as $i => $pid) {
-                $params[$i+1] = $pid; // Note: PDO with ? uses 1-indexed binds
-            }
-        }
-        
-        // Let's use named parameters for everything else and question marks for IN clause is tricky to mix.
-        // I will just use question marks for all bindings if we have IN clause.
-        
-        // Rewrite to use PDO securely without mixing named/positional.
-        $sql = "
-            SELECT 
-                COALESCE(u.username, 'Unassigned') as provider,
-                TIME_FORMAT(a.appointment_time, '%H:%i') as time,
-                CONCAT(p.first_name, ' ', p.last_name) as patient,
-                a.id as id,
-                '333-444-2222' as home, /* Hardcoded as patients table might lack standard phone columns in some schema versions */
-                '222-444-2222' as cell, /* Hardcoded as patients table might lack standard phone columns in some schema versions */
-                'Established Patient' as type,
-                CONCAT('@ ', a.status) as status
-            FROM appointments a
-            LEFT JOIN users u ON a.provider_id = u.id
-            LEFT JOIN patients p ON a.patient_id = p.id
-            WHERE a.deleted_at IS NULL
-        ";
-        
-        $params = [];
-        
-        if (!empty($filters['date_from'])) {
-            $sql .= " AND a.appointment_date >= ?";
+            $where[] = 'a.appointment_date >= ?';
             $params[] = $filters['date_from'];
         }
-        
+
         if (!empty($filters['date_to'])) {
-            $sql .= " AND a.appointment_date <= ?";
+            $where[] = 'a.appointment_date <= ?';
             $params[] = $filters['date_to'];
         }
-        
+
         if (!empty($filters['facility_id']) && $filters['facility_id'] !== 'all') {
-            $sql .= " AND a.facility_id = ?";
+            $where[] = 'a.facility_id = ?';
             $params[] = $filters['facility_id'];
         }
-        
+
         if (!empty($filters['provider_id']) && $filters['provider_id'] !== 'all') {
-            $providerIds = explode(',', $filters['provider_id']);
-            $inQuery = implode(',', array_fill(0, count($providerIds), '?'));
-            $sql .= " AND a.provider_id IN ($inQuery)";
-            foreach ($providerIds as $pid) {
-                $params[] = $pid;
+            $providerIds = array_filter(explode(',', $filters['provider_id']));
+
+            if ($providerIds) {
+                $where[] = 'a.provider_id IN (' . implode(',', array_fill(0, count($providerIds), '?')) . ')';
+                foreach ($providerIds as $pid) {
+                    $params[] = $pid;
+                }
             }
         }
 
         if (!empty($filters['status']) && $filters['status'] !== 'all') {
-            $sql .= " AND a.status = ?";
+            $where[] = 'a.status = ?';
             $params[] = $filters['status'];
         }
-        
-        $sql .= " ORDER BY a.appointment_date ASC, a.appointment_time ASC";
-        
-        $stmt = Database::connection()->prepare($sql);
+
+        if (!empty($filters['category']) && $filters['category'] !== 'all') {
+            $where[] = 'a.visit_category_id = ?';
+            $params[] = $filters['category'];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT
+                a.id,
+                TRIM(CONCAT(pe.last_name, ', ', pe.first_name)) AS provider,
+                TIME_FORMAT(a.appointment_time, '%H:%i') AS time,
+                TRIM(CONCAT(pt.last_name, ', ', pt.first_name)) AS patient,
+                pc.home_phone AS home,
+                pc.mobile_phone AS cell,
+                CASE WHEN prior.prior_count > 0 THEN 'Established Patient' ELSE 'New Patient' END AS type,
+                a.status
+             FROM appointments a
+             LEFT JOIN providers pr ON pr.id = a.provider_id
+             LEFT JOIN employees pe ON pe.id = pr.employee_id
+             LEFT JOIN patients pt ON pt.id = a.patient_id
+             LEFT JOIN patient_contacts pc ON pc.patient_id = pt.id
+             LEFT JOIN (
+                 SELECT a2.id, COUNT(a3.id) AS prior_count
+                 FROM appointments a2
+                 LEFT JOIN appointments a3 ON a3.patient_id = a2.patient_id AND a3.deleted_at IS NULL
+                     AND (a3.appointment_date < a2.appointment_date
+                          OR (a3.appointment_date = a2.appointment_date AND a3.id < a2.id))
+                 GROUP BY a2.id
+             ) prior ON prior.id = a.id
+             WHERE " . implode(' AND ', $where) . "
+             ORDER BY a.appointment_date ASC, a.appointment_time ASC
+             LIMIT 1000"
+        );
         $stmt->execute($params);
-        
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        return array_map(function (array $r) {
+            return [
+                'id' => (int) $r['id'],
+                'provider' => $r['provider'] ?: 'Unassigned',
+                'time' => $r['time'],
+                'patient' => $r['patient'],
+                'home' => $r['home'] ?: '',
+                'cell' => $r['cell'] ?: '',
+                'type' => $r['type'],
+                'status' => ucwords(str_replace('_', ' ', $r['status']))
+            ];
+        }, $stmt->fetchAll(\PDO::FETCH_ASSOC));
     }
 
     public function getPatientFlowBoardReport(array $filters = []): array
