@@ -299,6 +299,7 @@ import { MessageListView } from "../reports/message-list.view.js";
 import { openPaymentPopup } from "../payment/payment.js";
 import { openCheckoutPopup } from "../popup-checkout/popup-checkout.js";
 import { openLetterPopup } from "../popup-letter/popup-letter.js";
+import { openChartLabelPopup } from "../popup-chart-label/popup-chart-label.js";
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
@@ -397,6 +398,11 @@ export function Dashboard()
 
         if (tabId === 'popup_letter') {
             openLetterPopup();
+            return;
+        }
+
+        if (tabId === 'popup_chart_label') {
+            openChartLabelPopup();
             return;
         }
 
