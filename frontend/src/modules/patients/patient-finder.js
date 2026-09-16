@@ -2,6 +2,7 @@ import { getUser } from "../../core/session.js";
 import { fetchPatients } from "./patients.service.js";
 import { openPatientChartTab } from "./patients-list.js?v=54";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
+import { consumePendingFinderSearch } from "../../core/pending-finder-search.js";
 
 let finderPatientsCache = [];
 
@@ -29,9 +30,13 @@ export async function initPatientFinder()
     const searchInput = document.getElementById("finderSearchInput");
 
     searchInput.addEventListener("input", () => renderFinderResults(searchInput.value));
+
+    const pendingTerm = consumePendingFinderSearch();
+
+    searchInput.value = pendingTerm || "";
     searchInput.focus();
 
-    renderFinderResults("");
+    renderFinderResults(searchInput.value);
 }
 
 function renderFinderResults(term)

@@ -5,6 +5,7 @@ import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
+import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { HelpView } from "../help/help.view.js";
@@ -1203,6 +1204,26 @@ export function Dashboard()
             openDashboardTab(tabId, title);
         });
     });
+
+    // Top navbar "Search by any demographic..." box -- pressing Enter hands
+    // the typed term off to the Finder tab (same one-shot localStorage
+    // mailbox pattern already used to hand a patient off to the Patients
+    // tab, see pending-patient-view.js) and opens/switches to it, so it
+    // runs a real search immediately instead of just sitting there.
+    const navSearchInput = document.querySelector('.nav-search');
+    if (navSearchInput) {
+        navSearchInput.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+
+            const term = navSearchInput.value.trim();
+            if (!term) return;
+
+            setPendingFinderSearch(term);
+            openDashboardTab('patient_finder', 'Finder');
+            navSearchInput.value = '';
+            navSearchInput.blur();
+        });
+    }
 
     function updatePatientNavState() {
         const activePatient = getLastActivePatientChart();
