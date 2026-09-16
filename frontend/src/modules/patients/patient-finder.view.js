@@ -4,27 +4,26 @@ export function PatientFinderView()
 <style>
 .fnd-page { width: 100%; font-size: 13.5px; }
 
-/* The green header + filter bars are a fixed brand color, not a themed
-   surface -- same "colored accent bar stays the same color in both
-   themes" precedent already used for the Messages panel header. */
+/* The green header + filter bars were originally a fixed brand color, but are
+   now aligned to the main system theme. */
 .fnd-topbar {
     display: flex; align-items: center; justify-content: space-between;
-    background: #4a7c1f; color: #fff; padding: 14px 18px; border-radius: 8px 8px 0 0;
+    background: var(--bg-surface); border: 1px solid var(--border-color); border-bottom: none; padding: 14px 18px; border-radius: 8px 8px 0 0;
 }
 .fnd-topbar-left { display: flex; align-items: center; gap: 18px; }
-.fnd-topbar h1 { margin: 0; font-size: 19px; font-weight: 700; color: #fff; }
+.fnd-topbar h1 { margin: 0; font-size: 19px; font-weight: 700; color: var(--text-primary); }
 .fnd-add-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    background: none; border: none; color: #fff; font-size: 14px; font-weight: 600;
+    background: none; border: none; color: var(--accent); font-size: 14px; font-weight: 600;
     cursor: pointer; padding: 4px 0;
 }
 .fnd-add-btn:hover { text-decoration: underline; }
 .fnd-topbar-icons { display: flex; align-items: center; gap: 10px; }
 .fnd-icon-btn {
-    background: none; border: none; color: #fff; opacity: .85; cursor: pointer;
+    background: none; border: none; color: var(--text-muted); opacity: .85; cursor: pointer;
     width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 4px;
 }
-.fnd-icon-btn:hover { opacity: 1; background: rgba(255,255,255,.15); }
+.fnd-icon-btn:hover { opacity: 1; color: var(--text-primary); background: var(--bg-surface-alt); }
 
 .fnd-body {
     border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px;
@@ -50,12 +49,13 @@ export function PatientFinderView()
 .fnd-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 6px; }
 .fnd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
-.fnd-filter-row th { background: #6a9e34; padding: 8px; font-weight: normal; }
+.fnd-filter-row th { background: var(--bg-surface-alt); padding: 8px; font-weight: normal; border-bottom: 1px solid var(--border-color); }
 .fnd-filter-row input {
-    width: 100%; box-sizing: border-box; padding: 6px 10px; border: none; border-radius: 4px;
-    font-size: 12.5px; background: #fff; color: #1c2534;
+    width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px;
+    font-size: 12.5px; background: var(--bg-surface); color: var(--text-primary);
 }
-.fnd-filter-row input::placeholder { color: #8b98ac; }
+.fnd-filter-row input:focus { outline: none; border-color: var(--accent); }
+.fnd-filter-row input::placeholder { color: var(--text-muted); }
 
 .fnd-header-row th {
     text-align: left; padding: 9px 12px; background: var(--bg-surface-alt); color: var(--text-primary);
