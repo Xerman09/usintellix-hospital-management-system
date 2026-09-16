@@ -181,7 +181,7 @@ class ReportController extends Controller
     public function superbillReport(): void
     {
         $request = new Request();
-        $filters = $request->only(['date_from', 'date_to', 'patient_id']);
+        $filters = $request->only(['date_from', 'date_to', 'patient_id', 'encounter_id']);
         $data = $this->reportService->getSuperbillReport($filters);
         $this->success($data, 'Superbill report retrieved successfully.');
     }

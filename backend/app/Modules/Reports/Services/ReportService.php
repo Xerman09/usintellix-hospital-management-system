@@ -899,31 +899,158 @@ class ReportService
     {
         // For superbill, we'll fetch the main clinic's details to display like the screenshot.
         // We'll just fetch the first facility and return it as the clinic info.
-        
+
         $sql = "
-            SELECT 
+            SELECT
                 name,
                 physical_address_line1 as street,
-                CONCAT(physical_city, ', ', physical_state, ' ', physical_zip) as city_state_zip
-            FROM facilities 
+                CONCAT(physical_city, ', ', physical_state, ' ', physical_zip) as city_state_zip,
+                physical_country as country
+            FROM facilities
             WHERE deleted_at IS NULL
             ORDER BY id ASC
             LIMIT 1
         ";
-        
+
         $stmt = Database::connection()->prepare($sql);
         $stmt->execute();
         $facility = $stmt->fetch(\PDO::FETCH_ASSOC);
-        
+
         if (!$facility) {
             $facility = [
                 'name' => 'Great Clinic',
                 'street' => '55 Roadsby Road',
-                'city_state_zip' => 'Longview, FL 333222'
+                'city_state_zip' => 'Longview, FL 333222',
+                'country' => 'USA'
             ];
         }
 
-        return ['clinic' => $facility];
+        $result = ['clinic' => $facility];
+
+        $patientId = !empty($filters['patient_id']) ? (int) $filters['patient_id'] : null;
+        if ($patientId) {
+            $result += $this->getPatientSuperbillData($patientId, !empty($filters['encounter_id']) ? (int) $filters['encounter_id'] : null);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Popups > Superbill -- the per-patient/per-visit fields the generic
+     * clinic-header-only superbill (used by Reports > Visits > Superbill,
+     * which has no patient context) never populated. Defaults to the
+     * patient's most recent encounter when none is specified.
+     */
+    private function getPatientSuperbillData(int $patientId, ?int $encounterId = null): array
+    {
+        $db = Database::connection();
+
+        $stmt = $db->prepare(
+            "SELECT id, patient_no, first_name, last_name, birthdate
+             FROM patients WHERE id = ? AND deleted_at IS NULL"
+        );
+        $stmt->execute([$patientId]);
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$patient) {
+            return ['patient' => null, 'encounter' => null, 'insurance' => null, 'prior_visit' => null, 'charges' => [], 'totals' => null];
+        }
+
+        $encounterSql =
+            "SELECT e.id, e.date_of_service, e.reason_for_visit, e.billing_note,
+                    NULLIF(TRIM(CONCAT(epe.first_name, ' ', epe.last_name)), '') AS provider_name,
+                    NULLIF(TRIM(CONCAT(rpe.first_name, ' ', rpe.last_name)), '') AS referring_provider_name,
+                    (SELECT COUNT(*) FROM encounters e3
+                     WHERE e3.patient_id = e.patient_id AND e3.deleted_at IS NULL
+                       AND (e3.date_of_service < e.date_of_service
+                            OR (e3.date_of_service = e.date_of_service AND e3.id < e.id))) AS prior_count
+             FROM encounters e
+             LEFT JOIN providers ep ON ep.id = e.encounter_provider_id
+             LEFT JOIN employees epe ON epe.id = ep.employee_id
+             LEFT JOIN providers rp ON rp.id = e.referring_provider_id
+             LEFT JOIN employees rpe ON rpe.id = rp.employee_id
+             WHERE e.patient_id = ? AND e.deleted_at IS NULL";
+
+        if ($encounterId) {
+            $stmt = $db->prepare($encounterSql . " AND e.id = ?");
+            $stmt->execute([$patientId, $encounterId]);
+        } else {
+            $stmt = $db->prepare($encounterSql . " ORDER BY e.date_of_service DESC, e.id DESC LIMIT 1");
+            $stmt->execute([$patientId]);
+        }
+        $encounter = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $priorVisit = null;
+        $charges = [];
+        $totals = null;
+        $insurance = null;
+
+        if ($encounter) {
+            $stmt = $db->prepare(
+                "SELECT date_of_service FROM encounters
+                 WHERE patient_id = ? AND deleted_at IS NULL AND id != ?
+                   AND (date_of_service < ? OR (date_of_service = ? AND id < ?))
+                 ORDER BY date_of_service DESC, id DESC LIMIT 1"
+            );
+            $stmt->execute([$patientId, $encounter['id'], $encounter['date_of_service'], $encounter['date_of_service'], $encounter['id']]);
+            $priorVisit = $stmt->fetchColumn() ?: null;
+
+            $stmt = $db->prepare(
+                "SELECT code_type, code, description, fee, units, (fee * units) AS total
+                 FROM encounter_billing_codes
+                 WHERE encounter_id = ? AND deleted_at IS NULL
+                 ORDER BY id ASC"
+            );
+            $stmt->execute([$encounter['id']]);
+            $charges = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $chargeTotal = array_sum(array_column($charges, 'total'));
+
+            $stmt = $db->prepare(
+                "SELECT COALESCE(SUM(payment_amount), 0) AS payments, COALESCE(SUM(adjustment_amount), 0) AS adjustments
+                 FROM patient_ledger_payments
+                 WHERE encounter_id = ? AND deleted_at IS NULL"
+            );
+            $stmt->execute([$encounter['id']]);
+            $paymentRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $totals = [
+                'charges' => round($chargeTotal, 2),
+                'payments' => round((float) $paymentRow['payments'], 2),
+                'adjustments' => round((float) $paymentRow['adjustments'], 2),
+                'balance' => round($chargeTotal - (float) $paymentRow['payments'] - (float) $paymentRow['adjustments'], 2)
+            ];
+
+            $encounter['is_new_patient'] = ((int) $encounter['prior_count']) === 0;
+            unset($encounter['prior_count']);
+        }
+
+        $stmt = $db->prepare(
+            "SELECT i.name FROM patient_insurances pi
+             JOIN insurances i ON i.id = pi.insurance_id
+             WHERE pi.patient_id = ?
+             ORDER BY FIELD(pi.insurance_type, 'primary', 'secondary', 'tertiary'), pi.id ASC
+             LIMIT 1"
+        );
+        $stmt->execute([$patientId]);
+        $insuranceName = $stmt->fetchColumn();
+        if ($insuranceName) {
+            $insurance = ['name' => $insuranceName];
+        }
+
+        return [
+            'patient' => [
+                'id' => (int) $patient['id'],
+                'patient_no' => $patient['patient_no'],
+                'name' => trim($patient['first_name'] . ' ' . $patient['last_name']),
+                'dob' => $patient['birthdate']
+            ],
+            'encounter' => $encounter,
+            'insurance' => $insurance,
+            'prior_visit' => $priorVisit,
+            'charges' => $charges,
+            'totals' => $totals
+        ];
     }
 
     public function getX12Partners(): array
