@@ -30,7 +30,8 @@ class DrugInventoryController extends Controller
             'warehouse_id' => $request->input('warehouse_id'),
             'product_type' => $request->input('product_type'),
             'show_empty_lots' => $request->input('show_empty_lots'),
-            'show_inactive' => $request->input('show_inactive')
+            'show_inactive' => $request->input('show_inactive'),
+            'days' => $request->input('days')
         ]);
 
         $this->success($rows, 'Inventory retrieved successfully.');

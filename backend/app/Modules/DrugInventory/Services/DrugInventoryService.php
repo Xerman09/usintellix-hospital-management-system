@@ -30,11 +30,15 @@ class DrugInventoryService
     ];
 
     /**
-     * Inventory > Management: one row per drug lot, joined with the
+     * Inventory > Management (and Reports > Inventory > List, which
+     * calls this same method): one row per drug lot, joined with the
      * drug's own catalog fields, warehouse, and facility names. Filters
-     * match the screen's own controls: facility_id, warehouse_id,
+     * match the screens' own controls: facility_id, warehouse_id,
      * product_type, show_empty_lots (include quantity_on_hand = 0),
-     * show_inactive (include inactive drugs/lots).
+     * show_inactive (include inactive drugs/lots), days (only lots
+     * received in the last N days, via `created_at` -- optional, used
+     * by the Reports screen's "For the past N days" filter and ignored
+     * by Management, which has no such control).
      */
     public function listLots(array $filters): array
     {
@@ -63,6 +67,11 @@ class DrugInventoryService
         if (empty($filters['show_inactive'])) {
             $where[] = 'd.is_active = 1';
             $where[] = 'dil.is_active = 1';
+        }
+
+        if (!empty($filters['days'])) {
+            $where[] = 'dil.created_at >= :since';
+            $params['since'] = date('Y-m-d H:i:s', strtotime('-' . (int) $filters['days'] . ' days'));
         }
 
         $stmt = Database::connection()->prepare(

@@ -6,33 +6,55 @@ export function InventoryListReportView() {
     font-size: 13.5px;
 }
 
-.il-title {
-    margin: 0 0 14px;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.il-filter-panel {
+.il-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 14px;
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 14px 18px;
-    margin-bottom: 14px;
+    gap: 10px 14px;
+    margin-bottom: 16px;
 }
 
-.il-filter-panel select {
-    height: 32px;
-    padding: 0 10px;
+.il-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-right: 6px;
+}
+
+.il-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    flex: 1;
+}
+
+.il-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.il-filter-group label {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    white-space: nowrap;
+}
+
+.il-filters select,
+.il-filters input[type="number"] {
+    height: 30px;
+    padding: 0 8px;
     border-radius: 5px;
     border: 1px solid var(--border-color);
     background: var(--bg-surface);
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 12.5px;
+}
+
+.il-filters input[type="number"] {
+    width: 70px;
 }
 
 .il-checkbox-label {
@@ -44,7 +66,13 @@ export function InventoryListReportView() {
     white-space: nowrap;
 }
 
-.il-refresh-btn {
+.il-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.il-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -55,12 +83,12 @@ export function InventoryListReportView() {
     background: var(--accent);
     color: white;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12.5px;
     cursor: pointer;
-    margin-left: auto;
+    white-space: nowrap;
 }
 
-.il-refresh-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.il-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .il-table-wrap {
     overflow-x: auto;
@@ -117,25 +145,41 @@ export function InventoryListReportView() {
 </style>
 
 <div class="il-page">
-    <h2 class="il-title">Report - Inventory List</h2>
-
-    <div class="il-filter-panel">
-        <select id="ilFacilityFilter"><option value="">-- All Facilities --</option></select>
-        <select id="ilWarehouseFilter"><option value="">All Warehouses</option></select>
-        <select id="ilProductTypeFilter"><option value="">All Product Types</option></select>
-        <label class="il-checkbox-label"><input type="checkbox" id="ilShowEmptyLots"> Show empty lots</label>
-        <label class="il-checkbox-label"><input type="checkbox" id="ilShowInactive"> Show inactive</label>
-        <button type="button" class="il-refresh-btn" id="ilRefreshBtn">Refresh</button>
+    <div class="il-toolbar">
+        <h2 class="il-title">Inventory List</h2>
+        <div class="il-filters">
+            <div class="il-filter-group">
+                <select id="ilFacilityFilter"><option value="">-- All Facilities --</option></select>
+            </div>
+            <div class="il-filter-group">
+                <select id="ilWarehouseFilter"><option value="">All Warehouses</option></select>
+            </div>
+            <div class="il-filter-group">
+                <label>For the past</label>
+                <input type="number" min="1" id="ilDaysFilter" value="365">
+                <label>days</label>
+            </div>
+            <div class="il-filter-group">
+                <select id="ilProductTypeFilter"><option value="">All Product Types</option></select>
+            </div>
+            <label class="il-checkbox-label"><input type="checkbox" id="ilShowInactive"> Include Inactive</label>
+            <div class="il-filter-group">
+                <select id="ilViewMode">
+                    <option value="summary">Summary</option>
+                    <option value="detail">Detail</option>
+                </select>
+            </div>
+        </div>
+        <div class="il-actions">
+            <button type="button" class="il-btn" id="ilRefreshBtn">Refresh</button>
+            <button type="button" class="il-btn" id="ilExportCsvBtn">Export to CSV</button>
+            <button type="button" class="il-btn" id="ilPrintBtn">Print</button>
+        </div>
     </div>
 
     <div class="il-table-wrap">
-        <table class="il-table">
-            <thead>
-                <tr>
-                    <th>Name</th><th>NDC</th><th>Form</th><th>Size</th><th>Unit</th>
-                    <th>Lot</th><th>Facility</th><th>Warehouse</th><th>QOH</th><th>Expires</th>
-                </tr>
-            </thead>
+        <table class="il-table" id="ilTable">
+            <thead id="ilTableHead"></thead>
             <tbody id="ilTableBody"><tr><td colspan="10" class="il-empty-state">Loading...</td></tr></tbody>
         </table>
     </div>
