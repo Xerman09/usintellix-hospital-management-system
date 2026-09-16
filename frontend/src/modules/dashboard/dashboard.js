@@ -373,6 +373,11 @@ export function Dashboard()
             return;
         }
 
+        if (tabId === 'popup_appointments') {
+            openAppointmentsPopup();
+            return;
+        }
+
         if (tabId === 'patient_dashboard' || tabId === 'patient_visits_history' || tabId === 'patient_records_history' || tabId === 'patient_records_request' || tabId === 'patient_create_visit' || tabId === 'patient_current_visit' || tabId === 'fee_sheet' || tabId === 'checkout') {
             const activePatient = getLastActivePatientChart();
             if (!activePatient || activePatient === "null") {
