@@ -6,13 +6,25 @@ use App\Core\Database;
 use App\Modules\DrugInventory\Models\Drug;
 use App\Modules\DrugInventory\Models\DrugInventoryLot;
 use App\Modules\DrugInventory\Models\DrugInventoryTransfer;
+use App\Modules\DrugInventory\Models\DrugPrescriptionTemplate;
 use PDO;
 
 class DrugInventoryService
 {
     public const PRODUCT_TYPES = ['Drug', 'Supply', 'Vaccine', 'Equipment', 'Other'];
 
-    private const DRUG_FIELDS = ['name', 'ndc', 'form', 'size', 'unit', 'product_type', 'is_consumable'];
+    public const FORMS = ['Tablet', 'Capsule', 'Liquid', 'Injection', 'Cream', 'Ointment', 'Patch', 'Inhaler', 'Drops', 'Suppository', 'Other'];
+
+    public const ROUTES = ['Oral', 'Intravenous', 'Intramuscular', 'Subcutaneous', 'Topical', 'Rectal', 'Inhalation', 'Sublingual', 'Other'];
+
+    public const UNITS = ['mg', 'mcg', 'g', 'mL', 'L', 'IU', 'tablet(s)', 'capsule(s)', 'drop(s)', 'puff(s)', 'application(s)'];
+
+    public const INTERVALS = ['QD', 'BID', 'TID', 'QID', 'QHS', 'Q4H', 'Q6H', 'Q8H', 'PRN', 'Other'];
+
+    private const DRUG_FIELDS = [
+        'name', 'ndc', 'rxcui', 'form', 'size', 'unit', 'route', 'product_type',
+        'on_order', 'min_level_global', 'max_level_global', 'min_level_onsite', 'max_level_onsite'
+    ];
 
     /**
      * Inventory > Management: one row per drug lot, joined with the
@@ -113,17 +125,27 @@ class DrugInventoryService
             return ['success' => false, 'message' => 'Validation failed.', 'errors' => $errors];
         }
 
+        $numericFields = ['on_order', 'min_level_global', 'max_level_global', 'min_level_onsite', 'max_level_onsite'];
         $drugValues = [];
 
         foreach (self::DRUG_FIELDS as $field) {
             $value = $data[$field] ?? null;
+
+            if (in_array($field, $numericFields, true)) {
+                $drugValues[$field] = ($value === '' || $value === null) ? 0 : (float) $value;
+                continue;
+            }
+
             $drugValues[$field] = ($value === '' || $value === null) ? null : $value;
         }
 
         $drugValues['name'] = trim($drugValues['name']);
         $drugValues['product_type'] = $drugValues['product_type'] ?: 'Drug';
+        $drugValues['is_active'] = !empty($data['is_active']) ? 1 : 0;
         $drugValues['is_consumable'] = !empty($data['is_consumable']) ? 1 : 0;
-        $drugValues['is_active'] = 1;
+        $drugValues['allow_inventory'] = array_key_exists('allow_inventory', $data) ? (!empty($data['allow_inventory']) ? 1 : 0) : 1;
+        $drugValues['allow_multiple_lots'] = array_key_exists('allow_multiple_lots', $data) ? (!empty($data['allow_multiple_lots']) ? 1 : 0) : 1;
+        $drugValues['allow_combining_lots'] = !empty($data['allow_combining_lots']) ? 1 : 0;
         $drugValues['created_at'] = date('Y-m-d H:i:s');
         $drugValues['created_by'] = $userId;
 
@@ -149,7 +171,50 @@ class DrugInventoryService
             return ['success' => false, 'message' => 'Drug saved, but failed to create its initial lot.'];
         }
 
+        $this->saveTemplates($drugId, $data['templates'] ?? [], $userId);
+
         return ['success' => true, 'message' => 'Drug added successfully.', 'data' => ['drug_id' => $drugId, 'lot_id' => $lotId]];
+    }
+
+    /**
+     * Saves the "Templates" grid rows from the Add Drug form -- blank
+     * rows (no name/schedule/basic_units entered at all) are silently
+     * skipped rather than saved as empty records, matching the form's
+     * own "3 blank starter rows" UX where most are left untouched.
+     */
+    private function saveTemplates(int $drugId, array $templates, int $userId): void
+    {
+        foreach ($templates as $template) {
+            $name = trim((string) ($template['name'] ?? ''));
+            $schedule = trim((string) ($template['schedule'] ?? ''));
+            $basicUnits = trim((string) ($template['basic_units'] ?? ''));
+
+            if ($name === '' && $schedule === '' && $basicUnits === '') {
+                continue;
+            }
+
+            (new DrugPrescriptionTemplate())->create([
+                'drug_id' => $drugId,
+                'name' => $name ?: null,
+                'schedule' => $schedule ?: null,
+                'interval_type' => $template['interval_type'] ?: null,
+                'basic_units' => $basicUnits ?: null,
+                'refills' => (int) ($template['refills'] ?? 0),
+                'is_standard' => !empty($template['is_standard']) ? 1 : 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => $userId
+            ]);
+        }
+    }
+
+    public function listTemplates(int $drugId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT * FROM drug_prescription_templates WHERE drug_id = :drug_id AND deleted_at IS NULL ORDER BY id ASC"
+        );
+        $stmt->execute(['drug_id' => $drugId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**

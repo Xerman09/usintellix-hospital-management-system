@@ -44,7 +44,11 @@ class DrugInventoryController extends Controller
         $result = [
             'warehouses' => [],
             'facilities' => [],
-            'product_types' => DrugInventoryService::PRODUCT_TYPES
+            'product_types' => DrugInventoryService::PRODUCT_TYPES,
+            'forms' => DrugInventoryService::FORMS,
+            'routes' => DrugInventoryService::ROUTES,
+            'units' => DrugInventoryService::UNITS,
+            'intervals' => DrugInventoryService::INTERVALS
         ];
 
         try {
@@ -68,7 +72,12 @@ class DrugInventoryController extends Controller
         $user = Session::get('user');
 
         $result = $this->service->createDrug(
-            $request->only(['name', 'ndc', 'form', 'size', 'unit', 'product_type', 'is_consumable', 'lot_number', 'facility_id', 'warehouse_id', 'quantity_on_hand', 'expires_date']),
+            $request->only([
+                'name', 'ndc', 'rxcui', 'form', 'size', 'unit', 'route', 'product_type',
+                'is_active', 'is_consumable', 'allow_inventory', 'allow_multiple_lots', 'allow_combining_lots',
+                'on_order', 'min_level_global', 'max_level_global', 'min_level_onsite', 'max_level_onsite',
+                'lot_number', 'facility_id', 'warehouse_id', 'quantity_on_hand', 'expires_date', 'templates'
+            ]),
             (int) $user['id']
         );
 

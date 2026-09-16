@@ -265,6 +265,112 @@ export function DrugInventoryView() {
 }
 
 .di-modal-readonly strong { color: var(--text-primary); }
+
+.di-inline-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 14px;
+}
+
+.di-inline-checkboxes-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.di-limits-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.di-limits-table th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+}
+
+.di-limits-table td {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+}
+
+.di-limits-table td:first-child {
+    font-weight: 600;
+    color: var(--text-primary);
+    width: 60px;
+}
+
+.di-limits-table input {
+    width: 100%;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    box-sizing: border-box;
+}
+
+.di-templates-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.di-templates-table th {
+    text-align: left;
+    padding: 7px 8px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.di-templates-table td {
+    padding: 5px 6px;
+    border: 1px solid var(--border-color);
+}
+
+.di-templates-table input[type="text"],
+.di-templates-table input[type="number"],
+.di-templates-table select {
+    width: 100%;
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.di-templates-table input[type="checkbox"] {
+    display: block;
+    margin: 0 auto;
+}
+
+.di-remove-template-row {
+    border: none;
+    background: none;
+    color: #b91c1c;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+}
 </style>
 
 <div class="di-page">
@@ -330,25 +436,70 @@ export function DrugInventoryView() {
         <div id="diAddDrugAlert"></div>
 
         <form id="diAddDrugForm">
-            <div class="di-modal-section-title">Drug</div>
-            <div class="di-form-grid">
-                <div class="di-field" style="grid-column:1 / -1;">
-                    <label>Name</label>
-                    <input type="text" id="di_name">
-                    <span class="form-error" id="err-di_name"></span>
+            <div class="di-field">
+                <label>Name</label>
+                <input type="text" id="di_name">
+                <span class="form-error" id="err-di_name"></span>
+            </div>
+
+            <div class="di-inline-checkboxes">
+                <span class="di-inline-checkboxes-label">Attributes:</span>
+                <label class="di-checkbox-label"><input type="checkbox" id="di_is_active" checked> Active</label>
+                <label class="di-checkbox-label"><input type="checkbox" id="di_is_consumable"> Consumable</label>
+            </div>
+
+            <div class="di-inline-checkboxes">
+                <span class="di-inline-checkboxes-label">Allow:</span>
+                <label class="di-checkbox-label"><input type="checkbox" id="di_allow_inventory" checked> Inventory</label>
+                <label class="di-checkbox-label"><input type="checkbox" id="di_allow_multiple_lots" checked> Multiple Lots</label>
+                <label class="di-checkbox-label"><input type="checkbox" id="di_allow_combining_lots"> Combining Lots</label>
+            </div>
+
+            <div class="di-field"><label>NDC Number</label><input type="text" id="di_ndc"></div>
+            <div class="di-field"><label>RXCUI Code</label><input type="text" id="di_rxcui"></div>
+            <div class="di-field"><label>On Order</label><input type="number" step="0.001" id="di_on_order" value="0"></div>
+
+            <div class="di-modal-section-title">Limits</div>
+            <table class="di-limits-table">
+                <thead><tr><th>Units</th><th>Global</th><th>On Site</th></tr></thead>
+                <tbody>
+                    <tr><td>Min</td><td><input type="number" step="0.001" id="di_min_level_global" value="0"></td><td><input type="number" step="0.001" id="di_min_level_onsite" value="0"></td></tr>
+                    <tr><td>Max</td><td><input type="number" step="0.001" id="di_max_level_global" value="0"></td><td><input type="number" step="0.001" id="di_max_level_onsite" value="0"></td></tr>
+                </tbody>
+            </table>
+
+            <div class="di-form-grid" style="margin-top:16px;">
+                <div class="di-field">
+                    <label>Form</label>
+                    <select id="di_form"></select>
                 </div>
-                <div class="di-field"><label>NDC</label><input type="text" id="di_ndc"></div>
-                <div class="di-field"><label>Form</label><input type="text" id="di_form" placeholder="e.g. tablet, capsule"></div>
                 <div class="di-field"><label>Size</label><input type="number" step="0.001" id="di_size"></div>
-                <div class="di-field"><label>Unit</label><input type="text" id="di_unit" placeholder="e.g. mg, ml"></div>
+                <div class="di-field">
+                    <label>Units</label>
+                    <select id="di_unit"></select>
+                </div>
+                <div class="di-field">
+                    <label>Route</label>
+                    <select id="di_route"></select>
+                </div>
                 <div class="di-field">
                     <label>Product Type</label>
                     <select id="di_product_type"></select>
                 </div>
-                <div class="di-field" style="align-self:center; padding-top:18px;">
-                    <label class="di-checkbox-label"><input type="checkbox" id="di_is_consumable"> Consumable</label>
+                <div class="di-field">
+                    <label>Relate To</label>
+                    <input type="text" id="di_relate_to" disabled title="Drug relationship linking isn't available in this build">
                 </div>
             </div>
+
+            <div class="di-modal-section-title">Templates</div>
+            <div class="di-table-wrap">
+                <table class="di-templates-table">
+                    <thead><tr><th>Name</th><th>Schedule</th><th>Interval</th><th>Basic Units</th><th>Refills</th><th>Standard</th><th></th></tr></thead>
+                    <tbody id="diTemplatesBody"></tbody>
+                </table>
+            </div>
+            <button type="button" class="di-btn secondary" id="diAddTemplateRowBtn" style="margin: 8px 0 4px;">+ Add Row</button>
 
             <div class="di-modal-section-title">Initial Lot</div>
             <div class="di-form-grid">

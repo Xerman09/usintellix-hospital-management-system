@@ -9,8 +9,9 @@ let currentPage = 1;
 let pageSize = 10;
 let searchTerm = "";
 
-let options = { warehouses: [], facilities: [], product_types: [] };
+let options = { warehouses: [], facilities: [], product_types: [], forms: [], routes: [], units: [], intervals: [] };
 let activeTransferLot = null;
+let templateRowCount = 0;
 
 export async function initDrugInventory() {
     await loadOptions();
@@ -43,7 +44,7 @@ export async function initDrugInventory() {
 
 async function loadOptions() {
     const result = await fetchDrugInventoryOptions();
-    options = result.success ? result.data : { warehouses: [], facilities: [], product_types: [] };
+    options = result.success ? result.data : { warehouses: [], facilities: [], product_types: [], forms: [], routes: [], units: [], intervals: [] };
 
     const facilityFilter = document.getElementById("diFacilityFilter");
     const warehouseFilter = document.getElementById("diWarehouseFilter");
@@ -53,6 +54,9 @@ async function loadOptions() {
     const tranFacilityField = document.getElementById("di_tran_facility_id");
     const tranWarehouseField = document.getElementById("di_tran_warehouse_id");
     const productTypeField = document.getElementById("di_product_type");
+    const formField = document.getElementById("di_form");
+    const unitField = document.getElementById("di_unit");
+    const routeField = document.getElementById("di_route");
 
     options.facilities.forEach((f) => {
         facilityFilter.appendChild(new Option(f.name, f.id));
@@ -70,6 +74,10 @@ async function loadOptions() {
         productTypeFilter.appendChild(new Option(t, t));
         productTypeField.appendChild(new Option(t, t));
     });
+
+    formField.innerHTML = `<option value="">-- Select --</option>` + options.forms.map((f) => `<option value="${f}">${f}</option>`).join("");
+    unitField.innerHTML = `<option value="">-- Select --</option>` + options.units.map((u) => `<option value="${u}">${u}</option>`).join("");
+    routeField.innerHTML = `<option value="">-- Select --</option>` + options.routes.map((r) => `<option value="${r}">${r}</option>`).join("");
 }
 
 async function loadInventory() {
@@ -191,8 +199,11 @@ function setupAddDrugModal() {
         document.getElementById("di_quantity_on_hand").value = "0";
         document.getElementById("diAddDrugAlert").innerHTML = "";
         document.querySelectorAll("#diAddDrugForm .form-error").forEach((el) => { el.textContent = ""; });
+        resetTemplateRows();
         overlay.classList.add("open");
     });
+
+    document.getElementById("diAddTemplateRowBtn").addEventListener("click", () => addTemplateRow());
 
     document.getElementById("diCloseAddDrugModal").addEventListener("click", closeModal);
     document.getElementById("diCancelAddDrug").addEventListener("click", closeModal);
@@ -206,12 +217,24 @@ function setupAddDrugModal() {
 
         const result = await createDrug({
             name: document.getElementById("di_name").value.trim(),
-            ndc: document.getElementById("di_ndc").value.trim(),
-            form: document.getElementById("di_form").value.trim(),
-            size: document.getElementById("di_size").value,
-            unit: document.getElementById("di_unit").value.trim(),
-            product_type: document.getElementById("di_product_type").value,
+            is_active: document.getElementById("di_is_active").checked,
             is_consumable: document.getElementById("di_is_consumable").checked,
+            allow_inventory: document.getElementById("di_allow_inventory").checked,
+            allow_multiple_lots: document.getElementById("di_allow_multiple_lots").checked,
+            allow_combining_lots: document.getElementById("di_allow_combining_lots").checked,
+            ndc: document.getElementById("di_ndc").value.trim(),
+            rxcui: document.getElementById("di_rxcui").value.trim(),
+            on_order: document.getElementById("di_on_order").value,
+            min_level_global: document.getElementById("di_min_level_global").value,
+            max_level_global: document.getElementById("di_max_level_global").value,
+            min_level_onsite: document.getElementById("di_min_level_onsite").value,
+            max_level_onsite: document.getElementById("di_max_level_onsite").value,
+            form: document.getElementById("di_form").value,
+            size: document.getElementById("di_size").value,
+            unit: document.getElementById("di_unit").value,
+            route: document.getElementById("di_route").value,
+            product_type: document.getElementById("di_product_type").value,
+            templates: readTemplateRows(),
             lot_number: document.getElementById("di_lot_number").value.trim(),
             facility_id: document.getElementById("di_facility_id").value,
             warehouse_id: document.getElementById("di_warehouse_id").value,
@@ -238,6 +261,46 @@ function setupAddDrugModal() {
         showToast("Drug added successfully.", "success");
         await loadInventory();
     });
+}
+
+function resetTemplateRows() {
+    templateRowCount = 0;
+    document.getElementById("diTemplatesBody").innerHTML = "";
+    addTemplateRow();
+    addTemplateRow();
+    addTemplateRow();
+}
+
+function addTemplateRow() {
+    templateRowCount++;
+
+    const intervalOptions = `<option value="">--</option>` + options.intervals.map((i) => `<option value="${i}">${i}</option>`).join("");
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td><input type="text" data-tpl-field="name"></td>
+        <td><input type="text" data-tpl-field="schedule"></td>
+        <td><select data-tpl-field="interval_type">${intervalOptions}</select></td>
+        <td><input type="text" data-tpl-field="basic_units"></td>
+        <td><input type="number" min="0" data-tpl-field="refills" value="0"></td>
+        <td><input type="checkbox" data-tpl-field="is_standard"></td>
+        <td><button type="button" class="di-remove-template-row" title="Remove row">&times;</button></td>
+    `;
+
+    row.querySelector(".di-remove-template-row").addEventListener("click", () => row.remove());
+
+    document.getElementById("diTemplatesBody").appendChild(row);
+}
+
+function readTemplateRows() {
+    return [...document.querySelectorAll("#diTemplatesBody tr")].map((row) => ({
+        name: row.querySelector('[data-tpl-field="name"]').value.trim(),
+        schedule: row.querySelector('[data-tpl-field="schedule"]').value.trim(),
+        interval_type: row.querySelector('[data-tpl-field="interval_type"]').value,
+        basic_units: row.querySelector('[data-tpl-field="basic_units"]').value.trim(),
+        refills: row.querySelector('[data-tpl-field="refills"]').value,
+        is_standard: row.querySelector('[data-tpl-field="is_standard"]').checked
+    }));
 }
 
 function setupTransferModal() {
