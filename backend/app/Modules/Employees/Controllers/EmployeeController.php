@@ -17,7 +17,9 @@ class EmployeeController extends Controller
     }
 
     /**
-     * List employees, optionally filtered by role (admin-only).
+     * List employees, optionally filtered by role. Open to any staff
+     * role (see routes.php) so a coworker picker (e.g. Popups > Letter)
+     * can be populated without admin access.
      */
     public function index(): void
     {
