@@ -2,9 +2,9 @@ import { getUser, clearSession } from "../../core/session.js";
 import { renderAvatar } from "../../core/avatar.js";
 import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
-import { TabManager } from "../../core/tabs.js?v=2";
+import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
+import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { showToast } from "../../core/toast.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { HelpView } from "../help/help.view.js";
@@ -1194,6 +1194,7 @@ export function Dashboard()
 
             await logout();
             clearSession();
+            clearLastActivePatientChart();
             window.location.hash = "#/login";
         });
     }

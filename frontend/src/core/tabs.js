@@ -1,3 +1,5 @@
+import { clearLastActivePatientChart } from "./pending-patient-view.js";
+
 // A small categorical palette so tabs are visually distinguishable at a
 // glance even though they're all rendered at the same fixed width now --
 // each tab id deterministically maps to the same color every time (same
@@ -88,7 +90,19 @@ export class TabManager {
         if (event) event.stopPropagation();
 
         if (!this.tabs.has(id)) return;
-        
+
+        // The "active patient" flag that gates .patient-dependent-nav links
+        // (Popups, etc.) is set whenever a patient chart opens but was only
+        // ever cleared by one specific in-chart button -- closing this tab
+        // directly via its own tab-bar "x" (the normal way every other tab
+        // closes) left the flag stuck set forever, so those links stayed
+        // enabled with no patient actually open. This is the single choke
+        // point every close path (click, keyboard, programmatic) funnels
+        // through, so clearing it here covers all of them at once.
+        if (id === 'patient_chart') {
+            clearLastActivePatientChart();
+        }
+
         this.tabs.delete(id);
         
         if (this.activeTabId === id) {
