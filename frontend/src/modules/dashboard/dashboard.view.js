@@ -254,6 +254,7 @@ function staffNavLinks(role)
                         <a data-tab="reports_financial_prepayment_balances">Prepayment Balances</a>
                     </div>
                 </div>
+                <a data-tab="reports_inventory">Inventory</a>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Procedures
