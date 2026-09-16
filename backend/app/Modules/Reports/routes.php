@@ -149,6 +149,11 @@ $router->get('/reports/financial/payment-processing', [ReportController::class, 
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/reports/insurance/distribution', [ReportController::class, 'insuranceDistributionReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/reports/financial/prepayment-balances', [ReportController::class, 'prepaymentBalancesReport'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

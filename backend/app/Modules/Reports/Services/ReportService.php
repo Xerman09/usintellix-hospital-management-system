@@ -1382,6 +1382,80 @@ class ReportService
      * for the Batch Payments screen itself -- this report is just a
      * filtered, date-rangeable view over the same underlying number.
      */
+
+    /**
+     * Reports > Insurance > Distribution: encounters within a date range
+     * grouped by each patient's *primary* insurance carrier, showing
+     * total charges, visit count, and patient count per carrier, plus
+     * each carrier's share of the total patient count. Encounters for a
+     * patient with no primary insurance on file are bucketed under
+     * "Self-Pay / No Insurance" rather than dropped, since that's a real
+     * and often significant slice of a practice's patient mix.
+     *
+     * A patient can accumulate more than one `patient_insurances` row
+     * marked `insurance_type = 'primary'` over time (coverage changes),
+     * so this resolves to exactly one -- the most recently added row --
+     * per patient via a derived table before joining, rather than
+     * joining `patient_insurances` directly, which would silently
+     * fan out and inflate Charges/Visits for anyone with insurance
+     * history. Deliberately more careful than the older Eligibility
+     * report's loose `patient_insurances` join further up this file,
+     * since a financial *summary* report double-counting encounters
+     * would be a real correctness bug, not just a duplicated info row.
+     */
+    public function getInsuranceDistributionReport(array $filters = []): array
+    {
+        $where = ['e.deleted_at IS NULL'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'e.date_of_service >= ?';
+            $params[] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'e.date_of_service <= ?';
+            $params[] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT
+                COALESCE(i.name, 'Self-Pay / No Insurance') AS primary_insurance,
+                SUM(COALESCE(ebc.fee, 0)) AS charges,
+                COUNT(DISTINCT e.id) AS visits,
+                COUNT(DISTINCT e.patient_id) AS patients
+             FROM encounters e
+             LEFT JOIN (
+                 SELECT patient_id, MAX(id) AS pi_id
+                 FROM patient_insurances
+                 WHERE insurance_type = 'primary' AND deleted_at IS NULL
+                 GROUP BY patient_id
+             ) cur ON cur.patient_id = e.patient_id
+             LEFT JOIN patient_insurances pi ON pi.id = cur.pi_id
+             LEFT JOIN insurances i ON i.id = pi.insurance_id AND i.deleted_at IS NULL
+             LEFT JOIN encounter_billing_codes ebc ON ebc.encounter_id = e.id AND ebc.deleted_at IS NULL
+             WHERE " . implode(' AND ', $where) . "
+             GROUP BY COALESCE(i.id, 0), primary_insurance
+             ORDER BY charges DESC"
+        );
+        $stmt->execute($params);
+
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $totalPatients = array_sum(array_map(fn($r) => (int) $r['patients'], $rows));
+
+        return array_map(function (array $r) use ($totalPatients) {
+            $patients = (int) $r['patients'];
+
+            return [
+                'primary_insurance' => $r['primary_insurance'],
+                'charges' => (float) $r['charges'],
+                'visits' => (int) $r['visits'],
+                'patients' => $patients,
+                'pt_percent' => $totalPatients > 0 ? round(($patients / $totalPatients) * 100, 1) : 0.0
+            ];
+        }, $rows);
+    }
+
     public function getPrepaymentBalancesReport(array $filters = []): array
     {
         $where = ['bp.deleted_at IS NULL'];
