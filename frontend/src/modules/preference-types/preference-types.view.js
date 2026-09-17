@@ -434,15 +434,16 @@ export function PreferenceTypesView()
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Panel</th>
                         <th>LOINC Code</th>
                         <th>Description</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="preferenceTypesTableBody">
-                    <tr class="pft-skeleton-row"><td colspan="4"><div class="pft-skeleton-bar" style="width: 60%;"></div></td></tr>
-                    <tr class="pft-skeleton-row"><td colspan="4"><div class="pft-skeleton-bar" style="width: 45%;"></div></td></tr>
-                    <tr class="pft-skeleton-row"><td colspan="4"><div class="pft-skeleton-bar" style="width: 70%;"></div></td></tr>
+                    <tr class="pft-skeleton-row"><td colspan="5"><div class="pft-skeleton-bar" style="width: 60%;"></div></td></tr>
+                    <tr class="pft-skeleton-row"><td colspan="5"><div class="pft-skeleton-bar" style="width: 45%;"></div></td></tr>
+                    <tr class="pft-skeleton-row"><td colspan="5"><div class="pft-skeleton-bar" style="width: 70%;"></div></td></tr>
                 </tbody>
             </table>
         </div>
@@ -469,6 +470,16 @@ export function PreferenceTypesView()
                     <label>Name</label>
                     <input id="name" class="form-input" placeholder="e.g. Resuscitation Status">
                     <span class="form-error" id="err-name"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Panel</label>
+                    <select id="panel" class="form-input">
+                        <option value="care_experience">Care Experience Preferences</option>
+                        <option value="treatment_intervention">Treatment Intervention Preferences</option>
+                    </select>
+                    <span style="display:block; font-size: 12px; color: var(--text-muted); margin-top: 4px;">Which dashboard widget's "Preference Type" dropdown this category appears under.</span>
+                    <span class="form-error" id="err-panel"></span>
                 </div>
 
                 <div class="form-group full">

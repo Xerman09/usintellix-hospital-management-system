@@ -1,8 +1,10 @@
 import { api } from "../../core/api.js?v=5";
 
-export async function fetchPreferenceTypes()
+export async function fetchPreferenceTypes(panel)
 {
-    return await api("/preference-types");
+    const query = panel ? `?${new URLSearchParams({ panel }).toString()}` : "";
+
+    return await api(`/preference-types${query}`);
 }
 
 export async function createPreferenceType(data)

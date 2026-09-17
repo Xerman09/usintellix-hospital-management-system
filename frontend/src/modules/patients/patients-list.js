@@ -22,7 +22,7 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=58";
+import { PatientChartView } from "./patients-list.view.js?v=59";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2711,7 +2711,8 @@ export async function initPatientChartTab(patient)
     setupPatientBraceletModal(patient);
     setupClinicalRemindersModal();
     setupOfficeNotesModal();
-    setupCarePreferencesModal();
+    carePreferencesController.setup();
+    treatmentPreferencesController.setup();
     setupDocumentUploadModal();
     setupExternalDataUploadModal();
     setupPrescriptionModals();
@@ -2761,7 +2762,8 @@ async function loadPatientDashboardWidgets(patient)
 
         renderDashboardOfficeNotes(data.office_notes || []);
         renderDashboardClinicalReminders(data.reminders || []);
-        renderDashboardCarePreferences(data.care_preferences || []);
+        carePreferencesController.renderDashboard(data.care_preferences || []);
+        treatmentPreferencesController.renderDashboard(data.care_preferences || []);
         renderDashboardAllergies(data.allergies || []);
         renderDashboardProblems(data.problems || []);
         renderDashboardHealthConcerns(data.health_concerns || []);
@@ -3233,14 +3235,6 @@ async function loadDashboardAllergies(patient)
 // list the exact same rows without a second round trip.
 let currentClinicalReminders = [];
 
-// Same stash pattern as currentClinicalReminders, for the Care Experience
-// Preferences widget/modal pair. carePreferenceTypesCache holds the
-// LOINC-coded category catalog (with each category's admin-defined
-// answer_options) fetched once per modal open.
-let currentCarePreferences = [];
-let carePreferenceTypesCache = [];
-let editingCarePreferenceId = null;
-
 function carePreferenceStatusLabel(status)
 {
     if (status === "preliminary") return "Preliminary";
@@ -3255,6 +3249,20 @@ function carePreferenceChoiceLabel(pref)
     }
 
     return pref.preference_value;
+}
+
+// Yes/No answers get their real yes/no color; every other response type
+// (coded or free text) gets the same neutral "no" blue -- there's no
+// natural good/bad color for an arbitrary coded/free-text answer, so this
+// just gives "Patient's Choice" a consistent pill look across all three
+// response types instead of only badging yes/no.
+function carePreferenceChoiceBadgeClass(pref)
+{
+    if (pref.response_type === "yes_no") {
+        return pref.preference_value === "Yes" ? "yes" : "no";
+    }
+
+    return "no";
 }
 
 function reminderStatusLabel(dueStatus)
@@ -3512,45 +3520,12 @@ function renderDashboardClinicalReminders(reminders)
     wireDashboardItemClicks(body, "data-reminder-id", reminders, (reminder) => openClinicalReminderFormModal(reminder));
 }
 
-function renderDashboardCarePreferences(preferences)
-{
-    const body = document.getElementById("pdCarePreferencesBody");
-
-    if (!body) {
-        return;
-    }
-
-    currentCarePreferences = preferences;
-
-    setWidgetCount("pdCarePreferencesBody", preferences.length);
-
-    body.innerHTML = preferences.length
-        ? `
-        <div style="padding: 0 16px;">
-            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;">
-                ${preferences.map((pref) => `
-                    <li style="border-bottom: 1px solid var(--border-color); padding: 10px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                        <a href="javascript:void(0)" class="care-preference-link" data-preference-id="${pref.id}" style="color: var(--text-primary); font-size: 13px; font-weight: 500; text-decoration: none;">${escapeHtml(pref.preference_type_name)}</a>
-                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                            ${pref.response_type === "yes_no"
-                                ? `<span class="status-badge ${pref.preference_value === "Yes" ? "yes" : "no"}">${escapeHtml(carePreferenceChoiceLabel(pref))}</span>`
-                                : `<span style="font-size: 12px; color: var(--text-muted);">${escapeHtml(carePreferenceChoiceLabel(pref))}</span>`}
-                        </div>
-                    </li>
-                `).join("")}
-            </ul>
-        </div>
-        `
-        : `<div class="pd-widget-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"></path></svg>
-            <p>No care experience preferences recorded.</p>
-           </div>`;
-
-    const items = body.querySelectorAll("li");
-    if (items.length) items[items.length - 1].style.borderBottom = "none";
-
-    wireDashboardItemClicks(body, "data-preference-id", preferences, (pref) => openCarePreferenceFormModal(pref));
-}
+// See createPreferencePanelController() (below the Clinical Reminder Form
+// modal logic) for the shared implementation behind both the Care
+// Experience Preferences and Treatment Intervention Preferences
+// widgets/modals -- their renderDashboard()/setup() methods replace what
+// used to be one-off renderDashboardCarePreferences()/
+// setupCarePreferencesModal() functions here.
 
 function renderDashboardAllergies(allergies)
 {
@@ -6947,242 +6922,346 @@ async function openClinicalReminderFormModal(reminder)
 }
 
 /**
+ * Shared controller behind every LOINC-panel-scoped "preference"
+ * widget+modal pair on the patient dashboard (Care Experience
+ * Preferences, Treatment Intervention Preferences, ...). Two panels share
+ * this exact same form/table/CRUD shape -- only which `preference_types`
+ * rows they draw from (config.panel) and which DOM ids their own
+ * widget/modal markup uses differ, so this is written once and
+ * instantiated per panel below rather than copy-pasted per widget.
+ *
  * Swaps "Patient's Preference" between a coded-answer-list select, a free
  * text input, and a Yes/No select depending on the checked Response Type
- * radio -- always rendered under the fixed id carePreferenceValueInput so
- * the rest of the form can read .value without caring which control is
- * currently mounted. The coded-value list is genuinely admin-defined (see
- * PreferenceTypes' answer_options field): a category with none configured
- * shows an honest disabled placeholder rather than fabricated options.
+ * radio -- always rendered under config.valueInputId so the rest of the
+ * form can read .value without caring which control is currently
+ * mounted. The coded-value list is genuinely admin-defined (see
+ * PreferenceTypes' answer_options field): a category with none
+ * configured shows an honest disabled placeholder rather than fabricated
+ * options.
  */
-function updateCarePreferenceValueField(selectedValue)
+function createPreferencePanelController(config)
 {
-    const container = document.getElementById("carePreferenceValueField");
-    if (!container) return;
+    const {
+        panel, widgetBodyId, addBtnId, emptyIconPath, emptyText,
+        modalOverlayId, closeModalId, cancelBtnId, bottomCloseBtnId,
+        categoryId, dateId, statusId, responseRadioName,
+        valueFieldId, valueInputId, notesId, saveBtnId, successBannerId,
+        tableBodyId
+    } = config;
 
-    const responseType = document.querySelector('input[name="carePreferenceResponseType"]:checked')?.value || "coded";
+    let currentPreferences = [];
+    let typesCache = [];
+    let editingId = null;
 
-    if (responseType === "free_text") {
-        container.innerHTML = `<input type="text" class="form-input" id="carePreferenceValueInput" placeholder="Enter the patient's stated preference...">`;
-    } else if (responseType === "yes_no") {
-        container.innerHTML = `
-            <select class="form-input" id="carePreferenceValueInput">
-                <option value="">Select...</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-            </select>
-        `;
-    } else {
-        const categoryId = document.getElementById("carePreferenceCategory").value;
-        const category = carePreferenceTypesCache.find((c) => String(c.id) === categoryId);
-        const options = (category?.answer_options || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    function updateValueField(selectedValue)
+    {
+        const container = document.getElementById(valueFieldId);
+        if (!container) return;
 
-        if (!categoryId) {
-            container.innerHTML = `<select class="form-input" id="carePreferenceValueInput" disabled><option value="">Select preference first...</option></select>`;
-        } else if (!options.length) {
-            container.innerHTML = `<select class="form-input" id="carePreferenceValueInput" disabled><option value="">No answer list configured for this category</option></select>`;
-        } else {
+        const responseType = document.querySelector(`input[name="${responseRadioName}"]:checked`)?.value || "coded";
+
+        if (responseType === "free_text") {
+            container.innerHTML = `<input type="text" class="form-input" id="${valueInputId}" placeholder="Enter the patient's stated preference...">`;
+        } else if (responseType === "yes_no") {
             container.innerHTML = `
-                <select class="form-input" id="carePreferenceValueInput">
-                    <option value="">Select preference first...</option>
-                    ${options.map((opt) => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join("")}
+                <select class="form-input" id="${valueInputId}">
+                    <option value="">Select...</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
                 </select>
             `;
+        } else {
+            const categoryVal = document.getElementById(categoryId).value;
+            const category = typesCache.find((c) => String(c.id) === categoryVal);
+            const options = (category?.answer_options || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+
+            if (!categoryVal) {
+                container.innerHTML = `<select class="form-input" id="${valueInputId}" disabled><option value="">Select preference first...</option></select>`;
+            } else if (!options.length) {
+                container.innerHTML = `<select class="form-input" id="${valueInputId}" disabled><option value="">No answer list configured for this category</option></select>`;
+            } else {
+                container.innerHTML = `
+                    <select class="form-input" id="${valueInputId}">
+                        <option value="">Select preference first...</option>
+                        ${options.map((opt) => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join("")}
+                    </select>
+                `;
+            }
+        }
+
+        if (selectedValue) {
+            const input = document.getElementById(valueInputId);
+            if (input) input.value = selectedValue;
         }
     }
 
-    if (selectedValue) {
-        const input = document.getElementById("carePreferenceValueInput");
-        if (input) input.value = selectedValue;
+    function resetFormFields()
+    {
+        editingId = null;
+
+        document.getElementById(categoryId).value = "";
+
+        const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+        document.getElementById(dateId).value = now.toISOString().slice(0, 16);
+        document.getElementById(statusId).value = "final";
+
+        const codedRadio = document.querySelector(`input[name="${responseRadioName}"][value="coded"]`);
+        if (codedRadio) codedRadio.checked = true;
+
+        document.getElementById(notesId).value = "";
+        document.getElementById(saveBtnId).textContent = "Save Preference";
+
+        updateValueField();
     }
-}
 
-function resetCarePreferenceFormFields()
-{
-    editingCarePreferenceId = null;
+    function resetForm()
+    {
+        resetFormFields();
+        document.getElementById(successBannerId).innerHTML = "";
+    }
 
-    document.getElementById("carePreferenceCategory").value = "";
+    function renderTable()
+    {
+        const tbody = document.getElementById(tableBodyId);
+        if (!tbody) return;
 
-    const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
-    document.getElementById("carePreferenceDate").value = now.toISOString().slice(0, 16);
-    document.getElementById("carePreferenceStatus").value = "final";
+        tbody.innerHTML = currentPreferences.length
+            ? currentPreferences.map((pref) => `
+                <tr>
+                    <td>${escapeHtml(String(pref.date_recorded || "").slice(0, 10))}</td>
+                    <td>${escapeHtml(pref.preference_type_name)}</td>
+                    <td><span class="status-badge ${carePreferenceChoiceBadgeClass(pref)}">${escapeHtml(carePreferenceChoiceLabel(pref))}</span></td>
+                    <td><span class="status-badge ${pref.status}">${escapeHtml(carePreferenceStatusLabel(pref.status))}</span></td>
+                    <td>
+                        <button type="button" class="btn-secondary preference-edit-btn" data-preference-id="${pref.id}" title="Edit" style="padding: 4px 8px; margin-right: 4px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                        </button>
+                        <button type="button" class="btn-secondary preference-delete-btn" data-preference-id="${pref.id}" title="Delete" style="padding: 4px 8px; color: #dc2626;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"></path></svg>
+                        </button>
+                    </td>
+                </tr>
+            `).join("")
+            : `<tr><td colspan="5" class="table-empty">${escapeHtml(emptyText)}</td></tr>`;
 
-    const codedRadio = document.querySelector('input[name="carePreferenceResponseType"][value="coded"]');
-    if (codedRadio) codedRadio.checked = true;
-
-    document.getElementById("carePreferenceNotes").value = "";
-    document.getElementById("carePreferenceFormSaveBtn").textContent = "Save Preference";
-
-    updateCarePreferenceValueField();
-}
-
-function resetCarePreferenceForm()
-{
-    resetCarePreferenceFormFields();
-    document.getElementById("carePreferenceSuccessBanner").innerHTML = "";
-}
-
-function renderCarePreferencesTable(preferences)
-{
-    const tbody = document.getElementById("carePreferencesTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = preferences.length
-        ? preferences.map((pref) => `
-            <tr>
-                <td>${escapeHtml(String(pref.date_recorded || "").slice(0, 10))}</td>
-                <td>${escapeHtml(pref.preference_type_name)}</td>
-                <td>${pref.response_type === "yes_no"
-                    ? `<span class="status-badge ${pref.preference_value === "Yes" ? "yes" : "no"}">${escapeHtml(carePreferenceChoiceLabel(pref))}</span>`
-                    : escapeHtml(carePreferenceChoiceLabel(pref))}</td>
-                <td><span class="status-badge ${pref.status}">${escapeHtml(carePreferenceStatusLabel(pref.status))}</span></td>
-                <td>
-                    <button type="button" class="btn-secondary care-preference-edit-btn" data-preference-id="${pref.id}" title="Edit" style="padding: 4px 8px; margin-right: 4px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                    </button>
-                    <button type="button" class="btn-secondary care-preference-delete-btn" data-preference-id="${pref.id}" title="Delete" style="padding: 4px 8px; color: #dc2626;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"></path></svg>
-                    </button>
-                </td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="5" class="table-empty">No care experience preferences recorded.</td></tr>`;
-
-    tbody.querySelectorAll(".care-preference-edit-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            const pref = preferences.find((p) => String(p.id) === btn.getAttribute("data-preference-id"));
-            if (pref) openCarePreferenceFormModal(pref);
+        tbody.querySelectorAll(".preference-edit-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const pref = currentPreferences.find((p) => String(p.id) === btn.getAttribute("data-preference-id"));
+                if (pref) openForEdit(pref);
+            });
         });
-    });
 
-    tbody.querySelectorAll(".care-preference-delete-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-            if (!confirm("Delete this care preference? This cannot be undone.")) return;
+        tbody.querySelectorAll(".preference-delete-btn").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                if (!confirm("Delete this preference? This cannot be undone.")) return;
 
-            await deleteCarePreference(btn.getAttribute("data-preference-id"));
-
-            const refreshed = await fetchCarePreferences(currentDashboardPatient.id);
-            currentCarePreferences = refreshed.success ? refreshed.data : [];
-            renderDashboardCarePreferences(currentCarePreferences);
-            renderCarePreferencesTable(currentCarePreferences);
+                await deleteCarePreference(btn.getAttribute("data-preference-id"));
+                await refreshAfterChange();
+            });
         });
-    });
+    }
+
+    async function refreshAfterChange()
+    {
+        const refreshed = await fetchCarePreferences(currentDashboardPatient.id);
+        const all = refreshed.success ? refreshed.data : [];
+
+        renderDashboard(all);
+        renderTable();
+    }
+
+    function renderDashboard(allPreferences)
+    {
+        const body = document.getElementById(widgetBodyId);
+        if (!body) return;
+
+        const preferences = allPreferences.filter((p) => p.panel === panel);
+        currentPreferences = preferences;
+
+        setWidgetCount(widgetBodyId, preferences.length);
+
+        body.innerHTML = preferences.length
+            ? `
+            <div style="padding: 0 16px;">
+                <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;">
+                    ${preferences.map((pref) => `
+                        <li style="border-bottom: 1px solid var(--border-color); padding: 10px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                            <a href="javascript:void(0)" class="preference-link" data-preference-id="${pref.id}" style="color: var(--text-primary); font-size: 13px; font-weight: 500; text-decoration: none;">${escapeHtml(pref.preference_type_name)}</a>
+                            <span class="status-badge ${carePreferenceChoiceBadgeClass(pref)}" style="flex-shrink: 0;">${escapeHtml(carePreferenceChoiceLabel(pref))}</span>
+                        </li>
+                    `).join("")}
+                </ul>
+            </div>
+            `
+            : `<div class="pd-widget-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${emptyIconPath}</svg>
+                <p>${escapeHtml(emptyText)}</p>
+               </div>`;
+
+        const items = body.querySelectorAll("li");
+        if (items.length) items[items.length - 1].style.borderBottom = "none";
+
+        wireDashboardItemClicks(body, "data-preference-id", preferences, (pref) => openForEdit(pref));
+    }
+
+    async function openForEdit(pref)
+    {
+        const overlay = document.getElementById(modalOverlayId);
+        if (!overlay || !currentDashboardPatient) return;
+
+        const typesResult = await fetchPreferenceTypes(panel);
+        typesCache = typesResult.success ? typesResult.data : [];
+
+        const categorySelect = document.getElementById(categoryId);
+        categorySelect.innerHTML = `<option value="">Select...</option>` +
+            typesCache.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+
+        resetForm();
+
+        if (pref) {
+            editingId = pref.id;
+            categorySelect.value = pref.preference_type_id;
+            document.getElementById(dateId).value = String(pref.date_recorded || "").replace(" ", "T").slice(0, 16);
+            document.getElementById(statusId).value = pref.status || "final";
+
+            const responseRadio = document.querySelector(`input[name="${responseRadioName}"][value="${pref.response_type}"]`);
+            if (responseRadio) responseRadio.checked = true;
+
+            updateValueField(pref.preference_value);
+            document.getElementById(notesId).value = pref.notes || "";
+            document.getElementById(saveBtnId).textContent = "Update Preference";
+        }
+
+        renderTable();
+
+        overlay.classList.add("open");
+    }
+
+    async function save()
+    {
+        const saveBtn = document.getElementById(saveBtnId);
+        const categoryVal = document.getElementById(categoryId).value;
+        const dateValue = document.getElementById(dateId).value;
+        const status = document.getElementById(statusId).value;
+        const responseType = document.querySelector(`input[name="${responseRadioName}"]:checked`)?.value;
+        const valueInput = document.getElementById(valueInputId);
+        const value = valueInput ? valueInput.value.trim() : "";
+        const notes = document.getElementById(notesId).value.trim();
+
+        if (!categoryVal) {
+            showToast("Preference Type is required.", "error");
+            return;
+        }
+        if (!dateValue) {
+            showToast("Date Recorded is required.", "error");
+            return;
+        }
+        if (!value) {
+            showToast("Patient's Preference is required.", "error");
+            return;
+        }
+
+        saveBtn.disabled = true;
+
+        const payload = {
+            preference_type_id: categoryVal,
+            date_recorded: dateValue.replace("T", " "),
+            status,
+            response_type: responseType,
+            preference_value: value,
+            notes
+        };
+
+        const result = editingId
+            ? await updateCarePreference(editingId, payload)
+            : await addCarePreference(currentDashboardPatient.id, payload);
+
+        saveBtn.disabled = false;
+
+        if (!result.success) {
+            showToast(result.message || "Failed to save preference.", "error");
+            return;
+        }
+
+        await refreshAfterChange();
+
+        resetFormFields();
+        document.getElementById(successBannerId).innerHTML = `<div class="form-alert success">Preference saved</div>`;
+    }
+
+    function setup()
+    {
+        const overlay = document.getElementById(modalOverlayId);
+        if (!overlay) return;
+
+        const closeModal = () => overlay.classList.remove("open");
+
+        const addBtn = document.getElementById(addBtnId);
+        if (addBtn) {
+            addBtn.addEventListener("click", () => openForEdit(null));
+        }
+
+        document.getElementById(closeModalId).addEventListener("click", closeModal);
+        document.getElementById(cancelBtnId).addEventListener("click", closeModal);
+        document.getElementById(bottomCloseBtnId).addEventListener("click", closeModal);
+        overlay.addEventListener("click", (event) => {
+            if (event.target === overlay) closeModal();
+        });
+
+        document.getElementById(categoryId).addEventListener("change", () => updateValueField());
+        document.querySelectorAll(`input[name="${responseRadioName}"]`).forEach((radio) => {
+            radio.addEventListener("change", () => updateValueField());
+        });
+
+        document.getElementById(saveBtnId).addEventListener("click", save);
+    }
+
+    return { renderDashboard, setup };
 }
 
-async function openCarePreferenceFormModal(pref)
-{
-    const overlay = document.getElementById("carePreferenceFormModalOverlay");
-    if (!overlay || !currentDashboardPatient) return;
+const carePreferencesController = createPreferencePanelController({
+    panel: "care_experience",
+    widgetBodyId: "pdCarePreferencesBody",
+    addBtnId: "pdCarePreferencesAddBtn",
+    emptyIconPath: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"></path>',
+    emptyText: "No care experience preferences recorded.",
+    modalOverlayId: "carePreferenceFormModalOverlay",
+    closeModalId: "closeCarePreferenceFormModal",
+    cancelBtnId: "carePreferenceFormCancelBtn",
+    bottomCloseBtnId: "closeCarePreferenceFormModalBottom",
+    categoryId: "carePreferenceCategory",
+    dateId: "carePreferenceDate",
+    statusId: "carePreferenceStatus",
+    responseRadioName: "carePreferenceResponseType",
+    valueFieldId: "carePreferenceValueField",
+    valueInputId: "carePreferenceValueInput",
+    notesId: "carePreferenceNotes",
+    saveBtnId: "carePreferenceFormSaveBtn",
+    successBannerId: "carePreferenceSuccessBanner",
+    tableBodyId: "carePreferencesTableBody"
+});
 
-    const typesResult = await fetchPreferenceTypes();
-    carePreferenceTypesCache = typesResult.success ? typesResult.data : [];
-
-    const categorySelect = document.getElementById("carePreferenceCategory");
-    categorySelect.innerHTML = `<option value="">Select...</option>` +
-        carePreferenceTypesCache.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
-
-    resetCarePreferenceForm();
-
-    if (pref) {
-        editingCarePreferenceId = pref.id;
-        categorySelect.value = pref.preference_type_id;
-        document.getElementById("carePreferenceDate").value = String(pref.date_recorded || "").replace(" ", "T").slice(0, 16);
-        document.getElementById("carePreferenceStatus").value = pref.status || "final";
-
-        const responseRadio = document.querySelector(`input[name="carePreferenceResponseType"][value="${pref.response_type}"]`);
-        if (responseRadio) responseRadio.checked = true;
-
-        updateCarePreferenceValueField(pref.preference_value);
-        document.getElementById("carePreferenceNotes").value = pref.notes || "";
-        document.getElementById("carePreferenceFormSaveBtn").textContent = "Update Preference";
-    }
-
-    renderCarePreferencesTable(currentCarePreferences);
-
-    overlay.classList.add("open");
-}
-
-async function saveCarePreference()
-{
-    const saveBtn = document.getElementById("carePreferenceFormSaveBtn");
-    const categoryId = document.getElementById("carePreferenceCategory").value;
-    const dateValue = document.getElementById("carePreferenceDate").value;
-    const status = document.getElementById("carePreferenceStatus").value;
-    const responseType = document.querySelector('input[name="carePreferenceResponseType"]:checked')?.value;
-    const valueInput = document.getElementById("carePreferenceValueInput");
-    const value = valueInput ? valueInput.value.trim() : "";
-    const notes = document.getElementById("carePreferenceNotes").value.trim();
-
-    if (!categoryId) {
-        showToast("Preference Category is required.", "error");
-        return;
-    }
-    if (!dateValue) {
-        showToast("Date Recorded is required.", "error");
-        return;
-    }
-    if (!value) {
-        showToast("Patient's Preference is required.", "error");
-        return;
-    }
-
-    saveBtn.disabled = true;
-
-    const payload = {
-        preference_type_id: categoryId,
-        date_recorded: dateValue.replace("T", " "),
-        status,
-        response_type: responseType,
-        preference_value: value,
-        notes
-    };
-
-    const result = editingCarePreferenceId
-        ? await updateCarePreference(editingCarePreferenceId, payload)
-        : await addCarePreference(currentDashboardPatient.id, payload);
-
-    saveBtn.disabled = false;
-
-    if (!result.success) {
-        showToast(result.message || "Failed to save preference.", "error");
-        return;
-    }
-
-    const refreshed = await fetchCarePreferences(currentDashboardPatient.id);
-    currentCarePreferences = refreshed.success ? refreshed.data : [];
-    renderDashboardCarePreferences(currentCarePreferences);
-    renderCarePreferencesTable(currentCarePreferences);
-
-    resetCarePreferenceFormFields();
-    document.getElementById("carePreferenceSuccessBanner").innerHTML = `<div class="form-alert success">Preference saved</div>`;
-}
-
-function setupCarePreferencesModal()
-{
-    const overlay = document.getElementById("carePreferenceFormModalOverlay");
-    if (!overlay) return;
-
-    const closeModal = () => overlay.classList.remove("open");
-
-    const addBtn = document.getElementById("pdCarePreferencesAddBtn");
-    if (addBtn) {
-        addBtn.addEventListener("click", () => openCarePreferenceFormModal(null));
-    }
-
-    document.getElementById("closeCarePreferenceFormModal").addEventListener("click", closeModal);
-    document.getElementById("carePreferenceFormCancelBtn").addEventListener("click", closeModal);
-    document.getElementById("closeCarePreferenceFormModalBottom").addEventListener("click", closeModal);
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) closeModal();
-    });
-
-    document.getElementById("carePreferenceCategory").addEventListener("change", () => updateCarePreferenceValueField());
-    document.querySelectorAll('input[name="carePreferenceResponseType"]').forEach((radio) => {
-        radio.addEventListener("change", () => updateCarePreferenceValueField());
-    });
-
-    document.getElementById("carePreferenceFormSaveBtn").addEventListener("click", saveCarePreference);
-}
+const treatmentPreferencesController = createPreferencePanelController({
+    panel: "treatment_intervention",
+    widgetBodyId: "pdTreatmentPreferencesBody",
+    addBtnId: "pdTreatmentPreferencesAddBtn",
+    emptyIconPath: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>',
+    emptyText: "No treatment intervention preferences recorded.",
+    modalOverlayId: "treatmentPreferenceFormModalOverlay",
+    closeModalId: "closeTreatmentPreferenceFormModal",
+    cancelBtnId: "treatmentPreferenceFormCancelBtn",
+    bottomCloseBtnId: "closeTreatmentPreferenceFormModalBottom",
+    categoryId: "treatmentPreferenceCategory",
+    dateId: "treatmentPreferenceDate",
+    statusId: "treatmentPreferenceStatus",
+    responseRadioName: "treatmentPreferenceResponseType",
+    valueFieldId: "treatmentPreferenceValueField",
+    valueInputId: "treatmentPreferenceValueInput",
+    notesId: "treatmentPreferenceNotes",
+    saveBtnId: "treatmentPreferenceFormSaveBtn",
+    successBannerId: "treatmentPreferenceSuccessBanner",
+    tableBodyId: "treatmentPreferencesTableBody"
+});
 
 function setupDocumentUploadModal()
 {

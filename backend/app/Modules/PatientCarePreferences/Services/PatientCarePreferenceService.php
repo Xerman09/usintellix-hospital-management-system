@@ -14,15 +14,18 @@ class PatientCarePreferenceService
     private const LIST_SQL =
         "SELECT p.id, p.patient_id, p.preference_type_id, p.date_recorded, p.status,
                 p.response_type, p.preference_value, p.notes, p.created_at,
-                pt.name AS preference_type_name, pt.loinc_code
+                pt.name AS preference_type_name, pt.panel, pt.loinc_code
          FROM patient_care_preferences p
          JOIN preference_types pt ON pt.id = p.preference_type_id";
 
     /**
-     * Full history for this patient, newest first. Feeds both the
-     * dashboard widget's compact preview and the management modal's
-     * table -- there's no separate paginated fetch since a patient's
-     * preference list is small by nature.
+     * Full history for this patient across every panel, newest first --
+     * the frontend splits the rows by `panel` to feed each panel's own
+     * widget/modal (Care Experience Preferences, Treatment Intervention
+     * Preferences, ...) from this single batched fetch rather than one
+     * query per panel. Feeds both each widget's compact preview and its
+     * management modal's table -- there's no separate paginated fetch
+     * since a patient's preference list is small by nature.
      */
     public function listForPatient(int $patientId): array
     {

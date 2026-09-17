@@ -10,18 +10,28 @@ use Throwable;
 class PreferenceTypeService
 {
     /**
-     * List all active (non-deleted) preference types.
+     * List all active (non-deleted) preference types, optionally scoped to
+     * one panel (e.g. 'care_experience' vs 'treatment_intervention' -- see
+     * each widget's own "Preference Type" dropdown). Omitting $panel
+     * returns every panel, which is what the admin File Management screen
+     * needs.
      */
-    public function list(): array
+    public function list(?string $panel = null): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT id, name, loinc_code, description, answer_options, created_at, updated_at
-             FROM preference_types
-             WHERE deleted_at IS NULL
-             ORDER BY name"
-        );
+        $sql = "SELECT id, name, panel, loinc_code, description, answer_options, created_at, updated_at
+                FROM preference_types
+                WHERE deleted_at IS NULL";
+        $params = [];
 
-        $stmt->execute();
+        if ($panel !== null && $panel !== '') {
+            $sql .= " AND panel = ?";
+            $params[] = $panel;
+        }
+
+        $sql .= " ORDER BY name";
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -44,6 +54,7 @@ class PreferenceTypeService
         try {
             $preferenceTypeId = (new PreferenceType())->create([
                 'name'           => $data['name'],
+                'panel'          => $data['panel'] ?? 'care_experience',
                 'loinc_code'     => $data['loinc_code'] ?? null,
                 'description'    => $data['description'] ?? null,
                 'answer_options' => $data['answer_options'] ?? null,
@@ -96,6 +107,7 @@ class PreferenceTypeService
 
         $updated = (new PreferenceType())->update([
             'name'           => $data['name'],
+            'panel'          => $data['panel'] ?? 'care_experience',
             'loinc_code'     => $data['loinc_code'] ?? null,
             'description'    => $data['description'] ?? null,
             'answer_options' => $data['answer_options'] ?? null,

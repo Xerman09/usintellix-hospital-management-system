@@ -7,7 +7,12 @@ import {
     deletePreferenceType
 } from "./preference-types.service.js";
 
-const FIELDS = ["name", "loinc_code", "description", "answer_options"];
+const FIELDS = ["name", "panel", "loinc_code", "description", "answer_options"];
+
+const PANEL_LABELS = {
+    care_experience: "Care Experience",
+    treatment_intervention: "Treatment Intervention"
+};
 
 let preferenceTypes = [];
 let searchTerm = "";
@@ -40,6 +45,7 @@ export async function initPreferenceTypes()
             saveBtn.textContent = "Save Changes";
             idInput.value = preferenceType.id;
             document.getElementById("name").value = preferenceType.name ?? "";
+            document.getElementById("panel").value = preferenceType.panel ?? "care_experience";
             document.getElementById("loinc_code").value = preferenceType.loinc_code ?? "";
             document.getElementById("description").value = preferenceType.description ?? "";
             document.getElementById("answer_options").value = preferenceType.answer_options ?? "";
@@ -48,6 +54,7 @@ export async function initPreferenceTypes()
             saveBtn.textContent = "Add Preference Type";
             idInput.value = "";
             form.reset();
+            document.getElementById("panel").value = "care_experience";
         }
 
         modalOverlay.classList.add("open");
@@ -146,6 +153,7 @@ function renderRows(openModal)
     const filtered = searchTerm
         ? preferenceTypes.filter((preferenceType) =>
             preferenceType.name.toLowerCase().includes(searchTerm) ||
+            (PANEL_LABELS[preferenceType.panel] ?? "").toLowerCase().includes(searchTerm) ||
             (preferenceType.loinc_code ?? "").toLowerCase().includes(searchTerm) ||
             (preferenceType.description ?? "").toLowerCase().includes(searchTerm))
         : preferenceTypes;
@@ -163,6 +171,7 @@ function renderRows(openModal)
                     <span class="pft-name">${escapeHtml(preferenceType.name)}</span>
                 </div>
             </td>
+            <td><span class="pft-code">${escapeHtml(PANEL_LABELS[preferenceType.panel] || preferenceType.panel || "Care Experience")}</span></td>
             <td><span class="pft-code ${preferenceType.loinc_code ? "" : "empty"}">${escapeHtml(preferenceType.loinc_code || "Not coded")}</span></td>
             <td class="pft-description ${preferenceType.description ? "" : "empty"}">${escapeHtml(preferenceType.description || "No description provided")}</td>
             <td>
@@ -218,7 +227,7 @@ function renderEmptyState(noneAtAll)
 
     return `
         <tr>
-            <td colspan="4" class="pft-empty-state">
+            <td colspan="5" class="pft-empty-state">
                 <div class="pft-empty-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="9"></circle></svg>
                 </div>
