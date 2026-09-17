@@ -2084,6 +2084,21 @@ select.form-input {
 
 }
 
+.btn-secondary.office-notes-filter-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    flex: none;
+    height: auto;
+    padding: 6px 14px;
+}
+
+.office-notes-filter-btn {
+    flex: none;
+    height: auto;
+    padding: 6px 14px;
+}
+
 
 .form-actions .login-btn {
 

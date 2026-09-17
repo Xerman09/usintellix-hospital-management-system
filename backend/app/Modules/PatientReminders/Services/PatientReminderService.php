@@ -3,6 +3,7 @@
 namespace App\Modules\PatientReminders\Services;
 
 use App\Core\Database;
+use App\Modules\PatientReminders\Models\PatientReminderAction;
 use DateTime;
 use PDO;
 
@@ -76,6 +77,51 @@ class PatientReminderService
         $stmt->execute([$patientId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * The action-log for one specific reminder -- what staff have
+     * actually done about it over time, most recent first. Separate
+     * from due_status (see process()): logging an action here never
+     * changes whether the rules engine still considers the item due.
+     */
+    public function listActions(int $patientReminderId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT id, patient_reminder_id, action_date, completed, details, created_at
+             FROM patient_reminder_actions
+             WHERE patient_reminder_id = ? AND deleted_at IS NULL
+             ORDER BY action_date DESC, id DESC"
+        );
+        $stmt->execute([$patientReminderId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function addAction(int $patientReminderId, array $data, int $userId): array
+    {
+        $actionDate = trim((string) ($data['action_date'] ?? ''));
+
+        if ($actionDate === '') {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => ['action_date' => 'A date is required.']];
+        }
+
+        $completed = in_array($data['completed'] ?? '', ['yes', 'no'], true) ? $data['completed'] : 'yes';
+
+        $id = (new PatientReminderAction())->create([
+            'patient_reminder_id' => $patientReminderId,
+            'action_date' => $actionDate,
+            'completed' => $completed,
+            'details' => $data['details'] ?? null,
+            'created_at' => date('Y-m-d H:i:s'),
+            'created_by' => $userId
+        ]);
+
+        if (!$id) {
+            return ['success' => false, 'message' => 'Failed to log this action.'];
+        }
+
+        return ['success' => true, 'message' => 'Action logged.', 'data' => ['id' => $id]];
     }
 
     /**

@@ -21,3 +21,21 @@ export async function fetchMyReminders()
 {
     return await api("/patient-reminders/mine");
 }
+
+export async function fetchReminderActions(patientReminderId)
+{
+    const query = new URLSearchParams({ patient_reminder_id: patientReminderId }).toString();
+
+    return await api(`/patient-reminders/actions?${query}`);
+}
+
+export async function addReminderAction(patientReminderId, data)
+{
+    return await api(
+        "/patient-reminders/actions",
+        {
+            method: "POST",
+            body: JSON.stringify({ patient_reminder_id: patientReminderId, ...data })
+        }
+    );
+}

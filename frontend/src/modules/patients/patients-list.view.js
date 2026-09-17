@@ -5391,14 +5391,8 @@ textarea.pd-sdoh-readonly {
                         </div>
                         <div class="pd-widget-body" id="pdDemoPanels"></div>
                     </div>
-                    <style>
-                        #pdClinicalRemindersBody { padding: 0 16px; }
-                        #pdWidget-clinical-reminders .pd-widget-header-title h3,
-                        #pdWidget-clinical-reminders .pd-widget-header-title svg { color: #0b5030 !important; }
-                        #pdWidget-clinical-reminders .pd-widget-add { color: #0b5030 !important; padding: 0; background: transparent; border: none; }
-                        #pdWidget-clinical-reminders .pd-widget-add svg { width: 16px; height: 16px; }
-                    </style>
-                    ${dashboardWidget("Clinical Reminders", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>', "No clinical reminders.", { bodyId: "pdClinicalRemindersBody", addBtnId: "pdClinicalRemindersAddBtn", addBtnLabel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>', addBtnDisabled: false, widgetId: "pdWidget-clinical-reminders" })}
+                    ${dashboardWidget("Office Notes", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path>', "No office notes recorded.", { bodyId: "pdOfficeNotesBody", addBtnId: "pdOfficeNotesMoreBtn", addBtnLabel: "(More)", addBtnDisabled: false })}
+                    ${dashboardWidget("Clinical Reminders", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>', "No clinical reminders.", { bodyId: "pdClinicalRemindersBody", addBtnId: "pdClinicalRemindersAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No care team recorded yet.", { bodyId: "pdCareTeamBody", addBtnId: "pdCareTeamAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}
@@ -8515,6 +8509,150 @@ textarea.pd-sdoh-readonly {
         </div>
         <div class="form-actions" style="margin-top: 16px; justify-content: center;">
             <button type="button" class="btn-secondary" id="pbDownloadPdfBtn">Download PDF</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="officeNotesModalOverlay">
+    <div class="modal-box" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2>Office Notes</h2>
+            <button type="button" class="modal-close" id="closeOfficeNotesModal">&times;</button>
+        </div>
+
+        <textarea id="officeNoteTextarea" class="form-input" placeholder="Enter new office note here. Text only." style="width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical;"></textarea>
+
+        <div class="form-actions" style="margin-top: 12px; justify-content: space-between;">
+            <button type="button" class="btn-primary-inline" id="officeNoteSaveBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>
+                Add New Note
+            </button>
+            <button type="button" class="btn-secondary" id="officeNotesBackBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Back
+            </button>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin: 18px 0 12px;">
+            <button type="button" class="btn-secondary office-notes-filter-btn" data-filter="all">All</button>
+            <button type="button" class="btn-secondary office-notes-filter-btn active" data-filter="active">Only Active</button>
+            <button type="button" class="btn-secondary office-notes-filter-btn" data-filter="inactive">Only Inactive</button>
+        </div>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <button type="button" class="btn-secondary" id="officeNotesPrevBtn">&laquo; Previous</button>
+            <span id="officeNotesPageInfo" style="font-size: 13px; color: var(--text-muted);">1</span>
+            <button type="button" class="btn-secondary" id="officeNotesNextBtn">Next &raquo;</button>
+        </div>
+
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">Active</th>
+                        <th style="width: 160px;">Date</th>
+                        <th>Office Note</th>
+                        <th style="width: 90px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="officeNotesTableBody">
+                    <tr><td colspan="4" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="clinicalRemindersModalOverlay">
+    <div class="modal-box" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>Manage Clinical Reminders</h2>
+            <button type="button" class="modal-close" id="closeClinicalRemindersModal">&times;</button>
+        </div>
+        
+        <p class="form-subtitle">Review and update the patient's active clinical decision rules.</p>
+        
+        <div class="data-table-wrap" style="margin-top: 16px;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Reminder / Rule</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th style="width: 120px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="clinicalRemindersTableBody">
+                    <tr><td colspan="4" class="table-empty">Loading reminders...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="form-actions" style="margin-top: 24px;">
+            <button type="button" class="btn-secondary" id="cancelClinicalRemindersModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="clinicalReminderFormModalOverlay">
+    <div class="modal-box" style="max-width: 680px;">
+        <div class="modal-header">
+            <h2 id="clinicalReminderFormTitle">Assessment</h2>
+            <button type="button" class="modal-close" id="closeClinicalReminderFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Update clinical decision rule status.</p>
+
+        <form id="clinicalReminderForm" onsubmit="event.preventDefault();">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label required">Date/Time</label>
+                    <input type="datetime-local" class="form-input" id="clinicalReminderDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label required">Completed</label>
+                    <select class="form-input" id="clinicalReminderCompleted" required>
+                        <option value="yes">YES</option>
+                        <option value="no">NO</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Results/Details</label>
+                <textarea class="form-input" id="clinicalReminderDetails" style="height: 70px; resize: vertical;"></textarea>
+            </div>
+
+            <div class="form-actions" style="margin-top: 16px;">
+                <button type="button" class="btn-secondary" id="clinicalReminderFormCancelBtn">Cancel</button>
+                <button type="button" class="btn-primary-inline" id="clinicalReminderFormSaveBtn">Save</button>
+            </div>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0 16px;">
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary);">History</h3>
+            <span style="font-size: 12px; color: var(--text-muted);" id="clinicalReminderHistoryCount">0 record(s)</span>
+        </div>
+
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Completed</th>
+                        <th>Results/Details</th>
+                    </tr>
+                </thead>
+                <tbody id="clinicalReminderHistoryTableBody">
+                    <tr><td colspan="3" class="table-empty">No history recorded yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" id="closeClinicalReminderFormModalBottom">Close</button>
         </div>
     </div>
 </div>

@@ -23,3 +23,13 @@ $router->post('/patient-reminders/process-and-send', [PatientReminderController:
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist']]
 ]);
+
+$router->get('/patient-reminders/actions', [PatientReminderController::class, 'actions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/patient-reminders/actions', [PatientReminderController::class, 'addAction'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

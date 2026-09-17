@@ -1,6 +1,8 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { recordRecentPatient } from "../../core/recent-patients.js";
+import { fetchReminderActions, addReminderAction } from "../patient-reminders/patient-reminders.service.js";
+import { fetchOfficeNotes, addOfficeNote, updateOfficeNote, deleteOfficeNote } from "../office-notes/office-notes.service.js";
 import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
 import { formatApptDate, formatApptTime } from "../appointments/appointment-format.js";
 import { setPendingAppointmentPatient } from "../../core/pending-appointment.js";
@@ -18,7 +20,7 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=53";
+import { PatientChartView } from "./patients-list.view.js?v=56";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -151,6 +153,7 @@ import {
     fetchPatientInsurances, addPatientInsurance, updatePatientInsurance, removePatientInsurance
 } from "../patient-insurances/patient-insurances.service.js";
 import { openCodePicker } from "./code-picker.js";
+import { showToast } from "../../core/toast.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -2704,6 +2707,8 @@ export async function initPatientChartTab(patient)
     setupVitalsModal();
     setupLedgerPanel();
     setupPatientBraceletModal(patient);
+    setupClinicalRemindersModal();
+    setupOfficeNotesModal();
     setupDocumentUploadModal();
     setupExternalDataUploadModal();
     setupPrescriptionModals();
@@ -2751,7 +2756,8 @@ async function loadPatientDashboardWidgets(patient)
 
         const data = result.data || {};
 
-        renderDashboardClinicalReminders();
+        renderDashboardOfficeNotes(data.office_notes || []);
+        renderDashboardClinicalReminders(data.reminders || []);
         renderDashboardAllergies(data.allergies || []);
         renderDashboardProblems(data.problems || []);
         renderDashboardHealthConcerns(data.health_concerns || []);
@@ -3218,7 +3224,228 @@ async function loadDashboardAllergies(patient)
     }
 }
 
-function renderDashboardClinicalReminders()
+// Real reminders currently shown on the dashboard, stashed so the
+// "Manage Clinical Reminders" modal (opened from the same widget) can
+// list the exact same rows without a second round trip.
+let currentClinicalReminders = [];
+
+function reminderStatusLabel(dueStatus)
+{
+    return dueStatus === "past_due" ? "Past Due" : "Due";
+}
+
+function formatOfficeNoteDate(value)
+{
+    if (!value) return "";
+    return String(value).replace("T", " ").slice(0, 16);
+}
+
+function renderDashboardOfficeNotes(notes)
+{
+    const body = document.getElementById("pdOfficeNotesBody");
+    if (!body) return;
+
+    setWidgetCount("pdOfficeNotesBody", notes.length);
+
+    body.innerHTML = notes.length
+        ? `
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 16px 12px;">
+            ${notes.map((note) => `
+                <div style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+                    <div style="background: #1e293b; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 600;">
+                        ${escapeHtml(formatOfficeNoteDate(note.created_at))} (${escapeHtml(note.author || "unknown")})
+                    </div>
+                    <div style="background: var(--bg-surface); color: var(--text-primary); padding: 8px 10px; font-size: 13px; white-space: pre-wrap;">${escapeHtml(note.note)}</div>
+                </div>
+            `).join("")}
+        </div>
+        `
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
+            <p>No office notes recorded.</p>
+           </div>`;
+}
+
+let officeNotesFilter = "active";
+let officeNotesPage = 1;
+const OFFICE_NOTES_PER_PAGE = 25;
+let officeNotesTotalPages = 1;
+let editingOfficeNoteId = null;
+
+async function refreshOfficeNotesWidget()
+{
+    if (!currentDashboardPatient) return;
+
+    const result = await fetchOfficeNotes(currentDashboardPatient.id, { filter: "active", page: 1, perPage: 5 });
+    renderDashboardOfficeNotes(result.success ? result.data.rows : []);
+}
+
+async function loadOfficeNotesList()
+{
+    const tbody = document.getElementById("officeNotesTableBody");
+    if (!tbody || !currentDashboardPatient) return;
+
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading...</td></tr>`;
+
+    const result = await fetchOfficeNotes(currentDashboardPatient.id, {
+        filter: officeNotesFilter,
+        page: officeNotesPage,
+        perPage: OFFICE_NOTES_PER_PAGE
+    });
+
+    if (!result.success) {
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Failed to load notes.</td></tr>`;
+        return;
+    }
+
+    const { rows, total, page, per_page: perPage } = result.data;
+    officeNotesTotalPages = Math.max(1, Math.ceil(total / perPage));
+
+    tbody.innerHTML = rows.length
+        ? rows.map((note) => `
+            <tr>
+                <td><input type="checkbox" class="office-note-active-toggle" data-note-id="${note.id}" ${note.active ? "checked" : ""}></td>
+                <td>${escapeHtml(formatOfficeNoteDate(note.created_at))} (${escapeHtml(note.author || "unknown")})</td>
+                <td>${escapeHtml(note.note)}</td>
+                <td>
+                    <button type="button" class="btn-secondary office-note-edit-btn" data-note-id="${note.id}" title="Edit" style="padding: 4px 8px; margin-right: 4px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                    </button>
+                    <button type="button" class="btn-secondary office-note-delete-btn" data-note-id="${note.id}" title="Delete" style="padding: 4px 8px; color: #dc2626;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"></path></svg>
+                    </button>
+                </td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="4" class="table-empty">No office notes found.</td></tr>`;
+
+    document.getElementById("officeNotesPageInfo").textContent = String(page);
+    document.getElementById("officeNotesPrevBtn").disabled = page <= 1;
+    document.getElementById("officeNotesNextBtn").disabled = page >= officeNotesTotalPages;
+
+    tbody.querySelectorAll(".office-note-active-toggle").forEach((checkbox) => {
+        checkbox.addEventListener("change", async () => {
+            checkbox.disabled = true;
+            await updateOfficeNote(checkbox.getAttribute("data-note-id"), { active: checkbox.checked });
+            checkbox.disabled = false;
+            await refreshOfficeNotesWidget();
+            if (officeNotesFilter !== "all") {
+                loadOfficeNotesList();
+            }
+        });
+    });
+
+    tbody.querySelectorAll(".office-note-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-note-id");
+            const note = rows.find((r) => String(r.id) === id);
+            if (!note) return;
+
+            editingOfficeNoteId = note.id;
+            document.getElementById("officeNoteTextarea").value = note.note;
+            document.getElementById("officeNoteSaveBtn").innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>Update Note`;
+            document.getElementById("officeNoteTextarea").focus();
+        });
+    });
+
+    tbody.querySelectorAll(".office-note-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Delete this office note? This cannot be undone.")) return;
+
+            await deleteOfficeNote(btn.getAttribute("data-note-id"));
+            await refreshOfficeNotesWidget();
+            loadOfficeNotesList();
+        });
+    });
+}
+
+function setupOfficeNotesModal()
+{
+    const overlay = document.getElementById("officeNotesModalOverlay");
+    if (!overlay) return;
+
+    const closeModal = () => overlay.classList.remove("open");
+
+    const moreBtn = document.getElementById("pdOfficeNotesMoreBtn");
+    if (moreBtn) {
+        moreBtn.addEventListener("click", () => {
+            editingOfficeNoteId = null;
+            officeNotesFilter = "active";
+            officeNotesPage = 1;
+            document.getElementById("officeNoteTextarea").value = "";
+            document.getElementById("officeNoteSaveBtn").innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>Add New Note`;
+            document.querySelectorAll(".office-notes-filter-btn").forEach((btn) => {
+                btn.classList.toggle("active", btn.getAttribute("data-filter") === "active");
+            });
+
+            overlay.classList.add("open");
+            loadOfficeNotesList();
+        });
+    }
+
+    document.getElementById("closeOfficeNotesModal").addEventListener("click", closeModal);
+    document.getElementById("officeNotesBackBtn").addEventListener("click", closeModal);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) closeModal();
+    });
+
+    document.querySelectorAll(".office-notes-filter-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            officeNotesFilter = btn.getAttribute("data-filter");
+            officeNotesPage = 1;
+            document.querySelectorAll(".office-notes-filter-btn").forEach((b) => b.classList.toggle("active", b === btn));
+            loadOfficeNotesList();
+        });
+    });
+
+    document.getElementById("officeNotesPrevBtn").addEventListener("click", () => {
+        if (officeNotesPage > 1) {
+            officeNotesPage--;
+            loadOfficeNotesList();
+        }
+    });
+
+    document.getElementById("officeNotesNextBtn").addEventListener("click", () => {
+        if (officeNotesPage < officeNotesTotalPages) {
+            officeNotesPage++;
+            loadOfficeNotesList();
+        }
+    });
+
+    document.getElementById("officeNoteSaveBtn").addEventListener("click", async () => {
+        const textarea = document.getElementById("officeNoteTextarea");
+        const text = textarea.value.trim();
+
+        if (!text) {
+            showToast("Enter note text first.", "error");
+            return;
+        }
+
+        const saveBtn = document.getElementById("officeNoteSaveBtn");
+        saveBtn.disabled = true;
+
+        const result = editingOfficeNoteId
+            ? await updateOfficeNote(editingOfficeNoteId, { note: text })
+            : await addOfficeNote(currentDashboardPatient.id, text);
+
+        saveBtn.disabled = false;
+
+        if (!result.success) {
+            showToast(result.message || "Failed to save note.", "error");
+            return;
+        }
+
+        showToast(editingOfficeNoteId ? "Note updated." : "Note added.", "success");
+        editingOfficeNoteId = null;
+        textarea.value = "";
+        saveBtn.innerHTML = "Add New Note";
+
+        await refreshOfficeNotesWidget();
+        loadOfficeNotesList();
+    });
+}
+
+function renderDashboardClinicalReminders(reminders)
 {
     const body = document.getElementById("pdClinicalRemindersBody");
 
@@ -3226,36 +3453,35 @@ function renderDashboardClinicalReminders()
         return;
     }
 
-    const reminders = [
-        { label: "Assessment: Colon Cancer Screening", status: "Past Due" },
-        { label: "Assessment: Prostate Cancer Screening", status: "Past Due" },
-        { label: "Measurement: Blood Pressure", status: "Past Due" },
-        { label: "Treatment: Influenza Vaccine", status: "Past Due" },
-        { label: "Assessment: Tobacco", status: "Past Due" }
-    ];
+    currentClinicalReminders = reminders;
 
     setWidgetCount("pdClinicalRemindersBody", reminders.length);
 
-    body.innerHTML = `
-        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;">
-            ${reminders.map((reminder) => `
-                <li style="border-bottom: 1px solid #e5e9f0; padding: 8px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13.5px;">
-                    <div style="color: #0b5030;">${escapeHtml(reminder.label)}</div>
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #cf2a4a;">
-                        <span style="font-size: 12.5px; margin-bottom: 2px;">${escapeHtml(reminder.status)}</span>
-                        <svg style="width: 15px; height: 15px;" viewBox="0 0 24 24" fill="currentColor">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path fill="#fff" d="M12 16a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm0-10c-1.66 0-3 1.34-3 3h2c0-.55.45-1 1-1s1 .45 1 1c0 1-2 1.25-2 3.5h2c0-1.5 2-1.75 2-3.5 0-1.66-1.34-3-3-3z"></path>
-                        </svg>
-                    </div>
-                </li>
-            `).join("")}
-        </ul>
-    `;
-    
+    body.innerHTML = reminders.length
+        ? `
+        <div style="padding: 0 16px;">
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;">
+                ${reminders.map((reminder) => `
+                    <li style="border-bottom: 1px solid var(--border-color); padding: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <a href="javascript:void(0)" class="clinical-reminder-link" data-reminder-id="${reminder.id}" style="color: var(--text-primary); font-size: 13px; font-weight: 500; text-decoration: none;">${escapeHtml(reminder.item_label)}</a>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="pd-severity-badge ${reminder.due_status === "past_due" ? "severe" : "mild"}">${escapeHtml(reminderStatusLabel(reminder.due_status))}</span>
+                        </div>
+                    </li>
+                `).join("")}
+            </ul>
+        </div>
+        `
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path></svg>
+            <p>No clinical reminders.</p>
+           </div>`;
+
     // Remove the last border
     const items = body.querySelectorAll("li");
     if (items.length) items[items.length - 1].style.borderBottom = "none";
+
+    wireDashboardItemClicks(body, "data-reminder-id", reminders, (reminder) => openClinicalReminderFormModal(reminder));
 }
 
 function renderDashboardAllergies(allergies)
@@ -6493,6 +6719,163 @@ function setupPatientBraceletModal(patient)
             closeModal();
         }
     });
+}
+
+function setupClinicalRemindersModal()
+{
+    const overlay = document.getElementById("clinicalRemindersModalOverlay");
+    if (!overlay) return;
+
+    const closeModal = () => overlay.classList.remove("open");
+
+    const addBtn = document.getElementById("pdClinicalRemindersAddBtn");
+    if (addBtn) {
+        addBtn.addEventListener("click", () => {
+            const tbody = document.getElementById("clinicalRemindersTableBody");
+
+            tbody.innerHTML = currentClinicalReminders.length
+                ? currentClinicalReminders.map((rem) => `
+                    <tr>
+                        <td><strong>${escapeHtml(rem.item_label)}</strong></td>
+                        <td><span class="pd-severity-badge ${rem.due_status === "past_due" ? "severe" : "mild"}">${escapeHtml(reminderStatusLabel(rem.due_status))}</span></td>
+                        <td>${escapeHtml(String(rem.date_created || "").slice(0, 10))}</td>
+                        <td><button type="button" class="btn-secondary clinical-reminder-satisfy-btn" data-reminder-id="${rem.id}" style="padding: 4px 8px; font-size: 11px;">Log Action</button></td>
+                    </tr>
+                `).join("")
+                : `<tr><td colspan="4" class="table-empty">No clinical reminders for this patient.</td></tr>`;
+
+            tbody.querySelectorAll(".clinical-reminder-satisfy-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const reminder = currentClinicalReminders.find((r) => String(r.id) === btn.getAttribute("data-reminder-id"));
+                    if (!reminder) return;
+
+                    overlay.classList.remove("open");
+                    openClinicalReminderFormModal(reminder);
+                });
+            });
+
+            overlay.classList.add("open");
+        });
+    }
+
+    document.getElementById("closeClinicalRemindersModal").addEventListener("click", closeModal);
+    document.getElementById("cancelClinicalRemindersModal").addEventListener("click", closeModal);
+
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            closeModal();
+        }
+    });
+}
+
+/**
+ * Append-only action log, same as any real clinical documentation --
+ * a correction is a new entry, not a silent edit of a past one. Also
+ * deliberately does not flip the dashboard badge to "Satisfied" after
+ * logging: due_status is a separate computation (see
+ * PatientReminderService::process()) that this log never touches, so
+ * showing a fake "Satisfied" badge would misrepresent whether the item
+ * is still objectively due.
+ */
+function renderClinicalReminderHistory(actions)
+{
+    const tbody = document.getElementById("clinicalReminderHistoryTableBody");
+    const countEl = document.getElementById("clinicalReminderHistoryCount");
+    if (!tbody) return;
+
+    if (countEl) {
+        countEl.textContent = `${actions.length} record(s)`;
+    }
+
+    tbody.innerHTML = actions.length
+        ? actions.map((item) => {
+            const badgeClass = item.completed === "yes" ? "mild" : "severe";
+
+            return `
+                <tr>
+                    <td>${escapeHtml(String(item.action_date || "").replace("T", " ").slice(0, 16))}</td>
+                    <td><span class="pd-severity-badge ${badgeClass}">${item.completed === "yes" ? "YES" : "NO"}</span></td>
+                    <td>${escapeHtml(item.details || "-")}</td>
+                </tr>
+            `;
+        }).join("")
+        : `<tr><td colspan="3" class="table-empty">No history recorded yet.</td></tr>`;
+}
+
+async function openClinicalReminderFormModal(reminder)
+{
+    const overlay = document.getElementById("clinicalReminderFormModalOverlay");
+    if (!overlay) return;
+
+    const title = document.getElementById("clinicalReminderFormTitle");
+    if (title) title.textContent = reminder.item_label;
+
+    const dateInput = document.getElementById("clinicalReminderDate");
+    const completedInput = document.getElementById("clinicalReminderCompleted");
+    const detailsInput = document.getElementById("clinicalReminderDetails");
+    const saveBtn = document.getElementById("clinicalReminderFormSaveBtn");
+
+    if (dateInput) {
+        const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+        dateInput.value = now.toISOString().slice(0, 16);
+    }
+    if (completedInput) completedInput.value = "yes";
+    if (detailsInput) detailsInput.value = "";
+
+    const tbody = document.getElementById("clinicalReminderHistoryTableBody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="table-empty">Loading...</td></tr>`;
+
+    overlay.classList.add("open");
+
+    const actionsResult = await fetchReminderActions(reminder.id);
+    renderClinicalReminderHistory(actionsResult.success ? actionsResult.data : []);
+
+    const close = () => overlay.classList.remove("open");
+
+    const closeBtn = document.getElementById("closeClinicalReminderFormModal");
+    const cancelBtn = document.getElementById("clinicalReminderFormCancelBtn");
+    const bottomCloseBtn = document.getElementById("closeClinicalReminderFormModalBottom");
+
+    if (closeBtn) closeBtn.onclick = close;
+    if (cancelBtn) cancelBtn.onclick = close;
+    if (bottomCloseBtn) bottomCloseBtn.onclick = close;
+
+    if (saveBtn) {
+        saveBtn.onclick = async () => {
+            const actionDate = dateInput?.value ? dateInput.value.replace("T", " ") : "";
+
+            if (!actionDate) {
+                showToast("Date/Time is required.", "error");
+                return;
+            }
+
+            saveBtn.disabled = true;
+
+            const result = await addReminderAction(reminder.id, {
+                action_date: actionDate,
+                completed: completedInput?.value || "yes",
+                details: detailsInput?.value || ""
+            });
+
+            saveBtn.disabled = false;
+
+            if (!result.success) {
+                showToast(result.message || "Failed to log this action.", "error");
+                return;
+            }
+
+            if (detailsInput) detailsInput.value = "";
+
+            const refreshed = await fetchReminderActions(reminder.id);
+            renderClinicalReminderHistory(refreshed.success ? refreshed.data : []);
+
+            showToast("Action logged.", "success");
+        };
+    }
+
+    overlay.onclick = (event) => {
+        if (event.target === overlay) close();
+    };
 }
 
 function setupDocumentUploadModal()

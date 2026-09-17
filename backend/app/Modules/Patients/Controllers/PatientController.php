@@ -22,6 +22,8 @@ use App\Modules\CareTeams\Services\CareTeamService;
 use App\Modules\PatientInsurances\Services\PatientInsuranceService;
 use App\Modules\EncounterVitals\Services\EncounterVitalService;
 use App\Modules\PatientDocuments\Services\PatientDocumentService;
+use App\Modules\PatientReminders\Services\PatientReminderService;
+use App\Modules\OfficeNotes\Services\OfficeNoteService;
 use App\Modules\Patients\Models\Patient;
 
 class PatientController extends Controller
@@ -98,6 +100,8 @@ class PatientController extends Controller
             'insurance' => fn () => (new PatientInsuranceService())->list($patientId),
             'vitals_history' => fn () => (new EncounterVitalService())->listForPatient($patientId),
             'documents' => fn () => (new PatientDocumentService())->listForPatient($patientId),
+            'reminders' => fn () => (new PatientReminderService())->listForPatient($patientId),
+            'office_notes' => fn () => (new OfficeNoteService())->listForPatient($patientId),
         ];
 
         $result = [];
