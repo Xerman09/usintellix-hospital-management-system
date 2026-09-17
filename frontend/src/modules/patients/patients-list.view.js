@@ -4684,6 +4684,10 @@ textarea.pd-sdoh-readonly {
     grid-column: 1 / -1;
 }
 
+#pdWidget-carePreferences {
+    grid-column: 1 / -1;
+}
+
 .pd-demo-tabs {
     display: flex;
     gap: 2px;
@@ -5393,6 +5397,7 @@ textarea.pd-sdoh-readonly {
                     </div>
                     ${dashboardWidget("Office Notes", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path>', "No office notes recorded.", { bodyId: "pdOfficeNotesBody", addBtnId: "pdOfficeNotesMoreBtn", addBtnLabel: "(More)", addBtnDisabled: false })}
                     ${dashboardWidget("Clinical Reminders", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>', "No clinical reminders.", { bodyId: "pdClinicalRemindersBody", addBtnId: "pdClinicalRemindersAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Care Experience Preferences", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"></path>', "No care experience preferences recorded.", { bodyId: "pdCarePreferencesBody", addBtnId: "pdCarePreferencesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-carePreferences" })}
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No care team recorded yet.", { bodyId: "pdCareTeamBody", addBtnId: "pdCareTeamAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}
@@ -8653,6 +8658,101 @@ textarea.pd-sdoh-readonly {
 
         <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
             <button type="button" class="btn-secondary" id="closeClinicalReminderFormModalBottom">Close</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="carePreferenceFormModalOverlay">
+    <div class="modal-box" style="max-width: 720px;">
+        <div class="modal-header">
+            <h2>Care Experience Preferences</h2>
+            <button type="button" class="modal-close" id="closeCarePreferenceFormModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record and review this patient's care experience and treatment preferences.</p>
+
+        <div id="carePreferenceSuccessBanner"></div>
+
+        <form id="carePreferenceForm" onsubmit="event.preventDefault();">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label required">Preference Category</label>
+                    <select class="form-input" id="carePreferenceCategory" required>
+                        <option value="">Select...</option>
+                    </select>
+                    <span style="display:block; font-size: 11px; color: var(--text-muted); margin-top: 4px;">LOINC-coded list for FHIR compliance</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label required">Date Recorded</label>
+                    <input type="datetime-local" class="form-input" id="carePreferenceDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" id="carePreferenceStatus">
+                        <option value="preliminary">Preliminary</option>
+                        <option value="final" selected>Final</option>
+                        <option value="amended">Amended</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Response Type</label>
+                <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:6px;">
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="radio" name="carePreferenceResponseType" value="coded" checked> Coded Value (from answer list)
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="radio" name="carePreferenceResponseType" value="free_text"> Free Text
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="radio" name="carePreferenceResponseType" value="yes_no"> Yes/No
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required">Patient's Preference</label>
+                <div id="carePreferenceValueField">
+                    <select class="form-input" id="carePreferenceValueInput" disabled>
+                        <option value="">Select preference first...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Additional Notes</label>
+                <textarea class="form-input" id="carePreferenceNotes" style="height: 70px; resize: vertical;"></textarea>
+            </div>
+
+            <div class="form-actions" style="margin-top: 16px;">
+                <button type="button" class="btn-secondary" id="carePreferenceFormCancelBtn">Cancel</button>
+                <button type="button" class="btn-primary-inline" id="carePreferenceFormSaveBtn">Save Preference</button>
+            </div>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0 16px;">
+
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Preference</th>
+                        <th>Patient's Choice</th>
+                        <th>Status</th>
+                        <th style="width: 90px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="carePreferencesTableBody">
+                    <tr><td colspan="5" class="table-empty">No care experience preferences recorded.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" id="closeCarePreferenceFormModalBottom">Close</button>
         </div>
     </div>
 </div>

@@ -7,7 +7,7 @@ import {
     deletePreferenceType
 } from "./preference-types.service.js";
 
-const FIELDS = ["name", "loinc_code", "description"];
+const FIELDS = ["name", "loinc_code", "description", "answer_options"];
 
 let preferenceTypes = [];
 let searchTerm = "";
@@ -42,6 +42,7 @@ export async function initPreferenceTypes()
             document.getElementById("name").value = preferenceType.name ?? "";
             document.getElementById("loinc_code").value = preferenceType.loinc_code ?? "";
             document.getElementById("description").value = preferenceType.description ?? "";
+            document.getElementById("answer_options").value = preferenceType.answer_options ?? "";
         } else {
             modalTitle.textContent = "Add Preference Type";
             saveBtn.textContent = "Add Preference Type";

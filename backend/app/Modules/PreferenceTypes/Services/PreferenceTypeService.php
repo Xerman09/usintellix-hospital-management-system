@@ -15,7 +15,7 @@ class PreferenceTypeService
     public function list(): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, name, loinc_code, description, created_at, updated_at
+            "SELECT id, name, loinc_code, description, answer_options, created_at, updated_at
              FROM preference_types
              WHERE deleted_at IS NULL
              ORDER BY name"
@@ -43,11 +43,12 @@ class PreferenceTypeService
 
         try {
             $preferenceTypeId = (new PreferenceType())->create([
-                'name'        => $data['name'],
-                'loinc_code'  => $data['loinc_code'] ?? null,
-                'description' => $data['description'] ?? null,
-                'created_at'  => date('Y-m-d H:i:s'),
-                'created_by'  => $createdBy
+                'name'           => $data['name'],
+                'loinc_code'     => $data['loinc_code'] ?? null,
+                'description'    => $data['description'] ?? null,
+                'answer_options' => $data['answer_options'] ?? null,
+                'created_at'     => date('Y-m-d H:i:s'),
+                'created_by'     => $createdBy
             ]);
 
             if (!$preferenceTypeId) {
@@ -94,11 +95,12 @@ class PreferenceTypeService
         }
 
         $updated = (new PreferenceType())->update([
-            'name'        => $data['name'],
-            'loinc_code'  => $data['loinc_code'] ?? null,
-            'description' => $data['description'] ?? null,
-            'updated_at'  => date('Y-m-d H:i:s'),
-            'updated_by'  => $updatedBy
+            'name'           => $data['name'],
+            'loinc_code'     => $data['loinc_code'] ?? null,
+            'description'    => $data['description'] ?? null,
+            'answer_options' => $data['answer_options'] ?? null,
+            'updated_at'     => date('Y-m-d H:i:s'),
+            'updated_by'     => $updatedBy
         ], $id);
 
         if (!$updated) {

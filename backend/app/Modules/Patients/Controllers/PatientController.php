@@ -24,6 +24,7 @@ use App\Modules\EncounterVitals\Services\EncounterVitalService;
 use App\Modules\PatientDocuments\Services\PatientDocumentService;
 use App\Modules\PatientReminders\Services\PatientReminderService;
 use App\Modules\OfficeNotes\Services\OfficeNoteService;
+use App\Modules\PatientCarePreferences\Services\PatientCarePreferenceService;
 use App\Modules\Patients\Models\Patient;
 
 class PatientController extends Controller
@@ -102,6 +103,7 @@ class PatientController extends Controller
             'documents' => fn () => (new PatientDocumentService())->listForPatient($patientId),
             'reminders' => fn () => (new PatientReminderService())->listForPatient($patientId),
             'office_notes' => fn () => (new OfficeNoteService())->listForPatient($patientId),
+            'care_preferences' => fn () => (new PatientCarePreferenceService())->listForPatient($patientId),
         ];
 
         $result = [];

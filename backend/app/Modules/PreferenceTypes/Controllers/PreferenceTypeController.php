@@ -34,7 +34,7 @@ class PreferenceTypeController extends Controller
         $admin = Session::get('user');
         $request = new Request();
 
-        $data = $request->only(['name', 'loinc_code', 'description']);
+        $data = $request->only(['name', 'loinc_code', 'description', 'answer_options']);
 
         $result = $this->preferenceTypeService->register($data, (int) $admin['id']);
 
@@ -55,7 +55,7 @@ class PreferenceTypeController extends Controller
         $request = new Request();
 
         $id = (int) $request->input('id');
-        $data = $request->only(['name', 'loinc_code', 'description']);
+        $data = $request->only(['name', 'loinc_code', 'description', 'answer_options']);
 
         $result = $this->preferenceTypeService->update($id, $data, (int) $admin['id']);
 

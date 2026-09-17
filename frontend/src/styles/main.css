@@ -3312,6 +3312,34 @@ select.form-input {
     color: #fcd34d;
 }
 
+.status-badge.final,
+.status-badge.yes {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-badge.preliminary,
+.status-badge.no {
+    background: var(--accent-lighter);
+    color: var(--accent-text);
+}
+
+.status-badge.amended {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+:root[data-theme="dark"] .status-badge.final,
+:root[data-theme="dark"] .status-badge.yes {
+    background: rgba(21, 128, 61, .2);
+    color: #86efac;
+}
+
+:root[data-theme="dark"] .status-badge.amended {
+    background: rgba(146, 64, 14, .25);
+    color: #fcd34d;
+}
+
 /* =========================
    PATIENT APPOINTMENT CARDS
 ========================= */

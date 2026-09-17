@@ -482,6 +482,13 @@ export function PreferenceTypesView()
                     <input id="description" class="form-input" placeholder="Optional description">
                     <span class="form-error" id="err-description"></span>
                 </div>
+
+                <div class="form-group full">
+                    <label>Answer Options</label>
+                    <textarea id="answer_options" class="form-input" style="height: 90px; resize: vertical;" placeholder="One coded answer per line, e.g.&#10;Full Code&#10;DNR (Do Not Resuscitate)"></textarea>
+                    <span style="display:block; font-size: 12px; color: var(--text-muted); margin-top: 4px;">Offered when a patient's preference for this category uses the "Coded Value" response type. One option per line.</span>
+                    <span class="form-error" id="err-answer_options"></span>
+                </div>
             </div>
 
             <div class="form-actions">
