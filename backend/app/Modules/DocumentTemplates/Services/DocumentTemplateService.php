@@ -2,6 +2,9 @@
 
 namespace App\Modules\DocumentTemplates\Services;
 
+use App\Core\Database;
+use PDO;
+
 /**
  * "Document Template Management": upload/list/download/delete document
  * template files (letter templates, form templates, etc.), stored as
@@ -18,6 +21,11 @@ class DocumentTemplateService
 
     private const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
+    /**
+     * The repository listing, each file's category (if any) joined in
+     * from document_template_meta -- the Template Maintenance screen's
+     * "Repository" scope browses this same list.
+     */
     public function list(): array
     {
         $dir = $this->storageDir();
@@ -25,6 +33,8 @@ class DocumentTemplateService
         if (!is_dir($dir)) {
             return [];
         }
+
+        $categoriesByFilename = $this->categoriesByFilename();
 
         $templates = [];
 
@@ -39,17 +49,73 @@ class DocumentTemplateService
                 continue;
             }
 
+            $category = $categoriesByFilename[$filename] ?? null;
+
             $templates[] = [
                 'filename' => $filename,
                 'size' => filesize($path),
                 'modified_at' => date('Y-m-d H:i:s', filemtime($path)),
-                'file_path' => '/uploads/document_templates/' . rawurlencode($filename)
+                'file_path' => '/uploads/document_templates/' . rawurlencode($filename),
+                'category_id' => $category['category_id'] ?? null,
+                'category_name' => $category['category_name'] ?? null
             ];
         }
 
         usort($templates, fn($a, $b) => strcasecmp($a['filename'], $b['filename']));
 
         return $templates;
+    }
+
+    /**
+     * Tags (or clears, with $categoryId = null) a repository file's
+     * category -- one row per filename in document_template_meta,
+     * created on first tag and updated after that.
+     */
+    public function setCategory(string $filename, ?int $categoryId, int $userId): array
+    {
+        $safeFilename = $this->safeFilename($filename);
+
+        if ($safeFilename === null || !is_file($this->storageDir() . '/' . $safeFilename)) {
+            return ['success' => false, 'message' => 'Template not found.'];
+        }
+
+        $existing = Database::connection()->prepare(
+            "SELECT id FROM document_template_meta WHERE template_filename = ?"
+        );
+        $existing->execute([$safeFilename]);
+        $row = $existing->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            $stmt = Database::connection()->prepare(
+                "UPDATE document_template_meta SET category_id = ?, updated_at = ?, updated_by = ? WHERE id = ?"
+            );
+            $stmt->execute([$categoryId, date('Y-m-d H:i:s'), $userId, $row['id']]);
+        } else {
+            $stmt = Database::connection()->prepare(
+                "INSERT INTO document_template_meta (template_filename, category_id, created_at, created_by)
+                 VALUES (?, ?, ?, ?)"
+            );
+            $stmt->execute([$safeFilename, $categoryId, date('Y-m-d H:i:s'), $userId]);
+        }
+
+        return ['success' => true, 'message' => 'Category updated.'];
+    }
+
+    private function categoriesByFilename(): array
+    {
+        $stmt = Database::connection()->query(
+            "SELECT m.template_filename, m.category_id, c.name AS category_name
+             FROM document_template_meta m
+             LEFT JOIN template_categories c ON c.id = m.category_id AND c.deleted_at IS NULL"
+        );
+
+        $result = [];
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $result[$row['template_filename']] = $row;
+        }
+
+        return $result;
     }
 
     /**

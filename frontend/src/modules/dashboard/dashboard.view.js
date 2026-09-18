@@ -151,6 +151,7 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="admin_document_templates">Document Templates</a>
+                        <a data-tab="template_maintenance">Template Maintenance</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">

@@ -4692,6 +4692,50 @@ textarea.pd-sdoh-readonly {
     grid-column: 1 / -1;
 }
 
+.pd-portal-box {
+    background: #dbeef4;
+    border-radius: 10px;
+    padding: 22px 12px;
+    text-align: center;
+}
+
+.pd-portal-box-title {
+    font-weight: 700;
+    font-size: 13px;
+    color: #1a2338;
+    margin-bottom: 14px;
+}
+
+.pd-portal-box-action {
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+}
+
+.pd-portal-box-action:hover {
+    text-decoration: underline;
+}
+
+.pd-portal-box-action svg {
+    width: 15px;
+    height: 15px;
+}
+
+:root[data-theme="dark"] .pd-portal-box {
+    background: rgba(14, 116, 144, .18);
+}
+
+:root[data-theme="dark"] .pd-portal-box-title {
+    color: var(--text-primary);
+}
+
 .pd-demo-tabs {
     display: flex;
     gap: 2px;
@@ -5415,6 +5459,30 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.", { bodyId: "pdInsuranceBody", addBtnId: "pdInsuranceAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.", { bodyId: "pdAppointmentsBody", addBtnId: "pdAppointmentsAddBtn", addBtnLabel: "+ Add", addBtnDisabled: false })}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { bodyId: "pdDocumentsBody", addBtnId: "pdDocumentsAddBtn", addBtnLabel: "Upload", addBtnDisabled: false, widgetId: "pdWidget-documents" })}
+                    <div class="pd-widget" id="pdWidget-portalAccess">
+                        <div class="pd-widget-header">
+                            <div class="pd-widget-header-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                                <h3>Patient Portal / API Access</h3>
+                            </div>
+                        </div>
+                        <div class="pd-widget-body" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="pd-portal-box">
+                                <div class="pd-portal-box-title">Documents</div>
+                                <button type="button" class="pd-portal-box-action" id="pdPortalDocumentsAssignBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                    Assign
+                                </button>
+                            </div>
+                            <div class="pd-portal-box">
+                                <div class="pd-portal-box-title">Credentials</div>
+                                <button type="button" class="pd-portal-box-action" id="pdPortalCredentialsResetBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"></circle><path d="m10.85 12.15 8.15-8.15"></path><path d="m15 8 2 2"></path><path d="m18 5 2 2"></path></svg>
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     ${dashboardWidget("Disclosures", '<path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path>', "No disclosures recorded for this patient.", { bodyId: "pdDisclosuresBody", addBtnId: "pdDisclosuresAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Messages", '<path d="M4 4h16v16H4z"></path><path d="m4 6 8 7 8-7"></path>', "No messages recorded for this patient.", { bodyId: "pdMessagesBody", addBtnId: "pdMessagesAddBtn", addBtnLabel: "View All", addBtnDisabled: false })}
                     ${dashboardWidget("Amendments", '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>', "No amendment requests available.", { bodyId: "pdAmendmentsBody", addBtnId: "pdAmendmentsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
@@ -8853,6 +8921,38 @@ textarea.pd-sdoh-readonly {
 
         <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
             <button type="button" class="btn-secondary" id="closeTreatmentPreferenceFormModalBottom">Close</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="portalCredentialsResetModalOverlay">
+    <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2>Reset Portal Credentials</h2>
+            <button type="button" class="modal-close" id="closePortalCredentialsResetModal">&times;</button>
+        </div>
+
+        <div id="portalCredentialsResetIntro">
+            <p class="form-subtitle">This generates a new portal password for this patient. Their current password will stop working immediately.</p>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="button" class="btn-secondary" id="portalCredentialsResetCancelBtn">Cancel</button>
+                <button type="button" class="btn-primary-inline" id="portalCredentialsResetConfirmBtn">Reset Password</button>
+            </div>
+        </div>
+
+        <div id="portalCredentialsResetResult" style="display: none;">
+            <div class="form-alert success">Password reset successfully.</div>
+            <p class="form-subtitle">Give this password to the patient now -- it will not be shown again.</p>
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" class="form-input" id="portalCredentialsResetNewPassword" readonly style="font-family: monospace; font-size: 15px;">
+                    <button type="button" class="btn-secondary" id="portalCredentialsResetCopyBtn">Copy</button>
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
+                <button type="button" class="btn-secondary" id="portalCredentialsResetDoneBtn">Done</button>
+            </div>
         </div>
     </div>
 </div>

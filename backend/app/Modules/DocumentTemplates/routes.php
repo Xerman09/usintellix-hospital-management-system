@@ -17,6 +17,11 @@ $router->post('/document-templates', [DocumentTemplateController::class, 'store'
     [RoleMiddleware::class, ['admin']]
 ]);
 
+$router->put('/document-templates/category', [DocumentTemplateController::class, 'updateCategory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->delete('/document-templates', [DocumentTemplateController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]

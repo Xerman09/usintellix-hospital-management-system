@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\PatientDocuments\Services\PatientDocumentService;
+use App\Modules\PatientDocuments\Models\PatientDocument;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
@@ -35,7 +36,31 @@ class PatientDocumentController extends Controller
             return;
         }
 
-        $this->success($this->patientDocumentService->listForPatient($patientId), 'Documents retrieved successfully.');
+        $portalOnly = ($user['role'] ?? '') === 'patient';
+
+        $this->success($this->patientDocumentService->listForPatient($patientId, $portalOnly), 'Documents retrieved successfully.');
+    }
+
+    /**
+     * Toggle a document's Patient Portal visibility (staff-only -- the
+     * "Assign" action on the Patient Portal / API Access widget).
+     */
+    public function update(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $id = (int) $request->input('id');
+        $document = (new PatientDocument())->where('id', $id)->first();
+
+        if (!$document || $document['deleted_at'] !== null || !$this->ownsPatient($user, (int) $document['patient_id'])) {
+            $this->error('Document not found.', 404);
+            return;
+        }
+
+        $result = $this->patientDocumentService->setPortalVisible($id, (bool) $request->input('portal_visible'), (int) $user['id']);
+
+        $this->success(null, $result['message']);
     }
 
     /**

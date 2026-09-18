@@ -26,22 +26,46 @@ class PatientDocumentService
      * Every document on file for a patient, newest first, with the
      * uploader's name resolved the same way encounter eSign log entries
      * resolve a signer's name (employee record, falling back to username).
+     * $portalOnly restricts this to documents staff have explicitly
+     * marked portal_visible -- used for the patient's own portal view;
+     * staff's own chart view always sees everything regardless.
      */
-    public function listForPatient(int $patientId): array
+    public function listForPatient(int $patientId, bool $portalOnly = false): array
     {
-        $stmt = Database::connection()->prepare(
-            "SELECT pd.id, pd.category, pd.title, pd.original_filename, pd.file_path, pd.mime_type, pd.file_size,
-                    pd.description, pd.created_at,
-                    COALESCE(NULLIF(TRIM(CONCAT(emp.first_name, ' ', emp.last_name)), ''), u.username) AS uploaded_by_name
-             FROM patient_documents pd
-             LEFT JOIN users u ON u.id = pd.created_by
-             LEFT JOIN employees emp ON emp.user_id = pd.created_by
-             WHERE pd.patient_id = :patient_id AND pd.deleted_at IS NULL
-             ORDER BY pd.created_at DESC, pd.id DESC"
-        );
+        $sql = "SELECT pd.id, pd.category, pd.portal_visible, pd.title, pd.original_filename, pd.file_path,
+                       pd.mime_type, pd.file_size, pd.description, pd.created_at,
+                       COALESCE(NULLIF(TRIM(CONCAT(emp.first_name, ' ', emp.last_name)), ''), u.username) AS uploaded_by_name
+                FROM patient_documents pd
+                LEFT JOIN users u ON u.id = pd.created_by
+                LEFT JOIN employees emp ON emp.user_id = pd.created_by
+                WHERE pd.patient_id = :patient_id AND pd.deleted_at IS NULL";
+
+        if ($portalOnly) {
+            $sql .= " AND pd.portal_visible = 1";
+        }
+
+        $sql .= " ORDER BY pd.created_at DESC, pd.id DESC";
+
+        $stmt = Database::connection()->prepare($sql);
         $stmt->execute(['patient_id' => $patientId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Toggle whether a document is exposed through the Patient Portal
+     * (the "Documents / Assign" action on the Patient Portal / API Access
+     * widget). Does not touch the file itself or its other metadata.
+     */
+    public function setPortalVisible(int $id, bool $visible, int $userId): array
+    {
+        (new PatientDocument())->update([
+            'portal_visible' => $visible ? 1 : 0,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $userId
+        ], $id);
+
+        return ['success' => true, 'message' => 'Document updated.'];
     }
 
     /**

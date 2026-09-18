@@ -2302,6 +2302,21 @@ select.form-input {
     z-index: 1100;
 }
 
+/* Template Maintenance is itself a modal (opened from a nav link or from
+   the Patient Portal / API Access widget's "Assign" action), and it has
+   its own Categories/Groups/Profiles sub-modals -- same "elevate the
+   parent, elevate its own pickers further" pattern as Care Plan Form
+   above. */
+#templateMaintenanceModalOverlay {
+    z-index: 1050;
+}
+
+#tmplCategoriesModalOverlay,
+#tmplGroupsModalOverlay,
+#tmplProfilesModalOverlay {
+    z-index: 1100;
+}
+
 .modal-box {
     width: 100%;
     max-width: 760px;

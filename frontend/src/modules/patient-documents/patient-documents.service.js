@@ -49,3 +49,14 @@ export async function deletePatientDocument(id, patientId)
         }
     );
 }
+
+export async function setDocumentPortalVisible(id, portalVisible)
+{
+    return await api(
+        "/patient-documents",
+        {
+            method: "PUT",
+            body: JSON.stringify({ id, portal_visible: portalVisible })
+        }
+    );
+}

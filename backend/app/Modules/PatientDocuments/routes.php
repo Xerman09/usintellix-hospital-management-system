@@ -14,6 +14,11 @@ $router->post('/patient-documents', [PatientDocumentController::class, 'store'],
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
+$router->put('/patient-documents', [PatientDocumentController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->delete('/patient-documents', [PatientDocumentController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

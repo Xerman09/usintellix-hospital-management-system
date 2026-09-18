@@ -21,8 +21,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=59";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=59";
+import { PatientsListView } from "../patients/patients-list.view.js?v=61";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=61";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js";
 import { initBillingManager } from "../billing-manager/billing-manager.js";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
@@ -64,6 +64,7 @@ import { FormsAdministrationView } from "../forms-administration/forms-administr
 import { initFormsAdministration } from "../forms-administration/forms-administration.js";
 import { DocumentTemplatesView } from "../document-templates/document-templates.view.js";
 import { initDocumentTemplates } from "../document-templates/document-templates.js";
+import { openTemplateMaintenance } from "../template-maintenance/template-maintenance.js";
 import { AclGroupsView } from "../acl-groups/acl-groups.view.js";
 import { initAclGroups } from "../acl-groups/acl-groups.js";
 import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
@@ -673,6 +674,8 @@ export function Dashboard()
                 setTimeout(initDocumentTemplates, 0);
                 return DocumentTemplatesView();
             }, activate);
+        } else if (tabId === 'template_maintenance') {
+            openTemplateMaintenance();
         } else if (tabId === 'admin_acl_administration') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAclGroups, 0);

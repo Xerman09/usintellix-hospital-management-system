@@ -20,9 +20,11 @@ import {
     fetchEncounterDiagnoses, addEncounterDiagnosis, removeEncounterDiagnosis
 } from "../encounter-diagnoses/encounter-diagnoses.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
+import { resetPatientPortalPassword } from "../patient-portal-access/patient-portal-access.service.js";
+import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=59";
+import { PatientChartView } from "./patients-list.view.js?v=61";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2714,6 +2716,7 @@ export async function initPatientChartTab(patient)
     carePreferencesController.setup();
     treatmentPreferencesController.setup();
     setupDocumentUploadModal();
+    setupPortalAccessModals();
     setupExternalDataUploadModal();
     setupPrescriptionModals();
     setupDisclosureModals();
@@ -7359,6 +7362,92 @@ function setupDocumentUploadModal()
         await loadDashboardDocuments(currentDashboardPatient);
         refreshDocumentsPanelIfVisible();
     });
+}
+
+/**
+ * The "Patient Portal / API Access" widget -- two independent actions,
+ * each its own modal: which existing documents are exposed through the
+ * portal (Documents / Assign), and generating a fresh portal login
+ * password (Credentials / Reset). Unlike every other widget on this
+ * dashboard this one has no single "Edit" button since the two actions
+ * are unrelated, so it's hand-coded in the view rather than going through
+ * dashboardWidget().
+ */
+function setupPortalAccessModals()
+{
+    const resetOverlay = document.getElementById("portalCredentialsResetModalOverlay");
+
+    // "Documents / Assign" opens the real Template Maintenance screen
+    // (its own tab, pre-scoped to this patient) rather than a modal here
+    // -- see openTemplateMaintenanceForPatient().
+    const assignBtn = document.getElementById("pdPortalDocumentsAssignBtn");
+    if (assignBtn) {
+        assignBtn.addEventListener("click", () => {
+            if (currentDashboardPatient) {
+                openTemplateMaintenanceForPatient(currentDashboardPatient);
+            }
+        });
+    }
+
+    if (resetOverlay) {
+        const closeReset = () => resetOverlay.classList.remove("open");
+
+        document.getElementById("pdPortalCredentialsResetBtn").addEventListener("click", openPortalCredentialsResetModal);
+        document.getElementById("closePortalCredentialsResetModal").addEventListener("click", closeReset);
+        document.getElementById("portalCredentialsResetCancelBtn").addEventListener("click", closeReset);
+        document.getElementById("portalCredentialsResetDoneBtn").addEventListener("click", closeReset);
+        resetOverlay.addEventListener("click", (event) => {
+            if (event.target === resetOverlay) closeReset();
+        });
+
+        document.getElementById("portalCredentialsResetConfirmBtn").addEventListener("click", async () => {
+            if (!currentDashboardPatient) return;
+
+            if (!confirm("Reset this patient's portal password? Their current password will stop working immediately.")) {
+                return;
+            }
+
+            const confirmBtn = document.getElementById("portalCredentialsResetConfirmBtn");
+            confirmBtn.disabled = true;
+
+            const result = await resetPatientPortalPassword(currentDashboardPatient.id);
+
+            confirmBtn.disabled = false;
+
+            if (!result.success) {
+                showToast(result.message || "Failed to reset password.", "error");
+                return;
+            }
+
+            document.getElementById("portalCredentialsResetIntro").style.display = "none";
+            document.getElementById("portalCredentialsResetResult").style.display = "block";
+            document.getElementById("portalCredentialsResetNewPassword").value = result.data.password;
+        });
+
+        document.getElementById("portalCredentialsResetCopyBtn").addEventListener("click", async () => {
+            const input = document.getElementById("portalCredentialsResetNewPassword");
+
+            try {
+                await navigator.clipboard.writeText(input.value);
+                showToast("Password copied to clipboard.", "success");
+            } catch (error) {
+                input.select();
+                showToast("Couldn't access the clipboard -- select and copy manually.", "error");
+            }
+        });
+    }
+}
+
+function openPortalCredentialsResetModal()
+{
+    const overlay = document.getElementById("portalCredentialsResetModalOverlay");
+    if (!overlay) return;
+
+    document.getElementById("portalCredentialsResetIntro").style.display = "block";
+    document.getElementById("portalCredentialsResetResult").style.display = "none";
+    document.getElementById("portalCredentialsResetNewPassword").value = "";
+
+    overlay.classList.add("open");
 }
 
 function setupInsuranceModals()
