@@ -20,11 +20,11 @@ import {
     fetchEncounterDiagnoses, addEncounterDiagnosis, removeEncounterDiagnosis
 } from "../encounter-diagnoses/encounter-diagnoses.service.js";
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
-import { resetPatientPortalPassword } from "../patient-portal-access/patient-portal-access.service.js";
+import { fetchPatientPortalCredentials, savePatientPortalCredentials } from "../patient-portal-access/patient-portal-access.service.js";
 import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=61";
+import { PatientChartView } from "./patients-list.view.js?v=62";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -7394,60 +7394,91 @@ function setupPortalAccessModals()
 
         document.getElementById("pdPortalCredentialsResetBtn").addEventListener("click", openPortalCredentialsResetModal);
         document.getElementById("closePortalCredentialsResetModal").addEventListener("click", closeReset);
-        document.getElementById("portalCredentialsResetCancelBtn").addEventListener("click", closeReset);
-        document.getElementById("portalCredentialsResetDoneBtn").addEventListener("click", closeReset);
+        document.getElementById("portalCredCancelBtn").addEventListener("click", closeReset);
+        document.getElementById("closePortalCredentialsResetModalBottom").addEventListener("click", closeReset);
         resetOverlay.addEventListener("click", (event) => {
             if (event.target === resetOverlay) closeReset();
         });
 
-        document.getElementById("portalCredentialsResetConfirmBtn").addEventListener("click", async () => {
-            if (!currentDashboardPatient) return;
-
-            if (!confirm("Reset this patient's portal password? Their current password will stop working immediately.")) {
-                return;
-            }
-
-            const confirmBtn = document.getElementById("portalCredentialsResetConfirmBtn");
-            confirmBtn.disabled = true;
-
-            const result = await resetPatientPortalPassword(currentDashboardPatient.id);
-
-            confirmBtn.disabled = false;
-
-            if (!result.success) {
-                showToast(result.message || "Failed to reset password.", "error");
-                return;
-            }
-
-            document.getElementById("portalCredentialsResetIntro").style.display = "none";
-            document.getElementById("portalCredentialsResetResult").style.display = "block";
-            document.getElementById("portalCredentialsResetNewPassword").value = result.data.password;
+        // Login User Name mirrors Account Name live -- this app only has
+        // one real username field (users.username); Login User Name is a
+        // read-only reflection of it, not a second independent value.
+        document.getElementById("portalCredAccountName").addEventListener("input", (event) => {
+            document.getElementById("portalCredLoginUserName").value = event.target.value;
         });
 
-        document.getElementById("portalCredentialsResetCopyBtn").addEventListener("click", async () => {
-            const input = document.getElementById("portalCredentialsResetNewPassword");
+        document.getElementById("portalCredGenerateBtn").addEventListener("click", async () => {
+            if (!currentDashboardPatient) return;
 
-            try {
-                await navigator.clipboard.writeText(input.value);
-                showToast("Password copied to clipboard.", "success");
-            } catch (error) {
-                input.select();
-                showToast("Couldn't access the clipboard -- select and copy manually.", "error");
+            const result = await fetchPatientPortalCredentials(currentDashboardPatient.id);
+
+            if (!result.success) {
+                showToast(result.message || "Failed to generate a new password.", "error");
+                return;
             }
+
+            document.getElementById("portalCredPassword").value = result.data.password;
+        });
+
+        document.getElementById("portalCredSaveBtn").addEventListener("click", async () => {
+            if (!currentDashboardPatient) return;
+
+            document.getElementById("err-portalCredAccountName").textContent = "";
+            document.getElementById("err-portalCredPassword").textContent = "";
+
+            const username = document.getElementById("portalCredAccountName").value.trim();
+            const password = document.getElementById("portalCredPassword").value;
+
+            const saveBtn = document.getElementById("portalCredSaveBtn");
+            saveBtn.disabled = true;
+
+            const result = await savePatientPortalCredentials(currentDashboardPatient.id, username, password);
+
+            saveBtn.disabled = false;
+
+            if (!result.success) {
+                document.getElementById("portalCredentialsFormAlert").innerHTML = `<div class="form-alert error">${escapeHtml(result.message || "Failed to save credentials.")}</div>`;
+
+                if (result.errors?.username) document.getElementById("err-portalCredAccountName").textContent = result.errors.username;
+                if (result.errors?.password) document.getElementById("err-portalCredPassword").textContent = result.errors.password;
+
+                return;
+            }
+
+            showToast(result.message, "success");
+            closeReset();
         });
     }
 }
 
-function openPortalCredentialsResetModal()
+async function openPortalCredentialsResetModal()
 {
     const overlay = document.getElementById("portalCredentialsResetModalOverlay");
-    if (!overlay) return;
+    if (!overlay || !currentDashboardPatient) return;
 
-    document.getElementById("portalCredentialsResetIntro").style.display = "block";
-    document.getElementById("portalCredentialsResetResult").style.display = "none";
-    document.getElementById("portalCredentialsResetNewPassword").value = "";
+    const fullName = [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ");
+    document.getElementById("portalCredentialsModalTitle").textContent = `Generate Username And Password For ${fullName}`;
+    document.getElementById("portalCredentialsFormAlert").innerHTML = "";
+    document.getElementById("err-portalCredAccountName").textContent = "";
+    document.getElementById("err-portalCredPassword").textContent = "";
+    document.getElementById("portalCredAccountName").value = "";
+    document.getElementById("portalCredLoginUserName").value = "";
+    document.getElementById("portalCredPassword").value = "";
+    document.getElementById("portalCredTrustedEmail").textContent = "-";
 
     overlay.classList.add("open");
+
+    const result = await fetchPatientPortalCredentials(currentDashboardPatient.id);
+
+    if (!result.success) {
+        showToast(result.message || "Failed to load credentials.", "error");
+        return;
+    }
+
+    document.getElementById("portalCredAccountName").value = result.data.username;
+    document.getElementById("portalCredLoginUserName").value = result.data.username;
+    document.getElementById("portalCredPassword").value = result.data.password;
+    document.getElementById("portalCredTrustedEmail").textContent = result.data.trusted_email || "Not on file";
 }
 
 function setupInsuranceModals()

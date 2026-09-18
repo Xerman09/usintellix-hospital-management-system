@@ -3,18 +3,21 @@
 namespace App\Modules\PatientPortalAccess\Services;
 
 use App\Modules\Patients\Models\Patient;
+use App\Modules\Patients\Models\PatientContact;
 use App\Modules\Users\Models\User;
 
 class PatientPortalAccessService
 {
     /**
-     * Generates a fresh random password for the patient's portal login
-     * account and stores it -- the "Credentials / Reset" action on the
-     * Patient Portal / API Access widget. The new plaintext password is
-     * returned once so staff can relay it to the patient; it is never
-     * stored or logged in plaintext, only its hash.
+     * The "Generate Username And Password For {name}" modal's opening
+     * state -- the patient's real current login username (editable, not
+     * silently replaced -- every patient already has a real login row
+     * via patients.user_id), a freshly generated password ready to save
+     * or regenerate again, and their on-file contact email (real,
+     * possibly absent -- shown honestly as null rather than a fake
+     * placeholder).
      */
-    public function resetPassword(int $patientId, int $actorUserId): array
+    public function previewCredentials(int $patientId): array
     {
         $patient = (new Patient())->where('id', $patientId)->first();
 
@@ -22,19 +25,65 @@ class PatientPortalAccessService
             return ['success' => false, 'message' => 'Patient not found.'];
         }
 
-        $newPassword = $this->generatePassword();
-
-        (new User())->update([
-            'password' => User::hashPassword($newPassword),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'updated_by' => $actorUserId
-        ], (int) $patient['user_id']);
+        $user = (new User())->where('id', (int) $patient['user_id'])->first();
+        $contact = (new PatientContact())->where('patient_id', $patientId)->first();
 
         return [
             'success' => true,
-            'message' => 'Portal password reset successfully.',
-            'data' => ['password' => $newPassword]
+            'message' => 'Credentials retrieved successfully.',
+            'data' => [
+                'username' => $user['username'] ?? '',
+                'password' => $this->generatePassword(),
+                'trusted_email' => $contact['email'] ?? null
+            ]
         ];
+    }
+
+    /**
+     * Saves a (possibly renamed) username and a new password together --
+     * the modal's Save action. Both are required every save, matching
+     * the modal always proposing a freshly generated password rather
+     * than an optional field.
+     */
+    public function saveCredentials(int $patientId, string $username, string $password, int $actorUserId): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $username = trim($username);
+        $errors = [];
+
+        if ($username === '') {
+            $errors['username'] = 'Account Name is required.';
+        }
+
+        if (strlen($password) < 8) {
+            $errors['password'] = 'Password must be at least 8 characters.';
+        }
+
+        if (!empty($errors)) {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => $errors];
+        }
+
+        $userId = (int) $patient['user_id'];
+
+        $existing = (new User())->where('username', $username)->first();
+
+        if ($existing && (int) $existing['id'] !== $userId) {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => ['username' => 'That account name is already taken.']];
+        }
+
+        (new User())->update([
+            'username' => $username,
+            'password' => User::hashPassword($password),
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $actorUserId
+        ], $userId);
+
+        return ['success' => true, 'message' => 'Credentials saved successfully.'];
     }
 
     /**

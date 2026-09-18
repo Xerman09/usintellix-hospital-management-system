@@ -4,7 +4,12 @@ use App\Modules\PatientPortalAccess\Controllers\PatientPortalAccessController;
 
 /** @var \App\Core\Router $router */
 
-$router->post('/patient-portal-access/reset-password', [PatientPortalAccessController::class, 'resetPassword'], [
+$router->get('/patient-portal-access/credentials', [PatientPortalAccessController::class, 'credentials'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist']]
+]);
+
+$router->post('/patient-portal-access/credentials', [PatientPortalAccessController::class, 'saveCredentials'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist']]
 ]);

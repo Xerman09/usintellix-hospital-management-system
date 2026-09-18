@@ -20,7 +20,7 @@ class PatientPortalAccessController extends Controller
         $this->providerService = new ProviderService();
     }
 
-    public function resetPassword(): void
+    public function credentials(): void
     {
         $request = new Request();
         $user = Session::get('user');
@@ -32,7 +32,7 @@ class PatientPortalAccessController extends Controller
             return;
         }
 
-        $result = $this->service->resetPassword($patientId, (int) $user['id']);
+        $result = $this->service->previewCredentials($patientId);
 
         if (!$result['success']) {
             $this->error($result['message'], 404);
@@ -40,6 +40,33 @@ class PatientPortalAccessController extends Controller
         }
 
         $this->success($result['data'], $result['message']);
+    }
+
+    public function saveCredentials(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $patientId = (int) $request->input('patient_id');
+
+        if (!$this->ownsPatient($user, $patientId)) {
+            $this->error('Patient not found.', 404);
+            return;
+        }
+
+        $result = $this->service->saveCredentials(
+            $patientId,
+            (string) $request->input('username', ''),
+            (string) $request->input('password', ''),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
     }
 
     private function ownsPatient(array $user, int $patientId): bool

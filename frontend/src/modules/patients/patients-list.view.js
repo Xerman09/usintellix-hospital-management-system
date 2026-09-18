@@ -8928,31 +8928,45 @@ textarea.pd-sdoh-readonly {
 <div class="modal-overlay" id="portalCredentialsResetModalOverlay">
     <div class="modal-box" style="max-width: 480px;">
         <div class="modal-header">
-            <h2>Reset Portal Credentials</h2>
+            <h2 id="portalCredentialsModalTitle">Generate Username And Password</h2>
             <button type="button" class="modal-close" id="closePortalCredentialsResetModal">&times;</button>
         </div>
 
-        <div id="portalCredentialsResetIntro">
-            <p class="form-subtitle">This generates a new portal password for this patient. Their current password will stop working immediately.</p>
-            <div class="form-actions" style="margin-top: 20px;">
-                <button type="button" class="btn-secondary" id="portalCredentialsResetCancelBtn">Cancel</button>
-                <button type="button" class="btn-primary-inline" id="portalCredentialsResetConfirmBtn">Reset Password</button>
-            </div>
+        <div id="portalCredentialsFormAlert"></div>
+
+        <div class="form-group">
+            <label class="form-label">Account Name:</label>
+            <input type="text" class="form-input" id="portalCredAccountName">
+            <span class="form-error" id="err-portalCredAccountName"></span>
         </div>
 
-        <div id="portalCredentialsResetResult" style="display: none;">
-            <div class="form-alert success">Password reset successfully.</div>
-            <p class="form-subtitle">Give this password to the patient now -- it will not be shown again.</p>
-            <div class="form-group">
-                <label class="form-label">New Password</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" class="form-input" id="portalCredentialsResetNewPassword" readonly style="font-family: monospace; font-size: 15px;">
-                    <button type="button" class="btn-secondary" id="portalCredentialsResetCopyBtn">Copy</button>
-                </div>
+        <div class="form-group">
+            <label class="form-label">Login User Name:</label>
+            <input type="text" class="form-input" id="portalCredLoginUserName" readonly style="background: var(--bg-surface-alt);">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password:</label>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" class="form-input" id="portalCredPassword" style="font-family: monospace;">
+                <button type="button" class="btn-secondary" id="portalCredGenerateBtn" style="white-space: nowrap;">Generate New</button>
             </div>
-            <div class="form-actions" style="margin-top: 20px; justify-content: flex-end;">
-                <button type="button" class="btn-secondary" id="portalCredentialsResetDoneBtn">Done</button>
-            </div>
+            <span class="form-error" id="err-portalCredPassword"></span>
+        </div>
+
+        <p style="font-size: 13.5px; color: var(--text-primary); margin: 16px 0 0;">
+            <strong>Login Trusted Email:</strong> <span id="portalCredTrustedEmail">-</span>
+        </p>
+
+        <div class="form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-primary-inline" id="portalCredSaveBtn">Save</button>
+            <button type="button" class="btn-secondary" id="portalCredCancelBtn">Cancel</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0 16px;">
+
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn-secondary" id="closePortalCredentialsResetModalBottom">Close</button>
         </div>
     </div>
 </div>
