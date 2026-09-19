@@ -313,6 +313,8 @@ import { PortalDashboardView } from "../portal-dashboard/portal-dashboard.view.j
 import { initPortalDashboard } from "../portal-dashboard/portal-dashboard.js?v=3";
 import { DicomViewerView } from "../dicom-viewer/dicom-viewer.view.js?v=1";
 import { initDicomViewer } from "../dicom-viewer/dicom-viewer.js?v=1";
+import { AuthorizationsView } from "../authorizations/authorizations.view.js?v=1";
+import { initAuthorizations } from "../authorizations/authorizations.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -666,7 +668,10 @@ export function Dashboard()
                 return PatientEducationView();
             }, activate);
         } else if (tabId === 'misc_authorizations') {
-            tabManager.openTab(tabId, title || 'Authorizations', () => renderPlaceholderTab(title || 'Authorizations'), activate);
+            tabManager.openTab(tabId, title || 'Authorizations', () => {
+                setTimeout(initAuthorizations, 0);
+                return AuthorizationsView();
+            }, activate);
         } else if (tabId === 'misc_chart_tracker') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initChartTracker, 0);
