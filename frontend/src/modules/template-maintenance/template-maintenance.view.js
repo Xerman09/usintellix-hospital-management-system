@@ -323,9 +323,9 @@ export function TemplateMaintenanceView()
     <div class="tmpl-header">
         <h1>Template Maintenance</h1>
         <div class="tmpl-header-actions">
-            <label><input type="checkbox" id="tmplFullEditor" checked> Full Editor</label>
-            <a id="tmplHelpLink">Help</a>
-            <button type="button" class="tmpl-dashboard-btn" id="tmplDashboardBtn">Close</button>
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13.5px;"><input type="checkbox" id="tmplFullEditor" checked> Full Editor</label>
+            <button type="button" class="btn-secondary" id="tmplHelpLink" style="padding: 6px 14px; font-size: 13px; font-weight: 500;">Help</button>
+            <button type="button" class="tmpl-dashboard-btn" id="tmplDashboardBtn">Dashboard</button>
             <button type="button" class="modal-close" id="closeTemplateMaintenanceModal">&times;</button>
         </div>
     </div>

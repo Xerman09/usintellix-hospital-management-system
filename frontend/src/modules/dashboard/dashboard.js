@@ -309,6 +309,8 @@ import { openAddressLabelPopup } from "../popup-address-label/popup-address-labe
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 import { AnnouncementsView } from "../announcements/announcements.view.js";
 import { initAnnouncements } from "../announcements/announcements.js";
+import { PortalDashboardView } from "../portal-dashboard/portal-dashboard.view.js?v=2";
+import { initPortalDashboard } from "../portal-dashboard/portal-dashboard.js?v=2";
 
 function renderPlaceholderTab(title) {
     return `
@@ -647,7 +649,10 @@ export function Dashboard()
                 return AnnouncementsView(user);
             }, activate);
         } else if (tabId === 'misc_portal_dashboard') {
-            tabManager.openTab(tabId, title || 'Portal Dashboard', () => renderPlaceholderTab(title || 'Portal Dashboard'), activate);
+            tabManager.openTab(tabId, title || 'Portal Dashboard', () => {
+                setTimeout(initPortalDashboard, 0);
+                return PortalDashboardView();
+            }, activate);
         } else if (tabId === 'misc_dicom_viewer') {
             tabManager.openTab(tabId, title || 'Dicom Viewer', () => renderPlaceholderTab(title || 'Dicom Viewer'), activate);
         } else if (tabId === 'misc_patient_education') {
