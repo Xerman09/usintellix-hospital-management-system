@@ -1,21 +1,143 @@
 /**
  * Patient Portal Dashboard View (matching OpenEMR Jerry Padgett layout)
- * With full Light & Dark mode support.
+ * With active patient scoping, full Light & Dark mode support.
  */
 export function PortalDashboardView() {
     return `
 <style>
 .portal-dash-wrapper {
-    padding: 30px 24px;
+    padding: 24px;
     max-width: 1200px;
     margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--text-primary, #1e293b);
 }
 
+/* Active Patient Banner */
+.portal-active-patient-banner {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+:root[data-theme="dark"] .portal-active-patient-banner {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.portal-patient-info-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.portal-patient-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #0284c7;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(2,132,199,0.25);
+}
+
+.portal-patient-text-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary, #0f172a);
+    margin: 0 0 2px 0;
+}
+
+:root[data-theme="dark"] .portal-patient-text-name {
+    color: #f8fafc;
+}
+
+.portal-patient-text-meta {
+    font-size: 12.5px;
+    color: #64748b;
+    margin: 0;
+}
+
+:root[data-theme="dark"] .portal-patient-text-meta {
+    color: #94a3b8;
+}
+
+.portal-active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.14);
+    padding: 4px 12px;
+    border-radius: 9999px;
+}
+
+:root[data-theme="dark"] .portal-active-badge {
+    color: #4ade80;
+    background: rgba(34, 197, 94, 0.2);
+}
+
+.portal-active-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+
+/* No Patient Selected Fallback Card */
+.portal-no-patient-card {
+    background: #ffffff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 50px 24px;
+    text-align: center;
+    max-width: 580px;
+    margin: 40px auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+:root[data-theme="dark"] .portal-no-patient-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.portal-no-patient-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 16px;
+}
+
+:root[data-theme="dark"] .portal-no-patient-icon {
+    background: #334155;
+    color: #94a3b8;
+}
+
 .portal-dash-hero {
     background: #e9ecef;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 24px 20px;
     text-align: center;
     margin-bottom: 24px;
@@ -84,7 +206,7 @@ export function PortalDashboardView() {
 
 .portal-dash-grid {
     background: #e9ecef;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 30px 24px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -242,7 +364,7 @@ export function PortalDashboardView() {
 
 .portal-modal-header h3 {
     margin: 0;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
 }
 
@@ -282,55 +404,93 @@ export function PortalDashboardView() {
 </style>
 
 <div class="portal-dash-wrapper">
-    <!-- Top Hero Card -->
-    <div class="portal-dash-hero">
-        <div class="portal-dash-title-row">
-            <h1>Portal Dashboard</h1>
-            <span class="portal-dash-doctor-icon">
-                <svg width="42" height="42" viewBox="0 0 36 36" fill="none">
-                    <circle cx="18" cy="11" r="7" fill="#dc2626"/>
-                    <path d="M7 30c0-6 4.9-11 11-11s11 5 11 11" fill="#dc2626"/>
-                    <!-- Stethoscope -->
-                    <path d="M12 21v3.5a6 6 0 0 0 12 0V21" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
-                    <circle cx="18" cy="27" r="2.2" fill="#ffffff"/>
-                </svg>
-            </span>
+    <!-- No Patient Selected Message (visible only if no active patient chart is open) -->
+    <div class="portal-no-patient-card" id="portalNoPatientCard" style="display: none;">
+        <div class="portal-no-patient-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
         </div>
-        <div>
-            <button type="button" class="portal-dash-tell-me-btn" id="portalTellMeMoreBtn">Tell me more</button>
-        </div>
+        <h2 style="font-size: 19px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary, #0f172a);">No Active Patient Chart Open</h2>
+        <p style="font-size: 13.5px; color: var(--text-muted, #64748b); line-height: 1.6; margin-bottom: 22px;">
+            The Portal Dashboard is scoped to the currently open patient in the system.<br>
+            Please open a patient's chart first from <strong>Finder</strong> or <strong>Patient</strong>.
+        </p>
+        <button type="button" class="btn-primary" id="portalGoToFinderBtn" style="padding: 8px 18px; font-size: 13.5px; cursor: pointer; background: #0284c7; color: #fff; border: none; border-radius: 6px;">
+            Open Patient Finder
+        </button>
     </div>
 
-    <!-- Middle 4-Column Action Grid -->
-    <div class="portal-dash-grid">
-        <div class="portal-dash-col">
-            <h2>Templates</h2>
-            <button type="button" class="portal-btn-green" id="portalManageTemplatesBtn">Manage Templates</button>
+    <!-- Active Patient Scoped Dashboard Content -->
+    <div id="portalDashboardContent">
+        <!-- Active Patient Header Banner -->
+        <div class="portal-active-patient-banner" id="portalActivePatientBanner">
+            <div class="portal-patient-info-left">
+                <div class="portal-patient-avatar" id="portalPatientAvatar">DA</div>
+                <div>
+                    <h2 class="portal-patient-text-name" id="portalPatientName">Doc Ako</h2>
+                    <p class="portal-patient-text-meta" id="portalPatientMeta">Patient No: PAT-000004 &bull; Loading chart...</p>
+                </div>
+            </div>
+            <div>
+                <span class="portal-active-badge">
+                    <span class="portal-active-dot"></span>
+                    Active Patient
+                </span>
+            </div>
         </div>
 
-        <div class="portal-dash-col">
-            <h2>Audits</h2>
-            <button type="button" class="portal-btn-green" id="portalReviewAuditsBtn">Review Audits</button>
+        <!-- Top Hero Card -->
+        <div class="portal-dash-hero">
+            <div class="portal-dash-title-row">
+                <h1>Portal Dashboard</h1>
+                <span class="portal-dash-doctor-icon">
+                    <svg width="42" height="42" viewBox="0 0 36 36" fill="none">
+                        <circle cx="18" cy="11" r="7" fill="#dc2626"/>
+                        <path d="M7 30c0-6 4.9-11 11-11s11 5 11 11" fill="#dc2626"/>
+                        <!-- Stethoscope -->
+                        <path d="M12 21v3.5a6 6 0 0 0 12 0V21" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+                        <circle cx="18" cy="27" r="2.2" fill="#ffffff"/>
+                    </svg>
+                </span>
+            </div>
+            <div>
+                <button type="button" class="portal-dash-tell-me-btn" id="portalTellMeMoreBtn">Tell me more</button>
+            </div>
         </div>
 
-        <div class="portal-dash-col">
-            <h2>Mail</h2>
-            <button type="button" class="portal-btn-green" id="portalSecureMailBtn">Secure Mail</button>
+        <!-- Middle 4-Column Action Grid -->
+        <div class="portal-dash-grid">
+            <div class="portal-dash-col">
+                <h2>Templates</h2>
+                <button type="button" class="portal-btn-green" id="portalManageTemplatesBtn">Manage Templates</button>
+            </div>
+
+            <div class="portal-dash-col">
+                <h2>Audits</h2>
+                <button type="button" class="portal-btn-green" id="portalReviewAuditsBtn">Review Audits</button>
+            </div>
+
+            <div class="portal-dash-col">
+                <h2>Mail</h2>
+                <button type="button" class="portal-btn-green" id="portalSecureMailBtn">Secure Mail</button>
+            </div>
+
+            <div class="portal-dash-col">
+                <h2>Signature</h2>
+                <button type="button" class="portal-btn-blue" id="portalSignatureBtn">
+                    Signature on File
+                    <span style="font-size: 14px;">➔</span>
+                </button>
+            </div>
         </div>
 
-        <div class="portal-dash-col">
-            <h2>Signature</h2>
-            <button type="button" class="portal-btn-blue" id="portalSignatureBtn">
-                Signature on File
-                <span style="font-size: 14px;">➔</span>
-            </button>
+        <!-- Footer Attribution -->
+        <div class="portal-dash-footer">
+            <div class="portal-dash-divider"></div>
+            <p>Patient Portal v8.4.0 Copyright &copy; 2026 By sjpadgett@gmail.com License GPLv3</p>
         </div>
-    </div>
-
-    <!-- Footer Attribution -->
-    <div class="portal-dash-footer">
-        <div class="portal-dash-divider"></div>
-        <p>Patient Portal v8.4.0 Copyright &copy; 2026 By sjpadgett@gmail.com License GPLv3</p>
     </div>
 </div>
 
@@ -345,10 +505,10 @@ export function PortalDashboardView() {
             <p><strong>OpenEMR Patient Portal Engine (v8.4.0)</strong></p>
             <p>The Patient Portal allows clinic staff and registered patients to collaborate securely:</p>
             <ul style="padding-left: 20px; line-height: 1.8;">
-                <li><strong>Templates</strong>: Design and publish customized clinical, intake, and consent document templates to all patients or specific patient charts.</li>
-                <li><strong>Audits</strong>: Monitor compliance trails, login timestamps, and document download/signature activities.</li>
-                <li><strong>Secure Mail</strong>: Send HIPAA-compliant direct messages and clinical alerts between care teams and patients.</li>
-                <li><strong>Signature on File</strong>: Request and collect legally binding electronic signatures for HIPAA disclosures and medical authorizations.</li>
+                <li><strong>Templates</strong>: Design and publish customized clinical, intake, and consent document templates to the active patient's chart.</li>
+                <li><strong>Audits</strong>: Monitor compliance trails, login timestamps, and document download/signature activities for the active patient.</li>
+                <li><strong>Secure Mail</strong>: Send HIPAA-compliant direct messages and clinical alerts directly to the active patient.</li>
+                <li><strong>Signature on File</strong>: Request, collect, and verify electronic signatures for HIPAA disclosures and medical authorizations.</li>
             </ul>
         </div>
         <div class="portal-modal-footer">
@@ -361,7 +521,10 @@ export function PortalDashboardView() {
 <div class="portal-modal-overlay" id="portalAuditsModal" style="display: none;">
     <div class="portal-modal-card" style="max-width: 920px;">
         <div class="portal-modal-header">
-            <h3>Patient Portal Audit Logs</h3>
+            <div>
+                <h3>Patient Portal Audit Logs</h3>
+                <span id="portalAuditsSubtitle" style="font-size: 12.5px; color: var(--text-muted, #64748b); font-weight: normal;"></span>
+            </div>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <button type="button" class="btn-secondary" id="refreshPortalAuditsBtn" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
@@ -372,14 +535,14 @@ export function PortalDashboardView() {
         </div>
         <div class="portal-modal-body">
             <div style="margin-bottom: 12px;">
-                <input type="text" id="portalAuditsSearch" placeholder="Filter audits by patient, event, or description..." style="width: 100%; box-sizing: border-box; padding: 7px 12px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 6px; font-size: 13px; background: var(--bg-surface-alt, #fff); color: var(--text-primary);">
+                <input type="text" id="portalAuditsSearch" placeholder="Filter audits by event, description, or status..." style="width: 100%; box-sizing: border-box; padding: 7px 12px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 6px; font-size: 13px; background: var(--bg-surface-alt, #fff); color: var(--text-primary);">
             </div>
             <div style="max-height: 420px; overflow-y: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <thead>
                         <tr style="border-bottom: 1px solid var(--border-color, #cbd5e1); text-align: left; color: var(--text-muted, #64748b); position: sticky; top: 0; background: var(--bg-surface, #fff);">
                             <th style="padding: 10px;">Date / Time</th>
-                            <th style="padding: 10px;">Patient / User</th>
+                            <th style="padding: 10px;">Patient</th>
                             <th style="padding: 10px;">Event</th>
                             <th style="padding: 10px;">Description</th>
                             <th style="padding: 10px;">IP Address</th>
@@ -402,7 +565,10 @@ export function PortalDashboardView() {
 <div class="portal-modal-overlay" id="portalMailModal" style="display: none;">
     <div class="portal-modal-card" style="max-width: 840px;">
         <div class="portal-modal-header">
-            <h3>Portal Secure Mail</h3>
+            <div>
+                <h3>Portal Secure Mail</h3>
+                <span id="portalMailSubtitle" style="font-size: 12.5px; color: var(--text-muted, #64748b); font-weight: normal;"></span>
+            </div>
             <button type="button" class="portal-modal-close" id="closePortalMailModal">&times;</button>
         </div>
         <div class="portal-modal-body">
@@ -417,11 +583,11 @@ export function PortalDashboardView() {
 
             <!-- Compose Form Box (collapsible) -->
             <div id="portalMailComposeBox" style="display: none; background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px; padding: 16px; margin-bottom: 16px;">
-                <div style="font-weight: 600; font-size: 13.5px; margin-bottom: 10px;">New Message to Patient</div>
+                <div style="font-weight: 600; font-size: 13.5px; margin-bottom: 10px;">New Message to Active Patient</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                     <div>
-                        <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Recipient Patient</label>
-                        <select id="portalMailPatientSelect" style="width: 100%; padding: 6px 10px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 4px; font-size: 13px; background: var(--bg-surface, #fff); color: var(--text-primary);"></select>
+                        <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Recipient</label>
+                        <input type="text" id="portalMailRecipientDisplay" readonly style="width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 4px; font-size: 13px; background: var(--bg-surface, #e2e8f0); color: var(--text-primary); cursor: not-allowed;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Subject</label>
@@ -430,7 +596,7 @@ export function PortalDashboardView() {
                 </div>
                 <div style="margin-bottom: 10px;">
                     <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Message Body</label>
-                    <textarea id="portalMailBodyInput" rows="3" placeholder="Type confidential message..." style="width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 4px; font-size: 13px; background: var(--bg-surface, #fff); color: var(--text-primary); resize: vertical;"></textarea>
+                    <textarea id="portalMailBodyInput" rows="3" placeholder="Type confidential message to active patient..." style="width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--border-color, #cbd5e1); border-radius: 4px; font-size: 13px; background: var(--bg-surface, #fff); color: var(--text-primary); resize: vertical;"></textarea>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px;">
                     <button type="button" class="btn-secondary" id="cancelPortalMailComposeBtn" style="padding: 5px 12px; font-size: 12px;">Cancel</button>
@@ -453,7 +619,10 @@ export function PortalDashboardView() {
 <div class="portal-modal-overlay" id="portalSignatureModal" style="display: none;">
     <div class="portal-modal-card" style="max-width: 900px;">
         <div class="portal-modal-header">
-            <h3>Patient Signatures on File</h3>
+            <div>
+                <h3>Patient Signatures on File</h3>
+                <span id="portalSignatureSubtitle" style="font-size: 12.5px; color: var(--text-muted, #64748b); font-weight: normal;"></span>
+            </div>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <button type="button" class="btn-secondary" id="refreshPortalSignaturesBtn" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
@@ -476,7 +645,7 @@ export function PortalDashboardView() {
                         </tr>
                     </thead>
                     <tbody id="portalSignaturesTableBody">
-                        <tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading real signatures...</td></tr>
+                        <tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading real signature record...</td></tr>
                     </tbody>
                 </table>
             </div>

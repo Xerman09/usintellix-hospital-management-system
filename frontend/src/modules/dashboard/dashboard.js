@@ -309,8 +309,8 @@ import { openAddressLabelPopup } from "../popup-address-label/popup-address-labe
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 import { AnnouncementsView } from "../announcements/announcements.view.js";
 import { initAnnouncements } from "../announcements/announcements.js";
-import { PortalDashboardView } from "../portal-dashboard/portal-dashboard.view.js?v=2";
-import { initPortalDashboard } from "../portal-dashboard/portal-dashboard.js?v=2";
+import { PortalDashboardView } from "../portal-dashboard/portal-dashboard.view.js?v=3";
+import { initPortalDashboard } from "../portal-dashboard/portal-dashboard.js?v=3";
 
 function renderPlaceholderTab(title) {
     return `

@@ -1,17 +1,36 @@
 import { openTemplateMaintenance } from "../template-maintenance/template-maintenance.js";
+import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 
+let currentActivePatient = null;
 let allAudits = [];
 let allSignatures = [];
 let allMail = [];
+let listenerAttached = false;
 
-export function initPortalDashboard() {
-    // 1. Manage Templates -> Opens Template Maintenance (matching Jerry Padgett portal flow)
+export async function initPortalDashboard() {
+    await resolveAndRenderActivePatient();
+
+    if (!listenerAttached) {
+        window.addEventListener('activePatientChanged', async () => {
+            // Re-render if portal dashboard wrapper is currently in DOM
+            if (document.getElementById("portalDashboardContent")) {
+                await resolveAndRenderActivePatient();
+            }
+        });
+        listenerAttached = true;
+    }
+
+    // 1. Manage Templates -> Opens Template Maintenance scoped to current patient
     const manageTemplatesBtn = document.getElementById("portalManageTemplatesBtn");
     if (manageTemplatesBtn) {
         manageTemplatesBtn.onclick = () => {
-            openTemplateMaintenance();
+            if (!currentActivePatient) {
+                showToast("Please select an active patient first.", "error");
+                return;
+            }
+            openTemplateMaintenance(currentActivePatient);
         };
     }
 
@@ -26,10 +45,127 @@ export function initPortalDashboard() {
 
     // 5. Signature on File Modal
     setupSignatureModal();
+
+    // 6. Go to Finder button (when no patient open)
+    const finderBtn = document.getElementById("portalGoToFinderBtn");
+    if (finderBtn) {
+        finderBtn.onclick = () => {
+            if (window.tabManager && window.tabManager.tabs.has("patient_chart")) {
+                window.tabManager.switchTab("patient_chart");
+            } else if (window.tabManager) {
+                window.tabManager.openTab("patient_finder", "Finder");
+            }
+        };
+    }
 }
 
 /**
- * 2. Tell me more
+ * Resolves the currently active patient from localStorage / system state
+ */
+async function resolveAndRenderActivePatient() {
+    const patientNo = getLastActivePatientChart();
+
+    const noPatientCard = document.getElementById("portalNoPatientCard");
+    const content = document.getElementById("portalDashboardContent");
+
+    if (!patientNo || patientNo === "null") {
+        currentActivePatient = null;
+        if (noPatientCard) noPatientCard.style.display = "block";
+        if (content) content.style.display = "none";
+        return;
+    }
+
+    // Fetch active patient details
+    try {
+        const res = await api(`/portal/signatures?patient_no=${encodeURIComponent(patientNo)}`);
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+            currentActivePatient = res.data[0];
+        } else {
+            // Fallback to /patients endpoint
+            const fallbackRes = await api("/patients");
+            if (fallbackRes.success && Array.isArray(fallbackRes.data)) {
+                currentActivePatient = fallbackRes.data.find(p => p.patient_no === patientNo) || null;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to resolve active patient for portal dashboard", e);
+    }
+
+    if (!currentActivePatient) {
+        if (noPatientCard) noPatientCard.style.display = "block";
+        if (content) content.style.display = "none";
+        return;
+    }
+
+    // Ensure patient_id is present
+    if (!currentActivePatient.id && currentActivePatient.patient_id) {
+        currentActivePatient.id = currentActivePatient.patient_id;
+    }
+    if (!currentActivePatient.patient_id && currentActivePatient.id) {
+        currentActivePatient.patient_id = currentActivePatient.id;
+    }
+
+    if (noPatientCard) noPatientCard.style.display = "none";
+    if (content) content.style.display = "block";
+
+    renderActivePatientBanner(currentActivePatient);
+}
+
+function renderActivePatientBanner(p) {
+    const nameEl = document.getElementById("portalPatientName");
+    const metaEl = document.getElementById("portalPatientMeta");
+    const avatarEl = document.getElementById("portalPatientAvatar");
+
+    const firstName = p.first_name || "";
+    const lastName = p.last_name || "";
+    const fullName = `${firstName} ${lastName}`.trim() || "Active Patient";
+
+    if (nameEl) nameEl.textContent = fullName;
+
+    // Initials
+    const initials = ((firstName[0] || "") + (lastName[0] || "")).toUpperCase() || "PT";
+    if (avatarEl) avatarEl.textContent = initials;
+
+    // Meta details
+    const metaParts = [`Patient No: <strong>${escapeHtml(p.patient_no || "")}</strong>`];
+    if (p.birthdate) {
+        const dob = new Date(p.birthdate);
+        const dobFormatted = !isNaN(dob.getTime())
+            ? dob.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : p.birthdate;
+        const age = calculateAge(p.birthdate);
+        metaParts.push(`DOB: ${escapeHtml(dobFormatted)} (Age: ${age})`);
+    }
+
+    if (metaEl) metaEl.innerHTML = metaParts.join(" &bull; ");
+
+    // Update modal subtitles
+    const subtitle = `— ${fullName} (${p.patient_no})`;
+    const auditsSub = document.getElementById("portalAuditsSubtitle");
+    const mailSub = document.getElementById("portalMailSubtitle");
+    const sigSub = document.getElementById("portalSignatureSubtitle");
+    const recipientDisplay = document.getElementById("portalMailRecipientDisplay");
+
+    if (auditsSub) auditsSub.textContent = subtitle;
+    if (mailSub) mailSub.textContent = subtitle;
+    if (sigSub) sigSub.textContent = subtitle;
+    if (recipientDisplay) recipientDisplay.value = `${fullName} (${p.patient_no})`;
+}
+
+function calculateAge(dobStr) {
+    if (!dobStr) return 0;
+    const dob = new Date(dobStr);
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) {
+        age--;
+    }
+    return Math.max(0, age);
+}
+
+/**
+ * 2. Tell me more Modal
  */
 function setupTellMeMoreModal() {
     const tellMeBtn = document.getElementById("portalTellMeMoreBtn");
@@ -48,7 +184,7 @@ function setupTellMeMoreModal() {
 }
 
 /**
- * 3. Review Audits
+ * 3. Review Audits Modal (Scoped to Active Patient)
  */
 function setupAuditsModal() {
     const auditsBtn = document.getElementById("portalReviewAuditsBtn");
@@ -64,15 +200,19 @@ function setupAuditsModal() {
 
     if (auditsBtn && auditsModal) {
         auditsBtn.onclick = () => {
+            if (!currentActivePatient) {
+                showToast("Please select an active patient first.", "error");
+                return;
+            }
             auditsModal.style.display = "flex";
-            loadAudits();
+            loadAuditsForActivePatient();
         };
     }
     if (closeAudits) closeAudits.onclick = hide;
     if (closeAuditsBtn) closeAuditsBtn.onclick = hide;
 
     if (refreshBtn) {
-        refreshBtn.onclick = () => loadAudits();
+        refreshBtn.onclick = () => loadAuditsForActivePatient();
     }
 
     if (searchInput) {
@@ -82,14 +222,17 @@ function setupAuditsModal() {
     }
 }
 
-async function loadAudits() {
+async function loadAuditsForActivePatient() {
     const tbody = document.getElementById("portalAuditsTableBody");
-    if (!tbody) return;
+    if (!tbody || !currentActivePatient) return;
 
-    tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">Fetching real portal audit trail...</td></tr>`;
+    const patientNo = currentActivePatient.patient_no;
+    const fullName = `${currentActivePatient.first_name || ""} ${currentActivePatient.last_name || ""}`.trim();
+
+    tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">Fetching audit trail for ${escapeHtml(fullName)} (${escapeHtml(patientNo)})...</td></tr>`;
 
     try {
-        const res = await api("/portal/audits");
+        const res = await api(`/portal/audits?patient_no=${encodeURIComponent(patientNo)}`);
         if (res.success && Array.isArray(res.data)) {
             allAudits = res.data;
             const searchVal = document.getElementById("portalAuditsSearch")?.value.trim().toLowerCase() || "";
@@ -109,28 +252,25 @@ function filterAndRenderAudits(filterText) {
     let items = allAudits;
     if (filterText) {
         items = items.filter(a => {
-            const patient = (a.patient_name || "").toLowerCase();
-            const patientNo = (a.patient_no || "").toLowerCase();
-            const staff = (a.staff_username || "").toLowerCase();
             const event = (a.event_type || "").toLowerCase();
             const desc = (a.description || "").toLowerCase();
             const status = (a.status || "").toLowerCase();
-            return patient.includes(filterText) ||
-                patientNo.includes(filterText) ||
-                staff.includes(filterText) ||
-                event.includes(filterText) ||
+            const staff = (a.staff_username || "").toLowerCase();
+            return event.includes(filterText) ||
                 desc.includes(filterText) ||
-                status.includes(filterText);
+                status.includes(filterText) ||
+                staff.includes(filterText);
         });
     }
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">No audit logs matching query.</td></tr>`;
+        const fullName = currentActivePatient ? `${currentActivePatient.first_name || ""} ${currentActivePatient.last_name || ""}`.trim() : "this patient";
+        tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">No portal audit entries found for ${escapeHtml(fullName)}.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = items.map(a => {
-        let userDisplay = escapeHtml(a.patient_name?.trim() || a.staff_username || "System Portal");
+        let userDisplay = escapeHtml(a.patient_name?.trim() || a.staff_username || "Active Patient");
         if (a.patient_no) {
             userDisplay += ` <span style="font-size: 11px; color: var(--text-muted, #64748b); font-family: monospace;">(${escapeHtml(a.patient_no)})</span>`;
         }
@@ -152,7 +292,7 @@ function filterAndRenderAudits(filterText) {
 }
 
 /**
- * 4. Secure Mail
+ * 4. Secure Mail Modal (Scoped to Active Patient)
  */
 function setupMailModal() {
     const mailBtn = document.getElementById("portalSecureMailBtn");
@@ -171,16 +311,19 @@ function setupMailModal() {
 
     if (mailBtn && mailModal) {
         mailBtn.onclick = () => {
+            if (!currentActivePatient) {
+                showToast("Please select an active patient first.", "error");
+                return;
+            }
             mailModal.style.display = "flex";
-            loadMail();
-            loadMailPatientDropdown();
+            loadMailForActivePatient();
         };
     }
     if (closeMail) closeMail.onclick = hide;
     if (closeMailBtn) closeMailBtn.onclick = hide;
 
     if (refreshBtn) {
-        refreshBtn.onclick = () => loadMail();
+        refreshBtn.onclick = () => loadMailForActivePatient();
     }
 
     if (toggleComposeBtn && composeBox) {
@@ -205,14 +348,17 @@ function setupMailModal() {
     }
 }
 
-async function loadMail() {
+async function loadMailForActivePatient() {
     const listEl = document.getElementById("portalMailList");
-    if (!listEl) return;
+    if (!listEl || !currentActivePatient) return;
 
-    listEl.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">Fetching portal messages...</div>`;
+    const patientNo = currentActivePatient.patient_no;
+    const fullName = `${currentActivePatient.first_name || ""} ${currentActivePatient.last_name || ""}`.trim();
+
+    listEl.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">Fetching messages for ${escapeHtml(fullName)} (${escapeHtml(patientNo)})...</div>`;
 
     try {
-        const res = await api("/portal/mail");
+        const res = await api(`/portal/mail?patient_no=${encodeURIComponent(patientNo)}`);
         if (res.success && Array.isArray(res.data)) {
             allMail = res.data;
             renderMailList();
@@ -229,14 +375,15 @@ function renderMailList() {
     if (!listEl) return;
 
     if (allMail.length === 0) {
-        listEl.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted, #64748b);">No portal messages in inbox. Use '+ Compose Secure Message' to send a confidential notification.</div>`;
+        const fullName = currentActivePatient ? `${currentActivePatient.first_name || ""} ${currentActivePatient.last_name || ""}`.trim() : "this patient";
+        listEl.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted, #64748b);">No portal messages in thread for ${escapeHtml(fullName)}. Use '+ Compose Secure Message' to send a confidential notification.</div>`;
         return;
     }
 
     listEl.innerHTML = allMail.map(m => {
-        const sender = m.sender_username || "Staff Team";
+        const sender = m.sender_username || "Clinic Staff";
         const senderRole = m.sender_role ? ` (${m.sender_role})` : "";
-        const recipient = m.patient_name ? `${m.patient_name} (${m.patient_no || ""})` : "Direct Message";
+        const recipient = m.patient_name ? `${m.patient_name} (${m.patient_no || ""})` : "Active Patient";
 
         return `
             <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; flex-direction: column; gap: 6px; background: var(--bg-surface, #ffffff);">
@@ -253,35 +400,17 @@ function renderMailList() {
     }).join("");
 }
 
-async function loadMailPatientDropdown() {
-    const select = document.getElementById("portalMailPatientSelect");
-    if (!select) return;
-
-    if (select.options.length > 1) return; // already loaded
-
-    try {
-        const res = await api("/portal/signatures");
-        if (res.success && Array.isArray(res.data)) {
-            select.innerHTML = `<option value="">-- Select Patient Recipient --</option>`;
-            res.data.forEach(p => {
-                const opt = document.createElement("option");
-                opt.value = p.patient_id;
-                opt.textContent = `${p.patient_no} - ${p.first_name} ${p.last_name}`;
-                select.appendChild(opt);
-            });
-        }
-    } catch (e) {
-        console.error("Failed to load patient options for portal mail", e);
-    }
-}
-
 async function handleSendMail() {
-    const patientSelect = document.getElementById("portalMailPatientSelect");
+    if (!currentActivePatient) {
+        showToast("Please select an active patient first.", "error");
+        return;
+    }
+
     const subjectInput = document.getElementById("portalMailSubjectInput");
     const bodyInput = document.getElementById("portalMailBodyInput");
     const sendBtn = document.getElementById("sendPortalMailBtn");
 
-    const patientId = patientSelect?.value ? parseInt(patientSelect.value, 10) : null;
+    const patientId = currentActivePatient.patient_id || currentActivePatient.id;
     const subject = subjectInput?.value.trim() || "";
     const rawBody = bodyInput?.value.trim() || "";
 
@@ -308,11 +437,11 @@ async function handleSendMail() {
         });
 
         if (res.success) {
-            showToast("Secure message sent successfully.", "success");
+            showToast("Secure message sent to active patient.", "success");
             clearMailForm();
             const composeBox = document.getElementById("portalMailComposeBox");
             if (composeBox) composeBox.style.display = "none";
-            loadMail();
+            loadMailForActivePatient();
         } else {
             showToast(res.message || "Failed to dispatch message.", "error");
         }
@@ -327,16 +456,14 @@ async function handleSendMail() {
 }
 
 function clearMailForm() {
-    const patientSelect = document.getElementById("portalMailPatientSelect");
     const subjectInput = document.getElementById("portalMailSubjectInput");
     const bodyInput = document.getElementById("portalMailBodyInput");
-    if (patientSelect) patientSelect.value = "";
     if (subjectInput) subjectInput.value = "";
     if (bodyInput) bodyInput.value = "";
 }
 
 /**
- * 5. Signature on File
+ * 5. Signature on File Modal (Scoped to Active Patient)
  */
 function setupSignatureModal() {
     const sigBtn = document.getElementById("portalSignatureBtn");
@@ -359,34 +486,41 @@ function setupSignatureModal() {
 
     if (sigBtn && sigModal) {
         sigBtn.onclick = () => {
+            if (!currentActivePatient) {
+                showToast("Please select an active patient first.", "error");
+                return;
+            }
             sigModal.style.display = "flex";
-            loadSignatures();
+            loadSignaturesForActivePatient();
         };
     }
     if (closeSig) closeSig.onclick = hide;
     if (closeSigBtn) closeSigBtn.onclick = hide;
 
     if (refreshBtn) {
-        refreshBtn.onclick = () => loadSignatures();
+        refreshBtn.onclick = () => loadSignaturesForActivePatient();
     }
 
     if (closePreview) closePreview.onclick = hidePreview;
     if (closePreviewBtn) closePreviewBtn.onclick = hidePreview;
 }
 
-async function loadSignatures() {
+async function loadSignaturesForActivePatient() {
     const tbody = document.getElementById("portalSignaturesTableBody");
-    if (!tbody) return;
+    if (!tbody || !currentActivePatient) return;
 
-    tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">Fetching real patient signature records...</td></tr>`;
+    const patientNo = currentActivePatient.patient_no;
+    const fullName = `${currentActivePatient.first_name || ""} ${currentActivePatient.last_name || ""}`.trim();
+
+    tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">Fetching signature status for ${escapeHtml(fullName)} (${escapeHtml(patientNo)})...</td></tr>`;
 
     try {
-        const res = await api("/portal/signatures");
+        const res = await api(`/portal/signatures?patient_no=${encodeURIComponent(patientNo)}`);
         if (res.success && Array.isArray(res.data)) {
             allSignatures = res.data;
             renderSignaturesTable();
         } else {
-            tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #dc2626;">Failed to retrieve signatures: ${escapeHtml(res.message || "Unknown error")}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #dc2626;">Failed to retrieve signature: ${escapeHtml(res.message || "Unknown error")}</td></tr>`;
         }
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #dc2626;">Error retrieving signatures from database.</td></tr>`;
@@ -398,7 +532,8 @@ function renderSignaturesTable() {
     if (!tbody) return;
 
     if (allSignatures.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">No patient records found in database.</td></tr>`;
+        const fullName = currentActivePatient ? `${currentActivePatient.first_name || ""} ${currentActivePatient.last_name || ""}`.trim() : "this patient";
+        tbody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted, #64748b);">No signature record found for ${escapeHtml(fullName)}.</td></tr>`;
         return;
     }
 
@@ -431,7 +566,7 @@ function renderSignaturesTable() {
         `;
     }).join("");
 
-    // Wire up dynamic click handlers
+    // Wire click handlers
     tbody.querySelectorAll(".view-sig-btn").forEach(btn => {
         btn.onclick = () => {
             const pid = btn.getAttribute("data-patient-id");

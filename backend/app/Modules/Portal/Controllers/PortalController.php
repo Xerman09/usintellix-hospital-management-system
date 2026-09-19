@@ -23,6 +23,22 @@ class PortalController extends Controller
      */
     public function audits(): void
     {
+        $patientNo = isset($_GET['patient_no']) ? trim((string) $_GET['patient_no']) : null;
+        $patientId = isset($_GET['patient_id']) && is_numeric($_GET['patient_id']) ? (int) $_GET['patient_id'] : null;
+
+        $where = [];
+        $params = [];
+
+        if (!empty($patientNo)) {
+            $where[] = "p.patient_no = ?";
+            $params[] = $patientNo;
+        } elseif (!empty($patientId)) {
+            $where[] = "a.patient_id = ?";
+            $params[] = $patientId;
+        }
+
+        $whereClause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+
         $sql = "
             SELECT 
                 a.id,
@@ -39,11 +55,13 @@ class PortalController extends Controller
             FROM portal_audit_logs a
             LEFT JOIN patients p ON a.patient_id = p.id
             LEFT JOIN users u ON a.user_id = u.id
+            {$whereClause}
             ORDER BY a.id DESC
             LIMIT 50
         ";
 
-        $stmt = $this->db->query($sql);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $this->success($logs, 'Portal audits retrieved successfully.');
@@ -55,6 +73,22 @@ class PortalController extends Controller
      */
     public function signatures(): void
     {
+        $patientNo = isset($_GET['patient_no']) ? trim((string) $_GET['patient_no']) : null;
+        $patientId = isset($_GET['patient_id']) && is_numeric($_GET['patient_id']) ? (int) $_GET['patient_id'] : null;
+
+        $where = ["p.deleted_at IS NULL"];
+        $params = [];
+
+        if (!empty($patientNo)) {
+            $where[] = "p.patient_no = ?";
+            $params[] = $patientNo;
+        } elseif (!empty($patientId)) {
+            $where[] = "p.id = ?";
+            $params[] = $patientId;
+        }
+
+        $whereClause = "WHERE " . implode(" AND ", $where);
+
         $sql = "
             SELECT 
                 p.id AS patient_id,
@@ -70,11 +104,12 @@ class PortalController extends Controller
                 END AS has_signature,
                 'HIPAA Patient Consent & General Medical Authorization' AS form_title
             FROM patients p
-            WHERE p.deleted_at IS NULL
+            {$whereClause}
             ORDER BY has_signature DESC, p.id DESC
         ";
 
-        $stmt = $this->db->query($sql);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         $signatures = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $this->success($signatures, 'Portal signatures on file retrieved successfully.');
@@ -86,6 +121,23 @@ class PortalController extends Controller
      */
     public function mail(): void
     {
+        $patientNo = isset($_GET['patient_no']) ? trim((string) $_GET['patient_no']) : null;
+        $patientId = isset($_GET['patient_id']) && is_numeric($_GET['patient_id']) ? (int) $_GET['patient_id'] : null;
+
+        $where = ["m.deleted_at IS NULL"];
+        $params = [];
+
+        if (!empty($patientNo)) {
+            $where[] = "(p.patient_no = ? OR m.body LIKE ?)";
+            $params[] = $patientNo;
+            $params[] = "%" . $patientNo . "%";
+        } elseif (!empty($patientId)) {
+            $where[] = "m.patient_id = ?";
+            $params[] = $patientId;
+        }
+
+        $whereClause = "WHERE " . implode(" AND ", $where);
+
         $sql = "
             SELECT 
                 m.id,
@@ -101,12 +153,13 @@ class PortalController extends Controller
             LEFT JOIN users u ON m.sender_id = u.id
             LEFT JOIN roles r ON u.role_id = r.id
             LEFT JOIN patients p ON m.patient_id = p.id
-            WHERE m.deleted_at IS NULL
+            {$whereClause}
             ORDER BY m.id DESC
             LIMIT 30
         ";
 
-        $stmt = $this->db->query($sql);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $this->success($messages, 'Portal messages retrieved successfully.');
