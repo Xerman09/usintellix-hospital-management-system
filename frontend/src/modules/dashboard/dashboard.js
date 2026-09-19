@@ -319,8 +319,8 @@ import { OfficeNotesView } from "../office-notes/office-notes.view.js?v=1";
 import { initOfficeNotes } from "../office-notes/office-notes.js?v=1";
 import { BatchComView } from "../batch-com/batch-com.view.js?v=2";
 import { initBatchCom } from "../batch-com/batch-com.js?v=2";
-import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=2";
-import { initNewDocuments } from "../new-documents/new-documents.js?v=2";
+import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=3";
+import { initNewDocuments } from "../new-documents/new-documents.js?v=3";
 
 function renderPlaceholderTab(title) {
     return `

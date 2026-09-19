@@ -355,13 +355,6 @@ class NewDocumentsController extends Controller
         }
     }
 
-        $this->success([
-            'id' => $id,
-            'title' => $title,
-            'file_path' => '/uploads/patient_documents/' . $storedFilename
-        ], 'Document uploaded and registered successfully.', 201);
-    }
-
     /**
      * PUT /new-documents/update
      * Update document metadata or assign/reassign to patient

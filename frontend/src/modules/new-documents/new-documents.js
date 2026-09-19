@@ -157,8 +157,15 @@ function renderTree() {
             <div class="nd-tree-children" id="ndRootChildren" style="${allCollapsed ? 'display: none;' : ''}">
     `;
 
-    // Filter root category and list standard subcategories
-    const topCategories = categoriesList.filter(c => c.name !== 'Categories' && (!c.parent_id || c.parent_id === 1));
+    // Filter root category and list standard subcategories (handling string or numeric parent_id)
+    const topCategories = categoriesList.filter(c => c.name !== 'Categories' && (!c.parent_id || Number(c.parent_id) === 1 || c.parent_id == 1));
+
+    // Ensure any category with documents is present in tree
+    Object.keys(docsByCategory).forEach(catName => {
+        if (!topCategories.some(c => c.name.toLowerCase() === catName.toLowerCase()) && catName !== 'Categories') {
+            topCategories.push({ id: 999, parent_id: 1, name: catName, doc_count: docsByCategory[catName].length });
+        }
+    });
 
     topCategories.forEach(cat => {
         const catDocs = docsByCategory[cat.name] || [];

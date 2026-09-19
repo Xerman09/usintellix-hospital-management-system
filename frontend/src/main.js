@@ -1,6 +1,6 @@
 console.log("MAIN FILE LOADED");
 
-import { router } from "./core/router.js?v=112";
+import { router } from "./core/router.js?v=113";
 import { initTheme } from "./core/theme.js";
 
 initTheme();

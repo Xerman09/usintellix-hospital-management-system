@@ -1,8 +1,6 @@
 <?php
 
 use App\Modules\NewDocuments\Controllers\NewDocumentsController;
-use App\Core\Middlewares\AuthMiddleware;
-use App\Core\Middlewares\RoleMiddleware;
 
 /** @var \App\Core\Router $router */
 
