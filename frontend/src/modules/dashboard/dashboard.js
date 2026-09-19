@@ -312,17 +312,17 @@ import { initAnnouncements } from "../announcements/announcements.js";
 
 function renderPlaceholderTab(title) {
     return `
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; padding: 40px; text-align: center;">
-        <div style="width: 72px; height: 72px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #2563eb;">
+    <div class="placeholder-tab-container">
+        <div class="placeholder-icon-wrap">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
         </div>
-        <span style="display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0284c7; font-size: 12px; font-weight: 600; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Coming Soon</span>
-        <h2 style="font-size: 24px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0;">${title}</h2>
-        <p style="font-size: 14px; color: #64748b; max-width: 480px; line-height: 1.6; margin: 0 0 24px 0;">This module is currently under development and will be available in an upcoming update.</p>
-        <div style="padding: 12px 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #64748b;">
+        <span class="placeholder-badge">Coming Soon</span>
+        <h2 class="placeholder-title">${title}</h2>
+        <p class="placeholder-desc">This module is currently under development and will be available in an upcoming update.</p>
+        <div class="placeholder-card">
             Stay tuned! Our engineering team is finalizing this feature.
         </div>
     </div>
