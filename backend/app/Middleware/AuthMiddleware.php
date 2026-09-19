@@ -14,6 +14,7 @@ class AuthMiddleware
         if(!$user)
         {
             http_response_code(401);
+            header('Content-Type: application/json');
 
             echo json_encode([
                 "message" => "Unauthorized"

@@ -1,5 +1,6 @@
 import { fetchDashboardStats } from "./dashboard-home.service.js";
 import { fetchPatientDashboardSummary, fetchAiHealthAssessment } from "../patients/patients.service.js";
+import { fetchActiveAnnouncements, getAnnouncementImageUrl } from "../announcements/announcements.service.js";
 
 const ICONS = {
     patients: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path>`,
@@ -32,6 +33,7 @@ export async function initDashboardHome(user)
 
     renderHeader(user, stats);
     renderHeaderActions(user);
+    renderDashboardAnnouncements(user);
 
     if (stats.role_scope === "staff") {
         renderStaffStats(stats);
@@ -589,3 +591,56 @@ function generateEmbeddedAiReportHtml(aiData) {
         </div>
     `;
 }
+
+async function renderDashboardAnnouncements(user)
+{
+    const slot = document.getElementById("dhAnnouncementsSlot");
+    if (!slot) return;
+
+    try {
+        const res = await fetchActiveAnnouncements();
+        if (!res.success || !Array.isArray(res.data) || res.data.length === 0) {
+            slot.innerHTML = "";
+            return;
+        }
+
+        const items = res.data;
+        slot.innerHTML = `
+            <div class="dh-announcements-wrap">
+                ${items.map(item => {
+                    const imgUrl = getAnnouncementImageUrl(item.image_url);
+                    const priorityClass = item.priority === 'urgent' ? 'urgent' : (item.priority === 'important' ? 'important' : 'normal');
+                    const cardPriorityClass = item.priority === 'urgent' ? 'priority-urgent' : (item.priority === 'important' ? 'priority-important' : '');
+
+                    return `
+                    <div class="dh-announcement-card ${cardPriorityClass}" data-ann-id="${item.id}" title="Click to view details">
+                        ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" class="dh-announcement-img" alt="Announcement">` : ''}
+                        <div class="dh-announcement-content">
+                            <div class="dh-announcement-top">
+                                <span class="dh-announcement-priority ${priorityClass}">${escapeHtml(item.priority || 'notice')}</span>
+                                <h4 class="dh-announcement-title">${escapeHtml(item.title)}</h4>
+                            </div>
+                            <p class="dh-announcement-snippet">${escapeHtml(item.content)}</p>
+                        </div>
+                        <div class="dh-announcement-action">
+                            <span>Read</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </div>
+                    </div>
+                    `;
+                }).join("")}
+            </div>
+        `;
+
+        slot.querySelectorAll(".dh-announcement-card").forEach(card => {
+            card.addEventListener("click", () => {
+                if (window.tabManager) {
+                    window.tabManager.openTab('misc_announcements', 'Announcements');
+                }
+            });
+        });
+    } catch (e) {
+        console.error("Failed to load dashboard announcements", e);
+    }
+}
+

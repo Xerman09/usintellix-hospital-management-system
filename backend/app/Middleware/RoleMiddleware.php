@@ -14,6 +14,10 @@ class RoleMiddleware
         if(!$user)
         {
             http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode([
+                "message" => "Unauthorized"
+            ]);
             exit;
         }
 
@@ -21,6 +25,7 @@ class RoleMiddleware
         if(!in_array($user['role'], $allowedRoles))
         {
             http_response_code(403);
+            header('Content-Type: application/json');
 
             echo json_encode([
                 "message" => "Forbidden"

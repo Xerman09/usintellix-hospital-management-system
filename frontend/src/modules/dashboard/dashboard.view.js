@@ -17,6 +17,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <a data-tab="patients">New/Search</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
+                <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
                     <span class="dropdown-submenu-trigger">
                         Visits
@@ -322,6 +323,7 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Miscellaneous</span>
             <div class="dropdown-content">
+                <a data-tab="misc_announcements">Announcements</a>
                 <a data-tab="misc_settings">Settings</a>
             </div>
         </div>
@@ -431,6 +433,7 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="billing">Billing</a>
     <a data-tab="reports">Medical Reports</a>
     <a data-tab="documents">Documents</a>
+    <a data-tab="misc_announcements">Announcements</a>
     <a data-tab="profile">Profile</a>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
@@ -536,6 +539,7 @@ const RECEPTIONIST_NAV_LINKS = `
     <div class="nav-dropdown">
         <span>Miscellaneous</span>
         <div class="dropdown-content">
+            <a data-tab="misc_announcements">Announcements</a>
             <a data-tab="misc_patient_education">Patient Education</a>
             <a data-tab="misc_chart_tracker">Chart Tracker</a>
             <div class="dropdown-submenu">
@@ -621,6 +625,12 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="patient_flow">Flow</a>
     <a data-tab="recalls">Recalls</a>
     <a data-tab="messaging">Messages</a>
+    <div class="nav-dropdown">
+        <span>Miscellaneous</span>
+        <div class="dropdown-content">
+            <a data-tab="misc_announcements">Announcements</a>
+        </div>
+    </div>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
 `;

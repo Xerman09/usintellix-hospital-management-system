@@ -21,8 +21,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=62";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=62";
+import { PatientsListView } from "../patients/patients-list.view.js?v=63";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=63";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js";
 import { initBillingManager } from "../billing-manager/billing-manager.js";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
@@ -96,6 +96,8 @@ import { PatientResultsView } from "../patient-results/patient-results.view.js";
 import { initPatientResults } from "../patient-results/patient-results.js";
 import { LabsTrendView } from "../labs-trend/labs-trend.view.js";
 import { initLabsTrend } from "../labs-trend/labs-trend.js";
+import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js";
+import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { LabDocumentsView } from "../lab-documents/lab-documents.view.js";
 import { initLabDocuments } from "../lab-documents/lab-documents.js";
 import { ScreeningToolsView } from "../screening-tools/screening-tools.view.js";
@@ -305,6 +307,8 @@ import { openChartLabelPopup } from "../popup-chart-label/popup-chart-label.js";
 import { openBarcodeLabelPopup } from "../popup-barcode-label/popup-barcode-label.js";
 import { openAddressLabelPopup } from "../popup-address-label/popup-address-label.js";
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
+import { AnnouncementsView } from "../announcements/announcements.view.js";
+import { initAnnouncements } from "../announcements/announcements.js";
 function renderPlaceholderTab(title) {
     return `<div style="padding: 20px;">
         <h2>${title}</h2>
@@ -594,6 +598,11 @@ export function Dashboard()
                 setTimeout(initLabsTrend, 0);
                 return LabsTrendView();
             }, activate);
+        } else if (tabId === 'clinical_reminders') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(initClinicalReminders, 0);
+                return ClinicalRemindersView();
+            }, activate);
         } else if (tabId === 'procedure_lab_documents') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initLabDocuments, 0);
@@ -618,6 +627,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientReminders, 0);
                 return PatientRemindersView();
+            }, activate);
+        } else if (tabId === 'misc_announcements') {
+            tabManager.openTab(tabId, title || 'Announcements', () => {
+                setTimeout(initAnnouncements, 0);
+                return AnnouncementsView(user);
             }, activate);
         } else if (tabId === 'misc_patient_education') {
             tabManager.openTab(tabId, title, () => {

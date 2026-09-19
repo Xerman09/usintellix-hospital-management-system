@@ -1,7 +1,6 @@
 import { getUser } from "../../core/session.js";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { recordRecentPatient } from "../../core/recent-patients.js";
-import { fetchReminderActions, addReminderAction } from "../patient-reminders/patient-reminders.service.js";
 import { fetchOfficeNotes, addOfficeNote, updateOfficeNote, deleteOfficeNote } from "../office-notes/office-notes.service.js";
 import { fetchCarePreferences, addCarePreference, updateCarePreference, deleteCarePreference } from "../care-preferences/care-preferences.service.js";
 import { fetchPreferenceTypes } from "../preference-types/preference-types.service.js";
@@ -22,9 +21,11 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientPortalCredentials, savePatientPortalCredentials } from "../patient-portal-access/patient-portal-access.service.js";
 import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
+import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js";
+import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=62";
+import { PatientChartView } from "./patients-list.view.js?v=63";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2711,7 +2712,7 @@ export async function initPatientChartTab(patient)
     setupVitalsModal();
     setupLedgerPanel();
     setupPatientBraceletModal(patient);
-    setupClinicalRemindersModal();
+    setupClinicalRemindersWidget();
     setupOfficeNotesModal();
     carePreferencesController.setup();
     treatmentPreferencesController.setup();
@@ -3233,11 +3234,6 @@ async function loadDashboardAllergies(patient)
     }
 }
 
-// Real reminders currently shown on the dashboard, stashed so the
-// "Manage Clinical Reminders" modal (opened from the same widget) can
-// list the exact same rows without a second round trip.
-let currentClinicalReminders = [];
-
 function carePreferenceStatusLabel(status)
 {
     if (status === "preliminary") return "Preliminary";
@@ -3492,8 +3488,6 @@ function renderDashboardClinicalReminders(reminders)
         return;
     }
 
-    currentClinicalReminders = reminders;
-
     setWidgetCount("pdClinicalRemindersBody", reminders.length);
 
     body.innerHTML = reminders.length
@@ -3520,7 +3514,7 @@ function renderDashboardClinicalReminders(reminders)
     const items = body.querySelectorAll("li");
     if (items.length) items[items.length - 1].style.borderBottom = "none";
 
-    wireDashboardItemClicks(body, "data-reminder-id", reminders, (reminder) => openClinicalReminderFormModal(reminder));
+    wireDashboardItemClicks(body, "data-reminder-id", reminders, (reminder) => openClinicalRemindersTab(reminder.id));
 }
 
 // See createPreferencePanelController() (below the Clinical Reminder Form
@@ -6767,161 +6761,29 @@ function setupPatientBraceletModal(patient)
     });
 }
 
-function setupClinicalRemindersModal()
+/**
+ * The dashboard widget is just a preview -- the real Main/Plans/Admin
+ * screen (with the per-item Assessment/history modal) lives in its own
+ * dedicated tab (see clinical-reminders.js) since a patient-scoped tab
+ * needs to be reachable on its own, not only from a currently-open
+ * patient dashboard's DOM.
+ */
+function setupClinicalRemindersWidget()
 {
-    const overlay = document.getElementById("clinicalRemindersModalOverlay");
-    if (!overlay) return;
-
-    const closeModal = () => overlay.classList.remove("open");
-
     const addBtn = document.getElementById("pdClinicalRemindersAddBtn");
     if (addBtn) {
-        addBtn.addEventListener("click", () => {
-            const tbody = document.getElementById("clinicalRemindersTableBody");
-
-            tbody.innerHTML = currentClinicalReminders.length
-                ? currentClinicalReminders.map((rem) => `
-                    <tr>
-                        <td><strong>${escapeHtml(rem.item_label)}</strong></td>
-                        <td><span class="pd-severity-badge ${rem.due_status === "past_due" ? "severe" : "mild"}">${escapeHtml(reminderStatusLabel(rem.due_status))}</span></td>
-                        <td>${escapeHtml(String(rem.date_created || "").slice(0, 10))}</td>
-                        <td><button type="button" class="btn-secondary clinical-reminder-satisfy-btn" data-reminder-id="${rem.id}" style="padding: 4px 8px; font-size: 11px;">Log Action</button></td>
-                    </tr>
-                `).join("")
-                : `<tr><td colspan="4" class="table-empty">No clinical reminders for this patient.</td></tr>`;
-
-            tbody.querySelectorAll(".clinical-reminder-satisfy-btn").forEach((btn) => {
-                btn.addEventListener("click", () => {
-                    const reminder = currentClinicalReminders.find((r) => String(r.id) === btn.getAttribute("data-reminder-id"));
-                    if (!reminder) return;
-
-                    overlay.classList.remove("open");
-                    openClinicalReminderFormModal(reminder);
-                });
-            });
-
-            overlay.classList.add("open");
-        });
+        addBtn.addEventListener("click", () => openClinicalRemindersTab());
     }
+}
 
-    document.getElementById("closeClinicalRemindersModal").addEventListener("click", closeModal);
-    document.getElementById("cancelClinicalRemindersModal").addEventListener("click", closeModal);
+function openClinicalRemindersTab(presetReminderId = null)
+{
+    if (!window.tabManager) return;
 
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            closeModal();
-        }
+    window.tabManager.openOrReplaceTab("clinical_reminders", "Clinical Reminders", () => {
+        setTimeout(() => initClinicalReminders(presetReminderId), 0);
+        return ClinicalRemindersView();
     });
-}
-
-/**
- * Append-only action log, same as any real clinical documentation --
- * a correction is a new entry, not a silent edit of a past one. Also
- * deliberately does not flip the dashboard badge to "Satisfied" after
- * logging: due_status is a separate computation (see
- * PatientReminderService::process()) that this log never touches, so
- * showing a fake "Satisfied" badge would misrepresent whether the item
- * is still objectively due.
- */
-function renderClinicalReminderHistory(actions)
-{
-    const tbody = document.getElementById("clinicalReminderHistoryTableBody");
-    const countEl = document.getElementById("clinicalReminderHistoryCount");
-    if (!tbody) return;
-
-    if (countEl) {
-        countEl.textContent = `${actions.length} record(s)`;
-    }
-
-    tbody.innerHTML = actions.length
-        ? actions.map((item) => {
-            const badgeClass = item.completed === "yes" ? "mild" : "severe";
-
-            return `
-                <tr>
-                    <td>${escapeHtml(String(item.action_date || "").replace("T", " ").slice(0, 16))}</td>
-                    <td><span class="pd-severity-badge ${badgeClass}">${item.completed === "yes" ? "YES" : "NO"}</span></td>
-                    <td>${escapeHtml(item.details || "-")}</td>
-                </tr>
-            `;
-        }).join("")
-        : `<tr><td colspan="3" class="table-empty">No history recorded yet.</td></tr>`;
-}
-
-async function openClinicalReminderFormModal(reminder)
-{
-    const overlay = document.getElementById("clinicalReminderFormModalOverlay");
-    if (!overlay) return;
-
-    const title = document.getElementById("clinicalReminderFormTitle");
-    if (title) title.textContent = reminder.item_label;
-
-    const dateInput = document.getElementById("clinicalReminderDate");
-    const completedInput = document.getElementById("clinicalReminderCompleted");
-    const detailsInput = document.getElementById("clinicalReminderDetails");
-    const saveBtn = document.getElementById("clinicalReminderFormSaveBtn");
-
-    if (dateInput) {
-        const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
-        dateInput.value = now.toISOString().slice(0, 16);
-    }
-    if (completedInput) completedInput.value = "yes";
-    if (detailsInput) detailsInput.value = "";
-
-    const tbody = document.getElementById("clinicalReminderHistoryTableBody");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="table-empty">Loading...</td></tr>`;
-
-    overlay.classList.add("open");
-
-    const actionsResult = await fetchReminderActions(reminder.id);
-    renderClinicalReminderHistory(actionsResult.success ? actionsResult.data : []);
-
-    const close = () => overlay.classList.remove("open");
-
-    const closeBtn = document.getElementById("closeClinicalReminderFormModal");
-    const cancelBtn = document.getElementById("clinicalReminderFormCancelBtn");
-    const bottomCloseBtn = document.getElementById("closeClinicalReminderFormModalBottom");
-
-    if (closeBtn) closeBtn.onclick = close;
-    if (cancelBtn) cancelBtn.onclick = close;
-    if (bottomCloseBtn) bottomCloseBtn.onclick = close;
-
-    if (saveBtn) {
-        saveBtn.onclick = async () => {
-            const actionDate = dateInput?.value ? dateInput.value.replace("T", " ") : "";
-
-            if (!actionDate) {
-                showToast("Date/Time is required.", "error");
-                return;
-            }
-
-            saveBtn.disabled = true;
-
-            const result = await addReminderAction(reminder.id, {
-                action_date: actionDate,
-                completed: completedInput?.value || "yes",
-                details: detailsInput?.value || ""
-            });
-
-            saveBtn.disabled = false;
-
-            if (!result.success) {
-                showToast(result.message || "Failed to log this action.", "error");
-                return;
-            }
-
-            if (detailsInput) detailsInput.value = "";
-
-            const refreshed = await fetchReminderActions(reminder.id);
-            renderClinicalReminderHistory(refreshed.success ? refreshed.data : []);
-
-            showToast("Action logged.", "success");
-        };
-    }
-
-    overlay.onclick = (event) => {
-        if (event.target === overlay) close();
-    };
 }
 
 /**

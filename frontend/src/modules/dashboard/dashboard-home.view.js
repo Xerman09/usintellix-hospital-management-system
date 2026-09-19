@@ -583,8 +583,104 @@ export function DashboardHomeView(user)
     border-bottom-color: var(--border-color);
 }
 :root[data-theme="dark"] .dh-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
-:root[data-theme="dark"] .dh-table tbody tr:hover { background: var(--bg-surface-alt); }
 :root[data-theme="dark"] .dh-empty-row { color: var(--text-muted); }
+
+/* Announcements Banner on Dashboard */
+.dh-announcements-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.dh-announcement-card {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dh-announcement-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.dh-announcement-card.priority-important {
+    border-left-color: #f59e0b;
+}
+
+.dh-announcement-card.priority-urgent {
+    border-left-color: #ef4444;
+}
+
+.dh-announcement-img {
+    width: 54px;
+    height: 54px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #e2e8f0;
+}
+
+.dh-announcement-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.dh-announcement-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.dh-announcement-priority {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 12px;
+}
+
+.dh-announcement-priority.urgent { background: #fee2e2; color: #991b1b; }
+.dh-announcement-priority.important { background: #fef3c7; color: #92400e; }
+.dh-announcement-priority.normal { background: #e0f2fe; color: #0369a1; }
+
+.dh-announcement-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #0f172a);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dh-announcement-snippet {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dh-announcement-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2563eb;
+    flex-shrink: 0;
+}
 </style>
 
 <div class="dh-page">
@@ -595,6 +691,8 @@ export function DashboardHomeView(user)
         </div>
         <div class="dh-header-actions" id="dhHeaderActions"></div>
     </div>
+
+    <div id="dhAnnouncementsSlot"></div>
 
     <div id="dhHighlightSlot"></div>
 

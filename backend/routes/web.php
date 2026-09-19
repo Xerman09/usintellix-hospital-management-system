@@ -136,5 +136,6 @@ require_once __DIR__ . '/../app/Modules/BatchPayments/routes.php';
 require_once __DIR__ . '/../app/Modules/EobPosting/routes.php';
 require_once __DIR__ . '/../app/Modules/EdiFiles/routes.php';
 require_once __DIR__ . '/../app/Modules/DrugInventory/routes.php';
+require_once __DIR__ . '/../app/Modules/Announcements/routes.php';
 
 return $router;

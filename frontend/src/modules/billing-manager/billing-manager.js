@@ -3,7 +3,7 @@ import {
     markEncountersCleared, reopenEncounters, updateEncounterX12Status
 } from "./billing-manager.service.js";
 import { fetchPatients } from "../patients/patients.service.js";
-import { openPatientChartTab, openFeeSheetForEncounter } from "../patients/patients-list.js?v=62";
+import { openPatientChartTab, openFeeSheetForEncounter } from "../patients/patients-list.js?v=63";
 import { showToast } from "../../core/toast.js";
 
 const CRITERIA_LABELS = {

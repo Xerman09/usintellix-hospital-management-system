@@ -73,6 +73,14 @@ class Router
 
         foreach ($middleware as $entry) {
             if (!$this->runMiddleware($entry)) {
+                if (http_response_code() === 200) {
+                    http_response_code(403);
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Access denied.'
+                    ]);
+                }
                 return;
             }
         }
@@ -106,14 +114,20 @@ class Router
 
             if (is_string($class)) {
                 if (!class_exists($class)) {
-                    $file = dirname(__DIR__) . '/Middleware/' . $class . '.php';
+                    $basename = basename(str_replace('\\', '/', $class));
+                    $file = dirname(__DIR__) . '/Middleware/' . $basename . '.php';
 
                     if (file_exists($file)) {
                         require_once $file;
                     }
+
+                    if (!class_exists($class) && class_exists($basename)) {
+                        $class = $basename;
+                    }
                 }
 
                 if (!class_exists($class)) {
+                    error_log("Middleware class not found: {$class}");
                     return false;
                 }
 
@@ -131,14 +145,20 @@ class Router
 
         if (is_string($middleware)) {
             if (!class_exists($middleware)) {
-                $file = dirname(__DIR__) . '/Middleware/' . $middleware . '.php';
+                $basename = basename(str_replace('\\', '/', $middleware));
+                $file = dirname(__DIR__) . '/Middleware/' . $basename . '.php';
 
                 if (file_exists($file)) {
                     require_once $file;
                 }
+
+                if (!class_exists($middleware) && class_exists($basename)) {
+                    $middleware = $basename;
+                }
             }
 
             if (!class_exists($middleware)) {
+                error_log("Middleware class not found: {$middleware}");
                 return false;
             }
 

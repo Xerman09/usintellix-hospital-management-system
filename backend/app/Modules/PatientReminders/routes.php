@@ -9,6 +9,11 @@ $router->get('/patient-reminders/mine', [PatientReminderController::class, 'mine
     [RoleMiddleware::class, ['patient']]
 ]);
 
+$router->get('/patient-reminders/for-patient', [PatientReminderController::class, 'forPatient'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/patient-reminders', [PatientReminderController::class, 'index'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
