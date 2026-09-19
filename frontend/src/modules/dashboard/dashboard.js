@@ -69,8 +69,8 @@ import { AclGroupsView } from "../acl-groups/acl-groups.view.js";
 import { initAclGroups } from "../acl-groups/acl-groups.js";
 import { PatientRemindersView } from "../patient-reminders/patient-reminders.view.js";
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
-import { PatientEducationView } from "../patient-education/patient-education.view.js";
-import { initPatientEducation } from "../patient-education/patient-education.js";
+import { PatientEducationView } from "../patient-education/patient-education.view.js?v=2";
+import { initPatientEducation } from "../patient-education/patient-education.js?v=2";
 import { ChartTrackerView } from "../chart-tracker/chart-tracker.view.js";
 import { initChartTracker } from "../chart-tracker/chart-tracker.js";
 import { ReferralFormView } from "../reports/referral-form.view.js";
@@ -661,7 +661,7 @@ export function Dashboard()
                 return DicomViewerView();
             }, activate);
         } else if (tabId === 'misc_patient_education') {
-            tabManager.openTab(tabId, title, () => {
+            tabManager.openTab(tabId, 'Web Search - Patient Education Materials', () => {
                 setTimeout(initPatientEducation, 0);
                 return PatientEducationView();
             }, activate);
