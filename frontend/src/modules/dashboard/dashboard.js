@@ -309,11 +309,24 @@ import { openAddressLabelPopup } from "../popup-address-label/popup-address-labe
 import { applyAppearanceSettings } from "../../core/appearance-settings.js";
 import { AnnouncementsView } from "../announcements/announcements.view.js";
 import { initAnnouncements } from "../announcements/announcements.js";
+
 function renderPlaceholderTab(title) {
-    return `<div style="padding: 20px;">
-        <h2>${title}</h2>
-        <p>This module is currently under development or loading...</p>
-    </div>`;
+    return `
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; padding: 40px; text-align: center;">
+        <div style="width: 72px; height: 72px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #2563eb;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        </div>
+        <span style="display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0284c7; font-size: 12px; font-weight: 600; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Coming Soon</span>
+        <h2 style="font-size: 24px; font-weight: 700; color: #1e293b; margin: 0 0 8px 0;">${title}</h2>
+        <p style="font-size: 14px; color: #64748b; max-width: 480px; line-height: 1.6; margin: 0 0 24px 0;">This module is currently under development and will be available in an upcoming update.</p>
+        <div style="padding: 12px 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #64748b;">
+            Stay tuned! Our engineering team is finalizing this feature.
+        </div>
+    </div>
+    `;
 }
 
 export function Dashboard()
@@ -633,16 +646,28 @@ export function Dashboard()
                 setTimeout(() => initAnnouncements(user), 0);
                 return AnnouncementsView(user);
             }, activate);
+        } else if (tabId === 'misc_portal_dashboard') {
+            tabManager.openTab(tabId, title || 'Portal Dashboard', () => renderPlaceholderTab(title || 'Portal Dashboard'), activate);
+        } else if (tabId === 'misc_dicom_viewer') {
+            tabManager.openTab(tabId, title || 'Dicom Viewer', () => renderPlaceholderTab(title || 'Dicom Viewer'), activate);
         } else if (tabId === 'misc_patient_education') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientEducation, 0);
                 return PatientEducationView();
             }, activate);
+        } else if (tabId === 'misc_authorizations') {
+            tabManager.openTab(tabId, title || 'Authorizations', () => renderPlaceholderTab(title || 'Authorizations'), activate);
         } else if (tabId === 'misc_chart_tracker') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initChartTracker, 0);
                 return ChartTrackerView();
             }, activate);
+        } else if (tabId === 'misc_office_notes') {
+            tabManager.openTab(tabId, title || 'Office Notes', () => renderPlaceholderTab(title || 'Office Notes'), activate);
+        } else if (tabId === 'misc_batch_com') {
+            tabManager.openTab(tabId, title || 'Batch Communication Tool', () => renderPlaceholderTab(title || 'Batch Communication Tool'), activate);
+        } else if (tabId === 'misc_new_documents') {
+            tabManager.openTab(tabId, title || 'New Documents', () => renderPlaceholderTab(title || 'New Documents'), activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initReferralForm, 0);
