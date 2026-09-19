@@ -317,38 +317,11 @@ function staffNavLinks(role)
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Blank Forms
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                     </span>
                     <div class="dropdown-submenu-content">
-                        <div class="dropdown-submenu">
-                            <span class="dropdown-submenu-trigger">
-                                Core
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                            </span>
-                            <div class="dropdown-submenu-content">
-                                <a data-tab="blank_forms_core_demographics">Demographics</a>
-                                <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                            </div>
-                        </div>
+                        <a data-tab="blank_forms_core_demographics">Demographics</a>
+                        <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
                         <a data-tab="misc_blank_forms_referral">Referral</a>
-                        <div class="dropdown-submenu">
-                            <span class="dropdown-submenu-trigger">
-                                Clinical
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                            </span>
-                            <div class="dropdown-submenu-content">
-                                <a data-tab="blank_forms_clinical_custom">Custom</a>
-                                <a data-tab="blank_forms_clinical_acute_withdrawal">Acute Withdrawal</a>
-                                <a data-tab="blank_forms_clinical_gynaecology_visit_assessment">Gynaecology Visit Assessment</a>
-                                <a data-tab="blank_forms_clinical_ouedryastest">OuedrYasTest</a>
-                                <a data-tab="blank_forms_clinical_pulavelil_lbf">Pulavelil LBF</a>
-                                <a data-tab="blank_forms_clinical_suresh_sneha">SURESH SNEHA</a>
-                                <a data-tab="blank_forms_clinical_semandrii_test">SemAndrii Test</a>
-                                <a data-tab="blank_forms_clinical_semenets_test">Semenets Test</a>
-                                <a data-tab="blank_forms_clinical_semtest">semtest</a>
-                                <a data-tab="blank_forms_clinical_sesay_wellness_assessment">SESAY Wellness Assessment</a>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -527,37 +500,11 @@ const RECEPTIONIST_NAV_LINKS = `
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                 </span>
                 <div class="dropdown-submenu-content">
-                    <div class="dropdown-submenu">
-                        <span class="dropdown-submenu-trigger">
-                            Core
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                        </span>
-                        <div class="dropdown-submenu-content">
-                            <a data-tab="blank_forms_core_demographics">Demographics</a>
-                            <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                        </div>
-                    </div>
-                    <div class="dropdown-submenu">
-                        <span class="dropdown-submenu-trigger">
-                            Clinical
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                        </span>
-                        <div class="dropdown-submenu-content">
-                            <a data-tab="blank_forms_clinical_custom">Custom</a>
-                            <a data-tab="blank_forms_clinical_acute_withdrawal">Acute Withdrawal</a>
-                            <a data-tab="blank_forms_clinical_gynaecology_visit_assessment">Gynaecology Visit Assessment</a>
-                            <a data-tab="blank_forms_clinical_ouedryastest">OuedrYasTest</a>
-                            <a data-tab="blank_forms_clinical_pulavelil_lbf">Pulavelil LBF</a>
-                            <a data-tab="blank_forms_clinical_suresh_sneha">SURESH SNEHA</a>
-                            <a data-tab="blank_forms_clinical_semandrii_test">SemAndrii Test</a>
-                            <a data-tab="blank_forms_clinical_semenets_test">Semenets Test</a>
-                            <a data-tab="blank_forms_clinical_semtest">semtest</a>
-                            <a data-tab="blank_forms_clinical_sesay_wellness_assessment">SESAY Wellness Assessment</a>
-                        </div>
-                    </div>
+                    <a data-tab="blank_forms_core_demographics">Demographics</a>
+                    <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
+                    <a data-tab="misc_blank_forms_referral">Referral</a>
                 </div>
             </div>
         </div>
@@ -577,38 +524,11 @@ const RECEPTIONIST_NAV_LINKS = `
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                 </span>
                 <div class="dropdown-submenu-content">
-                    <div class="dropdown-submenu">
-                        <span class="dropdown-submenu-trigger">
-                            Core
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                        </span>
-                        <div class="dropdown-submenu-content">
-                            <a data-tab="blank_forms_core_demographics">Demographics</a>
-                            <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                        </div>
-                    </div>
+                    <a data-tab="blank_forms_core_demographics">Demographics</a>
+                    <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
                     <a data-tab="misc_blank_forms_referral">Referral</a>
-                    <div class="dropdown-submenu">
-                        <span class="dropdown-submenu-trigger">
-                            Clinical
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                        </span>
-                        <div class="dropdown-submenu-content">
-                            <a data-tab="blank_forms_clinical_custom">Custom</a>
-                            <a data-tab="blank_forms_clinical_acute_withdrawal">Acute Withdrawal</a>
-                            <a data-tab="blank_forms_clinical_gynaecology_visit_assessment">Gynaecology Visit Assessment</a>
-                            <a data-tab="blank_forms_clinical_ouedryastest">OuedrYasTest</a>
-                            <a data-tab="blank_forms_clinical_pulavelil_lbf">Pulavelil LBF</a>
-                            <a data-tab="blank_forms_clinical_suresh_sneha">SURESH SNEHA</a>
-                            <a data-tab="blank_forms_clinical_semandrii_test">SemAndrii Test</a>
-                            <a data-tab="blank_forms_clinical_semenets_test">Semenets Test</a>
-                            <a data-tab="blank_forms_clinical_semtest">semtest</a>
-                            <a data-tab="blank_forms_clinical_sesay_wellness_assessment">SESAY Wellness Assessment</a>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -679,38 +599,11 @@ const DOCTOR_NAV_LINKS = `
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                 </span>
                 <div class="dropdown-submenu-content">
-                    <div class="dropdown-submenu">
-                        <span class="dropdown-submenu-trigger">
-                            Core
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                        </span>
-                        <div class="dropdown-submenu-content">
-                            <a data-tab="blank_forms_core_demographics">Demographics</a>
-                            <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
-                        </div>
-                    </div>
+                    <a data-tab="blank_forms_core_demographics">Demographics</a>
+                    <a data-tab="blank_forms_core_superbill">Superbill/Fee Sheet</a>
                     <a data-tab="misc_blank_forms_referral">Referral</a>
-                    <div class="dropdown-submenu">
-                        <span class="dropdown-submenu-trigger">
-                            Clinical
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-                        </span>
-                        <div class="dropdown-submenu-content">
-                            <a data-tab="blank_forms_clinical_custom">Custom</a>
-                            <a data-tab="blank_forms_clinical_acute_withdrawal">Acute Withdrawal</a>
-                            <a data-tab="blank_forms_clinical_gynaecology_visit_assessment">Gynaecology Visit Assessment</a>
-                            <a data-tab="blank_forms_clinical_ouedryastest">OuedrYasTest</a>
-                            <a data-tab="blank_forms_clinical_pulavelil_lbf">Pulavelil LBF</a>
-                            <a data-tab="blank_forms_clinical_suresh_sneha">SURESH SNEHA</a>
-                            <a data-tab="blank_forms_clinical_semandrii_test">SemAndrii Test</a>
-                            <a data-tab="blank_forms_clinical_semenets_test">Semenets Test</a>
-                            <a data-tab="blank_forms_clinical_semtest">semtest</a>
-                            <a data-tab="blank_forms_clinical_sesay_wellness_assessment">SESAY Wellness Assessment</a>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

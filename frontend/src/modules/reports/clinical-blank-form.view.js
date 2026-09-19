@@ -17,6 +17,29 @@ export function ClinicalBlankFormView(title) {
                     }
                 }
                 .cbf-line { border-bottom: 1px solid #000; display: inline-block; min-width: 90px; height: 14px; margin-left: 4px; }
+
+                :root[data-theme="dark"] .clinical-blank-form-wrapper {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+                    border-radius: 4px;
+                }
+                :root[data-theme="dark"] .clinical-blank-form-wrapper * {
+                    color: #000000;
+                }
+                :root[data-theme="dark"] .clinical-blank-form-wrapper h2,
+                :root[data-theme="dark"] .clinical-blank-form-wrapper span,
+                :root[data-theme="dark"] .clinical-blank-form-wrapper strong,
+                :root[data-theme="dark"] .clinical-blank-form-wrapper div {
+                    color: #000000 !important;
+                }
+                :root[data-theme="dark"] .clinical-blank-form-wrapper .cbf-line {
+                    border-bottom-color: #000000 !important;
+                }
+                :root[data-theme="dark"] .clinical-blank-form-wrapper .no-print button {
+                    color: #ffffff !important;
+                    background: #007bff !important;
+                }
             </style>
 
             <div class="no-print" style="margin-bottom: 20px; text-align: right;">

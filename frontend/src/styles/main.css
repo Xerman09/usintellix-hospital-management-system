@@ -108,26 +108,27 @@
 }
 
 :root[data-theme="dark"] .dropdown-submenu-content {
-    background-color: var(--bg-surface);
-    border-color: var(--border-color);
+    background-color: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
 :root[data-theme="dark"] .dropdown-submenu-content a {
-    color: var(--text-primary);
+    color: #f1f5f9;
 }
 
 :root[data-theme="dark"] .dropdown-submenu:hover > .dropdown-submenu-trigger {
-    background-color: var(--accent-light);
-    color: var(--accent-text);
+    background-color: #0f172a;
+    color: #38bdf8;
 }
 
 :root[data-theme="dark"] .dropdown-submenu:hover > .dropdown-submenu-trigger svg {
-    color: var(--accent-text);
+    color: #38bdf8;
 }
 
 :root[data-theme="dark"] .dropdown-submenu-content a:hover {
-    background-color: var(--accent-light);
-    color: var(--accent-text);
+    background-color: #334155;
+    color: #38bdf8;
 }
 
 /* Placeholder / Coming Soon Tab Component */
@@ -486,33 +487,33 @@
     color: var(--text-primary) !important;
 }
 
-:root[data-theme="dark"] [class$="-wrapper"] h1,
-:root[data-theme="dark"] [class$="-wrapper"] h2,
-:root[data-theme="dark"] [class$="-wrapper"] h3 {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) h1,
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) h2,
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) h3 {
     color: var(--text-primary) !important;
 }
 
-:root[data-theme="dark"] [class$="-wrapper"] label,
-:root[data-theme="dark"] [class$="-wrapper"] p {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) label,
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) p {
     color: var(--text-muted) !important;
 }
 
-:root[data-theme="dark"] [class$="-wrapper"] input,
-:root[data-theme="dark"] [class$="-wrapper"] select,
-:root[data-theme="dark"] [class$="-wrapper"] textarea {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) input,
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) select,
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) textarea {
     background-color: var(--bg-surface-alt) !important;
     border-color: var(--border-color) !important;
     color: var(--text-primary) !important;
 }
 
-:root[data-theme="dark"] [class$="-wrapper"] table thead tr {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) table thead tr {
     background-color: var(--bg-surface-alt) !important;
     color: var(--text-muted) !important;
     border-color: var(--border-color) !important;
 }
 
-:root[data-theme="dark"] [class$="-wrapper"] table td,
-:root[data-theme="dark"] [class$="-wrapper"] table th {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) table td,
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) table th {
     border-color: var(--border-color) !important;
 }
 
@@ -521,7 +522,7 @@
    override above since it's declared directly on the element, not
    inherited -- left the header text unreadably dark against the now
    dark-forced thead-row background. */
-:root[data-theme="dark"] [class$="-wrapper"] table thead th {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) table thead th {
     color: var(--text-muted) !important;
 }
 
@@ -529,14 +530,14 @@
    inline background (the colored subtotal/status rows several of these
    reports use, e.g. "Total for category") are left alone so their
    hand-picked text color stays legible against that background. */
-:root[data-theme="dark"] [class$="-wrapper"] table tbody tr:not([style*="background"]) td {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) table tbody tr:not([style*="background"]) td {
     color: var(--text-primary) !important;
 }
 
 /* Grand-total rows live in a <tfoot>, not <tbody> -- same inline dark
    text problem as the header cells above, just missed by the tbody-
    scoped rule since it's a different table section entirely. */
-:root[data-theme="dark"] [class$="-wrapper"] table tfoot tr:not([style*="background"]) td {
+:root[data-theme="dark"] [class$="-wrapper"]:not([class$="-form-wrapper"]) table tfoot tr:not([style*="background"]) td {
     color: var(--text-primary) !important;
 }
 
@@ -1501,12 +1502,13 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    color: #384252;
-    padding: 9px 12px;
-    font-weight: 500;
-    font-size: 13px;
-    border-radius: 6px;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 4px;
     cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease;
 }
 
 .dropdown-submenu-trigger svg {
@@ -1517,12 +1519,12 @@ body {
 }
 
 .dropdown-submenu:hover > .dropdown-submenu-trigger {
-    background-color: var(--accent-light);
-    color: var(--accent);
+    background-color: #151b26;
+    color: #ffffff;
 }
 
 .dropdown-submenu:hover > .dropdown-submenu-trigger svg {
-    color: var(--accent);
+    color: #ffffff;
 }
 
 .dropdown-submenu-content {
@@ -1530,14 +1532,14 @@ body {
     position: absolute;
     top: 0;
     left: 100%;
-    background-color: white;
-    min-width: 200px;
-    border: 1px solid #e7eaef;
-    box-shadow: 0 14px 28px -10px rgba(15,23,42,.14);
+    background-color: #ffffff;
+    min-width: 180px;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
     z-index: 102;
-    border-radius: 10px;
+    border-radius: 4px;
     flex-direction: column;
-    padding: 6px;
+    padding: 6px 0;
 }
 
 .dropdown-submenu:hover > .dropdown-submenu-content {
@@ -1545,18 +1547,19 @@ body {
 }
 
 .dropdown-submenu-content a {
-    color: #384252;
-    padding: 9px 12px;
+    color: #111827;
+    padding: 8px 14px;
     text-decoration: none;
     display: block;
-    font-weight: 500;
-    font-size: 13px;
-    border-radius: 6px;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 0;
+    transition: background-color 0.1s ease, color 0.1s ease;
 }
 
 .dropdown-submenu-content a:hover {
-    background-color: var(--accent-light);
-    color: var(--accent);
+    background-color: #f1f5f9;
+    color: #0284c7;
 }
 
 .dropdown-right {

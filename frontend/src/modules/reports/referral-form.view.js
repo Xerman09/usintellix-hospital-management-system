@@ -49,6 +49,42 @@ export function ReferralFormView() {
                 .rf-section-title { font-weight: bold; margin: 14px 0 6px; }
                 .rf-row { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 18px; }
                 .form-line { border-bottom: 1px solid #000; display: inline-block; min-width: 90px; height: 14px; margin-left: 4px; }
+
+                :root[data-theme="dark"] .referral-form-wrapper {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+                    border-radius: 4px;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper * {
+                    color: #000000;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper h1,
+                :root[data-theme="dark"] .referral-form-wrapper .rf-title,
+                :root[data-theme="dark"] .referral-form-wrapper .rf-copy-label,
+                :root[data-theme="dark"] .referral-form-wrapper .rf-section-title,
+                :root[data-theme="dark"] .referral-form-wrapper td,
+                :root[data-theme="dark"] .referral-form-wrapper span,
+                :root[data-theme="dark"] .referral-form-wrapper strong {
+                    color: #000000 !important;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper .rf-page {
+                    border-color: #000000 !important;
+                    background-color: #ffffff !important;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper td {
+                    border-color: #000000 !important;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper .form-line {
+                    border-bottom-color: #000000 !important;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper hr {
+                    border-top-color: #999999 !important;
+                }
+                :root[data-theme="dark"] .referral-form-wrapper .no-print button {
+                    color: #ffffff !important;
+                    background: #007bff !important;
+                }
             </style>
 
             <div class="no-print" style="margin-bottom: 20px; text-align: right;">

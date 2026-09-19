@@ -21,6 +21,36 @@ export function DemographicsFormView() {
                 .form-label { font-size: 12px; font-weight: bold; white-space: nowrap; }
                 .form-line { border-bottom: 1px solid #999; flex-grow: 1; margin-left: 10px; height: 16px; }
                 .form-row-full { display: flex; align-items: baseline; grid-column: 1 / -1; }
+
+                :root[data-theme="dark"] .demographics-form-wrapper {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+                    border-radius: 4px;
+                }
+                :root[data-theme="dark"] .demographics-form-wrapper * {
+                    color: #000000;
+                }
+                :root[data-theme="dark"] .demographics-form-wrapper h2,
+                :root[data-theme="dark"] .demographics-form-wrapper .section-title,
+                :root[data-theme="dark"] .demographics-form-wrapper .form-label,
+                :root[data-theme="dark"] .demographics-form-wrapper span,
+                :root[data-theme="dark"] .demographics-form-wrapper strong,
+                :root[data-theme="dark"] .demographics-form-wrapper div {
+                    color: #000000 !important;
+                }
+                :root[data-theme="dark"] .demographics-form-wrapper .form-box,
+                :root[data-theme="dark"] .demographics-form-wrapper .form-box-full {
+                    border-color: #000000 !important;
+                    background-color: #ffffff !important;
+                }
+                :root[data-theme="dark"] .demographics-form-wrapper .form-line {
+                    border-bottom-color: #999999 !important;
+                }
+                :root[data-theme="dark"] .demographics-form-wrapper .no-print button {
+                    color: #ffffff !important;
+                    background: #007bff !important;
+                }
             </style>
             
             <div class="no-print" style="margin-bottom: 20px; text-align: right;">

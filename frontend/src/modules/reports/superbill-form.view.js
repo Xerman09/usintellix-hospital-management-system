@@ -27,11 +27,36 @@ export function SuperbillFormView() {
                    light-on-white, same bug fixed in the Popups > Superbill
                    version of this layout -- forced back to real paper
                    colors here too. */
+                :root[data-theme="dark"] .superbill-form-wrapper {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+                    border-radius: 4px;
+                }
+                :root[data-theme="dark"] .superbill-form-wrapper * {
+                    color: #000000;
+                }
+                :root[data-theme="dark"] .superbill-form-wrapper h2,
+                :root[data-theme="dark"] .superbill-form-wrapper span,
+                :root[data-theme="dark"] .superbill-form-wrapper strong,
+                :root[data-theme="dark"] .superbill-form-wrapper div {
+                    color: #000000 !important;
+                }
+                :root[data-theme="dark"] .superbill-form-wrapper .sb-table {
+                    border-color: #000000 !important;
+                }
                 :root[data-theme="dark"] .superbill-form-wrapper .sb-table th,
                 :root[data-theme="dark"] .superbill-form-wrapper .sb-table td {
-                    background: #fff !important;
-                    color: #000 !important;
-                    border-color: #000 !important;
+                    background: #ffffff !important;
+                    color: #000000 !important;
+                    border-color: #000000 !important;
+                }
+                :root[data-theme="dark"] .superbill-form-wrapper .sb-line {
+                    border-bottom-color: #000000 !important;
+                }
+                :root[data-theme="dark"] .superbill-form-wrapper .no-print button {
+                    color: #ffffff !important;
+                    background: #007bff !important;
                 }
             </style>
             
