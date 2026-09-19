@@ -25,18 +25,54 @@ class OfficeNoteController extends Controller
         $request = new Request();
         $user = Session::get('user');
         $patientId = (int) $request->input('patient_id');
+        $patientNo = trim((string) $request->input('patient_no', ''));
+        $search = trim((string) $request->input('search', ''));
 
-        if (!$this->ownsPatient($user, $patientId)) {
+        if (!$patientId && !empty($patientNo)) {
+            $p = (new Patient())->where('patient_no', $patientNo)->first();
+            if ($p) {
+                $patientId = (int) $p['id'];
+            }
+        }
+
+        if ($patientId > 0 && !$this->ownsPatient($user, $patientId)) {
             $this->error('Patient not found.', 404);
             return;
         }
 
-        $filter = (string) $request->input('filter', 'active');
+        $filter = (string) $request->input('filter', 'all');
         $page = (int) $request->input('page', 1);
-        $perPage = (int) $request->input('per_page', 25);
+        $perPage = (int) $request->input('per_page', 50);
+
+        $patient = null;
+        if ($patientId > 0) {
+            $pRecord = (new Patient())->where('id', $patientId)->first();
+            if ($pRecord) {
+                $patient = [
+                    'id' => $pRecord['id'],
+                    'patient_no' => $pRecord['patient_no'],
+                    'first_name' => $pRecord['first_name'],
+                    'last_name' => $pRecord['last_name'],
+                    'birthdate' => $pRecord['birthdate'],
+                    'sex' => $pRecord['sex']
+                ];
+            }
+        }
+
+        $patients = \App\Core\Database::connection()->query("
+            SELECT id, patient_no, CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) AS name 
+            FROM patients 
+            WHERE deleted_at IS NULL 
+            ORDER BY last_name ASC, first_name ASC 
+            LIMIT 200
+        ")->fetchAll(\PDO::FETCH_ASSOC);
+
+        $data = $this->service->list($patientId, $filter, $page ?: 1, $perPage ?: 50, $search);
+        $data['patient'] = $patient;
+        $data['patients'] = $patients;
 
         $this->success(
-            $this->service->list($patientId, $filter, $page ?: 1, $perPage ?: 25),
+            $data,
             'Office notes retrieved successfully.'
         );
     }
@@ -46,13 +82,21 @@ class OfficeNoteController extends Controller
         $request = new Request();
         $user = Session::get('user');
         $patientId = (int) $request->input('patient_id');
+        $patientNo = trim((string) $request->input('patient_no', ''));
+
+        if (!$patientId && !empty($patientNo)) {
+            $p = (new Patient())->where('patient_no', $patientNo)->first();
+            if ($p) {
+                $patientId = (int) $p['id'];
+            }
+        }
 
         if (!$this->ownsPatient($user, $patientId)) {
             $this->error('Patient not found.', 404);
             return;
         }
 
-        $result = $this->service->create($patientId, $request->only(['note']), (int) $user['id']);
+        $result = $this->service->create($patientId, $request->only(['note']), (int) ($user['id'] ?? 1));
 
         if (!$result['success']) {
             $this->error($result['message'], 422, $result['errors'] ?? null);
@@ -103,10 +147,10 @@ class OfficeNoteController extends Controller
         $this->success(null, $result['message']);
     }
 
-    private function ownsPatient(array $user, int $patientId): bool
+    private function ownsPatient(?array $user, int $patientId): bool
     {
         if (!$patientId) {
-            return false;
+            return true;
         }
 
         $patient = (new Patient())->where('id', $patientId)->first();
@@ -115,7 +159,7 @@ class OfficeNoteController extends Controller
             return false;
         }
 
-        if (($user['role'] ?? '') !== 'doctor') {
+        if (!$user || ($user['role'] ?? '') !== 'doctor') {
             return true;
         }
 

@@ -315,6 +315,8 @@ import { DicomViewerView } from "../dicom-viewer/dicom-viewer.view.js?v=1";
 import { initDicomViewer } from "../dicom-viewer/dicom-viewer.js?v=1";
 import { AuthorizationsView } from "../authorizations/authorizations.view.js?v=1";
 import { initAuthorizations } from "../authorizations/authorizations.js?v=1";
+import { OfficeNotesView } from "../office-notes/office-notes.view.js?v=1";
+import { initOfficeNotes } from "../office-notes/office-notes.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -678,7 +680,10 @@ export function Dashboard()
                 return ChartTrackerView();
             }, activate);
         } else if (tabId === 'misc_office_notes') {
-            tabManager.openTab(tabId, title || 'Office Notes', () => renderPlaceholderTab(title || 'Office Notes'), activate);
+            tabManager.openTab(tabId, title || 'Office Notes', () => {
+                setTimeout(initOfficeNotes, 0);
+                return OfficeNotesView();
+            }, activate);
         } else if (tabId === 'misc_batch_com') {
             tabManager.openTab(tabId, title || 'Batch Communication Tool', () => renderPlaceholderTab(title || 'Batch Communication Tool'), activate);
         } else if (tabId === 'misc_new_documents') {

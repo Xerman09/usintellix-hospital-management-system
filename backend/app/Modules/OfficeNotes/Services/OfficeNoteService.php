@@ -9,9 +9,13 @@ use PDO;
 class OfficeNoteService
 {
     private const LIST_SQL =
-        "SELECT o.id, o.patient_id, o.note, o.active, o.created_at, o.created_by, u.username AS author
+        "SELECT o.id, o.patient_id, o.note, o.active, o.created_at, o.created_by, 
+                COALESCE(u.username, 'Staff') AS author,
+                p.patient_no,
+                CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, '')) AS patient_name
          FROM office_notes o
-         LEFT JOIN users u ON u.id = o.created_by";
+         LEFT JOIN users u ON u.id = o.created_by
+         LEFT JOIN patients p ON p.id = o.patient_id";
 
     /**
      * The dashboard widget's compact preview -- most recent active notes
@@ -33,15 +37,26 @@ class OfficeNoteService
     /**
      * The "(More)" management screen's paginated, filterable list.
      */
-    public function list(int $patientId, string $filter, int $page, int $perPage): array
+    public function list(int $patientId, string $filter, int $page, int $perPage, string $search = ''): array
     {
-        $where = ['o.patient_id = ?', 'o.deleted_at IS NULL'];
-        $params = [$patientId];
+        $where = ['o.deleted_at IS NULL'];
+        $params = [];
+
+        if ($patientId > 0) {
+            $where[] = 'o.patient_id = ?';
+            $params[] = $patientId;
+        }
 
         if ($filter === 'active') {
             $where[] = 'o.active = 1';
         } elseif ($filter === 'inactive') {
             $where[] = 'o.active = 0';
+        }
+
+        if (!empty($search)) {
+            $where[] = '(o.note LIKE ? OR p.first_name LIKE ? OR p.last_name LIKE ? OR p.patient_no LIKE ? OR u.username LIKE ?)';
+            $kw = "%{$search}%";
+            $params = array_merge($params, [$kw, $kw, $kw, $kw, $kw]);
         }
 
         $page = max(1, $page);
@@ -50,7 +65,13 @@ class OfficeNoteService
 
         $whereSql = implode(' AND ', $where);
 
-        $countStmt = Database::connection()->prepare("SELECT COUNT(*) c FROM office_notes o WHERE {$whereSql}");
+        $countStmt = Database::connection()->prepare("
+            SELECT COUNT(*) c 
+            FROM office_notes o 
+            LEFT JOIN users u ON u.id = o.created_by 
+            LEFT JOIN patients p ON p.id = o.patient_id 
+            WHERE {$whereSql}
+        ");
         $countStmt->execute($params);
         $total = (int) $countStmt->fetch(PDO::FETCH_ASSOC)['c'];
 
