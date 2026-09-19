@@ -311,6 +311,8 @@ import { AnnouncementsView } from "../announcements/announcements.view.js";
 import { initAnnouncements } from "../announcements/announcements.js";
 import { PortalDashboardView } from "../portal-dashboard/portal-dashboard.view.js?v=3";
 import { initPortalDashboard } from "../portal-dashboard/portal-dashboard.js?v=3";
+import { DicomViewerView } from "../dicom-viewer/dicom-viewer.view.js?v=1";
+import { initDicomViewer } from "../dicom-viewer/dicom-viewer.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -654,7 +656,10 @@ export function Dashboard()
                 return PortalDashboardView();
             }, activate);
         } else if (tabId === 'misc_dicom_viewer') {
-            tabManager.openTab(tabId, title || 'Dicom Viewer', () => renderPlaceholderTab(title || 'Dicom Viewer'), activate);
+            tabManager.openTab(tabId, title || 'Dicom Viewer', () => {
+                setTimeout(initDicomViewer, 0);
+                return DicomViewerView();
+            }, activate);
         } else if (tabId === 'misc_patient_education') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initPatientEducation, 0);
