@@ -595,36 +595,122 @@ function generateEmbeddedAiReportHtml(aiData) {
 async function renderDashboardAnnouncements(user)
 {
     const slot = document.getElementById("dhAnnouncementsSlot");
+    const countBadge = document.getElementById("dhAnnouncementsCountBadge");
+    const viewAllBtn = document.getElementById("dhAnnouncementsViewAllBtn");
+    const actionsContainer = document.getElementById("dhAnnouncementsActions");
+
+    if (viewAllBtn) {
+        viewAllBtn.onclick = () => {
+            if (window.tabManager) {
+                window.tabManager.openTab('misc_announcements', 'Announcements');
+            }
+        };
+    }
+
+    // Add "+ Post Announcement" button for staff/admin roles if not already present
+    if (actionsContainer && user?.role !== 'patient' && !document.getElementById("dhPostAnnouncementBtn")) {
+        const postBtn = document.createElement("button");
+        postBtn.type = "button";
+        postBtn.id = "dhPostAnnouncementBtn";
+        postBtn.className = "dh-announcements-post-btn";
+        postBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Post Notice</span>
+        `;
+        postBtn.onclick = () => {
+            if (window.tabManager) {
+                window.tabManager.openTab('misc_announcements', 'Announcements');
+                setTimeout(() => {
+                    document.getElementById("annOpenCreateBtn")?.click();
+                }, 150);
+            }
+        };
+        actionsContainer.appendChild(postBtn);
+    }
+
     if (!slot) return;
 
     try {
         const res = await fetchActiveAnnouncements();
-        if (!res.success || !Array.isArray(res.data) || res.data.length === 0) {
-            slot.innerHTML = "";
+        const items = (res.success && Array.isArray(res.data)) ? res.data : [];
+
+        if (countBadge) {
+            if (items.length > 0) {
+                countBadge.textContent = `${items.length} Active`;
+                countBadge.style.display = "inline-flex";
+            } else {
+                countBadge.textContent = "0 Active";
+                countBadge.style.display = "inline-flex";
+            }
+        }
+
+        if (items.length === 0) {
+            slot.innerHTML = `
+                <div class="dh-announcements-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="38" height="38">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <h4 class="dh-announcements-empty-title">No Active Announcements</h4>
+                    <p class="dh-announcements-empty-desc">There are currently no active broadcasts or announcements targeted to your role.</p>
+                    ${user?.role !== 'patient' ? `
+                        <button type="button" class="dh-action-btn" style="font-size: 13px; height: 34px; padding: 0 14px; margin-top: 4px;" id="dhEmptyCreateBtn">
+                            + Create Announcement
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            const emptyBtn = document.getElementById("dhEmptyCreateBtn");
+            if (emptyBtn) {
+                emptyBtn.onclick = () => {
+                    if (window.tabManager) {
+                        window.tabManager.openTab('misc_announcements', 'Announcements');
+                        setTimeout(() => {
+                            document.getElementById("annOpenCreateBtn")?.click();
+                        }, 150);
+                    }
+                };
+            }
             return;
         }
 
-        const items = res.data;
         slot.innerHTML = `
-            <div class="dh-announcements-wrap">
+            <div class="dh-announcements-grid">
                 ${items.map(item => {
                     const imgUrl = getAnnouncementImageUrl(item.image_url);
-                    const priorityClass = item.priority === 'urgent' ? 'urgent' : (item.priority === 'important' ? 'important' : 'normal');
-                    const cardPriorityClass = item.priority === 'urgent' ? 'priority-urgent' : (item.priority === 'important' ? 'priority-important' : '');
+                    const priority = (item.priority || 'normal').toLowerCase();
+                    const priorityLabel = priority === 'urgent' ? 'Urgent Alert' : (priority === 'important' ? 'Important' : 'Notice');
+                    const cardPriorityClass = priority === 'urgent' ? 'priority-urgent' : (priority === 'important' ? 'priority-important' : '');
+                    const dateStr = item.formatted_start || item.start_date || '';
+                    const audienceStr = (item.target_roles && item.target_roles.length && !item.target_roles.includes('all'))
+                        ? item.target_roles.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ')
+                        : 'All Roles';
 
                     return `
-                    <div class="dh-announcement-card ${cardPriorityClass}" data-ann-id="${item.id}" title="Click to view details">
-                        ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" class="dh-announcement-img" alt="Announcement">` : ''}
-                        <div class="dh-announcement-content">
-                            <div class="dh-announcement-top">
-                                <span class="dh-announcement-priority ${priorityClass}">${escapeHtml(item.priority || 'notice')}</span>
+                    <div class="dh-announcement-card ${cardPriorityClass}" data-ann-id="${item.id}" title="Click to read announcement">
+                        <div class="dh-announcement-body">
+                            ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" class="dh-announcement-img" alt="Announcement">` : ''}
+                            <div class="dh-announcement-main">
+                                <div class="dh-announcement-meta">
+                                    <span class="dh-announcement-priority ${priority}">${priorityLabel}</span>
+                                    ${dateStr ? `
+                                        <span class="dh-announcement-date">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                            ${escapeHtml(dateStr)}
+                                        </span>
+                                    ` : ''}
+                                </div>
                                 <h4 class="dh-announcement-title">${escapeHtml(item.title)}</h4>
+                                <p class="dh-announcement-snippet">${escapeHtml(item.content)}</p>
                             </div>
-                            <p class="dh-announcement-snippet">${escapeHtml(item.content)}</p>
                         </div>
-                        <div class="dh-announcement-action">
-                            <span>Read</span>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        <div class="dh-announcement-footer">
+                            <span class="dh-announcement-audience">For: ${escapeHtml(audienceStr)}</span>
+                            <span class="dh-announcement-read-btn">
+                                Read Notice
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </span>
                         </div>
                     </div>
                     `;
@@ -632,15 +718,98 @@ async function renderDashboardAnnouncements(user)
             </div>
         `;
 
-        slot.querySelectorAll(".dh-announcement-card").forEach(card => {
-            card.addEventListener("click", () => {
-                if (window.tabManager) {
-                    window.tabManager.openTab('misc_announcements', 'Announcements');
-                }
-            });
-        });
+        setupDashboardReaderModal(items);
     } catch (e) {
         console.error("Failed to load dashboard announcements", e);
+        slot.innerHTML = `
+            <div class="dh-announcements-empty" style="color: #dc2626;">
+                <p style="margin: 0;">Unable to load announcements at this moment.</p>
+            </div>
+        `;
     }
+}
+
+function setupDashboardReaderModal(items)
+{
+    const modal = document.getElementById("dhReaderOverlay");
+    const closeBtn = document.getElementById("dhReaderCloseBtn");
+    const modalClose = document.getElementById("dhReaderModalClose");
+    const manageBtn = document.getElementById("dhReaderGoToModuleBtn");
+
+    const heroWrap = document.getElementById("dhReaderHero");
+    const heroImg = document.getElementById("dhReaderHeroImg");
+    const priorityBadge = document.getElementById("dhReaderPriorityBadge");
+    const dateEl = document.getElementById("dhReaderScheduleDate");
+    const mainTitle = document.getElementById("dhReaderMainTitle");
+    const audienceEl = document.getElementById("dhReaderAudience");
+    const authorEl = document.getElementById("dhReaderAuthor");
+    const contentText = document.getElementById("dhReaderContentText");
+
+    const closeModal = () => {
+        if (modal) modal.classList.remove("open");
+    };
+
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (modalClose) modalClose.onclick = closeModal;
+
+    window.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    if (manageBtn) {
+        manageBtn.onclick = () => {
+            closeModal();
+            if (window.tabManager) {
+                window.tabManager.openTab('misc_announcements', 'Announcements');
+            }
+        };
+    }
+
+    document.querySelectorAll(".dh-announcement-card").forEach(card => {
+        card.addEventListener("click", () => {
+            const id = Number(card.dataset.annId);
+            const item = items.find(i => Number(i.id) === id);
+            if (!item) return;
+
+            const priority = (item.priority || 'normal').toLowerCase();
+            const priorityLabel = priority === 'urgent' ? 'Urgent Alert' : (priority === 'important' ? 'Important' : 'Notice');
+
+            if (priorityBadge) {
+                priorityBadge.className = `dh-announcement-priority ${priority}`;
+                priorityBadge.textContent = priorityLabel;
+            }
+
+            if (dateEl) {
+                const dates = [];
+                if (item.formatted_start || item.start_date) dates.push(`Starts: ${item.formatted_start || item.start_date}`);
+                if (item.formatted_end || item.end_date) dates.push(`Ends: ${item.formatted_end || item.end_date}`);
+                dateEl.textContent = dates.join(" • ") || "Ongoing Notice";
+            }
+
+            if (mainTitle) mainTitle.textContent = item.title;
+
+            if (audienceEl) {
+                const roles = item.target_roles || [];
+                audienceEl.textContent = (roles.length === 0 || roles.includes('all'))
+                    ? 'All Roles (Everyone)'
+                    : roles.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ');
+            }
+
+            if (authorEl) authorEl.textContent = item.author_name || 'Hospital Administration';
+
+            if (contentText) contentText.textContent = item.content;
+
+            if (item.image_url) {
+                const fullUrl = getAnnouncementImageUrl(item.image_url);
+                if (heroImg) heroImg.src = fullUrl;
+                if (heroWrap) heroWrap.style.display = "block";
+            } else {
+                if (heroWrap) heroWrap.style.display = "none";
+                if (heroImg) heroImg.src = "";
+            }
+
+            if (modal) modal.classList.add("open");
+        });
+    });
 }
 

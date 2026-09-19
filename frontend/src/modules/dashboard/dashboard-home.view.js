@@ -585,31 +585,169 @@ export function DashboardHomeView(user)
 :root[data-theme="dark"] .dh-table td { color: var(--text-primary); border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .dh-empty-row { color: var(--text-muted); }
 
-/* Announcements Banner on Dashboard */
-.dh-announcements-wrap {
+/* Announcements Section on Dashboard */
+.dh-announcements-section {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+:root[data-theme="dark"] .dh-announcements-section {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-color, #334155);
+}
+
+.dh-announcements-header {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-color, #f1f5f9);
+    flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 24px;
+}
+
+:root[data-theme="dark"] .dh-announcements-header {
+    border-bottom-color: var(--border-color, #334155);
+}
+
+.dh-announcements-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dh-announcements-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .dh-announcements-icon {
+    background: rgba(37, 99, 235, 0.15);
+    color: #60a5fa;
+}
+
+.dh-announcements-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dh-announcements-count-badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+:root[data-theme="dark"] .dh-announcements-count-badge {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+
+.dh-announcements-subtitle {
+    margin: 2px 0 0 0;
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+}
+
+.dh-announcements-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dh-announcements-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.dh-announcements-link:hover {
+    background: #f1f5f9;
+}
+
+:root[data-theme="dark"] .dh-announcements-link:hover {
+    background: #334155;
+}
+
+.dh-announcements-post-btn {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    background: #0f172a;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease;
+}
+
+.dh-announcements-post-btn:hover {
+    background: #1e293b;
+}
+
+/* Grid of cards */
+.dh-announcements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
 }
 
 .dh-announcement-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, #e2e8f0);
     border-left: 4px solid #3b82f6;
-    border-radius: 8px;
-    padding: 14px 18px;
+    border-radius: 10px;
+    padding: 16px;
     display: flex;
-    align-items: center;
-    gap: 16px;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+:root[data-theme="dark"] .dh-announcement-card {
+    background: var(--bg-surface-alt, #0f172a);
+    border-color: var(--border-color, #334155);
 }
 
 .dh-announcement-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+    border-color: #cbd5e1;
 }
 
 .dh-announcement-card.priority-important {
@@ -620,65 +758,250 @@ export function DashboardHomeView(user)
     border-left-color: #ef4444;
 }
 
-.dh-announcement-img {
-    width: 54px;
-    height: 54px;
-    border-radius: 6px;
-    object-fit: cover;
-    flex-shrink: 0;
-    background: #e2e8f0;
+.dh-announcement-body {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
 }
 
-.dh-announcement-content {
+.dh-announcement-img {
+    width: 68px;
+    height: 68px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #f1f5f9;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.dh-announcement-main {
     flex: 1;
     min-width: 0;
 }
 
-.dh-announcement-top {
+.dh-announcement-meta {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
 }
 
 .dh-announcement-priority {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    padding: 2px 6px;
-    border-radius: 12px;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 10px;
 }
 
 .dh-announcement-priority.urgent { background: #fee2e2; color: #991b1b; }
 .dh-announcement-priority.important { background: #fef3c7; color: #92400e; }
 .dh-announcement-priority.normal { background: #e0f2fe; color: #0369a1; }
 
-.dh-announcement-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary, #0f172a);
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.dh-announcement-snippet {
-    font-size: 12px;
+.dh-announcement-date {
+    font-size: 11px;
     color: var(--text-muted, #64748b);
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.dh-announcement-action {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+}
+
+.dh-announcement-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary, #0f172a);
+    margin: 0 0 4px 0;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dh-announcement-snippet {
     font-size: 13px;
+    color: var(--text-muted, #64748b);
+    margin: 0;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dh-announcement-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border-color, #f1f5f9);
+    padding-top: 10px;
+    margin-top: 4px;
+}
+
+:root[data-theme="dark"] .dh-announcement-footer {
+    border-top-color: var(--border-color, #334155);
+}
+
+.dh-announcement-audience {
+    font-size: 11px;
+    color: var(--text-muted, #64748b);
+    background: var(--bg-surface-alt, #f1f5f9);
+    padding: 2px 8px;
+    border-radius: 4px;
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dh-announcement-read-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
     font-weight: 600;
     color: #2563eb;
+}
+
+/* Empty State inside section */
+.dh-announcements-empty {
+    text-align: center;
+    padding: 32px 16px;
+    background: var(--bg-surface-alt, #f8fafc);
+    border: 1px dashed var(--border-color, #cbd5e1);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+:root[data-theme="dark"] .dh-announcements-empty {
+    background: rgba(255,255,255,0.02);
+    border-color: #334155;
+}
+
+.dh-announcements-empty svg {
+    color: #94a3b8;
+    margin-bottom: 2px;
+}
+
+.dh-announcements-empty-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary, #334155);
+    margin: 0;
+}
+
+.dh-announcements-empty-desc {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    margin: 0 0 8px 0;
+}
+
+/* Quick Reader Modal */
+.dh-reader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px 16px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.dh-reader-overlay.open {
+    display: flex;
+}
+
+.dh-reader-box {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 680px;
+    max-height: min(90vh, 800px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    margin: auto;
+}
+
+.dh-reader-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.dh-reader-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.dh-reader-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-muted, #94a3b8);
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.dh-reader-close:hover {
+    color: var(--text-primary, #0f172a);
+}
+
+.dh-reader-body {
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
+}
+
+.dh-reader-hero {
+    width: 100%;
+    max-height: 280px;
+    overflow: hidden;
+    background: #f1f5f9;
+}
+
+.dh-reader-hero img {
+    width: 100%;
+    max-height: 280px;
+    object-fit: cover;
+    display: block;
+}
+
+.dh-reader-content-wrap {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.dh-reader-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: var(--bg-surface-alt, #f8fafc);
     flex-shrink: 0;
 }
 </style>
@@ -692,7 +1015,70 @@ export function DashboardHomeView(user)
         <div class="dh-header-actions" id="dhHeaderActions"></div>
     </div>
 
-    <div id="dhAnnouncementsSlot"></div>
+    <!-- HOSPITAL ANNOUNCEMENTS SECTION -->
+    <div class="dh-announcements-section" id="dhAnnouncementsSection">
+        <div class="dh-announcements-header">
+            <div class="dh-announcements-title-wrap">
+                <div class="dh-announcements-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="dh-announcements-title">
+                        Hospital Announcements
+                        <span class="dh-announcements-count-badge" id="dhAnnouncementsCountBadge" style="display: none;">0 Active</span>
+                    </h2>
+                    <p class="dh-announcements-subtitle">Official broadcasts, notices, and scheduled updates for hospital staff &amp; patients</p>
+                </div>
+            </div>
+            <div class="dh-announcements-actions" id="dhAnnouncementsActions">
+                <button type="button" class="dh-announcements-link" id="dhAnnouncementsViewAllBtn">
+                    View All
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="dhAnnouncementsSlot">
+            <div style="display: flex; gap: 16px;">
+                <div class="skeleton" style="height: 100px; flex: 1; border-radius: 8px;"></div>
+                <div class="skeleton" style="height: 100px; flex: 1; border-radius: 8px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUICK ANNOUNCEMENT READER MODAL -->
+    <div class="dh-reader-overlay" id="dhReaderOverlay">
+        <div class="dh-reader-box">
+            <div class="dh-reader-header">
+                <h2 id="dhReaderModalTitle">Announcement</h2>
+                <button type="button" class="dh-reader-close" id="dhReaderModalClose">&times;</button>
+            </div>
+            <div class="dh-reader-body">
+                <div class="dh-reader-hero" id="dhReaderHero" style="display: none;">
+                    <img id="dhReaderHeroImg" src="" alt="Announcement banner">
+                </div>
+                <div class="dh-reader-content-wrap">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span id="dhReaderPriorityBadge" class="dh-announcement-priority normal">Normal</span>
+                        <span id="dhReaderScheduleDate" style="font-size: 12px; color: #64748b;"></span>
+                    </div>
+                    <h3 id="dhReaderMainTitle" style="font-size: 19px; font-weight: 700; color: #0f172a; margin: 0; line-height: 1.35;"></h3>
+                    <div style="display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap;">
+                        <div>Audience: <strong id="dhReaderAudience" style="color: #334155;">All Roles</strong></div>
+                        <div>Posted by: <strong id="dhReaderAuthor" style="color: #334155;">Hospital Staff</strong></div>
+                    </div>
+                    <div id="dhReaderContentText" style="font-size: 14px; line-height: 1.6; color: #334155; white-space: pre-wrap;"></div>
+                </div>
+            </div>
+            <div class="dh-reader-footer">
+                <button type="button" class="dh-action-btn" id="dhReaderCloseBtn">Close</button>
+                <button type="button" class="dh-action-btn primary" id="dhReaderGoToModuleBtn">Go to Announcements</button>
+            </div>
+        </div>
+    </div>
 
     <div id="dhHighlightSlot"></div>
 
