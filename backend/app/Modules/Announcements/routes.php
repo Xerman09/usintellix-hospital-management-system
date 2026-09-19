@@ -21,23 +21,23 @@ $router->get('/announcements/roles', [AnnouncementController::class, 'roles'], [
     AuthMiddleware::class
 ]);
 
-// Staff / Admins can create, update, delete announcements
+// Only Admins can create, update, delete announcements
 $router->post('/announcements', [AnnouncementController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin']]
 ]);
 
 $router->post('/announcements/update', [AnnouncementController::class, 'update'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin']]
 ]);
 
 $router->put('/announcements', [AnnouncementController::class, 'update'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin']]
 ]);
 
 $router->delete('/announcements', [AnnouncementController::class, 'destroy'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin']]
 ]);

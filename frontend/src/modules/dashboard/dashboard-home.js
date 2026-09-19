@@ -607,8 +607,8 @@ async function renderDashboardAnnouncements(user)
         };
     }
 
-    // Add "+ Post Announcement" button for staff/admin roles if not already present
-    if (actionsContainer && user?.role !== 'patient' && !document.getElementById("dhPostAnnouncementBtn")) {
+    // Add "+ Post Announcement" button for admin role if not already present
+    if (actionsContainer && user?.role === 'admin' && !document.getElementById("dhPostAnnouncementBtn")) {
         const postBtn = document.createElement("button");
         postBtn.type = "button";
         postBtn.id = "dhPostAnnouncementBtn";
@@ -653,7 +653,7 @@ async function renderDashboardAnnouncements(user)
                     </svg>
                     <h4 class="dh-announcements-empty-title">No Active Announcements</h4>
                     <p class="dh-announcements-empty-desc">There are currently no active broadcasts or announcements targeted to your role.</p>
-                    ${user?.role !== 'patient' ? `
+                    ${user?.role === 'admin' ? `
                         <button type="button" class="dh-action-btn" style="font-size: 13px; height: 34px; padding: 0 14px; margin-top: 4px;" id="dhEmptyCreateBtn">
                             + Create Announcement
                         </button>

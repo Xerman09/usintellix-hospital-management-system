@@ -91,6 +91,11 @@ class AnnouncementController extends Controller
         $request = new Request();
         $user = Session::get('user');
 
+        if (($user['role'] ?? '') !== 'admin') {
+            $this->error('Access denied. Only administrators can create announcements.', 403);
+            return;
+        }
+
         $data = $request->all();
         $files = $request->files();
         $imageFile = $files['image'] ?? null;
@@ -112,6 +117,11 @@ class AnnouncementController extends Controller
     {
         $request = new Request();
         $user = Session::get('user');
+
+        if (($user['role'] ?? '') !== 'admin') {
+            $this->error('Access denied. Only administrators can edit announcements.', 403);
+            return;
+        }
 
         $id = (int) $request->input('id');
         if (!$id) {
@@ -140,6 +150,11 @@ class AnnouncementController extends Controller
     {
         $request = new Request();
         $user = Session::get('user');
+
+        if (($user['role'] ?? '') !== 'admin') {
+            $this->error('Access denied. Only administrators can delete announcements.', 403);
+            return;
+        }
 
         $id = (int) $request->input('id');
         if (!$id) {

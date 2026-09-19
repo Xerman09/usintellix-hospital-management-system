@@ -8,7 +8,9 @@ import {
     getAnnouncementImageUrl
 } from "./announcements.service.js";
 import { showToast } from "../../core/toast.js";
+import { getUser } from "../../core/session.js";
 
+let currentUser = null;
 let availableRoles = [];
 let currentAnnouncements = [];
 let activeFilters = {
@@ -18,7 +20,13 @@ let activeFilters = {
     role: "all"
 };
 
-export async function initAnnouncements() {
+export function isUserAdmin() {
+    const u = currentUser || getUser();
+    return u?.role === 'admin';
+}
+
+export async function initAnnouncements(user) {
+    currentUser = user || getUser();
     setupModals();
     setupFilters();
     setupForm();
@@ -138,15 +146,19 @@ function renderAnnouncements(items) {
     const grid = document.getElementById("announcementsGrid");
     if (!grid) return;
 
+    const isAdmin = isUserAdmin();
+
     if (!items || items.length === 0) {
         grid.innerHTML = `
             <div class="ann-empty-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                 <div class="ann-empty-title">No announcements found</div>
-                <div class="ann-empty-desc">Create your first announcement to keep hospital staff and patients informed.</div>
+                <div class="ann-empty-desc">${isAdmin ? 'Create your first announcement to keep hospital staff and patients informed.' : 'There are currently no active announcements published for your role.'}</div>
+                ${isAdmin ? `
                 <button type="button" class="ann-btn-primary" onclick="document.getElementById('annOpenCreateBtn')?.click();">
                     Create Announcement
                 </button>
+                ` : ''}
             </div>
         `;
         return;
@@ -200,8 +212,10 @@ function renderAnnouncements(items) {
             </div>
             <div class="ann-card-actions">
                 <button type="button" class="ann-action-btn view-btn" data-id="${item.id}">View Details</button>
+                ${isAdmin ? `
                 <button type="button" class="ann-action-btn edit-btn" data-id="${item.id}">Edit</button>
                 <button type="button" class="ann-action-btn delete delete-btn" data-id="${item.id}">Delete</button>
+                ` : ''}
             </div>
         </div>
         `;
@@ -212,13 +226,15 @@ function renderAnnouncements(items) {
         btn.addEventListener("click", () => openViewModal(parseInt(btn.dataset.id)));
     });
 
-    grid.querySelectorAll(".edit-btn").forEach(btn => {
-        btn.addEventListener("click", () => openEditModal(parseInt(btn.dataset.id)));
-    });
+    if (isAdmin) {
+        grid.querySelectorAll(".edit-btn").forEach(btn => {
+            btn.addEventListener("click", () => openEditModal(parseInt(btn.dataset.id)));
+        });
 
-    grid.querySelectorAll(".delete-btn").forEach(btn => {
-        btn.addEventListener("click", () => handleDelete(parseInt(btn.dataset.id)));
-    });
+        grid.querySelectorAll(".delete-btn").forEach(btn => {
+            btn.addEventListener("click", () => handleDelete(parseInt(btn.dataset.id)));
+        });
+    }
 }
 
 function setupFilters() {
@@ -368,6 +384,11 @@ function setupModals() {
 }
 
 async function openCreateModal() {
+    if (!isUserAdmin()) {
+        showToast("Only administrators can create announcements.", "error");
+        return;
+    }
+
     const modal = document.getElementById("annFormModalOverlay");
     const form = document.getElementById("announcementForm");
     const title = document.getElementById("annFormModalTitle");
@@ -412,6 +433,11 @@ async function openCreateModal() {
 }
 
 async function openEditModal(id) {
+    if (!isUserAdmin()) {
+        showToast("Only administrators can edit announcements.", "error");
+        return;
+    }
+
     const modal = document.getElementById("annFormModalOverlay");
     const title = document.getElementById("annFormModalTitle");
     const idInput = document.getElementById("annIdInput");
@@ -536,6 +562,11 @@ function setupForm() {
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
+        if (!isUserAdmin()) {
+            showToast("Only administrators can save announcements.", "error");
+            return;
+        }
+
         const submitBtn = document.getElementById("annFormSubmitBtn");
         const originalText = submitBtn.textContent;
         submitBtn.disabled = true;
@@ -587,6 +618,11 @@ function setupForm() {
 }
 
 async function handleDelete(id) {
+    if (!isUserAdmin()) {
+        showToast("Only administrators can delete announcements.", "error");
+        return;
+    }
+
     if (!confirm("Are you sure you want to delete this announcement? This action cannot be undone.")) {
         return;
     }

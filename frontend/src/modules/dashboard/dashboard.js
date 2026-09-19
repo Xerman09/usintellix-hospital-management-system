@@ -630,7 +630,7 @@ export function Dashboard()
             }, activate);
         } else if (tabId === 'misc_announcements') {
             tabManager.openTab(tabId, title || 'Announcements', () => {
-                setTimeout(initAnnouncements, 0);
+                setTimeout(() => initAnnouncements(user), 0);
                 return AnnouncementsView(user);
             }, activate);
         } else if (tabId === 'misc_patient_education') {
