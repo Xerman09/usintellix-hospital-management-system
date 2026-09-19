@@ -317,6 +317,8 @@ import { AuthorizationsView } from "../authorizations/authorizations.view.js?v=1
 import { initAuthorizations } from "../authorizations/authorizations.js?v=1";
 import { OfficeNotesView } from "../office-notes/office-notes.view.js?v=1";
 import { initOfficeNotes } from "../office-notes/office-notes.js?v=1";
+import { BatchComView } from "../batch-com/batch-com.view.js?v=2";
+import { initBatchCom } from "../batch-com/batch-com.js?v=2";
 
 function renderPlaceholderTab(title) {
     return `
@@ -685,7 +687,10 @@ export function Dashboard()
                 return OfficeNotesView();
             }, activate);
         } else if (tabId === 'misc_batch_com') {
-            tabManager.openTab(tabId, title || 'Batch Communication Tool', () => renderPlaceholderTab(title || 'Batch Communication Tool'), activate);
+            tabManager.openTab(tabId, title || 'Batch Communication Tool', () => {
+                setTimeout(initBatchCom, 0);
+                return BatchComView();
+            }, activate);
         } else if (tabId === 'misc_new_documents') {
             tabManager.openTab(tabId, title || 'New Documents', () => renderPlaceholderTab(title || 'New Documents'), activate);
         } else if (tabId === 'misc_blank_forms_referral') {
