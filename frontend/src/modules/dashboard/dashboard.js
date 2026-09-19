@@ -71,8 +71,8 @@ import { PatientRemindersView } from "../patient-reminders/patient-reminders.vie
 import { initPatientReminders } from "../patient-reminders/patient-reminders.js";
 import { PatientEducationView } from "../patient-education/patient-education.view.js?v=3";
 import { initPatientEducation } from "../patient-education/patient-education.js?v=3";
-import { ChartTrackerView } from "../chart-tracker/chart-tracker.view.js";
-import { initChartTracker } from "../chart-tracker/chart-tracker.js";
+import { ChartTrackerView } from "../chart-tracker/chart-tracker.view.js?v=2";
+import { initChartTracker } from "../chart-tracker/chart-tracker.js?v=2";
 import { ReferralFormView } from "../reports/referral-form.view.js";
 import { initReferralForm } from "../reports/referral-form.js";
 import { ClinicalBlankFormView } from "../reports/clinical-blank-form.view.js";

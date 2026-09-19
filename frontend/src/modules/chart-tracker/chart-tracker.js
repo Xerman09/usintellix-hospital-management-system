@@ -1,4 +1,5 @@
 import { api } from "../../core/api.js";
+import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 
 let currentPatientId = null;
 
@@ -23,13 +24,15 @@ async function lookupPatient() {
 
     const identifier = input?.value.trim();
 
-    errorEl.style.display = "none";
-    patientBox.style.display = "none";
+    if (errorEl) errorEl.style.display = "none";
+    if (patientBox) patientBox.style.display = "none";
     currentPatientId = null;
 
     if (!identifier) {
-        errorEl.textContent = "Enter a patient ID to look up.";
-        errorEl.style.display = "block";
+        if (errorEl) {
+            errorEl.textContent = "Enter a patient ID to look up.";
+            errorEl.style.display = "block";
+        }
         input?.focus();
         return;
     }
@@ -37,8 +40,10 @@ async function lookupPatient() {
     const result = await api(`/chart-tracker/lookup?patient_id=${encodeURIComponent(identifier)}`);
 
     if (!result.success) {
-        errorEl.textContent = result.message || "No patient found for that ID.";
-        errorEl.style.display = "block";
+        if (errorEl) {
+            errorEl.textContent = result.message || "No patient found for that ID.";
+            errorEl.style.display = "block";
+        }
         return;
     }
 
@@ -56,7 +61,7 @@ async function lookupPatient() {
     const saveMsg = document.getElementById("ctSaveMsg");
     if (saveMsg) saveMsg.style.display = "none";
 
-    patientBox.style.display = "block";
+    if (patientBox) patientBox.style.display = "block";
 }
 
 async function saveCheckIn() {
@@ -67,9 +72,11 @@ async function saveCheckIn() {
     const destination = destinationInput?.value.trim();
 
     if (!destination) {
-        saveMsg.style.color = "#e53e3e";
-        saveMsg.textContent = "Enter where the chart is being checked in to.";
-        saveMsg.style.display = "block";
+        if (saveMsg) {
+            saveMsg.style.color = "#f87171";
+            saveMsg.textContent = "Enter where the chart is being checked in to.";
+            saveMsg.style.display = "block";
+        }
         destinationInput?.focus();
         return;
     }
@@ -83,18 +90,22 @@ async function saveCheckIn() {
     });
 
     if (!result.success) {
-        saveMsg.style.color = "#e53e3e";
-        saveMsg.textContent = result.message || "Failed to save the chart location.";
-        saveMsg.style.display = "block";
+        if (saveMsg) {
+            saveMsg.style.color = "#f87171";
+            saveMsg.textContent = result.message || "Failed to save the chart location.";
+            saveMsg.style.display = "block";
+        }
         return;
     }
 
     document.getElementById("ctCurrentLocation").textContent = result.data.current_location;
-    destinationInput.value = "";
+    if (destinationInput) destinationInput.value = "";
 
-    saveMsg.style.color = "#2f855a";
-    saveMsg.textContent = `Saved. Checked in at ${formatTimestamp(result.data.last_moved_at)}.`;
-    saveMsg.style.display = "block";
+    if (saveMsg) {
+        saveMsg.style.color = "#4ade80";
+        saveMsg.textContent = `Saved. Checked in at ${formatTimestamp(result.data.last_moved_at)}.`;
+        saveMsg.style.display = "block";
+    }
 }
 
 export function initChartTracker() {
@@ -120,4 +131,11 @@ export function initChartTracker() {
             saveCheckIn();
         }
     });
+
+    // Auto-lookup active patient if available
+    const activePatient = getLastActivePatientChart();
+    if (activePatient && activePatient !== "null" && patientIdInput && !patientIdInput.value) {
+        patientIdInput.value = activePatient;
+        lookupPatient();
+    }
 }
