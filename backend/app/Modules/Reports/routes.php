@@ -203,3 +203,30 @@ $router->get('/reports/financial/patient-ledger', [ReportController::class, 'pat
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// JCAHO Incident & Adverse Event / Near-Miss Reporting Log
+$router->get('/reports/incident-log', [ReportController::class, 'incidentLog'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/reports/incident-log/details', [ReportController::class, 'incidentDetails'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/reports/incident-log', [ReportController::class, 'storeIncident'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/reports/incident-log/update', [ReportController::class, 'updateIncident'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->put('/reports/incident-log', [ReportController::class, 'updateIncident'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+

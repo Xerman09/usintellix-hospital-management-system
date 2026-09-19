@@ -229,6 +229,8 @@ import { initRealWorldTesting } from "../reports/real-world-testing.js";
 import { RealWorldTestingView } from "../reports/real-world-testing.view.js";
 import { initAlertsLog } from "../reports/alerts-log.js";
 import { AlertsLogView } from "../reports/alerts-log.view.js";
+import { initIncidentLog } from "../reports/incident-log.js";
+import { IncidentLogView } from "../reports/incident-log.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1064,6 +1066,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAlertsLog, 0);
                 return AlertsLogView();
+            }, activate);
+        } else if (tabId === 'clinic_incident_log') {
+            tabManager.openTab(tabId, title || 'Incident & Adverse Events', () => {
+                setTimeout(initIncidentLog, 0);
+                return IncidentLogView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

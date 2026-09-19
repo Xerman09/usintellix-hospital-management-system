@@ -364,4 +364,72 @@ class ReportController extends Controller
         $data = $this->reportService->getPatientLedgerByDateReport($filters);
         $this->success($data, 'Patient ledger retrieved successfully.');
     }
+
+    /**
+     * JCAHO Incident & Adverse Event / Near-Miss Reporting Log
+     */
+    public function incidentLog(): void
+    {
+        $request = new Request();
+        $filters = $request->only([
+            'date_from', 'date_to', 'department', 'event_type',
+            'severity_level', 'status', 'search'
+        ]);
+        $data = $this->reportService->getIncidentLogReport($filters);
+        $this->success($data, 'Incident log report retrieved successfully.');
+    }
+
+    public function incidentDetails(): void
+    {
+        $request = new Request();
+        $id = (int) ($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Incident ID is required.', 400);
+            return;
+        }
+
+        $incident = $this->reportService->getIncidentDetails($id);
+        if (!$incident) {
+            $this->error('Incident report not found.', 404);
+            return;
+        }
+
+        $this->success($incident, 'Incident details retrieved successfully.');
+    }
+
+    public function storeIncident(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+
+        if (empty($data['summary']) || empty($data['department']) || empty($data['description'])) {
+            $this->error('Summary, Department, and Description are required.', 422);
+            return;
+        }
+
+        $userId = $_SESSION['user']['id'] ?? null;
+        $userName = $_SESSION['user']['name'] ?? ($_SESSION['user']['username'] ?? null);
+
+        $incident = $this->reportService->createIncidentReport($data, $userId, $userName);
+        $this->success($incident, 'Incident report submitted successfully.', 201);
+    }
+
+    public function updateIncident(): void
+    {
+        $request = new Request();
+        $id = (int) ($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Incident ID is required.', 400);
+            return;
+        }
+
+        $data = $request->all();
+        $incident = $this->reportService->updateIncidentReport($id, $data);
+        if (!$incident) {
+            $this->error('Failed to update incident report.', 404);
+            return;
+        }
+
+        $this->success($incident, 'Incident report updated successfully.');
+    }
 }

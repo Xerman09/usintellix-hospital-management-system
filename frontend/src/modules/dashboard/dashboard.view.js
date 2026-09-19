@@ -217,6 +217,7 @@ function staffNavLinks(role)
                         <a data-tab="clinic_automated_measures">Automated Measures (AMC)</a>
                         <a data-tab="clinic_real_world_testing">2026 Real World Testing Report</a>
                         <a data-tab="clinic_alerts_log">Alerts Log</a>
+                        <a data-tab="clinic_incident_log">Incident & Adverse Events</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">

@@ -2667,4 +2667,239 @@ class ReportService
 
         return $names;
     }
+
+    /**
+     * JCAHO Incident & Adverse Event / Near-Miss Reporting Log
+     */
+    public function getIncidentLogReport(array $filters = []): array
+    {
+        $db = Database::connection();
+        $where = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'DATE(incident_date) >= :date_from';
+            $params['date_from'] = $filters['date_from'];
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'DATE(incident_date) <= :date_to';
+            $params['date_to'] = $filters['date_to'];
+        }
+
+        if (!empty($filters['department'])) {
+            $where[] = 'department = :department';
+            $params['department'] = $filters['department'];
+        }
+
+        if (!empty($filters['event_type'])) {
+            $where[] = 'event_type = :event_type';
+            $params['event_type'] = $filters['event_type'];
+        }
+
+        if (!empty($filters['severity_level'])) {
+            $where[] = 'severity_level = :severity_level';
+            $params['severity_level'] = $filters['severity_level'];
+        }
+
+        if (!empty($filters['status'])) {
+            $where[] = 'status = :status';
+            $params['status'] = $filters['status'];
+        }
+
+        if (!empty($filters['search'])) {
+            $where[] = '(incident_number LIKE :search OR summary LIKE :search OR description LIKE :search OR patient_name LIKE :search OR location_details LIKE :search)';
+            $params['search'] = '%' . $filters['search'] . '%';
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $stmt = $db->prepare("
+            SELECT *
+            FROM incident_reports
+            WHERE {$whereClause}
+            ORDER BY incident_date DESC, id DESC
+        ");
+        $stmt->execute($params);
+        $incidents = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Overall KPIs (filtered by date range if provided)
+        $kpiWhere = ['1=1'];
+        $kpiParams = [];
+        if (!empty($filters['date_from'])) {
+            $kpiWhere[] = 'DATE(incident_date) >= :kpi_from';
+            $kpiParams['kpi_from'] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $kpiWhere[] = 'DATE(incident_date) <= :kpi_to';
+            $kpiParams['kpi_to'] = $filters['date_to'];
+        }
+        $kpiWhereClause = implode(' AND ', $kpiWhere);
+
+        $kpiStmt = $db->prepare("
+            SELECT 
+                COUNT(*) as total_incidents,
+                SUM(CASE WHEN event_type = 'Medication Error' THEN 1 ELSE 0 END) as medication_errors,
+                SUM(CASE WHEN event_type = 'Slip / Fall' THEN 1 ELSE 0 END) as slips_falls,
+                SUM(CASE WHEN event_type = 'Near-Miss' OR severity_level LIKE 'Near-Miss%' THEN 1 ELSE 0 END) as near_misses,
+                SUM(CASE WHEN status != 'Closed' THEN 1 ELSE 0 END) as open_investigations,
+                SUM(CASE WHEN severity_level LIKE '%Sentinel%' THEN 1 ELSE 0 END) as sentinel_events
+            FROM incident_reports
+            WHERE {$kpiWhereClause}
+        ");
+        $kpiStmt->execute($kpiParams);
+        $kpiData = $kpiStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+        // Distinct departments
+        $deptStmt = $db->query("SELECT DISTINCT department FROM incident_reports WHERE department IS NOT NULL AND department != '' ORDER BY department ASC");
+        $departments = $deptStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        $defaultDepts = [
+            'Emergency Department',
+            'Pharmacy',
+            'Inpatient / Med-Surg',
+            'Intensive Care Unit (ICU)',
+            'Surgery / Operating Room',
+            'Laboratory',
+            'Radiology / Imaging',
+            'Outpatient Clinic',
+            'Administration'
+        ];
+        $allDepartments = array_values(array_unique(array_merge($defaultDepts, $departments)));
+
+        return [
+            'incidents' => $incidents,
+            'kpis' => [
+                'total_incidents' => (int) ($kpiData['total_incidents'] ?? 0),
+                'medication_errors' => (int) ($kpiData['medication_errors'] ?? 0),
+                'slips_falls' => (int) ($kpiData['slips_falls'] ?? 0),
+                'near_misses' => (int) ($kpiData['near_misses'] ?? 0),
+                'open_investigations' => (int) ($kpiData['open_investigations'] ?? 0),
+                'sentinel_events' => (int) ($kpiData['sentinel_events'] ?? 0),
+            ],
+            'departments' => $allDepartments
+        ];
+    }
+
+    public function getIncidentDetails(int $id): ?array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("SELECT * FROM incident_reports WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        $res = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $res ?: null;
+    }
+
+    public function createIncidentReport(array $data, ?int $authUserId = null, ?string $authUserName = null): array
+    {
+        $db = Database::connection();
+
+        $year = date('Y');
+        $cntStmt = $db->prepare("SELECT COUNT(*) FROM incident_reports WHERE incident_number LIKE :prefix");
+        $cntStmt->execute(['prefix' => "INC-{$year}-%"]);
+        $seq = (int) $cntStmt->fetchColumn() + 1;
+        $incidentNumber = sprintf("INC-%s-%04d", $year, $seq);
+
+        $isAnonymous = !empty($data['is_anonymous']) ? 1 : 0;
+        $reporterId = $isAnonymous ? null : ($authUserId ?? null);
+        $reporterName = $isAnonymous ? 'Anonymous Staff' : (!empty($data['reporter_name']) ? trim($data['reporter_name']) : ($authUserName ?? 'Hospital Staff'));
+        $reporterRole = $isAnonymous ? 'Confidential Reporter' : (!empty($data['reporter_role']) ? trim($data['reporter_role']) : 'Staff');
+
+        $incidentDate = !empty($data['incident_date']) ? $data['incident_date'] : date('Y-m-d H:i:s');
+        $reportedAt = date('Y-m-d H:i:s');
+
+        $stmt = $db->prepare("INSERT INTO incident_reports (
+            incident_number, incident_date, reported_at, department, location_details,
+            event_type, severity_level, is_anonymous, reporter_id, reporter_name, reporter_role,
+            patient_id, patient_name, patient_mrn, summary, description, immediate_action_taken,
+            contributing_factors, status
+        ) VALUES (
+            :incident_number, :incident_date, :reported_at, :department, :location_details,
+            :event_type, :severity_level, :is_anonymous, :reporter_id, :reporter_name, :reporter_role,
+            :patient_id, :patient_name, :patient_mrn, :summary, :description, :immediate_action_taken,
+            :contributing_factors, :status
+        )");
+
+        $stmt->execute([
+            'incident_number' => $incidentNumber,
+            'incident_date' => $incidentDate,
+            'reported_at' => $reportedAt,
+            'department' => $data['department'] ?? 'General',
+            'location_details' => $data['location_details'] ?? null,
+            'event_type' => $data['event_type'] ?? 'Other',
+            'severity_level' => $data['severity_level'] ?? 'Minor (Monitored)',
+            'is_anonymous' => $isAnonymous,
+            'reporter_id' => $reporterId,
+            'reporter_name' => $reporterName,
+            'reporter_role' => $reporterRole,
+            'patient_id' => !empty($data['patient_id']) ? (int) $data['patient_id'] : null,
+            'patient_name' => !empty($data['patient_name']) ? trim($data['patient_name']) : null,
+            'patient_mrn' => !empty($data['patient_mrn']) ? trim($data['patient_mrn']) : null,
+            'summary' => trim($data['summary'] ?? 'Incident Report'),
+            'description' => trim($data['description'] ?? ''),
+            'immediate_action_taken' => trim($data['immediate_action_taken'] ?? ''),
+            'contributing_factors' => !empty($data['contributing_factors']) ? trim($data['contributing_factors']) : null,
+            'status' => 'Reported'
+        ]);
+
+        $id = (int) $db->lastInsertId();
+        return $this->getIncidentDetails($id) ?: ['id' => $id, 'incident_number' => $incidentNumber];
+    }
+
+    public function updateIncidentReport(int $id, array $data): ?array
+    {
+        $db = Database::connection();
+        $incident = $this->getIncidentDetails($id);
+        if (!$incident) {
+            return null;
+        }
+
+        $fields = [];
+        $params = ['id' => $id];
+
+        if (isset($data['status'])) {
+            $fields[] = 'status = :status';
+            $params['status'] = $data['status'];
+            if ($data['status'] === 'Closed' && empty($incident['closed_at'])) {
+                $fields[] = 'closed_at = NOW()';
+            } elseif ($data['status'] !== 'Closed') {
+                $fields[] = 'closed_at = NULL';
+            }
+        }
+
+        if (isset($data['investigator_name'])) {
+            $fields[] = 'investigator_name = :investigator_name';
+            $params['investigator_name'] = trim($data['investigator_name']);
+        }
+
+        if (isset($data['root_cause_analysis'])) {
+            $fields[] = 'root_cause_analysis = :root_cause_analysis';
+            $params['root_cause_analysis'] = trim($data['root_cause_analysis']);
+        }
+
+        if (isset($data['corrective_preventive_action'])) {
+            $fields[] = 'corrective_preventive_action = :corrective_preventive_action';
+            $params['corrective_preventive_action'] = trim($data['corrective_preventive_action']);
+        }
+
+        if (isset($data['resolution_notes'])) {
+            $fields[] = 'resolution_notes = :resolution_notes';
+            $params['resolution_notes'] = trim($data['resolution_notes']);
+        }
+
+        if (isset($data['severity_level'])) {
+            $fields[] = 'severity_level = :severity_level';
+            $params['severity_level'] = $data['severity_level'];
+        }
+
+        if (empty($fields)) {
+            return $incident;
+        }
+
+        $setClause = implode(', ', $fields);
+        $stmt = $db->prepare("UPDATE incident_reports SET {$setClause} WHERE id = :id");
+        $stmt->execute($params);
+
+        return $this->getIncidentDetails($id);
+    }
 }
