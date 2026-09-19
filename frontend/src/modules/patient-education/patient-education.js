@@ -1,17 +1,17 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { api, API_URL } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 const RESOURCE_SEARCH_URLS = {
-    emedicine: (q) => `https://emedicine.medscape.com/action/search?q=${q}`,
-    medlineplus: (q) => `https://medlineplus.gov/search/?query=${q}`,
-    familydoctor: (q) => `https://familydoctor.org/?s=${q}`,
-    kidshealth: (q) => `https://kidshealth.org/en/search/?q=${q}`,
-    medicinenet: (q) => `https://www.medicinenet.com/search.asp?query=${q}`,
-    webmd: (q) => `https://www.webmd.com/search/search_results/default.aspx?query=${q}`,
-    mayoclinic: (q) => `https://www.mayoclinic.org/search/search-results?q=${q}`,
-    wikipedia: (q) => `https://en.wikipedia.org/w/index.php?search=${q}`,
-    google: (q) => `https://www.google.com/search?q=${q}`
+    emedicine: (q) => q ? `https://search.medscape.com/search?q=${encodeURIComponent(q)}` : `https://search.medscape.com/`,
+    medlineplus: (q) => q ? `https://medlineplus.gov/search/?query=${encodeURIComponent(q)}` : `https://medlineplus.gov/`,
+    familydoctor: (q) => q ? `https://familydoctor.org/?s=${encodeURIComponent(q)}` : `https://familydoctor.org/`,
+    kidshealth: (q) => q ? `https://kidshealth.org/en/search/?q=${encodeURIComponent(q)}` : `https://kidshealth.org/`,
+    medicinenet: (q) => q ? `https://www.medicinenet.com/search.asp?query=${encodeURIComponent(q)}` : `https://www.medicinenet.com/`,
+    webmd: (q) => q ? `https://www.webmd.com/search/search_results/default.aspx?query=${encodeURIComponent(q)}` : `https://www.webmd.com/`,
+    mayoclinic: (q) => q ? `https://www.mayoclinic.org/search/search-results?q=${encodeURIComponent(q)}` : `https://www.mayoclinic.org/`,
+    wikipedia: (q) => q ? `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(q)}` : `https://en.wikipedia.org/`,
+    google: (q) => q ? `https://www.google.com/search?q=${encodeURIComponent(q + " patient education")}` : `https://www.google.com/`
 };
 
 const RESOURCE_LABELS = {
@@ -72,15 +72,9 @@ function setupForm() {
     if (form) {
         form.onsubmit = (e) => {
             e.preventDefault();
-            const resource = document.getElementById("peResource")?.value || "medlineplus";
+            const resource = document.getElementById("peResource")?.value || "emedicine";
             const searchInput = document.getElementById("peSearch");
-            const term = searchInput?.value.trim();
-
-            if (!term) {
-                showToast("Please enter a search topic first.", "error");
-                searchInput?.focus();
-                return;
-            }
+            const term = searchInput?.value.trim() || "";
 
             performEducationSearch(term, resource);
         };
@@ -95,7 +89,7 @@ function setupQuickChips() {
         chip.onclick = () => {
             const query = chip.getAttribute("data-query");
             const searchInput = document.getElementById("peSearch");
-            const resource = document.getElementById("peResource")?.value || "medlineplus";
+            const resource = document.getElementById("peResource")?.value || "emedicine";
 
             if (searchInput) searchInput.value = query;
             performEducationSearch(query, resource);
@@ -104,31 +98,58 @@ function setupQuickChips() {
 }
 
 /**
- * 4. Perform Search and Open Pop-up Window
+ * 4. Perform Search, Open in New Tab, and show In-App Handouts
  */
 function performEducationSearch(term, resourceKey) {
-    const buildUrl = RESOURCE_SEARCH_URLS[resourceKey] || RESOURCE_SEARCH_URLS.medlineplus;
-    currentExternalUrl = buildUrl(encodeURIComponent(term));
+    const buildUrl = RESOURCE_SEARCH_URLS[resourceKey] || RESOURCE_SEARCH_URLS.emedicine;
+    currentExternalUrl = buildUrl(term);
 
-    const resourceName = RESOURCE_LABELS[resourceKey] || "MedlinePlus";
+    const resourceName = RESOURCE_LABELS[resourceKey] || "Medscape";
 
-    // Set modal headers
+    // 1. Open the search in a new browser tab directly
+    openInNewTab(currentExternalUrl);
+
+    // 2. Also set modal headers and render in-app handouts/print tools
     const queryText = document.getElementById("peModalQueryText");
     const resourceBadge = document.getElementById("peModalResourceBadge");
-    if (queryText) queryText.textContent = term;
+    if (queryText) queryText.textContent = term || "General Reference";
     if (resourceBadge) resourceBadge.textContent = resourceName;
 
-    // Build educational handouts
-    currentResults = generateEducationalMaterials(term, resourceName);
-
-    // Render list
+    // Build educational materials
+    currentResults = generateEducationalMaterials(term || "Clinical Education", resourceName);
     renderResultsList(term, resourceName);
 
-    // Show modal pop-up window
+    // Reveal in-app window for printing, saving to chart, and portal dispatch
     const modal = document.getElementById("peResultsModal");
     if (modal) {
         modal.style.display = "flex";
         showListView();
+    }
+}
+
+/**
+ * Open external URL in a new browser tab reliably
+ */
+function openInNewTab(url) {
+    try {
+        const win = window.open(url, "_blank", "noopener,noreferrer");
+        if (!win || win.closed || typeof win.closed === "undefined") {
+            const a = document.createElement("a");
+            a.href = url;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    } catch (e) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 }
 
@@ -139,7 +160,17 @@ function renderResultsList(term, sourceName) {
     const listEl = document.getElementById("peResultsList");
     if (!listEl) return;
 
-    listEl.innerHTML = currentResults.map((item, idx) => {
+    listEl.innerHTML = `
+        <div style="background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">🌐</span>
+                <span style="font-size: 13px;">Live search opened in new tab for: <strong>${escapeHtml(sourceName)}</strong></span>
+            </div>
+            <button type="button" class="pe-btn-act" id="peOpenAgainBtn" style="background: #0284c7; color: #fff; border-color: #0284c7;">
+                Open Tab Again ↗
+            </button>
+        </div>
+    ` + currentResults.map((item, idx) => {
         return `
             <div class="pe-result-card">
                 <div class="pe-result-title" data-idx="${idx}">${escapeHtml(item.title)}</div>
@@ -169,6 +200,11 @@ function renderResultsList(term, sourceName) {
             </div>
         `;
     }).join("");
+
+    const openAgainBtn = document.getElementById("peOpenAgainBtn");
+    if (openAgainBtn) {
+        openAgainBtn.onclick = () => openInNewTab(currentExternalUrl);
+    }
 
     // Wire actions
     listEl.querySelectorAll(".read-btn").forEach(btn => {
@@ -422,7 +458,7 @@ function setupModalEvents() {
     if (openExtBtn) {
         openExtBtn.onclick = () => {
             if (currentExternalUrl) {
-                window.open(currentExternalUrl, "patient_education_ext", "width=1000,height=750,resizable=yes,scrollbars=yes");
+                openInNewTab(currentExternalUrl);
             }
         };
     }
@@ -516,7 +552,7 @@ function generateEducationalMaterials(query, sourceName) {
     }
 
     // Comprehensive Fallback Handout for any search term
-    const cleanTopic = query.charAt(0).toUpperCase() + query.slice(1);
+    const cleanTopic = query ? (query.charAt(0).toUpperCase() + query.slice(1)) : "Medical Guide";
     return [
         {
             title: `${cleanTopic}: Patient Education & Overview`,
