@@ -319,6 +319,8 @@ import { OfficeNotesView } from "../office-notes/office-notes.view.js?v=1";
 import { initOfficeNotes } from "../office-notes/office-notes.js?v=1";
 import { BatchComView } from "../batch-com/batch-com.view.js?v=2";
 import { initBatchCom } from "../batch-com/batch-com.js?v=2";
+import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=2";
+import { initNewDocuments } from "../new-documents/new-documents.js?v=2";
 
 function renderPlaceholderTab(title) {
     return `
@@ -692,7 +694,10 @@ export function Dashboard()
                 return BatchComView();
             }, activate);
         } else if (tabId === 'misc_new_documents') {
-            tabManager.openTab(tabId, title || 'New Documents', () => renderPlaceholderTab(title || 'New Documents'), activate);
+            tabManager.openTab(tabId, title || 'New Documents', () => {
+                setTimeout(initNewDocuments, 0);
+                return NewDocumentsView();
+            }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initReferralForm, 0);
