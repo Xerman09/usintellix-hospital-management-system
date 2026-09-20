@@ -1,4 +1,4 @@
-﻿export function CriticalTATView() {
+export function CriticalTATView() {
     return `
 <style>
 .ctat-wrapper {
@@ -295,31 +295,131 @@
     flex: 1;
 }
 
-/* Dark mode */
-body.dark-mode .ctat-wrapper { color: #e2e8f0; }
-body.dark-mode .ctat-kpi-card { background: #1e293b; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-body.dark-mode .ctat-kpi-value { color: #f1f5f9; }
-body.dark-mode .ctat-kpi-label { color: #94a3b8; }
-body.dark-mode .ctat-filter-row { background: #1e293b; border-color: #334155; }
-body.dark-mode .ctat-filter-row input,
-body.dark-mode .ctat-filter-row select { background: #0f172a; color: #e2e8f0; border-color: #334155; }
-body.dark-mode .ctat-table-wrapper { background: #1e293b; border-color: #334155; }
-body.dark-mode .ctat-table thead tr { background: #0f172a; }
-body.dark-mode .ctat-table thead th { color: #94a3b8; border-color: #334155; }
-body.dark-mode .ctat-table tbody tr { border-color: #334155; }
-body.dark-mode .ctat-table tbody tr:hover { background: #0f172a; }
-body.dark-mode .ctat-table tbody td { color: #cbd5e1; }
-body.dark-mode .ctat-modal-box { background: #1e293b; }
-body.dark-mode .ctat-modal-header { background: #1e293b; border-color: #334155; }
-body.dark-mode .ctat-modal-header h3 { color: #f1f5f9; }
-body.dark-mode .ctat-modal-footer { background: #1e293b; border-color: #334155; }
-body.dark-mode .ctat-form-group label { color: #94a3b8; }
-body.dark-mode .ctat-form-group input,
-body.dark-mode .ctat-form-group select,
-body.dark-mode .ctat-form-group textarea { background: #0f172a; color: #e2e8f0; border-color: #334155; }
-body.dark-mode .ctat-detail-label { color: #64748b; }
-body.dark-mode .ctat-detail-value { color: #e2e8f0; }
-body.dark-mode .ctat-btn-secondary { background: #334155; color: #e2e8f0; border-color: #475569; }
+/* ===================================================
+   DARK MODE — uses :root[data-theme="dark"] to match
+   the app's actual theme toggling mechanism, with
+   !important to beat the global main.css wrapper rules
+   =================================================== */
+
+/* Wrapper */
+:root[data-theme="dark"] .ctat-wrapper {
+    color: #e2e8f0 !important;
+    background: transparent !important;
+}
+:root[data-theme="dark"] .ctat-header-left h2 { color: #f1f5f9 !important; }
+:root[data-theme="dark"] .ctat-header-left p  { color: #94a3b8 !important; }
+
+/* KPI cards — must beat the global [class$="-card"] rule */
+:root[data-theme="dark"] .ctat-kpi-card {
+    background-color: #1e293b !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4) !important;
+}
+:root[data-theme="dark"] .ctat-kpi-value { color: #f1f5f9 !important; }
+:root[data-theme="dark"] .ctat-kpi-label { color: #94a3b8 !important; }
+:root[data-theme="dark"] .ctat-kpi-sub   { color: #475569 !important; }
+
+/* Filter toolbar */
+:root[data-theme="dark"] .ctat-filter-row {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .ctat-filter-row input,
+:root[data-theme="dark"] .ctat-filter-row select {
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .ctat-btn-reset {
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
+    border-color: #475569 !important;
+}
+
+/* Table */
+:root[data-theme="dark"] .ctat-table-wrapper {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .ctat-table thead tr {
+    background-color: #0f172a !important;
+}
+:root[data-theme="dark"] .ctat-table thead th {
+    color: #94a3b8 !important;
+    border-color: #334155 !important;
+    background-color: #0f172a !important;
+}
+:root[data-theme="dark"] .ctat-table tbody tr {
+    border-color: #334155 !important;
+    background-color: #1e293b !important;
+}
+:root[data-theme="dark"] .ctat-table tbody tr:hover {
+    background-color: #0f172a !important;
+}
+:root[data-theme="dark"] .ctat-table tbody td {
+    color: #cbd5e1 !important;
+    background-color: transparent !important;
+}
+:root[data-theme="dark"] .ctat-table tbody td.tat-breach {
+    background-color: #422006 !important;
+    color: #fcd34d !important;
+}
+
+/* Modals */
+:root[data-theme="dark"] .ctat-modal-box {
+    background-color: #1e293b !important;
+}
+:root[data-theme="dark"] .ctat-modal-header {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .ctat-modal-header h3  { color: #f1f5f9 !important; }
+:root[data-theme="dark"] .ctat-modal-close-x    { color: #94a3b8 !important; }
+:root[data-theme="dark"] .ctat-modal-footer {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .ctat-modal-body {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+/* Form fields inside modals */
+:root[data-theme="dark"] .ctat-form-section-title {
+    color: #34d399 !important;
+    border-color: #1e3a34 !important;
+}
+:root[data-theme="dark"] .ctat-form-group label { color: #94a3b8 !important; }
+:root[data-theme="dark"] .ctat-form-group input,
+:root[data-theme="dark"] .ctat-form-group select,
+:root[data-theme="dark"] .ctat-form-group textarea {
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+
+/* Detail read-only panel in modal */
+:root[data-theme="dark"] .ctat-modal-body > div[style*="background:#f8fafc"] {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .ctat-detail-label { color: #475569 !important; }
+:root[data-theme="dark"] .ctat-detail-value { color: #e2e8f0 !important; }
+
+/* Read-back checkbox panels */
+:root[data-theme="dark"] .ctat-form-group[style*="background:#f0fdf4"] {
+    background-color: #022c22 !important;
+    border-color: #064e3b !important;
+}
+:root[data-theme="dark"] .ctat-form-group[style*="background:#f0fdf4"] label {
+    color: #34d399 !important;
+}
+
+/* Secondary / cancel buttons */
+:root[data-theme="dark"] .ctat-btn-secondary {
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
+    border-color: #475569 !important;
+}
 
 /* Print */
 @media print {
