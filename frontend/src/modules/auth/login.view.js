@@ -61,6 +61,10 @@ export function LoginView()
 
             <a class="login-secondary-btn">Contact Support</a>
 
+            <div class="login-footer-legal" style="margin-top: 18px; text-align: center; font-size: 12px; color: var(--login-muted, rgba(222,229,250,.62));">
+                <a href="#/privacy-policy" style="color: #38bdf8; text-decoration: none; font-weight: 500; transition: color 0.15s ease;">Privacy Policy &amp; Notice of Privacy Practices</a>
+            </div>
+
         </form>
 
         <form id="twoFactorForm" style="display:none;">

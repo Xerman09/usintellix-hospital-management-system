@@ -8,8 +8,8 @@ import { getLastActivePatientChart, clearLastActivePatientChart } from "../../co
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
 import { initDashboardHome } from "./dashboard-home.js";
-import { HelpView } from "../help/help.view.js";
-import { initHelp } from "../help/help.js";
+import { HelpView } from "../help/help.view.js?v=3";
+import { initHelp } from "../help/help.js?v=3";
 import { PatientMedicationsView } from "../patient-medications/patient-medications.view.js";
 import { initPatientMedications } from "../patient-medications/patient-medications.js";
 import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
@@ -245,6 +245,8 @@ import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admis
 import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=2";
 import { initRoomManagement } from "../room-management/room-management.js?v=2";
 import { RoomManagementView } from "../room-management/room-management.view.js?v=2";
+import { initPrivacyPolicy } from "../privacy-policy/privacy-policy.js?v=1";
+import { PrivacyPolicyView } from "../privacy-policy/privacy-policy.view.js?v=1";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1311,6 +1313,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Room & Bed Management', () => {
                 setTimeout(() => initRoomManagement(user), 0);
                 return RoomManagementView(user);
+            }, activate);
+        } else if (tabId === 'privacy_policy') {
+            tabManager.openTab(tabId, title || 'Privacy Policy & HIPAA Notice', () => {
+                setTimeout(initPrivacyPolicy, 0);
+                return PrivacyPolicyView({ isTab: true });
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);

@@ -1,11 +1,13 @@
-import { LoginView } from "../modules/auth/login.view.js?v=100";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=118";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=170";
+import { LoginView } from "../modules/auth/login.view.js?v=101";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=119";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=172";
 import { initLogin } from "../modules/auth/auth.js?v=100";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=100";
 import { initAddEmployee } from "../modules/employees/add-employee.js?v=100";
 import { AddPatientView } from "../modules/patients/add-patient.view.js?v=100";
 import { initAddPatient } from "../modules/patients/add-patient.js?v=100";
+import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=1";
+import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=1";
 
 
 const app = document.getElementById("app");
@@ -34,6 +36,11 @@ const routes = {
     "/patients/create": {
         view: AddPatientView,
         afterRender: initAddPatient
+    },
+
+    "/privacy-policy": {
+        view: PrivacyPolicyView,
+        afterRender: initPrivacyPolicy
     }
 
 };
