@@ -241,8 +241,10 @@ import { initSurgicalSafety } from "../reports/surgical-safety.js";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js";
 import { initOrManagement } from "../or-management/or-management.js";
 import { OrManagementView } from "../or-management/or-management.view.js";
-import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js";
-import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js";
+import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=2";
+import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=2";
+import { initRoomManagement } from "../room-management/room-management.js?v=2";
+import { RoomManagementView } from "../room-management/room-management.view.js?v=2";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1302,8 +1304,13 @@ export function Dashboard()
             }, activate);
         } else if (tabId === 'inpatient_admissions') {
             tabManager.openTab(tabId, title || 'Inpatient Bed Management (ADT)', () => {
-                setTimeout(initInpatientAdmissions, 0);
+                setTimeout(() => initInpatientAdmissions(user), 0);
                 return InpatientAdmissionsView();
+            }, activate);
+        } else if (tabId === 'room_management') {
+            tabManager.openTab(tabId, title || 'Room & Bed Management', () => {
+                setTimeout(() => initRoomManagement(user), 0);
+                return RoomManagementView(user);
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);

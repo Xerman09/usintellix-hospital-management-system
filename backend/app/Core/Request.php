@@ -50,6 +50,14 @@ class Request
     }
 
     /**
+     * Get a query parameter.
+     */
+    public function query(string $key, $default = null)
+    {
+        return $_GET[$key] ?? $this->input($key, $default);
+    }
+
+    /**
      * Check if an input exists.
      */
     public function has(string $key): bool

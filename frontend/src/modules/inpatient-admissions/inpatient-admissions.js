@@ -1,6 +1,20 @@
-import { api } from '../../core/api.js';
+import {
+    fetchWhiteboard as apiFetchWhiteboard,
+    fetchWards,
+    fetchBeds,
+    fetchAdmissionDetails,
+    admitPatient,
+    transferPatient,
+    markPendingDischarge,
+    dischargePatient,
+    updateBedStatus,
+    createWard,
+    createBed
+} from './inpatient-admissions.service.js?v=2';
+import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 
+let currentUser = null;
 let currentCensusData = {
     wards: [],
     beds: [],
@@ -13,7 +27,8 @@ let activeViewMode = 'floorplan'; // 'floorplan' | 'table'
 let clockIntervalId = null;
 let autoRefreshIntervalId = null;
 
-export async function initInpatientAdmissions() {
+export async function initInpatientAdmissions(user = null) {
+    currentUser = user;
     setupLiveClock();
     setupEventListeners();
     setupPatientPicker();
@@ -258,17 +273,17 @@ function setupFormSubmissions() {
             const payload = Object.fromEntries(formData.entries());
 
             try {
-                const res = await api.post('/inpatient-admissions/admit', payload);
-                if (res.status === 'success') {
-                    alert('Patient admitted successfully!');
-                    document.getElementById('modalAdmitPatient').classList.remove('open');
+                const res = await admitPatient(payload);
+                if (res && res.success) {
+                    showToast('Patient admitted successfully!', 'success');
+                    document.getElementById('modalAdmitPatient')?.classList.remove('open');
                     formAdmit.reset();
                     await fetchWhiteboard();
                 } else {
-                    alert('Admission failed: ' + (res.message || 'Unknown error'));
+                    showToast('Admission failed: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Admission error: ' + (err.message || 'Server error'));
+                showToast('Admission error: ' + (err.message || 'Server error'), 'error');
             }
         };
     }
@@ -282,17 +297,17 @@ function setupFormSubmissions() {
             const payload = Object.fromEntries(formData.entries());
 
             try {
-                const res = await api.post('/inpatient-admissions/transfer', payload);
-                if (res.status === 'success') {
-                    alert('Patient transfer completed successfully! Vacated bed marked for terminal sanitization.');
-                    document.getElementById('modalTransferPatient').classList.remove('open');
+                const res = await transferPatient(payload);
+                if (res && res.success) {
+                    showToast('Patient transfer completed successfully! Vacated bed marked for terminal sanitization.', 'success');
+                    document.getElementById('modalTransferPatient')?.classList.remove('open');
                     formTransfer.reset();
                     await fetchWhiteboard();
                 } else {
-                    alert('Transfer failed: ' + (res.message || 'Unknown error'));
+                    showToast('Transfer failed: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Transfer error: ' + (err.message || 'Server error'));
+                showToast('Transfer error: ' + (err.message || 'Server error'), 'error');
             }
         };
     }
@@ -306,17 +321,17 @@ function setupFormSubmissions() {
             const payload = Object.fromEntries(formData.entries());
 
             try {
-                const res = await api.post('/inpatient-admissions/discharge', payload);
-                if (res.status === 'success') {
-                    alert('Patient discharged successfully! Bed vacated and marked as Dirty / Turnover.');
-                    document.getElementById('modalDischargePatient').classList.remove('open');
+                const res = await dischargePatient(payload);
+                if (res && res.success) {
+                    showToast('Patient discharged successfully! Bed vacated and marked as Dirty / Turnover.', 'success');
+                    document.getElementById('modalDischargePatient')?.classList.remove('open');
                     formDischarge.reset();
                     await fetchWhiteboard();
                 } else {
-                    alert('Discharge failed: ' + (res.message || 'Unknown error'));
+                    showToast('Discharge failed: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Discharge error: ' + (err.message || 'Server error'));
+                showToast('Discharge error: ' + (err.message || 'Server error'), 'error');
             }
         };
     }
@@ -330,21 +345,21 @@ function setupFormSubmissions() {
             const staff = formSanitize.querySelector('[name="staff_name"]').value;
 
             try {
-                const res = await api.post('/inpatient-admissions/beds/status', {
+                const res = await updateBedStatus({
                     bed_id: bedId,
                     status: 'Available',
                     notes: `Housekeeping terminal sanitization completed by ${staff}`
                 });
-                if (res.status === 'success') {
-                    alert('Bed sanitized and certified Available for new patient admission!');
-                    document.getElementById('modalSanitizeBed').classList.remove('open');
+                if (res && res.success) {
+                    showToast('Bed sanitized and certified Available for new patient admission!', 'success');
+                    document.getElementById('modalSanitizeBed')?.classList.remove('open');
                     formSanitize.reset();
                     await fetchWhiteboard();
                 } else {
-                    alert('Failed to update bed status: ' + (res.message || 'Unknown error'));
+                    showToast('Failed to update bed status: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Sanitization sign-off error: ' + (err.message || 'Server error'));
+                showToast('Sanitization sign-off error: ' + (err.message || 'Server error'), 'error');
             }
         };
     }
@@ -358,17 +373,17 @@ function setupFormSubmissions() {
             const payload = Object.fromEntries(formData.entries());
 
             try {
-                const res = await api.post('/inpatient-admissions/beds', payload);
-                if (res.status === 'success') {
-                    alert('New bed registered successfully!');
-                    document.getElementById('modalConfigWardBed').classList.remove('open');
+                const res = await createBed(payload);
+                if (res && res.success) {
+                    showToast('New bed registered successfully!', 'success');
+                    document.getElementById('modalConfigWardBed')?.classList.remove('open');
                     formNewBed.reset();
                     await fetchWhiteboard();
                 } else {
-                    alert('Failed to register bed: ' + (res.message || 'Unknown error'));
+                    showToast('Failed to register bed: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Registration error: ' + (err.message || 'Server error'));
+                showToast('Registration error: ' + (err.message || 'Server error'), 'error');
             }
         };
     }
@@ -382,17 +397,17 @@ function setupFormSubmissions() {
             const payload = Object.fromEntries(formData.entries());
 
             try {
-                const res = await api.post('/inpatient-admissions/wards', payload);
-                if (res.status === 'success') {
-                    alert('New hospital ward created successfully!');
-                    document.getElementById('modalConfigWardBed').classList.remove('open');
+                const res = await createWard(payload);
+                if (res && res.success) {
+                    showToast('New hospital ward created successfully!', 'success');
+                    document.getElementById('modalConfigWardBed')?.classList.remove('open');
                     formNewWard.reset();
                     await fetchWhiteboard();
                 } else {
-                    alert('Failed to create ward: ' + (res.message || 'Unknown error'));
+                    showToast('Failed to create ward: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Ward creation error: ' + (err.message || 'Server error'));
+                showToast('Ward creation error: ' + (err.message || 'Server error'), 'error');
             }
         };
     }
@@ -400,8 +415,8 @@ function setupFormSubmissions() {
 
 export async function fetchWhiteboard(isSilent = false) {
     try {
-        const res = await api.get('/inpatient-admissions/whiteboard');
-        if (res.status === 'success' && res.data) {
+        const res = await apiFetchWhiteboard();
+        if (res && res.success && res.data) {
             currentCensusData = res.data;
             renderKpis(currentCensusData.kpis);
             renderWardPills(currentCensusData.wards);
@@ -863,14 +878,15 @@ function attachBedCardListeners(container) {
             const admId = btn.getAttribute('data-adm-id');
             if (!confirm('Mark this inpatient as Pending Discharge (discharge order written, awaiting final clearance)?')) return;
             try {
-                const res = await api.post('/inpatient-admissions/pending-discharge', { admission_id: admId });
-                if (res.status === 'success') {
+                const res = await markPendingDischarge({ admission_id: admId });
+                if (res && res.success) {
+                    showToast('Inpatient marked as pending discharge', 'success');
                     await fetchWhiteboard();
                 } else {
-                    alert('Error: ' + (res.message || 'Failed'));
+                    showToast('Error: ' + (res?.message || 'Failed'), 'error');
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                showToast('Error: ' + err.message, 'error');
             }
         };
     });
@@ -898,17 +914,18 @@ function attachBedCardListeners(container) {
             const bedId = btn.getAttribute('data-bed-id');
             if (!confirm('Certify maintenance complete and return bed to Available status?')) return;
             try {
-                const res = await api.post('/inpatient-admissions/beds/status', {
+                const res = await updateBedStatus({
                     bed_id: bedId,
                     status: 'Available'
                 });
-                if (res.status === 'success') {
+                if (res && res.success) {
+                    showToast('Bed returned to Available status', 'success');
                     await fetchWhiteboard();
                 } else {
-                    alert('Error: ' + (res.message || 'Failed'));
+                    showToast('Error: ' + (res?.message || 'Failed'), 'error');
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                showToast('Error: ' + err.message, 'error');
             }
         };
     });

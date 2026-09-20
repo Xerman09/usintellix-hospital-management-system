@@ -143,5 +143,6 @@ require_once __DIR__ . '/../app/Modules/BatchCom/routes.php';
 require_once __DIR__ . '/../app/Modules/NewDocuments/routes.php';
 require_once __DIR__ . '/../app/Modules/OrManagement/routes.php';
 require_once __DIR__ . '/../app/Modules/InpatientAdmissions/routes.php';
+require_once __DIR__ . '/../app/Modules/RoomManagement/routes.php';
 
 return $router;

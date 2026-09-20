@@ -10,6 +10,7 @@ function staffNavLinks(role)
         ${appointmentsLink}
         <a data-tab="patient_finder">Finder</a>
         <a data-tab="patient_flow">Flow</a>
+        <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
         <a data-tab="recalls">Recalls</a>
         <a data-tab="messaging">Messaging</a>
         <div class="nav-dropdown">
@@ -17,6 +18,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <a data-tab="patients">New/Search</a>
                 <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+                <a data-tab="room_management">Room &amp; Bed Management</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -61,6 +63,7 @@ function staffNavLinks(role)
                 <a data-tab="carecoordination">Carecoordination</a>
                 <a data-tab="or_management">Operating Room (OR) Management</a>
                 <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+                <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
         </div>
         <div class="nav-dropdown">
@@ -99,6 +102,7 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="facilities">Facilities</a>
+                        <a data-tab="room_management">Buildings &amp; Rooms</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
@@ -452,11 +456,15 @@ const RECEPTIONIST_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
     <a data-tab="patient_finder">Finder</a>
     <a data-tab="patient_flow">Flow</a>
+    <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+    <a data-tab="room_management">Rooms &amp; Beds</a>
     <a data-tab="recalls">Recalls</a>
     <div class="nav-dropdown">
         <span>Patient</span>
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
+            <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+            <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
             <div class="dropdown-submenu patient-dependent-nav">
                 <span class="dropdown-submenu-trigger">
@@ -563,10 +571,13 @@ const RECEPTIONIST_NAV_LINKS = `
 
 const DOCTOR_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
+    <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
     <div class="nav-dropdown">
         <span>Patient</span>
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
+            <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+            <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">

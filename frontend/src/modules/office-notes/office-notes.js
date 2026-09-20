@@ -219,7 +219,7 @@ function renderTable() {
         const isActive = Number(note.active) === 1;
         const statusClass = isActive ? 'on-tag-active' : 'on-tag-inactive';
         const statusText = isActive ? 'Active' : 'Inactive';
-        const dateDisplay = note.created_at ? note.created_at.replace('T', ' ').substring(0, 16) : 'N/A';
+        const dateDisplay = note.created_at ? formatDateTime(note.created_at) : 'N/A';
 
         return `
             <tr data-id="${note.id}">
@@ -352,4 +352,17 @@ function escapeHtml(text) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function formatDateTime(value) {
+    if (!value) return "N/A";
+    const date = new Date(String(value).replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
 }

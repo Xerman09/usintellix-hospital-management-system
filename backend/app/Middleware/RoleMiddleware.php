@@ -16,6 +16,7 @@ class RoleMiddleware
             http_response_code(401);
             header('Content-Type: application/json');
             echo json_encode([
+                "success" => false,
                 "message" => "Unauthorized"
             ]);
             exit;
@@ -28,6 +29,7 @@ class RoleMiddleware
             header('Content-Type: application/json');
 
             echo json_encode([
+                "success" => false,
                 "message" => "Forbidden"
             ]);
 

@@ -3430,7 +3430,7 @@ function reminderStatusLabel(dueStatus)
 function formatOfficeNoteDate(value)
 {
     if (!value) return "";
-    return String(value).replace("T", " ").slice(0, 16);
+    return formatDateTime(value);
 }
 
 function renderDashboardOfficeNotes(notes)
@@ -15284,7 +15284,7 @@ function formatDateTime(value)
         return "";
     }
 
-    const date = new Date(value.replace(" ", "T"));
+    const date = new Date(String(value).replace(" ", "T"));
 
     if (Number.isNaN(date.getTime())) {
         return value;
