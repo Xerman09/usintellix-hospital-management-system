@@ -3253,7 +3253,7 @@ class ReportService
             INSERT INTO hai_ssi_infections (
                 tracking_number, report_date, infection_type, infection_category,
                 procedure_type, surgery_date, onset_date, days_post_op,
-                department, ward_bed, patient_name, patient_mrn, patient_age, patient_risk_factors,
+                department, ward_bed, patient_id, patient_name, patient_mrn, patient_age, patient_risk_factors,
                 surgeon_attending, identified_by, identified_by_role,
                 pathogen_isolated, antibiotic_resistance,
                 antibiotic_prophylaxis_given, prophylaxis_timing_correct,
@@ -3264,7 +3264,7 @@ class ReportService
             ) VALUES (
                 :tracking_number, :report_date, :infection_type, :infection_category,
                 :procedure_type, :surgery_date, :onset_date, :days_post_op,
-                :department, :ward_bed, :patient_name, :patient_mrn, :patient_age, :patient_risk_factors,
+                :department, :ward_bed, :patient_id, :patient_name, :patient_mrn, :patient_age, :patient_risk_factors,
                 :surgeon_attending, :identified_by, :identified_by_role,
                 :pathogen_isolated, :antibiotic_resistance,
                 :antibiotic_prophylaxis_given, :prophylaxis_timing_correct,
@@ -3285,6 +3285,7 @@ class ReportService
             'days_post_op'                => $daysPop,
             'department'                  => trim($data['department'] ?? ''),
             'ward_bed'                    => $data['ward_bed'] ?? null,
+            'patient_id'                  => !empty($data['patient_id']) ? (int)$data['patient_id'] : null,
             'patient_name'                => $data['patient_name'] ?? null,
             'patient_mrn'                 => $data['patient_mrn'] ?? null,
             'patient_age'                 => !empty($data['patient_age']) ? (int)$data['patient_age'] : null,
@@ -3456,7 +3457,7 @@ class ReportService
         $stmt = $db->prepare("
             INSERT INTO readmission_mortality_records (
                 record_number, index_admission_date, index_discharge_date, length_of_stay,
-                department, ward_bed, patient_name, patient_mrn, patient_age, gender,
+                department, ward_bed, patient_id, patient_name, patient_mrn, patient_age, gender,
                 primary_diagnosis, icd10_code, attending_physician, discharge_disposition,
                 readmission_status, readmission_date, days_to_readmission,
                 readmission_diagnosis, readmission_department, readmission_preventable,
@@ -3465,7 +3466,7 @@ class ReportService
                 risk_score, root_cause_analysis, intervention_plan, status, notes
             ) VALUES (
                 :record_number, :index_admission_date, :index_discharge_date, :length_of_stay,
-                :department, :ward_bed, :patient_name, :patient_mrn, :patient_age, :gender,
+                :department, :ward_bed, :patient_id, :patient_name, :patient_mrn, :patient_age, :gender,
                 :primary_diagnosis, :icd10_code, :attending_physician, :discharge_disposition,
                 :readmission_status, :readmission_date, :days_to_readmission,
                 :readmission_diagnosis, :readmission_department, :readmission_preventable,
@@ -3482,6 +3483,7 @@ class ReportService
             'length_of_stay'                      => $los,
             'department'                          => trim($data['department'] ?? ''),
             'ward_bed'                            => $data['ward_bed'] ?? null,
+            'patient_id'                          => !empty($data['patient_id']) ? (int)$data['patient_id'] : null,
             'patient_name'                        => trim($data['patient_name'] ?? ''),
             'patient_mrn'                         => trim($data['patient_mrn'] ?? ''),
             'patient_age'                         => (int)($data['patient_age'] ?? 0),
@@ -3559,5 +3561,320 @@ class ReportService
         $stmt->execute($params);
 
         return $this->getReadmissionMortalityDetails($id);
+    }
+
+    /**
+     * JCAHO: Surgical Safety & Universal Protocol "Time-Out" Audit Log
+     */
+    public function getSurgicalSafetyReport(array $filters): array
+    {
+        $db = Database::connection();
+
+        $where  = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[]             = 'surgery_date >= :date_from';
+            $params['date_from'] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $where[]           = 'surgery_date <= :date_to';
+            $params['date_to'] = $filters['date_to'];
+        }
+        if (!empty($filters['or_suite']) && $filters['or_suite'] !== 'all') {
+            $where[]           = 'or_suite = :or_suite';
+            $params['or_suite'] = $filters['or_suite'];
+        }
+        if (!empty($filters['surgical_specialty']) && $filters['surgical_specialty'] !== 'all') {
+            $where[]                     = 'surgical_specialty = :surgical_specialty';
+            $params['surgical_specialty'] = $filters['surgical_specialty'];
+        }
+        if (!empty($filters['operating_surgeon']) && $filters['operating_surgeon'] !== 'all') {
+            $where[]                    = 'operating_surgeon = :operating_surgeon';
+            $params['operating_surgeon'] = $filters['operating_surgeon'];
+        }
+        if (isset($filters['universal_protocol_compliant']) && $filters['universal_protocol_compliant'] !== '' && $filters['universal_protocol_compliant'] !== 'all') {
+            $where[]                              = 'universal_protocol_compliant = :compliant';
+            $params['compliant']                  = (int)$filters['universal_protocol_compliant'];
+        }
+        if (isset($filters['near_miss_caught']) && $filters['near_miss_caught'] !== '' && $filters['near_miss_caught'] !== 'all') {
+            $where[]                        = 'near_miss_caught = :near_miss';
+            $params['near_miss']            = (int)$filters['near_miss_caught'];
+        }
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $where[]          = 'status = :status';
+            $params['status'] = $filters['status'];
+        }
+        if (!empty($filters['search'])) {
+            $where[]          = '(case_number LIKE :search OR patient_name LIKE :search OR patient_mrn LIKE :search OR procedure_planned LIKE :search OR operating_surgeon LIKE :search OR or_suite LIKE :search)';
+            $params['search'] = '%' . $filters['search'] . '%';
+        }
+
+        $whereClause = implode(' AND ', $where);
+        $sql = "SELECT * FROM surgical_safety_checklists WHERE {$whereClause} ORDER BY surgery_date DESC, id DESC LIMIT 500";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // KPIs
+        $kpiSql = "SELECT
+            COUNT(*) AS total_cases,
+            SUM(universal_protocol_compliant = 1) AS fully_compliant_cases,
+            SUM(site_marked_by_surgeon = 1 AND site_marking_required = 1) AS site_marking_compliant,
+            SUM(site_marking_required = 1) AS site_marking_required_count,
+            SUM(antibiotic_timing_within_60min = 1) AS antibiotic_timely_count,
+            SUM(antibiotic_prophylaxis_given = 1) AS antibiotic_given_count,
+            SUM(sponge_needle_count_status IN ('Correct & Reconciled', 'Discrepancy Resolved on Recount')) AS counts_accurate,
+            SUM(near_miss_caught = 1) AS near_misses_count
+        FROM surgical_safety_checklists WHERE {$whereClause}";
+        $kpiStmt = $db->prepare($kpiSql);
+        $kpiStmt->execute($params);
+        $kpis = $kpiStmt->fetch(PDO::FETCH_ASSOC);
+
+        $totalCases       = (int)($kpis['total_cases'] ?? 0);
+        $fullyCompliant   = (int)($kpis['fully_compliant_cases'] ?? 0);
+        $siteMarkingComp  = (int)($kpis['site_marking_compliant'] ?? 0);
+        $siteMarkingReq   = (int)($kpis['site_marking_required_count'] ?? 0);
+        $abxTimely        = (int)($kpis['antibiotic_timely_count'] ?? 0);
+        $abxGiven         = (int)($kpis['antibiotic_given_count'] ?? 0);
+        $countsAccurate   = (int)($kpis['counts_accurate'] ?? 0);
+
+        $kpis['compliance_rate'] = $totalCases > 0 ? round(($fullyCompliant / $totalCases) * 100, 1) : 0;
+        $kpis['marking_rate']    = $siteMarkingReq > 0 ? round(($siteMarkingComp / $siteMarkingReq) * 100, 1) : 100;
+        $kpis['antibiotic_rate'] = $abxGiven > 0 ? round(($abxTimely / $abxGiven) * 100, 1) : 100;
+        $kpis['counts_rate']     = $totalCases > 0 ? round(($countsAccurate / $totalCases) * 100, 1) : 0;
+
+        $orSuites    = $db->query("SELECT DISTINCT or_suite FROM surgical_safety_checklists ORDER BY or_suite")->fetchAll(PDO::FETCH_COLUMN);
+        $specialties = $db->query("SELECT DISTINCT surgical_specialty FROM surgical_safety_checklists ORDER BY surgical_specialty")->fetchAll(PDO::FETCH_COLUMN);
+        $surgeons    = $db->query("SELECT DISTINCT operating_surgeon FROM surgical_safety_checklists ORDER BY operating_surgeon")->fetchAll(PDO::FETCH_COLUMN);
+
+        return [
+            'records'     => $records,
+            'kpis'        => $kpis,
+            'or_suites'   => $orSuites,
+            'specialties' => $specialties,
+            'surgeons'    => $surgeons,
+        ];
+    }
+
+    public function getSurgicalSafetyDetails(int $id): ?array
+    {
+        $db   = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM surgical_safety_checklists WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $row  = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function createSurgicalSafetyRecord(array $data): array
+    {
+        $db = Database::connection();
+        $year = date('Y');
+        $lastNum = $db->query("SELECT COUNT(*) FROM surgical_safety_checklists WHERE YEAR(created_at) = {$year}")->fetchColumn();
+        $caseNumber = 'SSC-' . $year . '-' . str_pad((int)$lastNum + 1, 4, '0', STR_PAD_LEFT);
+
+        $siteMarkReq = !empty($data['site_marking_required']) ? 1 : 0;
+        $siteMarked  = !empty($data['site_marked_by_surgeon']) ? 1 : 0;
+        $timeOutDone = !empty($data['time_out_performed']) ? 1 : 0;
+        $patientConf = !empty($data['patient_identity_confirmed']) ? 1 : 0;
+        $procConf    = !empty($data['procedure_verbally_confirmed']) ? 1 : 0;
+        $siteConf    = !empty($data['site_laterality_verbally_confirmed']) ? 1 : 0;
+        $countStatus = $data['sponge_needle_count_status'] ?? 'Correct & Reconciled';
+
+        $isCompliant = 1;
+        $varianceReasons = [];
+
+        if (!$timeOutDone) {
+            $isCompliant = 0;
+            $varianceReasons[] = 'Pre-incision Time-Out was not performed.';
+        }
+        if ($siteMarkReq && !$siteMarked) {
+            $isCompliant = 0;
+            $varianceReasons[] = 'Required surgical site was not marked by operating surgeon.';
+        }
+        if (!$patientConf || !$procConf || !$siteConf) {
+            $isCompliant = 0;
+            $varianceReasons[] = 'Verbal verification of patient, procedure, or laterality was incomplete.';
+        }
+        if ($countStatus === 'Unresolved Discrepancy - X-Ray Ordered') {
+            $isCompliant = 0;
+            $varianceReasons[] = 'Unresolved surgical sponge or needle count discrepancy.';
+        }
+
+        $status = $data['status'] ?? ($isCompliant ? 'Completed - Fully Compliant' : 'Completed - Minor Variance');
+        if (!empty($data['near_miss_caught']) && $status === 'Completed - Fully Compliant') {
+            $status = 'Completed - Near-Miss Caught';
+        }
+
+        $nonComplianceReason = !empty($data['non_compliance_reason']) ? $data['non_compliance_reason'] : (count($varianceReasons) > 0 ? implode(' ', $varianceReasons) : null);
+
+        $stmt = $db->prepare("
+            INSERT INTO surgical_safety_checklists (
+                case_number, surgery_date, or_suite, patient_id, patient_name, patient_mrn, patient_age, gender,
+                procedure_planned, procedure_actual, surgical_specialty, operating_surgeon,
+                anesthesiologist, circulating_nurse, scrub_nurse,
+                patient_identity_confirmed, surgical_consent_confirmed, site_marking_required, site_marked_by_surgeon,
+                anesthesia_safety_check_done, pulse_oximeter_functioning, allergy_check_done, airway_aspiration_risk, blood_loss_risk_over_500ml,
+                time_out_performed, time_out_timestamp, team_members_introduced, patient_name_verbally_confirmed,
+                procedure_verbally_confirmed, site_laterality_verbally_confirmed, patient_position_confirmed,
+                antibiotic_prophylaxis_given, antibiotic_timing_within_60min, essential_imaging_displayed, implants_hardware_verified,
+                near_miss_caught, near_miss_details,
+                sign_out_performed, procedure_recorded_accurately, sponge_needle_count_status, specimen_labeled_correctly,
+                equipment_malfunction_noted, equipment_issues_details, postop_recovery_concerns,
+                universal_protocol_compliant, non_compliance_reason, status, notes
+            ) VALUES (
+                :case_number, :surgery_date, :or_suite, :patient_id, :patient_name, :patient_mrn, :patient_age, :gender,
+                :procedure_planned, :procedure_actual, :surgical_specialty, :operating_surgeon,
+                :anesthesiologist, :circulating_nurse, :scrub_nurse,
+                :patient_identity_confirmed, :surgical_consent_confirmed, :site_marking_required, :site_marked_by_surgeon,
+                :anesthesia_safety_check_done, :pulse_oximeter_functioning, :allergy_check_done, :airway_aspiration_risk, :blood_loss_risk_over_500ml,
+                :time_out_performed, :time_out_timestamp, :team_members_introduced, :patient_name_verbally_confirmed,
+                :procedure_verbally_confirmed, :site_laterality_verbally_confirmed, :patient_position_confirmed,
+                :antibiotic_prophylaxis_given, :antibiotic_timing_within_60min, :essential_imaging_displayed, :implants_hardware_verified,
+                :near_miss_caught, :near_miss_details,
+                :sign_out_performed, :procedure_recorded_accurately, :sponge_needle_count_status, :specimen_labeled_correctly,
+                :equipment_malfunction_noted, :equipment_issues_details, :postop_recovery_concerns,
+                :universal_protocol_compliant, :non_compliance_reason, :status, :notes
+            )
+        ");
+
+        $stmt->execute([
+            'case_number'                         => $caseNumber,
+            'surgery_date'                        => $data['surgery_date'] ?? date('Y-m-d'),
+            'or_suite'                            => trim($data['or_suite'] ?? 'OR Suite 1'),
+            'patient_id'                          => !empty($data['patient_id']) ? (int)$data['patient_id'] : null,
+            'patient_name'                        => trim($data['patient_name'] ?? ''),
+            'patient_mrn'                         => trim($data['patient_mrn'] ?? ''),
+            'patient_age'                         => (int)($data['patient_age'] ?? 0),
+            'gender'                              => $data['gender'] ?? 'Male',
+            'procedure_planned'                   => trim($data['procedure_planned'] ?? ''),
+            'procedure_actual'                    => !empty($data['procedure_actual']) ? trim($data['procedure_actual']) : trim($data['procedure_planned'] ?? ''),
+            'surgical_specialty'                  => trim($data['surgical_specialty'] ?? 'General Surgery'),
+            'operating_surgeon'                   => trim($data['operating_surgeon'] ?? ''),
+            'anesthesiologist'                    => trim($data['anesthesiologist'] ?? ''),
+            'circulating_nurse'                   => trim($data['circulating_nurse'] ?? ''),
+            'scrub_nurse'                         => $data['scrub_nurse'] ?? null,
+            'patient_identity_confirmed'          => !empty($data['patient_identity_confirmed']) ? 1 : 0,
+            'surgical_consent_confirmed'          => !empty($data['surgical_consent_confirmed']) ? 1 : 0,
+            'site_marking_required'               => $siteMarkReq,
+            'site_marked_by_surgeon'              => $siteMarked,
+            'anesthesia_safety_check_done'        => !empty($data['anesthesia_safety_check_done']) ? 1 : 0,
+            'pulse_oximeter_functioning'          => !empty($data['pulse_oximeter_functioning']) ? 1 : 0,
+            'allergy_check_done'                  => !empty($data['allergy_check_done']) ? 1 : 0,
+            'airway_aspiration_risk'              => !empty($data['airway_aspiration_risk']) ? 1 : 0,
+            'blood_loss_risk_over_500ml'          => !empty($data['blood_loss_risk_over_500ml']) ? 1 : 0,
+            'time_out_performed'                  => $timeOutDone,
+            'time_out_timestamp'                  => $data['time_out_timestamp'] ?? date('h:i A'),
+            'team_members_introduced'             => !empty($data['team_members_introduced']) ? 1 : 0,
+            'patient_name_verbally_confirmed'     => $patientConf,
+            'procedure_verbally_confirmed'        => $procConf,
+            'site_laterality_verbally_confirmed' => $siteConf,
+            'patient_position_confirmed'         => !empty($data['patient_position_confirmed']) ? 1 : 0,
+            'antibiotic_prophylaxis_given'       => !empty($data['antibiotic_prophylaxis_given']) ? 1 : 0,
+            'antibiotic_timing_within_60min'     => !empty($data['antibiotic_timing_within_60min']) ? 1 : 0,
+            'essential_imaging_displayed'        => !empty($data['essential_imaging_displayed']) ? 1 : 0,
+            'implants_hardware_verified'         => !empty($data['implants_hardware_verified']) ? 1 : 0,
+            'near_miss_caught'                   => !empty($data['near_miss_caught']) ? 1 : 0,
+            'near_miss_details'                  => $data['near_miss_details'] ?? null,
+            'sign_out_performed'                 => !empty($data['sign_out_performed']) ? 1 : 0,
+            'procedure_recorded_accurately'      => !empty($data['procedure_recorded_accurately']) ? 1 : 0,
+            'sponge_needle_count_status'         => $countStatus,
+            'specimen_labeled_correctly'         => !empty($data['specimen_labeled_correctly']) ? 1 : 0,
+            'equipment_malfunction_noted'        => !empty($data['equipment_malfunction_noted']) ? 1 : 0,
+            'equipment_issues_details'           => $data['equipment_issues_details'] ?? null,
+            'postop_recovery_concerns'           => $data['postop_recovery_concerns'] ?? null,
+            'universal_protocol_compliant'       => $isCompliant,
+            'non_compliance_reason'              => $nonComplianceReason,
+            'status'                             => $status,
+            'notes'                              => $data['notes'] ?? null,
+        ]);
+
+        return $this->getSurgicalSafetyDetails((int)$db->lastInsertId());
+    }
+
+    public function updateSurgicalSafetyRecord(int $id, array $data): ?array
+    {
+        $db = Database::connection();
+        $existing = $this->getSurgicalSafetyDetails($id);
+        if (!$existing) return null;
+
+        $fields = ['updated_at = NOW()'];
+        $params = ['id' => $id];
+
+        $updatable = [
+            'procedure_actual', 'scrub_nurse', 'site_marked_by_surgeon',
+            'time_out_performed', 'time_out_timestamp', 'antibiotic_prophylaxis_given',
+            'antibiotic_timing_within_60min', 'essential_imaging_displayed',
+            'implants_hardware_verified', 'near_miss_caught', 'near_miss_details',
+            'sign_out_performed', 'sponge_needle_count_status', 'specimen_labeled_correctly',
+            'equipment_malfunction_noted', 'equipment_issues_details',
+            'postop_recovery_concerns', 'universal_protocol_compliant',
+            'non_compliance_reason', 'status', 'notes'
+        ];
+
+        foreach ($updatable as $col) {
+            if (isset($data[$col])) {
+                $fields[]     = "{$col} = :{$col}";
+                $params[$col] = $data[$col] === '' ? null : $data[$col];
+            }
+        }
+
+        if (count($fields) <= 1) return $existing;
+
+        $setClause = implode(', ', $fields);
+        $stmt = $db->prepare("UPDATE surgical_safety_checklists SET {$setClause} WHERE id = :id");
+        $stmt->execute($params);
+
+        return $this->getSurgicalSafetyDetails($id);
+    }
+
+    /**
+     * Patient-centric Quality & Safety summary across all 5 JCAHO compliance logs
+     */
+    public function getPatientQualitySafetySummary(int $patientId): array
+    {
+        $db = Database::connection();
+
+        // 1. Incidents
+        $incStmt = $db->prepare("SELECT id, incident_number, incident_date, event_type, severity_level, summary, status FROM incident_reports WHERE patient_id = :pid ORDER BY incident_date DESC LIMIT 20");
+        $incStmt->execute(['pid' => $patientId]);
+        $incidents = $incStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 2. Critical TAT
+        $tatStmt = $db->prepare("SELECT id, tracking_number, result_date, test_type, test_name, critical_value, tat_total, jcaho_compliant, status FROM critical_result_turnaround WHERE patient_id = :pid ORDER BY result_date DESC LIMIT 20");
+        $tatStmt->execute(['pid' => $patientId]);
+        $tat = $tatStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 3. HAI / SSI
+        $haiStmt = $db->prepare("SELECT id, tracking_number, report_date, infection_type, infection_category, procedure_type, severity, pathogen_isolated, status FROM hai_ssi_infections WHERE patient_id = :pid ORDER BY report_date DESC LIMIT 20");
+        $haiStmt->execute(['pid' => $patientId]);
+        $hai = $haiStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Readmission & Mortality
+        $rmStmt = $db->prepare("SELECT id, record_number, index_admission_date, index_discharge_date, primary_diagnosis, readmission_status, days_to_readmission, mortality_status, status FROM readmission_mortality_records WHERE patient_id = :pid ORDER BY index_admission_date DESC LIMIT 20");
+        $rmStmt->execute(['pid' => $patientId]);
+        $readmissions = $rmStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 5. Surgical Safety Checklists
+        $sscStmt = $db->prepare("SELECT id, case_number, surgery_date, procedure_planned, operating_surgeon, universal_protocol_compliant, near_miss_caught, status FROM surgical_safety_checklists WHERE patient_id = :pid ORDER BY surgery_date DESC LIMIT 20");
+        $sscStmt->execute(['pid' => $patientId]);
+        $surgeries = $sscStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'patient_id' => $patientId,
+            'counts' => [
+                'incidents'       => count($incidents),
+                'critical_tat'    => count($tat),
+                'hai_ssi'         => count($hai),
+                'readmissions'    => count($readmissions),
+                'surgical_safety' => count($surgeries),
+                'total'           => count($incidents) + count($tat) + count($hai) + count($readmissions) + count($surgeries),
+            ],
+            'incidents'       => $incidents,
+            'critical_tat'    => $tat,
+            'hai_ssi'         => $hai,
+            'readmissions'    => $readmissions,
+            'surgical_safety' => $surgeries,
+        ];
     }
 }

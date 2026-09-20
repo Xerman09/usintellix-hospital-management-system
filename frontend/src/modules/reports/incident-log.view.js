@@ -227,6 +227,18 @@ export function IncidentLogView() {
                             </div>
                         </div>
 
+                        <!-- Patient Selector from EHR -->
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;" class="il-patient-select-box">
+                            <label style="font-size: 12px; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                <span>&#128100; Select Patient from EHR Patient List</span>
+                                <span style="font-size: 11px; font-weight: 400; color: #15803d;">(Auto-populates Name &amp; MRN)</span>
+                            </label>
+                            <select id="ilPatientSelect" class="il-input" style="width: 100%; padding: 7px 10px; border-color: #86efac; font-size: 13px;">
+                                <option value="">-- Loading patients... --</option>
+                            </select>
+                            <input type="hidden" id="ilPatientId" value="">
+                        </div>
+
                         <!-- Optional Linked Patient -->
                         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 16px;">
                             <div>
@@ -235,7 +247,7 @@ export function IncidentLogView() {
                             </div>
                             <div>
                                 <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #334155;">Patient MRN</label>
-                                <input type="text" id="ilPatientMrn" placeholder="MRN-XXXXX" class="il-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                                <input type="text" id="ilPatientMrn" placeholder="PAT-XXXXXX" class="il-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
                             </div>
                         </div>
 
@@ -434,6 +446,16 @@ export function IncidentLogView() {
                 :root[data-theme="dark"] .il-section-title,
                 :root[data-theme="dark"] #ilDetailSummary {
                     color: #f1f5f9 !important;
+                }
+                :root[data-theme="dark"] .il-patient-select-box {
+                    background: #022c22 !important;
+                    border-color: #064e3b !important;
+                }
+                :root[data-theme="dark"] .il-patient-select-box label {
+                    color: #34d399 !important;
+                }
+                :root[data-theme="dark"] .il-patient-select-box label span:last-child {
+                    color: #a7f3d0 !important;
                 }
             </style>
         </div>

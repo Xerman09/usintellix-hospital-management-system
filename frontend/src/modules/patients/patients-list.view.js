@@ -5298,6 +5298,46 @@ textarea.pd-sdoh-readonly {
     display: flex;
     flex-direction: column;
 }
+.pd-qs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    transition: all 0.15s ease;
+}
+.pd-qs-badge:hover {
+    filter: brightness(0.95);
+}
+.pd-qs-badge.active-green  { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; font-weight: 600; }
+.pd-qs-badge.active-amber  { background: #fffbeb; color: #92400e; border-color: #fde68a; font-weight: 600; }
+.pd-qs-badge.active-red    { background: #fef2f2; color: #991b1b; border-color: #fecaca; font-weight: 600; }
+.pd-qs-badge.active-purple { background: #faf5ff; color: #6b21a8; border-color: #e9d5ff; font-weight: 600; }
+.pd-qs-badge.active-blue   { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; font-weight: 600; }
+
+:root[data-theme="dark"] .pd-qs-badge {
+    background: #1e293b !important;
+    color: #94a3b8 !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .pd-qs-badge.active-green  { background: #064e3b !important; color: #6ee7b7 !important; border-color: #047857 !important; }
+:root[data-theme="dark"] .pd-qs-badge.active-amber  { background: #78350f !important; color: #fcd34d !important; border-color: #b45309 !important; }
+:root[data-theme="dark"] .pd-qs-badge.active-red    { background: #7f1d1d !important; color: #fca5a5 !important; border-color: #b91c1c !important; }
+:root[data-theme="dark"] .pd-qs-badge.active-purple { background: #581c87 !important; color: #d8b4fe !important; border-color: #7e22ce !important; }
+:root[data-theme="dark"] .pd-qs-badge.active-blue   { background: #1e3a8a !important; color: #93c5fd !important; border-color: #2563eb !important; }
+
+:root[data-theme="dark"] .pd-qs-card {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+:root[data-theme="dark"] .pd-qs-title {
+    color: #f1f5f9 !important;
+}
 </style>
 
 <div class="pd-chart-panel">
@@ -5459,6 +5499,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.", { bodyId: "pdInsuranceBody", addBtnId: "pdInsuranceAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.", { bodyId: "pdAppointmentsBody", addBtnId: "pdAppointmentsAddBtn", addBtnLabel: "+ Add", addBtnDisabled: false })}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { bodyId: "pdDocumentsBody", addBtnId: "pdDocumentsAddBtn", addBtnLabel: "Upload", addBtnDisabled: false, widgetId: "pdWidget-documents" })}
+                    ${dashboardWidget("Quality & Safety Audits", '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path><path d="m9 12 2 2 4-4"></path>', "No clinical quality or safety audits recorded.", { bodyId: "pdQualitySafetyBody", addBtnId: "pdQualitySafetyViewAllBtn", addBtnLabel: "Reports", addBtnDisabled: false, widgetId: "pdWidget-qualitySafety" })}
                     <div class="pd-widget" id="pdWidget-portalAccess">
                         <div class="pd-widget-header">
                             <div class="pd-widget-header-title">

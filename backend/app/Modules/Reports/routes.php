@@ -286,3 +286,29 @@ $router->post('/reports/readmission-mortality/update', [ReportController::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+// JCAHO: Surgical Safety & Universal Protocol "Time-Out" Audit Log
+$router->get('/reports/surgical-safety', [ReportController::class, 'surgicalSafetyReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/surgical-safety/details', [ReportController::class, 'surgicalSafetyDetails'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/surgical-safety', [ReportController::class, 'storeSurgicalSafety'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/surgical-safety/update', [ReportController::class, 'updateSurgicalSafety'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Patient Quality & Safety Summary
+$router->get('/reports/patient-quality-summary', [ReportController::class, 'patientQualitySummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+
+

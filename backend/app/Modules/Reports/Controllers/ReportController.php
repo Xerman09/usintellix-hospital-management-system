@@ -593,4 +593,75 @@ class ReportController extends Controller
         }
         $this->success($record, 'Readmission and mortality surveillance record updated successfully.');
     }
+
+    // -------------------------------------------------------
+    // JCAHO: Surgical Safety & Universal Protocol "Time-Out" Audit Log
+    // -------------------------------------------------------
+    public function surgicalSafetyReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only([
+            'date_from', 'date_to', 'or_suite', 'surgical_specialty',
+            'operating_surgeon', 'universal_protocol_compliant',
+            'near_miss_caught', 'status', 'search'
+        ]);
+        $data = $this->reportService->getSurgicalSafetyReport($filters);
+        $this->success($data, 'Surgical safety report retrieved successfully.');
+    }
+
+    public function surgicalSafetyDetails(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Record ID is required.', 400);
+            return;
+        }
+        $record = $this->reportService->getSurgicalSafetyDetails($id);
+        if (!$record) {
+            $this->error('Record not found.', 404);
+            return;
+        }
+        $this->success($record, 'Surgical safety checklist record retrieved successfully.');
+    }
+
+    public function storeSurgicalSafety(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        if (empty($data['patient_name']) || empty($data['patient_mrn']) || empty($data['procedure_planned']) || empty($data['operating_surgeon']) || empty($data['anesthesiologist']) || empty($data['circulating_nurse'])) {
+            $this->error('Patient Name, MRN, Procedure, Surgeon, Anesthesiologist, and Circulating Nurse are required.', 422);
+            return;
+        }
+        $record = $this->reportService->createSurgicalSafetyRecord($data);
+        $this->success($record, 'Surgical safety checklist logged successfully.', 201);
+    }
+
+    public function updateSurgicalSafety(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Record ID is required.', 400);
+            return;
+        }
+        $record = $this->reportService->updateSurgicalSafetyRecord($id, $request->all());
+        if (!$record) {
+            $this->error('Record not found.', 404);
+            return;
+        }
+        $this->success($record, 'Surgical safety checklist updated successfully.');
+    }
+
+    public function patientQualitySummary(): void
+    {
+        $request = new Request();
+        $patientId = (int)($request->input('patient_id') ?? 0);
+        if (!$patientId) {
+            $this->error('Patient ID is required.', 400);
+            return;
+        }
+        $data = $this->reportService->getPatientQualitySafetySummary($patientId);
+        $this->success($data, 'Patient quality and safety summary retrieved successfully.');
+    }
 }

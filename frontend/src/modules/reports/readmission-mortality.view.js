@@ -416,6 +416,15 @@ export function ReadmissionMortalityView() {
     color: #e2e8f0 !important;
     border-color: #475569 !important;
 }
+:root[data-theme="dark"] div[style*="background: #f0fdf4"],
+:root[data-theme="dark"] div[style*="background:#f0fdf4"] {
+    background-color: #064e3b !important;
+    border-color: #047857 !important;
+}
+:root[data-theme="dark"] div[style*="background: #f0fdf4"] label,
+:root[data-theme="dark"] div[style*="background:#f0fdf4"] label {
+    color: #a7f3d0 !important;
+}
 
 @media print {
     .rm-header-actions, .rm-filter-row, .rm-modal-overlay { display: none !important; }
@@ -542,13 +551,23 @@ export function ReadmissionMortalityView() {
             <form id="rmAddForm" autocomplete="off">
                 <div class="rm-form-grid">
                     <div class="rm-form-section-title">Patient &amp; Hospitalization Info</div>
+                    <div class="rm-form-group full-width" style="grid-column: 1 / -1; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;">
+                        <label style="font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px;">
+                            <span>&#128100; Select Patient from EHR Patient List</span>
+                            <span style="font-size: 11px; font-weight: 400; color: #15803d;">(Auto-populates Name, MRN, Age &amp; Gender)</span>
+                        </label>
+                        <select id="rmFPatientSelect" style="width: 100%; margin-top: 4px; border-color: #86efac;">
+                            <option value="">-- Loading patients... --</option>
+                        </select>
+                        <input type="hidden" id="rmFPatientId" />
+                    </div>
                     <div class="rm-form-group">
                         <label>Patient Name *</label>
                         <input type="text" id="rmFPatientName" placeholder="Full name" required />
                     </div>
                     <div class="rm-form-group">
-                        <label>Patient MRN *</label>
-                        <input type="text" id="rmFPatientMrn" placeholder="MRN-XXXXX" required />
+                        <label>Patient MRN / Patient No *</label>
+                        <input type="text" id="rmFPatientMrn" placeholder="PAT-XXXXXX" required />
                     </div>
                     <div class="rm-form-group">
                         <label>Age *</label>

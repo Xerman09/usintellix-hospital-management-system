@@ -1,12 +1,38 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
+import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=1";
 
 let currentRecords = [];
 let availableDepts = [];
 
 export async function initCriticalTAT() {
     setupEventListeners();
+    setupPatientPicker();
     await fetchCriticalTAT();
+}
+
+function setupPatientPicker() {
+    const sel = document.getElementById("ctatFPatientSelect");
+    if (!sel) return;
+    populatePatientSelector(sel, (p, isManual) => {
+        const idEl   = document.getElementById("ctatFPatientId");
+        const nameEl = document.getElementById("ctatFPatientName");
+        const mrnEl  = document.getElementById("ctatFPatientMrn");
+
+        if (!p || isManual) {
+            if (idEl) idEl.value = "";
+            if (isManual) {
+                if (nameEl) { nameEl.value = ""; nameEl.focus(); }
+                if (mrnEl) mrnEl.value = "";
+            }
+            return;
+        }
+
+        const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ");
+        if (idEl)   idEl.value = p.id;
+        if (nameEl) nameEl.value = fullName;
+        if (mrnEl)  mrnEl.value = p.patient_no || "";
+    });
 }
 
 function setupEventListeners() {
@@ -93,11 +119,11 @@ async function fetchCriticalTAT() {
             renderTable(currentRecords);
             logReportRun("Critical Diagnostic TAT Report", "critical_tat", { date_from: dateFrom, date_to: dateTo });
         } else {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="padding:30px;text-align:center;color:#ef4444;">Failed to load critical TAT records.</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="13" style="padding:30px;text-align:center;color:#ef4444;">Failed to load critical TAT records.</td></tr>`;
         }
     } catch (err) {
         console.error("Error fetching critical TAT:", err);
-        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="padding:30px;text-align:center;color:#ef4444;">Server error loading report.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="13" style="padding:30px;text-align:center;color:#ef4444;">Server error loading report.</td></tr>`;
     }
 }
 
@@ -133,7 +159,7 @@ function renderTable(records) {
     const tbody = document.getElementById("ctatTableBody");
     if (!tbody) return;
     if (!records.length) {
-        tbody.innerHTML = `<tr><td colspan="12" style="padding:30px;text-align:center;color:#64748b;">No critical result records found matching the current filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" style="padding:30px;text-align:center;color:#64748b;">No critical result records found matching the current filters.</td></tr>`;
         return;
     }
     tbody.innerHTML = records.map(r => {
@@ -150,6 +176,14 @@ function renderTable(records) {
             <td><span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-weight:600;">${escHtml(r.test_type)}</span></td>
             <td style="font-size:12px;max-width:180px;">${escHtml(r.test_name)}</td>
             <td style="font-size:11px;max-width:180px;color:#b91c1c;font-weight:600;">${escHtml(r.critical_value)}</td>
+            <td style="font-size:12px;">
+                ${r.patient_name ? `
+                    <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${escHtml(r.patient_mrn || '')}')" style="color:#0284c7;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" title="Open EHR Patient Chart">
+                        &#128100; ${escHtml(r.patient_name)}
+                    </a>
+                    <br><small style="color:#64748b;cursor:pointer;font-family:monospace;" onclick="window.__openPatientChartFromReport('${escHtml(r.patient_mrn || '')}')" title="Open EHR Patient Chart">${escHtml(r.patient_mrn || 'N/A')}</small>
+                ` : '<span style="color:#94a3b8;">—</span>'}
+            </td>
             <td style="font-size:12px;">${escHtml(r.ordering_department)}<br><small style="color:#64748b;">${escHtml(r.patient_location || '')}</small></td>
             <td class="${tatToCall !== null && tatToCall > 15 ? 'tat-breach' : ''}" style="text-align:center;font-weight:700;">
                 ${tatToCall !== null ? tatToCall + ' min' : '<span style="color:#94a3b8;">—</span>'}
@@ -228,7 +262,14 @@ function populateDetailModal(r) {
     set("ctatDetailCriticalValue", r.critical_value);
     set("ctatDetailResultDate",   formatDateTime(r.result_date));
     set("ctatDetailDept",         `${r.ordering_department}${r.patient_location ? ' | ' + r.patient_location : ''}`);
-    set("ctatDetailPatient",      r.patient_name ? `${r.patient_name} (${r.patient_mrn || 'N/A'})` : "No patient linked");
+    const patEl = document.getElementById("ctatDetailPatient");
+    if (patEl) {
+        if (r.patient_name) {
+            patEl.innerHTML = `<a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${escHtml(r.patient_mrn || '')}')" style="color:#0284c7;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" title="Open EHR Patient Chart">&#128100; ${escHtml(r.patient_name)} (${escHtml(r.patient_mrn || 'N/A')})</a>`;
+        } else {
+            patEl.textContent = "No patient linked";
+        }
+    }
     set("ctatDetailReporter",     `${r.reported_by} (${r.reported_by_role || 'Staff'})`);
     set("ctatDetailFirstCall",    r.first_call_at ? `${formatDateTime(r.first_call_at)} → ${r.first_call_to || ''}` : "Not recorded");
     set("ctatDetailAcknowledged", r.acknowledged_at ? `${formatDateTime(r.acknowledged_at)} by ${r.acknowledged_by || ''}` : "Not yet acknowledged");
@@ -280,6 +321,7 @@ async function handleAddSubmit(e) {
         normal_range:          document.getElementById("ctatFNormalRange")?.value || "",
         ordering_department:   document.getElementById("ctatFDepartment")?.value || "",
         patient_location:      document.getElementById("ctatFPatientLocation")?.value || "",
+        patient_id:            document.getElementById("ctatFPatientId")?.value ? parseInt(document.getElementById("ctatFPatientId").value) : null,
         patient_name:          document.getElementById("ctatFPatientName")?.value || "",
         patient_mrn:           document.getElementById("ctatFPatientMrn")?.value || "",
         reported_by:           document.getElementById("ctatFReportedBy")?.value || "",

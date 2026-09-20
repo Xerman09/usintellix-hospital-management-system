@@ -522,6 +522,7 @@ export function CriticalTATView() {
                     <th>Test Type</th>
                     <th>Test Name</th>
                     <th>Critical Value</th>
+                    <th>Patient</th>
                     <th>Department / Location</th>
                     <th>TAT to Call</th>
                     <th>Total TAT</th>
@@ -532,7 +533,7 @@ export function CriticalTATView() {
                 </tr>
             </thead>
             <tbody id="ctatTableBody">
-                <tr><td colspan="12" style="padding:40px;text-align:center;color:#64748b;font-style:italic;">Loading records...</td></tr>
+                <tr><td colspan="13" style="padding:40px;text-align:center;color:#64748b;font-style:italic;">Loading records...</td></tr>
             </tbody>
         </table>
     </div>
@@ -601,13 +602,23 @@ export function CriticalTATView() {
                         <label>Patient Location</label>
                         <input type="text" id="ctatFPatientLocation" placeholder="e.g. ICU Bed 4, Room 202-A" />
                     </div>
+                    <div class="ctat-form-group full-width" style="grid-column: 1 / -1; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;">
+                        <label style="font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px;">
+                            <span>&#128100; Select Patient from EHR Patient List</span>
+                            <span style="font-size: 11px; font-weight: 400; color: #15803d;">(Auto-populates Name &amp; MRN)</span>
+                        </label>
+                        <select id="ctatFPatientSelect" style="width: 100%; margin-top: 4px; border-color: #86efac;">
+                            <option value="">-- Loading patients... --</option>
+                        </select>
+                        <input type="hidden" id="ctatFPatientId" />
+                    </div>
                     <div class="ctat-form-group">
                         <label>Patient Name (optional)</label>
                         <input type="text" id="ctatFPatientName" placeholder="Patient name if applicable" />
                     </div>
                     <div class="ctat-form-group">
-                        <label>Patient MRN (optional)</label>
-                        <input type="text" id="ctatFPatientMrn" placeholder="MRN-XXXXX" />
+                        <label>Patient MRN / Patient No (optional)</label>
+                        <input type="text" id="ctatFPatientMrn" placeholder="PAT-XXXXXX" />
                     </div>
                     <div class="ctat-form-group">
                         <label>Reported By (Lab/Radiology) *</label>

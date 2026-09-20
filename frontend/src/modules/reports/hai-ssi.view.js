@@ -420,6 +420,15 @@ export function HAISSIView() {
     color: #e2e8f0 !important;
     border-color: #475569 !important;
 }
+:root[data-theme="dark"] div[style*="background: #f0fdf4"],
+:root[data-theme="dark"] div[style*="background:#f0fdf4"] {
+    background-color: #064e3b !important;
+    border-color: #047857 !important;
+}
+:root[data-theme="dark"] div[style*="background: #f0fdf4"] label,
+:root[data-theme="dark"] div[style*="background:#f0fdf4"] label {
+    color: #a7f3d0 !important;
+}
 
 @media print {
     .hai-header-actions, .hai-filter-row, .hai-modal-overlay { display: none !important; }
@@ -630,13 +639,23 @@ export function HAISSIView() {
                         <label>Ward / Bed</label>
                         <input type="text" id="haiFWardBed" placeholder="e.g. Room 302-A, ICU Bed 4" />
                     </div>
+                    <div class="hai-form-group full-width" style="grid-column: 1 / -1; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;">
+                        <label style="font-weight: 700; color: #166534; display: flex; align-items: center; gap: 6px;">
+                            <span>&#128100; Select Patient from EHR Patient List</span>
+                            <span style="font-size: 11px; font-weight: 400; color: #15803d;">(Auto-populates Name, MRN &amp; Age)</span>
+                        </label>
+                        <select id="haiFPatientSelect" style="width: 100%; margin-top: 4px; border-color: #86efac;">
+                            <option value="">-- Loading patients... --</option>
+                        </select>
+                        <input type="hidden" id="haiFPatientId" />
+                    </div>
                     <div class="hai-form-group">
                         <label>Patient Name</label>
                         <input type="text" id="haiFPatientName" placeholder="Full name" />
                     </div>
                     <div class="hai-form-group">
-                        <label>Patient MRN</label>
-                        <input type="text" id="haiFPatientMrn" placeholder="MRN-XXXXX" />
+                        <label>Patient MRN / Patient No</label>
+                        <input type="text" id="haiFPatientMrn" placeholder="PAT-XXXXXX" />
                     </div>
                     <div class="hai-form-group">
                         <label>Patient Age</label>

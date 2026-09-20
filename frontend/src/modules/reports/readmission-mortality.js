@@ -1,11 +1,45 @@
 import { api } from '../../core/api.js';
 import { logReportRun } from './report-history.js';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 
 let currentRecords = [];
 
 export async function initReadmissionMortality() {
     setupEventListeners();
+    setupPatientPicker();
     await fetchReport();
+}
+
+function setupPatientPicker() {
+    const sel = document.getElementById('rmFPatientSelect');
+    if (!sel) return;
+    populatePatientSelector(sel, (p, isManual) => {
+        const idEl   = document.getElementById('rmFPatientId');
+        const nameEl = document.getElementById('rmFPatientName');
+        const mrnEl  = document.getElementById('rmFPatientMrn');
+        const ageEl  = document.getElementById('rmFAge');
+        const genEl  = document.getElementById('rmFGender');
+
+        if (!p || isManual) {
+            if (idEl) idEl.value = '';
+            if (isManual) {
+                if (nameEl) { nameEl.value = ''; nameEl.focus(); }
+                if (mrnEl) mrnEl.value = '';
+                if (ageEl) ageEl.value = '';
+            }
+            return;
+        }
+
+        const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+        if (idEl)   idEl.value = p.id;
+        if (nameEl) nameEl.value = fullName;
+        if (mrnEl)  mrnEl.value = p.patient_no || '';
+        if (ageEl)  ageEl.value = calculateAgeFromDob(p.birthdate);
+        if (genEl) {
+            const sex = (p.sex || '').toLowerCase();
+            genEl.value = sex === 'female' ? 'Female' : 'Male';
+        }
+    });
 }
 
 function setupEventListeners() {
@@ -208,7 +242,7 @@ function renderTable(records) {
         '<td style="font-family:monospace;font-size:12px;font-weight:700;color:#0284c7;">' + esc(r.record_number) + '</td>' +
         '<td style="white-space:nowrap;font-size:12px;">' + esc(r.index_discharge_date) + '</td>' +
         '<td style="font-size:12px;max-width:140px;">' + esc(r.department) + (r.ward_bed ? '<br><small style="color:#94a3b8;">' + esc(r.ward_bed) + '</small>' : '') + '</td>' +
-        '<td style="font-size:12px;">' + esc(r.patient_name) + '<br><small style="color:#94a3b8;">' + esc(r.patient_mrn) + ' &bull; ' + r.patient_age + 'y/' + (r.gender ? r.gender[0] : '') + '</small></td>' +
+        '<td style="font-size:12px;"><a href="javascript:void(0)" onclick="window.__openPatientChartFromReport(\'' + esc(r.patient_mrn) + '\')" style="color:#0284c7;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" title="Open EHR Patient Chart">&#128100; ' + esc(r.patient_name) + '</a><br><small style="color:#64748b;cursor:pointer;" onclick="window.__openPatientChartFromReport(\'' + esc(r.patient_mrn) + '\')" title="Open EHR Patient Chart">' + esc(r.patient_mrn) + ' &bull; ' + r.patient_age + 'y/' + (r.gender ? r.gender[0] : '') + '</small></td>' +
         '<td style="font-size:12px;max-width:170px;">' + esc(r.primary_diagnosis) + (r.icd10_code ? '<br><small style="color:#0284c7;font-weight:600;">' + esc(r.icd10_code) + '</small>' : '') + '</td>' +
         '<td style="text-align:center;font-weight:700;">' + r.length_of_stay + 'd</td>' +
         '<td>' + readmBadge(r.readmission_status, r.days_to_readmission, r.readmission_preventable) + '</td>' +
@@ -254,7 +288,10 @@ function populateDetailModal(r) {
     document.getElementById('rmDetailRecordId').value = r.id;
     document.getElementById('rmDetailRecordNo').textContent = r.record_number;
 
-    set('rmDetailPatient',     r.patient_name + ' (' + r.patient_mrn + ') — ' + r.patient_age + 'y/' + (r.gender || ''));
+    const patEl = document.getElementById('rmDetailPatient');
+    if (patEl) {
+        patEl.innerHTML = esc(r.patient_name) + ' (<a href="javascript:void(0)" onclick="window.__openPatientChartFromReport(\'' + esc(r.patient_mrn) + '\')" style="color:#0284c7;font-weight:600;" title="Open EHR Patient Chart">' + esc(r.patient_mrn) + '</a>) — ' + r.patient_age + 'y/' + (r.gender || '');
+    }
     set('rmDetailDiag',        r.primary_diagnosis + (r.icd10_code ? ' [' + r.icd10_code + ']' : ''));
     set('rmDetailDept',        r.department + (r.ward_bed ? ' | ' + r.ward_bed : ''));
     set('rmDetailDates',       (r.index_admission_date || 'N/A') + ' to ' + (r.index_discharge_date || 'N/A'));
@@ -293,6 +330,7 @@ async function handleAddSubmit(e) {
 
     const g = id => document.getElementById(id)?.value || '';
     const payload = {
+        patient_id:                          g('rmFPatientId') || null,
         patient_name:                        g('rmFPatientName'),
         patient_mrn:                         g('rmFPatientMrn'),
         patient_age:                         g('rmFAge'),

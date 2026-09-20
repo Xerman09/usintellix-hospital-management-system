@@ -1,11 +1,40 @@
 import { api } from '../../core/api.js';
 import { logReportRun } from './report-history.js';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 
 let currentRecords = [];
 
 export async function initHAISSI() {
     setupEventListeners();
+    setupPatientPicker();
     await fetchHAI();
+}
+
+function setupPatientPicker() {
+    const sel = document.getElementById('haiFPatientSelect');
+    if (!sel) return;
+    populatePatientSelector(sel, (p, isManual) => {
+        const idEl   = document.getElementById('haiFPatientId');
+        const nameEl = document.getElementById('haiFPatientName');
+        const mrnEl  = document.getElementById('haiFPatientMrn');
+        const ageEl  = document.getElementById('haiFAge');
+
+        if (!p || isManual) {
+            if (idEl) idEl.value = '';
+            if (isManual) {
+                if (nameEl) { nameEl.value = ''; nameEl.focus(); }
+                if (mrnEl) mrnEl.value = '';
+                if (ageEl) ageEl.value = '';
+            }
+            return;
+        }
+
+        const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+        if (idEl)   idEl.value = p.id;
+        if (nameEl) nameEl.value = fullName;
+        if (mrnEl)  mrnEl.value = p.patient_no || '';
+        if (ageEl)  ageEl.value = calculateAgeFromDob(p.birthdate);
+    });
 }
 
 function setupEventListeners() {
@@ -193,7 +222,7 @@ function renderTable(records) {
         '<td>' + typeBadge(r.infection_type) + '</td>' +
         '<td style="font-size:11px;color:#475569;max-width:120px;">' + esc(r.infection_category) + '</td>' +
         '<td style="font-size:12px;max-width:160px;">' + esc(r.department) + (r.ward_bed ? '<br><small style="color:#94a3b8;">' + esc(r.ward_bed) + '</small>' : '') + '</td>' +
-        '<td style="font-size:12px;">' + (r.patient_name ? esc(r.patient_name) + (r.patient_mrn ? '<br><small style="color:#94a3b8;">' + esc(r.patient_mrn) + '</small>' : '') : '<span style="color:#94a3b8;">Anonymous</span>') + '</td>' +
+        '<td style="font-size:12px;">' + (r.patient_name ? '<a href="javascript:void(0)" onclick="window.__openPatientChartFromReport(\'' + esc(r.patient_mrn) + '\')" style="color:#0284c7;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" title="Open EHR Patient Chart">&#128100; ' + esc(r.patient_name) + '</a>' + (r.patient_mrn ? '<br><small style="color:#64748b;cursor:pointer;" onclick="window.__openPatientChartFromReport(\'' + esc(r.patient_mrn) + '\')" title="Open EHR Patient Chart">' + esc(r.patient_mrn) + (r.patient_age ? ' &bull; ' + r.patient_age + 'y' : '') + '</small>' : '') : '<span style="color:#94a3b8;">Anonymous</span>') + '</td>' +
         '<td style="font-size:11px;font-weight:600;color:#b91c1c;max-width:150px;">' + (r.pathogen_isolated ? esc(r.pathogen_isolated) + (r.antibiotic_resistance ? '<br><small style="color:#7c3aed;">' + esc(r.antibiotic_resistance) + '</small>' : '') : '<span style="color:#94a3b8;">Pending culture</span>') + '</td>' +
         '<td>' + sevBadge(r.severity) + '</td>' +
         '<td style="text-align:center;">' + boolBadge(r.bundle_compliance) + '</td>' +
@@ -237,7 +266,9 @@ function populateDetailModal(r) {
     document.getElementById('haiDetailTracking').textContent = r.tracking_number;
     set('haiDetailType',       r.infection_type + ' — ' + r.infection_category);
     set('haiDetailDept',       r.department + (r.ward_bed ? ' | ' + r.ward_bed : ''));
-    set('haiDetailPatient',    r.patient_name ? r.patient_name + ' (' + (r.patient_mrn || 'N/A') + ')' + (r.patient_age ? ', Age ' + r.patient_age : '') : 'No patient linked');
+    const patHtml = r.patient_name ? esc(r.patient_name) + ' (<a href="javascript:void(0)" onclick="window.__openPatientChartFromReport(\'' + esc(r.patient_mrn) + '\')" style="color:#0284c7;font-weight:600;" title="Open EHR Patient Chart">' + esc(r.patient_mrn || 'N/A') + '</a>)' + (r.patient_age ? ', Age ' + r.patient_age : '') : 'No patient linked';
+    const patEl = document.getElementById('haiDetailPatient');
+    if (patEl) patEl.innerHTML = patHtml;
     set('haiDetailRisk',       r.patient_risk_factors || 'None documented');
     set('haiDetailOnset',      r.onset_date || 'N/A');
     set('haiDetailProcedure',  r.procedure_type ? r.procedure_type + (r.surgery_date ? ' (' + r.surgery_date + ')' : '') + (r.days_post_op !== null ? ' — Day ' + r.days_post_op + ' post-op' : '') : 'N/A (not SSI)');
@@ -282,6 +313,7 @@ async function handleAddSubmit(e) {
         prophylaxis_timing_correct:   g('haiFProphylaxisTiming'),
         department:                   g('haiFDept'),
         ward_bed:                     g('haiFWardBed'),
+        patient_id:                   g('haiFPatientId') || null,
         patient_name:                 g('haiFPatientName'),
         patient_mrn:                  g('haiFPatientMrn'),
         patient_age:                  g('haiFAge'),

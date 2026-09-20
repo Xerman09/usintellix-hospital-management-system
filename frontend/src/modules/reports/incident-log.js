@@ -1,12 +1,38 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
+import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=1";
 
 let currentIncidents = [];
 let availableDepartments = [];
 
 export async function initIncidentLog() {
     setupEventListeners();
+    setupPatientPicker();
     await fetchIncidentLog();
+}
+
+function setupPatientPicker() {
+    const sel = document.getElementById("ilPatientSelect");
+    if (!sel) return;
+    populatePatientSelector(sel, (p, isManual) => {
+        const idEl   = document.getElementById("ilPatientId");
+        const nameEl = document.getElementById("ilPatientName");
+        const mrnEl  = document.getElementById("ilPatientMrn");
+
+        if (!p || isManual) {
+            if (idEl) idEl.value = "";
+            if (isManual) {
+                if (nameEl) { nameEl.value = ""; nameEl.focus(); }
+                if (mrnEl) mrnEl.value = "";
+            }
+            return;
+        }
+
+        const fullName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ");
+        if (idEl)   idEl.value = p.id;
+        if (nameEl) nameEl.value = fullName;
+        if (mrnEl)  mrnEl.value = p.patient_no || "";
+    });
 }
 
 function setupEventListeners() {
@@ -253,8 +279,14 @@ function renderTable(incidents) {
 
         let patientHtml = "";
         if (item.patient_name) {
-            patientHtml = `<div><strong>${escapeHtml(item.patient_name)}</strong></div>
-                <div style="font-size: 11px; color: #64748b;">${escapeHtml(item.patient_mrn || '')}</div>`;
+            patientHtml = `<div>
+                <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${escapeHtml(item.patient_mrn || '')}')" style="color: #2563eb; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;" title="Open EHR Patient Chart">
+                    &#128100; ${escapeHtml(item.patient_name)}
+                </a>
+            </div>
+            <div style="font-size: 11px; color: #64748b; font-family: monospace; cursor: pointer;" onclick="window.__openPatientChartFromReport('${escapeHtml(item.patient_mrn || '')}')" title="Open EHR Patient Chart">
+                ${escapeHtml(item.patient_mrn || '')}
+            </div>`;
         } else {
             patientHtml = `<span style="color: #94a3b8; font-size: 12px; font-style: italic;">N/A (Process/Equipment)</span>`;
         }
@@ -348,6 +380,7 @@ async function handleNewIncidentSubmit(e) {
         location_details: document.getElementById("ilLocationDetails")?.value || "",
         event_type: document.getElementById("ilEventType")?.value || "Other",
         severity_level: document.getElementById("ilSeverityLevel")?.value || "Minor (Monitored)",
+        patient_id: document.getElementById("ilPatientId")?.value ? parseInt(document.getElementById("ilPatientId").value) : null,
         patient_name: document.getElementById("ilPatientName")?.value || "",
         patient_mrn: document.getElementById("ilPatientMrn")?.value || "",
         summary: document.getElementById("ilSummary")?.value || "",
@@ -420,10 +453,16 @@ function populateDetailModal(inc) {
         document.getElementById("ilDetailReporter").textContent = `${inc.reporter_name || 'Staff'} (${inc.reporter_role || 'Staff'})`;
     }
 
-    if (inc.patient_name) {
-        document.getElementById("ilDetailPatient").textContent = `${inc.patient_name} (${inc.patient_mrn || 'N/A'})`;
-    } else {
-        document.getElementById("ilDetailPatient").textContent = "N/A (Environmental / Process)";
+    const patientDetailEl = document.getElementById("ilDetailPatient");
+    if (patientDetailEl) {
+        if (inc.patient_name) {
+            patientDetailEl.innerHTML = `
+                <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${escapeHtml(inc.patient_mrn || '')}')" style="color: #2563eb; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;" title="Open EHR Patient Chart">
+                    &#128100; ${escapeHtml(inc.patient_name)} (${escapeHtml(inc.patient_mrn || 'N/A')})
+                </a>`;
+        } else {
+            patientDetailEl.textContent = "N/A (Environmental / Process)";
+        }
     }
 
     document.getElementById("ilDetailDescription").textContent = inc.description;

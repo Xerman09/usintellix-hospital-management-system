@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=63";
+import { PatientChartView } from "./patients-list.view.js?v=64";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -34,7 +34,7 @@ import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
-import { API_URL } from "../../core/api.js?v=5";
+import { api, API_URL } from "../../core/api.js?v=5";
 import { fetchProviders } from "../providers/providers.service.js";
 import {
     fetchPatientTransactions,
@@ -2748,7 +2748,8 @@ async function loadPatientDashboardWidgets(patient)
     const widgetBodyIds = [
         "pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody",
         "pdRelatedPersonsBody", "pdDisclosuresBody", "pdMessagesBody", "pdAmendmentsBody", "pdEncountersBody",
-        "pdCareTeamBody", "pdImmunizationsBody", "pdInsuranceBody", "pdVitalsHistoryBody", "pdDocumentsBody"
+        "pdCareTeamBody", "pdImmunizationsBody", "pdInsuranceBody", "pdVitalsHistoryBody", "pdDocumentsBody",
+        "pdQualitySafetyBody"
     ];
 
     try {
@@ -2786,6 +2787,8 @@ async function loadPatientDashboardWidgets(patient)
         dashboardRelatedPersons = data.related_persons || [];
         renderDashboardRelatedPersons(dashboardRelatedPersons);
 
+        loadDashboardQualitySafety(patient);
+
         if (activeDemoTab === "related" && currentDashboardPatient === patient) {
             renderDemographics(patient);
         }
@@ -2795,6 +2798,160 @@ async function loadPatientDashboardWidgets(patient)
             const body = document.getElementById(id);
             if (body) body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load this section right now.</p></div>`;
         });
+    }
+}
+
+async function loadDashboardQualitySafety(patient)
+{
+    const body = document.getElementById("pdQualitySafetyBody");
+    if (!body) return;
+
+    try {
+        const res = await api(`/reports/patient-quality-summary?patient_id=${patient.id}`);
+        if (!res.success || !res.data) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(res.message || "No quality data available.")}</p></div>`;
+            return;
+        }
+
+        const data = res.data;
+        const total = data.counts?.total ?? 0;
+        setWidgetCount("pdQualitySafetyBody", total);
+
+        if (total === 0) {
+            body.innerHTML = `
+                <div class="pd-widget-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 12h6"></path></svg>
+                    <p>No safety incidents, critical TAT breaches, infections, or readmissions recorded for this patient.</p>
+                </div>`;
+            return;
+        }
+
+        const counts = data.counts || {};
+        
+        // Build summary badges
+        const badgesHtml = `
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">
+                <span class="pd-qs-badge ${counts.surgical_safety ? 'active-green' : ''}" onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_surgical_safety', 'Surgical Safety & Time-Out')" title="Surgical Safety Checklists" style="cursor: pointer;">
+                    🛡️ Surgeries: <strong>${counts.surgical_safety || 0}</strong>
+                </span>
+                <span class="pd-qs-badge ${counts.critical_tat ? 'active-amber' : ''}" onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_critical_tat', 'Critical Diagnostic TAT')" title="Critical Diagnostic TAT" style="cursor: pointer;">
+                    ⏱️ Critical TAT: <strong>${counts.critical_tat || 0}</strong>
+                </span>
+                <span class="pd-qs-badge ${counts.hai_ssi ? 'active-red' : ''}" onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_hai_ssi', 'HAI & SSI Infections')" title="HAI & SSI Infections" style="cursor: pointer;">
+                    🦠 HAI / SSI: <strong>${counts.hai_ssi || 0}</strong>
+                </span>
+                <span class="pd-qs-badge ${counts.readmissions ? 'active-purple' : ''}" onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_readmission_mortality', '30-Day Readmission & Mortality')" title="30-Day Readmissions" style="cursor: pointer;">
+                    🔄 Readmissions: <strong>${counts.readmissions || 0}</strong>
+                </span>
+                <span class="pd-qs-badge ${counts.incidents ? 'active-blue' : ''}" onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_incident_log', 'Incident & Adverse Events')" title="Incidents & Near-Misses" style="cursor: pointer;">
+                    ⚠️ Incidents: <strong>${counts.incidents || 0}</strong>
+                </span>
+            </div>
+        `;
+
+        // Build list of audit items
+        let itemsHtml = '<div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">';
+
+        // Surgeries
+        (data.surgical_safety || []).slice(0, 3).forEach(s => {
+            const compliant = parseInt(s.universal_protocol_compliant) === 1;
+            const nearMiss = parseInt(s.near_miss_caught) === 1;
+            itemsHtml += `
+                <div onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_surgical_safety', 'Surgical Safety & Time-Out')" style="cursor: pointer; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid ${nearMiss ? '#ef4444' : compliant ? '#10b981' : '#f59e0b'};" class="pd-qs-card" title="Open Surgical Safety Report">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #0f172a;" class="pd-qs-title">🛡️ ${escapeHtml(s.case_number)} &bull; ${escapeHtml(s.procedure_planned)}</span>
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: ${compliant ? '#dcfce7' : '#fee2e2'}; color: ${compliant ? '#166534' : '#991b1b'};">
+                            ${compliant ? 'Time-Out ✓' : 'Variance'}
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                        Date: ${escapeHtml(s.surgery_date)} &bull; Surgeon: ${escapeHtml(s.operating_surgeon || 'N/A')}
+                        ${nearMiss ? '<span style="color: #dc2626; font-weight: 700; margin-left: 6px;">⚠️ Near-Miss Caught</span>' : ''}
+                    </div>
+                </div>`;
+        });
+
+        // Critical TAT
+        (data.critical_tat || []).slice(0, 3).forEach(c => {
+            const comp = parseInt(c.jcaho_compliant) === 1;
+            itemsHtml += `
+                <div onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_critical_tat', 'Critical Diagnostic TAT')" style="cursor: pointer; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid ${comp ? '#3b82f6' : '#ef4444'};" class="pd-qs-card" title="Open Critical TAT Report">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #0f172a;" class="pd-qs-title">⏱️ ${escapeHtml(c.tracking_number)} &bull; ${escapeHtml(c.test_name)}</span>
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: ${comp ? '#dcfce7' : '#fee2e2'}; color: ${comp ? '#166534' : '#991b1b'};">
+                            ${comp ? 'TAT OK (' + (c.tat_total ?? '') + 'm)' : 'TAT Breach'}
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                        Value: <strong style="color: #b91c1c;">${escapeHtml(c.critical_value)}</strong> &bull; Status: ${escapeHtml(c.status)}
+                    </div>
+                </div>`;
+        });
+
+        // HAI / SSI
+        (data.hai_ssi || []).slice(0, 2).forEach(h => {
+            itemsHtml += `
+                <div onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_hai_ssi', 'HAI & SSI Infections')" style="cursor: pointer; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #dc2626;" class="pd-qs-card" title="Open HAI & SSI Report">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #0f172a;" class="pd-qs-title">🦠 ${escapeHtml(h.tracking_number)} &bull; ${escapeHtml(h.infection_type)}</span>
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: #fee2e2; color: #991b1b;">
+                            ${escapeHtml(h.severity || 'Infection')}
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                        Category: ${escapeHtml(h.infection_category || '')} &bull; Pathogen: ${escapeHtml(h.pathogen_isolated || 'Pending')}
+                    </div>
+                </div>`;
+        });
+
+        // Readmissions
+        (data.readmissions || []).slice(0, 2).forEach(r => {
+            itemsHtml += `
+                <div onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_readmission_mortality', '30-Day Readmission & Mortality')" style="cursor: pointer; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #8b5cf6;" class="pd-qs-card" title="Open Readmission & Mortality Report">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #0f172a;" class="pd-qs-title">🔄 ${escapeHtml(r.record_number)} &bull; ${escapeHtml(r.primary_diagnosis || 'Admission')}</span>
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: #f3e8ff; color: #6b21a8;">
+                            ${escapeHtml(r.readmission_status || 'Readmission Review')}
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                        Days to Return: ${r.days_to_readmission !== null ? r.days_to_readmission + ' days' : 'N/A'} &bull; Status: ${escapeHtml(r.status)}
+                    </div>
+                </div>`;
+        });
+
+        // Incidents
+        (data.incidents || []).slice(0, 2).forEach(i => {
+            itemsHtml += `
+                <div onclick="window.__openDashboardTab && window.__openDashboardTab('clinic_incident_log', 'Incident & Adverse Events')" style="cursor: pointer; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #f59e0b;" class="pd-qs-card" title="Open Incident Log">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #0f172a;" class="pd-qs-title">⚠️ ${escapeHtml(i.incident_number)} &bull; ${escapeHtml(i.event_type)}</span>
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: #fef3c7; color: #92400e;">
+                            ${escapeHtml(i.severity_level || i.status)}
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                        Summary: ${escapeHtml(i.summary || '')} &bull; Status: ${escapeHtml(i.status)}
+                    </div>
+                </div>`;
+        });
+
+        itemsHtml += '</div>';
+
+        body.innerHTML = badgesHtml + itemsHtml;
+
+        // View All Reports button in header
+        const viewAllBtn = document.getElementById("pdQualitySafetyViewAllBtn");
+        if (viewAllBtn) {
+            viewAllBtn.onclick = () => {
+                if (window.__openDashboardTab) {
+                    window.__openDashboardTab('clinic_surgical_safety', 'Surgical Safety & Time-Out');
+                }
+            };
+        }
+    } catch (err) {
+        console.error("Failed to load patient quality & safety summary", err);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load quality audits right now.</p></div>`;
     }
 }
 
