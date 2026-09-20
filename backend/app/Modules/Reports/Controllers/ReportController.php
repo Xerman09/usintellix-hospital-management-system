@@ -432,4 +432,64 @@ class ReportController extends Controller
 
         $this->success($incident, 'Incident report updated successfully.');
     }
+
+    // -------------------------------------------------------
+    // JCAHO: Critical Diagnostic Test Results TAT Report
+    // -------------------------------------------------------
+    public function criticalTATReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only([
+            'date_from', 'date_to', 'test_type', 'department',
+            'status', 'compliant', 'search'
+        ]);
+        $data = $this->reportService->getCriticalTATReport($filters);
+        $this->success($data, 'Critical TAT report retrieved successfully.');
+    }
+
+    public function criticalTATDetails(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Record ID is required.', 400);
+            return;
+        }
+        $record = $this->reportService->getCriticalTATDetails($id);
+        if (!$record) {
+            $this->error('Record not found.', 404);
+            return;
+        }
+        $this->success($record, 'Critical TAT record retrieved successfully.');
+    }
+
+    public function storeCriticalTAT(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        if (empty($data['test_name']) || empty($data['ordering_department']) || empty($data['critical_value'])) {
+            $this->error('Test Name, Department, and Critical Value are required.', 422);
+            return;
+        }
+        $record = $this->reportService->createCriticalTATRecord($data);
+        $this->success($record, 'Critical result record logged successfully.', 201);
+    }
+
+    public function updateCriticalTAT(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Record ID is required.', 400);
+            return;
+        }
+        $data = $request->all();
+        $record = $this->reportService->updateCriticalTATRecord($id, $data);
+        if (!$record) {
+            $this->error('Record not found or update failed.', 404);
+            return;
+        }
+        $this->success($record, 'Critical TAT record updated successfully.');
+    }
 }
+

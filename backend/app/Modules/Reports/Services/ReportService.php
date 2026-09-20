@@ -2902,4 +2902,256 @@ class ReportService
 
         return $this->getIncidentDetails($id);
     }
+
+    /**
+     * JCAHO: Critical Diagnostic Test Results Turnaround Time Report
+     */
+    public function getCriticalTATReport(array $filters): array
+    {
+        $db = Database::connection();
+
+        $dateFrom   = $filters['date_from']     ?? null;
+        $dateTo     = $filters['date_to']       ?? null;
+        $testType   = $filters['test_type']     ?? null;
+        $department = $filters['department']    ?? null;
+        $status     = $filters['status']        ?? null;
+        $compliant  = $filters['compliant']     ?? null;
+        $search     = $filters['search']        ?? null;
+
+        $where  = ['1=1'];
+        $params = [];
+
+        if (!empty($dateFrom)) {
+            $where[]               = 'DATE(result_date) >= :date_from';
+            $params['date_from']   = $dateFrom;
+        }
+        if (!empty($dateTo)) {
+            $where[]             = 'DATE(result_date) <= :date_to';
+            $params['date_to']   = $dateTo;
+        }
+        if (!empty($testType) && $testType !== 'all') {
+            $where[]             = 'test_type = :test_type';
+            $params['test_type'] = $testType;
+        }
+        if (!empty($department) && $department !== 'all') {
+            $where[]              = 'ordering_department = :department';
+            $params['department'] = $department;
+        }
+        if (!empty($status) && $status !== 'all') {
+            $where[]          = 'status = :status';
+            $params['status'] = $status;
+        }
+        if ($compliant !== null && $compliant !== 'all' && $compliant !== '') {
+            $where[]             = 'jcaho_compliant = :compliant';
+            $params['compliant'] = (int) $compliant;
+        }
+        if (!empty($search)) {
+            $where[]           = '(tracking_number LIKE :search OR test_name LIKE :search OR patient_name LIKE :search OR patient_mrn LIKE :search OR reported_by LIKE :search OR acknowledged_by LIKE :search OR critical_value LIKE :search)';
+            $params['search']  = '%' . $search . '%';
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $sql = "SELECT * FROM critical_result_turnaround WHERE {$whereClause} ORDER BY result_date DESC LIMIT 500";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // KPIs
+        $kpiSql    = "SELECT
+            COUNT(*) AS total_records,
+            SUM(jcaho_compliant = 1) AS compliant_count,
+            SUM(jcaho_compliant = 0 AND status IN ('Documented','Breached','Escalated')) AS breach_count,
+            SUM(status IN ('Pending','Notified')) AS pending_ack,
+            SUM(status = 'Escalated') AS escalated_count,
+            ROUND(AVG(CASE WHEN tat_total IS NOT NULL THEN tat_total END), 1) AS avg_tat_minutes,
+            SUM(read_back_confirmed = 1) AS read_back_done
+        FROM critical_result_turnaround WHERE {$whereClause}";
+        $kpiStmt   = $db->prepare($kpiSql);
+        $kpiStmt->execute($params);
+        $kpis = $kpiStmt->fetch(PDO::FETCH_ASSOC);
+
+        // Compliance rate
+        $total = (int)($kpis['total_records'] ?? 0);
+        $compliantCount = (int)($kpis['compliant_count'] ?? 0);
+        $kpis['compliance_rate'] = $total > 0 ? round(($compliantCount / $total) * 100, 1) : 0;
+
+        // Departments list
+        $depts = $db->query("SELECT DISTINCT ordering_department FROM critical_result_turnaround ORDER BY ordering_department")->fetchAll(PDO::FETCH_COLUMN);
+
+        return [
+            'records'     => $records,
+            'kpis'        => $kpis,
+            'departments' => $depts,
+        ];
+    }
+
+    public function getCriticalTATDetails(int $id): ?array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM critical_result_turnaround WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function createCriticalTATRecord(array $data): array
+    {
+        $db = Database::connection();
+
+        // Auto-generate tracking number
+        $year = date('Y');
+        $lastNum = $db->query("SELECT COUNT(*) FROM critical_result_turnaround WHERE YEAR(created_at) = {$year}")->fetchColumn();
+        $trackingNumber = 'CRT-' . $year . '-' . str_pad((int)$lastNum + 1, 4, '0', STR_PAD_LEFT);
+
+        // Calculate TATs if timestamps provided
+        $tatToCall  = null;
+        $tatCallAck = null;
+        $tatTotal   = null;
+        if (!empty($data['result_available_at']) && !empty($data['first_call_at'])) {
+            $tatToCall = (int)((strtotime($data['first_call_at']) - strtotime($data['result_available_at'])) / 60);
+            if ($tatToCall < 0) $tatToCall = 0;
+        }
+        if (!empty($data['first_call_at']) && !empty($data['acknowledged_at'])) {
+            $tatCallAck = (int)((strtotime($data['acknowledged_at']) - strtotime($data['first_call_at'])) / 60);
+            if ($tatCallAck < 0) $tatCallAck = 0;
+        }
+        if (!empty($data['result_available_at']) && !empty($data['acknowledged_at'])) {
+            $tatTotal = (int)((strtotime($data['acknowledged_at']) - strtotime($data['result_available_at'])) / 60);
+            if ($tatTotal < 0) $tatTotal = 0;
+        }
+
+        $policyLimit = (int)($data['policy_limit_minutes'] ?? 30);
+        $jcahoCompliant = ($tatTotal !== null && $tatTotal <= $policyLimit) ? 1 : 0;
+
+        // Auto-set status
+        $status = 'Pending';
+        if (!empty($data['documented_in_chart_at'])) {
+            $status = 'Documented';
+        } elseif (!empty($data['acknowledged_at'])) {
+            $status = $jcahoCompliant ? 'Acknowledged' : 'Breached';
+        } elseif (!empty($data['first_call_at'])) {
+            $status = 'Notified';
+        }
+        if (!empty($data['status'])) {
+            $status = $data['status'];
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO critical_result_turnaround (
+                tracking_number, result_date, test_type, test_name, critical_value, normal_range,
+                ordering_department, patient_id, patient_name, patient_mrn, patient_location,
+                reported_by, reported_by_role, result_available_at,
+                first_call_at, first_call_to, first_call_method,
+                acknowledged_at, acknowledged_by, acknowledged_by_role, read_back_confirmed,
+                documented_in_chart_at, action_taken,
+                tat_result_to_first_call, tat_first_call_to_ack, tat_total,
+                status, jcaho_compliant, policy_limit_minutes, breach_reason, notes
+            ) VALUES (
+                :tracking_number, :result_date, :test_type, :test_name, :critical_value, :normal_range,
+                :ordering_department, :patient_id, :patient_name, :patient_mrn, :patient_location,
+                :reported_by, :reported_by_role, :result_available_at,
+                :first_call_at, :first_call_to, :first_call_method,
+                :acknowledged_at, :acknowledged_by, :acknowledged_by_role, :read_back_confirmed,
+                :documented_in_chart_at, :action_taken,
+                :tat_result_to_first_call, :tat_first_call_to_ack, :tat_total,
+                :status, :jcaho_compliant, :policy_limit_minutes, :breach_reason, :notes
+            )
+        ");
+
+        $stmt->execute([
+            'tracking_number'          => $trackingNumber,
+            'result_date'              => $data['result_date'] ?? date('Y-m-d H:i:s'),
+            'test_type'                => $data['test_type'] ?? 'Laboratory',
+            'test_name'                => trim($data['test_name'] ?? ''),
+            'critical_value'           => trim($data['critical_value'] ?? ''),
+            'normal_range'             => $data['normal_range'] ?? null,
+            'ordering_department'      => trim($data['ordering_department'] ?? ''),
+            'patient_id'               => !empty($data['patient_id']) ? (int)$data['patient_id'] : null,
+            'patient_name'             => $data['patient_name'] ?? null,
+            'patient_mrn'              => $data['patient_mrn'] ?? null,
+            'patient_location'         => $data['patient_location'] ?? null,
+            'reported_by'              => trim($data['reported_by'] ?? ''),
+            'reported_by_role'         => $data['reported_by_role'] ?? 'Laboratory Technologist',
+            'result_available_at'      => $data['result_available_at'] ?? date('Y-m-d H:i:s'),
+            'first_call_at'            => !empty($data['first_call_at']) ? $data['first_call_at'] : null,
+            'first_call_to'            => $data['first_call_to'] ?? null,
+            'first_call_method'        => $data['first_call_method'] ?? 'Phone',
+            'acknowledged_at'          => !empty($data['acknowledged_at']) ? $data['acknowledged_at'] : null,
+            'acknowledged_by'          => $data['acknowledged_by'] ?? null,
+            'acknowledged_by_role'     => $data['acknowledged_by_role'] ?? null,
+            'read_back_confirmed'      => !empty($data['read_back_confirmed']) ? 1 : 0,
+            'documented_in_chart_at'   => !empty($data['documented_in_chart_at']) ? $data['documented_in_chart_at'] : null,
+            'action_taken'             => $data['action_taken'] ?? null,
+            'tat_result_to_first_call' => $tatToCall,
+            'tat_first_call_to_ack'    => $tatCallAck,
+            'tat_total'                => $tatTotal,
+            'status'                   => $status,
+            'jcaho_compliant'          => $jcahoCompliant,
+            'policy_limit_minutes'     => $policyLimit,
+            'breach_reason'            => $data['breach_reason'] ?? null,
+            'notes'                    => $data['notes'] ?? null,
+        ]);
+
+        $newId = $db->lastInsertId();
+        return $this->getCriticalTATDetails((int)$newId);
+    }
+
+    public function updateCriticalTATRecord(int $id, array $data): ?array
+    {
+        $db = Database::connection();
+        $existing = $this->getCriticalTATDetails($id);
+        if (!$existing) return null;
+
+        $fields = ['updated_at = NOW()'];
+        $params = ['id' => $id];
+
+        $updatable = [
+            'acknowledged_at', 'acknowledged_by', 'acknowledged_by_role',
+            'read_back_confirmed', 'documented_in_chart_at', 'action_taken',
+            'first_call_at', 'first_call_to', 'first_call_method',
+            'status', 'breach_reason', 'escalated_to', 'notes',
+        ];
+
+        foreach ($updatable as $col) {
+            if (isset($data[$col])) {
+                $fields[]      = "{$col} = :{$col}";
+                $params[$col]  = $data[$col] === '' ? null : $data[$col];
+            }
+        }
+
+        // Recalculate TATs
+        $resultAt  = $data['result_available_at'] ?? $existing['result_available_at'];
+        $callAt    = $data['first_call_at']        ?? $existing['first_call_at'];
+        $ackAt     = $data['acknowledged_at']      ?? $existing['acknowledged_at'];
+
+        if ($callAt && $resultAt) {
+            $tatToCall = max(0, (int)((strtotime($callAt) - strtotime($resultAt)) / 60));
+            $fields[]             = 'tat_result_to_first_call = :tat_result_to_first_call';
+            $params['tat_result_to_first_call'] = $tatToCall;
+        }
+        if ($ackAt && $callAt) {
+            $tatAck = max(0, (int)((strtotime($ackAt) - strtotime($callAt)) / 60));
+            $fields[]                   = 'tat_first_call_to_ack = :tat_first_call_to_ack';
+            $params['tat_first_call_to_ack'] = $tatAck;
+        }
+        if ($ackAt && $resultAt) {
+            $tatTotal = max(0, (int)((strtotime($ackAt) - strtotime($resultAt)) / 60));
+            $fields[]           = 'tat_total = :tat_total';
+            $params['tat_total'] = $tatTotal;
+            $policyLimit         = (int)($existing['policy_limit_minutes'] ?? 30);
+            $jcahoCompliant      = ($tatTotal <= $policyLimit) ? 1 : 0;
+            $fields[]               = 'jcaho_compliant = :jcaho_compliant';
+            $params['jcaho_compliant'] = $jcahoCompliant;
+        }
+
+        if (count($fields) <= 1) return $existing;
+
+        $setClause = implode(', ', $fields);
+        $stmt = $db->prepare("UPDATE critical_result_turnaround SET {$setClause} WHERE id = :id");
+        $stmt->execute($params);
+
+        return $this->getCriticalTATDetails($id);
+    }
 }
+

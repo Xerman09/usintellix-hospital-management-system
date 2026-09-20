@@ -231,6 +231,8 @@ import { initAlertsLog } from "../reports/alerts-log.js";
 import { AlertsLogView } from "../reports/alerts-log.view.js";
 import { initIncidentLog } from "../reports/incident-log.js";
 import { IncidentLogView } from "../reports/incident-log.view.js";
+import { initCriticalTAT } from "../reports/critical-tat.js";
+import { CriticalTATView } from "../reports/critical-tat.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1071,6 +1073,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Incident & Adverse Events', () => {
                 setTimeout(initIncidentLog, 0);
                 return IncidentLogView();
+            }, activate);
+        } else if (tabId === 'clinic_critical_tat') {
+            tabManager.openTab(tabId, title || 'Critical Diagnostic TAT', () => {
+                setTimeout(initCriticalTAT, 0);
+                return CriticalTATView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {
