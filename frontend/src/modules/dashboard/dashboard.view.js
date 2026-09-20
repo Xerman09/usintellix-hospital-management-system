@@ -58,6 +58,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <a data-tab="manage_modules">Manage Modules</a>
                 <a data-tab="carecoordination">Carecoordination</a>
+                <a data-tab="or_management">Operating Room (OR) Management</a>
             </div>
         </div>
         <div class="nav-dropdown">
@@ -71,6 +72,7 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Procedures</span>
             <div class="dropdown-content">
+                <a data-tab="or_management">Operating Room (OR) Management</a>
                 <a data-tab="providers">Providers</a>
                 <a data-tab="procedure_configuration">Configuration</a>
                 <a data-tab="procedure_load_compendium">Load Compendium</a>

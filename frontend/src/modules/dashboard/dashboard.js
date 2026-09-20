@@ -239,6 +239,8 @@ import { initReadmissionMortality } from "../reports/readmission-mortality.js";
 import { ReadmissionMortalityView } from "../reports/readmission-mortality.view.js";
 import { initSurgicalSafety } from "../reports/surgical-safety.js";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js";
+import { initOrManagement } from "../or-management/or-management.js";
+import { OrManagementView } from "../or-management/or-management.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1290,6 +1292,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCareCoordination, 0);
                 return CareCoordinationView();
+            }, activate);
+        } else if (tabId === 'or_management') {
+            tabManager.openTab(tabId, title || 'Operating Room (OR) Management', () => {
+                setTimeout(initOrManagement, 0);
+                return OrManagementView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
