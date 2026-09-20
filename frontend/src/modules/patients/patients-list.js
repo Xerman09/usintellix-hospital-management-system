@@ -112,7 +112,8 @@ import {
 import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js";
 import {
     fetchPatientEncounters, fetchLinkableIssues, addEncounter, updateEncounter, removeEncounter,
-    fetchDischargeDispositions, updateEncounterBillingNote, fetchEncounterFormOptions
+    fetchDischargeDispositions, updateEncounterBillingNote, fetchEncounterFormOptions,
+    fetchEncounterTransferSummary
 } from "../encounters/encounters.service.js";
 import { fetchCareTeam, fetchCareTeamOptions, saveCareTeam } from "../care-team/care-team.service.js";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
@@ -10914,7 +10915,15 @@ function setupVisitHistoryPanel()
         printVisitHistoryTable(currentDashboardPatient);
     });
 
+    const transferSummaryBtn = document.getElementById("pdVisitHistoryTransferSummaryBtn");
+    if (transferSummaryBtn) {
+        transferSummaryBtn.addEventListener("click", () => {
+            openEncounterTransferModal();
+        });
+    }
+
     setupBillingNoteModal();
+    setupEncounterTransferModal();
 }
 
 function setupBillingNoteModal()
@@ -11179,6 +11188,764 @@ function printVisitHistoryTable(patient)
     reportWindow.document.open();
     reportWindow.document.write(html);
     reportWindow.document.close();
+}
+
+function openEncounterTransferModal()
+{
+    if (!currentDashboardPatient) {
+        return;
+    }
+
+    const modal = document.getElementById("pdEncounterTransferModalOverlay");
+    if (!modal) return;
+
+    document.getElementById("pdEncounterTransferAlert").innerHTML = "";
+
+    const startInput = document.getElementById("pdTransferStartDate");
+    const endInput = document.getElementById("pdTransferEndDate");
+
+    if (visitHistoryEncounters && visitHistoryEncounters.length > 0) {
+        const dates = visitHistoryEncounters
+            .map((e) => (e.date_of_service || "").slice(0, 10))
+            .filter(Boolean)
+            .sort();
+
+        if (dates.length > 0) {
+            startInput.value = dates[0];
+            endInput.value = dates[dates.length - 1];
+        } else {
+            startInput.value = "";
+            endInput.value = "";
+        }
+    } else {
+        startInput.value = "";
+        endInput.value = "";
+    }
+
+    renderTransferEncountersList();
+    modal.classList.add("open");
+}
+
+function renderTransferEncountersList()
+{
+    const container = document.getElementById("pdTransferEncountersList");
+    const countEl = document.getElementById("pdTransferEncounterCount");
+    if (!container || !countEl) return;
+
+    const startVal = document.getElementById("pdTransferStartDate")?.value;
+    const endVal = document.getElementById("pdTransferEndDate")?.value;
+
+    const startDate = startVal ? new Date(startVal + "T00:00:00") : null;
+    const endDate = endVal ? new Date(endVal + "T23:59:59") : null;
+
+    const filtered = (visitHistoryEncounters || []).filter((enc) => {
+        if (!enc.date_of_service) return true;
+        const encDate = new Date(enc.date_of_service);
+        if (startDate && encDate < startDate) return false;
+        if (endDate && encDate > endDate) return false;
+        return true;
+    });
+
+    countEl.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<p style="color: #94a3b8; font-size: 12px; padding: 12px 0; text-align: center; margin: 0;">No encounters found for the selected date range.</p>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map((enc) => {
+        const dateStr = formatDateTime(enc.date_of_service);
+        const cat = enc.visit_category_name || "Encounter";
+        const provider = enc.encounter_provider_name || "-";
+        const reason = enc.reason_for_visit ? ` &mdash; <em>${escapeHtml(enc.reason_for_visit)}</em>` : "";
+
+        return `
+            <label style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 6px; border-bottom: 1px solid #f1f5f9; cursor: pointer;">
+                <input type="checkbox" name="transferEncounterCheckbox" value="${enc.id}" checked style="margin-top: 3px; accent-color: #0055a4;">
+                <div style="flex: 1; font-size: 12px; line-height: 1.4;">
+                    <div style="font-weight: 600; color: #1e293b;">
+                        ${escapeHtml(dateStr)} &bull; <span style="color: #0284c7;">${escapeHtml(cat)}</span>
+                    </div>
+                    <div style="color: #64748b; font-size: 11.5px; margin-top: 2px;">
+                        <span>Provider: <strong>${escapeHtml(provider)}</strong></span>${reason}
+                    </div>
+                </div>
+            </label>
+        `;
+    }).join("");
+}
+
+function setupEncounterTransferModal()
+{
+    const modalOverlay = document.getElementById("pdEncounterTransferModalOverlay");
+    if (!modalOverlay) return;
+
+    const form = document.getElementById("pdEncounterTransferForm");
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("closeEncounterTransferModal")?.addEventListener("click", closeModal);
+    document.getElementById("cancelEncounterTransferBtn")?.addEventListener("click", closeModal);
+
+    modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    const startInput = document.getElementById("pdTransferStartDate");
+    const endInput = document.getElementById("pdTransferEndDate");
+
+    startInput?.addEventListener("change", renderTransferEncountersList);
+    endInput?.addEventListener("change", renderTransferEncountersList);
+
+    // Date range presets
+    document.querySelectorAll("#pdTransferDatePresets button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const preset = btn.getAttribute("data-preset");
+            const today = new Date();
+            const formatDateYMD = (d) => d.toISOString().slice(0, 10);
+
+            if (preset === "all") {
+                if (visitHistoryEncounters && visitHistoryEncounters.length > 0) {
+                    const dates = visitHistoryEncounters
+                        .map((e) => (e.date_of_service || "").slice(0, 10))
+                        .filter(Boolean)
+                        .sort();
+                    startInput.value = dates[0] || "";
+                    endInput.value = dates[dates.length - 1] || "";
+                } else {
+                    startInput.value = "";
+                    endInput.value = "";
+                }
+            } else if (preset === "30d") {
+                const past = new Date();
+                past.setDate(today.getDate() - 30);
+                startInput.value = formatDateYMD(past);
+                endInput.value = formatDateYMD(today);
+            } else if (preset === "90d") {
+                const past = new Date();
+                past.setDate(today.getDate() - 90);
+                startInput.value = formatDateYMD(past);
+                endInput.value = formatDateYMD(today);
+            } else if (preset === "1y") {
+                const past = new Date();
+                past.setFullYear(today.getFullYear() - 1);
+                startInput.value = formatDateYMD(past);
+                endInput.value = formatDateYMD(today);
+            }
+
+            renderTransferEncountersList();
+        });
+    });
+
+    // Select All / Deselect All
+    document.getElementById("pdTransferSelectAllEncounters")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        document.querySelectorAll('#pdTransferEncountersList input[name="transferEncounterCheckbox"]').forEach((cb) => {
+            cb.checked = true;
+        });
+    });
+
+    document.getElementById("pdTransferDeselectAllEncounters")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        document.querySelectorAll('#pdTransferEncountersList input[name="transferEncounterCheckbox"]').forEach((cb) => {
+            cb.checked = false;
+        });
+    });
+
+    // Form submit -> Print Transfer Summary
+    form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!currentDashboardPatient) return;
+
+        const checkedBoxes = Array.from(document.querySelectorAll('#pdTransferEncountersList input[name="transferEncounterCheckbox"]:checked'));
+        if (checkedBoxes.length === 0) {
+            showAlert("pdEncounterTransferAlert", "Please select at least one encounter to include in the transfer summary.", "error");
+            return;
+        }
+
+        const selectedIds = checkedBoxes.map((cb) => cb.value);
+        const startDate = startInput.value;
+        const endDate = endInput.value;
+        const receivingHospital = (document.getElementById("pdTransferReceivingHospital")?.value || "").trim();
+        const transferReason = (document.getElementById("pdTransferReason")?.value || "").trim();
+
+        const options = {
+            incBaseline: document.getElementById("pdTransferIncBaseline")?.checked ?? true,
+            incMeds: document.getElementById("pdTransferIncMeds")?.checked ?? true,
+            incVitals: document.getElementById("pdTransferIncVitals")?.checked ?? true,
+            incNotes: document.getElementById("pdTransferIncNotes")?.checked ?? true,
+            incCarePlan: document.getElementById("pdTransferIncCarePlan")?.checked ?? true,
+            incBilling: document.getElementById("pdTransferIncBilling")?.checked ?? true,
+            receivingHospital,
+            transferReason
+        };
+
+        // 1. Open popup window SYNCHRONOUSLY to bypass browser popup blockers
+        const reportWindow = window.open("", "_blank", "width=950,height=850,scrollbars=yes");
+        if (!reportWindow) {
+            showAlert("pdEncounterTransferAlert", "Please allow pop-ups to print the transfer summary.", "error");
+            return;
+        }
+
+        // 2. Immediate loading state
+        reportWindow.document.open();
+        reportWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Generating Transfer Summary...</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; text-align: center; padding: 60px 20px; color: #334155; }
+                    .loader { width: 36px; height: 36px; border: 4px solid #cbd5e1; border-top-color: #0055a4; border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto 16px; }
+                    @keyframes spin { 100% { transform: rotate(360deg); } }
+                </style>
+            </head>
+            <body>
+                <div class="loader"></div>
+                <h2 style="margin: 0 0 8px 0; color: #0f172a;">Generating Encounter Transfer Summary...</h2>
+                <p style="color: #64748b; margin: 0;">Gathering clinical encounter records, notes, and vitals for hospital transfer.</p>
+            </body>
+            </html>
+        `);
+
+        const submitBtn = document.getElementById("generateEncounterTransferBtn");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Generating...";
+        }
+
+        try {
+            const result = await fetchEncounterTransferSummary({
+                patient_id: currentDashboardPatient.id,
+                date_from: startDate,
+                date_to: endDate,
+                encounter_ids: selectedIds.join(",")
+            });
+
+            if (!result.success) {
+                reportWindow.document.open();
+                reportWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html><head><title>Error</title></head>
+                    <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+                        <h2 style="color: #b91c1c;">Failed to Generate Summary</h2>
+                        <p>${escapeHtml(result.message || "An error occurred while retrieving encounter data.")}</p>
+                    </body></html>
+                `);
+                reportWindow.document.close();
+                return;
+            }
+
+            const html = generateEncounterTransferSummaryHtml(currentDashboardPatient, result.data, options);
+            reportWindow.document.open();
+            reportWindow.document.write(html);
+            reportWindow.document.close();
+
+            closeModal();
+        } catch (err) {
+            console.error("Error generating encounter transfer summary:", err);
+            reportWindow.document.open();
+            reportWindow.document.write(`
+                <!DOCTYPE html>
+                <html><head><title>Error</title></head>
+                <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+                    <h2 style="color: #b91c1c;">Unexpected Error</h2>
+                    <p>An unexpected error occurred while generating the summary.</p>
+                </body></html>
+            `);
+            reportWindow.document.close();
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Print Summary`;
+            }
+        }
+    });
+}
+
+function generateEncounterTransferSummaryHtml(patient, data, options = {})
+{
+    const fullName = patient
+        ? [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")
+        : "Unknown Patient";
+    const patientDob = patient?.birthdate ? formatDate(patient.birthdate) : "-";
+    const patientSex = patient?.sex || "-";
+    const patientNo = patient?.patient_no || "-";
+    const address = [patient?.address_line, patient?.city, patient?.province, patient?.zip_code].filter(Boolean).join(", ") || "-";
+    const phone = patient?.home_phone || patient?.mobile_phone || patient?.work_phone || "-";
+
+    const encounters = data.encounters || [];
+    const sendingFacility = (encounters[0]?.facility_name) || "Intellix Healthcare System";
+    const receivingHospital = options.receivingHospital || "Receiving Medical Center / Specialist";
+    const transferReason = options.transferReason || "Clinical Transfer & Continuity of Care";
+    const dateRangeStr = (data.date_from || data.date_to)
+        ? `${data.date_from ? formatDate(data.date_from) : "Earliest"} to ${data.date_to ? formatDate(data.date_to) : "Latest"}`
+        : "All Recorded Visits";
+    const documentId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `TR-${Date.now()}`;
+    const generatedAt = data.generated_at ? formatDateTime(data.generated_at) : formatDateTime(new Date().toISOString());
+
+    // Insurance
+    const insurances = data.insurances || [];
+    const primaryInsurance = insurances.find((i) => i.insurance_type === "primary") || insurances[0];
+    const insuranceLabel = primaryInsurance
+        ? `${primaryInsurance.insurance_name || ""}${primaryInsurance.policy_number ? ` (Policy: ${primaryInsurance.policy_number})` : ""}`
+        : "-";
+
+    // Allergies
+    const allergies = data.allergies || [];
+    let allergiesHtml = "";
+    if (options.incBaseline) {
+        allergiesHtml = `
+            <div class="section-box">
+                <div class="section-head">Allergies, Adverse Reactions & Alerts</div>
+                <div class="section-body">
+                    ${allergies.length ? `
+                        <table class="summary-table">
+                            <thead><tr><th>Substance / Allergen</th><th>Reaction</th><th>Severity</th><th>Status</th><th>Onset Date</th></tr></thead>
+                            <tbody>
+                                ${allergies.map((a) => `
+                                    <tr>
+                                        <td><strong>${escapeHtml(a.title || a.name || "-")}</strong></td>
+                                        <td>${escapeHtml(a.reaction || "-")}</td>
+                                        <td>${escapeHtml(a.severity || "-")}</td>
+                                        <td><span style="color: ${a.status === 'inactive' ? '#64748b' : '#dc2626'}; font-weight: 600;">${escapeHtml(a.status || "Active")}</span></td>
+                                        <td>${escapeHtml(a.begin_date ? formatDate(a.begin_date) : "-")}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    ` : `<p style="color: #64748b; font-style: italic; margin: 4px 0;">No known allergies or adverse reactions recorded.</p>`}
+                </div>
+            </div>
+        `;
+    }
+
+    // Problems
+    const problems = data.problems || [];
+    let problemsHtml = "";
+    if (options.incBaseline) {
+        problemsHtml = `
+            <div class="section-box">
+                <div class="section-head">Active Problems & Medical Diagnoses</div>
+                <div class="section-body">
+                    ${problems.length ? `
+                        <table class="summary-table">
+                            <thead><tr><th>Diagnosis / Condition</th><th>Code (ICD)</th><th>Status</th><th>Verification</th><th>Onset Date</th></tr></thead>
+                            <tbody>
+                                ${problems.map((p) => `
+                                    <tr>
+                                        <td><strong>${escapeHtml(p.title || "-")}</strong></td>
+                                        <td>${escapeHtml(p.coding || "-")}</td>
+                                        <td><span style="color: ${p.status === 'resolved' ? '#16a34a' : '#d97706'}; font-weight: 600;">${escapeHtml(p.status || "Active")}</span></td>
+                                        <td>${escapeHtml(p.verification_status || "Confirmed")}</td>
+                                        <td>${escapeHtml(p.begin_date ? formatDate(p.begin_date) : "-")}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    ` : `<p style="color: #64748b; font-style: italic; margin: 4px 0;">No active medical problems recorded.</p>`}
+                </div>
+            </div>
+        `;
+    }
+
+    // Medications
+    const medications = data.medications || [];
+    let medsHtml = "";
+    if (options.incMeds) {
+        medsHtml = `
+            <div class="section-box">
+                <div class="section-head">Current / Active Medications</div>
+                <div class="section-body">
+                    ${medications.length ? `
+                        <table class="summary-table">
+                            <thead><tr><th>Medication</th><th>Dosage & Unit</th><th>Frequency</th><th>Route</th><th>Status</th><th>Start Date</th></tr></thead>
+                            <tbody>
+                                ${medications.map((m) => `
+                                    <tr>
+                                        <td><strong>${escapeHtml(m.title || "-")}</strong></td>
+                                        <td>${escapeHtml([m.dosage, m.dosage_unit].filter(Boolean).join(" ") || "-")}</td>
+                                        <td>${escapeHtml(m.frequency || "-")}</td>
+                                        <td>${escapeHtml(m.route || "-")}</td>
+                                        <td>${escapeHtml(m.status || "Active")}</td>
+                                        <td>${escapeHtml(m.begin_date ? formatDate(m.begin_date) : "-")}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    ` : `<p style="color: #64748b; font-style: italic; margin: 4px 0;">No current medications recorded.</p>`}
+                </div>
+            </div>
+        `;
+    }
+
+    // Encounters
+    let encountersHtml = "";
+    if (encounters.length === 0) {
+        encountersHtml = `<p style="color: #64748b; font-style: italic; padding: 12px; text-align: center;">No encounters recorded for this date range.</p>`;
+    } else {
+        encountersHtml = encounters.map((enc, idx) => {
+            const encDate = formatDateTime(enc.date_of_service);
+            const encCategory = enc.visit_category_name || "Encounter";
+            const encClass = enc.class_name ? ` (${enc.class_name})` : "";
+            const encProvider = enc.encounter_provider_name || "-";
+            const refProvider = enc.referring_provider_name || "";
+            const encFacility = enc.facility_name || "-";
+            const discharge = enc.discharge_disposition_name || "";
+
+            // Vitals
+            let vitalsBlock = "";
+            if (options.incVitals && enc.vitals) {
+                const v = enc.vitals;
+                const items = [];
+                if (v.bp_systolic || v.bp_diastolic) {
+                    items.push(`<div class="vital-item"><div class="vital-label">Blood Pressure</div><div class="vital-value">${escapeHtml(`${v.bp_systolic || "-"}/${v.bp_diastolic || "-"} mmHg`)}</div></div>`);
+                }
+                if (v.pulse) {
+                    items.push(`<div class="vital-item"><div class="vital-label">Pulse / HR</div><div class="vital-value">${escapeHtml(v.pulse)} bpm</div></div>`);
+                }
+                if (v.temperature) {
+                    items.push(`<div class="vital-item"><div class="vital-label">Temperature</div><div class="vital-value">${escapeHtml(v.temperature)} &deg;F ${v.temp_location ? `(${escapeHtml(v.temp_location)})` : ""}</div></div>`);
+                }
+                if (v.respiration) {
+                    items.push(`<div class="vital-item"><div class="vital-label">Respiration</div><div class="vital-value">${escapeHtml(v.respiration)} /min</div></div>`);
+                }
+                if (v.oxygen_saturation) {
+                    items.push(`<div class="vital-item"><div class="vital-label">SpO2</div><div class="vital-value">${escapeHtml(v.oxygen_saturation)}%</div></div>`);
+                }
+                if (v.height) {
+                    items.push(`<div class="vital-item"><div class="vital-label">Height</div><div class="vital-value">${escapeHtml(v.height)} in</div></div>`);
+                }
+                if (v.weight) {
+                    items.push(`<div class="vital-item"><div class="vital-label">Weight</div><div class="vital-value">${escapeHtml(v.weight)} lbs</div></div>`);
+                }
+                if (v.bmi) {
+                    items.push(`<div class="vital-item"><div class="vital-label">BMI</div><div class="vital-value">${escapeHtml(v.bmi)} ${v.bmi_status ? `(${escapeHtml(v.bmi_status)})` : ""}</div></div>`);
+                }
+                if (v.other_notes) {
+                    items.push(`<div class="vital-item" style="grid-column: 1 / -1;"><div class="vital-label">Vitals Notes</div><div class="vital-value" style="font-weight: normal;">${escapeHtml(v.other_notes)}</div></div>`);
+                }
+
+                if (items.length) {
+                    vitalsBlock = `
+                        <div class="clinical-subsection">
+                            <div class="clinical-subhead">Recorded Vital Signs</div>
+                            <div class="vitals-grid">${items.join("")}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            // SOAP Notes
+            let soapBlock = "";
+            if (options.incNotes && enc.soap_notes && enc.soap_notes.length) {
+                soapBlock = `
+                    <div class="clinical-subsection">
+                        <div class="clinical-subhead">SOAP Clinical Notes</div>
+                        ${enc.soap_notes.map((n) => `
+                            <div class="soap-block">
+                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">
+                                    Recorded by <strong>${escapeHtml(n.author_name || "Provider")}</strong> on ${formatDateTime(n.created_at)}
+                                    ${n.locked_at ? '<span style="color: #0284c7; font-weight: 600; margin-left: 6px;">[Signed / Locked]</span>' : ''}
+                                </div>
+                                ${n.subjective ? `<div class="soap-field"><strong>Subjective:</strong> ${escapeHtml(n.subjective)}</div>` : ''}
+                                ${n.objective ? `<div class="soap-field"><strong>Objective:</strong> ${escapeHtml(n.objective)}</div>` : ''}
+                                ${n.assessment ? `<div class="soap-field"><strong>Assessment:</strong> ${escapeHtml(n.assessment)}</div>` : ''}
+                                ${n.plan ? `<div class="soap-field"><strong>Plan:</strong> ${escapeHtml(n.plan)}</div>` : ''}
+                            </div>
+                        `).join("")}
+                    </div>
+                `;
+            }
+
+            // Clinical Notes
+            let clinicalNotesBlock = "";
+            if (options.incNotes && enc.clinical_notes && enc.clinical_notes.length) {
+                clinicalNotesBlock = `
+                    <div class="clinical-subsection">
+                        <div class="clinical-subhead">Physician & Progress Notes</div>
+                        ${enc.clinical_notes.map((cn) => `
+                            <div style="background: #fafafa; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; font-size: 11.5px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 3px;">
+                                    <span><strong>${escapeHtml(cn.note_type || "Clinical Note")}</strong> ${cn.category ? `(${escapeHtml(cn.category)})` : ""}</span>
+                                    <span>${escapeHtml(cn.author_name || "")} ${cn.note_date ? `&bull; ${formatDateTime(cn.note_date)}` : ""}</span>
+                                </div>
+                                <div style="white-space: pre-wrap; color: #1e293b;">${escapeHtml(cn.narrative || "-")}</div>
+                            </div>
+                        `).join("")}
+                    </div>
+                `;
+            }
+
+            // Clinical Instructions
+            let instructionsBlock = "";
+            if (options.incCarePlan && enc.clinical_instructions && enc.clinical_instructions.length) {
+                instructionsBlock = `
+                    <div class="clinical-subsection">
+                        <div class="clinical-subhead">Clinical Instructions to Patient</div>
+                        <ul style="margin: 4px 0 8px 18px; padding: 0; font-size: 11.5px;">
+                            ${enc.clinical_instructions.map((ci) => `
+                                <li>${escapeHtml(ci.instruction || "")} ${ci.instruction_date ? `<em style="color: #64748b;">(${formatDate(ci.instruction_date)})</em>` : ""}</li>
+                            `).join("")}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Care Plan
+            let carePlanBlock = "";
+            if (options.incCarePlan && enc.care_plan_items && enc.care_plan_items.length) {
+                carePlanBlock = `
+                    <div class="clinical-subsection">
+                        <div class="clinical-subhead">Care Plan & Orders</div>
+                        <table class="summary-table">
+                            <thead><tr><th>Type</th><th>Description</th><th>Code</th><th>Date</th><th>Author</th></tr></thead>
+                            <tbody>
+                                ${enc.care_plan_items.map((cp) => `
+                                    <tr>
+                                        <td>${escapeHtml(cp.item_type || "-")}</td>
+                                        <td><strong>${escapeHtml(cp.description || "-")}</strong> ${cp.code_text ? `<br/><small>${escapeHtml(cp.code_text)}</small>` : ""}</td>
+                                        <td>${escapeHtml(cp.code || "-")}</td>
+                                        <td>${escapeHtml(cp.item_date ? formatDateTime(cp.item_date) : "-")}</td>
+                                        <td>${escapeHtml(cp.author_name || "-")}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            // Billing / Diagnostic codes
+            let billingBlock = "";
+            if (options.incBilling && enc.billing_codes_summary) {
+                const formatted = formatEncounterBillingCodes(enc.billing_codes_summary);
+                billingBlock = `
+                    <div class="clinical-subsection">
+                        <div class="clinical-subhead">Diagnostic & Procedure Codes</div>
+                        <div style="font-size: 11.5px; color: #1e293b; background: #f8fafc; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px;">
+                            ${formatted}
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="encounter-card">
+                    <div class="encounter-card-head">
+                        <div>
+                            <strong>Visit #${encounters.length - idx}: ${escapeHtml(encDate)}</strong>
+                            <span style="margin-left: 8px; font-size: 11.5px; color: #475569;">Facility: <strong>${escapeHtml(encFacility)}</strong></span>
+                        </div>
+                        <div>
+                            <span class="encounter-badge">${escapeHtml(encCategory)}${escapeHtml(encClass)}</span>
+                        </div>
+                    </div>
+                    <div class="encounter-card-body">
+                        <table class="summary-table" style="margin-bottom: 8px;">
+                            <tbody>
+                                <tr>
+                                    <td style="width: 140px; font-weight: 600; background: #f8fafc;">Attending Provider:</td>
+                                    <td>${escapeHtml(encProvider)}</td>
+                                    <td style="width: 140px; font-weight: 600; background: #f8fafc;">Referring Provider:</td>
+                                    <td>${escapeHtml(refProvider || "-")}</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; background: #f8fafc;">Reason for Visit:</td>
+                                    <td colspan="3"><strong style="color: #0f172a;">${escapeHtml(enc.reason_for_visit || "Not specified")}</strong></td>
+                                </tr>
+                                ${discharge ? `
+                                    <tr>
+                                        <td style="font-weight: 600; background: #f8fafc;">Discharge Disposition:</td>
+                                        <td colspan="3"><strong style="color: #0284c7;">${escapeHtml(discharge)}</strong></td>
+                                    </tr>
+                                ` : ""}
+                            </tbody>
+                        </table>
+
+                        ${vitalsBlock}
+                        ${soapBlock}
+                        ${clinicalNotesBlock}
+                        ${instructionsBlock}
+                        ${carePlanBlock}
+                        ${billingBlock}
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    const attestationHtml = `
+        <div class="attestation-block">
+            <div style="font-size: 12px; font-weight: 700; color: #0055a4; text-transform: uppercase;">
+                Inter-Facility Transfer Attestation & Authorization
+            </div>
+            <p style="font-size: 11px; color: #475569; margin: 4px 0 12px 0;">
+                I hereby certify that the clinical summary and encounter records above represent an accurate summary of patient evaluation, treatments, diagnoses, and medical care administered at this facility, released for the purpose of continuity of care at the receiving hospital.
+            </p>
+            <div class="attestation-grid">
+                <div>
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Transferring Attending Physician / Clinician Signature</div>
+                    <div style="font-size: 11px; margin-top: 4px;">
+                        <strong>Date & Time:</strong> ______________________
+                    </div>
+                </div>
+                <div>
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Receiving Hospital Acceptance / Clinician Signature</div>
+                    <div style="font-size: 11px; margin-top: 4px;">
+                        <strong>Date & Time:</strong> ______________________
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clinical Encounter Transfer Summary - ${escapeHtml(fullName)}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 12px; color: #1e293b; background: #fff; margin: 0; padding: 24px 30px; line-height: 1.45; }
+        .transfer-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0055a4; padding-bottom: 12px; margin-bottom: 16px; }
+        .facility-title { font-size: 18px; font-weight: 700; color: #0055a4; text-transform: uppercase; letter-spacing: 0.5px; }
+        .document-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+        .document-subtitle { font-size: 11px; color: #64748b; font-weight: 500; }
+        .meta-box { text-align: right; font-size: 11px; color: #475569; }
+        .meta-box table { margin-left: auto; border-collapse: collapse; }
+        .meta-box td { padding: 1px 4px; }
+        .meta-label { font-weight: 600; color: #0f172a; }
+        
+        .transfer-route-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px 14px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; }
+        .transfer-route-box div strong { color: #0f172a; }
+
+        .section-box { margin-bottom: 16px; }
+        .section-head { background: #0055a4; color: #fff; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 3px 3px 0 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .section-body { border: 1px solid #cbd5e1; border-top: none; padding: 10px; border-radius: 0 0 3px 3px; }
+
+        table.summary-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 11.5px; }
+        table.summary-table th { background: #f1f5f9; color: #334155; font-weight: 600; text-align: left; padding: 5px 8px; border: 1px solid #cbd5e1; font-size: 11px; }
+        table.summary-table td { padding: 5px 8px; border: 1px solid #cbd5e1; vertical-align: top; }
+        table.summary-table tr:nth-child(even) td { background: #fafafa; }
+
+        .encounter-card { border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 16px; page-break-inside: avoid; }
+        .encounter-card-head { background: #e2e8f0; padding: 8px 12px; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+        .encounter-card-head strong { font-size: 13px; color: #0f172a; }
+        .encounter-badge { background: #0055a4; color: #fff; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+        .encounter-card-body { padding: 12px; }
+
+        .vitals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 8px 0; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 4px; }
+        .vital-item { font-size: 11px; }
+        .vital-label { color: #64748b; font-size: 10px; text-transform: uppercase; }
+        .vital-value { font-weight: 600; color: #0f172a; font-size: 12px; }
+
+        .clinical-subsection { margin-top: 10px; }
+        .clinical-subhead { font-size: 11.5px; font-weight: 700; color: #0055a4; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 6px; }
+
+        .soap-block { background: #f8fafc; border-left: 3px solid #0055a4; padding: 6px 10px; margin-bottom: 8px; font-size: 11.5px; }
+        .soap-field { margin-bottom: 4px; }
+        .soap-field strong { color: #0f172a; }
+
+        .attestation-block { margin-top: 24px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 12px; page-break-inside: avoid; background: #fff; }
+        .attestation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 16px; }
+        .sig-line { border-bottom: 1px solid #475569; margin-top: 35px; margin-bottom: 4px; }
+        .sig-label { font-size: 11px; color: #475569; }
+
+        .disclaimer { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+
+        ${CCD_PRINT_BUTTON_STYLE}
+
+        @media print {
+            .pd-ccd-download-btn { display: none !important; }
+            body { padding: 0; margin: 10mm; font-size: 11px; }
+            .section-head { background: #0055a4 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .encounter-card-head { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .vitals-grid { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { size: auto; margin: 10mm; }
+        }
+    </style>
+</head>
+<body>
+    ${CCD_PRINT_BUTTON_HTML}
+
+    <div class="transfer-header">
+        <div>
+            <div class="facility-title">${escapeHtml(sendingFacility)}</div>
+            <div class="document-title">Patient Encounter Transfer & Referral Summary</div>
+            <div class="document-subtitle">Clinical Continuity of Care Record for Inter-Hospital Transfer</div>
+        </div>
+        <div class="meta-box">
+            <table>
+                <tr><td class="meta-label">Date Generated:</td><td>${escapeHtml(generatedAt)}</td></tr>
+                <tr><td class="meta-label">Document ID:</td><td><code>${escapeHtml(documentId)}</code></td></tr>
+                <tr><td class="meta-label">Encounter Period:</td><td>${escapeHtml(dateRangeStr)}</td></tr>
+                <tr><td class="meta-label">Visits Included:</td><td><strong>${data.total_encounters || encounters.length}</strong></td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="transfer-route-box">
+        <div>
+            <div><strong>Transferring / Sending Facility:</strong> ${escapeHtml(sendingFacility)}</div>
+            <div style="margin-top: 4px;"><strong>Receiving Hospital / Facility:</strong> <span style="color: #0055a4; font-weight: 600;">${escapeHtml(receivingHospital)}</span></div>
+        </div>
+        <div>
+            <div><strong>Reason for Transfer / Summary:</strong> ${escapeHtml(transferReason)}</div>
+            <div style="margin-top: 4px;"><strong>Primary Insurance / Payer:</strong> ${escapeHtml(insuranceLabel)}</div>
+        </div>
+    </div>
+
+    <div class="section-box">
+        <div class="section-head">Patient Identification & Demographics</div>
+        <div class="section-body">
+            <table class="summary-table">
+                <tbody>
+                    <tr>
+                        <td style="width: 15%; font-weight: 600; background: #f8fafc;">Patient Name:</td>
+                        <td style="width: 35%; font-weight: 700; font-size: 13px;">${escapeHtml(fullName)}</td>
+                        <td style="width: 15%; font-weight: 600; background: #f8fafc;">Patient ID / MRN:</td>
+                        <td style="width: 35%;"><code>${escapeHtml(patientNo)}</code></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; background: #f8fafc;">Date of Birth:</td>
+                        <td>${escapeHtml(patientDob)}</td>
+                        <td style="font-weight: 600; background: #f8fafc;">Gender:</td>
+                        <td>${escapeHtml(patientSex)}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; background: #f8fafc;">Phone:</td>
+                        <td>${escapeHtml(phone)}</td>
+                        <td style="font-weight: 600; background: #f8fafc;">Address:</td>
+                        <td>${escapeHtml(address)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    ${allergiesHtml}
+    ${problemsHtml}
+    ${medsHtml}
+
+    <div class="section-box">
+        <div class="section-head">Clinical Encounter Record(s) & Summaries (${encounters.length})</div>
+        <div class="section-body" style="padding: 12px 10px;">
+            ${encountersHtml}
+        </div>
+    </div>
+
+    ${attestationHtml}
+
+    <div class="disclaimer">
+        Confidential Healthcare Information. Release authorized strictly for continuity of patient care pursuant to applicable medical privacy laws and transfer protocols.
+    </div>
+</body>
+</html>
+    `;
 }
 
 let currentEncounterSummary = null;

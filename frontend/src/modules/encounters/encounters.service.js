@@ -91,3 +91,16 @@ export async function unlinkIssueFromEncounter(encounterId, issueType, issueId)
         }
     );
 }
+
+export async function fetchEncounterTransferSummary(params = {})
+{
+    const query = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== "") {
+            query.append(key, value);
+        }
+    }
+
+    return await api(`/encounters/transfer-summary?${query.toString()}`);
+}

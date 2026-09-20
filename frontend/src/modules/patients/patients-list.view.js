@@ -6265,6 +6265,10 @@ textarea.pd-sdoh-readonly {
                         <div class="pd-report-header-actions">
                             <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdVisitHistoryToggleViewBtn">To Billing View</button>
                             <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdVisitHistoryPrintBtn">${reportIcon("download")} Print page</button>
+                            <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdVisitHistoryTransferSummaryBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="margin-right: 4px; vertical-align: -2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Print Encounter Summary
+                            </button>
                             <button type="button" class="pd-report-btn" id="pdVisitHistoryNewBtn">+ New Encounter</button>
                         </div>
                     </div>
@@ -8203,6 +8207,113 @@ textarea.pd-sdoh-readonly {
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelPdFeeSheetAppointment">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="pdEncounterTransferModalOverlay">
+    <div class="modal-box" style="max-width: 680px; width: 95%;">
+        <div class="modal-header">
+            <div>
+                <h2>Print Encounter Summary for Hospital Transfer</h2>
+                <p style="font-size: 12px; color: var(--text-secondary, #64748b); margin-top: 2px;">Select date range and encounters to generate a clinical transfer summary for the receiving hospital.</p>
+            </div>
+            <button type="button" class="modal-close" id="closeEncounterTransferModal">&times;</button>
+        </div>
+
+        <div id="pdEncounterTransferAlert"></div>
+
+        <form id="pdEncounterTransferForm">
+            <div style="background: var(--bg-muted, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px; padding: 12px 14px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <label style="font-weight: 600; font-size: 13px; color: var(--text-primary, #1e293b);">Date Range of Encounters:</label>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="pdTransferDatePresets">
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" style="font-size: 11px; padding: 3px 8px;" data-preset="all">All Visits</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" style="font-size: 11px; padding: 3px 8px;" data-preset="30d">Last 30 Days</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" style="font-size: 11px; padding: 3px 8px;" data-preset="90d">Last 90 Days</button>
+                        <button type="button" class="pd-report-btn pd-report-btn-secondary" style="font-size: 11px; padding: 3px 8px;" data-preset="1y">Past Year</button>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="pdTransferStartDate" style="font-size: 12px; font-weight: 600;">Start Date (From):</label>
+                        <input type="date" id="pdTransferStartDate" class="form-input" style="height: 32px; font-size: 13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="pdTransferEndDate" style="font-size: 12px; font-weight: 600;">End Date (To):</label>
+                        <input type="date" id="pdTransferEndDate" class="form-input" style="height: 32px; font-size: 13px;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="pdTransferReceivingHospital" style="font-size: 12px; font-weight: 600;">Receiving Hospital / Facility:</label>
+                    <input type="text" id="pdTransferReceivingHospital" class="form-input" placeholder="e.g. St. Jude General Hospital" style="height: 32px; font-size: 13px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="pdTransferReason" style="font-size: 12px; font-weight: 600;">Reason for Transfer / Summary:</label>
+                    <input type="text" id="pdTransferReason" class="form-input" placeholder="e.g. Transfer of Care / Specialist Consult" style="height: 32px; font-size: 13px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <label style="font-weight: 600; font-size: 13px; color: var(--text-primary, #1e293b);">
+                        Encounters Included in Summary (<span id="pdTransferEncounterCount">0</span>):
+                    </label>
+                    <div style="font-size: 12px; display: flex; gap: 8px;">
+                        <a href="#" id="pdTransferSelectAllEncounters" style="color: var(--primary-color, #2563eb); text-decoration: none;">Select All</a>
+                        <span>|</span>
+                        <a href="#" id="pdTransferDeselectAllEncounters" style="color: var(--primary-color, #2563eb); text-decoration: none;">Deselect All</a>
+                    </div>
+                </div>
+
+                <div id="pdTransferEncountersList" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px; background: #fff; padding: 6px 10px;">
+                    <p style="color: #64748b; font-size: 12px; padding: 8px 0; text-align: center;">Loading encounters...</p>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; font-size: 12px; color: var(--text-secondary, #64748b); display: block; margin-bottom: 6px;">
+                    Clinical Details to Include:
+                </label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; font-size: 12px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="pdTransferIncBaseline" checked>
+                        <span>Allergies & Diagnoses</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="pdTransferIncMeds" checked>
+                        <span>Active Medications</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="pdTransferIncVitals" checked>
+                        <span>Vital Signs</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="pdTransferIncNotes" checked>
+                        <span>SOAP & Clinical Notes</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="pdTransferIncCarePlan" checked>
+                        <span>Care Plan & Instructions</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="pdTransferIncBilling" checked>
+                        <span>Diagnostic / Billing Codes</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-secondary" id="cancelEncounterTransferBtn">Cancel</button>
+                <button type="submit" class="login-btn" id="generateEncounterTransferBtn" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Print Summary
+                </button>
             </div>
         </form>
     </div>

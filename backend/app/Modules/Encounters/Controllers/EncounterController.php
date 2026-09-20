@@ -51,6 +51,43 @@ class EncounterController extends Controller
     }
 
     /**
+     * Get a comprehensive transfer summary of patient encounters for hospital transfer.
+     */
+    public function transferSummary(): void
+    {
+        $request = new Request();
+        $patientId = (int) $request->input('patient_id');
+
+        if (!$patientId) {
+            $this->error('Patient is required.', 422);
+            return;
+        }
+
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $encounterIdsRaw = $request->input('encounter_ids');
+
+        $encounterIds = null;
+        if (!empty($encounterIdsRaw)) {
+            if (is_array($encounterIdsRaw)) {
+                $encounterIds = array_map('intval', $encounterIdsRaw);
+            } else {
+                $encounterIds = array_map('intval', explode(',', (string) $encounterIdsRaw));
+            }
+            $encounterIds = array_values(array_filter($encounterIds, fn($id) => $id > 0));
+        }
+
+        $data = $this->encounterService->getTransferSummary(
+            $patientId,
+            $dateFrom ?: null,
+            $dateTo ?: null,
+            $encounterIds ?: null
+        );
+
+        $this->success($data, 'Encounter transfer summary retrieved successfully.');
+    }
+
+    /**
      * The patient's existing allergies/problems/medications/health
      * concerns, for the "Link Issues to This Visit" picker.
      */

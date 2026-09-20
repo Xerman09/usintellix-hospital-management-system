@@ -6,6 +6,7 @@ use App\Core\Database;
 use App\Modules\Encounters\Models\Encounter;
 use App\Modules\Encounters\Models\EncounterBillingCode;
 use App\Modules\Encounters\Models\EncounterIssue;
+use App\Modules\Patients\Models\Patient;
 use PDO;
 
 class EncounterService
@@ -72,6 +73,93 @@ class EncounterService
         $stmt->execute(['patient_id' => $patientId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get a consolidated transfer summary for a patient across a specified date range
+     * or subset of encounters, including per-encounter vitals, clinical/SOAP notes,
+     * instructions, care plans, sections, and patient baseline allergies/problems/medications.
+     */
+    public function getTransferSummary(int $patientId, ?string $dateFrom = null, ?string $dateTo = null, ?array $encounterIds = null): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient) {
+            return [];
+        }
+
+        // 1. Fetch all encounters for this patient
+        $allEncounters = $this->list($patientId);
+        $filteredEncounters = [];
+
+        foreach ($allEncounters as $encounter) {
+            $encId = (int) $encounter['id'];
+            if ($encounterIds !== null && !in_array($encId, $encounterIds, true)) {
+                continue;
+            }
+
+            $dos = substr((string) ($encounter['date_of_service'] ?? ''), 0, 10);
+            if ($dateFrom && $dos < $dateFrom) {
+                continue;
+            }
+            if ($dateTo && $dos > $dateTo) {
+                continue;
+            }
+
+            $filteredEncounters[] = $encounter;
+        }
+
+        // 2. Fetch full clinical details for each filtered encounter
+        $vitalService = new \App\Modules\EncounterVitals\Services\EncounterVitalService();
+        $soapService = new \App\Modules\EncounterSoapNotes\Services\EncounterSoapNoteService();
+        $clinicalNoteService = new \App\Modules\EncounterClinicalNoteItems\Services\EncounterClinicalNoteItemService();
+        $clinicalInstructionService = new \App\Modules\EncounterClinicalInstructionItems\Services\EncounterClinicalInstructionItemService();
+        $carePlanService = new \App\Modules\EncounterCarePlanItems\Services\EncounterCarePlanItemService();
+        $sectionService = new \App\Modules\EncounterSections\Services\EncounterSectionService();
+        $functionalCognitiveService = new \App\Modules\EncounterFunctionalCognitiveStatusItems\Services\EncounterFunctionalCognitiveStatusItemService();
+        $observationService = new \App\Modules\EncounterObservationItems\Services\EncounterObservationItemService();
+        $rosService = new \App\Modules\EncounterReviewOfSystems\Services\EncounterReviewOfSystemService();
+
+        $detailedEncounters = [];
+        foreach ($filteredEncounters as $enc) {
+            $id = (int) $enc['id'];
+            $detailedEnc = $enc;
+
+            try { $detailedEnc['vitals'] = $vitalService->find($id); } catch (\Throwable $e) { $detailedEnc['vitals'] = null; }
+            try { $detailedEnc['soap_notes'] = $soapService->list($id); } catch (\Throwable $e) { $detailedEnc['soap_notes'] = []; }
+            try { $detailedEnc['clinical_notes'] = $clinicalNoteService->list($id); } catch (\Throwable $e) { $detailedEnc['clinical_notes'] = []; }
+            try { $detailedEnc['clinical_instructions'] = $clinicalInstructionService->list($id); } catch (\Throwable $e) { $detailedEnc['clinical_instructions'] = []; }
+            try { $detailedEnc['care_plan_items'] = $carePlanService->list($id); } catch (\Throwable $e) { $detailedEnc['care_plan_items'] = []; }
+            try { $detailedEnc['sections'] = $sectionService->list($id); } catch (\Throwable $e) { $detailedEnc['sections'] = []; }
+            try { $detailedEnc['functional_cognitive_items'] = $functionalCognitiveService->list($id); } catch (\Throwable $e) { $detailedEnc['functional_cognitive_items'] = []; }
+            try { $detailedEnc['observation_items'] = $observationService->list($id); } catch (\Throwable $e) { $detailedEnc['observation_items'] = []; }
+            try { $detailedEnc['review_of_systems'] = $rosService->find($id); } catch (\Throwable $e) { $detailedEnc['review_of_systems'] = null; }
+
+            $detailedEncounters[] = $detailedEnc;
+        }
+
+        // 3. Fetch patient baseline medical background for transfer continuity of care
+        $allergies = [];
+        $problems = [];
+        $medications = [];
+        $insurances = [];
+
+        try { $allergies = (new \App\Modules\PatientAllergies\Services\PatientAllergyService())->list($patientId); } catch (\Throwable $e) {}
+        try { $problems = (new \App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService())->list($patientId); } catch (\Throwable $e) {}
+        try { $medications = (new \App\Modules\PatientMedications\Services\PatientMedicationService())->list($patientId); } catch (\Throwable $e) {}
+        try { $insurances = (new \App\Modules\PatientInsurances\Services\PatientInsuranceService())->list($patientId); } catch (\Throwable $e) {}
+
+        return [
+            'patient' => $patient,
+            'encounters' => $detailedEncounters,
+            'allergies' => $allergies,
+            'problems' => $problems,
+            'medications' => $medications,
+            'insurances' => $insurances,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'total_encounters' => count($detailedEncounters),
+            'generated_at' => date('Y-m-d H:i:s')
+        ];
     }
 
     /**
