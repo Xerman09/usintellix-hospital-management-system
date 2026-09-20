@@ -1110,6 +1110,9 @@ export function OrManagementView() {
                 <button type="button" class="or-btn-primary" id="orBookCaseBtn">
                     <span>+</span> Book Surgical Case
                 </button>
+                <button type="button" class="or-btn-secondary" id="orRegisterSuiteBtn" style="border-color: #0d9488; color: #0f766e;">
+                    <span>&#127973;</span> Register OR Suite
+                </button>
                 <button type="button" class="or-btn-secondary" id="orSuiteStatusBtn">
                     <span>&#9881;</span> Room Status
                 </button>
@@ -1706,6 +1709,109 @@ export function OrManagementView() {
             <div class="or-modal-footer">
                 <button type="button" class="or-btn-secondary" id="orCloseSuiteBtn">Done</button>
             </div>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         MODAL 5: REGISTER & CONFIGURE OPERATING ROOM SUITES
+         ========================================================= -->
+    <div class="or-modal-overlay" id="orRegisterSuiteModal">
+        <div class="or-modal-box" style="max-width: 750px;">
+            <div class="or-modal-header">
+                <h3>&#127973; Operating Room Suite Master &amp; Registration</h3>
+                <button type="button" class="or-modal-close-x" id="orCloseRegSuiteModal">&times;</button>
+            </div>
+            
+            <!-- Modal Internal Tabs -->
+            <div style="display: flex; gap: 8px; padding: 12px 20px 0; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                <button type="button" id="orTabRegSuiteNew" class="or-view-btn active" style="padding: 8px 16px; border-radius: 6px 6px 0 0;">
+                    + Register New OR Suite
+                </button>
+                <button type="button" id="orTabRegSuiteList" class="or-view-btn" style="padding: 8px 16px; border-radius: 6px 6px 0 0;">
+                    &#9776; Registered Suites Directory (<span id="orRegSuitesCount">0</span>)
+                </button>
+            </div>
+
+            <!-- Tab 1: Registration Form -->
+            <div id="orPanelRegSuiteNew">
+                <form id="orRegisterSuiteForm">
+                    <input type="hidden" id="orRegEditSuiteId" value="" />
+                    <div class="or-modal-body">
+                        <div class="or-form-grid">
+                            <div class="or-form-group">
+                                <label>OR Suite Code *</label>
+                                <input type="text" id="orRegSuiteCode" required placeholder="e.g. OR-07, HYBRID-01, PEDS-01" />
+                            </div>
+                            <div class="or-form-group">
+                                <label>Suite Name *</label>
+                                <input type="text" id="orRegSuiteName" required placeholder="e.g. Pediatric Surgery Suite 7" />
+                            </div>
+                            <div class="or-form-group">
+                                <label>Suite Classification / Type *</label>
+                                <select id="orRegSuiteType" required>
+                                    <option value="Major OR">Major Operating Room (Inpatient)</option>
+                                    <option value="Minor OR">Minor Procedure OR (Ambulatory)</option>
+                                    <option value="Endoscopy">Endoscopy / Colonoscopy Suite</option>
+                                    <option value="Hybrid OR">Hybrid Angio / Vascular OR</option>
+                                    <option value="Cath Lab">Cardiac Catheterization Suite</option>
+                                </select>
+                            </div>
+                            <div class="or-form-group">
+                                <label>Floor &amp; Building Location *</label>
+                                <input type="text" id="orRegFloorLocation" required value="3rd Floor - Surgical Tower" placeholder="e.g. 3rd Floor - West Wing" />
+                            </div>
+                            <div class="or-form-group">
+                                <label>Initial Operational Status</label>
+                                <select id="orRegInitialStatus">
+                                    <option value="Available">Available (Ready for Surgery)</option>
+                                    <option value="Cleaning / Turnover">Cleaning / Turnover</option>
+                                    <option value="Maintenance">Maintenance Hold</option>
+                                    <option value="Blocked">Blocked / Reserved</option>
+                                </select>
+                            </div>
+                            <div class="or-form-group">
+                                <label>Specialty Capabilities / Focus</label>
+                                <input type="text" id="orRegCapabilities" placeholder="e.g. Pediatric Surgery, Neonatal, General" />
+                            </div>
+                            <div class="or-form-group full-width">
+                                <label>Specialized Surgical Equipment &amp; Features</label>
+                                <textarea id="orRegEquipment" rows="2" placeholder="e.g. C-Arm Fluoroscopy, 4K Laparoscopic Tower, Operating Microscope, DaVinci Robot, Ultrasonic Aspirator"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="or-modal-footer">
+                        <button type="button" class="or-btn-secondary" id="orCancelRegSuiteBtn">Cancel</button>
+                        <button type="submit" class="or-btn-primary" id="orSubmitRegSuiteBtn" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);">
+                            Save &amp; Register OR Suite
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab 2: Registered Suites Directory -->
+            <div id="orPanelRegSuiteList" style="display: none;">
+                <div class="or-modal-body" style="padding: 16px 20px;">
+                    <table class="or-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Name &amp; Location</th>
+                                <th>Type</th>
+                                <th>Equipment Spec</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orRegSuitesTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="or-modal-footer">
+                    <button type="button" class="or-btn-secondary" id="orCloseRegSuiteListBtn">Close</button>
+                </div>
+            </div>
+
         </div>
     </div>
     `;

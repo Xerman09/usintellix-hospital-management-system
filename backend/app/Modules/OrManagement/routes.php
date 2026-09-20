@@ -38,3 +38,13 @@ $router->post('/or-management/suites/status', [OrManagementController::class, 's
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->post('/or-management/suites', [OrManagementController::class, 'createSuite'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/or-management/suites/update', [OrManagementController::class, 'updateSuite'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

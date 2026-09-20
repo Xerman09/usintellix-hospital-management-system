@@ -319,11 +319,41 @@ function setupEventListeners() {
     if (closeSuiteBtn) closeSuiteBtn.addEventListener('click', closeSuite);
     if (suiteModal) suiteModal.addEventListener('click', (e) => { if (e.target === suiteModal) closeSuite(); });
 
+    // Register OR Suite Modal Triggers
+    const regSuiteBtn = document.getElementById('orRegisterSuiteBtn');
+    const regSuiteModal = document.getElementById('orRegisterSuiteModal');
+    const closeRegSuiteX = document.getElementById('orCloseRegSuiteModal');
+    const cancelRegSuiteBtn = document.getElementById('orCancelRegSuiteBtn');
+    const closeRegListBtn = document.getElementById('orCloseRegSuiteListBtn');
+    const regSuiteForm = document.getElementById('orRegisterSuiteForm');
+
+    const openRegSuiteModal = () => {
+        resetRegSuiteForm();
+        switchRegSuiteTab('new');
+        if (regSuiteModal) regSuiteModal.style.display = 'flex';
+    };
+    const closeRegSuite = () => { if (regSuiteModal) regSuiteModal.style.display = 'none'; };
+
+    if (regSuiteBtn) regSuiteBtn.addEventListener('click', openRegSuiteModal);
+    if (closeRegSuiteX) closeRegSuiteX.addEventListener('click', closeRegSuite);
+    if (cancelRegSuiteBtn) cancelRegSuiteBtn.addEventListener('click', closeRegSuite);
+    if (closeRegListBtn) closeRegListBtn.addEventListener('click', closeRegSuite);
+    if (regSuiteModal) regSuiteModal.addEventListener('click', (e) => { if (e.target === regSuiteModal) closeRegSuite(); });
+
+    const tabNew = document.getElementById('orTabRegSuiteNew');
+    const tabList = document.getElementById('orTabRegSuiteList');
+    if (tabNew) tabNew.addEventListener('click', () => switchRegSuiteTab('new'));
+    if (tabList) tabList.addEventListener('click', () => switchRegSuiteTab('list'));
+
+    if (regSuiteForm) regSuiteForm.addEventListener('submit', handleRegisterSuiteSubmit);
+
     // Expose global helpers
     window.__orOpenDetail = openDetailModal;
     window.__orOpenStage = openStageModal;
     window.__orOpenSuiteStatus = openSuiteModal;
     window.__orOpenBookForSuite = openBookModal;
+    window.__orOpenRegisterSuite = openRegSuiteModal;
+    window.__orEditSuite = editSuiteRecord;
 }
 
 function toggleStageSpecificFields(stage) {
@@ -1146,4 +1176,150 @@ function renderSuiteStatusList() {
             alert('An unexpected error occurred while updating suite status.');
         }
     };
+}
+
+function switchRegSuiteTab(tab) {
+    const tabNew = document.getElementById('orTabRegSuiteNew');
+    const tabList = document.getElementById('orTabRegSuiteList');
+    const panelNew = document.getElementById('orPanelRegSuiteNew');
+    const panelList = document.getElementById('orPanelRegSuiteList');
+
+    if (tab === 'new') {
+        if (tabNew) tabNew.classList.add('active');
+        if (tabList) tabList.classList.remove('active');
+        if (panelNew) panelNew.style.display = 'block';
+        if (panelList) panelList.style.display = 'none';
+    } else {
+        if (tabList) tabList.classList.add('active');
+        if (tabNew) tabNew.classList.remove('active');
+        if (panelList) panelList.style.display = 'block';
+        if (panelNew) panelNew.style.display = 'none';
+        renderRegisteredSuitesDirectory();
+    }
+}
+
+function resetRegSuiteForm() {
+    const form = document.getElementById('orRegisterSuiteForm');
+    if (form) form.reset();
+    const idEl = document.getElementById('orRegEditSuiteId');
+    if (idEl) idEl.value = '';
+    const submitBtn = document.getElementById('orSubmitRegSuiteBtn');
+    if (submitBtn) submitBtn.textContent = 'Save & Register OR Suite';
+
+    const countEl = document.getElementById('orRegSuitesCount');
+    if (countEl) countEl.textContent = (currentScheduleData.suites || []).length;
+}
+
+function renderRegisteredSuitesDirectory() {
+    const tbody = document.getElementById('orRegSuitesTableBody');
+    if (!tbody) return;
+
+    const suites = currentScheduleData.suites || [];
+    const countEl = document.getElementById('orRegSuitesCount');
+    if (countEl) countEl.textContent = suites.length;
+
+    if (!suites.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#64748b;">No OR suites registered.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = suites.map(s => {
+        let statusBadge = '<span class="or-chip or-chip-green">Available</span>';
+        if (s.status === 'In Surgery') statusBadge = '<span class="or-chip or-chip-red">In Surgery</span>';
+        else if (s.status === 'Cleaning / Turnover') statusBadge = '<span class="or-chip or-chip-amber">Turnover</span>';
+        else if (s.status === 'Maintenance') statusBadge = '<span class="or-chip or-chip-blue">Maintenance</span>';
+
+        return `
+            <tr>
+                <td style="font-family:monospace;font-weight:700;color:#0284c7;">${esc(s.suite_code)}</td>
+                <td>
+                    <strong style="color:#0f172a;">${esc(s.suite_name)}</strong>
+                    <small style="display:block;color:#64748b;">${esc(s.floor_location || 'Surgical Wing')}</small>
+                </td>
+                <td><span class="or-chip or-chip-blue">${esc(s.suite_type || 'Major OR')}</span></td>
+                <td style="max-width:200px;font-size:11px;color:#475569;">${esc(s.equipment_spec || 'Standard OR Specs')}</td>
+                <td>${statusBadge}</td>
+                <td style="text-align:right;">
+                    <button type="button" onclick="window.__orEditSuite(${s.id})" class="or-btn-view" style="font-size:11px;padding:3px 8px;">
+                        Edit &rarr;
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function editSuiteRecord(suiteId) {
+    const s = (currentScheduleData.suites || []).find(item => item.id == suiteId);
+    if (!s) return;
+
+    switchRegSuiteTab('new');
+
+    const idEl = document.getElementById('orRegEditSuiteId');
+    const codeEl = document.getElementById('orRegSuiteCode');
+    const nameEl = document.getElementById('orRegSuiteName');
+    const typeEl = document.getElementById('orRegSuiteType');
+    const floorEl = document.getElementById('orRegFloorLocation');
+    const equipEl = document.getElementById('orRegEquipment');
+    const submitBtn = document.getElementById('orSubmitRegSuiteBtn');
+
+    if (idEl) idEl.value = s.id;
+    if (codeEl) codeEl.value = s.suite_code || '';
+    if (nameEl) nameEl.value = s.suite_name || '';
+    if (typeEl) typeEl.value = s.suite_type || 'Major OR';
+    if (floorEl) floorEl.value = s.floor_location || '';
+    if (equipEl) equipEl.value = s.equipment_spec || '';
+    if (submitBtn) submitBtn.textContent = 'Update OR Suite Configuration';
+}
+
+async function handleRegisterSuiteSubmit(e) {
+    e.preventDefault();
+    const submitBtn = document.getElementById('orSubmitRegSuiteBtn');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
+    const g = id => document.getElementById(id)?.value || '';
+    const editId = g('orRegEditSuiteId');
+
+    const payload = {
+        suite_code:     g('orRegSuiteCode'),
+        suite_name:     g('orRegSuiteName'),
+        suite_type:     g('orRegSuiteType'),
+        floor_location: g('orRegFloorLocation'),
+        status:         g('orRegInitialStatus') || 'Available',
+        equipment_spec: g('orRegEquipment'),
+    };
+
+    try {
+        let res;
+        if (editId) {
+            payload.id = editId;
+            res = await api('/or-management/suites/update', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+        } else {
+            res = await api('/or-management/suites', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+        }
+
+        if (res.success) {
+            alert(editId ? 'OR Suite updated successfully!' : `New OR Suite registered successfully: ${res.data?.suite_code || ''}`);
+            const modal = document.getElementById('orRegisterSuiteModal');
+            if (modal) modal.style.display = 'none';
+            resetRegSuiteForm();
+            await fetchSchedule();
+        } else {
+            alert('Error: ' + (res.message || 'Operation failed.'));
+        }
+    } catch (err) {
+        console.error(err);
+        alert('An unexpected error occurred while saving suite.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = editId ? 'Update OR Suite Configuration' : 'Save & Register OR Suite';
+        }
+    }
 }

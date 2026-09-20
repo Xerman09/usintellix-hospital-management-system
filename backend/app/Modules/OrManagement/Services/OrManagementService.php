@@ -481,4 +481,75 @@ class OrManagementService
             'on_time_start_rate'     => $onTimeRate,
         ];
     }
+
+    /**
+     * Register a new Operating Room suite
+     */
+    public function createSuite(array $data): array
+    {
+        $db = Database::connection();
+        $code = trim($data['suite_code'] ?? '');
+        $name = trim($data['suite_name'] ?? '');
+        $type = trim($data['suite_type'] ?? 'Major OR');
+        $floor = trim($data['floor_location'] ?? '3rd Floor - Surgical Tower');
+        $equip = trim($data['equipment_spec'] ?? '');
+        $status = trim($data['status'] ?? 'Available');
+
+        if (empty($code)) {
+            $lastId = (int) $db->query("SELECT MAX(id) FROM or_suites")->fetchColumn();
+            $code = sprintf("OR-%02d", $lastId + 1);
+        }
+        if (empty($name)) {
+            $name = "Operating Room " . $code;
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO or_suites (suite_code, suite_name, suite_type, floor_location, equipment_spec, status, is_active, created_at)
+            VALUES (:code, :name, :type, :floor, :equip, :status, 1, NOW())
+        ");
+        $stmt->execute([
+            'code'   => $code,
+            'name'   => $name,
+            'type'   => $type,
+            'floor'  => $floor,
+            'equip'  => $equip,
+            'status' => $status,
+        ]);
+
+        $newId = (int) $db->lastInsertId();
+        $get = $db->prepare("SELECT * FROM or_suites WHERE id = :id");
+        $get->execute(['id' => $newId]);
+        return $get->fetch(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Update an existing Operating Room suite configuration
+     */
+    public function updateSuite(int $id, array $data): ?array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("
+            UPDATE or_suites 
+            SET suite_code = :code,
+                suite_name = :name,
+                suite_type = :type,
+                floor_location = :floor,
+                equipment_spec = :equip,
+                updated_at = NOW()
+            WHERE id = :id
+        ");
+        $stmt->execute([
+            'code'  => trim($data['suite_code'] ?? ''),
+            'name'  => trim($data['suite_name'] ?? ''),
+            'type'  => trim($data['suite_type'] ?? 'Major OR'),
+            'floor' => trim($data['floor_location'] ?? ''),
+            'equip' => trim($data['equipment_spec'] ?? ''),
+            'id'    => $id,
+        ]);
+
+        $get = $db->prepare("SELECT * FROM or_suites WHERE id = :id");
+        $get->execute(['id' => $id]);
+        $row = $get->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
 }

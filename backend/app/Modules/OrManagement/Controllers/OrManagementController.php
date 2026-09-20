@@ -169,4 +169,44 @@ class OrManagementController extends Controller
         $res = $this->service->updateSuiteStatus($suiteId, $status);
         $this->success($res, "OR Suite status updated to '{$status}'.");
     }
+
+    /**
+     * POST /or-management/suites
+     */
+    public function createSuite(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+
+        if (empty($data['suite_name'])) {
+            $this->error('Suite Name is required.', 422);
+            return;
+        }
+
+        $suite = $this->service->createSuite($data);
+        $this->success($suite, 'OR Suite registered successfully.', 201);
+    }
+
+    /**
+     * POST /or-management/suites/update
+     */
+    public function updateSuite(): void
+    {
+        $request = new Request();
+        $id = (int) $request->input('id');
+
+        if ($id <= 0) {
+            $this->error('Valid Suite ID is required.', 400);
+            return;
+        }
+
+        $data = $request->all();
+        $suite = $this->service->updateSuite($id, $data);
+        if (!$suite) {
+            $this->error('OR Suite not found.', 404);
+            return;
+        }
+
+        $this->success($suite, 'OR Suite configuration updated successfully.');
+    }
 }
