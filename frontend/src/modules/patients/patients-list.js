@@ -11222,6 +11222,10 @@ function openEncounterTransferModal()
         endInput.value = "";
     }
 
+    document.querySelectorAll("#pdTransferDatePresets button").forEach((b) => {
+        b.classList.toggle("active", b.getAttribute("data-preset") === "all");
+    });
+
     renderTransferEncountersList();
     modal.classList.add("open");
 }
@@ -11249,7 +11253,7 @@ function renderTransferEncountersList()
     countEl.textContent = filtered.length;
 
     if (filtered.length === 0) {
-        container.innerHTML = `<p style="color: #94a3b8; font-size: 12px; padding: 12px 0; text-align: center; margin: 0;">No encounters found for the selected date range.</p>`;
+        container.innerHTML = `<p style="color: var(--text-muted); font-size: 12px; padding: 12px 0; text-align: center; margin: 0;">No encounters found for the selected date range.</p>`;
         return;
     }
 
@@ -11260,13 +11264,13 @@ function renderTransferEncountersList()
         const reason = enc.reason_for_visit ? ` &mdash; <em>${escapeHtml(enc.reason_for_visit)}</em>` : "";
 
         return `
-            <label style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 6px; border-bottom: 1px solid #f1f5f9; cursor: pointer;">
-                <input type="checkbox" name="transferEncounterCheckbox" value="${enc.id}" checked style="margin-top: 3px; accent-color: #0055a4;">
+            <label class="pd-transfer-enc-row">
+                <input type="checkbox" name="transferEncounterCheckbox" value="${enc.id}" checked style="margin-top: 3px; accent-color: var(--accent, #0055a4);">
                 <div style="flex: 1; font-size: 12px; line-height: 1.4;">
-                    <div style="font-weight: 600; color: #1e293b;">
-                        ${escapeHtml(dateStr)} &bull; <span style="color: #0284c7;">${escapeHtml(cat)}</span>
+                    <div class="pd-transfer-enc-title">
+                        ${escapeHtml(dateStr)} &bull; <span class="pd-transfer-enc-cat">${escapeHtml(cat)}</span>
                     </div>
-                    <div style="color: #64748b; font-size: 11.5px; margin-top: 2px;">
+                    <div class="pd-transfer-enc-sub">
                         <span>Provider: <strong>${escapeHtml(provider)}</strong></span>${reason}
                     </div>
                 </div>
@@ -11295,12 +11299,20 @@ function setupEncounterTransferModal()
     const startInput = document.getElementById("pdTransferStartDate");
     const endInput = document.getElementById("pdTransferEndDate");
 
-    startInput?.addEventListener("change", renderTransferEncountersList);
-    endInput?.addEventListener("change", renderTransferEncountersList);
+    startInput?.addEventListener("change", () => {
+        document.querySelectorAll("#pdTransferDatePresets button").forEach((b) => b.classList.remove("active"));
+        renderTransferEncountersList();
+    });
+    endInput?.addEventListener("change", () => {
+        document.querySelectorAll("#pdTransferDatePresets button").forEach((b) => b.classList.remove("active"));
+        renderTransferEncountersList();
+    });
 
     // Date range presets
     document.querySelectorAll("#pdTransferDatePresets button").forEach((btn) => {
         btn.addEventListener("click", () => {
+            document.querySelectorAll("#pdTransferDatePresets button").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
             const preset = btn.getAttribute("data-preset");
             const today = new Date();
             const formatDateYMD = (d) => d.toISOString().slice(0, 10);
