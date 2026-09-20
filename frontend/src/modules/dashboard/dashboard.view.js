@@ -220,6 +220,7 @@ function staffNavLinks(role)
                         <a data-tab="clinic_incident_log">Incident & Adverse Events</a>
                         <a data-tab="clinic_critical_tat">Critical Diagnostic TAT</a>
                         <a data-tab="clinic_hai_ssi">HAI &amp; SSI Infections</a>
+                        <a data-tab="clinic_readmission_mortality">30-Day Readmission &amp; Mortality</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">

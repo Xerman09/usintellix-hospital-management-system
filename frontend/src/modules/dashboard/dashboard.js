@@ -235,6 +235,8 @@ import { initCriticalTAT } from "../reports/critical-tat.js";
 import { CriticalTATView } from "../reports/critical-tat.view.js";
 import { initHAISSI } from "../reports/hai-ssi.js";
 import { HAISSIView } from "../reports/hai-ssi.view.js";
+import { initReadmissionMortality } from "../reports/readmission-mortality.js";
+import { ReadmissionMortalityView } from "../reports/readmission-mortality.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1085,6 +1087,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'HAI & SSI Infections', () => {
                 setTimeout(initHAISSI, 0);
                 return HAISSIView();
+            }, activate);
+        } else if (tabId === 'clinic_readmission_mortality') {
+            tabManager.openTab(tabId, title || '30-Day Readmission & Mortality', () => {
+                setTimeout(initReadmissionMortality, 0);
+                return ReadmissionMortalityView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

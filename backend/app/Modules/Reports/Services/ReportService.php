@@ -3337,4 +3337,227 @@ class ReportService
         $db->prepare("UPDATE hai_ssi_infections SET {$setClause} WHERE id = :id")->execute($params);
         return $this->getHAIDetails($id);
     }
+
+    /**
+     * JCAHO / CMS: 30-Day Readmission & Hospital Mortality Report
+     */
+    public function getReadmissionMortalityReport(array $filters): array
+    {
+        $db = Database::connection();
+
+        $where  = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[]             = 'index_discharge_date >= :date_from';
+            $params['date_from'] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $where[]           = 'index_discharge_date <= :date_to';
+            $params['date_to'] = $filters['date_to'];
+        }
+        if (!empty($filters['department']) && $filters['department'] !== 'all') {
+            $where[]              = 'department = :department';
+            $params['department'] = $filters['department'];
+        }
+        if (!empty($filters['readmission_status']) && $filters['readmission_status'] !== 'all') {
+            $where[]                      = 'readmission_status = :readmission_status';
+            $params['readmission_status'] = $filters['readmission_status'];
+        }
+        if (!empty($filters['mortality_status']) && $filters['mortality_status'] !== 'all') {
+            $where[]                    = 'mortality_status = :mortality_status';
+            $params['mortality_status'] = $filters['mortality_status'];
+        }
+        if (!empty($filters['risk_score']) && $filters['risk_score'] !== 'all') {
+            $where[]              = 'risk_score = :risk_score';
+            $params['risk_score'] = $filters['risk_score'];
+        }
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $where[]          = 'status = :status';
+            $params['status'] = $filters['status'];
+        }
+        if (!empty($filters['search'])) {
+            $where[]          = '(record_number LIKE :search OR patient_name LIKE :search OR patient_mrn LIKE :search OR primary_diagnosis LIKE :search OR icd10_code LIKE :search OR attending_physician LIKE :search OR department LIKE :search)';
+            $params['search'] = '%' . $filters['search'] . '%';
+        }
+
+        $whereClause = implode(' AND ', $where);
+        $sql = "SELECT * FROM readmission_mortality_records WHERE {$whereClause} ORDER BY index_discharge_date DESC LIMIT 500";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // KPIs
+        $kpiSql = "SELECT
+            COUNT(*) AS total_discharges,
+            SUM(readmission_status = 'Unplanned Readmission (Within 30 Days)') AS unplanned_readmissions,
+            SUM(readmission_preventable = 1) AS preventable_readmissions,
+            SUM(mortality_status = 'Inpatient Mortality') AS inpatient_mortalities,
+            SUM(mortality_status = '30-Day Post-Discharge Mortality') AS post_discharge_mortalities,
+            SUM(mortality_status IN ('Inpatient Mortality', '30-Day Post-Discharge Mortality')) AS total_mortalities,
+            SUM(medication_reconciliation_completed = 1) AS med_rec_completed,
+            SUM(post_discharge_followup_call = 1) AS followup_calls_completed
+        FROM readmission_mortality_records WHERE {$whereClause}";
+        $kpiStmt = $db->prepare($kpiSql);
+        $kpiStmt->execute($params);
+        $kpis = $kpiStmt->fetch(PDO::FETCH_ASSOC);
+
+        $totalDischarges = (int)($kpis['total_discharges'] ?? 0);
+        $unplannedReadm  = (int)($kpis['unplanned_readmissions'] ?? 0);
+        $totalMort       = (int)($kpis['total_mortalities'] ?? 0);
+        $medRec          = (int)($kpis['med_rec_completed'] ?? 0);
+        $followupCalls   = (int)($kpis['followup_calls_completed'] ?? 0);
+
+        $kpis['readmission_rate'] = $totalDischarges > 0 ? round(($unplannedReadm / $totalDischarges) * 100, 1) : 0;
+        $kpis['mortality_rate']   = $totalDischarges > 0 ? round(($totalMort / $totalDischarges) * 100, 1) : 0;
+        $kpis['med_rec_rate']     = $totalDischarges > 0 ? round(($medRec / $totalDischarges) * 100, 1) : 0;
+        $kpis['followup_rate']    = $totalDischarges > 0 ? round(($followupCalls / $totalDischarges) * 100, 1) : 0;
+
+        $depts = $db->query("SELECT DISTINCT department FROM readmission_mortality_records ORDER BY department")->fetchAll(PDO::FETCH_COLUMN);
+
+        return [
+            'records'     => $records,
+            'kpis'        => $kpis,
+            'departments' => $depts,
+        ];
+    }
+
+    public function getReadmissionMortalityDetails(int $id): ?array
+    {
+        $db   = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM readmission_mortality_records WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $row  = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function createReadmissionMortalityRecord(array $data): array
+    {
+        $db = Database::connection();
+        $year = date('Y');
+        $lastNum = $db->query("SELECT COUNT(*) FROM readmission_mortality_records WHERE YEAR(created_at) = {$year}")->fetchColumn();
+        $recordNumber = 'RMR-' . $year . '-' . str_pad((int)$lastNum + 1, 4, '0', STR_PAD_LEFT);
+
+        $los = 1;
+        if (!empty($data['index_admission_date']) && !empty($data['index_discharge_date'])) {
+            $los = max(1, (int)((strtotime($data['index_discharge_date']) - strtotime($data['index_admission_date'])) / 86400));
+        }
+
+        $daysToReadm = null;
+        if (!empty($data['readmission_date']) && !empty($data['index_discharge_date'])) {
+            $daysToReadm = max(0, (int)((strtotime($data['readmission_date']) - strtotime($data['index_discharge_date'])) / 86400));
+        }
+
+        $daysToMort = null;
+        if (!empty($data['mortality_date']) && !empty($data['index_discharge_date'])) {
+            $daysToMort = max(0, (int)((strtotime($data['mortality_date']) - strtotime($data['index_discharge_date'])) / 86400));
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO readmission_mortality_records (
+                record_number, index_admission_date, index_discharge_date, length_of_stay,
+                department, ward_bed, patient_name, patient_mrn, patient_age, gender,
+                primary_diagnosis, icd10_code, attending_physician, discharge_disposition,
+                readmission_status, readmission_date, days_to_readmission,
+                readmission_diagnosis, readmission_department, readmission_preventable,
+                mortality_status, mortality_date, days_to_mortality, cause_of_death,
+                post_discharge_followup_call, followup_appointment_scheduled, medication_reconciliation_completed,
+                risk_score, root_cause_analysis, intervention_plan, status, notes
+            ) VALUES (
+                :record_number, :index_admission_date, :index_discharge_date, :length_of_stay,
+                :department, :ward_bed, :patient_name, :patient_mrn, :patient_age, :gender,
+                :primary_diagnosis, :icd10_code, :attending_physician, :discharge_disposition,
+                :readmission_status, :readmission_date, :days_to_readmission,
+                :readmission_diagnosis, :readmission_department, :readmission_preventable,
+                :mortality_status, :mortality_date, :days_to_mortality, :cause_of_death,
+                :post_discharge_followup_call, :followup_appointment_scheduled, :medication_reconciliation_completed,
+                :risk_score, :root_cause_analysis, :intervention_plan, :status, :notes
+            )
+        ");
+
+        $stmt->execute([
+            'record_number'                       => $recordNumber,
+            'index_admission_date'                => $data['index_admission_date'] ?? date('Y-m-d'),
+            'index_discharge_date'                => $data['index_discharge_date'] ?? date('Y-m-d'),
+            'length_of_stay'                      => $los,
+            'department'                          => trim($data['department'] ?? ''),
+            'ward_bed'                            => $data['ward_bed'] ?? null,
+            'patient_name'                        => trim($data['patient_name'] ?? ''),
+            'patient_mrn'                         => trim($data['patient_mrn'] ?? ''),
+            'patient_age'                         => (int)($data['patient_age'] ?? 0),
+            'gender'                              => $data['gender'] ?? 'Male',
+            'primary_diagnosis'                   => trim($data['primary_diagnosis'] ?? ''),
+            'icd10_code'                          => $data['icd10_code'] ?? null,
+            'attending_physician'                 => trim($data['attending_physician'] ?? ''),
+            'discharge_disposition'               => $data['discharge_disposition'] ?? 'Home',
+            'readmission_status'                  => $data['readmission_status'] ?? 'No Readmission',
+            'readmission_date'                    => !empty($data['readmission_date']) ? $data['readmission_date'] : null,
+            'days_to_readmission'                 => $daysToReadm,
+            'readmission_diagnosis'               => $data['readmission_diagnosis'] ?? null,
+            'readmission_department'              => $data['readmission_department'] ?? null,
+            'readmission_preventable'             => !empty($data['readmission_preventable']) ? 1 : 0,
+            'mortality_status'                    => $data['mortality_status'] ?? 'Alive',
+            'mortality_date'                      => !empty($data['mortality_date']) ? $data['mortality_date'] : null,
+            'days_to_mortality'                   => $daysToMort,
+            'cause_of_death'                      => $data['cause_of_death'] ?? null,
+            'post_discharge_followup_call'        => !empty($data['post_discharge_followup_call']) ? 1 : 0,
+            'followup_appointment_scheduled'      => !empty($data['followup_appointment_scheduled']) ? 1 : 0,
+            'medication_reconciliation_completed' => !empty($data['medication_reconciliation_completed']) ? 1 : 0,
+            'risk_score'                          => $data['risk_score'] ?? 'Medium',
+            'root_cause_analysis'                 => $data['root_cause_analysis'] ?? null,
+            'intervention_plan'                   => $data['intervention_plan'] ?? null,
+            'status'                              => $data['status'] ?? 'Under 30-Day Surveillance',
+            'notes'                               => $data['notes'] ?? null,
+        ]);
+
+        return $this->getReadmissionMortalityDetails((int)$db->lastInsertId());
+    }
+
+    public function updateReadmissionMortalityRecord(int $id, array $data): ?array
+    {
+        $db = Database::connection();
+        $existing = $this->getReadmissionMortalityDetails($id);
+        if (!$existing) return null;
+
+        $fields = ['updated_at = NOW()'];
+        $params = ['id' => $id];
+
+        $updatable = [
+            'readmission_status', 'readmission_date', 'readmission_diagnosis',
+            'readmission_department', 'readmission_preventable',
+            'mortality_status', 'mortality_date', 'cause_of_death',
+            'post_discharge_followup_call', 'followup_appointment_scheduled',
+            'medication_reconciliation_completed', 'risk_score',
+            'root_cause_analysis', 'intervention_plan', 'status', 'notes'
+        ];
+
+        foreach ($updatable as $col) {
+            if (isset($data[$col])) {
+                $fields[]     = "{$col} = :{$col}";
+                $params[$col] = $data[$col] === '' ? null : $data[$col];
+            }
+        }
+
+        if (!empty($data['readmission_date'])) {
+            $disch = $existing['index_discharge_date'];
+            $daysToReadm = max(0, (int)((strtotime($data['readmission_date']) - strtotime($disch)) / 86400));
+            $fields[]                     = 'days_to_readmission = :days_to_readmission';
+            $params['days_to_readmission'] = $daysToReadm;
+        }
+
+        if (!empty($data['mortality_date'])) {
+            $disch = $existing['index_discharge_date'];
+            $daysToMort = max(0, (int)((strtotime($data['mortality_date']) - strtotime($disch)) / 86400));
+            $fields[]                   = 'days_to_mortality = :days_to_mortality';
+            $params['days_to_mortality'] = $daysToMort;
+        }
+
+        if (count($fields) <= 1) return $existing;
+
+        $setClause = implode(', ', $fields);
+        $stmt = $db->prepare("UPDATE readmission_mortality_records SET {$setClause} WHERE id = :id");
+        $stmt->execute($params);
+
+        return $this->getReadmissionMortalityDetails($id);
+    }
 }

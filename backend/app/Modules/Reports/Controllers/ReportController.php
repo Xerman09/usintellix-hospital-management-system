@@ -535,4 +535,62 @@ class ReportController extends Controller
         if (!$record) { $this->error('Record not found.', 404); return; }
         $this->success($record, 'HAI record updated successfully.');
     }
+
+    // -------------------------------------------------------
+    // JCAHO / CMS: 30-Day Readmission & Hospital Mortality Report
+    // -------------------------------------------------------
+    public function readmissionMortalityReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only([
+            'date_from', 'date_to', 'department', 'readmission_status',
+            'mortality_status', 'risk_score', 'status', 'search'
+        ]);
+        $data = $this->reportService->getReadmissionMortalityReport($filters);
+        $this->success($data, 'Readmission and mortality report retrieved successfully.');
+    }
+
+    public function readmissionMortalityDetails(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Record ID is required.', 400);
+            return;
+        }
+        $record = $this->reportService->getReadmissionMortalityDetails($id);
+        if (!$record) {
+            $this->error('Record not found.', 404);
+            return;
+        }
+        $this->success($record, 'Readmission and mortality record retrieved successfully.');
+    }
+
+    public function storeReadmissionMortality(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        if (empty($data['patient_name']) || empty($data['patient_mrn']) || empty($data['department']) || empty($data['primary_diagnosis']) || empty($data['attending_physician'])) {
+            $this->error('Patient Name, MRN, Department, Primary Diagnosis, and Attending Physician are required.', 422);
+            return;
+        }
+        $record = $this->reportService->createReadmissionMortalityRecord($data);
+        $this->success($record, 'Readmission and mortality surveillance record created successfully.', 201);
+    }
+
+    public function updateReadmissionMortality(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) {
+            $this->error('Record ID is required.', 400);
+            return;
+        }
+        $record = $this->reportService->updateReadmissionMortalityRecord($id, $request->all());
+        if (!$record) {
+            $this->error('Record not found.', 404);
+            return;
+        }
+        $this->success($record, 'Readmission and mortality surveillance record updated successfully.');
+    }
 }

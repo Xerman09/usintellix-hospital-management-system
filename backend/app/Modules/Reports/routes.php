@@ -267,3 +267,22 @@ $router->post('/reports/hai-ssi/update', [ReportController::class, 'updateHAI'],
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// JCAHO / CMS: 30-Day Readmission & Hospital Mortality Report
+$router->get('/reports/readmission-mortality', [ReportController::class, 'readmissionMortalityReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/readmission-mortality/details', [ReportController::class, 'readmissionMortalityDetails'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/readmission-mortality', [ReportController::class, 'storeReadmissionMortality'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/readmission-mortality/update', [ReportController::class, 'updateReadmissionMortality'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
