@@ -16,6 +16,7 @@ function staffNavLinks(role)
             <span>Patient</span>
             <div class="dropdown-content">
                 <a data-tab="patients">New/Search</a>
+                <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -59,6 +60,7 @@ function staffNavLinks(role)
                 <a data-tab="manage_modules">Manage Modules</a>
                 <a data-tab="carecoordination">Carecoordination</a>
                 <a data-tab="or_management">Operating Room (OR) Management</a>
+                <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
             </div>
         </div>
         <div class="nav-dropdown">

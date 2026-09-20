@@ -241,6 +241,8 @@ import { initSurgicalSafety } from "../reports/surgical-safety.js";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js";
 import { initOrManagement } from "../or-management/or-management.js";
 import { OrManagementView } from "../or-management/or-management.view.js";
+import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js";
+import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1297,6 +1299,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Operating Room (OR) Management', () => {
                 setTimeout(initOrManagement, 0);
                 return OrManagementView();
+            }, activate);
+        } else if (tabId === 'inpatient_admissions') {
+            tabManager.openTab(tabId, title || 'Inpatient Bed Management (ADT)', () => {
+                setTimeout(initInpatientAdmissions, 0);
+                return InpatientAdmissionsView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
