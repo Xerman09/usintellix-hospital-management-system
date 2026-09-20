@@ -32,12 +32,34 @@ function esc(str) {
         .replace(/'/g, '&#039;');
 }
 
+function getInitials(name) {
+    if (!name) return 'PT';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function setDefaultDate() {
     const dateInput = document.getElementById('orFilterDate');
     if (dateInput && !dateInput.value) {
         const today = new Date().toISOString().split('T')[0];
         dateInput.value = today;
     }
+    updateDateDisplay();
+}
+
+function updateDateDisplay() {
+    const dateInput = document.getElementById('orFilterDate');
+    const dateStrEl = document.getElementById('orLiveDateStr');
+    if (!dateStrEl) return;
+
+    let targetDate = new Date();
+    if (dateInput && dateInput.value) {
+        const [y, m, d] = dateInput.value.split('-').map(Number);
+        targetDate = new Date(y, m - 1, d);
+    }
+    const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+    dateStrEl.textContent = targetDate.toLocaleDateString('en-US', options);
 }
 
 function setupLiveClock() {
@@ -50,7 +72,7 @@ function setupLiveClock() {
         const hrs = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         const sec = String(now.getSeconds()).padStart(2, '0');
-        clockEl.innerHTML = `<span style="color:#ef4444;margin-right:4px;">&#9679;</span> LIVE ${hrs}:${min}:${sec}`;
+        clockEl.textContent = `${hrs}:${min}:${sec}`;
     }
 
     updateClock();
@@ -102,10 +124,74 @@ function setupPatientPicker() {
 }
 
 function setupEventListeners() {
-    // Filter controls
+    // Date navigation
     const dateInput = document.getElementById('orFilterDate');
-    if (dateInput) dateInput.addEventListener('change', () => fetchSchedule());
+    const prevBtn = document.getElementById('orDatePrevBtn');
+    const todayBtn = document.getElementById('orDateTodayBtn');
+    const nextBtn = document.getElementById('orDateNextBtn');
 
+    if (dateInput) {
+        dateInput.addEventListener('change', () => {
+            updateDateDisplay();
+            fetchSchedule();
+        });
+    }
+
+    if (prevBtn && dateInput) {
+        prevBtn.addEventListener('click', () => {
+            const cur = dateInput.value ? new Date(dateInput.value) : new Date();
+            cur.setDate(cur.getDate() - 1);
+            dateInput.value = cur.toISOString().split('T')[0];
+            updateDateDisplay();
+            fetchSchedule();
+        });
+    }
+
+    if (todayBtn && dateInput) {
+        todayBtn.addEventListener('click', () => {
+            dateInput.value = new Date().toISOString().split('T')[0];
+            updateDateDisplay();
+            fetchSchedule();
+        });
+    }
+
+    if (nextBtn && dateInput) {
+        nextBtn.addEventListener('click', () => {
+            const cur = dateInput.value ? new Date(dateInput.value) : new Date();
+            cur.setDate(cur.getDate() + 1);
+            dateInput.value = cur.toISOString().split('T')[0];
+            updateDateDisplay();
+            fetchSchedule();
+        });
+    }
+
+    // Theater / Fullscreen Mode Toggle
+    const fullBtn = document.getElementById('orFullscreenBtn');
+    const wrapper = document.getElementById('orWrapper');
+    if (fullBtn && wrapper) {
+        fullBtn.addEventListener('click', () => {
+            const isFull = wrapper.classList.toggle('or-fullscreen');
+            fullBtn.innerHTML = isFull ? '<span>&#x2715;</span> Exit Theater' : '<span>&#x26F6;</span> Theater Mode';
+        });
+    }
+
+    // Search Box and Clear Button
+    const searchInput = document.getElementById('orSearchInput');
+    const searchClear = document.getElementById('orSearchClearBtn');
+    if (searchInput && searchClear) {
+        searchInput.addEventListener('input', () => {
+            searchClear.style.display = searchInput.value ? 'block' : 'none';
+            renderFilteredViews();
+        });
+        searchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            searchClear.style.display = 'none';
+            searchInput.focus();
+            renderFilteredViews();
+        });
+    }
+
+    // Filters
     const suiteFilter = document.getElementById('orSuiteFilter');
     if (suiteFilter) suiteFilter.addEventListener('change', () => renderFilteredViews());
 
@@ -118,11 +204,6 @@ function setupEventListeners() {
     const stageFilter = document.getElementById('orStageFilter');
     if (stageFilter) stageFilter.addEventListener('change', () => renderFilteredViews());
 
-    const searchInput = document.getElementById('orSearchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => renderFilteredViews());
-    }
-
     const resetBtn = document.getElementById('orResetFilterBtn');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -130,7 +211,10 @@ function setupEventListeners() {
             if (specialtyFilter) specialtyFilter.value = 'all';
             if (priorityFilter) priorityFilter.value = 'all';
             if (stageFilter) stageFilter.value = 'all';
-            if (searchInput) searchInput.value = '';
+            if (searchInput) {
+                searchInput.value = '';
+                if (searchClear) searchClear.style.display = 'none';
+            }
             setDefaultDate();
             fetchSchedule();
         });
@@ -171,14 +255,16 @@ function setupEventListeners() {
     const cancelBookBtn = document.getElementById('orCancelBookBtn');
     const bookForm = document.getElementById('orBookForm');
 
+    const openBookModal = (preselectedSuiteId = null) => {
+        const curDate = document.getElementById('orFilterDate')?.value || new Date().toISOString().split('T')[0];
+        const fDate = document.getElementById('orFDate');
+        if (fDate) fDate.value = curDate;
+        populateSuiteSelect('orFSuiteId', preselectedSuiteId);
+        if (bookModal) bookModal.style.display = 'flex';
+    };
+
     if (bookBtn && bookModal) {
-        bookBtn.addEventListener('click', () => {
-            const curDate = document.getElementById('orFilterDate')?.value || new Date().toISOString().split('T')[0];
-            const fDate = document.getElementById('orFDate');
-            if (fDate) fDate.value = curDate;
-            populateSuiteSelect('orFSuiteId');
-            bookModal.style.display = 'flex';
-        });
+        bookBtn.addEventListener('click', () => openBookModal());
     }
 
     const closeBook = () => { if (bookModal) bookModal.style.display = 'none'; };
@@ -233,10 +319,11 @@ function setupEventListeners() {
     if (closeSuiteBtn) closeSuiteBtn.addEventListener('click', closeSuite);
     if (suiteModal) suiteModal.addEventListener('click', (e) => { if (e.target === suiteModal) closeSuite(); });
 
-    // Expose global modal openers
+    // Expose global helpers
     window.__orOpenDetail = openDetailModal;
     window.__orOpenStage = openStageModal;
     window.__orOpenSuiteStatus = openSuiteModal;
+    window.__orOpenBookForSuite = openBookModal;
 }
 
 function toggleStageSpecificFields(stage) {
@@ -309,104 +396,168 @@ function renderSuitesGrid(suites) {
         const isAvail = s.status === 'Available';
         const isMaint = s.status === 'Maintenance';
 
+        let cardStatusClass = 'status-available';
         let badgeClass = 'available';
         let badgeIcon = '&#10003;';
-        if (isSurgery) { badgeClass = 'in-surgery'; badgeIcon = '<span class="or-pulse-dot"></span>'; }
-        else if (isTurnover) { badgeClass = 'turnover'; badgeIcon = '&#129529;'; }
-        else if (isMaint) { badgeClass = 'maintenance'; badgeIcon = '&#9888;'; }
+        if (isSurgery) {
+            cardStatusClass = 'status-in-surgery';
+            badgeClass = 'in-surgery';
+            badgeIcon = '<span class="or-pulse-dot"></span>';
+        } else if (isTurnover) {
+            cardStatusClass = 'status-turnover';
+            badgeClass = 'turnover';
+            badgeIcon = '&#129529;';
+        } else if (isMaint) {
+            cardStatusClass = 'status-maintenance';
+            badgeClass = 'maintenance';
+            badgeIcon = '&#9888;';
+        }
 
-        // Active Case markup
-        let activeCaseHtml = '';
+        // Active Case Content
+        let activeBoxHtml = '';
+        let actionButtonsHtml = '';
+
         if (isSurgery && s.active_case) {
             const ac = s.active_case;
-            let elapsedMin = '';
+            let elapsedMin = 0;
             if (ac.actual_incision_time) {
-                const elapsed = Math.max(0, Math.floor((new Date() - new Date(ac.actual_incision_time)) / 60000));
-                elapsedMin = ` &bull; <span style="color:#ef4444;font-weight:700;">${elapsed}m elapsed</span>`;
+                elapsedMin = Math.max(0, Math.floor((new Date() - new Date(ac.actual_incision_time)) / 60000));
+            } else if (ac.actual_in_room_time) {
+                elapsedMin = Math.max(0, Math.floor((new Date() - new Date(ac.actual_in_room_time)) / 60000));
             }
+            const estMin = 120; // default estimated
+            const pct = Math.min(100, Math.round((elapsedMin / estMin) * 100));
 
-            activeCaseHtml = `
-                <div class="or-suite-active-case surgery">
+            activeBoxHtml = `
+                <div class="or-suite-active-box surgery">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <span style="font-size:11px;font-weight:700;color:#ef4444;">${esc(ac.perioperative_stage || 'In Surgery')}</span>
-                        <span style="font-family:monospace;font-size:10px;color:#64748b;">${esc(ac.case_number)}</span>
+                        <span style="font-size:11px;font-weight:700;color:#ef4444;text-transform:uppercase;">
+                            &#9889; ${esc(ac.perioperative_stage || 'In Surgery')}
+                        </span>
+                        <span style="font-family:monospace;font-size:11px;font-weight:700;color:#0284c7;">
+                            ${esc(ac.case_number)}
+                        </span>
                     </div>
-                    <div class="or-suite-case-proc">${esc(ac.procedure_name)}</div>
-                    <div class="or-suite-case-patient">
-                        <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${esc(ac.patient_mrn)}')" style="color:#0284c7;text-decoration:none;font-weight:600;" title="Open EHR Patient Chart">
+                    <div style="font-weight:700;font-size:13px;color:#0f172a;line-height:1.2;margin-bottom:4px;">
+                        ${esc(ac.procedure_name)}
+                    </div>
+                    <div style="font-size:12px;color:#475569;margin-bottom:4px;">
+                        <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${esc(ac.patient_mrn)}')" style="color:#0284c7;font-weight:700;text-decoration:none;" title="Open EHR Patient Chart">
                             &#128100; ${esc(ac.patient_name)}
                         </a>
                         <small style="color:#64748b;">(${esc(ac.patient_mrn)})</small>
                     </div>
-                    <div class="or-suite-case-surgeon">
-                        Surgeon: <strong>${esc(ac.lead_surgeon)}</strong>${elapsedMin}
+                    <div style="font-size:11px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
+                        <span>Surgeon: <strong style="color:#334155;">${esc(ac.lead_surgeon)}</strong></span>
+                        <span style="font-weight:700;color:#ef4444;">⏱ ${elapsedMin}m elapsed</span>
+                    </div>
+                    <div class="or-suite-progress-track">
+                        <div class="or-suite-progress-fill" style="width: ${pct}%;"></div>
                     </div>
                 </div>
             `;
+
+            actionButtonsHtml = `
+                <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${s.current_case_id})" style="padding:4px 9px;font-size:11px;">
+                    Case Details
+                </button>
+                <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${s.current_case_id}, '${esc(ac.perioperative_stage)}')" style="padding:4px 10px;font-size:11px;">
+                    Advance &rarr;
+                </button>
+            `;
         } else if (isTurnover) {
-            let turnoverElapsed = '';
+            let elMin = 0;
             if (s.turnover_started_at) {
-                const elMin = Math.max(0, Math.floor((new Date() - new Date(s.turnover_started_at)) / 60000));
-                turnoverElapsed = `Turnover in progress: ${elMin} min elapsed`;
-            } else {
-                turnoverElapsed = 'Turnover & environmental cleaning in progress';
+                elMin = Math.max(0, Math.floor((new Date() - new Date(s.turnover_started_at)) / 60000));
             }
-            activeCaseHtml = `
-                <div class="or-suite-active-case" style="border-left-color:#f59e0b;background:#fffbeb;">
-                    <div style="font-size:11px;font-weight:700;color:#92400e;">Room Cleaning / Turnover</div>
-                    <div style="font-size:11px;color:#78350f;margin-top:2px;">${turnoverElapsed}</div>
-                    <button type="button" onclick="window.__orQuickReady(${s.id})" style="margin-top:6px;background:#10b981;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;">
-                        Mark Ready (Available)
-                    </button>
+            activeBoxHtml = `
+                <div class="or-suite-active-box turnover">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">
+                            &#129529; Room Turnover in Progress
+                        </span>
+                        <span style="font-weight:700;color:#d97706;font-size:11px;">${elMin}m elapsed</span>
+                    </div>
+                    <div style="font-size:11px;color:#78350f;margin-top:4px;">
+                        Environmental cleaning and terminal disinfection underway.
+                    </div>
                 </div>
+            `;
+            actionButtonsHtml = `
+                <button type="button" onclick="window.__orQuickReady(${s.id})" class="or-btn-primary" style="background:linear-gradient(135deg, #10b981, #059669);font-size:11px;padding:4px 10px;">
+                    &#10003; Mark Sterile &amp; Ready
+                </button>
             `;
         } else if (isAvail) {
-            activeCaseHtml = `
-                <div class="or-suite-active-case" style="border-left-color:#10b981;background:#f0fdf4;">
-                    <div style="font-size:11px;font-weight:700;color:#166534;">Ready &amp; Sterile</div>
-                    <div style="font-size:11px;color:#15803d;margin-top:2px;">Suite available for next surgical induction.</div>
+            activeBoxHtml = `
+                <div class="or-suite-active-box available">
+                    <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;">
+                        &#10003; Sterile &amp; Available
+                    </div>
+                    <div style="font-size:11px;color:#15803d;margin-top:2px;">
+                        Terminal sanitation verified. Ready for patient induction.
+                    </div>
                 </div>
             `;
+            actionButtonsHtml = `
+                <button type="button" onclick="window.__orOpenBookForSuite(${s.id})" class="or-btn-primary" style="font-size:11px;padding:4px 10px;">
+                    + Book Case in this OR
+                </button>
+            `;
         } else {
-            activeCaseHtml = `
-                <div class="or-suite-active-case" style="border-left-color:#64748b;background:#f8fafc;">
-                    <div style="font-size:11px;font-weight:700;color:#475569;">Maintenance Hold</div>
-                    <div style="font-size:11px;color:#64748b;margin-top:2px;">Routine equipment inspection / sanitation.</div>
+            activeBoxHtml = `
+                <div class="or-suite-active-box maintenance">
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;">
+                        &#9888; Maintenance Hold
+                    </div>
+                    <div style="font-size:11px;color:#64748b;margin-top:2px;">
+                        Biomedical engineering / HVAC inspection in progress.
+                    </div>
                 </div>
+            `;
+            actionButtonsHtml = `
+                <button type="button" onclick="window.__orQuickReady(${s.id})" class="or-btn-secondary" style="font-size:11px;padding:4px 8px;">
+                    Clear Hold
+                </button>
             `;
         }
 
-        // Next Case snippet
+        // Next Case Snippet
         let nextCaseHtml = '';
         if (s.next_case) {
             nextCaseHtml = `
-                <div class="or-suite-next">
-                    <span>&#9203; Next:</span>
+                <div class="or-suite-next-box">
+                    <span style="font-weight:700;color:#0284c7;">Next Up:</span>
                     <strong style="color:#0f172a;">${esc(s.next_case.scheduled_start_time?.substring(0, 5) || '')}</strong>
-                    <span>${esc(s.next_case.procedure_name)} (${esc(s.next_case.lead_surgeon)})</span>
+                    <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.next_case.procedure_name)}</span>
                 </div>
             `;
         }
 
         return `
-            <div class="or-suite-card">
-                <div class="or-suite-top">
-                    <div>
-                        <span class="or-suite-code">${esc(s.suite_code)}</span>
-                        <div class="or-suite-name">${esc(s.suite_name)}</div>
-                        <div class="or-suite-floor">${esc(s.floor_location || 'OR Wing')} &bull; ${esc(s.specialty_capabilities || 'Multi-Specialty')}</div>
+            <div class="or-suite-card ${cardStatusClass}">
+                <div>
+                    <div class="or-suite-top">
+                        <div>
+                            <span class="or-suite-code">${esc(s.suite_code)}</span>
+                            <div class="or-suite-name">${esc(s.suite_name)}</div>
+                            <div class="or-suite-floor">${esc(s.floor_location || 'OR Wing')} &bull; ${esc(s.specialty_capabilities || 'General')}</div>
+                        </div>
+                        <div class="or-suite-status-badge ${badgeClass}">
+                            ${badgeIcon}
+                            <span>${esc(s.status)}</span>
+                        </div>
                     </div>
-                    <div class="or-suite-status-badge ${badgeClass}">
-                        ${badgeIcon}
-                        <span>${esc(s.status)}</span>
-                    </div>
+                    ${activeBoxHtml}
+                    ${nextCaseHtml}
                 </div>
-                ${activeCaseHtml}
-                ${nextCaseHtml}
-                <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;">
-                    <button type="button" onclick="window.__orOpenSuiteStatus()" style="background:none;border:none;font-size:11px;color:#0284c7;cursor:pointer;font-weight:600;padding:0;">
-                        Manage Status &rarr;
+                <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+                    <button type="button" onclick="window.__orOpenSuiteStatus()" style="background:none;border:none;font-size:11px;color:#64748b;cursor:pointer;font-weight:600;padding:0;">
+                        &#9881; Room State
                     </button>
+                    <div style="display:flex;gap:6px;">
+                        ${actionButtonsHtml}
+                    </div>
                 </div>
             </div>
         `;
@@ -445,12 +596,13 @@ function populateSpecialtyFilterDropdown(specialties) {
     if (curVal) filter.value = curVal;
 }
 
-function populateSuiteSelect(selectId) {
+function populateSuiteSelect(selectId, preselectedId = null) {
     const sel = document.getElementById(selectId);
     if (!sel) return;
     const suites = currentScheduleData.suites || [];
     sel.innerHTML = '<option value="">-- Select OR Suite --</option>' +
         suites.map(s => `<option value="${s.id}">${esc(s.suite_code)} &mdash; ${esc(s.suite_name)} (${esc(s.status)})</option>`).join('');
+    if (preselectedId) sel.value = preselectedId;
 }
 
 function renderFilteredViews() {
@@ -539,7 +691,7 @@ function renderWhiteboardKanban(cases) {
         if (!colEl) return;
 
         if (!list.length) {
-            colEl.innerHTML = '<div style="padding: 20px 10px; text-align: center; color: #94a3b8; font-size: 11px; font-style: italic;">No cases in this stage</div>';
+            colEl.innerHTML = '<div style="padding: 24px 10px; text-align: center; color: #94a3b8; font-size: 11px; font-style: italic;">No cases in this stage</div>';
             return;
         }
 
@@ -557,13 +709,25 @@ function renderWhiteboardKanban(cases) {
             const startTime = c.scheduled_start_time ? c.scheduled_start_time.substring(0, 5) : '--:--';
             const duration = c.estimated_duration_minutes ? `${c.estimated_duration_minutes}m` : '';
 
-            // Read-outs for readiness
+            // Readiness badge
             let readyChip = '';
             if (c.preop_cleared && c.consent_signed) {
-                readyChip = '<span class="or-chip or-chip-green" title="Consent & Clearance Complete">&#10003; Ready</span>';
+                readyChip = '<span class="or-chip or-chip-green" title="Consent Signed &amp; Pre-Op Clearance Complete">&#10003; Ready</span>';
             } else {
-                readyChip = '<span class="or-chip or-chip-amber" title="Readiness Pending">&#9888; Clearance</span>';
+                readyChip = '<span class="or-chip or-chip-amber" title="Readiness Clearance Incomplete">&#9888; Cleared?</span>';
             }
+
+            // Elapsed time indicator for active surgery
+            let liveTimerChip = '';
+            if (c.perioperative_stage === 'Incision / In Progress' && c.actual_incision_time) {
+                const el = Math.max(0, Math.floor((new Date() - new Date(c.actual_incision_time)) / 60000));
+                liveTimerChip = `<span class="or-chip or-chip-red" style="animation: orPulse 1.5s infinite;">⏱ ${el}m incised</span>`;
+            } else if (c.perioperative_stage === 'In PACU' && c.actual_out_room_time) {
+                const el = Math.max(0, Math.floor((new Date() - new Date(c.actual_out_room_time)) / 60000));
+                liveTimerChip = `<span class="or-chip or-chip-purple">⏱ ${el}m PACU</span>`;
+            }
+
+            const initials = getInitials(c.patient_name);
 
             return `
                 <div class="or-case-card ${priorityClass}">
@@ -571,21 +735,31 @@ function renderWhiteboardKanban(cases) {
                         <span class="or-card-num" onclick="window.__orOpenDetail(${c.id})" style="cursor:pointer;" title="View Details">${esc(c.case_number)}</span>
                         <span class="or-card-suite">${esc(c.suite_code || c.or_suite_name || 'OR')} &bull; ${startTime}</span>
                     </div>
-                    <div class="or-card-patient">
-                        <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${esc(c.patient_mrn)}')" style="color:inherit;text-decoration:none;" title="Open EHR Patient Chart">
-                            &#128100; ${esc(c.patient_name)}
-                        </a>
+                    
+                    <div class="or-card-patient-row">
+                        <div class="or-avatar-pill">${initials}</div>
+                        <div>
+                            <div class="or-card-patient-name">
+                                <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${esc(c.patient_mrn)}')" style="color:inherit;text-decoration:none;" title="Open EHR Patient Chart">
+                                    ${esc(c.patient_name)}
+                                </a>
+                            </div>
+                            <div class="or-card-patient-meta">
+                                ${esc(c.patient_mrn || '')} ${c.patient_age ? `&bull; ${c.patient_age}y` : ''} ${c.gender ? `/${c.gender[0]}` : ''}
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size:10px;color:#64748b;margin-bottom:4px;">
-                        ${esc(c.patient_mrn || '')} ${c.patient_age ? `&bull; ${c.patient_age}y` : ''} ${c.gender ? `/${c.gender[0]}` : ''}
-                    </div>
+
                     <div class="or-card-proc" title="${esc(c.procedure_name)}">${esc(c.procedure_name)}</div>
-                    <div class="or-card-surgeon">&#129658; ${esc(c.lead_surgeon)}</div>
+                    <div class="or-card-surgeon">&#129658; <strong>${esc(c.lead_surgeon)}</strong></div>
+                    
                     <div class="or-card-chips">
                         <span class="or-chip ${priorityChip}">${esc(c.case_priority)}</span>
                         <span class="or-chip or-chip-blue">${esc(c.surgical_specialty)}</span>
                         ${readyChip}
+                        ${liveTimerChip}
                     </div>
+
                     <div class="or-card-actions">
                         <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})">Details</button>
                         <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')">Advance &rarr;</button>
@@ -605,31 +779,40 @@ function renderScheduleTable(cases) {
         return;
     }
 
+    const stagesList = [
+        'Scheduled',
+        'Pre-Op Holding',
+        'In Room / Induction',
+        'Incision / In Progress',
+        'In PACU',
+        'Transferred / Discharged'
+    ];
+
     tbody.innerHTML = cases.map(c => {
         let pColor = '#0284c7';
         let pBg = '#e0f2fe';
         if (c.case_priority === 'Emergency / STAT') { pColor = '#991b1b'; pBg = '#fee2e2'; }
         else if (c.case_priority === 'Urgent') { pColor = '#92400e'; pBg = '#fef3c7'; }
 
-        const priorityBadge = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${pBg};color:${pColor};">${esc(c.case_priority)}</span>`;
-        
-        let sColor = '#334155';
-        let sBg = '#f1f5f9';
-        if (c.perioperative_stage === 'Incision / In Progress') { sColor = '#991b1b'; sBg = '#fee2e2'; }
-        else if (c.perioperative_stage === 'In PACU') { sColor = '#6b21a8'; sBg = '#f3e8ff'; }
-        else if (c.perioperative_stage === 'In Room / Induction') { sColor = '#0369a1'; sBg = '#e0f2fe'; }
-        else if (c.perioperative_stage === 'Transferred / Discharged') { sColor = '#166534'; sBg = '#dcfce7'; }
+        const priorityBadge = `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:${pBg};color:${pColor};">${esc(c.case_priority)}</span>`;
 
-        const stageBadge = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${sBg};color:${sColor};">${esc(c.perioperative_stage)}</span>`;
+        const curStageIdx = stagesList.indexOf(c.perioperative_stage);
+        const dotsHtml = stagesList.map((st, i) => {
+            let cls = '';
+            if (i < curStageIdx) cls = 'done';
+            else if (i === curStageIdx) cls = 'active';
+            return `<span class="or-stepper-dot ${cls}" title="${st}"></span>`;
+        }).join('');
 
         const readinessIcons = [
-            c.preop_cleared ? '<span title="Clearance OK" style="color:#16a34a;">&#10003;Cl</span>' : '<span title="Pending Clearance" style="color:#dc2626;">&#10007;Cl</span>',
-            c.consent_signed ? '<span title="Consent Signed" style="color:#16a34a;">&#10003;Co</span>' : '<span title="Pending Consent" style="color:#dc2626;">&#10007;Co</span>',
+            c.preop_cleared ? '<span title="Clearance Complete" style="color:#16a34a;font-weight:700;">&#10003;Cl</span>' : '<span title="Clearance Pending" style="color:#dc2626;font-weight:700;">&#10007;Cl</span>',
+            c.consent_signed ? '<span title="Consent Signed" style="color:#16a34a;font-weight:700;">&#10003;Co</span>' : '<span title="Consent Pending" style="color:#dc2626;font-weight:700;">&#10007;Co</span>',
             c.blood_reserved ? '<span title="Blood Bank Reserved" style="color:#dc2626;font-weight:700;">&#129656;</span>' : '',
             c.implants_required ? '<span title="Implants Verified" style="color:#0284c7;font-weight:700;">&#128295;</span>' : '',
         ].filter(Boolean).join(' ');
 
         const startTime = c.scheduled_start_time ? c.scheduled_start_time.substring(0, 5) : '--:--';
+        const initials = getInitials(c.patient_name);
 
         return `
             <tr>
@@ -642,28 +825,36 @@ function renderScheduleTable(cases) {
                     ${startTime}
                     <small style="color:#64748b;display:block;">(${c.estimated_duration_minutes || 0}m)</small>
                 </td>
-                <td style="font-weight:600;color:#0f172a;">${esc(c.suite_code || c.or_suite_name)}</td>
+                <td style="font-weight:700;color:#0f172a;">${esc(c.suite_code || c.or_suite_name)}</td>
                 <td>
-                    <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${esc(c.patient_mrn)}')" style="color:#0284c7;font-weight:600;text-decoration:none;" title="Open EHR Patient Chart">
-                        &#128100; ${esc(c.patient_name)}
-                    </a>
-                    <small style="display:block;color:#64748b;">${esc(c.patient_mrn || '')} &bull; ${c.patient_age || '--'}y/${c.gender ? c.gender[0] : ''}</small>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div class="or-avatar-pill" style="width:22px;height:22px;font-size:9px;">${initials}</div>
+                        <div>
+                            <a href="javascript:void(0)" onclick="window.__openPatientChartFromReport('${esc(c.patient_mrn)}')" style="color:#0284c7;font-weight:700;text-decoration:none;" title="Open EHR Patient Chart">
+                                ${esc(c.patient_name)}
+                            </a>
+                            <small style="display:block;color:#64748b;">${esc(c.patient_mrn || '')} &bull; ${c.patient_age || '--'}y/${c.gender ? c.gender[0] : ''}</small>
+                        </div>
+                    </div>
                 </td>
                 <td style="max-width:200px;">
                     <strong style="color:#0f172a;display:block;">${esc(c.procedure_name)}</strong>
                     <small style="color:#64748b;">${esc(c.surgical_specialty)}</small>
                 </td>
-                <td style="font-weight:600;">${esc(c.lead_surgeon)}</td>
+                <td style="font-weight:600;color:#334155;">${esc(c.lead_surgeon)}</td>
                 <td>
                     ${esc(c.anesthesia_type || 'General')}
                     <small style="display:block;color:#64748b;">${esc(c.anesthesiologist || '')}</small>
                 </td>
                 <td>${priorityBadge}</td>
-                <td>${stageBadge}</td>
-                <td style="font-size:11px;">${readinessIcons}</td>
+                <td>
+                    <span style="font-size:11px;font-weight:700;color:#0f172a;">${esc(c.perioperative_stage)}</span>
+                    <div class="or-stepper-dots">${dotsHtml}</div>
+                </td>
+                <td style="font-size:11px;white-space:nowrap;">${readinessIcons}</td>
                 <td style="text-align:right;white-space:nowrap;">
-                    <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})" style="padding:3px 7px;font-size:11px;margin-right:4px;">Details</button>
-                    <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')" style="padding:3px 7px;font-size:11px;">Advance</button>
+                    <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})" style="padding:3px 8px;font-size:11px;margin-right:4px;">Details</button>
+                    <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')" style="padding:3px 9px;font-size:11px;">Advance</button>
                 </td>
             </tr>
         `;
@@ -733,7 +924,6 @@ async function openStageModal(caseId, currentStage) {
     const modal = document.getElementById('orStageModal');
     if (!modal) return;
 
-    // Find case in data
     const c = (currentScheduleData.cases || []).find(item => item.id == caseId);
     
     document.getElementById('orStageCaseId').value = caseId;
@@ -745,7 +935,6 @@ async function openStageModal(caseId, currentStage) {
 
     const select = document.getElementById('orStageSelect');
     if (select) {
-        // Suggested next stage in sequence
         const stageSeq = [
             'Scheduled',
             'Pre-Op Holding',
