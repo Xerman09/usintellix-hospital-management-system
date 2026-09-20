@@ -249,3 +249,21 @@ $router->post('/reports/critical-tat/update', [ReportController::class, 'updateC
 ]);
 
 
+
+// JCAHO: HAI & SSI Infection Report
+$router->get('/reports/hai-ssi', [ReportController::class, 'haiReport'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/reports/hai-ssi/details', [ReportController::class, 'haiDetails'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/hai-ssi', [ReportController::class, 'storeHAI'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/reports/hai-ssi/update', [ReportController::class, 'updateHAI'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);

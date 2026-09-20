@@ -3153,5 +3153,188 @@ class ReportService
 
         return $this->getCriticalTATDetails($id);
     }
-}
+    /**
+     * JCAHO: Hospital-Acquired Infection (HAI) & SSI Report
+     */
+    public function getHAIReport(array $filters): array
+    {
+        $db = Database::connection();
 
+        $where  = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['date_from'])) {
+            $where[]              = 'DATE(report_date) >= :date_from';
+            $params['date_from']  = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $where[]            = 'DATE(report_date) <= :date_to';
+            $params['date_to']  = $filters['date_to'];
+        }
+        if (!empty($filters['infection_type']) && $filters['infection_type'] !== 'all') {
+            $where[]                   = 'infection_type = :infection_type';
+            $params['infection_type']  = $filters['infection_type'];
+        }
+        if (!empty($filters['department']) && $filters['department'] !== 'all') {
+            $where[]              = 'department = :department';
+            $params['department'] = $filters['department'];
+        }
+        if (!empty($filters['severity']) && $filters['severity'] !== 'all') {
+            $where[]           = 'severity = :severity';
+            $params['severity'] = $filters['severity'];
+        }
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $where[]          = 'status = :status';
+            $params['status'] = $filters['status'];
+        }
+        if (!empty($filters['search'])) {
+            $where[]           = '(tracking_number LIKE :search OR patient_name LIKE :search OR patient_mrn LIKE :search OR pathogen_isolated LIKE :search OR department LIKE :search OR procedure_type LIKE :search)';
+            $params['search']  = '%' . $filters['search'] . '%';
+        }
+
+        $whereClause = implode(' AND ', $where);
+        $sql  = "SELECT * FROM hai_ssi_infections WHERE {$whereClause} ORDER BY report_date DESC LIMIT 500";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // KPIs
+        $kpiSql = "SELECT
+            COUNT(*) AS total_cases,
+            SUM(infection_type = 'SSI') AS ssi_count,
+            SUM(infection_type IN ('CLABSI','CAUTI','VAP')) AS device_associated_count,
+            SUM(infection_type = 'MRSA') AS mrsa_count,
+            SUM(infection_type = 'CDI') AS cdi_count,
+            SUM(severity IN ('Severe','Critical')) AS severe_count,
+            SUM(bundle_compliance = 1) AS bundle_compliant,
+            SUM(status = 'Active') AS active_cases,
+            SUM(antibiotic_prophylaxis_given = 1 AND prophylaxis_timing_correct = 1) AS correct_prophylaxis
+        FROM hai_ssi_infections WHERE {$whereClause}";
+        $kpiStmt = $db->prepare($kpiSql);
+        $kpiStmt->execute($params);
+        $kpis = $kpiStmt->fetch(PDO::FETCH_ASSOC);
+
+        $total = (int)($kpis['total_cases'] ?? 0);
+        $bundleCompliant = (int)($kpis['bundle_compliant'] ?? 0);
+        $kpis['bundle_compliance_rate'] = $total > 0 ? round(($bundleCompliant / $total) * 100, 1) : 0;
+
+        $depts = $db->query("SELECT DISTINCT department FROM hai_ssi_infections ORDER BY department")->fetchAll(PDO::FETCH_COLUMN);
+
+        return [
+            'records'     => $records,
+            'kpis'        => $kpis,
+            'departments' => $depts,
+        ];
+    }
+
+    public function getHAIDetails(int $id): ?array
+    {
+        $db   = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM hai_ssi_infections WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        $row  = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function createHAIRecord(array $data): array
+    {
+        $db = Database::connection();
+        $year = date('Y');
+        $lastNum = $db->query("SELECT COUNT(*) FROM hai_ssi_infections WHERE YEAR(created_at) = {$year}")->fetchColumn();
+        $trackingNumber = 'HAI-' . $year . '-' . str_pad((int)$lastNum + 1, 4, '0', STR_PAD_LEFT);
+
+        $daysPop = null;
+        if (!empty($data['surgery_date']) && !empty($data['onset_date'])) {
+            $daysPop = (int)((strtotime($data['onset_date']) - strtotime($data['surgery_date'])) / 86400);
+            if ($daysPop < 0) $daysPop = 0;
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO hai_ssi_infections (
+                tracking_number, report_date, infection_type, infection_category,
+                procedure_type, surgery_date, onset_date, days_post_op,
+                department, ward_bed, patient_name, patient_mrn, patient_age, patient_risk_factors,
+                surgeon_attending, identified_by, identified_by_role,
+                pathogen_isolated, antibiotic_resistance,
+                antibiotic_prophylaxis_given, prophylaxis_timing_correct,
+                device_associated, device_type, device_days,
+                severity, outcome, treatment, isolation_precautions,
+                bundle_compliance, reported_to_cdc,
+                root_cause, corrective_action, status, notes
+            ) VALUES (
+                :tracking_number, :report_date, :infection_type, :infection_category,
+                :procedure_type, :surgery_date, :onset_date, :days_post_op,
+                :department, :ward_bed, :patient_name, :patient_mrn, :patient_age, :patient_risk_factors,
+                :surgeon_attending, :identified_by, :identified_by_role,
+                :pathogen_isolated, :antibiotic_resistance,
+                :antibiotic_prophylaxis_given, :prophylaxis_timing_correct,
+                :device_associated, :device_type, :device_days,
+                :severity, :outcome, :treatment, :isolation_precautions,
+                :bundle_compliance, :reported_to_cdc,
+                :root_cause, :corrective_action, :status, :notes
+            )
+        ");
+        $stmt->execute([
+            'tracking_number'             => $trackingNumber,
+            'report_date'                 => $data['report_date'] ?? date('Y-m-d H:i:s'),
+            'infection_type'              => $data['infection_type'] ?? 'SSI',
+            'infection_category'          => $data['infection_category'] ?? 'Superficial Incisional',
+            'procedure_type'              => $data['procedure_type'] ?? null,
+            'surgery_date'                => !empty($data['surgery_date']) ? $data['surgery_date'] : null,
+            'onset_date'                  => $data['onset_date'] ?? date('Y-m-d'),
+            'days_post_op'                => $daysPop,
+            'department'                  => trim($data['department'] ?? ''),
+            'ward_bed'                    => $data['ward_bed'] ?? null,
+            'patient_name'                => $data['patient_name'] ?? null,
+            'patient_mrn'                 => $data['patient_mrn'] ?? null,
+            'patient_age'                 => !empty($data['patient_age']) ? (int)$data['patient_age'] : null,
+            'patient_risk_factors'        => $data['patient_risk_factors'] ?? null,
+            'surgeon_attending'           => $data['surgeon_attending'] ?? null,
+            'identified_by'               => trim($data['identified_by'] ?? ''),
+            'identified_by_role'          => $data['identified_by_role'] ?? null,
+            'pathogen_isolated'           => $data['pathogen_isolated'] ?? null,
+            'antibiotic_resistance'       => $data['antibiotic_resistance'] ?? null,
+            'antibiotic_prophylaxis_given'=> !empty($data['antibiotic_prophylaxis_given']) ? 1 : 0,
+            'prophylaxis_timing_correct'  => !empty($data['prophylaxis_timing_correct']) ? 1 : 0,
+            'device_associated'           => !empty($data['device_associated']) ? 1 : 0,
+            'device_type'                 => $data['device_type'] ?? null,
+            'device_days'                 => !empty($data['device_days']) ? (int)$data['device_days'] : null,
+            'severity'                    => $data['severity'] ?? 'Moderate',
+            'outcome'                     => $data['outcome'] ?? 'Ongoing',
+            'treatment'                   => $data['treatment'] ?? null,
+            'isolation_precautions'       => $data['isolation_precautions'] ?? null,
+            'bundle_compliance'           => !empty($data['bundle_compliance']) ? 1 : 0,
+            'reported_to_cdc'             => !empty($data['reported_to_cdc']) ? 1 : 0,
+            'root_cause'                  => $data['root_cause'] ?? null,
+            'corrective_action'           => $data['corrective_action'] ?? null,
+            'status'                      => $data['status'] ?? 'Active',
+            'notes'                       => $data['notes'] ?? null,
+        ]);
+        return $this->getHAIDetails((int)$db->lastInsertId());
+    }
+
+    public function updateHAIRecord(int $id, array $data): ?array
+    {
+        $db = Database::connection();
+        if (!$this->getHAIDetails($id)) return null;
+
+        $fields = ['updated_at = NOW()'];
+        $params = ['id' => $id];
+        $updatable = [
+            'status','severity','outcome','treatment','isolation_precautions',
+            'bundle_compliance','reported_to_cdc','root_cause','corrective_action',
+            'pathogen_isolated','antibiotic_resistance','notes',
+            'antibiotic_prophylaxis_given','prophylaxis_timing_correct',
+        ];
+        foreach ($updatable as $col) {
+            if (isset($data[$col])) {
+                $fields[]     = "{$col} = :{$col}";
+                $params[$col] = $data[$col] === '' ? null : $data[$col];
+            }
+        }
+        if (count($fields) <= 1) return $this->getHAIDetails($id);
+        $setClause = implode(', ', $fields);
+        $db->prepare("UPDATE hai_ssi_infections SET {$setClause} WHERE id = :id")->execute($params);
+        return $this->getHAIDetails($id);
+    }
+}

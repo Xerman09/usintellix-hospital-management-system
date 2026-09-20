@@ -233,6 +233,8 @@ import { initIncidentLog } from "../reports/incident-log.js";
 import { IncidentLogView } from "../reports/incident-log.view.js";
 import { initCriticalTAT } from "../reports/critical-tat.js";
 import { CriticalTATView } from "../reports/critical-tat.view.js";
+import { initHAISSI } from "../reports/hai-ssi.js";
+import { HAISSIView } from "../reports/hai-ssi.view.js";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1078,6 +1080,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Critical Diagnostic TAT', () => {
                 setTimeout(initCriticalTAT, 0);
                 return CriticalTATView();
+            }, activate);
+        } else if (tabId === 'clinic_hai_ssi') {
+            tabManager.openTab(tabId, title || 'HAI & SSI Infections', () => {
+                setTimeout(initHAISSI, 0);
+                return HAISSIView();
             }, activate);
         } else if (tabId === 'reports_visits_daily') {
             tabManager.openTab(tabId, title, () => {

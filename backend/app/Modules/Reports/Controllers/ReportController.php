@@ -491,5 +491,48 @@ class ReportController extends Controller
         }
         $this->success($record, 'Critical TAT record updated successfully.');
     }
-}
+    // -------------------------------------------------------
+    // JCAHO: HAI & SSI Infection Report
+    // -------------------------------------------------------
+    public function haiReport(): void
+    {
+        $request = new Request();
+        $filters = $request->only([
+            'date_from','date_to','infection_type','department','severity','status','search'
+        ]);
+        $data = $this->reportService->getHAIReport($filters);
+        $this->success($data, 'HAI/SSI report retrieved successfully.');
+    }
 
+    public function haiDetails(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) { $this->error('Record ID is required.', 400); return; }
+        $record = $this->reportService->getHAIDetails($id);
+        if (!$record) { $this->error('Record not found.', 404); return; }
+        $this->success($record, 'HAI record retrieved successfully.');
+    }
+
+    public function storeHAI(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        if (empty($data['infection_type']) || empty($data['department']) || empty($data['identified_by'])) {
+            $this->error('Infection Type, Department, and Identified By are required.', 422);
+            return;
+        }
+        $record = $this->reportService->createHAIRecord($data);
+        $this->success($record, 'HAI record logged successfully.', 201);
+    }
+
+    public function updateHAI(): void
+    {
+        $request = new Request();
+        $id = (int)($request->input('id') ?? 0);
+        if (!$id) { $this->error('Record ID is required.', 400); return; }
+        $record = $this->reportService->updateHAIRecord($id, $request->all());
+        if (!$record) { $this->error('Record not found.', 404); return; }
+        $this->success($record, 'HAI record updated successfully.');
+    }
+}
