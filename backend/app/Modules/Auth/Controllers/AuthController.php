@@ -96,4 +96,13 @@ class AuthController extends Controller
 
         $this->success(['user' => $updatedUser], $result['message']);
     }
+
+    /**
+     * Heartbeat / keepalive ping to maintain session activity.
+     */
+    public function ping(): void
+    {
+        $user = Session::get('user');
+        $this->success(['active' => true, 'user_id' => $user['id'] ?? null], 'Session alive.');
+    }
 }

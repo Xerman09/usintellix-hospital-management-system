@@ -3,6 +3,7 @@ import { login, verifyTwoFactor, completeFirstLogin, logout } from "./auth.servi
 import { saveUser, clearSession } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
+import { resetInactivityTimer, stopInactivityGuard } from "../../core/inactivity-guard.js?v=1";
 
 const FIELDS = ["username", "password"];
 
@@ -10,8 +11,14 @@ export function initLogin()
 {
      console.log("initLogin called");
 
+    stopInactivityGuard();
+
     enablePasswordToggles();
     initBranding();
+
+    if (window.location.hash.includes("reason=inactivity")) {
+        showAlert("Your session was safely logged off due to 15 minutes of inactivity in accordance with HIPAA Security Rule § 164.312(a)(2)(iii). Please log in again.", "warning");
+    }
 
     const loginForm =
         document.getElementById("loginForm");
@@ -206,6 +213,7 @@ function proceedAfterAuthentication(user)
     }
 
     saveUser(user);
+    resetInactivityTimer();
 
     window.location.hash =
         "#/dashboard";

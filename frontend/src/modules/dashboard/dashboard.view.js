@@ -171,7 +171,8 @@ function staffNavLinks(role)
                     <div class="dropdown-submenu-content">
                         <a data-tab="admin_system_files">Files</a>
                         <a data-tab="admin_system_language">Language</a>
-                        <a data-tab="admin_system_logs">Logs</a>
+                        <a data-tab="hipaa_audit">HIPAA Audit Logs &amp; Integrity</a>
+                        <a data-tab="admin_system_logs">System Logs</a>
                         <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
                         <a data-tab="admin_system_diagnostics">Diagnostics</a>
                         <a data-tab="admin_system_email_send_test">Email Send Test</a>

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Auth\Services;
 
+use App\Core\AuditLogger;
 use App\Core\Database;
 use App\Core\Mailer;
 use App\Core\Session;
@@ -57,6 +58,12 @@ class AuthService
             ->first();
 
         if (!$user || !password_verify($password, $user['password'])) {
+            AuditLogger::log(
+                AuditLogger::CATEGORY_AUTH,
+                AuditLogger::ACTION_LOGIN_FAILED,
+                "Authentication failure: invalid credentials for username '{$username}'."
+            );
+
             return [
                 'success' => false,
                 'message' => 'Invalid username or password.',
@@ -139,6 +146,18 @@ class AuthService
      */
     public function logout(): void
     {
+        $user = Session::get('user');
+        if (is_array($user)) {
+            AuditLogger::log(
+                AuditLogger::CATEGORY_AUTH,
+                AuditLogger::ACTION_LOGOUT,
+                "User '{$user['username']}' ({$user['role']}) initiated session termination.",
+                null,
+                (int) $user['id'],
+                $user['role']
+            );
+        }
+
         Session::destroy();
     }
 
@@ -263,6 +282,15 @@ class AuthService
             'avatar'                => $user['avatar'] ?? null,
             'must_change_password'  => (bool) ($user['must_change_password'] ?? false)
         ]);
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_AUTH,
+            AuditLogger::ACTION_LOGIN_SUCCESS,
+            "User '{$user['username']}' ({$resolvedRole}) authenticated successfully.",
+            null,
+            (int) $user['id'],
+            $resolvedRole
+        );
 
         return [
             'success' => true,

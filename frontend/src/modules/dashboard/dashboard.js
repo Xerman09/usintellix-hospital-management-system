@@ -249,6 +249,8 @@ import { initPrivacyPolicy } from "../privacy-policy/privacy-policy.js?v=1";
 import { PrivacyPolicyView } from "../privacy-policy/privacy-policy.view.js?v=1";
 import { initTermsConditions } from "../terms-conditions/terms-conditions.js?v=1";
 import { TermsConditionsView } from "../terms-conditions/terms-conditions.view.js?v=1";
+import { initHipaaAudit } from "../hipaa-audit/hipaa-audit.js?v=1";
+import { HipaaAuditView } from "../hipaa-audit/hipaa-audit.view.js?v=1";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1325,6 +1327,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Terms & Conditions of Service', () => {
                 setTimeout(initTermsConditions, 0);
                 return TermsConditionsView({ isTab: true });
+            }, activate);
+        } else if (tabId === 'hipaa_audit' || tabId === 'admin_system_logs' || tabId === 'admin_system_audit_log_tamper') {
+            tabManager.openTab(tabId, title || 'HIPAA Audit Logs & Integrity', () => {
+                setTimeout(initHipaaAudit, 0);
+                return HipaaAuditView();
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);

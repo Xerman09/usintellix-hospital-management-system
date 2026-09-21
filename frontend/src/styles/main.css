@@ -4380,3 +4380,186 @@ select.form-input {
 .rp-proxy-candidate-row:last-child {
     border-bottom: none;
 }
+
+/* ==========================================================================
+   HIPAA Compliance Safeguards (§ 164.312)
+   ========================================================================== */
+
+/* Inactivity Auto-Logoff Warning Dialog */
+.hipaa-inactivity-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.82);
+    backdrop-filter: blur(6px);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: hipaaFadeIn 0.25s ease-out;
+}
+
+@keyframes hipaaFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.hipaa-inactivity-dialog {
+    background: #ffffff;
+    border-radius: 14px;
+    max-width: 480px;
+    width: 100%;
+    padding: 32px 28px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    border: 1px solid #e2e8f0;
+}
+
+.hipaa-modal-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.hipaa-shield-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.hipaa-modal-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.hipaa-modal-body p {
+    font-size: 14px;
+    color: #475569;
+    margin: 0 0 16px;
+    line-height: 1.5;
+}
+
+.hipaa-countdown-wrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #fffbeb;
+    border: 2px solid #fde68a;
+    border-radius: 12px;
+    padding: 16px 32px;
+    margin: 8px 0 20px;
+}
+
+.hipaa-countdown-number {
+    font-size: 46px;
+    font-weight: 800;
+    color: #b45309;
+    font-family: monospace, sans-serif;
+    line-height: 1;
+}
+
+.hipaa-countdown-unit {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #92400e;
+    margin-top: 4px;
+}
+
+.hipaa-modal-subtext {
+    font-size: 13px !important;
+    color: #64748b !important;
+}
+
+.hipaa-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.hipaa-modal-actions .btn {
+    flex: 1;
+    padding: 11px 16px;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 8px;
+}
+
+/* HIPAA Compliance & Audit Viewer */
+.hipaa-audit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.hipaa-audit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.hipaa-badge-auth { background: #e0e7ff; color: #3730a3; }
+.hipaa-badge-chart { background: #dcfce7; color: #166534; }
+.hipaa-badge-emergency { background: #fee2e2; color: #991b1b; }
+.hipaa-badge-security { background: #fef3c7; color: #92400e; }
+.hipaa-badge-export { background: #f3e8ff; color: #6b21a8; }
+
+.hipaa-hash-cell {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    color: #64748b;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hipaa-verify-card {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border: 1px solid transparent;
+}
+
+.hipaa-verify-card.status-verified {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+}
+
+.hipaa-verify-card.status-tampered {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+

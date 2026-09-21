@@ -43,3 +43,9 @@ $router->delete('/patients/photo', [PatientController::class, 'removePhoto'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->post('/patients/break-glass', [PatientController::class, 'breakGlass'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor']]
+]);
+

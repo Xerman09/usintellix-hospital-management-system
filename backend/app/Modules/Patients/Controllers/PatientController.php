@@ -26,6 +26,7 @@ use App\Modules\PatientReminders\Services\PatientReminderService;
 use App\Modules\OfficeNotes\Services\OfficeNoteService;
 use App\Modules\PatientCarePreferences\Services\PatientCarePreferenceService;
 use App\Modules\Patients\Models\Patient;
+use App\Core\AuditLogger;
 
 class PatientController extends Controller
 {
@@ -79,6 +80,13 @@ class PatientController extends Controller
             $this->error('Patient not found.', 404);
             return;
         }
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_CHART,
+            AuditLogger::ACTION_CHART_VIEW,
+            "Viewed patient dashboard summary chart",
+            $patientId
+        );
 
         // Each section is fetched independently: a broken table or
         // failing query in any one section (e.g. a migration that hasn't
@@ -139,6 +147,13 @@ class PatientController extends Controller
             $this->error($result['message'], 404);
             return;
         }
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_CHART,
+            AuditLogger::ACTION_PATIENT_DELETE,
+            "Soft-deleted patient ID {$id}",
+            $id
+        );
 
         $this->success(null, $result['message']);
     }
@@ -244,6 +259,13 @@ class PatientController extends Controller
             $this->error($result['message'], $status, $result['errors'] ?? null);
             return;
         }
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_CHART,
+            AuditLogger::ACTION_PATIENT_UPDATE,
+            "Updated patient demographic record ID {$id}",
+            $id
+        );
 
         $this->success(null, $result['message']);
     }
@@ -366,12 +388,68 @@ class PatientController extends Controller
             return;
         }
 
+        $newPatientId = isset($result['data']['id']) ? (int) $result['data']['id'] : null;
+        AuditLogger::log(
+            AuditLogger::CATEGORY_CHART,
+            AuditLogger::ACTION_PATIENT_REGISTER,
+            "Registered new patient ID " . ($newPatientId ?? 'unknown'),
+            $newPatientId
+        );
+
         $this->success($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * Emergency Break-Glass access request (HIPAA § 164.312(a)(2)(ii))
+     */
+    public function breakGlass(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $patientId = (int) $request->input('patient_id');
+        $reason = trim((string) $request->input('reason', ''));
+
+        if (!$patientId) {
+            $this->error('Patient ID is required.', 422);
+            return;
+        }
+
+        if (empty($reason)) {
+            $this->error('A valid clinical justification/reason is required for emergency break-glass access.', 422);
+            return;
+        }
+
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient || $patient['deleted_at'] !== null) {
+            $this->error('Patient not found.', 404);
+            return;
+        }
+
+        // Log the emergency break-glass event into the immutable HIPAA audit trail
+        AuditLogger::log(
+            AuditLogger::CATEGORY_EMERGENCY,
+            AuditLogger::ACTION_BREAK_GLASS,
+            "EMERGENCY ACCESS (Break-Glass) invoked: " . $reason,
+            $patientId
+        );
+
+        // Grant session-scoped emergency access to this patient
+        $emergencyGrants = Session::get('break_glass_patients') ?? [];
+        if (!is_array($emergencyGrants)) {
+            $emergencyGrants = [];
+        }
+        if (!in_array($patientId, $emergencyGrants, true)) {
+            $emergencyGrants[] = $patientId;
+            Session::set('break_glass_patients', $emergencyGrants);
+        }
+
+        $this->success(null, 'Emergency break-glass access granted and logged in the immutable HIPAA audit trail.');
     }
 
     /**
      * Confirm the given patient exists and, for doctors, is assigned to
      * them. Admins and receptionists may view any active patient.
+     * Emergency break-glass access is also honored.
      */
     private function ownsPatient(array $user, int $patientId): bool
     {
@@ -386,6 +464,12 @@ class PatientController extends Controller
         }
 
         if (($user['role'] ?? '') !== 'doctor') {
+            return true;
+        }
+
+        // Check if doctor has active emergency break-glass grant
+        $emergencyGrants = Session::get('break_glass_patients') ?? [];
+        if (is_array($emergencyGrants) && in_array($patientId, $emergencyGrants, true)) {
             return true;
         }
 
