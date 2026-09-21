@@ -21,3 +21,9 @@ $router->put('/employees', [EmployeeController::class, 'update'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->post('/employees/unlock', [EmployeeController::class, 'unlock'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+

@@ -69,7 +69,22 @@ export function initLogin()
 
             if(!result.success)
             {
-                showAlert(result.message, "error");
+                if (result.locked) {
+                    showAlert(`
+                        <div style="display:flex;align-items:flex-start;gap:10px;text-align:left;">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:2px;">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            <div>
+                                <strong style="display:block;margin-bottom:4px;">Account Temporarily Locked</strong>
+                                <span>${result.message}</span>
+                            </div>
+                        </div>
+                    `, "error");
+                } else {
+                    showAlert(result.message, "error");
+                }
 
                 if (result.errors) {
                     Object.entries(result.errors).forEach(([field, message]) => {

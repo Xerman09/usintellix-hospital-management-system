@@ -103,4 +103,29 @@ class EmployeeController extends Controller
 
         $this->success(null, $result['message']);
     }
+
+    /**
+     * Unlock a user account administratively (HIPAA § 164.312(a)(2)(i)).
+     */
+    public function unlock(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $userId = (int) $request->input('user_id');
+
+        if (!$userId) {
+            $this->error('User ID is required.', 422);
+            return;
+        }
+
+        $result = $this->employeeService->unlockUser($userId, (int) $admin['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
 }

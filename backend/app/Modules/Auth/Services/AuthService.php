@@ -57,21 +57,128 @@ class AuthService
             ->where('username', $username)
             ->first();
 
+        $now = time();
+
+        // Check if account is currently locked (HIPAA § 164.312(a)(2)(i))
+        if ($user) {
+            $isLocked = !empty($user['is_locked']);
+            $lockedUntil = !empty($user['locked_until']) ? strtotime($user['locked_until']) : null;
+
+            if ($isLocked && $lockedUntil !== null && $lockedUntil > $now) {
+                $remainingMinutes = (int) ceil(($lockedUntil - $now) / 60);
+                AuditLogger::log(
+                    AuditLogger::CATEGORY_SECURITY,
+                    AuditLogger::ACTION_LOGIN_FAILED,
+                    "Authentication rejected: account '{$username}' is currently locked until {$user['locked_until']} (HIPAA § 164.312(a)(2)(i)).",
+                    null,
+                    (int) $user['id'],
+                    $user['role_id'] ? 'user' : 'patient'
+                );
+
+                return [
+                    'success' => false,
+                    'locked' => true,
+                    'remaining_minutes' => $remainingMinutes,
+                    'message' => "Account is temporarily locked due to 5 consecutive failed login attempts. Please wait {$remainingMinutes} minute(s) or contact an administrator to unlock your account.",
+                    'errors' => [
+                        'username' => "Account locked. Cooldown remaining: {$remainingMinutes} minute(s)."
+                    ]
+                ];
+            }
+
+            // If the 30-minute lockout cooldown has elapsed, auto-unlock
+            if ($lockedUntil !== null && $lockedUntil <= $now) {
+                (new User())->update([
+                    'is_locked' => 0,
+                    'locked_until' => null,
+                    'failed_login_attempts' => 0,
+                    'last_failed_login_at' => null
+                ], (int) $user['id']);
+                $user['is_locked'] = 0;
+                $user['locked_until'] = null;
+                $user['failed_login_attempts'] = 0;
+            }
+        }
+
         if (!$user || !password_verify($password, $user['password'])) {
-            AuditLogger::log(
-                AuditLogger::CATEGORY_AUTH,
-                AuditLogger::ACTION_LOGIN_FAILED,
-                "Authentication failure: invalid credentials for username '{$username}'."
-            );
+            $warningMessage = 'Invalid username or password.';
+            $isNowLocked = false;
+            $remainingMinutes = 0;
+
+            if ($user) {
+                $lastFailedAt = !empty($user['last_failed_login_at']) ? strtotime($user['last_failed_login_at']) : null;
+
+                // Reset attempts to 1 if last failure was > 15 minutes ago (rolling window)
+                if ($lastFailedAt === null || ($now - $lastFailedAt) > 900) {
+                    $attempts = 1;
+                } else {
+                    $attempts = ((int) $user['failed_login_attempts']) + 1;
+                }
+
+                if ($attempts >= 5) {
+                    $lockoutUntilStr = date('Y-m-d H:i:s', $now + (30 * 60));
+                    (new User())->update([
+                        'is_locked' => 1,
+                        'locked_until' => $lockoutUntilStr,
+                        'failed_login_attempts' => $attempts,
+                        'last_failed_login_at' => date('Y-m-d H:i:s', $now)
+                    ], (int) $user['id']);
+
+                    AuditLogger::log(
+                        AuditLogger::CATEGORY_SECURITY,
+                        AuditLogger::ACTION_ACCOUNT_LOCKED,
+                        "Account '{$username}' (ID: {$user['id']}) automatically locked for 30 minutes following 5 consecutive failed login attempts.",
+                        null,
+                        (int) $user['id'],
+                        $user['role_id'] ? 'user' : 'patient'
+                    );
+
+                    $isNowLocked = true;
+                    $remainingMinutes = 30;
+                    $warningMessage = 'Account has been temporarily locked for 30 minutes due to 5 consecutive failed login attempts in accordance with HIPAA § 164.312(a)(2)(i). Please wait 30 minutes or contact an administrator.';
+                } else {
+                    (new User())->update([
+                        'failed_login_attempts' => $attempts,
+                        'last_failed_login_at' => date('Y-m-d H:i:s', $now)
+                    ], (int) $user['id']);
+
+                    $remainingAttempts = 5 - $attempts;
+                    $warningMessage = "Invalid username or password. Warning: {$remainingAttempts} attempt(s) remaining before account lockout.";
+
+                    AuditLogger::log(
+                        AuditLogger::CATEGORY_AUTH,
+                        AuditLogger::ACTION_LOGIN_FAILED,
+                        "Authentication failure: invalid credentials for username '{$username}' (Attempt {$attempts} of 5)."
+                    );
+                }
+            } else {
+                AuditLogger::log(
+                    AuditLogger::CATEGORY_AUTH,
+                    AuditLogger::ACTION_LOGIN_FAILED,
+                    "Authentication failure: invalid credentials for non-existent username '{$username}'."
+                );
+            }
 
             return [
                 'success' => false,
-                'message' => 'Invalid username or password.',
+                'locked' => $isNowLocked,
+                'remaining_minutes' => $remainingMinutes,
+                'message' => $warningMessage,
                 'errors' => [
-                    'username' => 'Invalid username or password.',
+                    'username' => $warningMessage,
                     'password' => 'Invalid username or password.'
                 ]
             ];
+        }
+
+        // On successful credential match, reset any failed attempt counters
+        if (!empty($user['failed_login_attempts']) || !empty($user['locked_until']) || !empty($user['is_locked'])) {
+            (new User())->update([
+                'failed_login_attempts' => 0,
+                'last_failed_login_at' => null,
+                'locked_until' => null,
+                'is_locked' => 0
+            ], (int) $user['id']);
         }
 
         // Regenerate session ID

@@ -41,3 +41,15 @@ export async function fetchEmployeesByRole(role)
 {
     return await api(`/employees?role=${encodeURIComponent(role)}`);
 }
+
+export async function unlockEmployee(userId)
+{
+    return await api(
+        "/employees/unlock",
+        {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId })
+        }
+    );
+}
+

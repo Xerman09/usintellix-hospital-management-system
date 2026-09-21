@@ -7,6 +7,7 @@ use App\Modules\Departments\Models\Department;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Roles\Models\Role;
 use App\Modules\Users\Models\User;
+use App\Core\AuditLogger;
 use PDO;
 use Throwable;
 
@@ -17,7 +18,7 @@ class EmployeeService
      */
     public function list(?string $role = null): array
     {
-        $sql = "SELECT e.*, u.username, u.role_id, r.name AS role_name, d.name AS department_name
+        $sql = "SELECT e.*, u.username, u.role_id, u.failed_login_attempts, u.locked_until, u.is_locked, r.name AS role_name, d.name AS department_name
                 FROM employees e
                 JOIN users u ON u.id = e.user_id
                 JOIN roles r ON r.id = u.role_id
@@ -263,5 +264,42 @@ class EmployeeService
         $count = count((new Employee())->get());
 
         return 'EMP-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Administratively unlock a locked user account (HIPAA § 164.312(a)(2)(i)).
+     */
+    public function unlockUser(int $userId, int $adminId): array
+    {
+        $user = (new User())->where('id', $userId)->first();
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'User account not found.'
+            ];
+        }
+
+        (new User())->update([
+            'failed_login_attempts' => 0,
+            'last_failed_login_at' => null,
+            'locked_until' => null,
+            'is_locked' => 0
+        ], $userId);
+
+        $admin = (new User())->where('id', $adminId)->first();
+        $adminUsername = $admin['username'] ?? 'Administrator';
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_SECURITY,
+            AuditLogger::ACTION_ACCOUNT_UNLOCKED,
+            "Administrator '{$adminUsername}' manually unlocked account '{$user['username']}' (ID: {$userId}).",
+            null,
+            $userId
+        );
+
+        return [
+            'success' => true,
+            'message' => "Account '{$user['username']}' unlocked successfully."
+        ];
     }
 }

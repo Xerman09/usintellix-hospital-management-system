@@ -415,13 +415,14 @@ export function AddEmployeeView()
                         <th>Role</th>
                         <th>Department</th>
                         <th>Contact</th>
+                        <th>Security Status</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="employeesTableBody">
-                    <tr class="vc-skeleton-row"><td colspan="6"><div class="vc-skeleton-bar" style="width: 60%;"></div></td></tr>
-                    <tr class="vc-skeleton-row"><td colspan="6"><div class="vc-skeleton-bar" style="width: 45%;"></div></td></tr>
-                    <tr class="vc-skeleton-row"><td colspan="6"><div class="vc-skeleton-bar" style="width: 70%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 60%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 45%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 70%;"></div></td></tr>
                 </tbody>
             </table>
         </div>

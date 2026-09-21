@@ -5,7 +5,8 @@ import {
     updateEmployee,
     fetchEmployees,
     fetchRoles,
-    fetchDepartments
+    fetchDepartments,
+    unlockEmployee
 } from "./employees.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 
@@ -240,6 +241,33 @@ function renderRows(openModal)
             .join(" ");
 
         const initial = (employee.first_name || "?").charAt(0).toUpperCase();
+        const isLocked = Number(employee.is_locked) === 1 && (!employee.locked_until || new Date(employee.locked_until) > new Date());
+        const failedAttempts = Number(employee.failed_login_attempts || 0);
+
+        let statusBadge = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#f0fdf4;color:#166534;"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Active</span>`;
+        if (isLocked) {
+            statusBadge = `
+                <span title="Locked until: ${escapeHtml(employee.locked_until || '')}" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b;">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    Locked (Brute Force)
+                </span>
+            `;
+        } else if (failedAttempts > 0) {
+            statusBadge = `
+                <span title="${failedAttempts} failed login attempts" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;">
+                    ${failedAttempts}/5 Failed Attempts
+                </span>
+            `;
+        }
+
+        const unlockBtn = (isLocked || failedAttempts > 0)
+            ? `
+            <button class="vc-icon-btn unlock" data-unlock-user-id="${employee.user_id}" title="Unlock Account" style="color:#059669; border-color:#a7f3d0; margin-left: 4px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+                Unlock
+            </button>
+            `
+            : "";
 
         return `
         <tr>
@@ -259,12 +287,14 @@ function renderRows(openModal)
                 <div class="vc-name">${escapeHtml(employee.email || "")}</div>
                 <div class="vc-subtext">${escapeHtml(employee.phone || "")}</div>
             </td>
+            <td>${statusBadge}</td>
             <td>
                 <div class="vc-actions">
                     <button class="vc-icon-btn edit" data-edit-id="${employee.id}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
                         Edit
                     </button>
+                    ${unlockBtn}
                 </div>
             </td>
         </tr>
@@ -277,6 +307,28 @@ function renderRows(openModal)
 
             if (employee) {
                 openModal(employee);
+            }
+        });
+    });
+
+    tbody.querySelectorAll("[data-unlock-user-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const userId = btn.getAttribute("data-unlock-user-id");
+            if (!userId) return;
+
+            btn.disabled = true;
+            try {
+                const res = await unlockEmployee(userId);
+                if (res.success) {
+                    showToast(res.message || "Account unlocked successfully.", "success");
+                    await loadEmployees(openModal);
+                } else {
+                    showToast(res.message || "Failed to unlock account.", "error");
+                }
+            } catch (e) {
+                showToast("Network error unlocking account.", "error");
+            } finally {
+                btn.disabled = false;
             }
         });
     });
