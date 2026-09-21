@@ -135,7 +135,7 @@ export function HelpView() {
             </div>
         </div>
         
-        <div class="help-item help-item-clickable" id="helpItemPrivacyPolicy" data-tab="privacy_policy" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }" style="cursor: pointer; transition: all 0.15s ease;" title="Click to open Privacy Policy">
+        <div class="help-item help-item-clickable" id="helpItemPrivacyPolicy" data-tab="privacy_policy" data-tab-title="Privacy Policy &amp; HIPAA Notice" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }" style="cursor: pointer; transition: all 0.15s ease;" title="Click to open Privacy Policy">
             <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" style="color: #0284c7;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             <div class="help-content" style="flex: 1;">
                 <div class="help-title" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
@@ -150,6 +150,27 @@ export function HelpView() {
                 <div style="margin-top: 8px;">
                     <button type="button" onclick="event.stopPropagation(); if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }" style="background: #0284c7; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s ease;">
                         <span>Open Privacy Policy Document</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="help-item help-item-clickable" id="helpItemTermsConditions" data-tab="terms_conditions" data-tab-title="Terms &amp; Conditions" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('terms_conditions', 'Terms &amp; Conditions'); } else { window.location.hash = '#/terms-conditions'; }" style="cursor: pointer; transition: all 0.15s ease;" title="Click to open Terms &amp; Conditions">
+            <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" style="color: #2563eb;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <div class="help-content" style="flex: 1;">
+                <div class="help-title" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <a href="#/terms-conditions" onclick="event.preventDefault(); if (window.__openDashboardTab) { window.__openDashboardTab('terms_conditions', 'Terms &amp; Conditions'); } else { window.location.hash = '#/terms-conditions'; }" style="color: #2563eb; text-decoration: underline; font-weight: 600; cursor: pointer; font-size: 16px;">
+                        Terms &amp; Conditions of Service
+                    </a>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; background: rgba(37, 99, 235, 0.15); color: #2563eb; padding: 2px 8px; border-radius: 12px; white-space: nowrap;">Click to Open &rarr;</span>
+                </div>
+                <div class="help-description" style="margin-top: 4px;">
+                    Review our healthcare services agreement, patient rights and responsibilities, medical emergency disclaimers, billing policies, and portal usage terms.
+                </div>
+                <div style="margin-top: 8px;">
+                    <button type="button" onclick="event.stopPropagation(); if (window.__openDashboardTab) { window.__openDashboardTab('terms_conditions', 'Terms &amp; Conditions'); } else { window.location.hash = '#/terms-conditions'; }" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s ease;">
+                        <span>Open Terms of Service Document</span>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                     </button>
                 </div>

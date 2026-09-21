@@ -428,6 +428,7 @@ function staffNavLinks(role)
         </div>
         <a data-tab="help">Help</a>
         <a data-tab="privacy_policy">Privacy Policy</a>
+        <a data-tab="terms_conditions">Terms &amp; Conditions</a>
     `;
 }
 
@@ -452,6 +453,7 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
     <a data-tab="privacy_policy">Privacy Policy</a>
+    <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
 const RECEPTIONIST_NAV_LINKS = `
@@ -570,6 +572,7 @@ const RECEPTIONIST_NAV_LINKS = `
         </div>
     </div>
     <a data-tab="privacy_policy">Privacy Policy</a>
+    <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
 const DOCTOR_NAV_LINKS = `
@@ -635,6 +638,7 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
     <a data-tab="privacy_policy">Privacy Policy</a>
+    <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
 function getNavLinks(role)
