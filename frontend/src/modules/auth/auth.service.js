@@ -49,7 +49,17 @@ export async function completeFirstLogin(data)
         "/auth/first-login",
         {
             method:"PUT",
+            body:JSON.stringify(data)
+        }
+    );
+}
 
+export async function updateExpiredPassword(data)
+{
+    return await api(
+        "/auth/expired-password",
+        {
+            method:"PUT",
             body:JSON.stringify(data)
         }
     );

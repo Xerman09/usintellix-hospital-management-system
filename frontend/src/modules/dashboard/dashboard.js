@@ -1539,6 +1539,57 @@ export function Dashboard()
     if (hasPendingPatientView()) {
         openDashboardTab('patients', 'Patients');
     }
+
+    setupPasswordExpirationBanner(user, openDashboardTab);
+}
+
+function setupPasswordExpirationBanner(user, openDashboardTab) {
+    if (!user || !user.password_expiring_soon) {
+        return;
+    }
+
+    if (sessionStorage.getItem('pw_exp_banner_dismissed') === '1') {
+        return;
+    }
+
+    const bannerEl = document.getElementById('passwordExpirationBanner');
+    if (!bannerEl) return;
+
+    const days = user.days_until_expiration ?? 7;
+    const dayText = days === 1 ? '1 day' : `${days} days`;
+
+    bannerEl.innerHTML = `
+        <div class="password-expiration-warning-banner" style="display: flex; align-items: center; justify-content: space-between; background: #fffbeb; border-bottom: 1px solid #fde68a; color: #92400e; padding: 10px 24px; font-size: 13px; z-index: 10; position: relative;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; color: #d97706;">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span><strong>HIPAA Security Notice (§ 164.308(a)(5)(ii)(D)):</strong> Your password will expire in <strong>${escapeHtmlBasic(dayText)}</strong>. Please update your credentials to avoid disruption.</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                <button type="button" id="btnBannerUpdatePassword" style="background: #d97706; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Update Password</button>
+                <button type="button" id="btnBannerDismiss" style="background: none; border: none; color: #b45309; font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px;" aria-label="Dismiss">&times;</button>
+            </div>
+        </div>
+    `;
+    bannerEl.style.display = 'block';
+
+    const updateBtn = document.getElementById('btnBannerUpdatePassword');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', () => {
+            openDashboardTab('profile', 'Profile');
+        });
+    }
+
+    const dismissBtn = document.getElementById('btnBannerDismiss');
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+            bannerEl.style.display = 'none';
+            sessionStorage.setItem('pw_exp_banner_dismissed', '1');
+        });
+    }
 }
 
 /**

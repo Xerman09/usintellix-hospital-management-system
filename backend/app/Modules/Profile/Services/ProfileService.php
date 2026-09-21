@@ -2,6 +2,8 @@
 
 namespace App\Modules\Profile\Services;
 
+use App\Core\PasswordSecurity;
+use App\Core\Session;
 use App\Modules\Departments\Models\Department;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Patients\Models\Patient;
@@ -252,10 +254,12 @@ class ProfileService
             ];
         }
 
-        if (strlen($newPassword) < 8) {
+        $complexity = PasswordSecurity::validateComplexity($newPassword);
+        if (!$complexity['valid']) {
             return [
                 'success' => false,
-                'message' => 'New password must be at least 8 characters.'
+                'message' => $complexity['message'],
+                'errors' => ['new_password' => $complexity['message']]
             ];
         }
 
@@ -268,11 +272,30 @@ class ProfileService
             ];
         }
 
-        (new User())->update([
-            'password'   => User::hashPassword($newPassword),
-            'updated_at' => date('Y-m-d H:i:s'),
-            'updated_by' => $userId
-        ], $userId);
+        $history = PasswordSecurity::checkHistory($userId, $newPassword);
+        if (!$history['allowed']) {
+            return [
+                'success' => false,
+                'message' => $history['message'],
+                'errors' => ['new_password' => $history['message']]
+            ];
+        }
+
+        PasswordSecurity::recordPasswordChange(
+            $userId,
+            $newPassword,
+            $userId,
+            'Self-service profile password change'
+        );
+
+        // Update session user cache if currently active
+        $sessionUser = Session::get('user');
+        if ($sessionUser && (int) ($sessionUser['id'] ?? 0) === $userId) {
+            $sessionUser['password_changed_at'] = date('Y-m-d H:i:s');
+            $sessionUser['password_expiring_soon'] = false;
+            $sessionUser['days_until_expiration'] = 90;
+            Session::put('user', $sessionUser);
+        }
 
         return [
             'success' => true,

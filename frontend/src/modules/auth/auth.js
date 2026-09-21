@@ -1,5 +1,5 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor, completeFirstLogin, logout } from "./auth.service.js?v=2";
+import { login, verifyTwoFactor, completeFirstLogin, updateExpiredPassword, logout } from "./auth.service.js?v=3";
 import { saveUser, clearSession } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
@@ -28,6 +28,9 @@ export function initLogin()
 
     const firstLoginForm =
         document.getElementById("firstLoginForm");
+
+    const expiredPasswordForm =
+        document.getElementById("expiredPasswordForm");
 
 
     loginForm.addEventListener(
@@ -69,6 +72,11 @@ export function initLogin()
 
             if(!result.success)
             {
+                if (result.password_expired) {
+                    showExpiredPasswordStep(result);
+                    return;
+                }
+
                 if (result.locked) {
                     showAlert(`
                         <div style="display:flex;align-items:flex-start;gap:10px;text-align:left;">
@@ -218,6 +226,75 @@ export function initLogin()
         showLoginStep();
     });
 
+    if (expiredPasswordForm) {
+        expiredPasswordForm.addEventListener(
+            "submit",
+            async (event) => {
+                event.preventDefault();
+                clearExpiredPasswordErrors();
+
+                const userId = parseInt(document.getElementById("exp_user_id").value, 10);
+                const username = document.getElementById("exp_username").value.trim();
+                const currentPassword = document.getElementById("exp_current_password").value;
+                const newPassword = document.getElementById("exp_new_password").value;
+                const confirmPassword = document.getElementById("exp_confirm_password").value;
+
+                if (!currentPassword) {
+                    document.getElementById("err-exp_current_password").textContent = "Current password is required.";
+                    return;
+                }
+
+                if (!newPassword) {
+                    document.getElementById("err-exp_new_password").textContent = "New password is required.";
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    document.getElementById("err-exp_confirm_password").textContent = "Passwords do not match.";
+                    return;
+                }
+
+                const submitBtn = expiredPasswordForm.querySelector(".login-btn");
+                setButtonLoading(submitBtn, true, "Updating Password...");
+
+                let result;
+                try {
+                    result = await updateExpiredPassword({
+                        user_id: userId,
+                        username: username,
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    });
+                } finally {
+                    setButtonLoading(submitBtn, false);
+                }
+
+                if (!result.success) {
+                    showAlert(result.message, "error");
+                    if (result.errors) {
+                        Object.entries(result.errors).forEach(([field, message]) => {
+                            const errorEl = document.getElementById(`err-exp_${field}`);
+                            if (errorEl) {
+                                errorEl.textContent = message;
+                            }
+                        });
+                    }
+                    return;
+                }
+
+                proceedAfterAuthentication(result.data.user);
+            }
+        );
+    }
+
+    const expiredCancelBtn = document.getElementById("expiredPasswordCancelBtn");
+    if (expiredCancelBtn) {
+        expiredCancelBtn.addEventListener("click", () => {
+            showLoginStep();
+        });
+    }
+
 }
 
 function proceedAfterAuthentication(user)
@@ -238,6 +315,8 @@ function showFirstLoginStep(user)
 {
     document.getElementById("loginForm").style.display = "none";
     document.getElementById("twoFactorForm").style.display = "none";
+    const expForm = document.getElementById("expiredPasswordForm");
+    if (expForm) expForm.style.display = "none";
     document.getElementById("firstLoginForm").style.display = "";
 
     document.getElementById("fl_account_name").value = user.username;
@@ -263,9 +342,55 @@ function clearFirstLoginErrors()
     });
 }
 
+function showExpiredPasswordStep(data)
+{
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("twoFactorForm").style.display = "none";
+    document.getElementById("firstLoginForm").style.display = "none";
+    const expForm = document.getElementById("expiredPasswordForm");
+    if (expForm) {
+        expForm.style.display = "";
+    }
+
+    const idEl = document.getElementById("exp_user_id");
+    if (idEl) idEl.value = data.user_id || "";
+
+    const userEl = document.getElementById("exp_username");
+    if (userEl) userEl.value = data.username || "";
+
+    const curEl = document.getElementById("exp_current_password");
+    if (curEl) curEl.value = "";
+
+    const newEl = document.getElementById("exp_new_password");
+    if (newEl) newEl.value = "";
+
+    const confEl = document.getElementById("exp_confirm_password");
+    if (confEl) confEl.value = "";
+
+    clearExpiredPasswordErrors();
+    const alertEl = document.getElementById("formAlert");
+    if (alertEl) {
+        alertEl.innerHTML = "";
+    }
+}
+
+const EXPIRED_FIELDS = ["current_password", "new_password", "confirm_password"];
+
+function clearExpiredPasswordErrors()
+{
+    EXPIRED_FIELDS.forEach((field) => {
+        const errorEl = document.getElementById(`err-exp_${field}`);
+        if (errorEl) {
+            errorEl.textContent = "";
+        }
+    });
+}
+
 function showTwoFactorStep(data)
 {
     document.getElementById("loginForm").style.display = "none";
+    const expForm = document.getElementById("expiredPasswordForm");
+    if (expForm) expForm.style.display = "none";
     document.getElementById("twoFactorForm").style.display = "";
 
     const destination = data.destination || "your " + (data.method === "email" ? "email" : "phone");
@@ -293,9 +418,12 @@ function showLoginStep()
 {
     document.getElementById("twoFactorForm").style.display = "none";
     document.getElementById("firstLoginForm").style.display = "none";
+    const expForm = document.getElementById("expiredPasswordForm");
+    if (expForm) expForm.style.display = "none";
     document.getElementById("loginForm").style.display = "";
     document.getElementById("password").value = "";
     clearErrors();
+    clearExpiredPasswordErrors();
 }
 
 function clearErrors()

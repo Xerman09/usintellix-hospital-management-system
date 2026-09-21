@@ -75,7 +75,7 @@ class ProfileController extends Controller
         );
 
         if (!$result['success']) {
-            $this->error($result['message'], 422);
+            $this->error($result['message'], 422, $result['errors'] ?? null);
             return;
         }
 

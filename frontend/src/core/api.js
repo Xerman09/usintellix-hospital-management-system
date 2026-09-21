@@ -30,7 +30,7 @@ export const API_URL = resolveApiUrl();
 // password / wrong 2FA code), not a sign that the session died -- these
 // must never trigger the auto-redirect below, or a failed login attempt
 // would blow away its own error message mid-submit.
-const AUTH_ENDPOINTS = ["/login", "/verify-2fa"];
+const AUTH_ENDPOINTS = ["/login", "/verify-2fa", "/auth/expired-password"];
 
 // Guards against a burst of concurrent requests (e.g. a Promise.all)
 // all hitting 401 at once and triggering the redirect several times.

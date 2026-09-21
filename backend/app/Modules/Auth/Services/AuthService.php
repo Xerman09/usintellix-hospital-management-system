@@ -13,6 +13,7 @@ use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Models\PatientContact;
 use App\Modules\Roles\Models\Role;
 use App\Modules\Users\Models\User;
+use App\Core\PasswordSecurity;
 use PDO;
 
 class AuthService
@@ -181,6 +182,19 @@ class AuthService
             ], (int) $user['id']);
         }
 
+        // Check 90-day password expiration (HIPAA § 164.308(a)(5)(ii)(D))
+        $expStatus = PasswordSecurity::checkExpirationStatus($user);
+        if ($expStatus['expired']) {
+            return [
+                'success'          => false,
+                'password_expired' => true,
+                'user_id'          => (int) $user['id'],
+                'username'         => $user['username'],
+                'days_old'         => $expStatus['days_old'],
+                'message'          => "Your password has expired after 90 days in accordance with HIPAA Security Rule § 164.308(a)(5)(ii)(D). Please create a new password to continue."
+            ];
+        }
+
         // Regenerate session ID
         Session::regenerate();
 
@@ -344,13 +358,20 @@ class AuthService
             ];
         }
 
+        $history = PasswordSecurity::checkHistory($userId, $newPassword);
+        if (!$history['allowed']) {
+            return [
+                'success' => false,
+                'message' => $history['message'],
+                'errors' => ['new_password' => $history['message']]
+            ];
+        }
+
         (new User())->update([
-            'username'              => $newUsername,
-            'password'              => User::hashPassword($newPassword),
-            'must_change_password'  => 0,
-            'updated_at'            => date('Y-m-d H:i:s'),
-            'updated_by'            => $userId
+            'username' => $newUsername
         ], $userId);
+
+        PasswordSecurity::recordPasswordChange($userId, $newPassword, $userId, 'First-login credential setup');
 
         return [
             'success' => true,
@@ -359,6 +380,81 @@ class AuthService
                 'username' => $newUsername
             ]
         ];
+    }
+
+    /**
+     * Update an expired password per HIPAA 90-day expiration rule (§ 164.308(a)(5)(ii)(D)).
+     */
+    public function updateExpiredPassword(
+        int $userId,
+        string $currentPassword,
+        string $newPassword,
+        string $confirmPassword
+    ): array {
+        $errors = [];
+
+        if (empty($currentPassword)) {
+            $errors['current_password'] = 'Current password is required.';
+        }
+
+        if (empty($newPassword)) {
+            $errors['new_password'] = 'New password is required.';
+        }
+
+        if (empty($confirmPassword)) {
+            $errors['confirm_password'] = 'Password confirmation is required.';
+        }
+
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'message' => 'Please fill in all required fields.',
+                'errors' => $errors
+            ];
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            return [
+                'success' => false,
+                'message' => 'Passwords do not match.',
+                'errors' => ['confirm_password' => 'Passwords do not match.']
+            ];
+        }
+
+        $user = (new User())->where('id', $userId)->first();
+        if (!$user || !User::verifyPassword($currentPassword, $user['password'])) {
+            return [
+                'success' => false,
+                'message' => 'Current password is incorrect.',
+                'errors' => ['current_password' => 'Current password is incorrect.']
+            ];
+        }
+
+        $complexity = PasswordSecurity::validateComplexity($newPassword);
+        if (!$complexity['valid']) {
+            return [
+                'success' => false,
+                'message' => $complexity['message'],
+                'errors' => ['new_password' => $complexity['message']]
+            ];
+        }
+
+        $history = PasswordSecurity::checkHistory($userId, $newPassword);
+        if (!$history['allowed']) {
+            return [
+                'success' => false,
+                'message' => $history['message'],
+                'errors' => ['new_password' => $history['message']]
+            ];
+        }
+
+        PasswordSecurity::recordPasswordChange($userId, $newPassword, $userId, '90-day password expiration renewal');
+
+        $updatedUser = (new User())->where('id', $userId)->first();
+        $employee = (new Employee())->where('user_id', $userId)->first();
+
+        Session::regenerate();
+        return $this->grantSession($updatedUser, $employee);
     }
 
     private function isStrongPassword(string $password): bool
@@ -379,15 +475,19 @@ class AuthService
     {
         $resolvedRole = $this->resolveRole($user, $employee);
         $name = $this->resolveName($user, $employee);
+        $expStatus = PasswordSecurity::checkExpirationStatus($user);
 
         Session::put('user', [
-            'id'                    => $user['id'],
-            'username'              => $user['username'],
-            'role'                  => $resolvedRole,
-            'first_name'            => $name['first_name'],
-            'last_name'             => $name['last_name'],
-            'avatar'                => $user['avatar'] ?? null,
-            'must_change_password'  => (bool) ($user['must_change_password'] ?? false)
+            'id'                     => $user['id'],
+            'username'               => $user['username'],
+            'role'                   => $resolvedRole,
+            'first_name'             => $name['first_name'],
+            'last_name'              => $name['last_name'],
+            'avatar'                 => $user['avatar'] ?? null,
+            'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
+            'password_changed_at'    => $user['password_changed_at'] ?? null,
+            'password_expiring_soon' => $expStatus['expiring_soon'],
+            'days_until_expiration'  => $expStatus['days_remaining']
         ]);
 
         AuditLogger::log(

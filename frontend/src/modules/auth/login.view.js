@@ -167,6 +167,65 @@ export function LoginView()
 
         </form>
 
+        <form id="expiredPasswordForm" style="display:none;">
+
+            <div class="form-alert warning" style="margin-bottom: 16px; font-size: 13px; line-height: 1.5;">
+                <strong>HIPAA Security Notice (§ 164.308(a)(5)(ii)(D)):</strong><br>
+                Your password has expired after 90 days. Please set a new secure password to proceed. Reusing any of your last 5 passwords is prohibited.
+            </div>
+
+            <input type="hidden" id="exp_user_id">
+
+            <div class="form-group">
+                <label class="login-field-label" for="exp_username">Username</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21c0-3.87-3.58-7-8-7s-8 3.13-8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                    </span>
+                    <input id="exp_username" class="form-input" disabled>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="exp_current_password">Current Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="exp_current_password" type="password" class="form-input" autocomplete="current-password">
+                </div>
+                <span class="form-error" id="err-exp_current_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="exp_new_password">New Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="exp_new_password" type="password" class="form-input" placeholder="Min 8 chars, uppercase, lowercase, number & special char" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-exp_new_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="exp_confirm_password">Confirm New Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="exp_confirm_password" type="password" class="form-input" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-exp_confirm_password"></span>
+            </div>
+
+            <div class="login-btn-row">
+                <button class="login-btn-outline" type="button" id="expiredPasswordCancelBtn">Cancel</button>
+                <button class="login-btn" type="submit">Update Password &amp; Log In</button>
+            </div>
+
+        </form>
+
     </div>
 
 </div>
