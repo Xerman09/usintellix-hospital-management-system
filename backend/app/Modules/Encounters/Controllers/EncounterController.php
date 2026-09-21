@@ -13,6 +13,7 @@ use App\Modules\Classes\Services\ClassService;
 use App\Modules\VisitTypes\Services\VisitTypeService;
 use App\Modules\Facilities\Services\FacilityService;
 use App\Modules\DischargeDispositions\Services\DischargeDispositionService;
+use App\Core\PhiAccessGuard;
 
 class EncounterController extends Controller
 {
@@ -38,6 +39,7 @@ class EncounterController extends Controller
     public function index(): void
     {
         $request = new Request();
+        $user = Session::get('user');
         $patientId = (int) $request->input('patient_id');
 
         if (!$patientId) {
@@ -45,7 +47,17 @@ class EncounterController extends Controller
             return;
         }
 
+        PhiAccessGuard::assertPatientAccess($user, $patientId, false);
+
         $encounters = $this->encounterService->list($patientId);
+
+        // Under HIPAA § 164.502(b), non-clinical personnel cannot view sensitive psychiatric/clinical encounters
+        if (!PhiAccessGuard::isClinicalRole($user['role'] ?? null)) {
+            $encounters = array_values(array_filter($encounters, function ($enc) {
+                $sens = strtolower(trim((string) ($enc['sensitivity'] ?? '')));
+                return $sens !== 'sensitive' && $sens !== 'very sensitive';
+            }));
+        }
 
         $this->success($encounters, 'Patient encounters retrieved successfully.');
     }
@@ -56,12 +68,16 @@ class EncounterController extends Controller
     public function transferSummary(): void
     {
         $request = new Request();
+        $user = Session::get('user');
         $patientId = (int) $request->input('patient_id');
 
         if (!$patientId) {
             $this->error('Patient is required.', 422);
             return;
         }
+
+        PhiAccessGuard::assertClinicalAccess($user, 'clinical transfer summary');
+        PhiAccessGuard::assertPatientAccess($user, $patientId, true);
 
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
@@ -207,6 +223,9 @@ class EncounterController extends Controller
             return;
         }
 
+        $sensitivity = (string) $request->input('sensitivity', 'normal');
+        PhiAccessGuard::assertSensitivityAccess($user, $sensitivity, $patientId);
+
         $result = $this->encounterService->store(
             $patientId,
             (int) $user['id'],
@@ -238,6 +257,9 @@ class EncounterController extends Controller
             $this->error('Encounter record not found.', 404);
             return;
         }
+
+        $sensitivity = (string) $request->input('sensitivity', $record['sensitivity'] ?? 'normal');
+        PhiAccessGuard::assertSensitivityAccess($user, $sensitivity, (int) $record['patient_id']);
 
         $result = $this->encounterService->update(
             $id,
@@ -312,25 +334,10 @@ class EncounterController extends Controller
         $this->success(null, $result['message']);
     }
 
-    /**
-     * Confirm the given patient exists and, for doctors, is assigned to them.
-     * Admins and receptionists may manage any active patient's encounters.
-     */
     private function ownsPatient(array $user, int $patientId): bool
     {
-        $patient = (new Patient())->where('id', $patientId)->first();
+        PhiAccessGuard::assertPatientAccess($user, $patientId, false);
 
-        if (!$patient || $patient['deleted_at'] !== null) {
-            return false;
-        }
-
-        if (($user['role'] ?? '') !== 'doctor') {
-            return true;
-        }
-
-        $provider = $this->providerService->findByUserId((int) $user['id']);
-        $providerId = $provider ? (int) $provider['id'] : 0;
-
-        return (int) $patient['provider_id'] === $providerId;
+        return true;
     }
 }

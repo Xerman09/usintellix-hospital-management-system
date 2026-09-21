@@ -455,6 +455,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-audit" class="sysdoc-nav-item hipaa-highlight">Cryptographic Audit Trail (SHA-256)</a>
                 <a href="#sec-hipaa-inactivity" class="sysdoc-nav-item hipaa-highlight">15-Min Inactivity Auto-Logoff</a>
                 <a href="#sec-hipaa-breakglass" class="sysdoc-nav-item hipaa-highlight">Emergency Break-Glass Access</a>
+                <a href="#sec-hipaa-min-necessary" class="sysdoc-nav-item hipaa-highlight">Minimum Necessary PHI (§ 164.502(b))</a>
                 <a href="#sec-hipaa-anticache" class="sysdoc-nav-item hipaa-highlight">Anti-Caching &amp; Transmission</a>
                 <a href="#sec-hipaa-privacy" class="sysdoc-nav-item hipaa-highlight">Accounting of Disclosures &amp; Privacy</a>
 
@@ -543,6 +544,11 @@ export function SystemDocumentationView(options = {}) {
                                 <td><strong>§ 164.528</strong></td>
                                 <td>Accounting of Disclosures</td>
                                 <td>Tracking disclosures to public health, court orders, and payers for patient disclosure requests.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.502(b)</strong></td>
+                                <td>Minimum Necessary PHI</td>
+                                <td>Non-clinical staff restricted from clinical charts/labs; doctors bounded to assigned patients; clinical data redacted on dashboard.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -660,6 +666,68 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     <div class="sysdoc-rule-box">
                         <div class="sysdoc-rule-title">Audited Emergency Override</div>
                         <div>Clinicians can invoke <code>POST /patients/break-glass</code>. Access is conditioned upon providing a mandatory written clinical justification. The system immediately registers a high-priority <code>BREAK_GLASS</code> audit record before granting temporary, session-scoped chart access.</div>
+                    </div>
+                </section>
+
+                <!-- SECTION: MINIMUM NECESSARY PHI ACCESS -->
+                <section id="sec-hipaa-min-necessary" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><circle cx="12" cy="11" r="3"></circle></svg>
+                            Strict "Minimum Necessary" PHI Access Control (HIPAA § 164.502(b))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Privacy &amp; Technical Safeguard</span>
+                    </div>
+                    <p>
+                        In strict compliance with <strong>45 CFR § 164.502(b)</strong> and <strong>§ 164.514(d)</strong>, USIntellix enforces role-based and patient-boundary access controls via <code>App\\Core\\PhiAccessGuard</code> so workforce members only interact with the electronic Protected Health Information (ePHI) indispensable to their assigned duties.
+                    </p>
+
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">1. Non-Clinical Staff Clinical Chart Restrictions</div>
+                        <div>
+                            Non-clinical workforce roles (<code>receptionist</code>, <code>accountant</code>, <code>staff</code>, <code>patient</code>) are strictly barred at the server layer from querying, viewing, or mutating sensitive clinical charts:
+                            <ul style="margin: 6px 0 0 18px; padding: 0;">
+                                <li><strong>SOAP Notes &amp; Clinical Progress Notes</strong> (<code>/encounter-soap-notes</code>, <code>/encounter-sections</code>)</li>
+                                <li><strong>Diagnoses &amp; Medical Problems</strong> (<code>/encounter-diagnoses</code>, <code>/patient-medical-problems</code>)</li>
+                                <li><strong>Laboratory Orders &amp; Procedure Results</strong> (<code>/patient-procedure-results</code>)</li>
+                                <li><strong>Psychiatric &amp; Elevated Sensitivity Encounters</strong> (<code>sensitivity = 'Sensitive'</code>)</li>
+                            </ul>
+                            Unauthorized attempts trigger an immediate HTTP 403 Forbidden with standard code <code>HIPAA_NON_CLINICAL_RESTRICTED</code>.
+                        </div>
+                    </div>
+
+                    <div class="sysdoc-rule-box" style="margin-top: 14px;">
+                        <div class="sysdoc-rule-title">2. Physician Patient-Assignment Boundaries</div>
+                        <div>
+                            Physicians and clinicians (<code>doctor</code>, <code>clinician</code>) can only open clinical charts for patients where an established care relationship exists:
+                            <ul style="margin: 6px 0 0 18px; padding: 0;">
+                                <li>Patient has the physician listed as their primary attending provider (<code>patients.provider_id</code>)</li>
+                                <li>Patient has an active or past appointment scheduled with the physician (<code>appointments.provider_id</code>)</li>
+                                <li>Physician is an attending provider on an existing clinical encounter (<code>encounters.encounter_provider_id</code>)</li>
+                                <li>Physician has activated the session-scoped <strong>Emergency Break-Glass Protocol</strong> (§ 164.312(a)(2)(ii))</li>
+                            </ul>
+                            Unassigned physician access attempts are halted with HTTP 403 <code>HIPAA_BREAK_GLASS_REQUIRED</code>.
+                        </div>
+                    </div>
+
+                    <div class="sysdoc-rule-box" style="margin-top: 14px;">
+                        <div class="sysdoc-rule-title">3. Break-Glass Modal &amp; Cryptographic Audit Chaining</div>
+                        <div>
+                            When unassigned physicians encounter a critical emergency, the system automatically launches the <strong>Emergency Break-Glass Modal</strong> requiring:
+                            <ul style="margin: 6px 0 0 18px; padding: 0;">
+                                <li>Emergency category selection (e.g. Trauma/Resuscitation, Code Blue, Covering On-Call Provider)</li>
+                                <li>Mandatory clinical justification text explaining the medical emergency</li>
+                                <li>Affirmation of ethical and HIPAA regulatory responsibility</li>
+                            </ul>
+                            The submission triggers an immutable <code>BREAK_GLASS</code> audit log entry chained into the SHA-256 HMAC ledger and temporarily grants chart privileges for the active session.
+                        </div>
+                    </div>
+
+                    <div class="sysdoc-rule-box" style="margin-top: 14px;">
+                        <div class="sysdoc-rule-title">4. Automated Dashboard Summary Redaction</div>
+                        <div>
+                            When administrative or registration personnel open a patient's dashboard summary (<code>/patients/:id/dashboard-summary</code>), <code>PhiAccessGuard::filterDashboardSummary()</code> automatically redacts all clinical arrays (SOAP notes, diagnoses, medical problems, medications, vitals, lab results), while cleanly preserving administrative demographics, scheduled appointments, and billing balances.
+                        </div>
                     </div>
                 </section>
 

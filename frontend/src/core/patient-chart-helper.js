@@ -1,5 +1,5 @@
 import { fetchPatients } from "../modules/patients/patients.service.js";
-import { openPatientChartTab } from "../modules/patients/patients-list.js?v=63";
+import { openPatientChartTab } from "../modules/patients/patients-list.js?v=65";
 
 /**
  * Calculates age in full years from a YYYY-MM-DD birthdate string

@@ -10,16 +10,18 @@ class Session
     public static function start(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
-            session_set_cookie_params([
-                'lifetime' => 0,
-                'path' => '/',
-                'domain' => '',
-                'secure' => true,
-                'httponly' => true,
-                'samesite' => 'None',
-            ]);
+            if (!headers_sent() && PHP_SAPI !== 'cli') {
+                session_set_cookie_params([
+                    'lifetime' => 0,
+                    'path' => '/',
+                    'domain' => '',
+                    'secure' => true,
+                    'httponly' => true,
+                    'samesite' => 'None',
+                ]);
+            }
 
-            session_start();
+            @session_start();
         }
     }
 
@@ -31,6 +33,14 @@ class Session
         self::start();
 
         $_SESSION[$key] = $value;
+    }
+
+    /**
+     * Alias for put().
+     */
+    public static function set(string $key, mixed $value): void
+    {
+        self::put($key, $value);
     }
 
     /**
@@ -106,7 +116,9 @@ class Session
     {
         self::start();
 
-        session_regenerate_id(true);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_regenerate_id(true);
+        }
     }
 
     /**

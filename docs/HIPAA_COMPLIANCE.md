@@ -296,13 +296,39 @@ Provide clear notice of the uses and disclosures of protected health information
 ### Minimum Necessary Standard (§ 164.502(b) & § 164.514(d))
 
 #### Requirements
-When using or disclosing protected health information or when requesting ePHI from another covered entity, make reasonable efforts to limit protected health information to the minimum necessary to accomplish the intended purpose.
+When using or disclosing protected health information (PHI) or when requesting ePHI from another covered entity, make reasonable efforts to limit protected health information to the minimum necessary to accomplish the intended purpose. Workforce members must be restricted from accessing sensitive clinical charts (SOAP notes, diagnoses, psychiatric evaluations, and laboratory results) unless authorized by their clinical job role, and clinicians must be bounded to assigned patients unless invoking an emergency override.
 
 #### System Implementation
-- UI data views are tailored strictly to role requirements:
-  - Patient Search / Finder limits initial return to minimum necessary demographics (Name, DOB, MRN).
-  - Receptionists see scheduling data without exposure to clinical encounter notes.
-  - Billing managers view diagnoses and procedure codes without full unredacted psychiatric or sensitive encounter text.
+
+1. **Centralized Access Control Engine (`App\Core\PhiAccessGuard`)**:
+   - Classifies user roles into **Clinical** (`admin`, `doctor`, `clinician`, `nurse`), **Laboratory** (`admin`, `doctor`, `clinician`, `nurse`, `lab_technician`), and **Non-Clinical** (`receptionist`, `accountant`, `staff`, `patient`).
+   - Intercepts all clinical endpoint requests. When non-clinical personnel attempt to access clinical charts or lab orders, the engine immediately halts execution with HTTP 403 and error code `HIPAA_NON_CLINICAL_RESTRICTED`.
+
+2. **Hardened Clinical & Sensitive Endpoints**:
+   - **SOAP Notes** (`/encounter-soap-notes`): Restricted from non-clinical staff; enforces patient access and blocks unassigned doctors unless emergency Break-Glass is active.
+   - **Diagnoses** (`/encounter-diagnoses`): Non-clinical staff blocked; doctors bounded to assigned patients.
+   - **Medical Problems** (`/patient-medical-problems`): All CRUD operations guarded by `PhiAccessGuard::assertPatientAccess()`.
+   - **Procedure Results & Labs** (`/patient-procedure-results`): Requires `isLabRole`; unassigned doctors must have emergency clearance.
+   - **Clinical Encounter Items**: Clinical note items, observation items, review of systems, care plans, clinical instructions, and functional cognitive status items are guarded against non-clinical access.
+
+3. **Clinician Patient-Assignment Boundaries**:
+   - Doctors and clinicians are subject to patient assignment boundaries. Access is permitted if and only if:
+     - The doctor is the primary attending provider (`patients.provider_id`).
+     - The doctor has an appointment scheduled with the patient (`appointments.provider_id`).
+     - The doctor has authored or participated in an encounter for the patient (`encounters.encounter_provider_id`).
+     - The doctor has active session-scoped Emergency Break-Glass authorization (`Session::get('break_glass_patients')`).
+   - If an unassigned physician attempts to access the record, the API returns HTTP 403 with `HIPAA_BREAK_GLASS_REQUIRED` and `break_glass_required: true`.
+
+4. **Emergency Break-Glass Protocol Integration (§ 164.312(a)(2)(ii))**:
+   - The frontend (`frontend/src/core/api.js` & `frontend/src/core/break-glass-modal.js`) intercepts `HIPAA_BREAK_GLASS_REQUIRED` and prompts the clinician with a secure Break-Glass modal.
+   - The clinician must supply an emergency category (Trauma/Resuscitation, Code Blue/Rapid Response, Unconscious Patient, Covering On-Call Provider, Other Clinical Emergency), a mandatory written clinical justification, and certify under penalty of disciplinary review.
+   - Upon submission to `POST /patients/break-glass`, the system creates an immutable, SHA-256 HMAC chained audit log record (`EMERGENCY_ACCESS` / `BREAK_GLASS`) and registers session authorization.
+   - Subsequent requests to the patient's clinical chart succeed immediately.
+
+5. **Patient Dashboard Summary Minimum Necessary Filtering**:
+   - When non-clinical personnel (e.g. receptionists, billing clerks) load a patient's dashboard summary (`/patients/:id/dashboard-summary`), `PhiAccessGuard::filterDashboardSummary()` automatically redacts all clinical arrays (`soap_notes`, `diagnoses`, `problems`, `medications`, `allergies`, `vitals_history`, `health_concerns`, `prescriptions`, `procedure_results`, `clinical_notes`).
+   - Administrative and demographic data (patient demographics, scheduled appointments, billing balances) remain visible to allow scheduling and billing operations without PHI overexposure.
+   - Non-clinical views display an amber HIPAA Minimum Necessary notice informing staff that sensitive clinical charts have been redacted in accordance with federal regulations.
 
 ---
 

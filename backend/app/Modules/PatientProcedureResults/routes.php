@@ -6,10 +6,10 @@ use App\Modules\PatientProcedureResults\Controllers\PatientProcedureResultContro
 
 $router->get('/patient-procedure-results', [PatientProcedureResultController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse', 'lab_technician']]
 ]);
 
 $router->put('/patient-procedure-results/bulk', [PatientProcedureResultController::class, 'bulkSave'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse', 'lab_technician']]
 ]);

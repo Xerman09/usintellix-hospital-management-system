@@ -27,6 +27,7 @@ use App\Modules\OfficeNotes\Services\OfficeNoteService;
 use App\Modules\PatientCarePreferences\Services\PatientCarePreferenceService;
 use App\Modules\Patients\Models\Patient;
 use App\Core\AuditLogger;
+use App\Core\PhiAccessGuard;
 
 class PatientController extends Controller
 {
@@ -76,9 +77,11 @@ class PatientController extends Controller
             return;
         }
 
-        if (!$this->ownsPatient($user, $patientId)) {
-            $this->error('Patient not found.', 404);
-            return;
+        // Enforce patient access boundary:
+        // If doctor and not assigned, triggers 403 HIPAA_BREAK_GLASS_REQUIRED
+        PhiAccessGuard::assertPatientAccess($user, $patientId, false);
+        if (PhiAccessGuard::isDoctorRole($user['role'] ?? null) && !PhiAccessGuard::isAssignedToPatient($user, $patientId)) {
+            PhiAccessGuard::assertPatientAccess($user, $patientId, true);
         }
 
         AuditLogger::log(
@@ -124,6 +127,8 @@ class PatientController extends Controller
                 $result[$key] = [];
             }
         }
+
+        $result = PhiAccessGuard::filterDashboardSummary($user, $patientId, $result);
 
         $this->success($result, 'Patient dashboard summary retrieved successfully.');
     }
@@ -440,7 +445,7 @@ class PatientController extends Controller
         }
         if (!in_array($patientId, $emergencyGrants, true)) {
             $emergencyGrants[] = $patientId;
-            Session::set('break_glass_patients', $emergencyGrants);
+            Session::put('break_glass_patients', $emergencyGrants);
         }
 
         $this->success(null, 'Emergency break-glass access granted and logged in the immutable HIPAA audit trail.');
@@ -448,7 +453,7 @@ class PatientController extends Controller
 
     /**
      * Confirm the given patient exists and, for doctors, is assigned to
-     * them. Admins and receptionists may view any active patient.
+     * them. Admins and clinical staff may view active patients.
      * Emergency break-glass access is also honored.
      */
     private function ownsPatient(array $user, int $patientId): bool
@@ -463,19 +468,6 @@ class PatientController extends Controller
             return false;
         }
 
-        if (($user['role'] ?? '') !== 'doctor') {
-            return true;
-        }
-
-        // Check if doctor has active emergency break-glass grant
-        $emergencyGrants = Session::get('break_glass_patients') ?? [];
-        if (is_array($emergencyGrants) && in_array($patientId, $emergencyGrants, true)) {
-            return true;
-        }
-
-        $provider = $this->providerService->findByUserId((int) $user['id']);
-        $providerId = $provider ? (int) $provider['id'] : 0;
-
-        return (int) $patient['provider_id'] === $providerId;
+        return PhiAccessGuard::isAssignedToPatient($user, $patientId);
     }
 }

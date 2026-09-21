@@ -6,20 +6,20 @@ use App\Modules\PatientMedicalProblems\Controllers\PatientMedicalProblemControll
 
 $router->get('/patient-medical-problems', [PatientMedicalProblemController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);
 
 $router->post('/patient-medical-problems', [PatientMedicalProblemController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);
 
 $router->put('/patient-medical-problems', [PatientMedicalProblemController::class, 'update'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);
 
 $router->delete('/patient-medical-problems', [PatientMedicalProblemController::class, 'destroy'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);

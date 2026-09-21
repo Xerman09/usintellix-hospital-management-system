@@ -9,6 +9,7 @@ use App\Modules\EncounterSoapNotes\Services\EncounterSoapNoteService;
 use App\Modules\Encounters\Models\Encounter;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Providers\Services\ProviderService;
+use App\Core\PhiAccessGuard;
 
 class EncounterSoapNoteController extends Controller
 {
@@ -144,6 +145,8 @@ class EncounterSoapNoteController extends Controller
 
     private function ownsEncounter(array $user, int $encounterId): bool
     {
+        PhiAccessGuard::assertClinicalAccess($user, 'SOAP notes');
+
         if (!$encounterId) {
             return false;
         }
@@ -154,19 +157,12 @@ class EncounterSoapNoteController extends Controller
             return false;
         }
 
-        $patient = (new Patient())->where('id', (int) $encounter['patient_id'])->first();
+        $patientId = (int) $encounter['patient_id'];
 
-        if (!$patient || $patient['deleted_at'] !== null) {
-            return false;
-        }
+        // Enforce patient assignment / break-glass and sensitivity
+        PhiAccessGuard::assertPatientAccess($user, $patientId, true);
+        PhiAccessGuard::assertSensitivityAccess($user, $encounter['sensitivity'] ?? null, $patientId);
 
-        if (($user['role'] ?? '') !== 'doctor') {
-            return true;
-        }
-
-        $provider = $this->providerService->findByUserId((int) $user['id']);
-        $providerId = $provider ? (int) $provider['id'] : 0;
-
-        return (int) $patient['provider_id'] === $providerId;
+        return true;
     }
 }

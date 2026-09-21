@@ -83,6 +83,10 @@ export async function api(endpoint, options = {})
     const databaseUnreachable = response.status === 500 && typeof data?.message === "string"
         && data.message.startsWith("Database Connection Failed");
 
+    if (response.status === 403 && (data?.code === "HIPAA_BREAK_GLASS_REQUIRED" || data?.break_glass_required)) {
+        window.dispatchEvent(new CustomEvent("hipaaBreakGlassRequired", { detail: data }));
+    }
+
     if (sessionExpired || databaseUnreachable) {
         redirectToLogin();
     }

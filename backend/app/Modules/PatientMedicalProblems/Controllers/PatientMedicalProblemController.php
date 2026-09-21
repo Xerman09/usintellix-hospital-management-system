@@ -8,6 +8,7 @@ use App\Core\Session;
 use App\Modules\PatientMedicalProblems\Services\PatientMedicalProblemService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Providers\Services\ProviderService;
+use App\Core\PhiAccessGuard;
 
 class PatientMedicalProblemController extends Controller
 {
@@ -32,12 +33,16 @@ class PatientMedicalProblemController extends Controller
     public function index(): void
     {
         $request = new Request();
+        $user = Session::get('user');
         $patientId = (int) $request->input('patient_id');
 
         if (!$patientId) {
             $this->error('Patient is required.', 422);
             return;
         }
+
+        PhiAccessGuard::assertClinicalAccess($user, 'medical problem diagnoses');
+        PhiAccessGuard::assertPatientAccess($user, $patientId, true);
 
         $problems = $this->patientMedicalProblemService->list($patientId);
 
@@ -144,19 +149,9 @@ class PatientMedicalProblemController extends Controller
      */
     private function ownsPatient(array $user, int $patientId): bool
     {
-        $patient = (new Patient())->where('id', $patientId)->first();
+        PhiAccessGuard::assertClinicalAccess($user, 'medical problem diagnoses');
+        PhiAccessGuard::assertPatientAccess($user, $patientId, true);
 
-        if (!$patient || $patient['deleted_at'] !== null) {
-            return false;
-        }
-
-        if (($user['role'] ?? '') !== 'doctor') {
-            return true;
-        }
-
-        $provider = $this->providerService->findByUserId((int) $user['id']);
-        $providerId = $provider ? (int) $provider['id'] : 0;
-
-        return (int) $patient['provider_id'] === $providerId;
+        return true;
     }
 }

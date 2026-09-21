@@ -6,20 +6,20 @@ use App\Modules\EncounterClinicalInstructionItems\Controllers\EncounterClinicalI
 
 $router->get('/encounter-clinical-instruction-items', [EncounterClinicalInstructionItemController::class, 'index'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);
 
 $router->post('/encounter-clinical-instruction-items', [EncounterClinicalInstructionItemController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);
 
 $router->put('/encounter-clinical-instruction-items', [EncounterClinicalInstructionItemController::class, 'update'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);
 
 $router->delete('/encounter-clinical-instruction-items', [EncounterClinicalInstructionItemController::class, 'destroy'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse']]
 ]);

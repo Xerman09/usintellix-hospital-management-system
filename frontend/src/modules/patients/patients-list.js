@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=64";
+import { PatientChartView } from "./patients-list.view.js?v=65";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -34,6 +34,7 @@ import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
 import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
+import { openBreakGlassModal } from "../../core/break-glass-modal.js?v=1";
 import { api, API_URL } from "../../core/api.js?v=5";
 import { fetchProviders } from "../providers/providers.service.js";
 import {
@@ -2757,9 +2758,43 @@ async function loadPatientDashboardWidgets(patient)
         const result = await fetchPatientDashboardSummary(patient.id);
 
         if (!result.success) {
+            if (result.code === "HIPAA_BREAK_GLASS_REQUIRED" || result.break_glass_required) {
+                openBreakGlassModal({
+                    patientId: patient.id,
+                    patientName: [patient.first_name, patient.last_name].filter(Boolean).join(" "),
+                    onSuccess: () => {
+                        loadPatientDashboardWidgets(patient);
+                    }
+                });
+            }
+
             widgetBodyIds.forEach((id) => {
                 const body = document.getElementById(id);
-                if (body) body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load this section right now.")}</p></div>`;
+                if (body) {
+                    if (result.code === "HIPAA_BREAK_GLASS_REQUIRED" || result.break_glass_required) {
+                        body.innerHTML = `
+                            <div class="pd-widget-empty" style="background:#fef2f2;border:1px solid #fecaca;padding:14px;border-radius:8px;text-align:center;">
+                                <div style="color:#b91c1c;font-weight:700;font-size:13px;margin-bottom:4px;">⚡ Emergency Break-Glass Required</div>
+                                <div style="color:#7f1d1d;font-size:12px;margin-bottom:10px;">You are not the assigned physician for this patient (HIPAA § 164.502(b)).</div>
+                                <button type="button" class="btn-danger btn-break-glass-trigger" style="font-size:11px;padding:6px 14px;cursor:pointer;border-radius:4px;background:#dc2626;color:#fff;border:none;font-weight:600;">Invoke Emergency Access</button>
+                            </div>
+                        `;
+                        const btn = body.querySelector(".btn-break-glass-trigger");
+                        if (btn) {
+                            btn.onclick = () => {
+                                openBreakGlassModal({
+                                    patientId: patient.id,
+                                    patientName: [patient.first_name, patient.last_name].filter(Boolean).join(" "),
+                                    onSuccess: () => {
+                                        loadPatientDashboardWidgets(patient);
+                                    }
+                                });
+                            };
+                        }
+                    } else {
+                        body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load this section right now.")}</p></div>`;
+                    }
+                }
             });
             return;
         }
@@ -2770,20 +2805,24 @@ async function loadPatientDashboardWidgets(patient)
         renderDashboardClinicalReminders(data.reminders || []);
         carePreferencesController.renderDashboard(data.care_preferences || []);
         treatmentPreferencesController.renderDashboard(data.care_preferences || []);
-        renderDashboardAllergies(data.allergies || []);
-        renderDashboardProblems(data.problems || []);
-        renderDashboardHealthConcerns(data.health_concerns || []);
-        renderDashboardMedications(data.medications || []);
-        renderDashboardPrescriptions(data.prescriptions || []);
-        renderDashboardDisclosures(data.disclosures || []);
-        renderDashboardMessages(data.messages || []);
-        renderDashboardAmendments(data.amendments || []);
-        renderDashboardEncounters(data.encounters || []);
-        renderDashboardCareTeam(data.care_team || null);
-        renderDashboardImmunizations(data.immunizations || []);
-        renderDashboardInsurance(data.insurance || []);
-        renderDashboardVitalsHistory(data.vitals_history || []);
-        renderDashboardDocuments(data.documents || []);
+
+        if (data._hipaa_minimum_necessary?.applied) {
+            const clinicalBodyIds = ["pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody", "pdEncountersBody", "pdVitalsHistoryBody"];
+            clinicalBodyIds.forEach(id => {
+                const body = document.getElementById(id);
+                if (body) {
+                    body.innerHTML = `<div class="pd-widget-empty" style="padding:14px;color:#64748b;font-size:12px;"><span style="font-size:14px;">🔒</span> <strong>Restricted:</strong> Clinical charts hidden under HIPAA § 164.502(b) Minimum Necessary standard for non-clinical personnel.</div>`;
+                }
+            });
+        } else {
+            renderDashboardAllergies(data.allergies || []);
+            renderDashboardProblems(data.problems || []);
+            renderDashboardHealthConcerns(data.health_concerns || []);
+            renderDashboardMedications(data.medications || []);
+            renderDashboardPrescriptions(data.prescriptions || []);
+            renderDashboardEncounters(data.encounters || []);
+            renderDashboardVitalsHistory(data.vitals_history || []);
+        }
 
         dashboardRelatedPersons = data.related_persons || [];
         renderDashboardRelatedPersons(dashboardRelatedPersons);
