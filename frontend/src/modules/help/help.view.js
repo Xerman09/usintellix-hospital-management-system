@@ -135,6 +135,64 @@ export function HelpView() {
             </div>
         </div>
         
+        <div class="help-item help-item-clickable" id="helpItemHipaaCompliance" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(6, 95, 70, 0.05)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 18px; margin-bottom: 12px;">
+            <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" style="color: #059669; width: 32px; height: 32px; flex-shrink: 0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+            <div class="help-content" style="flex: 1;">
+                <div class="help-title" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <span style="color: #047857; font-size: 16px; font-weight: 700;">HIPAA Security &amp; Compliance Specification (45 CFR § 164)</span>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; background: #059669; color: #ffffff; padding: 2px 8px; border-radius: 12px; white-space: nowrap;">Compliant</span>
+                </div>
+                <div class="help-description" style="margin-top: 6px; color: #334155; line-height: 1.6;">
+                    Complete specifications of HIPAA Security &amp; Privacy Rule technical controls:
+                    <ul style="margin: 6px 0 10px 18px; padding: 0; font-size: 12px; color: #475569;">
+                        <li><strong>Account Lockout &amp; Brute-Force Defense (§ 164.312(a)(2)(i)):</strong> 5 failed attempts within 15 min triggers 30-min lockout.</li>
+                        <li><strong>Password Expiration &amp; History (§ 164.308(a)(5)(ii)(D)):</strong> 90-day mandatory expiration, 5-password history restriction, 7-day advance notice banner.</li>
+                        <li><strong>Cryptographic Audit Controls (§ 164.312(b) &amp; § 164.312(c)(1)):</strong> SHA-256 HMAC chained tamper-evident logging.</li>
+                        <li><strong>Automatic Inactivity Logoff (§ 164.312(a)(2)(iii)):</strong> 15-minute inactivity termination with 60-second live warning countdown.</li>
+                        <li><strong>Emergency Break-Glass Protocol (§ 164.312(a)(2)(ii)):</strong> Audited clinical overrides for emergency patient care.</li>
+                        <li><strong>Accounting of Disclosures (§ 164.528):</strong> Systematic tracking of external PHI disclosures.</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('hipaa_audit', 'HIPAA Audit Logs &amp; Integrity'); }" style="background: #059669; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                        <span>Open HIPAA Audit Console</span>
+                    </button>
+                    <button type="button" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }" style="background: #0284c7; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                        <span>View Notice of Privacy Practices</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="help-item" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(30, 64, 175, 0.05)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 18px; margin-bottom: 12px;">
+            <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" style="color: #2563eb; width: 32px; height: 32px; flex-shrink: 0;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <div class="help-content" style="flex: 1;">
+                <div class="help-title" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <span style="color: #1d4ed8; font-size: 16px; font-weight: 700;">Master System Documentation &amp; Architecture Guide</span>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; background: #2563eb; color: #ffffff; padding: 2px 8px; border-radius: 12px; white-space: nowrap;">v2.6.0</span>
+                </div>
+                <div class="help-description" style="margin-top: 6px; color: #334155; line-height: 1.6;">
+                    Complete architecture guide covering:
+                    <ul style="margin: 6px 0 10px 18px; padding: 0; font-size: 12px; color: #475569;">
+                        <li><strong>Technology Stack:</strong> PHP 8.x OOP MVC backend, Vanilla JS modular SPA with multi-tab desktop manager (<code>TabManager</code>), MySQL InnoDB relational schema.</li>
+                        <li><strong>6-Tier RBAC Matrix:</strong> Admin, Physician, Nurse, Receptionist, Biller, and Patient Portal permissions.</li>
+                        <li><strong>Inpatient Bed Management (ADT):</strong> Wards, rooms, beds, occupancy tracking, and transfers.</li>
+                        <li><strong>EHR Clinical Workflows:</strong> Encounters, SOAP notes, vitals, allergies, problems, orders, and 5-category longitudinal patient history.</li>
+                        <li><strong>Billing &amp; EDI:</strong> Fee sheets, superbills, ANSI 837P claims generation, and ANSI 835 remittance posting.</li>
+                    </ul>
+                    <span style="font-size: 12px; color: #64748b;">Documentation files located in codebase at: <code style="background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">docs/SYSTEM_DOCUMENTATION.md</code> and <code style="background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">docs/HIPAA_COMPLIANCE.md</code></span>
+                    <div style="margin-top: 10px;">
+                        <button type="button" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('system_documentation', 'System Documentation'); } else { window.location.hash = '#/system-documentation'; }" style="background: #2563eb; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                            <span>Open System Documentation</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="help-item help-item-clickable" id="helpItemPrivacyPolicy" data-tab="privacy_policy" data-tab-title="Privacy Policy &amp; HIPAA Notice" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }" style="cursor: pointer; transition: all 0.15s ease;" title="Click to open Privacy Policy">
             <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" style="color: #0284c7;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             <div class="help-content" style="flex: 1;">

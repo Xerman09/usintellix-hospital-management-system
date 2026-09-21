@@ -171,6 +171,7 @@ function staffNavLinks(role)
                     <div class="dropdown-submenu-content">
                         <a data-tab="admin_system_files">Files</a>
                         <a data-tab="admin_system_language">Language</a>
+                        <a data-tab="system_documentation">System Documentation</a>
                         <a data-tab="hipaa_audit">HIPAA Audit Logs &amp; Integrity</a>
                         <a data-tab="admin_system_logs">System Logs</a>
                         <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
@@ -428,6 +429,7 @@ function staffNavLinks(role)
             </div>
         </div>
         <a data-tab="help">Help</a>
+        <a data-tab="system_documentation">Docs</a>
         <a data-tab="privacy_policy">Privacy Policy</a>
         <a data-tab="terms_conditions">Terms &amp; Conditions</a>
     `;
@@ -453,6 +455,7 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="profile">Profile</a>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
+    <a data-tab="system_documentation">Docs</a>
     <a data-tab="privacy_policy">Privacy Policy</a>
     <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
@@ -572,6 +575,7 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="popup_address_label" class="patient-dependent-nav">Address Label</a>
         </div>
     </div>
+    <a data-tab="system_documentation">Docs</a>
     <a data-tab="privacy_policy">Privacy Policy</a>
     <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
@@ -638,6 +642,7 @@ const DOCTOR_NAV_LINKS = `
     </div>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
+    <a data-tab="system_documentation">Docs</a>
     <a data-tab="privacy_policy">Privacy Policy</a>
     <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
@@ -687,6 +692,7 @@ export function DashboardView()
                     <a data-tab="profile" style="cursor: pointer;">Profile</a>
                     <a data-tab="appearance" style="cursor: pointer;">Appearance</a>
                     <a data-tab="settings" style="cursor: pointer;">Settings</a>
+                    <a data-tab="system_documentation" style="cursor: pointer;">System Documentation</a>
                     <a id="logoutBtn" style="cursor: pointer; color: #dc2626;">Logout</a>
                 </div>
             </div>

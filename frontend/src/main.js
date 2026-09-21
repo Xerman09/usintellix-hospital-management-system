@@ -1,16 +1,19 @@
 console.log("MAIN FILE LOADED");
 
-import { router } from "./core/router.js?v=122";
+import { router } from "./core/router.js?v=125";
 import { initTheme } from "./core/theme.js";
 import { initInactivityGuard } from "./core/inactivity-guard.js?v=1";
 import "./core/patient-chart-helper.js?v=1";
 
 initTheme();
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-        initInactivityGuard();
-        router();
-    }
-);
+function boot() {
+    initInactivityGuard();
+    router();
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+} else {
+    boot();
+}

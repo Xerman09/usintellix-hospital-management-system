@@ -8,7 +8,7 @@ import { getLastActivePatientChart, clearLastActivePatientChart } from "../../co
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
 import { initDashboardHome } from "./dashboard-home.js";
-import { HelpView } from "../help/help.view.js?v=4";
+import { HelpView } from "../help/help.view.js?v=6";
 import { initHelp } from "../help/help.js?v=4";
 import { PatientMedicationsView } from "../patient-medications/patient-medications.view.js";
 import { initPatientMedications } from "../patient-medications/patient-medications.js";
@@ -251,6 +251,8 @@ import { initTermsConditions } from "../terms-conditions/terms-conditions.js?v=1
 import { TermsConditionsView } from "../terms-conditions/terms-conditions.view.js?v=1";
 import { initHipaaAudit } from "../hipaa-audit/hipaa-audit.js?v=1";
 import { HipaaAuditView } from "../hipaa-audit/hipaa-audit.view.js?v=1";
+import { initSystemDocumentation } from "../system-documentation/system-documentation.js?v=1";
+import { SystemDocumentationView } from "../system-documentation/system-documentation.view.js?v=1";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -1332,6 +1334,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'HIPAA Audit Logs & Integrity', () => {
                 setTimeout(initHipaaAudit, 0);
                 return HipaaAuditView();
+            }, activate);
+        } else if (tabId === 'system_documentation' || tabId === 'system_docs') {
+            tabManager.openTab(tabId, title || 'System Documentation', () => {
+                setTimeout(initSystemDocumentation, 0);
+                return SystemDocumentationView({ isTab: true });
             }, activate);
         } else {
             tabManager.openTab(tabId, title, () => renderPlaceholderTab(title), activate);
