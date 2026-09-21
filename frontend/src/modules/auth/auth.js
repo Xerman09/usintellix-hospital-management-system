@@ -17,7 +17,32 @@ export function initLogin()
     initBranding();
 
     if (window.location.hash.includes("reason=inactivity")) {
-        showAlert("Your session was safely logged off due to 15 minutes of inactivity in accordance with HIPAA Security Rule § 164.312(a)(2)(iii). Please log in again.", "warning");
+        showAlert(`
+            <div class="login-alert-content">
+                <div class="login-alert-header">
+                    <span class="login-alert-badge">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        HIPAA § 164.312(a)(2)(iii)
+                    </span>
+                    <span class="login-alert-time">15-Min Inactivity</span>
+                </div>
+                <div class="login-alert-main">
+                    <div class="login-alert-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <div class="login-alert-text-block">
+                        <strong class="login-alert-title">Session Safely Logged Off</strong>
+                        <p class="login-alert-desc">Your session was automatically terminated after 15 minutes of inactivity in accordance with federal HIPAA safeguards to protect electronic health records.</p>
+                        <span class="login-alert-hint">Please enter your credentials below to log in again.</span>
+                    </div>
+                </div>
+            </div>
+        `, "warning");
     }
 
     const loginForm =
@@ -459,7 +484,38 @@ function showAlert(message, type)
 {
     const container = document.getElementById("formAlert");
 
-    if (container) {
-        container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+    if (!container) {
+        return;
     }
+
+    if (!message) {
+        container.innerHTML = "";
+        return;
+    }
+
+    // If message is already structured HTML
+    if (typeof message === "string" && (message.includes("<div") || message.includes("<svg") || message.includes("<strong"))) {
+        container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+        return;
+    }
+
+    let iconSvg = "";
+    if (type === "error") {
+        iconSvg = `<svg class="form-alert-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    } else if (type === "warning") {
+        iconSvg = `<svg class="form-alert-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    } else if (type === "success") {
+        iconSvg = `<svg class="form-alert-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+    } else {
+        iconSvg = `<svg class="form-alert-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    }
+
+    container.innerHTML = `
+        <div class="form-alert ${type}">
+            <div class="form-alert-row">
+                ${iconSvg}
+                <div class="form-alert-body">${message}</div>
+            </div>
+        </div>
+    `;
 }

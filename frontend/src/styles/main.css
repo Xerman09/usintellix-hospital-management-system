@@ -2253,6 +2253,12 @@ select.form-input {
 
 }
 
+.form-alert.warning {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+}
+
 :root[data-theme="dark"] .form-alert.error {
     background: rgba(220, 38, 38, .18);
     color: #fca5a5;
@@ -2261,6 +2267,189 @@ select.form-input {
 :root[data-theme="dark"] .form-alert.success {
     background: rgba(21, 128, 61, .2);
     color: #86efac;
+}
+
+:root[data-theme="dark"] .form-alert.warning {
+    background: rgba(245, 158, 11, .18);
+    border: 1px solid rgba(245, 158, 11, .35);
+    color: #fde68a;
+}
+
+/* ==========================================================================
+   LOGIN FORM ALERTS & SECURITY NOTICES (HIPAA § 164.312)
+   ========================================================================== */
+
+.login-container .form-alert {
+    margin-bottom: 22px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    animation: loginAlertFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+    width: 100%;
+}
+
+@keyframes loginAlertFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.login-container .form-alert-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.login-container .form-alert-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.login-container .form-alert-body {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+/* Alert Variants for Login Glass Card */
+.login-container .form-alert.warning {
+    background: linear-gradient(145deg, rgba(245, 158, 11, 0.22) 0%, rgba(180, 83, 9, 0.12) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    color: #fef3c7;
+    box-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.login-container .form-alert.warning .form-alert-icon {
+    color: #fbbf24;
+}
+
+.login-container .form-alert.error {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.22) 0%, rgba(185, 28, 28, 0.12) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #fee2e2;
+    box-shadow: 0 8px 24px -4px rgba(239, 68, 68, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.login-container .form-alert.error .form-alert-icon {
+    color: #f87171;
+}
+
+.login-container .form-alert.success {
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.12) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #d1fae5;
+    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.login-container .form-alert.success .form-alert-icon {
+    color: #34d399;
+}
+
+.login-container .form-alert.info {
+    background: linear-gradient(145deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.12) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #e0f2fe;
+    box-shadow: 0 8px 24px -4px rgba(14, 165, 233, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.login-container .form-alert.info .form-alert-icon {
+    color: #38bdf8;
+}
+
+/* Structured Inactivity & Security Card */
+.login-alert-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.login-alert-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.28);
+    margin-bottom: 2px;
+}
+
+.login-alert-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(245, 158, 11, 0.25);
+    color: #fef08a;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.login-alert-badge svg {
+    flex-shrink: 0;
+}
+
+.login-alert-time {
+    font-size: 11px;
+    font-weight: 600;
+    color: #fbbf24;
+    opacity: 0.95;
+}
+
+.login-alert-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.login-alert-icon {
+    flex-shrink: 0;
+    color: #f59e0b;
+    margin-top: 2px;
+}
+
+.login-alert-text-block {
+    flex: 1;
+    min-width: 0;
+}
+
+.login-alert-title {
+    display: block;
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 3px;
+    letter-spacing: 0.2px;
+}
+
+.login-alert-desc {
+    margin: 0 0 5px 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: rgba(254, 243, 199, 0.92);
+}
+
+.login-alert-hint {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: #fde68a;
+    opacity: 0.9;
 }
 
 
