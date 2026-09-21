@@ -163,8 +163,8 @@ import { initPatientFlow } from "../patient-flow/patient-flow.js";
 import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
-import { ReportsView } from "../reports/reports.view.js";
-import { initReports } from "../reports/reports.js";
+import { ReportsView } from "../reports/reports.view.js?v=2";
+import { initReports } from "../reports/reports.js?v=2";
 import { ClientsListView } from "../reports/clients-list.view.js";
 import { initClientsList } from "../reports/clients-list.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
@@ -337,10 +337,10 @@ import { AuthorizationsView } from "../authorizations/authorizations.view.js?v=1
 import { initAuthorizations } from "../authorizations/authorizations.js?v=1";
 import { OfficeNotesView } from "../office-notes/office-notes.view.js?v=1";
 import { initOfficeNotes } from "../office-notes/office-notes.js?v=1";
-import { BatchComView } from "../batch-com/batch-com.view.js?v=2";
-import { initBatchCom } from "../batch-com/batch-com.js?v=2";
-import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=3";
-import { initNewDocuments } from "../new-documents/new-documents.js?v=3";
+import { BatchComView } from "../batch-com/batch-com.view.js?v=3";
+import { initBatchCom } from "../batch-com/batch-com.js?v=3";
+import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=4";
+import { initNewDocuments } from "../new-documents/new-documents.js?v=4";
 
 function renderPlaceholderTab(title) {
     return `

@@ -4,6 +4,7 @@ namespace App\Modules\BatchCom\Controllers;
 
 use App\Core\Controller;
 use App\Core\Database;
+use App\Core\Env;
 use App\Core\Request;
 use App\Core\Session;
 use PDO;
@@ -187,17 +188,35 @@ class BatchComController extends Controller
 
     /**
      * GET /batch-com/settings
-     * Retrieve SMS/Email gateway settings
+     * Retrieve SMS/Email gateway settings with sensitive secrets masked
      */
     public function getSettings(): void
     {
         $rows = $this->db->query("SELECT setting_key, setting_value FROM batch_communication_settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $envSmsUsername = (string) Env::get('SMS_GATEWAY_USERNAME', '');
+        $envSmsPassword = (string) Env::get('SMS_GATEWAY_PASSWORD', '');
+        $envSmsApiKey = (string) Env::get('SMS_GATEWAY_API_KEY', '');
+
+        if (empty($rows['sms_username']) && $envSmsUsername !== '') {
+            $rows['sms_username'] = $envSmsUsername;
+        }
+
+        $hasPassword = !empty($rows['sms_password']) || $envSmsPassword !== '';
+        $hasApiKey = !empty($rows['sms_api_key']) || $envSmsApiKey !== '';
+
+        // Mask secrets so raw sensitive credentials never touch client-side browser DOM / JS memory
+        $rows['has_sms_password'] = $hasPassword;
+        $rows['has_sms_api_key'] = $hasApiKey;
+        $rows['sms_password'] = $hasPassword ? '••••••••' : '';
+        $rows['sms_api_key'] = $hasApiKey ? '••••••••' : '';
+
         $this->success($rows, 'Batch communication settings retrieved.');
     }
 
     /**
      * POST /batch-com/settings
-     * Save SMS/Email gateway settings
+     * Save SMS/Email gateway settings, safely preserving existing secrets when masked
      */
     public function saveSettings(): void
     {
@@ -211,12 +230,27 @@ class BatchComController extends Controller
         ");
 
         foreach ($settings as $key => $val) {
-            if ($key !== 'id' && is_string($key)) {
-                $stmt->execute([
-                    'key' => $key,
-                    'val' => is_scalar($val) ? (string) $val : json_encode($val)
-                ]);
+            if ($key === 'id' || !is_string($key)) {
+                continue;
             }
+
+            // Exclude helper flags
+            if (in_array($key, ['has_sms_password', 'has_sms_api_key'], true)) {
+                continue;
+            }
+
+            // Never overwrite real stored secrets with mask strings or empty values
+            if (in_array($key, ['sms_password', 'sms_api_key'], true)) {
+                $trimmedVal = is_string($val) ? trim($val) : '';
+                if ($trimmedVal === '••••••••' || $trimmedVal === '') {
+                    continue; // Keep current secret unchanged
+                }
+            }
+
+            $stmt->execute([
+                'key' => $key,
+                'val' => is_scalar($val) ? (string) $val : json_encode($val)
+            ]);
         }
 
         $this->success(null, 'Batch communication settings saved successfully.');

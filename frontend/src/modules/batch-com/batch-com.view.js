@@ -763,18 +763,20 @@ export function BatchComView() {
         <div class="bc-form-row-2">
             <div class="bc-field-group">
                 <label class="bc-field-label">Username for SMS Gateway:</label>
-                <input type="text" class="bc-input-field" id="bcAlertSmsUsername" value="sms username">
+                <input type="text" class="bc-input-field" id="bcAlertSmsUsername" placeholder="Enter SMS gateway username" autocomplete="off">
             </div>
             <div class="bc-field-group">
                 <label class="bc-field-label">Password for SMS Gateway:</label>
-                <input type="password" class="bc-input-field" id="bcAlertSmsPassword" value="secret12345">
+                <input type="password" class="bc-input-field" id="bcAlertSmsPassword" placeholder="••••••••" autocomplete="new-password">
+                <small class="bc-hint-text" id="bcAlertSmsPasswordHint" style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Leave blank or masked to keep server secret unchanged.</small>
             </div>
         </div>
 
         <!-- Row 3: SMS Gateway API key (Full Width) -->
         <div class="bc-field-group" style="margin-bottom: 24px;">
             <label class="bc-field-label">SMS Gateway API key:</label>
-            <input type="text" class="bc-input-field" id="bcAlertSmsApiKey" value="sms api key">
+            <input type="password" class="bc-input-field" id="bcAlertSmsApiKey" placeholder="••••••••" autocomplete="off">
+            <small class="bc-hint-text" id="bcAlertSmsApiKeyHint" style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Leave blank or masked to keep server secret unchanged.</small>
         </div>
 
         <!-- Row 4: Action Button: [✔ Save] -->

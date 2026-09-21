@@ -1,13 +1,12 @@
 <?php
 
-$envPath = __DIR__ . '/../.env';
-$env = file_exists($envPath) ? parse_ini_file($envPath) : [];
+use App\Core\Env;
 
 return [
-    'host' => $env['MAIL_HOST'] ?? '',
-    'port' => (int) ($env['MAIL_PORT'] ?? 465),
-    'encryption' => $env['MAIL_ENCRYPTION'] ?? 'ssl',
-    'username' => $env['MAIL_USERNAME'] ?? '',
-    'password' => $env['MAIL_PASSWORD'] ?? '',
-    'from_name' => $env['MAIL_FROM_NAME'] ?? 'Intellix Hospital System',
+    'host' => Env::get('MAIL_HOST', ''),
+    'port' => (int) Env::get('MAIL_PORT', 465),
+    'encryption' => Env::get('MAIL_ENCRYPTION', 'ssl'),
+    'username' => Env::get('MAIL_USERNAME', ''),
+    'password' => Env::get('MAIL_PASSWORD', ''),
+    'from_name' => Env::get('MAIL_FROM_NAME', 'Intellix Hospital System'),
 ];

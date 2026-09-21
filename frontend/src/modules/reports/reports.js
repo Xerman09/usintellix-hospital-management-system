@@ -1,4 +1,5 @@
 import { getUser } from "../../core/session.js";
+import { API_URL } from "../../core/api.js";
 import { fetchHealthSummary } from "../health-records/health-records.service.js";
 import { fetchProfile } from "../profile/profile.service.js";
 import { generateCcdDetailedReportHtml } from "../patients/patients-list.js";
@@ -459,11 +460,14 @@ async function generateDocsZip() {
 
     try {
         const zip = new JSZip();
-        const API_URL = 'https://ihs.dm3system.com/backend';
+        const baseStorageUrl = API_URL.replace(/\/public$/, '');
         
         // Fetch all selected files
         const fetchPromises = selectedCbs.map(async (cb) => {
-            const fileUrl = API_URL + cb.dataset.url;
+            const rawUrl = cb.dataset.url || '';
+            const fileUrl = rawUrl.startsWith('http') 
+                ? rawUrl 
+                : (rawUrl.startsWith('/') ? `${baseStorageUrl}${rawUrl}` : `${baseStorageUrl}/${rawUrl}`);
             const fileName = cb.dataset.name;
             
             try {

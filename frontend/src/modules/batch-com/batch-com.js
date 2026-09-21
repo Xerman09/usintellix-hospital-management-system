@@ -533,20 +533,29 @@ function setupAlertSettingsTab() {
             const smsPassword = document.getElementById("bcAlertSmsPassword")?.value;
             const smsApiKey = document.getElementById("bcAlertSmsApiKey")?.value;
 
+            const payload = {
+                sms_send_before: smsSendBefore,
+                email_send_before: emailSendBefore,
+                sms_username: smsUsername
+            };
+
+            // Only transmit sensitive credentials if user explicitly entered a new one
+            if (smsPassword && smsPassword !== "••••••••") {
+                payload.sms_password = smsPassword;
+            }
+            if (smsApiKey && smsApiKey !== "••••••••") {
+                payload.sms_api_key = smsApiKey;
+            }
+
             try {
                 const res = await api('/batch-com/settings', {
                     method: 'POST',
-                    body: JSON.stringify({
-                        sms_send_before: smsSendBefore,
-                        email_send_before: emailSendBefore,
-                        sms_username: smsUsername,
-                        sms_password: smsPassword,
-                        sms_api_key: smsApiKey
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (res.success) {
                     showToast("Alert settings saved successfully.", "success");
+                    await loadAllSettings();
                 } else {
                     showToast(res.message || "Failed to save alert settings.", "error");
                 }
@@ -599,11 +608,25 @@ async function loadAllSettings() {
             if (s.sms_username !== undefined && document.getElementById("bcAlertSmsUsername")) {
                 document.getElementById("bcAlertSmsUsername").value = s.sms_username;
             }
-            if (s.sms_password !== undefined && document.getElementById("bcAlertSmsPassword")) {
-                document.getElementById("bcAlertSmsPassword").value = s.sms_password;
+
+            // Masked secret fields
+            if (document.getElementById("bcAlertSmsPassword")) {
+                const passEl = document.getElementById("bcAlertSmsPassword");
+                passEl.value = s.has_sms_password ? "••••••••" : "";
+                const hintEl = document.getElementById("bcAlertSmsPasswordHint");
+                if (hintEl && s.has_sms_password) {
+                    hintEl.textContent = "✓ Secret configured securely on server. Leave unchanged to keep.";
+                    hintEl.style.color = "#16a34a";
+                }
             }
-            if (s.sms_api_key !== undefined && document.getElementById("bcAlertSmsApiKey")) {
-                document.getElementById("bcAlertSmsApiKey").value = s.sms_api_key;
+            if (document.getElementById("bcAlertSmsApiKey")) {
+                const keyEl = document.getElementById("bcAlertSmsApiKey");
+                keyEl.value = s.has_sms_api_key ? "••••••••" : "";
+                const hintEl = document.getElementById("bcAlertSmsApiKeyHint");
+                if (hintEl && s.has_sms_api_key) {
+                    hintEl.textContent = "✓ API Key configured securely on server. Leave unchanged to keep.";
+                    hintEl.style.color = "#16a34a";
+                }
             }
         }
     } catch (e) {

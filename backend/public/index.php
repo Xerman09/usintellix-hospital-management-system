@@ -18,9 +18,10 @@ set_error_handler(function (int $errno, string $errstr, string $errfile, int $er
 
 require_once __DIR__ . '/../app/Core/Autoload.php';
 
-
 use App\Core\Cors;
+use App\Core\Env;
 
+Env::load();
 
 Cors::handle();
 

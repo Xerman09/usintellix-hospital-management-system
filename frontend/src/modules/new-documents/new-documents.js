@@ -1,5 +1,5 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { api } from "../../core/api.js?v=5";
+import { api, API_URL } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 let categoriesList = [];
@@ -446,11 +446,9 @@ function setupUploaderEvents(container, currentCategory) {
             }
 
             try {
-                const response = await fetch("/api/new-documents/upload", {
+                const response = await fetch(`${API_URL}/new-documents/upload`, {
                     method: "POST",
-                    headers: {
-                        'Authorization': `Bearer ${sessionStorage.getItem('jwt') || ''}`
-                    },
+                    credentials: "include",
                     body: formData
                 });
 

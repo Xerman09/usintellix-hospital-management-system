@@ -2,6 +2,7 @@
 
 namespace App\Modules\Messaging\Services;
 
+use App\Core\Env;
 use RuntimeException;
 
 class ZenzapService
@@ -12,10 +13,10 @@ class ZenzapService
 
     public function __construct()
     {
-        $this->apiKey = $_ENV['ZENZAP_API_KEY'] ?? '';
-        $this->apiSecret = $_ENV['ZENZAP_API_SECRET'] ?? '';
+        $this->apiKey = (string) Env::get('ZENZAP_API_KEY', '');
+        $this->apiSecret = (string) Env::get('ZENZAP_API_SECRET', '');
         $this->baseUrl = rtrim(
-            $_ENV['ZENZAP_BASE_URL'] ?? 'https://api.zenzap.co',
+            (string) Env::get('ZENZAP_BASE_URL', 'https://api.zenzap.co'),
             '/'
         );
 
