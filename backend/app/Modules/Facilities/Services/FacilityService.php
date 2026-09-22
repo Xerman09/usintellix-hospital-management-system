@@ -4,6 +4,7 @@ namespace App\Modules\Facilities\Services;
 
 use App\Core\Cache;
 use App\Core\Database;
+use App\Core\FieldEncryption;
 use App\Modules\Facilities\Models\Facility;
 use App\Modules\OrganizationTypes\Models\OrganizationType;
 use App\Modules\PosCodes\Models\PosCode;
@@ -35,8 +36,8 @@ class FacilityService
     private const FK_FIELDS = ['organization_type_id', 'pos_code_id'];
 
     /**
-     * List all active (non-deleted) facilities, with related lookup names.
-     * Cached since this lookup table rarely changes and is fetched on
+     * List all active facilities, cached for 1 hour. Facilities change
+     * infrequently but the dropdown is requested on every patient chart and
      * every encounter form load.
      */
     public function list(): array
@@ -55,7 +56,9 @@ class FacilityService
 
             $stmt->execute();
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return FieldEncryption::decryptRows($rows, ['tax_id', 'iban']);
         });
     }
 

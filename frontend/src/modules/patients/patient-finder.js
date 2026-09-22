@@ -123,14 +123,9 @@ function patientRowData(patient)
         patient,
         name: [patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" "),
         phone: patient.contact_home_phone || "",
-        // Neither is tracked anywhere in this system's data model -- kept
-        // as real, honestly-empty fields (never fabricated) rather than
-        // dropped, so the column/filter structure still matches the
-        // reference layout; a typed SSN/External ID filter will correctly
-        // never match anything, same as it would against real blank data.
-        ssn: "",
+        ssn: patient.ssn || "",
         dob: patient.birthdate ? String(patient.birthdate).slice(0, 10) : "",
-        external: ""
+        external: patient.national_id || ""
     };
 }
 
@@ -203,15 +198,17 @@ function renderList()
     if (pageRows.length === 0) {
         tbody.innerHTML = `<tr class="fnd-empty-row"><td colspan="5">No matching records found</td></tr>`;
     } else {
-        tbody.innerHTML = pageRows.map((row) => `
+        tbody.innerHTML = pageRows.map((row) => {
+            const maskedSsn = row.ssn ? (row.ssn.replace(/\D/g, '').length === 9 ? '***-**-' + row.ssn.replace(/\D/g, '').slice(-4) : '***' + row.ssn.slice(-4)) : '';
+            return `
             <tr class="fnd-row" data-patient-id="${row.patient.id}">
                 <td class="fnd-name">${escapeHtml(row.name)}</td>
                 <td>${row.phone ? escapeHtml(row.phone) : `<span class="fnd-muted">&mdash;</span>`}</td>
-                <td><span class="fnd-muted">&mdash;</span></td>
+                <td>${maskedSsn ? `<code style="font-family: monospace; font-weight: 600;">${escapeHtml(maskedSsn)}</code>` : `<span class="fnd-muted">&mdash;</span>`}</td>
                 <td>${row.dob ? escapeHtml(row.dob) : `<span class="fnd-muted">&mdash;</span>`}</td>
-                <td><span class="fnd-muted">&mdash;</span></td>
+                <td>${row.external ? escapeHtml(row.external) : `<span class="fnd-muted">&mdash;</span>`}</td>
             </tr>
-        `).join("");
+        `;}).join("");
 
         tbody.querySelectorAll(".fnd-row").forEach((tr) => {
             tr.addEventListener("click", () => openPatientFromFinder(tr.getAttribute("data-patient-id")));

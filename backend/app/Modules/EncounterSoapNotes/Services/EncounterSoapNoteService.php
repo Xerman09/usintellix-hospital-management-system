@@ -3,6 +3,7 @@
 namespace App\Modules\EncounterSoapNotes\Services;
 
 use App\Core\Database;
+use App\Core\FieldEncryption;
 use App\Modules\EncounterSoapNotes\Models\EncounterSoapNote;
 use App\Modules\EncounterSoapNotes\Models\EncounterSoapNoteSignature;
 use App\Modules\Employees\Models\Employee;
@@ -31,6 +32,7 @@ class EncounterSoapNoteService
         $stmt->execute(['encounter_id' => $encounterId]);
 
         $notes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $notes = FieldEncryption::decryptRows($notes, self::DETAIL_FIELDS);
 
         foreach ($notes as &$note) {
             $note['signatures'] = $this->signatures((int) $note['id']);

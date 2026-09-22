@@ -16,7 +16,7 @@ class PatientLedgerController extends Controller
     private ProviderService $providerService;
     private PatientAccessService $patientAccessService;
 
-    private const DETAIL_FIELDS = ['encounter_id', 'payer_type', 'payment_type', 'payment_date', 'payment_amount', 'adjustment_amount', 'notes'];
+    private const DETAIL_FIELDS = ['encounter_id', 'payer_type', 'payment_type', 'card_number', 'card_expiry', 'card_cvv', 'payment_date', 'payment_amount', 'adjustment_amount', 'notes'];
 
     public function __construct()
     {

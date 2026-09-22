@@ -3,6 +3,7 @@
 namespace App\Modules\Patients\Services;
 
 use App\Core\Database;
+use App\Core\FieldEncryption;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Models\PatientContact;
 use App\Modules\Patients\Models\PatientEmployer;
@@ -73,7 +74,9 @@ class PatientService
         $stmt = Database::connection()->prepare($sql);
         $stmt->execute($params);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return FieldEncryption::decryptRows($rows, ['ssn', 'national_id']);
     }
 
     /**
@@ -183,6 +186,8 @@ class PatientService
             'allow_postcard'    => $this->normalizeYesNo($data['allow_postcard'] ?? null),
             'height'       => $data['height'],
             'weight'       => $data['weight'],
+            'ssn'          => array_key_exists('ssn', $data) ? ($data['ssn'] ?: null) : ($patient['ssn'] ?? null),
+            'national_id'  => array_key_exists('national_id', $data) ? ($data['national_id'] ?: null) : ($patient['national_id'] ?? null),
             'date_deceased'   => $data['date_deceased'] ?? null,
             'reason_deceased' => $data['reason_deceased'] ?? null,
             'updated_at'   => date('Y-m-d H:i:s'),
@@ -482,6 +487,8 @@ class PatientService
                     'allow_postcard'    => $this->normalizeYesNo($data['allow_postcard'] ?? null),
                     'height'       => $data['height'],
                     'weight'       => $data['weight'],
+                    'ssn'          => !empty($data['ssn']) ? $data['ssn'] : null,
+                    'national_id'  => !empty($data['national_id']) ? $data['national_id'] : null,
                     'date_deceased'   => $data['date_deceased'] ?? null,
                     'reason_deceased' => $data['reason_deceased'] ?? null,
                     'created_at'   => date('Y-m-d H:i:s'),

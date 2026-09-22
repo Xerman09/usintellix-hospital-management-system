@@ -3,12 +3,13 @@
 namespace App\Modules\PatientLedger\Services;
 
 use App\Core\Database;
+use App\Core\FieldEncryption;
 use App\Modules\PatientLedger\Models\PatientLedgerPayment;
 use PDO;
 
 class PatientLedgerService
 {
-    private const DETAIL_FIELDS = ['encounter_id', 'payer_type', 'payment_type', 'payment_date', 'payment_amount', 'adjustment_amount', 'notes'];
+    private const DETAIL_FIELDS = ['encounter_id', 'payer_type', 'payment_type', 'card_number', 'card_expiry', 'card_cvv', 'payment_date', 'payment_amount', 'adjustment_amount', 'notes'];
 
     /**
      * The patient's ledger for a date range: every billed code
@@ -93,7 +94,7 @@ class PatientLedgerService
     private function listPayments(int $patientId, string $from, string $to): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, encounter_id, payer_type, payment_type, payment_date, payment_amount, adjustment_amount, notes
+            "SELECT id, encounter_id, payer_type, payment_type, card_number, card_expiry, card_cvv, payment_date, payment_amount, adjustment_amount, notes
              FROM patient_ledger_payments
              WHERE patient_id = :patient_id AND deleted_at IS NULL
                AND payment_date >= :from AND payment_date <= :to
@@ -102,15 +103,17 @@ class PatientLedgerService
         $stmt->execute(['patient_id' => $patientId, 'from' => $from, 'to' => $to]);
 
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = FieldEncryption::decryptRows($rows, ['card_number', 'card_expiry', 'card_cvv']);
 
         return array_map(function (array $row) {
             $payorLabel = $row['payer_type'] === 'insurance' ? 'Insurance' : 'Patient';
+            $cardSuffix = !empty($row['card_number']) ? ' (' . FieldEncryption::maskCard($row['card_number']) . ')' : '';
 
             return [
                 'row_type' => 'payment',
                 'id' => 'p' . $row['id'],
                 'code' => null,
-                'description' => trim($row['payment_type'] . ' [' . $payorLabel . ' Payment]' . ($row['notes'] ? ' ' . $row['notes'] : '')),
+                'description' => trim($row['payment_type'] . $cardSuffix . ' [' . $payorLabel . ' Payment]' . ($row['notes'] ? ' ' . $row['notes'] : '')),
                 'billed_date' => $row['payment_date'],
                 'payor' => $payorLabel,
                 'type' => $payorLabel,
@@ -119,7 +122,8 @@ class PatientLedgerService
                 'payment' => (float) $row['payment_amount'],
                 'adjustment' => (float) $row['adjustment_amount'],
                 'entry_date' => $row['payment_date'],
-                'encounter_id' => $row['encounter_id'] !== null ? (int) $row['encounter_id'] : null
+                'encounter_id' => $row['encounter_id'] !== null ? (int) $row['encounter_id'] : null,
+                'card_number_masked' => !empty($row['card_number']) ? FieldEncryption::maskCard($row['card_number']) : null
             ];
         }, $rows);
     }

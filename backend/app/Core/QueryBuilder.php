@@ -9,6 +9,51 @@ class QueryBuilder extends Model
 {
     protected array $where = [];
     protected array $bindings = [];
+    protected array $encryptedFields = [];
+
+    /**
+     * Get list of encrypted fields for this model.
+     */
+    public function getEncryptedFields(): array
+    {
+        return $this->encryptedFields;
+    }
+
+    /**
+     * Encrypt configured fields prior to writing to database.
+     */
+    protected function prepareEncryptedWrite(array $data): array
+    {
+        if (empty($this->encryptedFields)) {
+            return $data;
+        }
+
+        return FieldEncryption::encryptRow($data, $this->encryptedFields);
+    }
+
+    /**
+     * Decrypt configured fields on a single record after read.
+     */
+    protected function prepareEncryptedRead(?array $record): ?array
+    {
+        if (!$record || empty($this->encryptedFields)) {
+            return $record;
+        }
+
+        return FieldEncryption::decryptRow($record, $this->encryptedFields);
+    }
+
+    /**
+     * Decrypt configured fields on multiple records after read.
+     */
+    protected function prepareEncryptedReadMany(array $records): array
+    {
+        if (empty($records) || empty($this->encryptedFields)) {
+            return $records;
+        }
+
+        return FieldEncryption::decryptRows($records, $this->encryptedFields);
+    }
 
     /**
      * Get all records.
@@ -23,7 +68,7 @@ class QueryBuilder extends Model
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $this->reset();
 
-        return $result;
+        return $this->prepareEncryptedReadMany($result);
     }
 
     /**
@@ -43,7 +88,7 @@ class QueryBuilder extends Model
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $this->reset();
 
-        return $result;
+        return $this->prepareEncryptedReadMany($result);
     }
 
     /**
@@ -61,7 +106,7 @@ class QueryBuilder extends Model
 
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return $result ?: null;
+        return $this->prepareEncryptedRead($result ?: null);
     }
 
     /**
@@ -72,6 +117,8 @@ class QueryBuilder extends Model
         if (empty($data)) {
             return false;
         }
+
+        $data = $this->prepareEncryptedWrite($data);
 
         $columns = array_keys($data);
         $placeholders = array_map(fn($column) => ':' . $column, $columns);
@@ -107,6 +154,8 @@ class QueryBuilder extends Model
         if (empty($data)) {
             return false;
         }
+
+        $data = $this->prepareEncryptedWrite($data);
 
         if ($id !== null) {
             $this->where($this->primaryKey, $id);
@@ -200,7 +249,7 @@ class QueryBuilder extends Model
 
         $this->reset();
 
-        return $result ?: null;
+        return $this->prepareEncryptedRead($result ?: null);
     }
 
     /**

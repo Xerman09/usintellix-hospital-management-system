@@ -3,6 +3,7 @@
 namespace App\Modules\EncounterClinicalNoteItems\Services;
 
 use App\Core\Database;
+use App\Core\FieldEncryption;
 use App\Modules\EncounterClinicalNoteItems\Models\EncounterClinicalNoteItem;
 use App\Modules\EncounterSections\Services\EncounterSectionService;
 use App\Modules\Employees\Models\Employee;
@@ -51,7 +52,9 @@ class EncounterClinicalNoteItemService
         );
         $stmt->execute(['encounter_id' => $encounterId]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return FieldEncryption::decryptRows($rows, ['narrative']);
     }
 
     public function store(int $encounterId, array $data, int $createdBy): array

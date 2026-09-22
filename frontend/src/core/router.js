@@ -4,13 +4,13 @@ import { Dashboard } from "../modules/dashboard/dashboard.js?v=183";
 import { initLogin } from "../modules/auth/auth.js?v=105";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=101";
 import { initAddEmployee } from "../modules/employees/add-employee.js?v=101";
-import { AddPatientView } from "../modules/patients/add-patient.view.js?v=100";
-import { initAddPatient } from "../modules/patients/add-patient.js?v=100";
+import { AddPatientView } from "../modules/patients/add-patient.view.js?v=101";
+import { initAddPatient } from "../modules/patients/add-patient.js?v=101";
 import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=1";
 import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=1";
 import { TermsConditionsView } from "../modules/terms-conditions/terms-conditions.view.js?v=1";
 import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=1";
-import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=2";
+import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=3";
 import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=2";
 
 

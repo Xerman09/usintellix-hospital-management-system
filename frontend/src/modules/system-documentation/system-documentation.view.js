@@ -457,6 +457,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-inactivity" class="sysdoc-nav-item hipaa-highlight">15-Min Inactivity Auto-Logoff</a>
                 <a href="#sec-hipaa-breakglass" class="sysdoc-nav-item hipaa-highlight">Emergency Break-Glass Access</a>
                 <a href="#sec-hipaa-min-necessary" class="sysdoc-nav-item hipaa-highlight">Minimum Necessary PHI (§ 164.502(b))</a>
+                <a href="#sec-hipaa-encryption" class="sysdoc-nav-item hipaa-highlight">Field-Level Encryption (AES-256-GCM)</a>
                 <a href="#sec-hipaa-anticache" class="sysdoc-nav-item hipaa-highlight">Anti-Caching &amp; Transmission</a>
                 <a href="#sec-hipaa-privacy" class="sysdoc-nav-item hipaa-highlight">Accounting of Disclosures &amp; Privacy</a>
 
@@ -540,6 +541,11 @@ export function SystemDocumentationView(options = {}) {
                                 <td><strong>§ 164.312(a)(2)(ii)</strong></td>
                                 <td>Emergency Break-Glass</td>
                                 <td>Clinician emergency override for non-assigned patient charts with mandatory clinical justification.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.312(a)(2)(iv)</strong></td>
+                                <td>Field-Level Encryption at Rest</td>
+                                <td>Cryptographic AES-256-GCM authenticated encryption for sensitive database fields (SSN, national IDs, payment cards, psychiatric notes).</td>
                             </tr>
                             <tr>
                                 <td><strong>§ 164.312(e)(1)</strong></td>
@@ -784,6 +790,55 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         <li><code>X-Content-Type-Options: nosniff</code> — MIME sniffing defense.</li>
                         <li><code>X-XSS-Protection: 1; mode=block</code> — Reflected XSS termination.</li>
                     </ul>
+                </section>
+
+                <!-- SECTION: FIELD-LEVEL DATABASE ENCRYPTION (AES-256-GCM) -->
+                <section id="sec-hipaa-encryption" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            Field-Level Database Encryption at Rest (AES-256-GCM) (HIPAA § 164.312(a)(2)(iv))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Cryptographic Safeguards</span>
+                    </div>
+                    <p>
+                        In strict adherence to <strong>45 CFR § 164.312(a)(2)(iv)</strong> (Security Rule: Encryption and Decryption) and <strong>45 CFR § 164.501</strong> (Special Privacy Protections for Psychotherapy Notes), USIntellix enforces field-level database encryption at rest using NIST SP 800-38D compliant <strong>AES-256-GCM (Galois/Counter Mode)</strong>.
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Why Field-Level Encryption at Rest is Required</div>
+                        <div>
+                            Database-level transparent data encryption (TDE) only protects the raw physical storage volume. If a database administrator account is compromised, or an unencrypted SQL dump, replication log, or remote database backup file is exposed, standard TDE does not protect patient records. Field-level encryption guarantees that sensitive ePHI fields remain cryptographically unreadable ciphertext outside the authorized application runtime.
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0;">
+                        <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 14px 16px;">
+                            <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #059669; font-weight: 700;">🔐 Cryptographic Specifications</h4>
+                            <ul style="font-size: 12.5px; line-height: 1.7; margin: 0; padding-left: 18px;">
+                                <li><strong>Algorithm:</strong> AES-256-GCM (Galois/Counter Mode AEAD).</li>
+                                <li><strong>Key Length:</strong> 256-bit symmetric key configured via <code>DB_ENCRYPTION_KEY</code> in <code>.env</code>.</li>
+                                <li><strong>Initialization Vector (IV):</strong> 96-bit (12-byte) cryptographically secure random nonces generated per field via <code>random_bytes(12)</code> (prevents identical ciphertext patterns).</li>
+                                <li><strong>Authentication Tag:</strong> 128-bit (16-byte) GHASH authentication tag verifying ciphertext authenticity and detecting any database tampering.</li>
+                                <li><strong>Envelope Format:</strong> <code>enc:v1:&lt;base64(12-byte IV . 16-byte Tag . Ciphertext)&gt;</code>.</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 14px 16px;">
+                            <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #059669; font-weight: 700;">🛡️ Protected Database Fields</h4>
+                            <ul style="font-size: 12.5px; line-height: 1.7; margin: 0; padding-left: 18px;">
+                                <li><strong>Patient Identifiers:</strong> <code>patients.ssn</code> (Social Security Number) and <code>patients.national_id</code> (Government ID).</li>
+                                <li><strong>Facility &amp; Tax IDs:</strong> <code>facilities.tax_id</code> (SSN/EIN) and <code>facilities.iban</code> (Banking IBAN).</li>
+                                <li><strong>Payment Instruments:</strong> <code>patient_ledger_payments.card_number</code>, <code>card_expiry</code>, and <code>card_cvv</code>.</li>
+                                <li><strong>Psychotherapy Notes (§ 164.501):</strong> <code>patient_psychiatric_notes.psychiatric_notes</code>, <code>symptoms</code>, <code>treatment_plan</code>, and <code>confidential_remarks</code>.</li>
+                                <li><strong>Clinical SOAP Notes:</strong> <code>encounter_soap_notes.subjective</code>, <code>objective</code>, <code>assessment</code>, and <code>plan</code>.</li>
+                                <li><strong>Clinical Narratives:</strong> <code>encounter_clinical_note_items.narrative</code>.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="sysdoc-rule-box" style="margin-top: 14px;">
+                        <div class="sysdoc-rule-title">Zero-Downtime Transparent Engine (App\\Core\\FieldEncryption)</div>
+                        <div>
+                            The encryption engine seamlessly hooks into the <code>App\\Core\\QueryBuilder</code> model lifecycle. When models like <code>Patient</code>, <code>PatientPsychiatricNote</code>, or <code>PatientLedgerPayment</code> save data, fields declared in <code>$encryptedFields</code> are automatically encrypted before writing to MySQL. When reading via <code>find()</code>, <code>first()</code>, or <code>get()</code>, fields are transparently authenticated and decrypted. If ciphertext or authentication tags are tampered with, decryption fails safely and logs a tamper alert without corrupting data.
+                        </div>
+                    </div>
                 </section>
 
                 <!-- SECTION: ACCOUNTING OF DISCLOSURES & PRIVACY -->

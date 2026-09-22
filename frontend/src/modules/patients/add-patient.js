@@ -6,7 +6,7 @@ import { enablePasswordToggles } from "../../core/password-toggle.js";
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
     "last_name", "suffix", "sex", "birthdate",
-    "civil_status", "blood_type", "height", "weight",
+    "civil_status", "blood_type", "height", "weight", "ssn", "national_id",
     "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie",
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",

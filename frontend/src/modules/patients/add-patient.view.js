@@ -113,6 +113,18 @@ export function AddPatientView()
                         <span class="form-error" id="err-weight"></span>
                     </div>
 
+                    <div class="form-group">
+                        <label>Social Security Number (SSN) <span class="badge-hipaa-enc" style="font-size: 10px; font-weight: 600; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">🔒 AES-256-GCM</span></label>
+                        <input id="ssn" class="form-input" placeholder="XXX-XX-XXXX" autocomplete="off">
+                        <span class="form-error" id="err-ssn"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>National / Government ID <span class="badge-hipaa-enc" style="font-size: 10px; font-weight: 600; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">🔒 AES-256-GCM</span></label>
+                        <input id="national_id" class="form-input" placeholder="e.g. NID-12345678" autocomplete="off">
+                        <span class="form-error" id="err-national_id"></span>
+                    </div>
+
                 </div>
             </div>
 

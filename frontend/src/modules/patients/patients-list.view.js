@@ -11238,6 +11238,26 @@ textarea.pd-sdoh-readonly {
                     <label>Notes</label>
                     <input type="text" id="ledgerPayment_notes" class="form-input">
                 </div>
+
+                <div class="form-group full" style="margin-top: 4px; padding: 8px 12px; background: rgba(5, 150, 105, 0.08); border: 1px solid rgba(5, 150, 105, 0.25); border-radius: 6px; font-size: 11px; color: #047857;">
+                    <strong>🔒 HIPAA § 164.312(a)(2)(iv) Security Safeguard:</strong> Payment instrument and banking details are encrypted at rest using AES-256-GCM before writing to the database.
+                </div>
+
+                <div class="form-group">
+                    <label>Card Number (Optional)</label>
+                    <input type="text" id="ledgerPayment_card_number" class="form-input" placeholder="•••• •••• •••• ••••" autocomplete="off">
+                </div>
+
+                <div class="form-group" style="display: flex; gap: 8px;">
+                    <div style="flex: 1;">
+                        <label>Expiry (MM/YY)</label>
+                        <input type="text" id="ledgerPayment_card_expiry" class="form-input" placeholder="MM/YY" maxlength="5" autocomplete="off">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>CVV</label>
+                        <input type="password" id="ledgerPayment_card_cvv" class="form-input" placeholder="•••" maxlength="4" autocomplete="off">
+                    </div>
+                </div>
             </div>
 
             <div class="form-actions">

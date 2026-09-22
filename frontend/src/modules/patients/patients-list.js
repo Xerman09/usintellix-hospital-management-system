@@ -2119,6 +2119,9 @@ function setupLedgerPaymentModal()
             payment_date: document.getElementById("ledgerPayment_payment_date").value,
             payment_amount: document.getElementById("ledgerPayment_payment_amount").value || 0,
             adjustment_amount: document.getElementById("ledgerPayment_adjustment_amount").value || 0,
+            card_number: document.getElementById("ledgerPayment_card_number") ? document.getElementById("ledgerPayment_card_number").value.trim() || null : null,
+            card_expiry: document.getElementById("ledgerPayment_card_expiry") ? document.getElementById("ledgerPayment_card_expiry").value.trim() || null : null,
+            card_cvv: document.getElementById("ledgerPayment_card_cvv") ? document.getElementById("ledgerPayment_card_cvv").value.trim() || null : null,
             notes: document.getElementById("ledgerPayment_notes").value.trim() || null
         };
 
