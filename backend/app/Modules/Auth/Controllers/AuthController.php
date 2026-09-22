@@ -126,6 +126,30 @@ class AuthController extends Controller
     }
 
     /**
+     * Return the currently authenticated user with fresh database-resolved role and profile.
+     */
+    public function me(): void
+    {
+        $sessionUser = Session::get('user');
+
+        if (!$sessionUser || empty($sessionUser['id'])) {
+            $this->error('Unauthenticated.', 401);
+            return;
+        }
+
+        $freshUser = $this->authService->getCurrentUser((int) $sessionUser['id']);
+
+        if (!$freshUser) {
+            Session::destroy();
+            $this->error('User account not found.', 401);
+            return;
+        }
+
+        Session::put('user', $freshUser);
+        $this->success(['user' => $freshUser], 'Current user session verified.');
+    }
+
+    /**
      * Update an expired password and complete login (HIPAA § 164.308(a)(5)(ii)(D)).
      */
     public function updateExpiredPassword(): void

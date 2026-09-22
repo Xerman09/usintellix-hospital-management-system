@@ -466,6 +466,40 @@ class AuthService
     }
 
     /**
+     * Resolves and returns a fully populated user array from the DB.
+     * Ensures role and profile information are fresh and accurate.
+     */
+    public function getCurrentUser(int $userId): ?array
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $user = (new User())->where('id', $userId)->first();
+        if (!$user) {
+            return null;
+        }
+
+        $employee = (new Employee())->where('user_id', $user['id'])->first();
+        $resolvedRole = $this->resolveRole($user, $employee);
+        $name = $this->resolveName($user, $employee);
+        $expStatus = PasswordSecurity::checkExpirationStatus($user);
+
+        return [
+            'id'                     => (int) $user['id'],
+            'username'               => $user['username'],
+            'role'                   => $resolvedRole,
+            'first_name'             => $name['first_name'],
+            'last_name'              => $name['last_name'],
+            'avatar'                 => $user['avatar'] ?? null,
+            'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
+            'password_changed_at'    => $user['password_changed_at'] ?? null,
+            'password_expiring_soon' => $expStatus['expiring_soon'],
+            'days_until_expiration'  => $expStatus['days_remaining']
+        ];
+    }
+
+    /**
      * Finish authenticating: resolve the display role/name and store the
      * logged-in user in the session. Shared by the direct-login path and
      * the post-2FA-verification path so both end up with an identical
@@ -588,19 +622,22 @@ class AuthService
 
     private function resolveRole(array $user, ?array $employee): string
     {
-        if (!$employee || empty($user['role_id'])) {
-            return 'patient';
+        // If the user has a role_id, resolve it from the roles table regardless
+        // of whether an employee record exists. Admin and other staff accounts
+        // may not always have an employee row, but their role_id is the
+        // authoritative source of truth for nav and access control.
+        if (!empty($user['role_id'])) {
+            $role = (new Role())
+                ->where('id', $user['role_id'])
+                ->first();
+
+            if ($role) {
+                return strtolower((string) $role['name']);
+            }
         }
 
-        $role = (new Role())
-            ->where('id', $user['role_id'])
-            ->first();
-
-        if (!$role) {
-            return 'patient';
-        }
-
-        return strtolower((string) $role['name']);
+        // No role_id (or unknown role_id) → treat as patient (portal user)
+        return 'patient';
     }
 
     /**

@@ -647,7 +647,7 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
-function getNavLinks(role)
+export function getNavLinks(role)
 {
     if (role === "patient") return PATIENT_NAV_LINKS;
     if (role === "doctor") return DOCTOR_NAV_LINKS;

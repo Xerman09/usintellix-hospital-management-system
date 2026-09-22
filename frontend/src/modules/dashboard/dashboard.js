@@ -1,9 +1,10 @@
-import { getUser, clearSession } from "../../core/session.js";
+import { getUser, clearSession, syncSessionUser } from "../../core/session.js?v=2";
 import { renderAvatar } from "../../core/avatar.js";
 import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
+import { getNavLinks } from "./dashboard.view.js?v=124";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -1348,21 +1349,24 @@ export function Dashboard()
     window.__openDashboardTab = openDashboardTab;
 
     // Attach navigation listeners
-    const navLinks = document.querySelectorAll('#navbarLinks a[data-tab]');
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            if (link.classList.contains('disabled-nav-link')) {
+    function attachNavListeners() {
+        const navLinks = document.querySelectorAll('#navbarLinks a[data-tab]');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (link.classList.contains('disabled-nav-link')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
                 e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            e.preventDefault();
-            const tabId = link.getAttribute('data-tab');
-            const title = link.textContent.trim();
+                const tabId = link.getAttribute('data-tab');
+                const title = link.textContent.trim();
 
-            openDashboardTab(tabId, title);
+                openDashboardTab(tabId, title);
+            });
         });
-    });
+    }
+    attachNavListeners();
 
     // Top navbar "Search by any demographic..." box -- pressing Enter hands
     // the typed term off to the Finder tab (same one-shot localStorage
@@ -1405,6 +1409,26 @@ export function Dashboard()
     // Initialize nav state and listen for changes
     updatePatientNavState();
     window.addEventListener('activePatientChanged', updatePatientNavState);
+
+    // Verify user role with server on load; auto-heal if browser session had stale role
+    syncSessionUser().then(freshUser => {
+        if (freshUser && freshUser.role && freshUser.role !== user.role) {
+            console.log(`[Dashboard] Auto-synced role from server: ${freshUser.role} (was: ${user.role})`);
+            const navLinksContainer = document.getElementById("navbarLinks");
+            if (navLinksContainer) {
+                navLinksContainer.innerHTML = getNavLinks(freshUser.role);
+                attachNavListeners();
+                updatePatientNavState();
+            }
+            const profileRole = document.getElementById('profileRole');
+            if (profileRole) profileRole.textContent = freshUser.role;
+            const profileName = document.getElementById('profileName');
+            if (profileName) {
+                const fullName = `${freshUser.first_name || ''} ${freshUser.last_name || ''}`.trim();
+                profileName.textContent = fullName || freshUser.username || "User";
+            }
+        }
+    });
 
     // Logout
     const logoutBtn = document.getElementById('logoutBtn');
