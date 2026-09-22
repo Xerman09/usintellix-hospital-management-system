@@ -18,31 +18,43 @@ export function initLogin()
 
     if (window.location.hash.includes("reason=inactivity")) {
         showAlert(`
-            <div class="login-alert-content">
-                <div class="login-alert-header">
-                    <span class="login-alert-badge">
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                        </svg>
-                        HIPAA § 164.312(a)(2)(iii)
-                    </span>
-                    <span class="login-alert-time">15-Min Inactivity</span>
+            <div class="session-ended-alert">
+                <div class="session-ended-left">
+                    <svg class="session-ended-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span class="session-ended-title">Session Ended</span>
                 </div>
-                <div class="login-alert-main">
-                    <div class="login-alert-icon">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12 6 12 12 16 14"/>
-                        </svg>
-                    </div>
-                    <div class="login-alert-text-block">
-                        <strong class="login-alert-title">Session Safely Logged Off</strong>
-                        <p class="login-alert-desc">Your session was automatically terminated after 15 minutes of inactivity in accordance with federal HIPAA safeguards to protect electronic health records.</p>
-                        <span class="login-alert-hint">Please enter your credentials below to log in again.</span>
-                    </div>
-                </div>
+                <button type="button" class="alert-dismiss-btn" id="dismissAlertBtn" aria-label="Dismiss" title="Dismiss">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
             </div>
         `, "warning");
+
+        const dismissBtn = document.getElementById("dismissAlertBtn");
+        if (dismissBtn) {
+            dismissBtn.addEventListener("click", () => {
+                const alertEl = document.getElementById("formAlert");
+                if (alertEl) {
+                    alertEl.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+                    alertEl.style.opacity = "0";
+                    alertEl.style.transform = "translateY(-6px)";
+                    setTimeout(() => {
+                        alertEl.innerHTML = "";
+                        alertEl.style.opacity = "";
+                        alertEl.style.transform = "";
+                        alertEl.style.transition = "";
+                    }, 200);
+                }
+                if (window.location.hash.includes("reason=inactivity")) {
+                    history.replaceState(null, "", window.location.pathname + "#/login");
+                }
+            });
+        }
     }
 
     const loginForm =
@@ -515,6 +527,12 @@ function showAlert(message, type)
             <div class="form-alert-row">
                 ${iconSvg}
                 <div class="form-alert-body">${message}</div>
+                <button type="button" class="alert-dismiss-btn" onclick="const a=document.getElementById('formAlert');if(a)a.innerHTML='';" aria-label="Dismiss" title="Dismiss">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
             </div>
         </div>
     `;

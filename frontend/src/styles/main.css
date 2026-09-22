@@ -2573,6 +2573,59 @@ select.form-input {
     opacity: 0.9;
 }
 
+/* Compact Session Ended Alert */
+.session-ended-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.session-ended-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.session-ended-icon {
+    flex-shrink: 0;
+    color: #fbbf24;
+}
+
+.session-ended-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.15px;
+    line-height: 1.2;
+}
+
+.alert-dismiss-btn {
+    background: transparent;
+    border: none;
+    color: rgba(254, 243, 199, 0.7);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+    flex-shrink: 0;
+}
+
+.alert-dismiss-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.alert-dismiss-btn:active {
+    transform: scale(0.92);
+}
+
+
 
 /* =========================
    DATA TABLES (Providers, Patients list)
