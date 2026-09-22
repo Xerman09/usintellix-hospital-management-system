@@ -64,3 +64,14 @@ export async function updateExpiredPassword(data)
         }
     );
 }
+
+export async function acknowledgeNpp(data)
+{
+    return await api(
+        "/auth/npp-acknowledge",
+        {
+            method: "POST",
+            body: JSON.stringify(data)
+        }
+    );
+}

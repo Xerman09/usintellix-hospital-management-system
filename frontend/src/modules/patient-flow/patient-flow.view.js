@@ -596,6 +596,33 @@ export function PatientFlowView()
                 <span class="form-error" id="err-appointment_id"></span>
             </div>
 
+            <!-- HIPAA § 164.520 NPP Consent Verification & Capture Banner -->
+            <div id="checkinNppSection" style="display:none; margin: 12px 0 16px 0; padding: 12px 14px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc;">
+                <div id="checkinNppStatus"></div>
+                <div id="checkinNppCaptureBox" style="display:none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                    <div style="font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 6px;">
+                        Capture In-Clinic Acknowledgment:
+                    </div>
+                    <div class="form-group full" style="margin-bottom: 8px;">
+                        <label style="font-size: 11px;">Acknowledgment Method</label>
+                        <select id="checkin_npp_signature_type" class="form-input" style="height: 32px; font-size: 12px; padding: 0 8px;">
+                            <option value="in_clinic">Electronic / Verbal Acknowledgment in Clinic</option>
+                            <option value="paper">Paper Copy Provided &amp; Physical Signature on File</option>
+                        </select>
+                    </div>
+                    <div class="form-group full" style="margin-bottom: 8px;">
+                        <label style="font-size: 11px;">Patient Full Name / Staff Witness Note</label>
+                        <input id="checkin_npp_signature_data" class="form-input" style="height: 32px; font-size: 12px; padding: 0 8px;" placeholder="Patient name or 'Paper NPP signed and archived'">
+                        <span class="form-error" id="err-checkin_npp_sig" style="font-size: 11px;"></span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" id="btnRecordCheckinNpp" style="height: 30px; padding: 0 12px; font-size: 12px; font-weight: 600; background: #059669; border: none; border-radius: 4px; color: white; cursor: pointer;">
+                            Record Consent (HIPAA § 164.520)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelCheckInForm">Cancel</button>
                 <button class="login-btn" type="submit">Check In</button>

@@ -189,4 +189,34 @@ class AuthController extends Controller
             'role' => $result['role']
         ], 'Password successfully updated. You are now logged in.');
     }
+
+    /**
+     * Acknowledge Notice of Privacy Practices (HIPAA § 164.520).
+     */
+    public function acknowledgeNpp(): void
+    {
+        $user = Session::get('user');
+        if (!$user || empty($user['id'])) {
+            $this->error('Unauthorized', 401);
+            return;
+        }
+
+        $request = new Request();
+        $signatureData = trim((string) $request->input('signature_data', ''));
+        $signatureType = trim((string) $request->input('signature_type', 'electronic'));
+        $nppVersion = trim((string) $request->input('npp_version', '2026-09'));
+
+        $result = $this->authService->acknowledgeNpp((int) $user['id'], [
+            'signature_data' => $signatureData,
+            'signature_type' => $signatureType,
+            'npp_version'    => $nppVersion,
+        ]);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
 }

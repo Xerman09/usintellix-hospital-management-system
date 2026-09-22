@@ -495,7 +495,10 @@ class AuthService
             'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
             'password_changed_at'    => $user['password_changed_at'] ?? null,
             'password_expiring_soon' => $expStatus['expiring_soon'],
-            'days_until_expiration'  => $expStatus['days_remaining']
+            'days_until_expiration'  => $expStatus['days_remaining'],
+            'npp_acknowledged'       => (bool) ($user['npp_acknowledged'] ?? false),
+            'npp_acknowledged_at'    => $user['npp_acknowledged_at'] ?? null,
+            'npp_version'            => $user['npp_version'] ?? null,
         ];
     }
 
@@ -521,7 +524,10 @@ class AuthService
             'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
             'password_changed_at'    => $user['password_changed_at'] ?? null,
             'password_expiring_soon' => $expStatus['expiring_soon'],
-            'days_until_expiration'  => $expStatus['days_remaining']
+            'days_until_expiration'  => $expStatus['days_remaining'],
+            'npp_acknowledged'       => (bool) ($user['npp_acknowledged'] ?? false),
+            'npp_acknowledged_at'    => $user['npp_acknowledged_at'] ?? null,
+            'npp_version'            => $user['npp_version'] ?? null,
         ]);
 
         AuditLogger::log(
@@ -665,6 +671,95 @@ class AuthService
         return [
             'first_name' => null,
             'last_name'  => null
+        ];
+    }
+
+    /**
+     * Record patient electronic acknowledgment of Notice of Privacy Practices (HIPAA § 164.520).
+     */
+    public function acknowledgeNpp(int $userId, array $data): array
+    {
+        $signatureData = trim((string) ($data['signature_data'] ?? ''));
+        $signatureType = trim((string) ($data['signature_type'] ?? 'electronic'));
+        $nppVersion = trim((string) ($data['npp_version'] ?? '2026-09'));
+        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+
+        if (empty($signatureData)) {
+            return [
+                'success' => false,
+                'message' => 'Your full legal name is required as an electronic signature.'
+            ];
+        }
+
+        $userModel = new User();
+        $user = $userModel->where('id', $userId)->first();
+        if (!$user) {
+            return [
+                'success' => false,
+                'message' => 'User account not found.'
+            ];
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        // Update user record
+        $userModel->where('id', $userId)->update([
+            'npp_acknowledged'    => 1,
+            'npp_acknowledged_at' => $now,
+            'npp_acknowledged_ip' => $clientIp,
+            'npp_signature_type'  => $signatureType,
+            'npp_signature_data'  => $signatureData,
+            'npp_version'         => $nppVersion,
+        ]);
+
+        // Resolve patient ID if applicable
+        $patient = (new Patient())->where('user_id', $userId)->first();
+        $patientId = $patient ? (int) $patient['id'] : null;
+
+        // Insert into immutable npp_consent_log
+        $db = Database::connection();
+        $stmt = $db->prepare("INSERT INTO npp_consent_log 
+            (user_id, patient_id, acknowledged_at, acknowledged_ip, signature_type, signature_data, npp_version, captured_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $userId,
+            $patientId,
+            $now,
+            $clientIp,
+            $signatureType,
+            $signatureData,
+            $nppVersion,
+            null, // self-acknowledged
+            $now
+        ]);
+
+        // Audit log HIPAA § 164.520 event
+        AuditLogger::log(
+            AuditLogger::CATEGORY_CONSENT,
+            AuditLogger::ACTION_NPP_ACKNOWLEDGED,
+            "Patient electronically signed and acknowledged HIPAA Notice of Privacy Practices (v{$nppVersion}) with legal signature '{$signatureData}'.",
+            $patientId,
+            $userId,
+            'patient'
+        );
+
+        // Update active session if it matches this user
+        $sessionUser = Session::get('user');
+        if (is_array($sessionUser) && (int) ($sessionUser['id'] ?? 0) === $userId) {
+            $sessionUser['npp_acknowledged'] = true;
+            $sessionUser['npp_acknowledged_at'] = $now;
+            $sessionUser['npp_version'] = $nppVersion;
+            Session::put('user', $sessionUser);
+        }
+
+        $freshUser = $this->getCurrentUser($userId);
+
+        return [
+            'success' => true,
+            'message' => 'Notice of Privacy Practices acknowledged successfully.',
+            'data'    => [
+                'user' => $freshUser
+            ]
         ];
     }
 }

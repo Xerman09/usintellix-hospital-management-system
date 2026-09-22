@@ -4,7 +4,8 @@ import { fetchFacilities } from "../facilities/facilities.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import {
-    fetchFlow, checkInPatient, updateFlowStatusRoom, updateFlowDrugScreen, removeFlowEntry
+    fetchFlow, checkInPatient, updateFlowStatusRoom, updateFlowDrugScreen, removeFlowEntry,
+    getNppConsentStatus, captureNppConsent
 } from "./patient-flow.service.js";
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
 import { getUser } from "../../core/session.js";
@@ -33,6 +34,8 @@ const BLINK_THRESHOLD_MS = 15 * 60 * 1000;
 const SETTINGS_KEY = "flowBoardSettings";
 
 let flowCache = [];
+let appointmentCache = [];
+let currentCheckinPatientId = null;
 let autoRefreshTimerId = null;
 let tickTimerId = null;
 let boardRoot = null;
@@ -324,6 +327,8 @@ async function loadAppointmentOptions()
         !checkedInIds.has(appt.id)
     );
 
+    appointmentCache = available;
+
     if (!available.length) {
         select.innerHTML = `<option value="">No appointments available to check in</option>`;
         return;
@@ -522,11 +527,22 @@ function setupCheckInModal()
 {
     const modalOverlay = document.getElementById("checkInModalOverlay");
     const form = document.getElementById("checkInForm");
+    const apptSelect = document.getElementById("checkin_appointment_id");
+    const nppSection = document.getElementById("checkinNppSection");
+    const nppStatus = document.getElementById("checkinNppStatus");
+    const nppCaptureBox = document.getElementById("checkinNppCaptureBox");
+    const btnRecordNpp = document.getElementById("btnRecordCheckinNpp");
 
     const resetForm = () => {
         form.reset();
         document.getElementById("checkInFormAlert").innerHTML = "";
         document.getElementById("err-appointment_id").textContent = "";
+        currentCheckinPatientId = null;
+        if (nppSection) nppSection.style.display = "none";
+        if (nppStatus) nppStatus.innerHTML = "";
+        if (nppCaptureBox) nppCaptureBox.style.display = "none";
+        const errSig = document.getElementById("err-checkin_npp_sig");
+        if (errSig) errSig.textContent = "";
     };
 
     const openModal = () => {
@@ -537,6 +553,119 @@ function setupCheckInModal()
     const closeModal = () => {
         modalOverlay.classList.remove("open");
     };
+
+    const updateNppStatusUI = async (patientId, patientName) => {
+        if (!nppSection || !nppStatus) return;
+
+        nppSection.style.display = "";
+        nppStatus.innerHTML = `<span style="font-size: 12px; color: #64748b;">Checking HIPAA NPP consent status...</span>`;
+        if (nppCaptureBox) nppCaptureBox.style.display = "none";
+
+        try {
+            const res = await getNppConsentStatus(patientId);
+            if (res.success && res.data) {
+                const d = res.data;
+                if (d.npp_acknowledged) {
+                    nppStatus.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; color: #065f46; font-size: 12.5px;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>
+                            </svg>
+                            <div>
+                                <strong>HIPAA Notice of Privacy Practices Acknowledged ✓</strong>
+                                <div style="color: #64748b; font-size: 11.5px; margin-top: 1px;">
+                                    Signed: ${escapeHtml(d.acknowledged_at || "On File")} &bull; Method: ${escapeHtml(d.signature_type || "electronic")} (v${escapeHtml(d.npp_version || "2026-09")})
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    if (nppCaptureBox) nppCaptureBox.style.display = "none";
+                } else {
+                    nppStatus.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; color: #92400e; font-size: 12.5px;">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <span><strong>NPP Consent Missing:</strong> Patient has not yet signed Notice of Privacy Practices (HIPAA § 164.520).</span>
+                            </div>
+                        </div>
+                    `;
+                    if (nppCaptureBox) {
+                        nppCaptureBox.style.display = "";
+                        const sigInput = document.getElementById("checkin_npp_signature_data");
+                        if (sigInput && !sigInput.value) {
+                            sigInput.value = patientName || "";
+                        }
+                    }
+                }
+            } else {
+                nppStatus.innerHTML = `<span style="font-size: 11.5px; color: #94a3b8;">Unable to verify NPP status.</span>`;
+            }
+        } catch (err) {
+            nppStatus.innerHTML = `<span style="font-size: 11.5px; color: #94a3b8;">NPP check skipped (offline or network error).</span>`;
+        }
+    };
+
+    if (apptSelect) {
+        apptSelect.addEventListener("change", () => {
+            const apptId = Number(apptSelect.value);
+            if (!apptId) {
+                if (nppSection) nppSection.style.display = "none";
+                currentCheckinPatientId = null;
+                return;
+            }
+
+            const appt = appointmentCache.find((a) => Number(a.id) === apptId);
+            if (appt && appt.patient_id) {
+                currentCheckinPatientId = Number(appt.patient_id);
+                const patientName = [appt.patient_first_name, appt.patient_last_name].filter(Boolean).join(" ");
+                updateNppStatusUI(currentCheckinPatientId, patientName);
+            }
+        });
+    }
+
+    if (btnRecordNpp) {
+        btnRecordNpp.addEventListener("click", async () => {
+            if (!currentCheckinPatientId) return;
+
+            const sigType = document.getElementById("checkin_npp_signature_type")?.value || "in_clinic";
+            const sigDataInput = document.getElementById("checkin_npp_signature_data");
+            const errSig = document.getElementById("err-checkin_npp_sig");
+            const sigData = (sigDataInput?.value || "").trim();
+
+            if (errSig) errSig.textContent = "";
+
+            if (!sigData) {
+                if (errSig) errSig.textContent = "Please enter patient name or staff verification note.";
+                return;
+            }
+
+            btnRecordNpp.disabled = true;
+            btnRecordNpp.textContent = "Saving...";
+
+            try {
+                const res = await captureNppConsent({
+                    patient_id: currentCheckinPatientId,
+                    signature_type: sigType,
+                    signature_data: sigData,
+                    npp_version: "2026-09"
+                });
+
+                if (res.success) {
+                    await updateNppStatusUI(currentCheckinPatientId, sigData);
+                } else {
+                    if (errSig) errSig.textContent = res.message || "Failed to record consent.";
+                }
+            } catch (err) {
+                if (errSig) errSig.textContent = "Network error recording consent.";
+            } finally {
+                btnRecordNpp.disabled = false;
+                btnRecordNpp.textContent = "Record Consent (HIPAA § 164.520)";
+            }
+        });
+    }
 
     document.getElementById("openCheckInModal").addEventListener("click", openModal);
     document.getElementById("closeCheckInModal").addEventListener("click", closeModal);

@@ -410,6 +410,35 @@ export function SystemDocumentationView(options = {}) {
             :root[data-theme="dark"] .sysdoc-subheading {
                 color: #f8fafc;
             }
+            :root[data-theme="dark"] .sysdoc-table tr:hover td {
+                background: #263449;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-item {
+                color: #cbd5e1;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-item:hover {
+                background: #263449;
+                color: #38bdf8;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-item.active {
+                background: #0c4a6e;
+                color: #7dd3fc;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-item.hipaa-highlight {
+                color: #34d399;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-item.hipaa-highlight:hover {
+                background: #064e3b;
+                color: #6ee7b7;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-search {
+                background: #0f172a;
+                border-color: #334155;
+                color: #e2e8f0;
+            }
+            :root[data-theme="dark"] .sysdoc-nav-group-title {
+                color: #94a3b8;
+            }
         </style>
 
         ${!isTab ? `
@@ -561,6 +590,11 @@ export function SystemDocumentationView(options = {}) {
                                 <td><strong>§ 164.502(b)</strong></td>
                                 <td>Minimum Necessary PHI</td>
                                 <td>Non-clinical staff restricted from clinical charts/labs; doctors bounded to assigned patients; clinical data redacted on dashboard.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.520</strong></td>
+                                <td>Notice of Privacy Practices &amp; Consent Capture</td>
+                                <td>Mandatory electronic signature capture gating first portal login, in-clinic check-in capture console, versioning, and immutable <code>npp_consent_log</code>.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -846,16 +880,24 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     <div class="sysdoc-section-header">
                         <h2 class="sysdoc-section-title">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><circle cx="11" cy="14" r="3"></circle><line x1="17" y1="14" x2="14" y2="14"></line></svg>
-                            Accounting of Disclosures &amp; Privacy Rule (§ 164.528 &amp; § 164.520)
+                            Accounting of Disclosures &amp; Notice of Privacy Practices (§ 164.528 &amp; § 164.520)
                         </h2>
                         <span class="sysdoc-badge sysdoc-badge-green">Privacy Safeguards</span>
                     </div>
                     <p>
-                        Under the HIPAA Privacy Rule, patients are entitled to an accounting of non-routine disclosures of their health records.
+                        Under the HIPAA Privacy Rule, covered entities must provide clear notice of privacy practices, obtain written patient acknowledgment at first service delivery, and maintain an accounting of non-routine disclosures of protected health information.
                     </p>
                     <div class="sysdoc-rule-box">
-                        <div class="sysdoc-rule-title">Disclosure Tracking Module</div>
+                        <div class="sysdoc-rule-title">Disclosure Tracking Module (§ 164.528)</div>
                         <div>Tracks recipient agency, date, purpose, legal basis (e.g. public health mandate, court order, payer audit), and specific clinical documents disclosed. Accessible under <strong>Miscellaneous &rarr; Disclosures</strong>.</div>
+                    </div>
+                    <div class="sysdoc-rule-box" style="margin-top: 10px;">
+                        <div class="sysdoc-rule-title">Patient Consent &amp; NPP Signature Capture (§ 164.520)</div>
+                        <ul style="margin: 4px 0 0 18px; padding: 0;">
+                            <li><strong>First Portal Login Interception:</strong> Patients logging into the portal with unacknowledged NPP are prevented from accessing the dashboard until completing an interactive consent form requiring checkboxes for the Privacy Policy and Terms of Service, along with a full legal name electronic signature.</li>
+                            <li><strong>In-Clinic Check-In Console:</strong> The Patient Flow board displays live NPP status upon appointment selection, allowing front-desk reception staff to capture electronic/verbal or physical paper acknowledgment directly into the system.</li>
+                            <li><strong>Immutable Consent Ledger:</strong> Every consent event is persisted into <code>npp_consent_log</code> with client IP, timestamp, signature type, version string (<code>2026-09</code>), and staff witness identity, verified via sequential SHA-256 HMAC audit logs.</li>
+                        </ul>
                     </div>
                     <div style="margin-top: 12px; display: flex; gap: 10px;">
                         <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }">

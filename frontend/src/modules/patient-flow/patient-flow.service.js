@@ -54,3 +54,19 @@ export async function removeFlowEntry(id)
         }
     );
 }
+
+export async function getNppConsentStatus(patientId)
+{
+    return await api(`/npp-consent/status?patient_id=${encodeURIComponent(patientId)}`);
+}
+
+export async function captureNppConsent(data)
+{
+    return await api(
+        "/npp-consent/capture",
+        {
+            method: "POST",
+            body: JSON.stringify(data)
+        }
+    );
+}

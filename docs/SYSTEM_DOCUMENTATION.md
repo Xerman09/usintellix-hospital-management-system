@@ -63,12 +63,13 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.312(b)** | Cryptographic Audit Controls | Append-only `hipaa_audit_logs` capturing all authentication, chart access, exports, and modifications. |
 | **§ 164.312(c)(1)** | Tamper-Evident Hash Chaining | Sequential SHA-256 HMAC integrity signatures linking each audit record to detect any database manipulation. |
 | **§ 164.316(b)(2)(i)** | 6-Year Retention & Compliance Export | Immutable 6-year retention locked by MariaDB triggers (`trg_hipaa_audit_logs_retention_guard` & `trg_hipaa_audit_logs_immutability_guard`); one-click CSV and print-ready PDF compliance reports. |
+| **§ 164.312(a)(2)(iv)** | Field-Level Database Encryption at Rest | NIST SP 800-38D AES-256-GCM authenticated cipher encrypting SSN, national IDs, credit cards, SOAP clinical notes, and segregated psychiatric notes (`enc:v1:` envelopes). |
 | **§ 164.312(e)(1)** | Transmission Security & Anti-Caching | Global HTTP headers: `Cache-Control: no-store`, `Pragma: no-cache`, `X-Frame-Options: SAMEORIGIN`, `nosniff`. |
 | **§ 164.308(a)(5)(ii)(D)** | Password Expiration & History | 90-day mandatory expiration, previous 5 passwords restriction, 7-day advance notice banner, complexity rules. |
 | **§ 164.308(a)(4)** | Role-Based Access Control (RBAC) | Granular roles (Admin, Physician, Nurse, Receptionist, Biller, Patient) and dynamic ACL permission groups. |
 | **§ 164.502(b) & § 164.514(d)** | Minimum Necessary PHI Access Control | Server-side restriction of clinical charts/labs for non-clinical staff, doctor patient-assignment boundaries, dashboard summary redaction, and Break-Glass modal. |
 | **§ 164.528** | Accounting of Disclosures | Full module tracking external PHI disclosures (subpoenas, public health, payers) for patient accounting. |
-| **§ 164.520** | Notice of Privacy Practices | Dedicated public Privacy Policy (`#/privacy-policy`) and Terms of Service (`#/terms-conditions`). |
+| **§ 164.520** | Patient Consent & Notice of Privacy Practices (NPP) Signature Capture | Mandatory 45 CFR § 164.520 patient acknowledgment: first-portal-login electronic signature gating, in-clinic check-in capture console, versioning (`2026-09`), and immutable `npp_consent_log` audit retention. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
 ---
@@ -202,6 +203,14 @@ USIntellix implements strict Role-Based Access Control (RBAC):
   - *Database-Level Retention Triggers*: MariaDB engine triggers (`trg_hipaa_audit_logs_retention_guard` and `trg_hipaa_audit_logs_immutability_guard`) prevent deletion of records within 6 years of creation and block all record updates.
   - *Retention Policy Inspector*: Real-time policy guard (`AuditRetentionGuard`) reporting total protected records, days active, and 0 purge-eligible records.
   - *One-Click OCR Compliance Export*: Downloads formal RFC 4180 CSV with federal compliance metadata headers and generates print-ready PDF reports with hospital letterhead, cryptographic seals, and auditor certification blocks.
+- **Field-Level Database Encryption at Rest (§ 164.312(a)(2)(iv) & § 164.501)**:
+  - *NIST SP 800-38D AES-256-GCM AEAD Engine*: Cryptographically secures sensitive columns using a 256-bit symmetric key (`DB_ENCRYPTION_KEY`), 96-bit randomized IV per write, and 128-bit authentication tag to prevent tampering.
+  - *Transparent ORM Integration*: Base model `QueryBuilder` auto-encrypts on save and auto-decrypts on read for `Patient` (`ssn`, `national_id`), `PatientLedgerPayment` (`card_number`, `card_expiry`, `card_cvv`), `EncounterSoapNote`, and `Facility`.
+  - *Psychotherapy Notes Segregation*: Dedicated `patient_psychiatric_notes` table segregated under 45 CFR § 164.501, accessible exclusively to assigned clinicians and break-glass emergencies.
+- **Patient Consent & Notice of Privacy Practices (NPP) Signature Capture (§ 164.520)**:
+  - *First Portal Login Interception*: Patients with unacknowledged NPP are prevented from navigating to the portal dashboard until electronically acknowledging the Privacy Policy and Terms of Service with a full legal name signature.
+  - *In-Clinic Reception Check-In Integration*: Staff on the Patient Flow board receive live NPP acknowledgment alerts upon selecting an appointment, with an inline capture console supporting electronic/verbal or paper signature recording.
+  - *Immutable Consent Ledger*: Every signature event is persisted to `npp_consent_log` with client IP, timestamp, signature method, version string (`2026-09`), and capturing staff identity, coupled with sequential HMAC-chained HIPAA audit log events (`NPP_ACKNOWLEDGED`, `NPP_ACKNOWLEDGED_IN_CLINIC`).
 
 ---
 

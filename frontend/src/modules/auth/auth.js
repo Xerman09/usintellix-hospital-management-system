@@ -1,5 +1,5 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor, completeFirstLogin, updateExpiredPassword, logout } from "./auth.service.js?v=3";
+import { login, verifyTwoFactor, completeFirstLogin, updateExpiredPassword, logout, acknowledgeNpp } from "./auth.service.js?v=4";
 import { saveUser, clearSession } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
@@ -250,8 +250,7 @@ export function initLogin()
 
             saveUser(result.data.user);
 
-            window.location.hash =
-                "#/dashboard";
+            proceedAfterAuthentication(result.data.user);
 
         }
     );
@@ -332,12 +331,92 @@ export function initLogin()
         });
     }
 
+    const nppConsentForm = document.getElementById("nppConsentForm");
+    if (nppConsentForm) {
+        nppConsentForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            clearNppErrors();
+
+            const checkPrivacy = document.getElementById("npp_check_privacy");
+            const checkTerms = document.getElementById("npp_check_terms");
+            const signatureInput = document.getElementById("npp_signature_name");
+            const submitBtn = document.getElementById("nppSubmitBtn");
+
+            let hasError = false;
+            if (!checkPrivacy || !checkPrivacy.checked) {
+                const errEl = document.getElementById("err-npp_check_privacy");
+                if (errEl) errEl.textContent = "You must acknowledge the Notice of Privacy Practices.";
+                hasError = true;
+            }
+            if (!checkTerms || !checkTerms.checked) {
+                const errEl = document.getElementById("err-npp_check_terms");
+                if (errEl) errEl.textContent = "You must agree to the Terms of Service.";
+                hasError = true;
+            }
+
+            const signatureName = (signatureInput?.value || "").trim();
+            if (!signatureName) {
+                const errEl = document.getElementById("err-npp_signature_name");
+                if (errEl) errEl.textContent = "Please type your full legal name as your electronic signature.";
+                hasError = true;
+            }
+
+            if (hasError) {
+                return;
+            }
+
+            setButtonLoading(submitBtn, true, "Signing & Acknowledging...");
+
+            try {
+                const result = await acknowledgeNpp({
+                    signature_data: signatureName,
+                    signature_type: "electronic",
+                    npp_version: "2026-09"
+                });
+
+                if (!result.success) {
+                    showAlert(result.message || "Failed to record acknowledgment.", "error");
+                    return;
+                }
+
+                const updatedUser = result.data?.user || (pendingNppUser ? { ...pendingNppUser, npp_acknowledged: true } : null);
+                if (updatedUser) {
+                    saveUser(updatedUser);
+                }
+                resetInactivityTimer();
+
+                window.location.hash = "#/dashboard";
+            } catch (err) {
+                showAlert("A network error occurred while submitting consent. Please try again.", "error");
+            } finally {
+                setButtonLoading(submitBtn, false);
+            }
+        });
+    }
+
+    const nppCancelBtn = document.getElementById("nppCancelBtn");
+    if (nppCancelBtn) {
+        nppCancelBtn.addEventListener("click", async () => {
+            await logout();
+            clearSession();
+            showLoginStep();
+        });
+    }
+
 }
+
+let pendingNppUser = null;
 
 function proceedAfterAuthentication(user)
 {
     if (user.must_change_password) {
         showFirstLoginStep(user);
+        return;
+    }
+
+    // HIPAA § 164.520 Patient Consent & Notice of Privacy Practices
+    if ((user.role === "patient" || !user.role || user.role === "") && !user.npp_acknowledged) {
+        showNppConsentStep(user);
         return;
     }
 
@@ -457,10 +536,52 @@ function showLoginStep()
     document.getElementById("firstLoginForm").style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");
     if (expForm) expForm.style.display = "none";
+    const nppForm = document.getElementById("nppConsentForm");
+    if (nppForm) nppForm.style.display = "none";
     document.getElementById("loginForm").style.display = "";
     document.getElementById("password").value = "";
     clearErrors();
     clearExpiredPasswordErrors();
+    clearNppErrors();
+}
+
+function showNppConsentStep(user)
+{
+    pendingNppUser = user;
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("twoFactorForm").style.display = "none";
+    document.getElementById("firstLoginForm").style.display = "none";
+    const expForm = document.getElementById("expiredPasswordForm");
+    if (expForm) expForm.style.display = "none";
+
+    const nppForm = document.getElementById("nppConsentForm");
+    if (nppForm) {
+        nppForm.style.display = "";
+    }
+
+    const checkPrivacy = document.getElementById("npp_check_privacy");
+    if (checkPrivacy) checkPrivacy.checked = false;
+    const checkTerms = document.getElementById("npp_check_terms");
+    if (checkTerms) checkTerms.checked = false;
+
+    const signatureInput = document.getElementById("npp_signature_name");
+    if (signatureInput) {
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+        signatureInput.value = fullName || "";
+        signatureInput.focus();
+    }
+
+    clearNppErrors();
+    const alertEl = document.getElementById("formAlert");
+    if (alertEl) alertEl.innerHTML = "";
+}
+
+function clearNppErrors()
+{
+    ["check_privacy", "check_terms", "signature_name"].forEach((id) => {
+        const el = document.getElementById(`err-npp_${id}`);
+        if (el) el.textContent = "";
+    });
 }
 
 function clearErrors()

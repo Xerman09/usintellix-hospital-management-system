@@ -17,6 +17,7 @@
    - [Automatic Inactivity Logoff (§ 164.312(a)(2)(iii))](#automatic-inactivity-logoff--164312a2iii)
    - [Cryptographic Audit Controls & Tamper Evidence (§ 164.312(b) & § 164.312(c)(1))](#cryptographic-audit-controls--tamper-evidence--164312b---164312c1)
    - [Transmission Security & Anti-Caching Safeguards (§ 164.312(e)(1))](#transmission-security--anti-caching-safeguards--164312e1)
+   - [Field-Level Database Encryption at Rest (AES-256-GCM) (§ 164.312(a)(2)(iv))](#field-level-database-encryption-at-rest-aes-256-gcm--164312a2iv)
 3. [HIPAA Security Rule: Administrative Safeguards (§ 164.308)](#3-hipaa-security-rule-administrative-safeguards--164308)
    - [Password Expiration & History Restriction (§ 164.308(a)(5)(ii)(D))](#password-expiration--history-restriction--164308a5iid)
    - [Information Access Management & RBAC (§ 164.308(a)(4))](#information-access-management--rbac--164308a4)
@@ -221,6 +222,44 @@ Global HTTP response headers are injected on every backend request via `App\Core
 
 ---
 
+### Field-Level Database Encryption at Rest (AES-256-GCM) (§ 164.312(a)(2)(iv))
+
+#### Requirements
+Implement a mechanism to encrypt and decrypt electronic protected health information (ePHI) whenever deemed reasonable and appropriate, safeguarding data at rest against physical storage theft, raw SQL dump exfiltration, or unauthorized backup exposure (45 CFR § 164.312(a)(2)(iv)), while maintaining strict statutory privacy protections for psychotherapy and psychiatric notes (45 CFR § 164.501).
+
+#### Cryptographic Architecture & Specifications
+The encryption engine (`App\Core\FieldEncryption`) implements NIST SP 800-38D compliant Galois/Counter Mode authenticated encryption:
+- **Cipher Algorithm**: `AES-256-GCM` (Authenticated Encryption with Associated Data / AEAD).
+- **Encryption Key**: 256-bit binary symmetric key derived from `DB_ENCRYPTION_KEY` in `backend/.env`.
+- **Initialization Vector (IV)**: 96-bit (12 bytes) cryptographically secure pseudorandom IV (`random_bytes(12)`) generated independently for every single field write, ensuring identical plaintexts yield entirely different ciphertexts.
+- **Integrity Tag**: 128-bit (16 bytes) authentication tag verified by OpenSSL during decryption; any bit-level tampering or SQL injection corruption immediately fails authentication and aborts plaintext recovery.
+- **Serialization Envelope**: `enc:v1:<base64(12-byte IV . 16-byte Tag . Ciphertext)>`.
+
+#### Transparent ORM & QueryBuilder Integration
+Encryption and decryption are natively handled by the base ActiveRecord / ORM model layer (`App\Core\QueryBuilder`):
+- Models declare protected columns via `protected array $encryptedFields = [...]`.
+- **Transparent Write**: When `create()` or `update()` is invoked, fields in `$encryptedFields` are automatically encrypted into `enc:v1:...` envelopes before building the SQL statement.
+- **Transparent Read**: When `find()`, `first()`, `get()`, or `all()` is invoked, any value starting with `enc:v1:` is authenticated and decrypted back to plaintext. Direct PDO bulk queries in services invoke `FieldEncryption::decryptRows()`.
+
+#### Protected Fields & Tables Matrix
+
+| Table | Encrypted Columns | HIPAA / Compliance Justification |
+|---|---|---|
+| `patients` | `ssn`, `national_id` | Direct patient government identifiers (HIPAA Safe Harbor 18 identifiers). |
+| `facilities` | `tax_id`, `iban` | Corporate tax numbers and banking routing identifiers. |
+| `patient_ledger_payments` | `card_number`, `card_expiry`, `card_cvv` | PCI-DSS / HIPAA financial payment instrument security. |
+| `patient_psychiatric_notes` | `psychiatric_notes`, `symptoms`, `confidential_remarks` | Segregated psychotherapy notes under 45 CFR § 164.501, accessible only by assigned clinicians or break-glass override. |
+| `encounter_soap_notes` | `subjective`, `objective`, `assessment`, `plan` | Core clinical narratives and diagnostic evaluations. |
+| `encounter_clinical_note_items` | `narrative` | Supplemental physician clinical progress entries. |
+
+#### UI Masking & Presentation Safeguards
+At the presentation layer, sensitive identifiers are masked by default:
+- **SSN**: Masked as `***-**-1234` via `FieldEncryption::maskSsn()`.
+- **Payment Cards**: Masked as `**** **** **** 4242` via `FieldEncryption::maskCard()`.
+- **National ID**: Masked as `*******4102` via `FieldEncryption::maskNationalId()`.
+
+---
+
 ## 3. HIPAA Security Rule: Administrative Safeguards (§ 164.308)
 
 ### Password Expiration & History Restriction (§ 164.308(a)(5)(ii)(D))
@@ -315,18 +354,48 @@ An individual has a right to receive an accounting of disclosures of protected h
 
 ---
 
-### Notice of Privacy Practices (§ 164.520)
+### Notice of Privacy Practices & Written Acknowledgment Capture (§ 164.520)
 
 #### Requirements
-Provide clear notice of the uses and disclosures of protected health information that may be made by the covered entity, and of the individual's rights and the covered entity's legal duties.
+Provide clear notice of the uses and disclosures of protected health information that may be made by the covered entity, and of the individual's rights and the covered entity's legal duties (45 CFR § 164.520(a)-(b)). Furthermore, under **45 CFR § 164.520(c)(2)(ii)**, a covered healthcare provider that has a direct treatment relationship with an individual must make a **good faith effort to obtain a written acknowledgment of receipt of the notice** at the time of first service delivery or initial patient portal access.
 
 #### System Implementation
-- Dedicated, publicly accessible **Privacy Policy** page (`#/privacy-policy`) detailing:
-  - Permitted uses for Treatment, Payment, and Health Care Operations (TPO).
-  - Situations requiring explicit written patient authorization.
-  - Patient rights: inspect/copy records, request amendments, accounting of disclosures, confidential communications.
-  - Contact information for the designated Hospital Privacy Officer and HHS Office for Civil Rights (OCR).
-- Dedicated **Terms & Conditions** page (`#/terms-conditions`) establishing authorized system use rules.
+
+1. **Patient Portal Electronic Signature Capture Interception**:
+   - When a patient authenticates into the portal (`#/login`), the authentication engine inspects `users.npp_acknowledged`.
+   - If `npp_acknowledged == 0`, navigation to `#/dashboard` is strictly blocked and the user is routed to the **HIPAA NPP Consent & Signature Step**:
+     - Displays an executive summary of patient rights, TPO disclosures, and 256-bit encryption safeguards (referencing the active version, e.g. `v2026-09`).
+     - Provides direct deep links to the full [Privacy Policy](file:///c:/xampp/htdocs/usintellix-hospital-management-system/docs/HIPAA_COMPLIANCE.md) (`#/privacy-policy`) and Terms of Service (`#/terms-conditions`).
+     - Requires affirmative checkbox acknowledgment for both the Notice of Privacy Practices and Portal Terms of Service.
+     - Mandates an electronic signature via typed legal full name attesting patient or authorized representative identity under 45 CFR § 164.520.
+   - Upon submission, `POST /auth/npp-acknowledge` records the signature, client IP, timestamp, and version in `users` and inserts a non-repudiable row into `npp_consent_log`.
+
+2. **In-Clinic Check-In Verification & Capture (Patient Flow Board)**:
+   - At the clinic reception desk, when staff open the check-in modal (`POST /patient-flow`), the system automatically issues `GET /npp-consent/status?patient_id={id}`.
+   - If the patient has acknowledged the NPP, a green verified badge is displayed with the signature timestamp and capture method.
+   - If consent is missing, an alert badge is rendered with an integrated **In-Clinic Capture Console**:
+     - Staff can select the acknowledgment method: **Electronic / Verbal in Clinic** or **Paper Copy Provided & Physical Signature on File**.
+     - Staff record the patient's full name or witness note.
+     - `POST /npp-consent/capture` records the event in `npp_consent_log` with `captured_by` set to the staff member's user ID and updates the linked `users` account.
+
+3. **Tamper-Evident Audit Trail & Storage Architecture**:
+   - Every acknowledgment generates an audit log in `hipaa_audit_logs` using actions `NPP_ACKNOWLEDGED` (portal self-signature) or `NPP_ACKNOWLEDGED_IN_CLINIC` (staff-assisted capture) within sequential SHA-256 HMAC hash chaining.
+   - All consent events are archived in the immutable `npp_consent_log` table:
+     ```sql
+     npp_consent_log (
+         id INT PK AUTO_INCREMENT,
+         user_id INT NOT NULL,
+         patient_id INT NULL,
+         acknowledged_at DATETIME NOT NULL,
+         acknowledged_ip VARCHAR(45),
+         signature_type VARCHAR(20),  -- 'electronic' | 'in_clinic' | 'paper'
+         signature_data TEXT,         -- Typed full legal name or staff note
+         npp_version VARCHAR(20),     -- e.g. '2026-09'
+         captured_by INT NULL,        -- Staff ID if recorded in clinic
+         created_at DATETIME NOT NULL
+     )
+     ```
+   - **Version Invalidation**: Whenever the hospital's privacy practices are materially altered, incrementing `npp_version` triggers re-acknowledgment on next login.
 
 ---
 
