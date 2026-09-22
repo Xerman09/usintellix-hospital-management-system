@@ -439,6 +439,14 @@ export function SystemDocumentationView(options = {}) {
             :root[data-theme="dark"] .sysdoc-nav-group-title {
                 color: #94a3b8;
             }
+            :root[data-theme="dark"] .sysdoc-btn-secondary {
+                background: #263449;
+                color: #e2e8f0;
+                border-color: #334155;
+            }
+            :root[data-theme="dark"] .sysdoc-btn-secondary:hover {
+                background: #334155;
+            }
         </style>
 
         ${!isTab ? `
@@ -693,7 +701,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </p>
                     <div class="sysdoc-rule-box">
                         <div class="sysdoc-rule-title">Database-Level Immutability &amp; One-Click Export</div>
-                        <ul style="margin: 6px 0 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.6;">
+                        <ul style="margin: 6px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6;">
                             <li><strong>MariaDB Triggers (<code>trg_hipaa_audit_logs_retention_guard</code> &amp; <code>trg_hipaa_audit_logs_immutability_guard</code>)</strong>: Intercept and abort any <code>DELETE</code> queries targeting records within 6 years, and unconditionally block <code>UPDATE</code> queries.</li>
                             <li><strong>One-Click CSV Export</strong>: Prepares RFC 4180 compliant CSV files with formal HHS OCR compliance headers and full SHA-256 HMAC cryptographic signatures.</li>
                             <li><strong>Print-Ready PDF Audit Report</strong>: Generates an official report with hospital letterhead, cryptographic integrity seal, and statutory retention certification.</li>
@@ -845,7 +853,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         </div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0;">
-                        <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 14px 16px;">
+                        <div style="background: var(--bg-surface, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 14px 16px;">
                             <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #059669; font-weight: 700;">🔐 Cryptographic Specifications</h4>
                             <ul style="font-size: 12.5px; line-height: 1.7; margin: 0; padding-left: 18px;">
                                 <li><strong>Algorithm:</strong> AES-256-GCM (Galois/Counter Mode AEAD).</li>
@@ -855,7 +863,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <li><strong>Envelope Format:</strong> <code>enc:v1:&lt;base64(12-byte IV . 16-byte Tag . Ciphertext)&gt;</code>.</li>
                             </ul>
                         </div>
-                        <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 14px 16px;">
+                        <div style="background: var(--bg-surface, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 14px 16px;">
                             <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #059669; font-weight: 700;">🛡️ Protected Database Fields</h4>
                             <ul style="font-size: 12.5px; line-height: 1.7; margin: 0; padding-left: 18px;">
                                 <li><strong>Patient Identifiers:</strong> <code>patients.ssn</code> (Social Security Number) and <code>patients.national_id</code> (Government ID).</li>
