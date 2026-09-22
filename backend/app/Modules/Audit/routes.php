@@ -15,3 +15,19 @@ $router->get('/hipaa-audit-logs/verify', [AuditController::class, 'verify'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->get('/hipaa-audit-logs/retention-policy', [AuditController::class, 'retentionPolicy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->get('/hipaa-audit-logs/export-csv', [AuditController::class, 'exportCsv'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->get('/hipaa-audit-logs/export-report', [AuditController::class, 'exportReportData'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+

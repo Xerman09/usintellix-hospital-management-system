@@ -199,7 +199,7 @@ export function SystemConfigView() {
 
     return `
         <style>
-            .sc-wrapper { font-family: Arial, sans-serif; height: 100%; display: flex; flex-direction: column; }
+            .sc-wrapper { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; height: 100%; display: flex; flex-direction: column; background: #ffffff; }
 
             .sc-header-bar {
                 display: flex;
@@ -210,9 +210,9 @@ export function SystemConfigView() {
                 padding: 14px 20px;
             }
 
-            .sc-header-bar h1 { margin: 0; font-size: 20px; font-weight: 600; }
+            .sc-header-bar h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
 
-            .sc-collapse-btn { background: none; border: none; color: rgba(255,255,255,.85); cursor: pointer; }
+            .sc-collapse-btn { background: none; border: none; color: rgba(255,255,255,.85); cursor: pointer; display: flex; align-items: center; justify-content: center; }
             .sc-collapse-btn:hover { color: white; }
 
             .sc-toolbar {
@@ -220,40 +220,53 @@ export function SystemConfigView() {
                 align-items: center;
                 justify-content: space-between;
                 padding: 12px 20px;
+                background: #f8fafc;
                 border-bottom: 1px solid #e2e8f0;
             }
 
             .sc-save-btn {
-                padding: 8px 16px;
-                background: #3f5f8a;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 18px;
+                background: #2563eb;
                 color: white;
                 border: none;
-                border-radius: 4px;
+                border-radius: 6px;
                 cursor: pointer;
                 font-size: 13px;
+                font-weight: 600;
+                transition: background 0.15s ease, box-shadow 0.15s ease;
             }
 
-            .sc-save-btn:hover { background: #35507a; }
+            .sc-save-btn:hover { background: #1d4ed8; }
 
             .sc-search-form { display: flex; gap: 0; }
 
             .sc-search-input {
                 padding: 8px 12px;
-                border: 1px solid #cbd5e0;
-                border-radius: 4px 0 0 4px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px 0 0 6px;
                 font-size: 13px;
                 width: 260px;
+                background: #ffffff;
+                color: #1e293b;
+                outline: none;
             }
+            .sc-search-input:focus { border-color: #3b82f6; }
 
             .sc-search-btn {
-                padding: 8px 14px;
-                background: #3f5f8a;
+                padding: 8px 16px;
+                background: #3b82f6;
                 color: white;
                 border: none;
-                border-radius: 0 4px 4px 0;
+                border-radius: 0 6px 6px 0;
                 cursor: pointer;
                 font-size: 13px;
+                font-weight: 600;
+                transition: background 0.15s ease;
             }
+            .sc-search-btn:hover { background: #2563eb; }
 
             .sc-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
@@ -270,75 +283,267 @@ export function SystemConfigView() {
 
             .sc-sidebar-item {
                 display: block;
-                padding: 12px 16px;
-                color: #1a202c;
+                padding: 11px 16px;
+                color: #334155;
                 text-decoration: none;
-                font-size: 13px;
+                font-size: 13.5px;
+                font-weight: 500;
                 border-bottom: 1px solid #edf2f7;
+                transition: all 0.15s ease;
             }
 
-            .sc-sidebar-item:nth-child(even) { background: #eef2fb; }
-            .sc-sidebar-item:hover { background: #e2e8f0; }
-            .sc-sidebar-item.active { background: #4a72b0; color: white; font-weight: 600; }
+            .sc-sidebar-item:hover { background: #e2e8f0; color: #0f172a; }
+            .sc-sidebar-item.active { background: #2563eb; color: white; font-weight: 600; border-left: 4px solid #1d4ed8; }
 
-            .sc-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+            .sc-content { flex: 1; overflow-y: auto; padding: 24px 28px; background: #ffffff; }
 
-            .sc-panel { display: none; }
+            .sc-panel { display: none; max-width: 960px; }
             .sc-panel.active { display: block; }
 
-            .sc-panel h2 { margin: 0 0 16px; font-size: 20px; color: #1a202c; }
-            .sc-panel h2 .sc-hint { font-size: 13px; font-weight: normal; color: #718096; }
+            .sc-panel h2 { margin: 0 0 20px; font-size: 20px; font-weight: 700; color: #0f172a; }
+            .sc-panel h2 .sc-hint { font-size: 13px; font-weight: normal; color: #64748b; }
 
             .sc-row {
                 display: grid;
-                grid-template-columns: 1fr 320px;
+                grid-template-columns: 1fr 340px;
                 align-items: center;
-                gap: 16px;
-                padding: 10px 0;
-                border-bottom: 1px solid #edf2f7;
+                gap: 20px;
+                padding: 12px 0;
+                border-bottom: 1px solid #f1f5f9;
             }
 
             .sc-row.sc-row-hidden { display: none; }
             .sc-row-tall { align-items: start; }
 
-            .sc-row label { font-size: 13px; color: #2d3748; }
+            .sc-row label { font-size: 13.5px; color: #334155; font-weight: 500; line-height: 1.4; }
 
             .sc-field {
                 width: 100%;
-                padding: 6px 10px;
-                border: 1px solid #cbd5e0;
-                border-radius: 4px;
-                font-size: 13px;
-                color: #2d3748;
+                padding: 7px 12px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 13.5px;
+                color: #0f172a;
+                background-color: #ffffff;
                 box-sizing: border-box;
+                outline: none;
+                transition: border-color 0.15s, box-shadow 0.15s;
             }
 
-            select.sc-field[multiple] { padding: 4px; }
-            select.sc-field[multiple] option { padding: 3px 6px; color: #2c5282; }
+            .sc-field:focus {
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+
+            select.sc-field[multiple] {
+                padding: 6px;
+                border-radius: 6px;
+            }
+            select.sc-field[multiple] option {
+                padding: 6px 10px;
+                border-radius: 4px;
+                margin: 1px 0;
+                color: #1e293b;
+                font-size: 13px;
+            }
+            select.sc-field[multiple] option:hover {
+                background: #f1f5f9;
+            }
+            select.sc-field[multiple] option:checked {
+                background: #2563eb;
+                color: #ffffff;
+                font-weight: 600;
+            }
+
+            .sc-row input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                accent-color: #2563eb;
+                cursor: pointer;
+            }
 
             .sc-panel-footer {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding-top: 16px;
-                margin-top: 8px;
+                padding-top: 24px;
+                margin-top: 16px;
+                border-top: 1px solid #e2e8f0;
             }
 
-            .sc-panel-footer-label { display: flex; align-items: center; gap: 6px; color: #4a72b0; font-size: 13px; }
+            .sc-panel-footer-label { display: flex; align-items: center; gap: 6px; color: #2563eb; font-size: 13px; font-weight: 600; }
 
-            .sc-placeholder { color: #718096; font-size: 13px; font-style: italic; }
+            .sc-placeholder { color: #64748b; font-size: 14px; font-style: italic; }
 
-            :root[data-theme="dark"] .sc-toolbar { border-bottom-color: var(--border-color); }
-            :root[data-theme="dark"] .sc-sidebar { background: var(--bg-surface-alt); border-right-color: var(--border-color); }
-            :root[data-theme="dark"] .sc-sidebar-item { color: var(--text-primary); border-bottom-color: var(--border-color); }
-            :root[data-theme="dark"] .sc-sidebar-item:nth-child(even) { background: var(--bg-surface); }
-            :root[data-theme="dark"] .sc-sidebar-item:hover { background: var(--bg-page); }
-            :root[data-theme="dark"] .sc-content { background: var(--bg-page); }
-            :root[data-theme="dark"] .sc-panel h2 { color: var(--text-primary); }
-            :root[data-theme="dark"] .sc-row { border-bottom-color: var(--border-color); }
-            :root[data-theme="dark"] .sc-row label { color: var(--text-muted); }
-            :root[data-theme="dark"] .sc-field { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
-            :root[data-theme="dark"] .sc-search-input { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
+            /* ============================================================ */
+            /* DARK MODE OVERRIDES FOR SYSTEM CONFIG                        */
+            /* ============================================================ */
+            :root[data-theme="dark"] .sc-wrapper {
+                background: #0b1120;
+                color: #f8fafc;
+                color-scheme: dark;
+            }
+
+            :root[data-theme="dark"] .sc-header-bar {
+                background: #1e293b;
+                border-bottom: 1px solid #334155;
+                color: #f8fafc;
+            }
+
+            :root[data-theme="dark"] .sc-collapse-btn {
+                color: #94a3b8;
+            }
+            :root[data-theme="dark"] .sc-collapse-btn:hover {
+                color: #f8fafc;
+            }
+
+            :root[data-theme="dark"] .sc-toolbar {
+                background: #0f172a;
+                border-bottom: 1px solid #1e293b;
+            }
+
+            :root[data-theme="dark"] .sc-save-btn {
+                background: #0284c7;
+                color: #ffffff;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+            }
+            :root[data-theme="dark"] .sc-save-btn:hover {
+                background: #0369a1;
+            }
+
+            :root[data-theme="dark"] .sc-search-input {
+                background: #1e293b;
+                border-color: #334155;
+                color: #f8fafc;
+            }
+            :root[data-theme="dark"] .sc-search-input::placeholder {
+                color: #64748b;
+            }
+            :root[data-theme="dark"] .sc-search-input:focus {
+                border-color: #38bdf8;
+                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+            }
+
+            :root[data-theme="dark"] .sc-search-btn {
+                background: #0284c7;
+                color: #ffffff;
+            }
+            :root[data-theme="dark"] .sc-search-btn:hover {
+                background: #0369a1;
+            }
+
+            :root[data-theme="dark"] .sc-sidebar {
+                background: #0f172a;
+                border-right-color: #1e293b;
+            }
+
+            :root[data-theme="dark"] .sc-sidebar-item {
+                color: #94a3b8;
+                border-bottom-color: #1e293b;
+                background: transparent;
+            }
+            :root[data-theme="dark"] .sc-sidebar-item:nth-child(even) {
+                background: transparent;
+            }
+            :root[data-theme="dark"] .sc-sidebar-item:hover {
+                background: #1e293b;
+                color: #f8fafc;
+            }
+            :root[data-theme="dark"] .sc-sidebar-item.active {
+                background: #0284c7;
+                color: #ffffff;
+                font-weight: 600;
+                border-left: 4px solid #38bdf8;
+            }
+
+            :root[data-theme="dark"] .sc-content {
+                background: #0b1120;
+            }
+
+            :root[data-theme="dark"] .sc-panel h2 {
+                color: #f8fafc;
+            }
+            :root[data-theme="dark"] .sc-panel h2 .sc-hint {
+                color: #94a3b8;
+            }
+
+            :root[data-theme="dark"] .sc-row {
+                border-bottom-color: #1e293b;
+            }
+
+            :root[data-theme="dark"] .sc-row label {
+                color: #e2e8f0;
+                font-weight: 500;
+            }
+
+            :root[data-theme="dark"] .sc-field {
+                background: #1e293b;
+                border-color: #334155;
+                color: #f8fafc;
+            }
+            :root[data-theme="dark"] .sc-field:focus {
+                border-color: #38bdf8;
+                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+            }
+            :root[data-theme="dark"] .sc-field option {
+                background: #1e293b;
+                color: #f8fafc;
+            }
+
+            :root[data-theme="dark"] select.sc-field[multiple] {
+                background: #1e293b;
+                border-color: #334155;
+            }
+            :root[data-theme="dark"] select.sc-field[multiple] option {
+                background: #1e293b;
+                color: #cbd5e1;
+            }
+            :root[data-theme="dark"] select.sc-field[multiple] option:hover {
+                background: #334155;
+                color: #ffffff;
+            }
+            :root[data-theme="dark"] select.sc-field[multiple] option:checked {
+                background: #0284c7 !important;
+                color: #ffffff !important;
+            }
+
+            :root[data-theme="dark"] .sc-row input[type="checkbox"] {
+                accent-color: #0284c7;
+            }
+
+            :root[data-theme="dark"] .sc-panel-footer {
+                border-top-color: #1e293b;
+            }
+            :root[data-theme="dark"] .sc-panel-footer-label {
+                color: #38bdf8;
+            }
+            :root[data-theme="dark"] .sc-placeholder {
+                color: #64748b;
+            }
+
+            /* Custom Dark Scrollbars */
+            :root[data-theme="dark"] .sc-sidebar::-webkit-scrollbar,
+            :root[data-theme="dark"] .sc-content::-webkit-scrollbar,
+            :root[data-theme="dark"] select.sc-field[multiple]::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+            :root[data-theme="dark"] .sc-sidebar::-webkit-scrollbar-track,
+            :root[data-theme="dark"] .sc-content::-webkit-scrollbar-track,
+            :root[data-theme="dark"] select.sc-field[multiple]::-webkit-scrollbar-track {
+                background: #0f172a;
+            }
+            :root[data-theme="dark"] .sc-sidebar::-webkit-scrollbar-thumb,
+            :root[data-theme="dark"] .sc-content::-webkit-scrollbar-thumb,
+            :root[data-theme="dark"] select.sc-field[multiple]::-webkit-scrollbar-thumb {
+                background: #334155;
+                border-radius: 3px;
+            }
+            :root[data-theme="dark"] .sc-sidebar::-webkit-scrollbar-thumb:hover,
+            :root[data-theme="dark"] .sc-content::-webkit-scrollbar-thumb:hover,
+            :root[data-theme="dark"] select.sc-field[multiple]::-webkit-scrollbar-thumb:hover {
+                background: #475569;
+            }
         </style>
 
         <div class="sc-wrapper" id="scWrapper">

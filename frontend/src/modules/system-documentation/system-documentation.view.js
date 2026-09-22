@@ -453,6 +453,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-lockout" class="sysdoc-nav-item hipaa-highlight">Account Lockout &amp; Defense (§ 164.312)</a>
                 <a href="#sec-hipaa-password" class="sysdoc-nav-item hipaa-highlight">Password Expiration &amp; History (§ 164.308)</a>
                 <a href="#sec-hipaa-audit" class="sysdoc-nav-item hipaa-highlight">Cryptographic Audit Trail (SHA-256)</a>
+                <a href="#sec-hipaa-retention" class="sysdoc-nav-item hipaa-highlight">6-Year Retention &amp; Export (§ 164.316)</a>
                 <a href="#sec-hipaa-inactivity" class="sysdoc-nav-item hipaa-highlight">15-Min Inactivity Auto-Logoff</a>
                 <a href="#sec-hipaa-breakglass" class="sysdoc-nav-item hipaa-highlight">Emergency Break-Glass Access</a>
                 <a href="#sec-hipaa-min-necessary" class="sysdoc-nav-item hipaa-highlight">Minimum Necessary PHI (§ 164.502(b))</a>
@@ -524,6 +525,11 @@ export function SystemDocumentationView(options = {}) {
                                 <td><strong>§ 164.312(b) &amp; (c)(1)</strong></td>
                                 <td>Audit Controls &amp; Integrity</td>
                                 <td>Append-only <code>hipaa_audit_logs</code> with sequential SHA-256 HMAC tamper-evident hash chaining.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.316(b)(2)(i)</strong></td>
+                                <td>6-Year Retention &amp; Compliance Export</td>
+                                <td>Mandatory 6-year retention locked by database triggers; one-click CSV and print-ready PDF compliance reports.</td>
                             </tr>
                             <tr>
                                 <td><strong>§ 164.312(a)(2)(iii)</strong></td>
@@ -629,6 +635,34 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         <button type="button" class="sysdoc-btn-action" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('hipaa_audit', 'HIPAA Audit Logs &amp; Integrity'); }">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
                             <span>Open HIPAA Audit Logs &amp; Verify Integrity</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- SECTION: 6-YEAR RETENTION & COMPLIANCE EXPORT -->
+                <section id="sec-hipaa-retention" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            Audit Trail 6-Year Retention &amp; Compliance Export (§ 164.316(b)(2)(i))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Retention</span>
+                    </div>
+                    <p>
+                        Under 45 CFR &sect; 164.316(b)(2)(i), all documentation of policies, security incident responses, and audit trails must be retained for a mandatory minimum of <strong>6 years</strong> (2,191 days) from creation.
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Database-Level Immutability &amp; One-Click Export</div>
+                        <ul style="margin: 6px 0 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.6;">
+                            <li><strong>MariaDB Triggers (<code>trg_hipaa_audit_logs_retention_guard</code> &amp; <code>trg_hipaa_audit_logs_immutability_guard</code>)</strong>: Intercept and abort any <code>DELETE</code> queries targeting records within 6 years, and unconditionally block <code>UPDATE</code> queries.</li>
+                            <li><strong>One-Click CSV Export</strong>: Prepares RFC 4180 compliant CSV files with formal HHS OCR compliance headers and full SHA-256 HMAC cryptographic signatures.</li>
+                            <li><strong>Print-Ready PDF Audit Report</strong>: Generates an official report with hospital letterhead, cryptographic integrity seal, and statutory retention certification.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="sysdoc-btn-action" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('hipaa_audit', 'HIPAA Audit Logs &amp; Integrity'); }">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            <span>Open Audit Console &amp; Export Reports</span>
                         </button>
                     </div>
                 </section>

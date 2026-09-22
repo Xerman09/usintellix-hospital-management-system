@@ -165,6 +165,43 @@ Implement hardware, software, and procedural mechanisms that record and examine 
 
 ---
 
+### Audit Trail 6-Year Retention & Compliance Export (§ 164.316(b)(2)(i))
+
+#### Requirements
+Under HIPAA Security Rule 45 CFR § 164.316(b)(2)(i) (*Standard: Policies and procedures - Time limit*), covered entities and business associates must retain documentation required by the Security Rule for **6 years** from the date of its creation or the date when it last was in effect, whichever is later. Furthermore, audit trails must be exportable in standardized formats for federal Department of Health and Human Services (HHS) Office for Civil Rights (OCR) compliance audits and internal security investigations.
+
+#### System Implementation
+1. **Engine-Level Immutable Database Triggers**:
+   - `trg_hipaa_audit_logs_retention_guard`: Installed `BEFORE DELETE ON hipaa_audit_logs`. Evaluates `OLD.created_at >= DATE_SUB(NOW(), INTERVAL 6 YEAR)`. Any attempt to delete or purge records younger than 6 years raises an uncatchable `SQLSTATE 45000` database exception:
+     > *"HIPAA § 164.316(b)(2)(i) VIOLATION: Immutable retention policy prohibits deletion of audit logs within 6 years of creation."*
+   - `trg_hipaa_audit_logs_immutability_guard`: Installed `BEFORE UPDATE ON hipaa_audit_logs`. Blocks any `UPDATE` statements with `SQLSTATE 45000`, guaranteeing append-only permanence.
+2. **Centralized Application Retention Guard (`App\Core\AuditRetentionGuard`)**:
+   - `getRetentionStatus()` monitors real-time retention metrics:
+     - Mandatory retention window: **6 Years (2,191 Days)**
+     - Current total protected records: 100% locked under 6-year hold
+     - Earliest audit timestamp and active system history days
+     - Purge-eligible records: strictly zero until records exceed the 6-year threshold
+     - Database engine trigger health verification
+   - `assertPurgeEligibility(?string $beforeDate)` rejects premature purge attempts and logs an immutable `ADMIN_SECURITY` event `RETENTION_PURGE_BLOCKED`.
+3. **One-Click Compliance Export (CSV & PDF)**:
+   - **Official CSV Export (`GET /hipaa-audit-logs/export-csv`)**:
+     - Exports records matching active search and date filters.
+     - Prepends formal OCR compliance metadata headers:
+       - Covered Entity / Hospital: USIntellix Healthcare System
+       - Statutory Authority: 45 CFR § 164.312(b) & § 164.316(b)(2)(i)
+       - Export Timestamp (UTC) and Exporting Officer credentials
+       - Cryptographic SHA-256 HMAC Chain status (Verified Unbroken)
+       - Active filter parameters and total records
+     - Formatted according to RFC 4180 with client IP, user agent, and full tamper hashes.
+     - Logs an immutable `AUDIT_EXPORT_CSV` audit event in the log chain itself.
+   - **Print-Ready PDF Audit Report (`GET /hipaa-audit-logs/export-report`)**:
+     - Formats formal hospital letterhead, federal compliance stamps, cryptographic verification seal, and statutory 6-year retention certification block.
+     - Features dedicated `@media print` styling (landscape orientation, clean pagination, header metadata).
+     - Bypasses browser popup blockers via synchronous window initialization, rendering the report and triggering automatic print/Save as PDF.
+     - Logs an immutable `AUDIT_EXPORT_PDF` audit event.
+
+---
+
 ### Transmission Security & Anti-Caching Safeguards (§ 164.312(e)(1))
 
 #### Requirements
