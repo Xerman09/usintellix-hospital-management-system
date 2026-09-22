@@ -22,6 +22,8 @@ Complete architectural, operational, and regulatory documentation is available i
 - **§ 164.312(a)(2)(ii)**: Clinical Emergency "Break-Glass" protocol with mandatory clinical justification and immediate high-priority audit logging.
 - **§ 164.312(a)(2)(iii)**: 15-minute automatic inactivity session logoff with a 60-second visual countdown warning.
 - **§ 164.312(b) & § 164.312(c)(1)**: Tamper-evident audit logging with sequential SHA-256 HMAC cryptographic hash chaining.
+- **§ 164.316(b)(2)(i)**: Mandatory 6-year immutable audit retention locked by database triggers (`trg_hipaa_audit_logs_retention_guard` & `trg_hipaa_audit_logs_immutability_guard`) with one-click OCR CSV & print-ready PDF export.
+- **§ 164.502(b) & § 164.514(d)**: Strict "Minimum Necessary" PHI access control, redacting clinical charts for non-clinical personnel and enforcing provider patient boundaries.
 - **§ 164.312(e)(1)**: Anti-caching headers preventing PHI caching on browser disks or intermediate proxies.
 - **§ 164.528**: Full accounting of disclosures module for HIPAA Privacy Rule compliance.
 

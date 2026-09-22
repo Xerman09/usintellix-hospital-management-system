@@ -62,6 +62,7 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.312(a)(2)(iii)** | Automatic Inactivity Logoff | 15-minute document-wide inactivity tracker with 60-second visual warning modal and session purge. |
 | **§ 164.312(b)** | Cryptographic Audit Controls | Append-only `hipaa_audit_logs` capturing all authentication, chart access, exports, and modifications. |
 | **§ 164.312(c)(1)** | Tamper-Evident Hash Chaining | Sequential SHA-256 HMAC integrity signatures linking each audit record to detect any database manipulation. |
+| **§ 164.316(b)(2)(i)** | 6-Year Retention & Compliance Export | Immutable 6-year retention locked by MariaDB triggers (`trg_hipaa_audit_logs_retention_guard` & `trg_hipaa_audit_logs_immutability_guard`); one-click CSV and print-ready PDF compliance reports. |
 | **§ 164.312(e)(1)** | Transmission Security & Anti-Caching | Global HTTP headers: `Cache-Control: no-store`, `Pragma: no-cache`, `X-Frame-Options: SAMEORIGIN`, `nosniff`. |
 | **§ 164.308(a)(5)(ii)(D)** | Password Expiration & History | 90-day mandatory expiration, previous 5 passwords restriction, 7-day advance notice banner, complexity rules. |
 | **§ 164.308(a)(4)** | Role-Based Access Control (RBAC) | Granular roles (Admin, Physician, Nurse, Receptionist, Biller, Patient) and dynamic ACL permission groups. |
@@ -196,7 +197,11 @@ USIntellix implements strict Role-Based Access Control (RBAC):
 ### Administration & Security Governance
 - **Employee & Role Directory**: User credential provisioning, status locking, department assignment.
 - **ACL Permissions**: Fine-grained capability toggles per functional group.
-- **HIPAA Audit Log Console**: Audit search, export, and one-click cryptographic hash chain verification.
+- **HIPAA Audit Log Console & Cryptographic Integrity (§ 164.312(b) & (c)(1))**: Append-only event stream with sequential SHA-256 HMAC hash chaining and real-time mathematical integrity verification to detect unauthorized database tampering.
+- **Audit Trail 6-Year Retention & Compliance Export (§ 164.316(b)(2)(i))**:
+  - *Database-Level Retention Triggers*: MariaDB engine triggers (`trg_hipaa_audit_logs_retention_guard` and `trg_hipaa_audit_logs_immutability_guard`) prevent deletion of records within 6 years of creation and block all record updates.
+  - *Retention Policy Inspector*: Real-time policy guard (`AuditRetentionGuard`) reporting total protected records, days active, and 0 purge-eligible records.
+  - *One-Click OCR Compliance Export*: Downloads formal RFC 4180 CSV with federal compliance metadata headers and generates print-ready PDF reports with hospital letterhead, cryptographic seals, and auditor certification blocks.
 
 ---
 
