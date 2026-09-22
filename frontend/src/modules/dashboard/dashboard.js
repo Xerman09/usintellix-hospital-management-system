@@ -1465,36 +1465,6 @@ export function Dashboard()
         });
     }
 
-    // Profile Tab Hook
-    const profileBtn = document.querySelector('a[data-tab="profile"]');
-    if (profileBtn) {
-        profileBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openDashboardTab('profile', 'Profile');
-        });
-    }
-
-    // Settings Tab Hook
-    const settingsBtn = document.querySelector('a[data-tab="settings"]');
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openDashboardTab('settings', 'Settings');
-        });
-    }
-
-    // Appearance Tab Hook
-    const appearanceBtn = document.querySelector('a[data-tab="appearance"]');
-    if (appearanceBtn) {
-        appearanceBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            tabManager.openTab('appearance', 'Appearance', () => {
-                setTimeout(initAppearance, 0);
-                return AppearanceView();
-            });
-        });
-    }
-
     // Profile dropdown: click-to-toggle instead of CSS hover, so moving the
     // mouse from the avatar down to a menu item can't cause it to close
     // mid-click (a hover-only dropdown is fragile to real mouse movement).
@@ -1512,10 +1482,57 @@ export function Dashboard()
                 navProfile.classList.remove('open');
             }
         });
+    }
 
-        navProfile.querySelectorAll('.dropdown-content a').forEach((link) => {
-            link.addEventListener('click', () => {
-                navProfile.classList.remove('open');
+    // Profile Dropdown Docs Accordion
+    const docsTrigger = document.getElementById('profileDocsTrigger');
+    const docsSubmenu = document.getElementById('profileDocsSubmenu');
+    const docsChevron = document.getElementById('profileDocsChevron');
+
+    if (docsTrigger && docsSubmenu) {
+        docsTrigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Do NOT close profile dropdown
+            const isClosed = docsSubmenu.style.display === 'none';
+            docsSubmenu.style.display = isClosed ? 'flex' : 'none';
+            if (docsChevron) {
+                docsChevron.style.transform = isClosed ? 'rotate(180deg)' : 'rotate(0deg)';
+                docsChevron.style.color = isClosed ? '#0284c7' : '#94a3b8';
+            }
+            docsTrigger.classList.toggle('active', isClosed);
+        });
+
+        // Allow pressing Enter or Space when focused
+        docsTrigger.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                docsTrigger.click();
+            }
+        });
+    }
+
+    // Connect all tab links inside profile dropdown (Profile, Appearance, Settings, Docs items, etc.)
+    const profileDropdown = document.querySelector('.profile-dropdown');
+    if (profileDropdown) {
+        profileDropdown.querySelectorAll('a[data-tab]').forEach((link) => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tabId = link.getAttribute('data-tab');
+                const title = link.textContent.trim();
+
+                if (navProfile) {
+                    navProfile.classList.remove('open');
+                }
+
+                if (tabId === 'appearance') {
+                    tabManager.openTab('appearance', 'Appearance', () => {
+                        setTimeout(initAppearance, 0);
+                        return AppearanceView();
+                    });
+                    return;
+                }
+
+                openDashboardTab(tabId, title);
             });
         });
     }

@@ -1589,6 +1589,127 @@ body {
     margin: 4px 2px;
 }
 
+/* Profile Dropdown Docs Accordion */
+.profile-docs-accordion {
+    margin: 2px 0;
+}
+
+.profile-docs-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #111827;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.profile-docs-trigger:hover,
+.profile-docs-trigger.active {
+    background-color: #f1f5f9;
+    color: #0284c7;
+}
+
+.profile-docs-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-docs-title svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.profile-docs-chevron {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-docs-submenu {
+    display: flex;
+    flex-direction: column;
+    background: #f8fafc;
+    border-left: 2px solid #0284c7;
+    margin: 3px 6px 4px 14px;
+    border-radius: 0 6px 6px 0;
+    padding: 3px 0;
+}
+
+.profile-doc-link {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
+    text-decoration: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.profile-doc-link svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #64748b;
+    transition: color 0.15s ease;
+}
+
+.profile-doc-link:hover {
+    background-color: #e2e8f0 !important;
+    color: #0284c7 !important;
+    padding-left: 15px !important;
+}
+
+.profile-doc-link:hover svg {
+    color: #0284c7;
+}
+
+/* Dark mode overrides for profile docs accordion */
+:root[data-theme="dark"] .profile-docs-trigger {
+    color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .profile-docs-trigger:hover,
+:root[data-theme="dark"] .profile-docs-trigger.active {
+    background-color: #334155;
+    color: #38bdf8;
+}
+
+:root[data-theme="dark"] .profile-docs-submenu {
+    background: #1e293b;
+    border-left-color: #38bdf8;
+}
+
+:root[data-theme="dark"] .profile-doc-link {
+    color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] .profile-doc-link svg {
+    color: #94a3b8;
+}
+
+:root[data-theme="dark"] .profile-doc-link:hover {
+    background-color: #334155 !important;
+    color: #38bdf8 !important;
+}
+
+:root[data-theme="dark"] .profile-doc-link:hover svg {
+    color: #38bdf8;
+}
+
 /* Right Nav items */
 .navbar-right {
     margin-left: auto;

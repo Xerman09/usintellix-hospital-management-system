@@ -10,14 +10,13 @@ function staffNavLinks(role)
         ${appointmentsLink}
         <a data-tab="patient_finder">Finder</a>
         <a data-tab="patient_flow">Flow</a>
-        <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
         <a data-tab="recalls">Recalls</a>
         <a data-tab="messaging">Messaging</a>
         <div class="nav-dropdown">
             <span>Patient</span>
             <div class="dropdown-content">
                 <a data-tab="patients">New/Search</a>
-                <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+                <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
@@ -429,9 +428,6 @@ function staffNavLinks(role)
             </div>
         </div>
         <a data-tab="help">Help</a>
-        <a data-tab="system_documentation">Docs</a>
-        <a data-tab="privacy_policy">Privacy Policy</a>
-        <a data-tab="terms_conditions">Terms &amp; Conditions</a>
     `;
 }
 
@@ -455,23 +451,18 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="profile">Profile</a>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
-    <a data-tab="system_documentation">Docs</a>
-    <a data-tab="privacy_policy">Privacy Policy</a>
-    <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
 const RECEPTIONIST_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
     <a data-tab="patient_finder">Finder</a>
     <a data-tab="patient_flow">Flow</a>
-    <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
-    <a data-tab="room_management">Rooms &amp; Beds</a>
     <a data-tab="recalls">Recalls</a>
     <div class="nav-dropdown">
         <span>Patient</span>
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
-            <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+            <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
             <div class="dropdown-submenu patient-dependent-nav">
@@ -575,19 +566,15 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="popup_address_label" class="patient-dependent-nav">Address Label</a>
         </div>
     </div>
-    <a data-tab="system_documentation">Docs</a>
-    <a data-tab="privacy_policy">Privacy Policy</a>
-    <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
 const DOCTOR_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
-    <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
     <div class="nav-dropdown">
         <span>Patient</span>
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
-            <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
+            <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
@@ -642,9 +629,6 @@ const DOCTOR_NAV_LINKS = `
     </div>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
-    <a data-tab="system_documentation">Docs</a>
-    <a data-tab="privacy_policy">Privacy Policy</a>
-    <a data-tab="terms_conditions">Terms &amp; Conditions</a>
 `;
 
 export function getNavLinks(role)
@@ -692,7 +676,30 @@ export function DashboardView()
                     <a data-tab="profile" style="cursor: pointer;">Profile</a>
                     <a data-tab="appearance" style="cursor: pointer;">Appearance</a>
                     <a data-tab="settings" style="cursor: pointer;">Settings</a>
-                    <a data-tab="system_documentation" style="cursor: pointer;">System Documentation</a>
+                    <div class="profile-docs-accordion" id="profileDocsAccordion">
+                        <div class="profile-docs-trigger" id="profileDocsTrigger" role="button" tabindex="0">
+                            <span class="profile-docs-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Docs
+                            </span>
+                            <svg class="profile-docs-chevron" id="profileDocsChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                        <div class="profile-docs-submenu" id="profileDocsSubmenu" style="display: none;">
+                            <a data-tab="system_documentation" class="profile-doc-link" style="cursor: pointer;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                                System Documentation
+                            </a>
+                            <a data-tab="privacy_policy" class="profile-doc-link" style="cursor: pointer;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                Privacy Policy
+                            </a>
+                            <a data-tab="terms_conditions" class="profile-doc-link" style="cursor: pointer;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Terms &amp; Conditions
+                            </a>
+                        </div>
+                    </div>
+                    <hr>
                     <a id="logoutBtn" style="cursor: pointer; color: #dc2626;">Logout</a>
                 </div>
             </div>
