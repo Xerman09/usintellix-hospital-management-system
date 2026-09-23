@@ -115,13 +115,20 @@ export function PrivacyPolicyView(options = {}) {
                 display: grid;
                 grid-template-columns: 280px 1fr;
                 gap: 36px;
-                align-items: start;
             }
 
             .privacy-tab-mode .privacy-container {
                 max-width: 1200px;
                 padding: 0;
                 gap: 28px;
+            }
+
+            /* Grid item is stretched to match the content column's full
+               height (default align-items: stretch) purely so the sticky
+               box below has room to travel down the whole document --
+               this wrapper itself stays invisible/unstyled. */
+            .privacy-sidebar-col {
+                min-width: 0;
             }
 
             /* Sticky Sidebar Navigation */
@@ -157,7 +164,9 @@ export function PrivacyPolicyView(options = {}) {
             }
 
             .privacy-nav-item a {
-                display: block;
+                display: flex;
+                align-items: center;
+                gap: 10px;
                 padding: 8px 12px;
                 border-radius: 6px;
                 font-size: 13px;
@@ -168,9 +177,31 @@ export function PrivacyPolicyView(options = {}) {
                 border-left: 3px solid transparent;
             }
 
+            .privacy-nav-num {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: var(--bg-surface-alt, #f1f5f9);
+                color: var(--text-muted, #64748b);
+                font-size: 11px;
+                font-weight: 700;
+                flex-shrink: 0;
+                transition: all 0.15s ease;
+            }
+
+            .privacy-nav-item a:hover .privacy-nav-num,
+            .privacy-nav-item.active .privacy-nav-num {
+                background: #0284c7;
+                color: #ffffff;
+            }
+
             .privacy-nav-item a:hover {
                 background: var(--bg-surface-alt, #f1f5f9);
                 color: #0284c7;
+                transform: translateX(2px);
             }
 
             .privacy-nav-item.active a {
@@ -243,6 +274,19 @@ export function PrivacyPolicyView(options = {}) {
                 border-color: rgba(16, 185, 129, 0.3);
             }
 
+            /* In-Tab Header Icon Badge */
+            .privacy-tab-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+                background: rgba(2, 132, 199, 0.1);
+                color: #0284c7;
+                flex-shrink: 0;
+            }
+
             /* Legal Notice Banner */
             .privacy-notice-box {
                 background: rgba(2, 132, 199, 0.08);
@@ -252,6 +296,22 @@ export function PrivacyPolicyView(options = {}) {
                 margin-bottom: 32px;
                 font-size: 13.5px;
                 color: var(--text-primary, #1e293b);
+                display: flex;
+                gap: 14px;
+                align-items: flex-start;
+            }
+
+            .privacy-notice-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                background: rgba(2, 132, 199, 0.15);
+                color: #0284c7;
+                flex-shrink: 0;
+                margin-top: 2px;
             }
 
             .privacy-notice-box strong {
@@ -276,7 +336,21 @@ export function PrivacyPolicyView(options = {}) {
                 border-bottom: 1px solid var(--border-color, #e2e8f0);
                 display: flex;
                 align-items: center;
-                gap: 10px;
+                gap: 12px;
+            }
+
+            .privacy-section-num {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border-radius: 8px;
+                background: rgba(2, 132, 199, 0.1);
+                color: #0284c7;
+                font-size: 14px;
+                font-weight: 800;
+                flex-shrink: 0;
             }
 
             .privacy-section h3 {
@@ -334,6 +408,18 @@ export function PrivacyPolicyView(options = {}) {
                 gap: 8px;
             }
 
+            .privacy-feature-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 24px;
+                border-radius: 6px;
+                background: rgba(2, 132, 199, 0.1);
+                color: #0284c7;
+                flex-shrink: 0;
+            }
+
             .privacy-feature-desc {
                 font-size: 12.5px;
                 color: var(--text-muted, #64748b);
@@ -380,7 +466,7 @@ export function PrivacyPolicyView(options = {}) {
                 .privacy-container {
                     grid-template-columns: 1fr;
                 }
-                .privacy-sidebar {
+                .privacy-sidebar-col {
                     display: none;
                 }
                 .privacy-content-card {
@@ -430,11 +516,35 @@ export function PrivacyPolicyView(options = {}) {
                 color: #38bdf8;
                 border-left-color: #38bdf8;
             }
+            :root[data-theme="dark"] .privacy-nav-num {
+                background: #0f172a;
+            }
+            :root[data-theme="dark"] .privacy-nav-item a:hover .privacy-nav-num,
+            :root[data-theme="dark"] .privacy-nav-item.active .privacy-nav-num {
+                background: #38bdf8;
+                color: #0b1120;
+            }
+            :root[data-theme="dark"] .privacy-section-num {
+                background: rgba(56, 189, 248, 0.15);
+                color: #38bdf8;
+            }
+            :root[data-theme="dark"] .privacy-tab-icon {
+                background: rgba(56, 189, 248, 0.15);
+                color: #38bdf8;
+            }
+            :root[data-theme="dark"] .privacy-notice-icon {
+                background: rgba(56, 189, 248, 0.2);
+                color: #38bdf8;
+            }
+            :root[data-theme="dark"] .privacy-feature-icon {
+                background: rgba(56, 189, 248, 0.15);
+                color: #38bdf8;
+            }
 
             /* Print Styles */
             @media print {
                 .privacy-topbar,
-                .privacy-sidebar,
+                .privacy-sidebar-col,
                 .btn-privacy-nav {
                     display: none !important;
                 }
@@ -478,8 +588,10 @@ export function PrivacyPolicyView(options = {}) {
         ` : `
         <!-- In-Tab Action Strip -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--bg-surface); padding: 12px 18px; border: 1px solid var(--border-color); border-radius: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 18px;">🛡️</span>
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <span class="privacy-tab-icon">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                </span>
                 <div>
                     <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary);">Hospital Privacy Policy & Notice of Privacy Practices</h3>
                     <p style="margin: 0; font-size: 12px; color: var(--text-muted);">Protected Health Information (PHI) Governance & Patient Rights</p>
@@ -494,28 +606,30 @@ export function PrivacyPolicyView(options = {}) {
 
         <div class="privacy-container">
             <!-- Sidebar Table of Contents -->
-            <aside class="privacy-sidebar">
+            <aside class="privacy-sidebar-col">
+              <div class="privacy-sidebar">
                 <div class="privacy-sidebar-title">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                     Table of Contents
                 </div>
                 <ul class="privacy-nav-list">
-                    <li class="privacy-nav-item active"><a href="#section-overview">1. Notice of Privacy Practices</a></li>
-                    <li class="privacy-nav-item"><a href="#section-information">2. Information We Collect</a></li>
-                    <li class="privacy-nav-item"><a href="#section-uses">3. Permissible Uses & Disclosures</a></li>
-                    <li class="privacy-nav-item"><a href="#section-authorizations">4. When Authorization is Required</a></li>
-                    <li class="privacy-nav-item"><a href="#section-rights">5. Your Patient Privacy Rights</a></li>
-                    <li class="privacy-nav-item"><a href="#section-security">6. Security & Data Protection</a></li>
-                    <li class="privacy-nav-item"><a href="#section-business-associates">7. Business Associates</a></li>
-                    <li class="privacy-nav-item"><a href="#section-breach">8. Breach Notification Protocol</a></li>
-                    <li class="privacy-nav-item"><a href="#section-retention">9. Data Retention & Disposal</a></li>
-                    <li class="privacy-nav-item"><a href="#section-contact">10. Privacy Officer & Complaints</a></li>
+                    <li class="privacy-nav-item active"><a href="#section-overview"><span class="privacy-nav-num">1</span>Notice of Privacy Practices</a></li>
+                    <li class="privacy-nav-item"><a href="#section-information"><span class="privacy-nav-num">2</span>Information We Collect</a></li>
+                    <li class="privacy-nav-item"><a href="#section-uses"><span class="privacy-nav-num">3</span>Permissible Uses & Disclosures</a></li>
+                    <li class="privacy-nav-item"><a href="#section-authorizations"><span class="privacy-nav-num">4</span>When Authorization is Required</a></li>
+                    <li class="privacy-nav-item"><a href="#section-rights"><span class="privacy-nav-num">5</span>Your Patient Privacy Rights</a></li>
+                    <li class="privacy-nav-item"><a href="#section-security"><span class="privacy-nav-num">6</span>Security & Data Protection</a></li>
+                    <li class="privacy-nav-item"><a href="#section-business-associates"><span class="privacy-nav-num">7</span>Business Associates</a></li>
+                    <li class="privacy-nav-item"><a href="#section-breach"><span class="privacy-nav-num">8</span>Breach Notification Protocol</a></li>
+                    <li class="privacy-nav-item"><a href="#section-retention"><span class="privacy-nav-num">9</span>Data Retention & Disposal</a></li>
+                    <li class="privacy-nav-item"><a href="#section-contact"><span class="privacy-nav-num">10</span>Privacy Officer & Complaints</a></li>
                 </ul>
                 <div class="privacy-sidebar-meta">
                     <div><strong>Effective Date:</strong> September 20, 2026</div>
                     <div style="margin-top: 4px;"><strong>Jurisdiction:</strong> Federal HIPAA & HITECH (USA)</div>
                     <div style="margin-top: 4px;"><strong>Version:</strong> 2.4.0 (Enterprise)</div>
                 </div>
+              </div>
             </aside>
 
             <!-- Document Content -->
@@ -542,14 +656,20 @@ export function PrivacyPolicyView(options = {}) {
 
                 <!-- Legal Notice Banner -->
                 <div class="privacy-notice-box">
-                    <strong>THIS NOTICE DESCRIBES HOW MEDICAL INFORMATION ABOUT YOU MAY BE USED AND DISCLOSED AND HOW YOU CAN GET ACCESS TO THIS INFORMATION. PLEASE REVIEW IT CAREFULLY.</strong>
-                    USIntellix Hospital Management System is committed to safeguarding your Protected Health Information (PHI). We are mandated by federal law under the Health Insurance Portability and Accountability Act of 1996 (HIPAA) to maintain the privacy of your health records, provide you with this comprehensive notice, and notify you in the event of an unauthorized security breach.
+                    <span class="privacy-notice-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    </span>
+                    <div>
+                        <strong>THIS NOTICE DESCRIBES HOW MEDICAL INFORMATION ABOUT YOU MAY BE USED AND DISCLOSED AND HOW YOU CAN GET ACCESS TO THIS INFORMATION. PLEASE REVIEW IT CAREFULLY.</strong>
+                        USIntellix Hospital Management System is committed to safeguarding your Protected Health Information (PHI). We are mandated by federal law under the Health Insurance Portability and Accountability Act of 1996 (HIPAA) to maintain the privacy of your health records, provide you with this comprehensive notice, and notify you in the event of an unauthorized security breach.
+                    </div>
                 </div>
 
                 <!-- Section 1: Overview -->
                 <section class="privacy-section" id="section-overview">
                     <h2>
-                        <span>1. Notice of Privacy Practices & Legal Duties</span>
+                        <span class="privacy-section-num">1</span>
+                        <span>Notice of Privacy Practices & Legal Duties</span>
                     </h2>
                     <p>
                         This Notice of Privacy Practices applies to all physical facilities, electronic health records (EHR), clinical laboratories, surgical suites, inpatient wards, pharmacy portals, telemedicine interactions, and online communication services operated under USIntellix Hospital Management System.
@@ -568,7 +688,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 2: Information We Collect -->
                 <section class="privacy-section" id="section-information">
                     <h2>
-                        <span>2. Information We Collect</span>
+                        <span class="privacy-section-num">2</span>
+                        <span>Information We Collect</span>
                     </h2>
                     <p>
                         During your outpatient visits, emergency consultations, inpatient stays, or administrative interactions, our healthcare professionals and digital systems collect and maintain categories of personal data:
@@ -576,25 +697,29 @@ export function PrivacyPolicyView(options = {}) {
                     <div class="privacy-cards-grid">
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>📋 Demographics & Identity</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><circle cx="8" cy="12" r="2"></circle><line x1="14" y1="10" x2="18" y2="10"></line><line x1="14" y1="14" x2="18" y2="14"></line></svg></span>
+                                <span>Demographics & Identity</span>
                             </div>
                             <p class="privacy-feature-desc">Full legal name, date of birth, social security number, government ID, residential address, emergency contacts, legal guardians, and communication preferences.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>🩺 Clinical & Medical History</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></span>
+                                <span>Clinical & Medical History</span>
                             </div>
                             <p class="privacy-feature-desc">Vital signs, diagnoses, treatment notes, surgical operative records, medications, immunization history, allergies, pathology findings, and diagnostic imaging (DICOM).</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>💳 Billing & Insurance</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></span>
+                                <span>Billing & Insurance</span>
                             </div>
                             <p class="privacy-feature-desc">Health insurance policy numbers, claims, coverage eligibility verification, payment records, superbills, guarantor details, and billing encounter histories.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>🔒 Audit & Digital Metadata</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+                                <span>Audit & Digital Metadata</span>
                             </div>
                             <p class="privacy-feature-desc">Portal login sessions, IP addresses, digital electronic signatures, timestamped chart access audit records, and patient portal communication transcripts.</p>
                         </div>
@@ -604,7 +729,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 3: Permissible Uses & Disclosures -->
                 <section class="privacy-section" id="section-uses">
                     <h2>
-                        <span>3. How We Use and Disclose Health Information (TPO)</span>
+                        <span class="privacy-section-num">3</span>
+                        <span>How We Use and Disclose Health Information (TPO)</span>
                     </h2>
                     <p>
                         The HIPAA Privacy Rule permits USIntellix Hospital System to use and disclose your Protected Health Information without prior written consent for three primary purposes known collectively as <strong>Treatment, Payment, and Health Care Operations (TPO)</strong>:
@@ -636,7 +762,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 4: Authorizations Required -->
                 <section class="privacy-section" id="section-authorizations">
                     <h2>
-                        <span>4. When Explicit Written Authorization is Required</span>
+                        <span class="privacy-section-num">4</span>
+                        <span>When Explicit Written Authorization is Required</span>
                     </h2>
                     <p>
                         Any use or disclosure of your medical information outside the routine purposes specified above requires your explicit, voluntary written consent. You have the full right to revoke an authorization at any time in writing, except to the extent that our hospital has already acted upon it.
@@ -652,44 +779,51 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 5: Patient Rights -->
                 <section class="privacy-section" id="section-rights">
                     <h2>
-                        <span>5. Your Patient Privacy Rights</span>
+                        <span class="privacy-section-num">5</span>
+                        <span>Your Patient Privacy Rights</span>
                     </h2>
                     <p>As a patient in our healthcare network, federal law guarantees you substantial rights regarding your protected health records:</p>
 
                     <div class="privacy-cards-grid">
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>📄 Right to Inspect & Copy</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+                                <span>Right to Inspect & Copy</span>
                             </div>
                             <p class="privacy-feature-desc">You have the right to inspect and obtain an electronic or paper copy of your medical charts, billing records, and clinical lab results within 30 calendar days of written request.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>✏️ Right to Amend Records</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></span>
+                                <span>Right to Amend Records</span>
                             </div>
                             <p class="privacy-feature-desc">If you believe information in your health record is inaccurate or incomplete, you may submit a formal request for an amendment to be appended to your medical file.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>📊 Accounting of Disclosures</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg></span>
+                                <span>Accounting of Disclosures</span>
                             </div>
                             <p class="privacy-feature-desc">You have the right to request a formal list (accounting) of specific disclosures of your health information made outside of routine Treatment, Payment, and Operations for up to 6 years prior.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>🛑 Right to Request Restrictions</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg></span>
+                                <span>Right to Request Restrictions</span>
                             </div>
                             <p class="privacy-feature-desc">You can request restrictions on certain uses of your PHI for treatment, payment, or operations, or restrict disclosures to health plans for services paid entirely out-of-pocket.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>✉️ Confidential Communications</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span>
+                                <span>Confidential Communications</span>
                             </div>
                             <p class="privacy-feature-desc">You have the right to request that our clinical staff contact you via specific alternate addresses, private telephone numbers, or secure portal channels.</p>
                         </div>
                         <div class="privacy-feature-card">
                             <div class="privacy-feature-title">
-                                <span>🖨️ Right to a Paper Copy</span>
+                                <span class="privacy-feature-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></span>
+                                <span>Right to a Paper Copy</span>
                             </div>
                             <p class="privacy-feature-desc">Even if you have agreed to review this notice electronically, you are entitled to obtain a physical printed copy of this Notice of Privacy Practices upon request.</p>
                         </div>
@@ -699,7 +833,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 6: Security Safeguards -->
                 <section class="privacy-section" id="section-security">
                     <h2>
-                        <span>6. Data Security & Technical Safeguards</span>
+                        <span class="privacy-section-num">6</span>
+                        <span>Data Security & Technical Safeguards</span>
                     </h2>
                     <p>
                         USIntellix Hospital Management System deploys administrative, technical, and physical safeguards meeting or exceeding the HIPAA Security Rule and NIST 800-53 cybersecurity frameworks:
@@ -716,7 +851,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 7: Business Associates -->
                 <section class="privacy-section" id="section-business-associates">
                     <h2>
-                        <span>7. Business Associate Compliance</span>
+                        <span class="privacy-section-num">7</span>
+                        <span>Business Associate Compliance</span>
                     </h2>
                     <p>
                         From time to time, USIntellix contracts with third-party service vendors who perform essential functions on our behalf (such as cloud database hosting, offsite digital radiology interpretation, electronic billing processing, and medical transcription services).
@@ -729,7 +865,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 8: Breach Notification -->
                 <section class="privacy-section" id="section-breach">
                     <h2>
-                        <span>8. Breach Notification Protocol</span>
+                        <span class="privacy-section-num">8</span>
+                        <span>Breach Notification Protocol</span>
                     </h2>
                     <p>
                         Under the HITECH Act and HIPAA Breach Notification Rule (45 C.F.R. §§ 164.400-414), in the unlikely event of an unauthorized acquisition, access, use, or disclosure of unencrypted Protected Health Information that compromises the security or privacy of your data, USIntellix will:
@@ -744,7 +881,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 9: Data Retention & Disposal -->
                 <section class="privacy-section" id="section-retention">
                     <h2>
-                        <span>9. Data Retention & Secure Disposal</span>
+                        <span class="privacy-section-num">9</span>
+                        <span>Data Retention & Secure Disposal</span>
                     </h2>
                     <p>
                         Hospital records are retained in compliance with federal clinical guidelines and applicable state medical board statutes (minimum of 7 years for adults, and until age of majority plus statutory statute of limitations for pediatric patients).
@@ -757,7 +895,8 @@ export function PrivacyPolicyView(options = {}) {
                 <!-- Section 10: Contact & Complaints -->
                 <section class="privacy-section" id="section-contact">
                     <h2>
-                        <span>10. Privacy Officer Contact & Filing a Complaint</span>
+                        <span class="privacy-section-num">10</span>
+                        <span>Privacy Officer Contact & Filing a Complaint</span>
                     </h2>
                     <p>
                         If you have questions about this Notice of Privacy Practices, believe your privacy rights have been violated, or wish to exercise any of your statutory patient rights, please contact our hospital's dedicated Privacy & Compliance Officer:
