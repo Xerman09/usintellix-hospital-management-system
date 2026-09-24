@@ -68,7 +68,7 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.308(a)(5)(ii)(D)** | Password Expiration & History | 90-day mandatory expiration, previous 5 passwords restriction, 7-day advance notice banner, complexity rules. |
 | **§ 164.308(a)(4)** | Role-Based Access Control (RBAC) | Granular roles (Admin, Physician, Nurse, Receptionist, Biller, Patient) and dynamic ACL permission groups. |
 | **§ 164.502(b) & § 164.514(d)** | Minimum Necessary PHI Access Control | Server-side restriction of clinical charts/labs for non-clinical staff, doctor patient-assignment boundaries, dashboard summary redaction, and Break-Glass modal. |
-| **§ 164.528** | Accounting of Disclosures | Full module tracking external PHI disclosures (subpoenas, public health, payers) for patient accounting. |
+| **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule (`Miscellaneous &rarr; Accounting of Disclosures`) tracking all non-TPO PHI releases (subpoenas, public health, law enforcement, HIE); captures full statutory fields (§ 164.528(b)(2)), 6-year retention lookback, printable formal patient accounting statement, regulatory CSV export, and chained audit trails. |
 | **§ 164.520** | Patient Consent & Notice of Privacy Practices (NPP) Signature Capture | Mandatory 45 CFR § 164.520 patient acknowledgment: first-portal-login electronic signature gating, in-clinic check-in capture console, versioning (`2026-09`), and immutable `npp_consent_log` audit retention. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
@@ -211,6 +211,13 @@ USIntellix implements strict Role-Based Access Control (RBAC):
   - *First Portal Login Interception*: Patients with unacknowledged NPP are prevented from navigating to the portal dashboard until electronically acknowledging the Privacy Policy and Terms of Service with a full legal name signature.
   - *In-Clinic Reception Check-In Integration*: Staff on the Patient Flow board receive live NPP acknowledgment alerts upon selecting an appointment, with an inline capture console supporting electronic/verbal or paper signature recording.
   - *Immutable Consent Ledger*: Every signature event is persisted to `npp_consent_log` with client IP, timestamp, signature method, version string (`2026-09`), and capturing staff identity, coupled with sequential HMAC-chained HIPAA audit log events (`NPP_ACKNOWLEDGED`, `NPP_ACKNOWLEDGED_IN_CLINIC`).
+- **Accounting of Disclosures Log (§ 164.528)**:
+  - *Dedicated Submodule*: Accessible via `Miscellaneous &rarr; Accounting of Disclosures` (`data-tab="misc_disclosures"`). Features real-time metric cards (Total Disclosures, Court Orders & Subpoenas, Public Health, Law Enforcement, HIE feeds, 6-Year Window) and quick presets (Last 6 Years, Last 1 Year, Last 90 Days, All Time).
+  - *Statutory Disclosures Ledger*: Tracks all required statutory fields under 45 CFR § 164.528(b)(2) including date, recipient entity/person and address, statutory legal basis (§ 164.512 categories), statement of purpose, specific records disclosed, requesting official, transmission medium, and docket/reference numbers.
+  - *Patient Chart Integration*: Interactive widget in the Patient Dashboard with colored legal basis badges and modal for reviewing or recording disclosures directly within the clinical chart.
+  - *Formal Patient Accounting Statement Generator*: Generates print-ready legal accounting statements fulfilling 45 CFR § 164.528(c)(1) within seconds, complete with facility letterhead, patient demographics, statutory disclosure table, TPO exemption disclosure notices, and Privacy Officer certification signature blocks.
+  - *Regulatory Compliance CSV Export*: Streams RFC 4180 CSV exports with compliance metadata headers directly to compliance officers and OCR auditors.
+  - *Cryptographic Audit Logging*: All disclosure creation, updates, deletions, and statement generation events are permanently committed to `hipaa_audit_logs` under SHA-256 HMAC hash chaining.
 
 ---
 

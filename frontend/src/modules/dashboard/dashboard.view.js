@@ -329,6 +329,7 @@ function staffNavLinks(role)
                 <a data-tab="misc_office_notes">Office Notes</a>
                 <a data-tab="misc_batch_com">Batch Communication Tool</a>
                 <a data-tab="misc_new_documents">New Documents</a>
+                <a data-tab="misc_disclosures">Accounting of Disclosures</a>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Blank Forms
@@ -538,6 +539,7 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="misc_office_notes">Office Notes</a>
             <a data-tab="misc_batch_com">Batch Communication Tool</a>
             <a data-tab="misc_new_documents">New Documents</a>
+            <a data-tab="misc_disclosures">Accounting of Disclosures</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
@@ -615,6 +617,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="misc_office_notes">Office Notes</a>
             <a data-tab="misc_batch_com">Batch Communication Tool</a>
             <a data-tab="misc_new_documents">New Documents</a>
+            <a data-tab="misc_disclosures">Accounting of Disclosures</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms

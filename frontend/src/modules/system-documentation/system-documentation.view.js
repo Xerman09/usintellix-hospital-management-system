@@ -893,21 +893,35 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         <span class="sysdoc-badge sysdoc-badge-green">Privacy Safeguards</span>
                     </div>
                     <p>
-                        Under the HIPAA Privacy Rule, covered entities must provide clear notice of privacy practices, obtain written patient acknowledgment at first service delivery, and maintain an accounting of non-routine disclosures of protected health information.
+                        Under the HIPAA Privacy Rule, covered entities must provide clear notice of privacy practices, obtain written patient acknowledgment at first service delivery, and maintain an official accounting of non-routine disclosures of protected health information made outside of Treatment, Payment, and Health Care Operations (TPO).
                     </p>
                     <div class="sysdoc-rule-box">
-                        <div class="sysdoc-rule-title">Disclosure Tracking Module (§ 164.528)</div>
-                        <div>Tracks recipient agency, date, purpose, legal basis (e.g. public health mandate, court order, payer audit), and specific clinical documents disclosed. Accessible under <strong>Miscellaneous &rarr; Disclosures</strong>.</div>
+                        <div class="sysdoc-rule-title">Accounting of Disclosures Log Submodule (§ 164.528)</div>
+                        <div>
+                            Patients have a federal statutory right under <strong>45 CFR § 164.528</strong> to request and receive an accounting of all non-TPO disclosures of their PHI made by the hospital during the preceding <strong>6 years</strong> (§ 164.528(a)(1)).
+                        </div>
+                        <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>Dedicated Navigation:</strong> Located under <strong>Miscellaneous &rarr; Accounting of Disclosures</strong> (<code>data-tab="misc_disclosures"</code>), complete with real-time metric cards (Total, Subpoenas, Public Health, Law Enforcement, HIE feeds, 6-Year Window).</li>
+                            <li><strong>Mandatory Statutory Fields (§ 164.528(b)(2)):</strong> Captures date of disclosure, recipient entity/person, recipient address, requesting official, delivery medium (Electronic Portal, Encrypted Email, Encrypted Media, HIPAA Fax, Certified Mail, Handover), case/docket reference number, statement of purpose, and specific PHI records disclosed.</li>
+                            <li><strong>Statutory Presets:</strong> Quick-filter toolbar supporting <strong>Last 6 Years (Mandatory)</strong>, <strong>Last 1 Year</strong>, <strong>Last 90 Days</strong>, and <strong>All Time</strong> lookback periods.</li>
+                            <li><strong>Formal Patient Accounting Statement Generator:</strong> One-click generation of the formal written accounting statement fulfilling § 164.528(c)(1), featuring hospital letterhead, patient demographics, detailed disclosures table, TPO exemption disclosure notices, and Privacy Officer signature/certification block with print-ready CSS for direct PDF export.</li>
+                            <li><strong>Regulatory CSV Export:</strong> Direct RFC 4180 CSV export with compliance metadata headers for OCR regulatory audits via <code>/api/disclosures/export-csv</code>.</li>
+                            <li><strong>Patient Chart Integration:</strong> Live disclosures widget on the patient dashboard and interactive modal in the patient chart for recording and printing patient statements in real-time.</li>
+                            <li><strong>Cryptographic Audit Trails:</strong> All disclosure operations (<code>RECORD_DISCLOSURE</code>, <code>UPDATE_DISCLOSURE</code>, <code>DELETE_DISCLOSURE</code>, <code>EXPORT_DISCLOSURE_REPORT</code>) are permanently chained into <code>hipaa_audit_logs</code> via SHA-256 HMAC.</li>
+                        </ul>
                     </div>
                     <div class="sysdoc-rule-box" style="margin-top: 10px;">
                         <div class="sysdoc-rule-title">Patient Consent &amp; NPP Signature Capture (§ 164.520)</div>
-                        <ul style="margin: 4px 0 0 18px; padding: 0;">
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
                             <li><strong>First Portal Login Interception:</strong> Patients logging into the portal with unacknowledged NPP are prevented from accessing the dashboard until completing an interactive consent form requiring checkboxes for the Privacy Policy and Terms of Service, along with a full legal name electronic signature.</li>
                             <li><strong>In-Clinic Check-In Console:</strong> The Patient Flow board displays live NPP status upon appointment selection, allowing front-desk reception staff to capture electronic/verbal or physical paper acknowledgment directly into the system.</li>
                             <li><strong>Immutable Consent Ledger:</strong> Every consent event is persisted into <code>npp_consent_log</code> with client IP, timestamp, signature type, version string (<code>2026-09</code>), and staff witness identity, verified via sequential SHA-256 HMAC audit logs.</li>
                         </ul>
                     </div>
-                    <div style="margin-top: 12px; display: flex; gap: 10px;">
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('misc_disclosures', 'Accounting of Disclosures'); }">
+                            <span>Open Accounting of Disclosures</span>
+                        </button>
                         <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('privacy_policy', 'Privacy Policy &amp; HIPAA Notice'); } else { window.location.hash = '#/privacy-policy'; }">
                             <span>Open Notice of Privacy Practices</span>
                         </button>

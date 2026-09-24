@@ -4,7 +4,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=124";
+import { getNavLinks } from "./dashboard.view.js?v=127";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -22,8 +22,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=65";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=65";
+import { PatientsListView } from "../patients/patients-list.view.js?v=66";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=66";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js";
 import { initBillingManager } from "../billing-manager/billing-manager.js";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
@@ -346,6 +346,8 @@ import { BatchComView } from "../batch-com/batch-com.view.js?v=3";
 import { initBatchCom } from "../batch-com/batch-com.js?v=3";
 import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=4";
 import { initNewDocuments } from "../new-documents/new-documents.js?v=4";
+import { DisclosuresView } from "../disclosures/disclosures.view.js?v=1";
+import { initDisclosures } from "../disclosures/disclosures.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -723,6 +725,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'New Documents', () => {
                 setTimeout(initNewDocuments, 0);
                 return NewDocumentsView();
+            }, activate);
+        } else if (tabId === 'misc_disclosures') {
+            tabManager.openTab(tabId, title || 'Accounting of Disclosures', () => {
+                setTimeout(initDisclosures, 0);
+                return DisclosuresView();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {

@@ -106,7 +106,7 @@ import {
     searchProxyCandidates, linkProxy, revokeProxy
 } from "../related-persons/related-persons.service.js";
 import { fetchCountries, fetchPhProvinces, isPhilippines } from "../related-persons/geography.service.js";
-import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure } from "../disclosures/disclosures.service.js";
+import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure, fetchDisclosureReport } from "../disclosures/disclosures.service.js";
 import {
     fetchPatientMessages, sendPatientMessage, fetchMessageTypes, fetchMessageStatuses, fetchRecipientOptions
 } from "../messages/messages.service.js";
@@ -3210,7 +3210,7 @@ function renderDashboardDisclosures(disclosures)
         ? `<div class="pd-allergy-list">
             ${disclosures.map((disclosure) => `
                 <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-disclosure-id="${disclosure.id}" tabindex="0" role="button"` : ""}>
-                    <span class="pd-allergy-name">${escapeHtml(disclosure.recipient)}${disclosure.disclosure_type ? ` &middot; ${escapeHtml(disclosure.disclosure_type)}` : ""}</span>
+                    <span class="pd-allergy-name">${escapeHtml(disclosure.recipient)}${disclosure.legal_basis ? ` &middot; ${escapeHtml(DISCLOSURE_LEGAL_BASIS_MAP[disclosure.legal_basis] || disclosure.legal_basis)}` : (disclosure.disclosure_type ? ` &middot; ${escapeHtml(disclosure.disclosure_type)}` : "")}</span>
                 </div>
             `).join("")}
            </div>`
@@ -10109,7 +10109,32 @@ async function openPrescriptionFormModal(existingRecord)
     formOverlay.classList.add("open");
 }
 
-const DISCLOSURE_DETAIL_FIELDS = ["disclosure_date", "disclosure_type", "recipient", "description"];
+const DISCLOSURE_DETAIL_FIELDS = [
+    "disclosure_date",
+    "legal_basis",
+    "recipient",
+    "recipient_address",
+    "requestor_name",
+    "disclosure_medium",
+    "reference_number",
+    "purpose",
+    "records_disclosed",
+    "description"
+];
+
+const DISCLOSURE_LEGAL_BASIS_MAP = {
+    court_order_subpoena: "Court Order / Subpoena (§ 164.512(e))",
+    public_health: "Public Health Reporting (§ 164.512(b))",
+    law_enforcement: "Law Enforcement Inquiries (§ 164.512(f))",
+    health_oversight: "Health Oversight Audit (§ 164.512(d))",
+    hie_exchange: "Health Information Exchange (HIE)",
+    abuse_neglect: "Abuse / Neglect Reporting (§ 164.512(c))",
+    threat_safety: "Averting Serious Threat (§ 164.512(j))",
+    workers_comp: "Workers' Compensation (§ 164.512(l))",
+    coroner_medical_examiner: "Coroner / Medical Examiner (§ 164.512(g))",
+    organ_procurement: "Organ Donation (§ 164.512(h))",
+    other_non_tpo: "Other Non-TPO Release"
+};
 
 function setupDisclosureModals()
 {
@@ -10145,24 +10170,50 @@ function setupDisclosureModals()
         }
     });
 
+    document.getElementById("patientChartPrintDisclosureStatementBtn")?.addEventListener("click", async () => {
+        if (!currentDashboardPatient) return;
+        await printPatientChartDisclosureStatement(currentDashboardPatient);
+    });
+
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
         const recordId = document.getElementById("disclosure_record_id").value;
-        const errEl = document.getElementById("err-disclosure_recipient");
+        const errRecipient = document.getElementById("err-disclosure_recipient");
+        const errDate = document.getElementById("err-disclosure_disclosure_date");
+        const errPurpose = document.getElementById("err-disclosure_purpose");
+        const errRecords = document.getElementById("err-disclosure_records_disclosed");
 
-        errEl.textContent = "";
+        if (errRecipient) errRecipient.textContent = "";
+        if (errDate) errDate.textContent = "";
+        if (errPurpose) errPurpose.textContent = "";
+        if (errRecords) errRecords.textContent = "";
 
         const details = {};
-
         DISCLOSURE_DETAIL_FIELDS.forEach((field) => {
-            details[field] = document.getElementById(`disclosure_${field}`).value.trim();
+            const el = document.getElementById(`disclosure_${field}`);
+            if (el) details[field] = el.value.trim();
         });
 
-        if (!details.recipient) {
-            errEl.textContent = "Recipient is required.";
-            return;
+        let hasError = false;
+        if (!details.disclosure_date) {
+            if (errDate) errDate.textContent = "Date is required.";
+            hasError = true;
         }
+        if (!details.recipient) {
+            if (errRecipient) errRecipient.textContent = "Recipient is required.";
+            hasError = true;
+        }
+        if (!details.purpose) {
+            if (errPurpose) errPurpose.textContent = "Statement of purpose is required (§ 164.528(b)(2)(iv)).";
+            hasError = true;
+        }
+        if (!details.records_disclosed) {
+            if (errRecords) errRecords.textContent = "Specific records disclosed is required (§ 164.528(b)(2)(iii)).";
+            hasError = true;
+        }
+
+        if (hasError) return;
 
         const result = recordId
             ? await updateDisclosure(recordId, details)
@@ -10195,14 +10246,14 @@ async function loadDisclosureDetailTable(patient)
         const result = await fetchPatientDisclosures(patient.id);
 
         if (!result.success) {
-            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load disclosures.")}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="table-empty">${escapeHtml(result.message || "Unable to load disclosures.")}</td></tr>`;
             return;
         }
 
         renderDisclosureDetailTable(result.data);
     } catch (error) {
         console.error("Failed to load patient disclosures", error);
-        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load disclosures right now. Please try again.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Unable to load disclosures right now. Please try again.</td></tr>`;
     }
 }
 
@@ -10211,22 +10262,32 @@ function renderDisclosureDetailTable(disclosures)
     const tbody = document.getElementById("disclosureDetailTableBody");
 
     if (!disclosures.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No disclosures recorded for this patient.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No external disclosures recorded for this patient.</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = disclosures.map((disclosure) => `
-        <tr>
-            <td>${escapeHtml((disclosure.disclosure_date || "").slice(0, 10) || "-")}</td>
-            <td>${escapeHtml(disclosure.disclosure_type || "-")}</td>
-            <td>${escapeHtml(disclosure.recipient)}</td>
-            <td>${escapeHtml(disclosure.provider_name || "-")}</td>
-            <td class="table-actions">
-                <button class="btn-edit" data-edit-disclosure="${disclosure.id}">Edit</button>
-                <button class="btn-danger" data-remove-disclosure="${disclosure.id}">Delete</button>
-            </td>
-        </tr>
-    `).join("");
+    tbody.innerHTML = disclosures.map((disclosure) => {
+        const basisLabel = DISCLOSURE_LEGAL_BASIS_MAP[disclosure.legal_basis] || disclosure.legal_basis || disclosure.disclosure_type || "Other";
+        const medium = disclosure.disclosure_medium || "Electronic Portal";
+        const refNo = disclosure.reference_number ? `<div style="font-size: 10px; font-family: monospace; color: #0284c7;">Ref: ${escapeHtml(disclosure.reference_number)}</div>` : "";
+        const recipientAddr = disclosure.recipient_address ? `<div style="font-size: 11px; color: #64748b;">${escapeHtml(disclosure.recipient_address)}</div>` : "";
+        const records = disclosure.records_disclosed ? `<div style="font-size: 11px; color: #64748b;"><strong style="color: #475569;">Records:</strong> ${escapeHtml(disclosure.records_disclosed)}</div>` : "";
+
+        return `
+            <tr>
+                <td style="font-size: 12px; white-space: nowrap;"><strong>${escapeHtml((disclosure.disclosure_date || "").slice(0, 10) || "-")}</strong></td>
+                <td style="font-size: 11.5px; color: #0369a1;">${escapeHtml(basisLabel)}</td>
+                <td style="font-size: 12px;"><strong>${escapeHtml(disclosure.recipient)}</strong>${recipientAddr}</td>
+                <td style="font-size: 11.5px;"><div>${escapeHtml(disclosure.purpose || disclosure.description || "-")}</div>${records}</td>
+                <td style="font-size: 11.5px;">${escapeHtml(medium)}${refNo}</td>
+                <td style="font-size: 11.5px; color: #64748b;">${escapeHtml(disclosure.created_by_name || disclosure.provider_name || "-")}</td>
+                <td class="table-actions" style="text-align: right; white-space: nowrap;">
+                    <button class="btn-edit" data-edit-disclosure="${disclosure.id}">Edit</button>
+                    <button class="btn-danger" data-remove-disclosure="${disclosure.id}">Delete</button>
+                </td>
+            </tr>
+        `;
+    }).join("");
 
     tbody.querySelectorAll("[data-edit-disclosure]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -10240,7 +10301,7 @@ function renderDisclosureDetailTable(disclosures)
 
     tbody.querySelectorAll("[data-remove-disclosure]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-            if (!confirm("Remove this disclosure record?")) {
+            if (!confirm("Are you sure you want to remove this disclosure record?\nUnder HIPAA § 164.528, this deletion is permanently audited.")) {
                 return;
             }
 
@@ -10265,22 +10326,188 @@ function openDisclosureFormModal(existingRecord)
 
     document.getElementById("disclosureFormAlert").innerHTML = "";
     document.getElementById("disclosureForm").reset();
-    document.getElementById("err-disclosure_recipient").textContent = "";
+
+    ["recipient", "disclosure_date", "purpose", "records_disclosed"].forEach(f => {
+        const el = document.getElementById(`err-disclosure_${f}`);
+        if (el) el.textContent = "";
+    });
 
     if (existingRecord) {
-        title.textContent = "Edit Disclosure";
+        title.textContent = "Edit Disclosure Record";
         recordIdInput.value = existingRecord.id;
         document.getElementById("disclosure_disclosure_date").value = (existingRecord.disclosure_date || "").slice(0, 10);
-        document.getElementById("disclosure_disclosure_type").value = existingRecord.disclosure_type || "Treatment";
+        document.getElementById("disclosure_legal_basis").value = existingRecord.legal_basis || "court_order_subpoena";
         document.getElementById("disclosure_recipient").value = existingRecord.recipient || "";
+        document.getElementById("disclosure_recipient_address").value = existingRecord.recipient_address || "";
+        document.getElementById("disclosure_requestor_name").value = existingRecord.requestor_name || "";
+        document.getElementById("disclosure_disclosure_medium").value = existingRecord.disclosure_medium || "electronic_portal";
+        document.getElementById("disclosure_reference_number").value = existingRecord.reference_number || "";
+        document.getElementById("disclosure_purpose").value = existingRecord.purpose || existingRecord.description || "";
+        document.getElementById("disclosure_records_disclosed").value = existingRecord.records_disclosed || "";
         document.getElementById("disclosure_description").value = existingRecord.description || "";
     } else {
-        title.textContent = "Record Disclosure";
+        title.textContent = "Record Statutory Disclosure";
         recordIdInput.value = "";
-        document.getElementById("disclosure_disclosure_type").value = "Treatment";
+        document.getElementById("disclosure_disclosure_date").value = new Date().toISOString().split("T")[0];
+        document.getElementById("disclosure_legal_basis").value = "court_order_subpoena";
+        document.getElementById("disclosure_disclosure_medium").value = "electronic_portal";
     }
 
     formOverlay.classList.add("open");
+}
+
+async function printPatientChartDisclosureStatement(patient)
+{
+    if (!patient || !patient.id) return;
+    try {
+        const res = await fetchDisclosureReport(patient.id);
+        if (!res || !res.success || !res.data) {
+            showAlert("disclosureDetailAlert", (res && res.message) ? res.message : "Failed to load statement.", "error");
+            return;
+        }
+
+        const data = res.data;
+        const fac = data.facility || {};
+        const pat = data.patient || {};
+        const disclosures = data.disclosures || [];
+
+        const printWindow = window.open("", "_blank", "width=900,height=750");
+        if (!printWindow) {
+            showAlert("disclosureDetailAlert", "Pop-up blocked. Please allow pop-ups to print the statement.", "error");
+            return;
+        }
+
+        let rowsHtml = "";
+        if (disclosures.length === 0) {
+            rowsHtml = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: #64748b; font-style: italic;">No reportable disclosures were made for this individual during the requested accounting period.</td></tr>`;
+        } else {
+            rowsHtml = disclosures.map(d => {
+                const basis = DISCLOSURE_LEGAL_BASIS_MAP[d.legal_basis] || d.legal_basis || "Other Non-TPO";
+                return `
+                    <tr style="border-bottom: 1px solid #ddd; font-size: 11px;">
+                        <td style="padding: 8px 6px; font-weight: 600;">${(d.disclosure_date || "").slice(0, 10)}</td>
+                        <td style="padding: 8px 6px;">
+                            <strong>${escapeHtml(d.recipient)}</strong>
+                            ${d.recipient_address ? `<div style="font-size: 10px; color: #555;">${escapeHtml(d.recipient_address)}</div>` : ""}
+                            ${d.requestor_name ? `<div style="font-size: 10px; color: #333;">Req: ${escapeHtml(d.requestor_name)}</div>` : ""}
+                        </td>
+                        <td style="padding: 8px 6px; font-weight: 600; color: #0284c7;">${escapeHtml(basis)}</td>
+                        <td style="padding: 8px 6px;">${escapeHtml(d.purpose || d.description || "-")}</td>
+                        <td style="padding: 8px 6px; color: #444;">${escapeHtml(d.records_disclosed || "Chart records")}</td>
+                        <td style="padding: 8px 6px; font-size: 10px;">
+                            <div>${escapeHtml(d.disclosure_medium || "Direct")}</div>
+                            ${d.reference_number ? `<div style="font-family: monospace;">Ref: ${escapeHtml(d.reference_number)}</div>` : ""}
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Accounting of Disclosures - ${escapeHtml(pat.name || "Patient")}</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 30px; color: #111; line-height: 1.4; }
+                    @page { size: portrait; margin: 20mm; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th { background: #f1f5f9; border-top: 1.5px solid #333; border-bottom: 1.5px solid #333; font-size: 10.5px; text-transform: uppercase; padding: 7px 6px; text-align: left; }
+                    @media print { body { margin: 0; } }
+                </style>
+            </head>
+            <body>
+                <div style="border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="font-size: 18px; font-weight: 800; color: #0f172a;">${escapeHtml(fac.name || "USIntellix Hospital & Health Systems")}</div>
+                        <div style="font-size: 11px; color: #475569; margin-top: 2px;">
+                            ${escapeHtml(fac.street || "")}, ${escapeHtml(fac.city || "")}, ${escapeHtml(fac.state || "")} ${escapeHtml(fac.postal_code || "")} &bull; Phone: ${escapeHtml(fac.phone || "")}
+                        </div>
+                        <div style="font-size: 11.5px; font-weight: 700; color: #0369a1; margin-top: 4px;">
+                            Office of the HIPAA Privacy Official &bull; Health Information Management
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; background: #0f172a; color: white; padding: 4px 8px; border-radius: 4px;">
+                            OFFICIAL LEGAL RECORD
+                        </span>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Generated: ${data.generated_at}</div>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+                        ${escapeHtml(data.report_title || "Accounting of Disclosures of Protected Health Information")}
+                    </h2>
+                    <div style="font-size: 11px; font-weight: 600; color: #0284c7; margin-top: 2px;">
+                        Statutory Authority: 45 CFR § 164.528 (HIPAA Privacy Rule)
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 12px; margin-bottom: 16px; font-size: 11.5px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">Individual Details</div>
+                        <div><strong>Patient Name:</strong> ${escapeHtml(pat.name || "--")}</div>
+                        <div><strong>MRN:</strong> ${escapeHtml(pat.patient_no || pat.id || "--")}</div>
+                        <div><strong>DOB:</strong> ${escapeHtml(pat.birthdate || "--")} &bull; <strong>Sex:</strong> ${escapeHtml(pat.sex || "N/A")}</div>
+                    </div>
+                    <div style="flex: 1; padding-left: 20px;">
+                        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">Accounting Scope</div>
+                        <div><strong>Period:</strong> ${escapeHtml(data.period_from)} through ${escapeHtml(data.period_to)}</div>
+                        <div><strong>Total Disclosures:</strong> ${data.disclosures_count}</div>
+                        <div><strong>Statutory Period:</strong> 45 CFR § 164.528(a)(1) (6-Year Retention)</div>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 14%;">Date</th>
+                            <th style="width: 22%;">Recipient &amp; Address</th>
+                            <th style="width: 20%;">Statutory Basis</th>
+                            <th style="width: 20%;">Statement of Purpose</th>
+                            <th style="width: 14%;">Records Disclosed</th>
+                            <th style="width: 10%;">Medium / Ref</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+
+                <div style="font-size: 10px; color: #475569; background: #f8fafc; border-left: 3px solid #0284c7; padding: 8px 10px; margin-top: 16px; margin-bottom: 24px; line-height: 1.4;">
+                    <strong>Statutory Notice:</strong> ${escapeHtml(data.statutory_notice)}
+                </div>
+
+                <div style="margin-top: 36px; padding-top: 14px; border-top: 1px solid #ccc; display: flex; justify-content: space-between; font-size: 11px;">
+                    <div style="width: 45%;">
+                        <div style="font-weight: 700; color: #000; margin-bottom: 35px;">Privacy Officer Certification:</div>
+                        <div style="border-bottom: 1px solid #000;"></div>
+                        <div style="font-weight: 600; margin-top: 4px;">Authorized HIPAA Privacy Official</div>
+                        <div style="color: #64748b; font-size: 10px;">USIntellix Hospital &amp; Health Systems</div>
+                    </div>
+                    <div style="width: 40%;">
+                        <div style="font-weight: 700; color: #000; margin-bottom: 35px;">Certification Date:</div>
+                        <div style="border-bottom: 1px solid #000;"></div>
+                        <div style="font-weight: 600; margin-top: 4px;">Date of Official Issuance</div>
+                    </div>
+                </div>
+
+                <script>
+                    window.onload = function() { window.print(); };
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+    } catch (err) {
+        console.error("Failed to generate statement:", err);
+        showAlert("disclosureDetailAlert", "Error generating statement.", "error");
+    }
 }
 
 const AMENDMENT_DETAIL_FIELDS = ["requested_date", "requested_by", "description", "status", "comments"];

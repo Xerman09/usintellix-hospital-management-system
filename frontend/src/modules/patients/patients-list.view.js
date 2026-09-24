@@ -9671,31 +9671,39 @@ textarea.pd-sdoh-readonly {
 </div>
 
 <div class="modal-overlay" id="disclosureDetailModalOverlay">
-    <div class="modal-box" style="max-width: 800px;">
+    <div class="modal-box" style="max-width: 900px;">
         <div class="modal-header">
-            <h2>Disclosures</h2>
-            <div class="modal-header-actions">
+            <div>
+                <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Accounting of Disclosures (HIPAA § 164.528)</h2>
+                <p class="form-subtitle" style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Statutory record of PHI released outside of Treatment, Payment, and Health Care Operations.</p>
+            </div>
+            <div class="modal-header-actions" style="display: flex; gap: 8px; align-items: center;">
+                <button type="button" class="btn-secondary" id="patientChartPrintDisclosureStatementBtn" style="font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Print Statement
+                </button>
                 <button type="button" class="btn-primary-inline" id="openAddDisclosureBtn">+ Add Disclosure</button>
                 <button type="button" class="modal-close" id="closeDisclosureDetailModal">&times;</button>
             </div>
         </div>
-        <p class="form-subtitle">Full disclosure history for this patient.</p>
 
         <div id="disclosureDetailAlert"></div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" style="margin-top: 12px;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Recipient</th>
-                        <th>Recorded By</th>
-                        <th></th>
+                        <th style="font-size: 11px;">Date</th>
+                        <th style="font-size: 11px;">Legal Basis (§ 164.512)</th>
+                        <th style="font-size: 11px;">Recipient &amp; Address</th>
+                        <th style="font-size: 11px;">Purpose &amp; Records Disclosed</th>
+                        <th style="font-size: 11px;">Medium / Ref #</th>
+                        <th style="font-size: 11px;">Recorded By</th>
+                        <th style="font-size: 11px; text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="disclosureDetailTableBody">
-                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                    <tr><td colspan="7" class="table-empty">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -9703,48 +9711,94 @@ textarea.pd-sdoh-readonly {
 </div>
 
 <div class="modal-overlay" id="disclosureFormModalOverlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 680px;">
         <div class="modal-header">
             <h2 id="disclosureFormTitle">Record Disclosure</h2>
             <button type="button" class="modal-close" id="closeDisclosureFormModal">&times;</button>
         </div>
-        <p class="form-subtitle">Record a disclosure of this patient's information.</p>
+        <p class="form-subtitle">Record a statutory PHI disclosure under HIPAA § 164.528.</p>
 
         <div id="disclosureFormAlert"></div>
 
         <form id="disclosureForm">
             <input type="hidden" id="disclosure_record_id">
 
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label>Date</label>
-                    <input id="disclosure_disclosure_date" type="date" class="form-input">
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>Date of Disclosure <span style="color: #ef4444;">*</span></label>
+                    <input id="disclosure_disclosure_date" type="date" class="form-input" required>
+                    <span class="form-error" id="err-disclosure_disclosure_date"></span>
                 </div>
 
-                <div class="form-group full">
-                    <label>Type of Disclosure</label>
-                    <select id="disclosure_disclosure_type" class="form-input">
-                        <option value="Treatment">Treatment</option>
-                        <option value="Payment">Payment</option>
-                        <option value="Health Care Operations">Health Care Operations</option>
-                        <option value="Required by Law">Required by Law</option>
-                        <option value="Other">Other</option>
+                <div class="form-group">
+                    <label>Statutory Legal Basis (§ 164.512) <span style="color: #ef4444;">*</span></label>
+                    <select id="disclosure_legal_basis" class="form-input" required>
+                        <option value="court_order_subpoena">Court Order / Subpoena (§ 164.512(e))</option>
+                        <option value="public_health">Public Health Reporting (§ 164.512(b))</option>
+                        <option value="law_enforcement">Law Enforcement Inquiries (§ 164.512(f))</option>
+                        <option value="health_oversight">Health Oversight Audit (§ 164.512(d))</option>
+                        <option value="hie_exchange">Health Information Exchange (HIE)</option>
+                        <option value="abuse_neglect">Abuse / Neglect Reporting (§ 164.512(c))</option>
+                        <option value="threat_safety">Averting Serious Threat (§ 164.512(j))</option>
+                        <option value="workers_comp">Workers' Compensation (§ 164.512(l))</option>
+                        <option value="coroner_medical_examiner">Coroner / Medical Examiner (§ 164.512(g))</option>
+                        <option value="organ_procurement">Organ Donation (§ 164.512(h))</option>
+                        <option value="other_non_tpo">Other Non-TPO Release</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Recipient Entity / Person <span style="color: #ef4444;">*</span></label>
+                    <input id="disclosure_recipient" class="form-input" placeholder="e.g. State Dept of Health, Superior Court" required>
+                    <span class="form-error" id="err-disclosure_recipient"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Recipient Address / Jurisdiction</label>
+                    <input id="disclosure_recipient_address" class="form-input" placeholder="Address or jurisdiction if known">
+                </div>
+
+                <div class="form-group">
+                    <label>Requesting Official / Contact</label>
+                    <input id="disclosure_requestor_name" class="form-input" placeholder="Judge, attorney, or inspector name">
+                </div>
+
+                <div class="form-group">
+                    <label>Disclosure Medium</label>
+                    <select id="disclosure_disclosure_medium" class="form-input">
+                        <option value="electronic_portal">Electronic Portal / API Feed</option>
+                        <option value="secure_email">Encrypted Secure Email</option>
+                        <option value="encrypted_media">Encrypted Storage Media</option>
+                        <option value="fax">Secure HIPAA Fax</option>
+                        <option value="paper_mail">Certified Paper Mail</option>
+                        <option value="in_person">In-Person Legal Handover</option>
                     </select>
                 </div>
 
                 <div class="form-group full">
-                    <label>Recipient of the Disclosure</label>
-                    <input id="disclosure_recipient" class="form-input" placeholder="Who received this information">
-                    <span class="form-error" id="err-disclosure_recipient"></span>
+                    <label>Case / Docket / Subpoena Ref #</label>
+                    <input id="disclosure_reference_number" class="form-input" placeholder="e.g. DOCKET-2026-CV-8912">
                 </div>
 
                 <div class="form-group full">
-                    <label>Description of the Disclosure</label>
-                    <textarea id="disclosure_description" class="form-input" style="min-height: 90px;" placeholder="What was disclosed and why"></textarea>
+                    <label>Statement of Purpose (§ 164.528(b)(2)(iv)) <span style="color: #ef4444;">*</span></label>
+                    <input id="disclosure_purpose" class="form-input" placeholder="e.g. Mandatory public health communicable disease report" required>
+                    <span class="form-error" id="err-disclosure_purpose"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Specific PHI Records Disclosed (§ 164.528(b)(2)(iii)) <span style="color: #ef4444;">*</span></label>
+                    <textarea id="disclosure_records_disclosed" class="form-input" style="min-height: 60px;" placeholder="Diagnostic labs, encounter notes, immunization records" required></textarea>
+                    <span class="form-error" id="err-disclosure_records_disclosed"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Additional Internal Notes</label>
+                    <textarea id="disclosure_description" class="form-input" style="min-height: 50px;" placeholder="Additional notes or tracking numbers"></textarea>
                 </div>
             </div>
 
-            <div class="form-actions">
+            <div class="form-actions" style="margin-top: 14px;">
                 <button type="button" class="btn-secondary" id="cancelDisclosureForm">Cancel</button>
                 <button class="login-btn" type="submit">Save</button>
             </div>

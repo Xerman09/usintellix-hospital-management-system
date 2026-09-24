@@ -338,19 +338,107 @@ Implement procedures to regularly review records of information system activity,
 ### Accounting of Disclosures (§ 164.528)
 
 #### Requirements
-An individual has a right to receive an accounting of disclosures of protected health information made by a covered entity in the six years prior to the date on which the accounting is requested.
+Under **45 CFR § 164.528**, an individual has an absolute statutory right to receive a formal **Accounting of Disclosures** of protected health information (PHI) made by a covered entity in the **six (6) years** prior to the date on which the accounting is requested.
+
+Under **45 CFR § 164.528(b)(2)**, the accounting must be in writing and must include for each reportable disclosure:
+1. The **date of disclosure** (§ 164.528(b)(2)(i)).
+2. The **name of the entity or person** who received the PHI, and, if known, their **address** (§ 164.528(b)(2)(ii)).
+3. A **brief description of the protected health information disclosed** (§ 164.528(b)(2)(iii)).
+4. A **brief statement of the purpose** of the disclosure that reasonably informs the individual of the basis for the disclosure (§ 164.528(b)(2)(iv)), or a copy of a written request for disclosure under § 164.512.
+5. Requesting official or court contact, transmission medium, and case/docket reference numbers.
+
+**Exemptions (45 CFR § 164.528(a)(1))**: Disclosures made to carry out Treatment, Payment, and Health Care Operations (TPO), disclosures made to the individual, disclosures authorized by the individual under § 164.508, incidental disclosures under § 164.502(a)(1)(iii), and disclosures for national security or intelligence purposes are excluded from the accounting ledger. The submodule focuses strictly on reportable, non-TPO external releases.
 
 #### System Implementation
-- The **Accounting of Disclosures Module** (`backend/app/Modules/Disclosures/`) tracks all external sharing of ePHI:
-  - Disclosures to public health authorities (e.g., CDC syndromic surveillance).
-  - Subpoenas, law enforcement, and court orders.
-  - Workers' compensation and third-party payer audits.
-- Each recorded disclosure captures:
-  - Date and time of disclosure.
-  - Recipient organization and contact details.
-  - Specific clinical documents or data elements disclosed.
-  - Legal basis / purpose under HIPAA Privacy Rule.
-- Patients can request an Accounting of Disclosures report through the Patient Portal or Health Information Management (HIM) department.
+
+1. **Dedicated Accounting of Disclosures Submodule (`Miscellaneous &rarr; Accounting of Disclosures`)**:
+   - Accessible from the main navigation menu via `data-tab="misc_disclosures"` for authorized clinical and compliance staff.
+   - **Real-Time Statutory Metric Cards**:
+     - *Total Active Disclosures*: Total recorded non-TPO releases.
+     - *Court Orders & Subpoenas*: Releases pursuant to § 164.512(e).
+     - *Public Health Authorities*: Mandatory communicable disease & surveillance reporting pursuant to § 164.512(b).
+     - *Law Enforcement Inquiries*: Disclosures pursuant to § 164.512(f).
+     - *HIE / External Exchanges*: Regional health information exchange transfers.
+     - *6-Year Statutory Window*: Disclosures falling within the mandatory 6-year lookback period (§ 164.528(a)(1)).
+   - **Statutory Filter Toolbar & Quick Presets**:
+     - Quick preset buttons: **Last 6 Years (Mandatory statutory scope)**, **Last 1 Year**, **Last 90 Days**, and **All Time**.
+     - Multi-criteria filtering by search keywords (patient, recipient, reference docket number, or requestor), statutory legal basis (§ 164.512 category), and custom date ranges.
+
+2. **Patient Chart Integration (`patients-list.view.js` & `patients-list.js`)**:
+   - The patient dashboard displays a dedicated **Disclosures** widget showing active disclosures with colored legal basis badges.
+   - Clinical and HIM staff can open the **Accounting of Disclosures** modal directly from the patient chart, view chronological releases, record new disclosures with all statutory metadata, or edit existing entries.
+   - A direct **"Print Statement"** button within the patient chart modal generates the formal patient accounting statement for the active chart in one click.
+
+3. **Formal Patient Accounting Statement Generator & Printable PDF**:
+   - Fulfills the covered entity's obligation to provide the patient with a formal written accounting statement within 60 days of request (§ 164.528(c)(1)).
+   - Generates an official legal statement featuring:
+     - Hospital letterhead and Health Information Management / Privacy Office contact details.
+     - Patient identification block (Patient Name, Medical Record Number / MRN, Date of Birth, Sex, Contact Phone).
+     - Accounting period scope dates and verified disclosure count.
+     - Complete itemized disclosures table with Date, Recipient Name & Address, Statutory Basis (§ 164.512), Statement of Purpose, Specific Records Disclosed, and Delivery Medium / Docket Ref #.
+     - Mandatory statutory disclosure notice detailing TPO exemptions.
+     - Official Privacy Officer Certification and signature block with unique audit tracking ID.
+   - Formatted with `@media print` CSS rules for instant high-resolution printing or PDF export via the browser's native print engine.
+
+4. **Regulatory CSV Export**:
+   - Compliance officers and auditors can export disclosures matching any filter criteria directly to RFC 4180 CSV via `GET /api/disclosures/export-csv`.
+   - Includes full compliance metadata headers, date generated, and complete statutory fields for submission during OCR audits.
+
+5. **Enhanced Database Schema (`disclosures` table)**:
+   ```sql
+   CREATE TABLE IF NOT EXISTS disclosures (
+       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       patient_id INT UNSIGNED NOT NULL,
+       disclosure_date DATETIME NOT NULL,
+       legal_basis ENUM(
+           'court_order_subpoena',
+           'public_health',
+           'law_enforcement',
+           'health_oversight',
+           'hie_exchange',
+           'abuse_neglect',
+           'threat_safety',
+           'workers_comp',
+           'coroner_medical_examiner',
+           'organ_procurement',
+           'other_non_tpo'
+       ) NOT NULL DEFAULT 'court_order_subpoena',
+       recipient VARCHAR(255) NOT NULL,
+       recipient_address VARCHAR(255) NULL,
+       requestor_name VARCHAR(150) NULL,
+       disclosure_medium ENUM(
+           'electronic_portal',
+           'secure_email',
+           'encrypted_media',
+           'fax',
+           'paper_mail',
+           'in_person'
+       ) NOT NULL DEFAULT 'electronic_portal',
+       reference_number VARCHAR(100) NULL,
+       purpose TEXT NOT NULL,
+       records_disclosed TEXT NOT NULL,
+       description TEXT NULL,
+       is_tpo_exempt TINYINT(1) NOT NULL DEFAULT 0,
+       created_by INT UNSIGNED NULL,
+       updated_by INT UNSIGNED NULL,
+       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at DATETIME NULL,
+       deleted_at DATETIME NULL,
+       deleted_by INT UNSIGNED NULL,
+       INDEX idx_disclosures_patient (patient_id),
+       INDEX idx_disclosures_date (disclosure_date),
+       INDEX idx_disclosures_legal_basis (legal_basis),
+       CONSTRAINT fk_disclosures_patient FOREIGN KEY (patient_id) REFERENCES patients (id) ON DELETE CASCADE
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+   ```
+
+6. **Tamper-Evident SHA-256 Audit Logging (§ 164.312(b))**:
+   - Every disclosure action triggers an immutable entry in `hipaa_audit_logs` protected by SHA-256 HMAC hash chaining:
+     - `RECORD_DISCLOSURE`: Logged when an external PHI release is entered.
+     - `UPDATE_DISCLOSURE`: Logged with previous and modified values.
+     - `DELETE_DISCLOSURE`: Soft-deletion logged with user credentials and patient ID.
+     - `EXPORT_DISCLOSURE_REPORT`: Logged when a patient accounting statement or CSV export is compiled.
+
 
 ---
 
