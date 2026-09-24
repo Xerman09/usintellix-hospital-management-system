@@ -659,7 +659,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule, statutory fields (§ 164.528(b)(2)), statement export | **Implemented** | Low |
 | **§§ 164.400 - 164.414**| **Breach Notification & Risk Assessment** | Statutory 4-factor risk assessment, 60-day timers, patient letter generator, OCR export | **Implemented** | Low |
 | **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, executed BAA tracking, 60-day renewal alerts, OCR dossier, CSV export | **Implemented** | Low |
-| **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression & EDI 837 claim blocking | **Roadmap (Tier 1)** | High |
+| **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression, EDI 837 claim block, Fee Sheet & Billing indicators | **Implemented** | Low |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Alternative contact toggles (phone/email/address), chart warning badge | **Roadmap (Tier 2)** | High |
 | **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Designated Record Set request clock & one-click export bundle | **Roadmap (Tier 2)** | High |
 | **§ 164.526** | **Statutory PHI Amendment Workflow** | 60-day clock, statutory denial notices, disagreement linking | **Roadmap (Tier 2)** | Medium |
@@ -779,9 +779,37 @@ Under Section 13405(a) of the HITECH Act and 45 CFR § 164.522(a)(1)(vi), a cove
 1. The disclosure is for the purpose of carrying out payment or health care operations and is not otherwise required by law; and
 2. The protected health information pertains solely to a health care item or service for which the individual, or person other than the health plan on behalf of the individual, has paid the covered entity in full.
 
-#### Technical Enforcement Mechanism
-- **Encounter / Fee Sheet Flag**: A legally binding toggle `HITECH Out-of-Pocket Disclosure Restriction (§ 164.522(a))` recorded in the database.
-- **Automated EDI Claim Suppression**: Claim generation pipelines (EDI 837P) and batch clearinghouse exports must programmatically exclude encounters flagged with this restriction.
+#### System Implementation
+1. **Database Schema & Migration**:
+   - Migration `204_hitech_out_of_pocket_restrictions.sql` added 7 columns to `encounters`:
+     - `hitech_restriction_requested` (TINYINT(1), default 0)
+     - `hitech_restriction_date` (DATETIME, timestamp of restriction request)
+     - `hitech_restriction_operator_id` (INT UNSIGNED, operator who applied restriction)
+     - `hitech_paid_in_full` (TINYINT(1), default 0, payment verification)
+     - `hitech_payment_reference` (VARCHAR(100), receipt or transaction ID)
+     - `hitech_restriction_notes` (TEXT, covered scope / rationale)
+     - `claim_suppressed` (TINYINT(1), default 0, claim generation suppression flag)
+   - Created dedicated registry table `hipaa_hitech_restrictions` with foreign keys (`encounters.id`, `patients.id`), indexing on `requested_at`, `claim_suppressed`, and `operator_id`.
+
+2. **Automated Claim Suppression & Hard Server-Side EDI Block**:
+   - Setting `hitech_restriction_requested = 1` automatically sets `claim_suppressed = 1`.
+   - In `EncounterService::setX12Status()`, any attempt to set an encounter's X12 transmission status to `sent` or `accepted` while `hitech_restriction_requested` or `claim_suppressed` is true is strictly blocked with HTTP 422, throwing a legal prohibition error and writing a high-severity audit record `ACTION_HITECH_CLAIM_BLOCKED`.
+
+3. **User Interface Controls**:
+   - **Encounter Form Modal**: High-visibility amber card with toggle, paid-in-full checkbox, receipt reference field, and claim suppression warning.
+   - **Fee Sheet / Superbill**: Top amber alert banner (`#pdFeeSheetHitechBanner`) alerting providers and billing staff that the visit is suppressed from health plan submission.
+   - **Billing Manager Worklist**: `🔒 HITECH Restricted (Claim Suppressed)` pill on encounter blocks, X12 `sent`/`accepted` options disabled in dropdown, and criteria builder option `hitech_restriction` (restricted vs. unrestricted).
+
+4. **Cryptographic Audit Trail**:
+   - Sequential HMAC-SHA-256 chained audit logs under category `CATEGORY_HITECH`:
+     - `HITECH_RESTRICTION_APPLIED`
+     - `HITECH_RESTRICTION_REMOVED`
+     - `HITECH_CLAIM_SUPPRESSED`
+     - `HITECH_CLAIM_DISPATCH_BLOCKED`
+     - `EXPORT_HITECH_REGISTRY_CSV`
+
+5. **OCR Regulatory Audit Readiness**:
+   - Endpoint `GET /encounters/hitech-registry/export` streams standardized RFC 4180 CSV reports with statutory metadata headers for OCR audit validation.
 
 ---
 
@@ -888,10 +916,10 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
 
 ```
 +-------------------------------------------------------------------------------+
-| PHASE 1: Critical Statutory Modules (Audit Showstoppers)                      |
-| * Breach Assessment & Security Incident Log (§§ 164.400 - 164.414)            |
-| * Business Associate Agreement (BAA) Vendor Registry (§ 164.502(e))           |
-| * HITECH Paid-in-Full Out-of-Pocket Insurance Restriction (§ 164.522(a))      |
+| PHASE 1: Critical Statutory Modules (Audit Showstoppers) [ALL COMPLETE]       |
+| * Breach Assessment & Security Incident Log (§§ 164.400 - 164.414) [COMPLETE] |
+| * Business Associate Agreement (BAA) Vendor Registry (§ 164.502(e)) [COMPLETE]|
+| * HITECH Paid-in-Full Out-of-Pocket Insurance Restriction (§ 164.522)[COMPLETE]|
 +-------------------------------------------------------------------------------+
                                         |
                                         v

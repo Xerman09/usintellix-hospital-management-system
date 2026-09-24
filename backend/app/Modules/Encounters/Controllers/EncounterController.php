@@ -24,7 +24,9 @@ class EncounterController extends Controller
         'visit_category_id', 'class_id', 'visit_type_id', 'sensitivity',
         'encounter_provider_id', 'referring_provider_id', 'facility_id',
         'billing_facility_id', 'date_of_service', 'onset_date', 'in_collection',
-        'discharge_disposition_id', 'reason_for_visit'
+        'discharge_disposition_id', 'reason_for_visit',
+        'hitech_restriction_requested', 'hitech_restriction_date', 'hitech_restriction_operator_id',
+        'hitech_paid_in_full', 'hitech_payment_reference', 'hitech_restriction_notes', 'claim_suppressed'
     ];
 
     public function __construct()
@@ -332,6 +334,114 @@ class EncounterController extends Controller
         }
 
         $this->success(null, $result['message']);
+    }
+
+    /**
+     * Get HITECH out-of-pocket restriction details for an encounter.
+     */
+    public function getHitechRestriction(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+        $encounterId = (int) $request->input('encounter_id', $request->input('id'));
+
+        if (!$encounterId) {
+            $this->error('Encounter ID is required.', 422);
+            return;
+        }
+
+        $record = $this->encounterService->find($encounterId);
+        if (!$record || !$this->ownsPatient($user, (int) $record['patient_id'])) {
+            $this->error('Encounter record not found.', 404);
+            return;
+        }
+
+        $restriction = $this->encounterService->getHitechRestriction($encounterId);
+        $this->success($restriction, 'HITECH restriction details retrieved.');
+    }
+
+    /**
+     * Set / toggle HITECH out-of-pocket restriction directly for an encounter.
+     */
+    public function setHitechRestriction(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+        $encounterId = (int) $request->input('encounter_id', $request->input('id'));
+
+        if (!$encounterId) {
+            $this->error('Encounter ID is required.', 422);
+            return;
+        }
+
+        $record = $this->encounterService->find($encounterId);
+        if (!$record || !$this->ownsPatient($user, (int) $record['patient_id'])) {
+            $this->error('Encounter record not found.', 404);
+            return;
+        }
+
+        $data = [
+            'hitech_restriction_requested' => $request->input('hitech_restriction_requested'),
+            'hitech_paid_in_full'          => $request->input('hitech_paid_in_full'),
+            'hitech_payment_reference'     => $request->input('hitech_payment_reference'),
+            'hitech_restriction_notes'     => $request->input('hitech_restriction_notes'),
+            'restricted_health_plan'       => $request->input('restricted_health_plan', 'All Health Plans')
+        ];
+
+        $result = $this->encounterService->setHitechRestriction($encounterId, $data, (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
+     * Master HITECH § 164.522(a)(1)(vi) Restriction Registry for compliance & OCR auditing.
+     */
+    public function hitechRegistry(): void
+    {
+        $request = new Request();
+        $filters = [
+            'patient_id'            => $request->input('patient_id'),
+            'restriction_requested' => $request->input('restriction_requested'),
+            'paid_in_full'          => $request->input('paid_in_full'),
+            'date_from'             => $request->input('date_from'),
+            'date_to'               => $request->input('date_to'),
+            'search'                => $request->input('search')
+        ];
+
+        $data = $this->encounterService->listHitechRestrictions($filters);
+        $this->success($data, 'HITECH Restriction Registry retrieved.');
+    }
+
+    /**
+     * Export HITECH Out-of-Pocket Insurance Restriction Registry as CSV.
+     */
+    public function exportHitechCsv(): void
+    {
+        $request = new Request();
+        $filters = [
+            'patient_id'            => $request->input('patient_id'),
+            'restriction_requested' => $request->input('restriction_requested'),
+            'paid_in_full'          => $request->input('paid_in_full'),
+            'date_from'             => $request->input('date_from'),
+            'date_to'               => $request->input('date_to'),
+            'search'                => $request->input('search')
+        ];
+
+        $csv = $this->encounterService->exportHitechRestrictionsCsv($filters);
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="HITECH_Out_Of_Pocket_Restrictions_' . date('Ymd_His') . '.csv"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        echo $csv;
+        exit;
     }
 
     private function ownsPatient(array $user, int $patientId): bool

@@ -1148,11 +1148,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Centralized vendor inventory, signed BAA tracking, review/expiration schedules, breach SLAs, and OCR Question #1 dossiers.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #fffbeb;">
+                            <tr>
                                 <td><strong>§ 164.522(a)(1)(vi)</strong></td>
                                 <td><strong>HITECH Paid-in-Full Insurance Restriction</strong></td>
-                                <td>Mandatory patient right to withhold disclosure to health plans for out-of-pocket services; EDI 837P claim suppression.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-amber">🟠 Roadmap (Tier 1)</span></td>
+                                <td>Mandatory patient right to withhold disclosure to health plans for out-of-pocket services; automatic claim suppression (<code>claim_suppressed = 1</code>), server-side EDI X12 dispatch block, statutory registry (<code>hipaa_hitech_restrictions</code>), Fee Sheet and Billing Manager worklist indicators.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
                                 <td><strong>§ 164.522(b)</strong></td>
@@ -1251,17 +1251,19 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 3. HITECH OUT-OF-POCKET RESTRICTION -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #d97706; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #b45309; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #10b981; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
                             <span>3. HITECH Mandatory Out-of-Pocket Insurance Restriction (§ 164.522(a)(1)(vi))</span>
-                            <span class="sysdoc-badge sysdoc-badge-amber">High Priority Legal Mandate</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
-                            Enacted under Section 13405(a) of the HITECH Act, covered entities <strong>must agree</strong> to a patient's request to restrict disclosure of PHI to a health plan/insurer if the encounter or service has been paid in full out-of-pocket. Accidental inclusion of these encounters into an insurance claim batch is an illegal HIPAA Privacy Rule breach.
+                            Enacted under Section 13405(a) of the HITECH Act, covered entities <strong>must agree</strong> to a patient's request to restrict disclosure of PHI to a health plan/insurer if the encounter or service has been paid in full out-of-pocket. Accidental inclusion of these encounters into an insurance claim batch is an automatic HIPAA Privacy Rule violation.
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
-                            <li><strong>Encounter &amp; Fee Sheet Toggles:</strong> An explicit checkbox <em>"HITECH Out-of-Pocket Disclosure Restriction (§ 164.522(a))"</em> on the encounter form and billing sheet.</li>
-                            <li><strong>Automated Claim Suppression:</strong> Server-side logic that automatically blocks flagged encounters from being batched into EDI 837P insurance claim files or dispatched to clearinghouses.</li>
+                            <li><strong>Encounter Form &amp; Fee Sheet Integration:</strong> Dedicated toggle card on the encounter modal recording mandatory restriction, paid-in-full status, receipt ref #, and scope; real-time amber alert banner on the Fee Sheet.</li>
+                            <li><strong>Automated Claim Suppression &amp; EDI Dispatch Block:</strong> Flagging automatically sets <code>claim_suppressed = 1</code>. Server-side validation in <code>EncounterService::setX12Status()</code> strictly rejects marking restricted encounters as <code>sent</code> or <code>accepted</code>, writing tamper-evident blocks to <code>hipaa_audit_logs</code>.</li>
+                            <li><strong>Billing Manager Worklist Indicators:</strong> High-visibility <code>🔒 HITECH Restricted</code> chip on the worklist; X12 submission options disabled; custom criteria filter (<code>hitech_restriction</code>).</li>
+                            <li><strong>Statutory Registry &amp; OCR Export:</strong> Dedicated <code>hipaa_hitech_restrictions</code> database table synced on every restriction action; RFC 4180 CSV export for HHS OCR audit inspection.</li>
                         </ul>
                     </div>
 
@@ -1366,15 +1368,15 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     <!-- IMPLEMENTATION ROADMAP -->
                     <div class="sysdoc-subheading" style="margin-top: 24px;">Recommended Implementation Sequence</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 10px;">
-                        <div style="background: #fff; border: 1px solid #fecaca; border-radius: 8px; padding: 16px;">
+                        <div style="background: #fff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span class="sysdoc-badge sysdoc-badge-red">Phase 1</span>
-                                <strong style="font-size: 14px; color: #991b1b;">Critical Statutory Gaps</strong>
+                                <span class="sysdoc-badge sysdoc-badge-green">Phase 1 Complete</span>
+                                <strong style="font-size: 14px; color: #166534;">Tier 1 Statutory Modules</strong>
                             </div>
                             <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #475569;">
-                                <li><strong>Breach Assessment Log (§§ 164.400-414):</strong> 4-factor risk assessment, 60-day timers, OCR reporting.</li>
-                                <li><strong>BAA Vendor Registry (§ 164.502(e)):</strong> Vendor tracking, signed agreements, renewal alerts.</li>
-                                <li><strong>HITECH Out-of-Pocket (§ 164.522(a)):</strong> Encounter self-pay insurance suppression flag.</li>
+                                <li><strong>Breach Assessment Log (§§ 164.400-414):</strong> 4-factor risk assessment, 60-day timers, OCR export. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
+                                <li><strong>BAA Vendor Registry (§ 164.502(e)):</strong> Vendor tracking, signed BAAs, OCR Question #1 dossiers. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
+                                <li><strong>HITECH Out-of-Pocket (§ 164.522(a)):</strong> Encounter self-pay claim suppression &amp; EDI X12 block. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                             </ul>
                         </div>
                         <div style="background: #fff; border: 1px solid #fde68a; border-radius: 8px; padding: 16px;">

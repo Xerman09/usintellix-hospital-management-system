@@ -556,6 +556,7 @@ export function BillingManagerView() {
                     <li><button type="button" data-criteria-type="encounter">Encounter</button></li>
                     <li><button type="button" data-criteria-type="provider">Provider</button></li>
                     <li><button type="button" data-criteria-type="facility">Facility</button></li>
+                    <li><button type="button" data-criteria-type="hitech_restriction">HITECH § 164.522(a) Restriction</button></li>
                 </ul>
 
                 <div class="bm-criteria-value-form" id="bmCriteriaValueForm">

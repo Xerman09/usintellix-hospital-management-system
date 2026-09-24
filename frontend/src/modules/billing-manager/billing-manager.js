@@ -16,7 +16,8 @@ const CRITERIA_LABELS = {
     insurance: "Insurance Company",
     encounter: "Encounter",
     provider: "Provider",
-    facility: "Facility"
+    facility: "Facility",
+    hitech_restriction: "HITECH Restriction"
 };
 
 const BILL_STATUS_LABELS = { unassigned: "Unassigned", cleared: "Cleared" };
@@ -127,6 +128,16 @@ function buildValueFieldsHtml(type) {
     if (type === "facility") {
         const options = criteriaOptions.facilities.map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join("");
         return `<label>Facility</label><select id="bmCriteriaValue">${options || `<option value="">No facilities on file</option>`}</select>`;
+    }
+
+    if (type === "hitech_restriction") {
+        return `
+            <label>HITECH Out-of-Pocket Insurance Restriction</label>
+            <select id="bmCriteriaValue">
+                <option value="restricted">Restricted (Self-Pay / Suppressed)</option>
+                <option value="unrestricted">Unrestricted (Standard Claim)</option>
+            </select>
+        `;
     }
 
     const placeholder = type === "patient_name" ? "Search by name..." : type === "patient_id" ? "Patient No..." : "Encounter Id...";
@@ -285,6 +296,7 @@ function renderResults(data) {
 
             if (!result.success) {
                 showToast(result.message || "Failed to update X12 status.", "error");
+                await runSearch();
             }
         });
     });
@@ -313,6 +325,7 @@ function renderEncounterBlock(patient, encounter) {
                 <span class="bm-chip bm-chip-encounter" data-encounter-chip="${encounter.encounter_id}" data-patient-id="${patient.patient_id}" title="Open this visit's Fee Sheet">Encounter ${escapeHtml(dateLabel)}</span>
                 <span class="bm-chip ${insuranceClass}">${patient.has_insurance ? "Insurance" : "No Insurance"}</span>
                 <span class="bm-chip bm-chip-mbo" title="Medical Billing Office routing -- not available in this build">MBO</span>
+                ${encounter.hitech_restriction_requested ? `<span class="bm-chip" style="background:#fef3c7; color:#92400e; border:1px solid #f59e0b; font-weight:700; font-size:11px;" title="45 CFR § 164.522(a)(1)(vi): Mandatory out-of-pocket restriction active. Insurance claim suppressed.">🔒 HITECH Restricted</span>` : ""}
                 <button type="button" class="bm-expand-toggle" data-expand-toggle="${encounter.encounter_id}">(Expand)</button>
             </div>
 
@@ -333,9 +346,13 @@ function renderEncounterBlock(patient, encounter) {
                     </div>
                     <div class="bm-claim-status-group">
                         X12:
-                        <select data-x12-status-select="${encounter.encounter_id}">
-                            ${Object.entries(X12_STATUS_LABELS).map(([value, label]) => `<option value="${value}" ${encounter.x12_status === value ? "selected" : ""}>${label}</option>`).join("")}
+                        <select data-x12-status-select="${encounter.encounter_id}" ${encounter.hitech_restriction_requested ? 'title="EDI transmission blocked under HITECH § 164.522(a)"' : ''}>
+                            ${Object.entries(X12_STATUS_LABELS).map(([value, label]) => {
+                                const isBlocked = encounter.hitech_restriction_requested && (value === "sent" || value === "accepted");
+                                return `<option value="${value}" ${encounter.x12_status === value ? "selected" : ""} ${isBlocked ? 'disabled style="color:#b91c1c;"' : ''}>${label}${isBlocked ? " (Blocked)" : ""}</option>`;
+                            }).join("")}
                         </select>
+                        ${encounter.hitech_restriction_requested ? `<span style="font-size:11px; color:#b45309; font-weight:600; display:inline-flex; align-items:center; gap:4px;">🔒 Claim Suppressed</span>` : ""}
                     </div>
                 </div>
             </div>

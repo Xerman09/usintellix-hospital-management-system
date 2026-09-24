@@ -10700,7 +10700,8 @@ const ENCOUNTER_DETAIL_FIELDS = [
     "visit_category_id", "class_id", "visit_type_id", "sensitivity",
     "encounter_provider_id", "referring_provider_id", "facility_id",
     "billing_facility_id", "onset_date", "in_collection", "discharge_disposition_id",
-    "reason_for_visit"
+    "reason_for_visit",
+    "hitech_restriction_requested", "hitech_paid_in_full", "hitech_payment_reference", "hitech_restriction_notes"
 ];
 
 const ENCOUNTER_ISSUE_TAGS = {
@@ -10751,6 +10752,17 @@ function setupEncounterModals()
 
     document.getElementById("encounter_in_collection_toggle").addEventListener("change", (event) => {
         document.getElementById("encounter_in_collection").value = event.target.checked ? "1" : "0";
+    });
+
+    document.getElementById("encounter_hitech_restriction_toggle")?.addEventListener("change", (event) => {
+        const checked = event.target.checked;
+        document.getElementById("encounter_hitech_restriction_requested").value = checked ? "1" : "0";
+        const fields = document.getElementById("hitechRestrictionFields");
+        if (fields) fields.style.display = checked ? "block" : "none";
+    });
+
+    document.getElementById("encounter_hitech_paid_in_full_toggle")?.addEventListener("change", (event) => {
+        document.getElementById("encounter_hitech_paid_in_full").value = event.target.checked ? "1" : "0";
     });
 
     document.getElementById("addEncounterBillingCodeBtn").addEventListener("click", () => {
@@ -10893,7 +10905,10 @@ function renderEncounterDetailTable(encounters)
     tbody.innerHTML = encounters.map((encounter) => `
         <tr>
             <td>${escapeHtml((encounter.date_of_service || "").slice(0, 16).replace("T", " "))}</td>
-            <td>${escapeHtml(encounter.visit_category_name || "-")}</td>
+            <td>
+                ${escapeHtml(encounter.visit_category_name || "-")}
+                ${Number(encounter.hitech_restriction_requested) === 1 ? `<span style="margin-left: 6px; font-size: 10px; font-weight: 700; background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; border: 1px solid #f59e0b; display: inline-flex; align-items: center; gap: 3px;" title="HITECH § 164.522(a)(1)(vi) Mandatory Out-of-Pocket Insurance Restriction Active. Claim Suppressed.">🔒 HITECH</span>` : ""}
+            </td>
             <td>${escapeHtml(encounter.encounter_provider_name || "-")}</td>
             <td>${escapeHtml(encounter.facility_name || "-")}</td>
             <td class="table-actions">
@@ -11048,11 +11063,49 @@ async function openEncounterFormModal(existingRecord)
         document.getElementById("encounter_onset_date").value = (existingRecord.onset_date || "").slice(0, 10);
         document.getElementById("encounter_in_collection").value = Number(existingRecord.in_collection) ? "1" : "0";
         document.getElementById("encounter_reason_for_visit").value = existingRecord.reason_for_visit || "";
+
+        const isHitech = Number(existingRecord.hitech_restriction_requested) === 1;
+        const reqEl = document.getElementById("encounter_hitech_restriction_requested");
+        const togEl = document.getElementById("encounter_hitech_restriction_toggle");
+        const fldEl = document.getElementById("hitechRestrictionFields");
+        if (reqEl) reqEl.value = isHitech ? "1" : "0";
+        if (togEl) togEl.checked = isHitech;
+        if (fldEl) fldEl.style.display = isHitech ? "block" : "none";
+
+        const isPif = existingRecord.hitech_paid_in_full != null ? Number(existingRecord.hitech_paid_in_full) === 1 : true;
+        const pifEl = document.getElementById("encounter_hitech_paid_in_full");
+        const pifTogEl = document.getElementById("encounter_hitech_paid_in_full_toggle");
+        if (pifEl) pifEl.value = isPif ? "1" : "0";
+        if (pifTogEl) pifTogEl.checked = isPif;
+
+        const refEl = document.getElementById("encounter_hitech_payment_reference");
+        if (refEl) refEl.value = existingRecord.hitech_payment_reference || "";
+
+        const notesEl = document.getElementById("encounter_hitech_restriction_notes");
+        if (notesEl) notesEl.value = existingRecord.hitech_restriction_notes || "";
     } else {
         title.textContent = "New Encounter";
         recordIdInput.value = "";
         document.getElementById("encounter_sensitivity").value = "normal";
         document.getElementById("encounter_in_collection").value = "0";
+
+        const reqEl = document.getElementById("encounter_hitech_restriction_requested");
+        const togEl = document.getElementById("encounter_hitech_restriction_toggle");
+        const fldEl = document.getElementById("hitechRestrictionFields");
+        if (reqEl) reqEl.value = "0";
+        if (togEl) togEl.checked = false;
+        if (fldEl) fldEl.style.display = "none";
+
+        const pifEl = document.getElementById("encounter_hitech_paid_in_full");
+        const pifTogEl = document.getElementById("encounter_hitech_paid_in_full_toggle");
+        if (pifEl) pifEl.value = "1";
+        if (pifTogEl) pifTogEl.checked = true;
+
+        const refEl = document.getElementById("encounter_hitech_payment_reference");
+        if (refEl) refEl.value = "";
+
+        const notesEl = document.getElementById("encounter_hitech_restriction_notes");
+        if (notesEl) notesEl.value = "";
 
         const now = new Date();
         const pad = (n) => String(n).padStart(2, "0");
@@ -13055,15 +13108,55 @@ async function openFeeSheetModule(preferredEncounterId)
         document.getElementById("pdFeeSheetTitle").textContent = "Fee Sheet";
         document.getElementById("pdFeeSheetTableBody").innerHTML = `<tr><td colspan="10" class="table-empty">No visits recorded for this patient yet -- create a visit before using the Fee Sheet.</td></tr>`;
         document.getElementById("pdFeeSheetDxTableBody").innerHTML = `<tr><td colspan="4" class="table-empty">No visits recorded yet.</td></tr>`;
+        updateFeeSheetHitechBanner(null);
         return;
     }
 
     await loadFeeSheet();
 }
 
+function updateFeeSheetHitechBanner(encounter)
+{
+    const banner = document.getElementById("pdFeeSheetHitechBanner");
+    if (!banner) return;
+
+    if (!encounter || Number(encounter.hitech_restriction_requested) !== 1) {
+        banner.style.display = "none";
+        banner.innerHTML = "";
+        return;
+    }
+
+    banner.style.display = "block";
+    banner.innerHTML = `
+        <div style="background: #fffbeb; border: 1px solid #f59e0b; border-left: 5px solid #d97706; padding: 12px 16px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div>
+                <div style="font-weight: 700; color: #b45309; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">🔒</span> HITECH § 164.522(a)(1)(vi) Mandatory Out-of-Pocket Insurance Restriction Active
+                    <span style="background: #dc2626; color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase;">Claim Suppressed</span>
+                </div>
+                <div style="font-size: 12px; color: #92400e; margin-top: 4px; line-height: 1.4;">
+                    Patient paid in full out-of-pocket ${encounter.hitech_payment_reference ? `(Ref: <strong>${escapeHtml(encounter.hitech_payment_reference)}</strong>)` : ""}. 
+                    <strong>Federal Law Prohibits Insurance Disclosure:</strong> This visit is suppressed from insurance claim generation and EDI X12 clearinghouse batches.
+                </div>
+            </div>
+            <button type="button" class="btn-secondary" id="pdFeeSheetEditHitechBtn" style="font-size: 11px; padding: 6px 12px; font-weight: 600; white-space: nowrap;">
+                Manage Restriction
+            </button>
+        </div>
+    `;
+
+    const editBtn = document.getElementById("pdFeeSheetEditHitechBtn");
+    if (editBtn) {
+        editBtn.addEventListener("click", () => {
+            openEncounterFormModal(encounter);
+        });
+    }
+}
+
 async function loadFeeSheet()
 {
     const encounter = feeSheetEncounter;
+    updateFeeSheetHitechBanner(encounter);
     const patientName = currentDashboardPatient
         ? [currentDashboardPatient.first_name, currentDashboardPatient.last_name].filter(Boolean).join(" ")
         : "";

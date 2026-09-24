@@ -19,7 +19,9 @@ class EncounterService
         'visit_category_id', 'class_id', 'visit_type_id', 'sensitivity',
         'encounter_provider_id', 'referring_provider_id', 'facility_id',
         'billing_facility_id', 'date_of_service', 'onset_date', 'in_collection',
-        'discharge_disposition_id', 'reason_for_visit'
+        'discharge_disposition_id', 'reason_for_visit',
+        'hitech_restriction_requested', 'hitech_restriction_date', 'hitech_restriction_operator_id',
+        'hitech_paid_in_full', 'hitech_payment_reference', 'hitech_restriction_notes', 'claim_suppressed'
     ];
 
     private const LIST_SQL =
@@ -34,6 +36,9 @@ class EncounterService
                 e.billing_facility_id, bf.name AS billing_facility_name,
                 e.date_of_service, e.onset_date, e.in_collection,
                 e.discharge_disposition_id, dd.name AS discharge_disposition_name,
+                e.hitech_restriction_requested, e.hitech_restriction_date, e.hitech_restriction_operator_id,
+                e.hitech_paid_in_full, e.hitech_payment_reference, e.hitech_restriction_notes, e.claim_suppressed,
+                e.bill_status, e.x12_status,
                 e.reason_for_visit, e.billing_note, e.created_at, e.updated_at,
                 (SELECT GROUP_CONCAT(CONCAT(ei.issue_type, ':', ei.issue_id) SEPARATOR ',')
                  FROM encounter_issues ei
@@ -297,6 +302,9 @@ class EncounterService
         $data['patient_id'] = $patientId;
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $createdBy;
+        if (!empty($data['hitech_restriction_requested']) && empty($data['hitech_restriction_operator_id'])) {
+            $data['hitech_restriction_operator_id'] = $createdBy;
+        }
 
         $id = (new Encounter())->create($data);
 
@@ -309,6 +317,18 @@ class EncounterService
 
         $this->syncIssues($id, $issueLinks);
         $this->syncBillingCodes($id, $billingCodes);
+
+        // HITECH § 164.522(a)(1)(vi) Mandatory Out-of-Pocket Restriction Sync
+        if (!empty($data['hitech_restriction_requested'])) {
+            $this->syncHitechRegistry($id, $patientId, $data, $createdBy);
+            \App\Core\AuditLogger::log(
+                \App\Core\AuditLogger::CATEGORY_HITECH,
+                \App\Core\AuditLogger::ACTION_HITECH_RESTRICTION_APPLIED,
+                "HITECH § 164.522(a)(1)(vi) mandatory out-of-pocket health plan disclosure restriction applied to encounter #{$id}. Claim generation suppressed.",
+                $patientId,
+                $createdBy
+            );
+        }
 
         return [
             'success' => true,
@@ -345,10 +365,42 @@ class EncounterService
         $data['updated_at'] = date('Y-m-d H:i:s');
         $data['updated_by'] = $updatedBy;
 
+        $wasRestricted = !empty($record['hitech_restriction_requested']);
+        $nowRestricted = isset($data['hitech_restriction_requested']) ? !empty($data['hitech_restriction_requested']) : $wasRestricted;
+
+        if ($nowRestricted && empty($data['hitech_restriction_operator_id'])) {
+            $data['hitech_restriction_operator_id'] = $updatedBy;
+        }
+
         (new Encounter())->update($data, $id);
 
         $this->syncIssues($id, $issueLinks);
         $this->syncBillingCodes($id, $billingCodes);
+
+        $patientId = (int) $record['patient_id'];
+
+        // Audit & Registry sync for HITECH restriction transitions
+        if (!$wasRestricted && $nowRestricted) {
+            $this->syncHitechRegistry($id, $patientId, $data, $updatedBy);
+            \App\Core\AuditLogger::log(
+                \App\Core\AuditLogger::CATEGORY_HITECH,
+                \App\Core\AuditLogger::ACTION_HITECH_RESTRICTION_APPLIED,
+                "HITECH § 164.522(a)(1)(vi) mandatory out-of-pocket health plan restriction applied to encounter #{$id}. Claim generation suppressed.",
+                $patientId,
+                $updatedBy
+            );
+        } elseif ($wasRestricted && !$nowRestricted) {
+            $this->removeHitechRegistry($id);
+            \App\Core\AuditLogger::log(
+                \App\Core\AuditLogger::CATEGORY_HITECH,
+                \App\Core\AuditLogger::ACTION_HITECH_RESTRICTION_REMOVED,
+                "HITECH § 164.522(a)(1)(vi) out-of-pocket health plan restriction removed for encounter #{$id}. Claim suppression lifted.",
+                $patientId,
+                $updatedBy
+            );
+        } elseif ($nowRestricted) {
+            $this->syncHitechRegistry($id, $patientId, $data, $updatedBy);
+        }
 
         return [
             'success' => true,
@@ -392,7 +444,8 @@ class EncounterService
      */
     public const BILLING_CRITERIA_TYPES = [
         'date_of_service', 'date_of_entry', 'billing_status', 'claim_type',
-        'patient_name', 'patient_id', 'insurance', 'encounter', 'provider', 'facility'
+        'patient_name', 'patient_id', 'insurance', 'encounter', 'provider', 'facility',
+        'hitech_restriction'
     ];
 
     /**
@@ -503,11 +556,20 @@ class EncounterService
                     $where[] = "e.facility_id = :facility{$i}";
                     $params["facility{$i}"] = (int) $value;
                     break;
+
+                case 'hitech_restriction':
+                    if (strtolower($value) === 'restricted') {
+                        $where[] = "e.hitech_restriction_requested = 1";
+                    } elseif (strtolower($value) === 'unrestricted') {
+                        $where[] = "e.hitech_restriction_requested = 0";
+                    }
+                    break;
             }
         }
 
         $stmt = Database::connection()->prepare(
             "SELECT e.id AS encounter_id, e.patient_id, e.date_of_service, e.bill_status, e.x12_status,
+                    e.hitech_restriction_requested, e.hitech_restriction_date, e.hitech_paid_in_full, e.hitech_payment_reference, e.claim_suppressed,
                     p.patient_no, TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name, p.birthdate,
                     EXISTS (SELECT 1 FROM patient_insurances pi WHERE pi.patient_id = e.patient_id AND pi.deleted_at IS NULL) AS has_insurance
              FROM encounters e
@@ -585,6 +647,11 @@ class EncounterService
                 'date_of_service' => $row['date_of_service'],
                 'bill_status' => $row['bill_status'],
                 'x12_status' => $row['x12_status'],
+                'hitech_restriction_requested' => (bool) $row['hitech_restriction_requested'],
+                'hitech_restriction_date' => $row['hitech_restriction_date'],
+                'hitech_paid_in_full' => (bool) $row['hitech_paid_in_full'],
+                'hitech_payment_reference' => $row['hitech_payment_reference'],
+                'claim_suppressed' => (bool) $row['claim_suppressed'],
                 'total_charges' => round($encounterTotal, 2),
                 'charges' => $charges
             ];
@@ -663,6 +730,27 @@ class EncounterService
 
         if (!$record || $record['deleted_at'] !== null) {
             return ['success' => false, 'message' => 'Encounter not found.'];
+        }
+
+        // HITECH § 164.522(a)(1)(vi) Enforcement:
+        // If an encounter is flagged with HITECH out-of-pocket restriction or claim suppression,
+        // it is legally prohibited from being marked as 'sent' or 'accepted' to health insurance / clearinghouse.
+        if (in_array($status, ['sent', 'accepted'], true)) {
+            $isRestricted = !empty($record['hitech_restriction_requested']) || !empty($record['claim_suppressed']);
+            if ($isRestricted) {
+                \App\Core\AuditLogger::log(
+                    \App\Core\AuditLogger::CATEGORY_HITECH,
+                    \App\Core\AuditLogger::ACTION_HITECH_CLAIM_BLOCKED,
+                    "EDI X12 claim dispatch blocked for encounter #{$encounterId}. Mandatory out-of-pocket restriction (§ 164.522(a)(1)(vi)) is active.",
+                    (int) $record['patient_id'],
+                    $userId
+                );
+
+                return [
+                    'success' => false,
+                    'message' => 'EDI X12 claim transmission is legally prohibited for encounter #' . $encounterId . ' under HITECH § 164.522(a)(1)(vi) mandatory out-of-pocket restriction. Claim is suppressed.'
+                ];
+            }
         }
 
         (new Encounter())->update([
@@ -802,9 +890,333 @@ class EncounterService
                 continue;
             }
 
+            if ($field === 'hitech_restriction_requested' || $field === 'hitech_paid_in_full' || $field === 'claim_suppressed') {
+                $result[$field] = (!empty($value) && $value !== 'false' && $value !== '0') ? 1 : 0;
+                continue;
+            }
+
             $result[$field] = $value === '' ? null : $value;
+        }
+
+        // Under 45 CFR § 164.522(a)(1)(vi), if HITECH restriction is requested, claim suppression is MANDATORY
+        if (!empty($result['hitech_restriction_requested'])) {
+            $result['claim_suppressed'] = 1;
+            if (empty($result['hitech_restriction_date'])) {
+                $result['hitech_restriction_date'] = date('Y-m-d H:i:s');
+            }
         }
 
         return $result;
     }
+
+    /**
+     * Synchronize encounter's HITECH restriction to hipaa_hitech_restrictions registry.
+     */
+    public function syncHitechRegistry(int $encounterId, int $patientId, array $data, int $operatorId): void
+    {
+        $existing = (new \App\Modules\Encounters\Models\HitechRestriction())
+            ->where('encounter_id', $encounterId)
+            ->first();
+
+        $now = date('Y-m-d H:i:s');
+        $recordData = [
+            'encounter_id' => $encounterId,
+            'patient_id' => $patientId,
+            'restriction_requested' => 1,
+            'paid_in_full' => !empty($data['hitech_paid_in_full']) ? 1 : 0,
+            'payment_reference' => $data['hitech_payment_reference'] ?? null,
+            'restricted_health_plan' => $data['restricted_health_plan'] ?? 'All Health Plans',
+            'restriction_notes' => $data['hitech_restriction_notes'] ?? null,
+            'claim_suppressed' => 1,
+            'requested_at' => $data['hitech_restriction_date'] ?? $now,
+            'operator_id' => $operatorId,
+            'updated_at' => $now
+        ];
+
+        if ($existing) {
+            (new \App\Modules\Encounters\Models\HitechRestriction())->update($recordData, (int) $existing['id']);
+        } else {
+            $recordData['created_at'] = $now;
+            (new \App\Modules\Encounters\Models\HitechRestriction())->create($recordData);
+        }
+    }
+
+    /**
+     * Mark HITECH restriction lifted/removed in the registry.
+     */
+    public function removeHitechRegistry(int $encounterId): void
+    {
+        $existing = (new \App\Modules\Encounters\Models\HitechRestriction())
+            ->where('encounter_id', $encounterId)
+            ->first();
+
+        if ($existing) {
+            (new \App\Modules\Encounters\Models\HitechRestriction())->update([
+                'restriction_requested' => 0,
+                'claim_suppressed' => 0,
+                'updated_at' => date('Y-m-d H:i:s')
+            ], (int) $existing['id']);
+        }
+    }
+
+    /**
+     * Set or toggle HITECH out-of-pocket restriction directly for an encounter.
+     */
+    public function setHitechRestriction(int $encounterId, array $data, int $userId): array
+    {
+        $record = (new Encounter())->where('id', $encounterId)->first();
+
+        if (!$record || $record['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Encounter not found.'];
+        }
+
+        $patientId = (int) $record['patient_id'];
+        $requested = (!empty($data['hitech_restriction_requested']) && $data['hitech_restriction_requested'] !== 'false' && $data['hitech_restriction_requested'] !== '0') ? 1 : 0;
+        $paidInFull = (!empty($data['hitech_paid_in_full']) && $data['hitech_paid_in_full'] !== 'false' && $data['hitech_paid_in_full'] !== '0') ? 1 : 0;
+        $paymentRef = !empty($data['hitech_payment_reference']) ? trim((string) $data['hitech_payment_reference']) : null;
+        $notes = !empty($data['hitech_restriction_notes']) ? trim((string) $data['hitech_restriction_notes']) : null;
+        $targetPlan = !empty($data['restricted_health_plan']) ? trim((string) $data['restricted_health_plan']) : 'All Health Plans';
+        $now = date('Y-m-d H:i:s');
+
+        $updateData = [
+            'hitech_restriction_requested' => $requested,
+            'hitech_paid_in_full' => $paidInFull,
+            'hitech_payment_reference' => $paymentRef,
+            'hitech_restriction_notes' => $notes,
+            'claim_suppressed' => $requested ? 1 : 0,
+            'updated_at' => $now,
+            'updated_by' => $userId
+        ];
+
+        if ($requested) {
+            $updateData['hitech_restriction_date'] = $record['hitech_restriction_date'] ?? $now;
+            $updateData['hitech_restriction_operator_id'] = $userId;
+        }
+
+        (new Encounter())->update($updateData, $encounterId);
+
+        if ($requested) {
+            $this->syncHitechRegistry($encounterId, $patientId, array_merge($updateData, ['restricted_health_plan' => $targetPlan]), $userId);
+            \App\Core\AuditLogger::log(
+                \App\Core\AuditLogger::CATEGORY_HITECH,
+                \App\Core\AuditLogger::ACTION_HITECH_RESTRICTION_APPLIED,
+                "HITECH § 164.522(a)(1)(vi) mandatory restriction set on encounter #{$encounterId} for patient #{$patientId}. Paid in full: " . ($paidInFull ? 'Yes' : 'No') . ". Claim suppressed.",
+                $patientId,
+                $userId
+            );
+        } else {
+            $this->removeHitechRegistry($encounterId);
+            \App\Core\AuditLogger::log(
+                \App\Core\AuditLogger::CATEGORY_HITECH,
+                \App\Core\AuditLogger::ACTION_HITECH_RESTRICTION_REMOVED,
+                "HITECH § 164.522(a)(1)(vi) restriction removed on encounter #{$encounterId} for patient #{$patientId}. Claim suppression lifted.",
+                $patientId,
+                $userId
+            );
+        }
+
+        return [
+            'success' => true,
+            'message' => $requested ? 'HITECH out-of-pocket restriction applied and claim suppressed.' : 'HITECH restriction removed.',
+            'data' => [
+                'encounter_id' => $encounterId,
+                'hitech_restriction_requested' => (bool) $requested,
+                'claim_suppressed' => (bool) ($requested ? 1 : 0),
+                'hitech_paid_in_full' => (bool) $paidInFull,
+                'hitech_payment_reference' => $paymentRef
+            ]
+        ];
+    }
+
+    /**
+     * Get HITECH restriction details for an encounter.
+     */
+    public function getHitechRestriction(int $encounterId): ?array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare(
+            "SELECT hr.*, e.date_of_service, e.x12_status, e.bill_status,
+                    p.patient_no, TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name,
+                    u.username AS operator_name
+             FROM hipaa_hitech_restrictions hr
+             JOIN encounters e ON e.id = hr.encounter_id
+             JOIN patients p ON p.id = hr.patient_id
+             LEFT JOIN users u ON u.id = hr.operator_id
+             WHERE hr.encounter_id = :enc_id
+             LIMIT 1"
+        );
+        $stmt->execute(['enc_id' => $encounterId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $row['restriction_requested'] = (bool) $row['restriction_requested'];
+            $row['paid_in_full'] = (bool) $row['paid_in_full'];
+            $row['claim_suppressed'] = (bool) $row['claim_suppressed'];
+            return $row;
+        }
+
+        // Fall back to encounters table if not yet synced in registry
+        $enc = (new Encounter())->where('id', $encounterId)->first();
+        if ($enc && !empty($enc['hitech_restriction_requested'])) {
+            return [
+                'encounter_id' => (int) $enc['id'],
+                'patient_id' => (int) $enc['patient_id'],
+                'restriction_requested' => (bool) $enc['hitech_restriction_requested'],
+                'paid_in_full' => (bool) $enc['hitech_paid_in_full'],
+                'payment_reference' => $enc['hitech_payment_reference'],
+                'restricted_health_plan' => 'All Health Plans',
+                'restriction_notes' => $enc['hitech_restriction_notes'],
+                'claim_suppressed' => (bool) $enc['claim_suppressed'],
+                'requested_at' => $enc['hitech_restriction_date'],
+                'operator_id' => $enc['hitech_restriction_operator_id']
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * List HITECH restriction records for regulatory review & OCR audit reporting.
+     */
+    public function listHitechRestrictions(array $filters = []): array
+    {
+        $db = Database::connection();
+        $where = ['e.deleted_at IS NULL'];
+        $params = [];
+
+        if (!empty($filters['patient_id'])) {
+            $where[] = 'hr.patient_id = :patient_id';
+            $params['patient_id'] = (int) $filters['patient_id'];
+        }
+
+        if (isset($filters['restriction_requested']) && $filters['restriction_requested'] !== '') {
+            $where[] = 'hr.restriction_requested = :req';
+            $params['req'] = (int) $filters['restriction_requested'];
+        }
+
+        if (isset($filters['paid_in_full']) && $filters['paid_in_full'] !== '') {
+            $where[] = 'hr.paid_in_full = :pif';
+            $params['pif'] = (int) $filters['paid_in_full'];
+        }
+
+        if (!empty($filters['date_from'])) {
+            $where[] = 'hr.requested_at >= :date_from';
+            $params['date_from'] = $filters['date_from'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['date_to'])) {
+            $where[] = 'hr.requested_at <= :date_to';
+            $params['date_to'] = $filters['date_to'] . ' 23:59:59';
+        }
+
+        if (!empty($filters['search'])) {
+            $term = '%' . trim($filters['search']) . '%';
+            $where[] = '(p.patient_no LIKE :term OR p.first_name LIKE :term OR p.last_name LIKE :term OR hr.payment_reference LIKE :term OR hr.restriction_notes LIKE :term)';
+            $params['term'] = $term;
+        }
+
+        $sql = "SELECT hr.*, e.date_of_service, e.bill_status, e.x12_status,
+                       p.patient_no, TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name,
+                       u.username AS operator_name
+                FROM hipaa_hitech_restrictions hr
+                JOIN encounters e ON e.id = hr.encounter_id
+                JOIN patients p ON p.id = hr.patient_id
+                LEFT JOIN users u ON u.id = hr.operator_id
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY hr.requested_at DESC, hr.id DESC";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Stats calculation
+        $statsStmt = $db->query(
+            "SELECT 
+                COUNT(*) AS total_restrictions,
+                SUM(CASE WHEN restriction_requested = 1 THEN 1 ELSE 0 END) AS active_restrictions,
+                SUM(CASE WHEN paid_in_full = 1 THEN 1 ELSE 0 END) AS paid_in_full_count,
+                SUM(CASE WHEN claim_suppressed = 1 THEN 1 ELSE 0 END) AS suppressed_claims_count
+             FROM hipaa_hitech_restrictions"
+        );
+        $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: [
+            'total_restrictions' => 0,
+            'active_restrictions' => 0,
+            'paid_in_full_count' => 0,
+            'suppressed_claims_count' => 0
+        ];
+
+        return [
+            'restrictions' => $rows,
+            'stats' => [
+                'total_restrictions' => (int) ($stats['total_restrictions'] ?? 0),
+                'active_restrictions' => (int) ($stats['active_restrictions'] ?? 0),
+                'paid_in_full_count' => (int) ($stats['paid_in_full_count'] ?? 0),
+                'suppressed_claims_count' => (int) ($stats['suppressed_claims_count'] ?? 0)
+            ]
+        ];
+    }
+
+    /**
+     * Export HITECH Out-of-Pocket Insurance Restriction Registry as RFC 4180 CSV for OCR audit review.
+     */
+    public function exportHitechRestrictionsCsv(array $filters = []): string
+    {
+        $data = $this->listHitechRestrictions($filters);
+        $output = fopen('php://temp', 'r+');
+
+        fputcsv($output, [
+            '# USINTELLIX HOSPITAL MANAGEMENT SYSTEM - OCR AUDIT COMPLIANCE REPORT',
+            'HITECH Act § 13405(a) / 45 CFR § 164.522(a)(1)(vi) Mandatory Out-of-Pocket Insurance Disclosure Restriction Registry',
+            'Generated: ' . date('Y-m-d H:i:s')
+        ]);
+        fputcsv($output, []); // empty line
+
+        fputcsv($output, [
+            'Registry ID',
+            'Encounter ID',
+            'Date of Service',
+            'Patient MRN',
+            'Patient Name',
+            'Restriction Requested',
+            'Paid in Full',
+            'Payment Reference',
+            'Restricted Health Plan',
+            'Claim Suppressed',
+            'X12 Status',
+            'Date Requested',
+            'Operator Name',
+            'Restriction Notes'
+        ]);
+
+        foreach ($data['restrictions'] as $row) {
+            fputcsv($output, [
+                $row['id'],
+                $row['encounter_id'],
+                $row['date_of_service'],
+                $row['patient_no'],
+                $row['patient_name'],
+                $row['restriction_requested'] ? 'YES (Mandatory)' : 'NO',
+                $row['paid_in_full'] ? 'YES (Paid in Full)' : 'NO',
+                $row['payment_reference'] ?? 'N/A',
+                $row['restricted_health_plan'] ?? 'All Health Plans',
+                $row['claim_suppressed'] ? 'SUPPRESSED (Compliant)' : 'NOT SUPPRESSED',
+                strtoupper($row['x12_status'] ?? 'UNASSIGNED'),
+                $row['requested_at'],
+                $row['operator_name'] ?? 'System',
+                $row['restriction_notes'] ?? ''
+            ]);
+        }
+
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        \App\Core\AuditLogger::log(
+            \App\Core\AuditLogger::CATEGORY_HITECH,
+            \App\Core\AuditLogger::ACTION_HITECH_EXPORT_REGISTRY,
+            "Exported HITECH § 164.522(a)(1)(vi) Out-of-Pocket Restriction Registry CSV with " . count($data['restrictions']) . " records."
+        );
+
+        return $csv;
+    }
 }
+

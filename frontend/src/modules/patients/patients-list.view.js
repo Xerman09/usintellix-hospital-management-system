@@ -6923,6 +6923,7 @@ textarea.pd-sdoh-readonly {
                     </div>
 
                     <div id="pdFeeSheetAlert"></div>
+                    <div id="pdFeeSheetHitechBanner" style="display: none; margin-bottom: 16px;"></div>
 
                     <div class="pd-report-card">
                         <div class="pd-report-card-header">
@@ -10898,6 +10899,49 @@ textarea.pd-sdoh-readonly {
                     </span>
                 </label>
                 <input type="hidden" id="encounter_in_collection" value="0">
+            </div>
+
+            <div class="ef-section" style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-weight: 700; font-size: 13px; color: #b45309; display: flex; align-items: center; gap: 6px;">
+                            <span>🔒</span> HITECH Out-of-Pocket Insurance Restriction (45 CFR § 164.522(a)(1)(vi))
+                        </span>
+                        <p style="font-size: 11.5px; color: var(--text-muted); margin: 3px 0 0 0; line-height: 1.4;">
+                            Mandatory federal restriction: Suppresses insurance claim generation and prevents disclosure to health plans when service is paid in full out-of-pocket.
+                        </p>
+                    </div>
+                    <label class="ef-toggle" style="margin: 0; flex-shrink: 0;">
+                        <input type="checkbox" id="encounter_hitech_restriction_toggle">
+                        <span class="ef-toggle-track"></span>
+                    </label>
+                </div>
+                <input type="hidden" id="encounter_hitech_restriction_requested" value="0">
+
+                <div id="hitechRestrictionFields" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(245, 158, 11, 0.4);">
+                    <div style="background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️ <strong>Mandatory Claim Suppression Active:</strong> This visit will be strictly blocked from EDI X12 claim batches and insurance billing.</span>
+                    </div>
+                    <div class="ef-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                        <label class="ef-toggle-row" for="encounter_hitech_paid_in_full_toggle" style="border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; margin: 0; background: var(--bg-surface);">
+                            <span style="font-size: 12px; font-weight: 600;">Paid in Full Out-of-Pocket</span>
+                            <span class="ef-toggle">
+                                <input type="checkbox" id="encounter_hitech_paid_in_full_toggle" checked>
+                                <span class="ef-toggle-track"></span>
+                            </span>
+                        </label>
+                        <input type="hidden" id="encounter_hitech_paid_in_full" value="1">
+                        
+                        <div class="ef-field">
+                            <label style="font-size: 11.5px;">Payment / Receipt Ref #</label>
+                            <input type="text" id="encounter_hitech_payment_reference" class="form-input" placeholder="e.g. CASH-1082 or CC-9402" style="font-size: 12px;">
+                        </div>
+                    </div>
+                    <div class="ef-field">
+                        <label style="font-size: 11.5px;">Restriction Notes / Covered Scope</label>
+                        <input type="text" id="encounter_hitech_restriction_notes" class="form-input" placeholder="Patient elected self-pay; mandatory insurance non-disclosure requested" style="font-size: 12px;">
+                    </div>
+                </div>
             </div>
 
             <div class="ef-section">

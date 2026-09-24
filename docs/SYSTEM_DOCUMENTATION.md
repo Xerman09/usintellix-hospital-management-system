@@ -82,7 +82,7 @@ To achieve 100% compliance across an official **HHS Office for Civil Rights (OCR
 |:---|:---|:---|:---:|:---:|
 | **§§ 164.400 – 164.414** | **Breach Notification & 4-Factor Risk Assessment** | Statutory presumption of breach (§ 164.402); mandatory 4-factor risk assessment formula; 60-day patient notification countdown; HHS OCR portal reporting (<500 annual log vs. ≥500 immediate reporting). | 🔴 Critical | **Implemented** |
 | **§ 164.502(e) / § 164.504(e)** | **Business Associate Agreement (BAA) Registry** | Prohibition on sharing ePHI without signed BAA; vendor inventory tracking, review/expiration dates, downstream subcontractor tracking, and automated renewal alerts. | 🔴 Critical | **Implemented** |
-| **§ 164.522(a)(1)(vi)** | **HITECH Out-of-Pocket Insurance Restriction** | Mandatory patient right to withhold disclosure to health plan for care paid in full out-of-pocket; automated EDI 837P claim suppression. | 🟠 High | **Roadmap (Tier 1)** |
+| **§ 164.522(a)(1)(vi)** | **HITECH Out-of-Pocket Insurance Restriction** | Mandatory patient right to withhold disclosure to health plan for care paid in full out-of-pocket; automated claim suppression (<code>claim_suppressed = 1</code>), server-side EDI X12 block, Fee Sheet and Billing Manager worklist indicators. | 🟠 High | **Implemented** |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Patient right to alternative contact methods/locations; voicemail restrictions; chart banner warning badges. | 🟠 High | **Roadmap (Tier 2)** |
 | **§ 164.524** | **Right of Access 30-Day DRS Fulfillment Pipeline** | Designated Record Set request tracker, 30-day statutory countdown timer, one-click comprehensive PDF/JSON export bundle. | 🟠 High | **Roadmap (Tier 2)** |
 | **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | 60-day action clock, written denial notices citing 4 statutory grounds, and Statement of Disagreement linking. | 🟡 Medium | **Roadmap (Tier 2)** |
@@ -259,6 +259,15 @@ USIntellix implements strict Role-Based Access Control (RBAC):
   - *Subcontractor PHI Access Tracking (§ 164.504(e)(2)(ii)(D))*: Audits downstream subcontractor data transmission and contractual breach reporting SLAs (e.g., 24h, 48h, 72h).
   - *HHS OCR Audit Protocol Question #1 Compliance Dossier*: Instant compilation and print-ready rendering satisfying OCR vendor audit inquiries.
   - *RFC 4180 CSV Streaming & Audit Trails*: Exports compliant CSV records and logs all actions into `hipaa_audit_logs` under `CATEGORY_BAA` with HMAC-SHA-256 tamper-evident chaining.
+- **HITECH Mandatory Out-of-Pocket Insurance Restriction (45 CFR § 164.522(a)(1)(vi) & HITECH § 13405(a))**:
+  - *Statutory Right*: Patients have an unconditional right to mandate that providers not disclose an encounter to their health plan if the service is paid in full out-of-pocket.
+  - *Automated Claim Suppression*: Flagging `hitech_restriction_requested = 1` automatically sets `claim_suppressed = 1`. In `EncounterService::setX12Status()`, any attempt to set the encounter's status to `sent` or `accepted` is strictly blocked with HTTP 422, throwing a legal prohibition error and writing a high-severity audit log `ACTION_HITECH_CLAIM_BLOCKED`.
+  - *User Interface Controls*:
+    - *Encounter Form Modal*: Dedicated amber toggle card recording restriction request, paid-in-full status, payment reference, and notes.
+    - *Fee Sheet / Superbill*: Prominent top alert banner (`#pdFeeSheetHitechBanner`) alerting clinicians and billing staff that the visit is suppressed from insurance billing.
+    - *Billing Manager Worklist*: Displays `🔒 HITECH Restricted` chip, disables EDI `sent`/`accepted` status actions, and provides a `hitech_restriction` criteria builder filter.
+  - *Statutory Registry Table & OCR CSV Export*: Synchronizes all restrictions into `hipaa_hitech_restrictions` with foreign keys to encounters and patients. Streams standardized RFC 4180 CSV exports for HHS OCR audit inspection.
+  - *Tamper-Evident Chained Audit Logging*: Sequential HMAC-SHA-256 logs committed under `CATEGORY_HITECH` (`HITECH_RESTRICTION_APPLIED`, `HITECH_RESTRICTION_REMOVED`, `HITECH_CLAIM_SUPPRESSED`, `HITECH_CLAIM_DISPATCH_BLOCKED`, `EXPORT_HITECH_REGISTRY_CSV`).
 
 ---
 

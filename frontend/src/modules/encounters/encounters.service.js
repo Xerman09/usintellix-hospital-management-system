@@ -104,3 +104,23 @@ export async function fetchEncounterTransferSummary(params = {})
 
     return await api(`/encounters/transfer-summary?${query.toString()}`);
 }
+
+export async function fetchHitechRestriction(encounterId)
+{
+    return await api(`/encounters/hitech-restriction?encounter_id=${encodeURIComponent(encounterId)}`);
+}
+
+export async function setHitechRestriction(encounterId, data = {})
+{
+    return await api("/encounters/hitech-restriction", {
+        method: "PUT",
+        body: JSON.stringify({ encounter_id: encounterId, ...data })
+    });
+}
+
+export async function fetchHitechRegistry(params = {})
+{
+    const query = new URLSearchParams(params).toString();
+    return await api(`/encounters/hitech-registry?${query}`);
+}
+

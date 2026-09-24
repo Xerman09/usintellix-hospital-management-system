@@ -53,3 +53,29 @@ $router->delete('/encounters', [EncounterController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+$router->get('/encounters/hitech-restriction', [EncounterController::class, 'getHitechRestriction'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->put('/encounters/hitech-restriction', [EncounterController::class, 'setHitechRestriction'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/encounters/hitech-restriction', [EncounterController::class, 'setHitechRestriction'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/encounters/hitech-registry', [EncounterController::class, 'hitechRegistry'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/encounters/hitech-registry/export', [EncounterController::class, 'exportHitechCsv'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
