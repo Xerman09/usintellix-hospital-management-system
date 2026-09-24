@@ -72,6 +72,7 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.520** | Patient Consent & Notice of Privacy Practices (NPP) Signature Capture | Mandatory 45 CFR § 164.520 patient acknowledgment: first-portal-login electronic signature gating, in-clinic check-in capture console, versioning (`2026-09`), and immutable `npp_consent_log` audit retention. |
 | **§§ 164.400 – 164.414** | Breach Notification & 4-Factor Risk Assessment | Statutory 4-factor risk assessment calculator (§ 164.402), 60-day notification countdown clocks, formal individual notification letters (§ 164.404(c)), HHS OCR JSON portal filing package (§ 164.408), and chained audit logging. |
 | **§ 164.502(e) / § 164.504(e)** | Business Associate Agreement (BAA) Tracking & Vendor Governance | Centralized vendor registry, dynamic 60-day renewal alerts, unexecuted BAA gap warnings, downstream subcontractor PHI tracking (§ 164.504(e)(2)(ii)(D)), HHS OCR Question #1 compliance dossier, and RFC 4180 CSV export. |
+| **§ 164.522(a)(1)(vi)** | HITECH Out-of-Pocket Insurance Restriction | Encounter-level self-pay restriction card, automated `claim_suppressed = 1`, server-side EDI X12 dispatch block, Fee Sheet and Billing Manager worklist indicators, dedicated `hipaa_hitech_restrictions` registry, and RFC 4180 CSV export. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
 ### HIPAA Audit Readiness & Remaining Statutory Parameters

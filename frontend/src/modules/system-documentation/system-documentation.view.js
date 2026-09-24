@@ -511,6 +511,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-privacy" class="sysdoc-nav-item hipaa-highlight">Accounting of Disclosures &amp; Privacy</a>
                 <a href="#sec-hipaa-breach" class="sysdoc-nav-item hipaa-highlight">Breach Notification &amp; 4-Factor (§ 164.400)</a>
                 <a href="#sec-hipaa-baa" class="sysdoc-nav-item hipaa-highlight">BAA Vendor Registry (§ 164.502(e))</a>
+                <a href="#sec-hipaa-hitech" class="sysdoc-nav-item hipaa-highlight">HITECH Self-Pay Restriction (§ 164.522(a))</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -629,11 +630,16 @@ export function SystemDocumentationView(options = {}) {
                                 <td>Business Associate Agreement (BAA) Tracking &amp; Vendor Governance</td>
                                 <td>Centralized vendor registry, dynamic 60-day renewal alerts, unexecuted BAA gap warnings, downstream subcontractor PHI tracking (§ 164.504(e)(2)(ii)(D)), HHS OCR Question #1 compliance dossier, and RFC 4180 CSV export.</td>
                             </tr>
+                            <tr>
+                                <td><strong>§ 164.522(a)(1)(vi)</strong></td>
+                                <td>HITECH Out-of-Pocket Insurance Restriction</td>
+                                <td>Mandatory patient right to withhold disclosure to health plans for self-paid services; automatic claim suppression (<code>claim_suppressed = 1</code>), server-side EDI X12 block, statutory registry table (<code>hipaa_hitech_restrictions</code>), Fee Sheet banner, and Billing Manager worklist protection.</td>
+                            </tr>
                         </tbody>
                     </table>
                     <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                         <div style="font-size: 13px; color: #065f46;">
-                            <strong>HIPAA Audit Compliance Status:</strong> 15 Core Technical, Administrative &amp; Privacy Safeguards are fully operational (~92-95% technical baseline). For the complete OCR compliance matrix and remaining statutory parameters, see the <a href="#sec-hipaa-roadmap" style="color: #047857; font-weight: 700; text-decoration: underline;">Audit Readiness &amp; Statutory Compliance Roadmap</a>.
+                            <strong>HIPAA Audit Compliance Status:</strong> 16 Core Technical, Administrative &amp; Privacy Safeguards are fully operational (~94-96% technical baseline). For the complete OCR compliance matrix and remaining statutory parameters, see the <a href="#sec-hipaa-roadmap" style="color: #047857; font-weight: 700; text-decoration: underline;">Audit Readiness &amp; Statutory Compliance Roadmap</a>.
                         </div>
                     </div>
                 </section>
@@ -1033,6 +1039,40 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: HITECH MANDATORY OUT-OF-POCKET RESTRICTION -->
+                <section id="sec-hipaa-hitech" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M9 12l2 2 4-4"></path></svg>
+                            14. HITECH Mandatory Out-of-Pocket Insurance Restriction (45 CFR § 164.522(a)(1)(vi))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Safeguard</span>
+                    </div>
+                    <p>
+                        Under <strong>45 CFR § 164.522(a)(1)(vi)</strong> (enacted under HITECH Act § 13405(a)), a covered entity <strong>must agree</strong> to a patient's request to restrict disclosure of protected health information to a health plan/insurer if the disclosure is for payment or health care operations and the medical service or encounter has been paid out-of-pocket in full.
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Fail-Safe Claim Suppression &amp; EDI Hard Block Architecture</div>
+                        <p style="margin: 4px 0 8px 0; font-size: 13px;">
+                            Accidental inclusion of a self-paid restricted encounter into an EDI 837P batch or automated billing export is an automatic HIPAA Privacy Rule violation. The system enforces multi-layered technical controls to prevent accidental exposure:
+                        </p>
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>Encounter Intake Form Card:</strong> A dedicated amber toggle card in the Encounter Form modal allows front-desk or clinical registrars to record the patient's mandatory restriction request, paid-in-full verification, receipt or transaction reference, and custom restriction notes.</li>
+                            <li><strong>Automated Database Claim Suppression:</strong> Activating the restriction automatically asserts <code>claim_suppressed = 1</code> and records <code>hitech_restriction_date</code> directly on the <code>encounters</code> record.</li>
+                            <li><strong>Server-Side EDI Hard Block:</strong> <code>EncounterService::setX12Status()</code> enforces an impassable server-side validation rejecting any attempt to transition a restricted encounter's EDI X12 claim status to <code>sent</code> or <code>accepted</code> (HTTP 422 Unprocessable Entity), automatically writing an <code>ACTION_HITECH_CLAIM_BLOCKED</code> audit event.</li>
+                            <li><strong>Fee Sheet Live Warning Banner:</strong> The billing Fee Sheet displays a prominent, persistent amber warning banner (<code>#pdFeeSheetHitechBanner</code>) alerting billing staff that insurance disclosure is prohibited under federal law, displaying receipt verification and offering a direct link to inspect the restriction.</li>
+                            <li><strong>Billing Manager Worklist Safeguards:</strong> Encounters under active restriction are badged with a <code>🔒 HITECH Restricted</code> indicator. The EDI X12 status dropdown options for <code>sent</code> and <code>accepted</code> are strictly disabled with <code>(Blocked)</code> labels. Staff can filter worklists using the dedicated <code>hitech_restriction</code> criteria.</li>
+                            <li><strong>Statutory Registry &amp; OCR Export:</strong> Synchronizes records to the dedicated <code>hipaa_hitech_restrictions</code> table and provides RFC 4180 CSV export functionality with compliance headers citing 45 CFR § 164.522(a)(1)(vi).</li>
+                            <li><strong>Tamper-Evident Chained Audit Logging:</strong> All restriction actions (<code>HITECH_RESTRICTION_APPLIED</code>, <code>HITECH_RESTRICTION_REMOVED</code>, <code>HITECH_CLAIM_DISPATCH_BLOCKED</code>, <code>EXPORT_HITECH_REGISTRY_CSV</code>) are sequentially hashed into <code>hipaa_audit_logs</code> under <code>CATEGORY_HITECH</code>.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('billing_manager', 'Billing Manager'); }">
+                            <span>Open Billing Manager Worklist</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1043,7 +1083,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         <span class="sysdoc-badge sysdoc-badge-green">OCR Audit Protocol (45 CFR)</span>
                     </div>
                     <p>
-                        To achieve 100% compliance and pass an official <strong>HHS Office for Civil Rights (OCR)</strong> or third-party HIPAA audit (SOC 2 Type II + HIPAA, HITRUST CSF), a healthcare system must satisfy every technical, administrative, and physical safeguard under <strong>45 CFR Parts 160 &amp; 164</strong>. USIntellix maintains an industry-grade foundation across 15 core safeguards (~92-95% technical baseline). This section documents the formal compliance scorecard and the remaining statutory parameters required for complete certification.
+                        To achieve 100% compliance and pass an official <strong>HHS Office for Civil Rights (OCR)</strong> or third-party HIPAA audit (SOC 2 Type II + HIPAA, HITRUST CSF), a healthcare system must satisfy every technical, administrative, and physical safeguard under <strong>45 CFR Parts 160 &amp; 164</strong>. USIntellix maintains an industry-grade foundation across 16 core safeguards (~94-96% technical baseline). This section documents the formal compliance scorecard and the remaining statutory parameters required for complete certification.
                     </p>
 
                     <!-- COMPLIANCE STATUS SCORECARD -->
