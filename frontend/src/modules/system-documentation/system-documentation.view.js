@@ -1058,11 +1058,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Statutory 4-factor risk assessment engine, 60-day notification countdown, patient letter generator, and OCR JSON export.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #fffbeb;">
+                            <tr>
                                 <td><strong>§ 164.502(e) / § 164.504(e)</strong></td>
                                 <td><strong>Business Associate Agreement (BAA) Registry</strong></td>
-                                <td>Vendor compliance registry, signed BAA tracking, review/expiration dates, and automated missing BAA alerts.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-red">🔴 Roadmap (Tier 1)</span></td>
+                                <td>Centralized vendor inventory, signed BAA tracking, review/expiration schedules, breach SLAs, and OCR Question #1 dossiers.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #fffbeb;">
                                 <td><strong>§ 164.522(a)(1)(vi)</strong></td>
@@ -1143,19 +1143,27 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 2. BAA VENDOR REGISTRY -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #dc2626; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #991b1b; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
                             <span>2. Business Associate Agreement (BAA) Vendor Registry &amp; Governance (§ 164.502(e) &amp; § 164.504(e))</span>
-                            <span class="sysdoc-badge sysdoc-badge-red">Critical Audit Gap</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
-                            Under <strong>45 CFR § 164.502(e)</strong>, a covered entity may not disclose PHI to a vendor, contractor, or cloud service without obtaining satisfactory assurances through an executed Business Associate Agreement (BAA). OCR routinely imposes severe financial penalties for missing or outdated BAAs.
+                            Under <strong>45 CFR § 164.502(e)</strong> and <strong>§ 164.504(e)</strong>, a covered entity may not disclose PHI to a vendor, contractor, cloud service, or clearinghouse without obtaining satisfactory assurances through an executed Business Associate Agreement (BAA). The system provides a centralized BAA Vendor Registry satisfying <strong>HHS OCR Audit Protocol Question #1</strong>:
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
-                            <li><strong>Required Centralized Registry:</strong> An administrative console tracking all vendors handling ePHI (cloud hosting providers, SMS gateways like Twilio, email relays like SendGrid, external lab interfaces, clearinghouses, billing contractors, IT support).</li>
-                            <li><strong>Compliance Fields:</strong> Vendor Legal Name, Service Description, Primary Contact, BAA Execution Date, Annual Review Date, Expiration Date, PHI Access Level, and Signed Agreement File Path.</li>
-                            <li><strong>Automated Expiration Warnings:</strong> Proactive dashboard alerts 60 and 30 days prior to BAA renewal deadlines, and immediate blocking alerts if a vendor handling PHI lacks an active BAA.</li>
+                            <li><strong>Centralized Vendor Catalog:</strong> Catalogs all vendors handling ePHI (cloud hosting, SMS/email gateways like Twilio/SendGrid, reference laboratories, clearinghouses, billing contractors, transcription/AI tools, IT MSPs).</li>
+                            <li><strong>Comprehensive Contract Tracking:</strong> Records vendor legal name, service category, execution date, expiration/renewal date, last compliance audit date, next scheduled review date, and primary contact.</li>
+                            <li><strong>Downstream Subcontractor PHI Access (§ 164.504(e)(2)(ii)(D)):</strong> Tracks downstream subcontractor data sharing and contractual breach notification SLA hours.</li>
+                            <li><strong>Dynamic Status &amp; 60-Day Warning Engine:</strong> Automatically computes compliance status (<code>active</code>, <code>expiring_soon</code> (&le; 60 days), <code>expired</code>, <code>missing_baa</code>) and presents persistent dashboard warning banners if any active vendor handling PHI lacks an active BAA.</li>
+                            <li><strong>Audit Dossier &amp; RFC 4180 CSV Export:</strong> Generates instant printable compliance dossiers addressing OCR audit question #1 and streams RFC 4180 compliant CSV exports for federal auditors.</li>
+                            <li><strong>HMAC-SHA-256 Audit Trail:</strong> Every vendor creation, status change, dossier review, and CSV export is sequentially logged in <code>hipaa_audit_logs</code> under <code>CATEGORY_BAA</code>.</li>
                         </ul>
+                        <div style="margin-top: 10px;">
+                            <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('business_associates', 'BAA Vendor Registry'); }">
+                                <span>Open BAA Vendor Registry</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 3. HITECH OUT-OF-POCKET RESTRICTION -->

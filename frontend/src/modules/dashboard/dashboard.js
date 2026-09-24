@@ -253,7 +253,7 @@ import { TermsConditionsView } from "../terms-conditions/terms-conditions.view.j
 import { initHipaaAudit } from "../hipaa-audit/hipaa-audit.js?v=2";
 import { HipaaAuditView } from "../hipaa-audit/hipaa-audit.view.js?v=2";
 import { initSystemDocumentation } from "../system-documentation/system-documentation.js?v=5";
-import { SystemDocumentationView } from "../system-documentation/system-documentation.view.js?v=5";
+import { SystemDocumentationView } from "../system-documentation/system-documentation.view.js?v=6";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";
@@ -350,6 +350,8 @@ import { DisclosuresView } from "../disclosures/disclosures.view.js?v=1";
 import { initDisclosures } from "../disclosures/disclosures.js?v=1";
 import { SecurityIncidentsView } from "../security-incidents/security-incidents.view.js?v=1";
 import { initSecurityIncidents } from "../security-incidents/security-incidents.js?v=1";
+import { BusinessAssociatesView } from "../business-associates/business-associates.view.js?v=1";
+import { initBusinessAssociates } from "../business-associates/business-associates.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -737,6 +739,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Security Incidents & Breach Log', () => {
                 setTimeout(initSecurityIncidents, 0);
                 return SecurityIncidentsView();
+            }, activate);
+        } else if (tabId === 'business_associates' || tabId === 'baa_registry' || tabId === 'admin_baa' || tabId === 'misc_baa') {
+            tabManager.openTab(tabId, title || 'BAA Vendor Registry', () => {
+                setTimeout(initBusinessAssociates, 0);
+                return BusinessAssociatesView();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {

@@ -656,7 +656,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.520** | Notice of Privacy Practices (NPP) | First-portal e-signature gating, in-clinic check-in console, audit ledger | **Implemented** | Low |
 | **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule, statutory fields (§ 164.528(b)(2)), statement export | **Implemented** | Low |
 | **§§ 164.400 - 164.414**| **Breach Notification & Risk Assessment** | Statutory 4-factor risk assessment, 60-day timers, patient letter generator, OCR export | **Implemented** | Low |
-| **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, signed BAA tracking, expiration alerts | **Roadmap (Tier 1)** | Critical |
+| **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, executed BAA tracking, 60-day renewal alerts, OCR dossier, CSV export | **Implemented** | Low |
 | **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression & EDI 837 claim blocking | **Roadmap (Tier 1)** | High |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Alternative contact toggles (phone/email/address), chart warning badge | **Roadmap (Tier 2)** | High |
 | **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Designated Record Set request clock & one-click export bundle | **Roadmap (Tier 2)** | High |
@@ -736,6 +736,37 @@ A covered entity may disclose protected health information to a business associa
 - **Centralized Business Associate Registry**: Administrative inventory tracking all third parties handling ePHI (cloud hosting, email/SMS gateways, billing clearinghouses, lab interfaces, transcriptionists, external IT support).
 - **Compliance Parameters**: Legal Vendor Name, Primary Compliance Contact, Services Provided, PHI Access Scope, BAA Execution Date, Annual Audit Review Date, and Expiration Date.
 - **Automated Alerts**: Early warnings 60 days and 30 days prior to BAA renewal deadlines, and critical flags if an integration operates without a verified active agreement on file.
+
+#### System Implementation
+
+1. **Dedicated BAA Vendor Registry Submodule**:
+   - Integrated into hospital navigation under **Administration &rarr; System &rarr; BAA Vendor Registry** and **Miscellaneous &rarr; BAA Vendor Registry** (`data-tab="business_associates"`).
+   - Real-time KPI summary bar tracking Total Vendors, Active BAAs, Expiring Soon (≤60 days), Expired Contracts, Unexecuted BAA Gaps, and Downstream Subcontractor Access.
+
+2. **Automated Status Calculation & 60-Day Renewal Warnings**:
+   - `BusinessAssociateService` evaluates dates upon listing and stats fetching, synchronizing dynamic status:
+     - `missing_baa`: Vendor handles PHI but lacks an executed BAA (`baa_executed = 0` or missing execution date). Triggers critical audit gap alert.
+     - `expired`: Current date is past `baa_expiration_date`.
+     - `expiring_soon`: BAA expires within the statutory 60-day advance window (`days_remaining <= 60`).
+     - `active`: Valid BAA executed and in good standing.
+   - High-Risk Administrative Alert Banner displayed prominently at the top of the submodule whenever any active vendor handling PHI lacks an active BAA or has expired.
+
+3. **Subcontractor Downstream PHI Access Tracking (§ 164.504(e)(2)(ii)(D))**:
+   - Records whether third-party vendors transmit ePHI to downstream subcontractors.
+   - Tracks contractual breach notification SLA hours (e.g., 24h, 48h, 72h) to ensure covered entities meet federal breach reporting deadlines (§ 164.404 / § 164.408).
+
+4. **HHS OCR Audit Protocol Question #1 Compliance Dossier Generator**:
+   - Specifically engineered to satisfy federal auditor Question #1: *"Provide your complete active inventory of Business Associates, including signed BAA copies, execution dates, and compliance audit dates."*
+   - Real-time compilation of the complete compliance dossier with executive audit summary, active vs. missing/expired breakdown, downstream subcontractor disclosure, and `@media print` styling for immediate PDF rendering.
+
+5. **Regulatory RFC 4180 CSV Export**:
+   - Dedicated endpoint `GET /business-associates/export-csv` streaming standardized RFC 4180 compliant CSV logs containing all statutory vendor governance fields.
+
+6. **Sequential HMAC-SHA-256 Chained Audit Trail**:
+   - Every vendor registration, modification, deletion, dossier generation, and CSV export is sequentially chained into `hipaa_audit_logs` under `CATEGORY_BAA` (`RECORD_BUSINESS_ASSOCIATE`, `UPDATE_BUSINESS_ASSOCIATE`, `DELETE_BUSINESS_ASSOCIATE`, `EXPORT_BAA_REGISTRY_CSV`, `GENERATE_BAA_AUDIT_DOSSIER`).
+
+7. **Database Schema (`hipaa_business_associates`)**:
+   - Migration `203_hipaa_business_associate_agreements.sql` creates table with foreign keys, status checks, indexes on legal name, status, and expiration date, plus baseline seed vendors (AWS, Twilio, Quest Diagnostics, Change Healthcare/Optum).
 
 ---
 

@@ -70,6 +70,8 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.502(b) & § 164.514(d)** | Minimum Necessary PHI Access Control | Server-side restriction of clinical charts/labs for non-clinical staff, doctor patient-assignment boundaries, dashboard summary redaction, and Break-Glass modal. |
 | **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule (`Miscellaneous &rarr; Accounting of Disclosures`) tracking all non-TPO PHI releases (subpoenas, public health, law enforcement, HIE); captures full statutory fields (§ 164.528(b)(2)), 6-year retention lookback, printable formal patient accounting statement, regulatory CSV export, and chained audit trails. |
 | **§ 164.520** | Patient Consent & Notice of Privacy Practices (NPP) Signature Capture | Mandatory 45 CFR § 164.520 patient acknowledgment: first-portal-login electronic signature gating, in-clinic check-in capture console, versioning (`2026-09`), and immutable `npp_consent_log` audit retention. |
+| **§§ 164.400 – 164.414** | Breach Notification & 4-Factor Risk Assessment | Statutory 4-factor risk assessment calculator (§ 164.402), 60-day notification countdown clocks, formal individual notification letters (§ 164.404(c)), HHS OCR JSON portal filing package (§ 164.408), and chained audit logging. |
+| **§ 164.502(e) / § 164.504(e)** | Business Associate Agreement (BAA) Tracking & Vendor Governance | Centralized vendor registry, dynamic 60-day renewal alerts, unexecuted BAA gap warnings, downstream subcontractor PHI tracking (§ 164.504(e)(2)(ii)(D)), HHS OCR Question #1 compliance dossier, and RFC 4180 CSV export. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
 ### HIPAA Audit Readiness & Remaining Statutory Parameters
@@ -78,8 +80,8 @@ To achieve 100% compliance across an official **HHS Office for Civil Rights (OCR
 
 | Rule & Section | Safeguard / Missing Parameter | Statutory Mandate & Impact | Priority | Status |
 |:---|:---|:---|:---:|:---:|
-| **§§ 164.400 – 164.414** | **Breach Notification & 4-Factor Risk Assessment** | Statutory presumption of breach (§ 164.402); mandatory 4-factor risk assessment formula; 60-day patient notification countdown; HHS OCR portal reporting (<500 annual log vs. ≥500 immediate reporting). | 🔴 Critical | **Roadmap (Tier 1)** |
-| **§ 164.502(e) / § 164.504(e)** | **Business Associate Agreement (BAA) Registry** | Prohibition on sharing ePHI without signed BAA; vendor inventory tracking, review/expiration dates, and automated renewal alerts. | 🔴 Critical | **Roadmap (Tier 1)** |
+| **§§ 164.400 – 164.414** | **Breach Notification & 4-Factor Risk Assessment** | Statutory presumption of breach (§ 164.402); mandatory 4-factor risk assessment formula; 60-day patient notification countdown; HHS OCR portal reporting (<500 annual log vs. ≥500 immediate reporting). | 🔴 Critical | **Implemented** |
+| **§ 164.502(e) / § 164.504(e)** | **Business Associate Agreement (BAA) Registry** | Prohibition on sharing ePHI without signed BAA; vendor inventory tracking, review/expiration dates, downstream subcontractor tracking, and automated renewal alerts. | 🔴 Critical | **Implemented** |
 | **§ 164.522(a)(1)(vi)** | **HITECH Out-of-Pocket Insurance Restriction** | Mandatory patient right to withhold disclosure to health plan for care paid in full out-of-pocket; automated EDI 837P claim suppression. | 🟠 High | **Roadmap (Tier 1)** |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Patient right to alternative contact methods/locations; voicemail restrictions; chart banner warning badges. | 🟠 High | **Roadmap (Tier 2)** |
 | **§ 164.524** | **Right of Access 30-Day DRS Fulfillment Pipeline** | Designated Record Set request tracker, 30-day statutory countdown timer, one-click comprehensive PDF/JSON export bundle. | 🟠 High | **Roadmap (Tier 2)** |
@@ -246,6 +248,14 @@ USIntellix implements strict Role-Based Access Control (RBAC):
   - *Formal Patient Breach Notification Letter Generator (§ 164.404(c))*: Fulfills all 5 statutory elements (what happened, what information was involved, what the hospital is doing, what the individual can do, contact information) with print-ready letterhead.
   - *HHS OCR Breach Portal JSON Filing Package (§ 164.408)*: Exports standardized filings compliant with HHS.gov OCR Breach Portal specifications (<500 annual log vs. ≥500 immediate notification).
   - *Regulatory CSV Export & Chained Audit Trails*: Streams RFC 4180 CSV exports and commits all actions to `hipaa_audit_logs` under SHA-256 HMAC chaining.
+- **Business Associate Agreement (BAA) Tracking & Vendor Governance (§ 164.502(e) & § 164.504(e))**:
+  - *Dedicated Submodule*: Accessible via `Administration &rarr; System &rarr; BAA Vendor Registry` or `Miscellaneous &rarr; BAA Vendor Registry` (`data-tab="business_associates"`).
+  - *Centralized Vendor Directory & KPIs*: Live inventory tracking of vendors handling ePHI (cloud hosting, SMS/email relays, clearinghouses, labs, AI/transcription, IT MSPs), active contracts, upcoming expirations (≤60 days), expired contracts, and unexecuted BAA audit gaps.
+  - *Dynamic Compliance Status Engine*: Evaluates execution dates and expiration dates in real time, setting status to `active`, `expiring_soon`, `expired`, or `missing_baa`.
+  - *High-Risk Warning Banner*: Immediate administrative alert triggered when any active vendor handling PHI lacks an active BAA or has an expired contract.
+  - *Subcontractor PHI Access Tracking (§ 164.504(e)(2)(ii)(D))*: Audits downstream subcontractor data transmission and contractual breach reporting SLAs (e.g., 24h, 48h, 72h).
+  - *HHS OCR Audit Protocol Question #1 Compliance Dossier*: Instant compilation and print-ready rendering satisfying OCR vendor audit inquiries.
+  - *RFC 4180 CSV Streaming & Audit Trails*: Exports compliant CSV records and logs all actions into `hipaa_audit_logs` under `CATEGORY_BAA` with HMAC-SHA-256 tamper-evident chaining.
 
 ---
 

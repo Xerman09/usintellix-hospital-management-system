@@ -173,6 +173,7 @@ function staffNavLinks(role)
                         <a data-tab="system_documentation">System Documentation</a>
                         <a data-tab="hipaa_audit">HIPAA Audit Logs &amp; Integrity</a>
                         <a data-tab="security_incidents">Security Incidents &amp; Breach Assessment</a>
+                        <a data-tab="business_associates">BAA Vendor Registry (§ 164.502(e))</a>
                         <a data-tab="admin_system_logs">System Logs</a>
                         <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
                         <a data-tab="admin_system_diagnostics">Diagnostics</a>
@@ -332,6 +333,7 @@ function staffNavLinks(role)
                 <a data-tab="misc_new_documents">New Documents</a>
                 <a data-tab="misc_disclosures">Accounting of Disclosures</a>
                 <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
+                <a data-tab="business_associates">BAA Vendor Registry</a>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Blank Forms
@@ -543,6 +545,7 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="misc_new_documents">New Documents</a>
             <a data-tab="misc_disclosures">Accounting of Disclosures</a>
             <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
+            <a data-tab="business_associates">BAA Vendor Registry</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
@@ -622,6 +625,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="misc_new_documents">New Documents</a>
             <a data-tab="misc_disclosures">Accounting of Disclosures</a>
             <a data-tab="misc_security_incidents">Security Incidents &amp; Breach Assessment</a>
+            <a data-tab="business_associates">BAA Vendor Registry</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
