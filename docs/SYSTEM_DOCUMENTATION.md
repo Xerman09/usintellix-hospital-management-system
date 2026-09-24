@@ -238,6 +238,14 @@ USIntellix implements strict Role-Based Access Control (RBAC):
   - *Formal Patient Accounting Statement Generator*: Generates print-ready legal accounting statements fulfilling 45 CFR § 164.528(c)(1) within seconds, complete with facility letterhead, patient demographics, statutory disclosure table, TPO exemption disclosure notices, and Privacy Officer certification signature blocks.
   - *Regulatory Compliance CSV Export*: Streams RFC 4180 CSV exports with compliance metadata headers directly to compliance officers and OCR auditors.
   - *Cryptographic Audit Logging*: All disclosure creation, updates, deletions, and statement generation events are permanently committed to `hipaa_audit_logs` under SHA-256 HMAC hash chaining.
+- **HIPAA Breach Notification Rule & Security Incident 4-Factor Risk Assessment (§§ 164.400 – 164.414 & § 164.308(a)(6))**:
+  - *Dedicated Submodule*: Accessible via `Administration &rarr; System &rarr; Security Incidents &amp; Breach Assessment` or `Miscellaneous &rarr; Security Incidents &amp; Breach Assessment` (`data-tab="security_incidents"`).
+  - *Master Incident Ledger & KPIs*: Real-time tracking of Total Incidents, Active Investigations, Reportable Breaches, 60-Day Deadlines Impending, Overdue Breaches, and Total Affected Individuals.
+  - *Statutory 4-Factor Risk Assessment Engine (§ 164.402)*: Rebuts the federal presumption of breach by systematically evaluating and scoring (1.0 to 5.0) Factor 1 (Nature & extent of PHI), Factor 2 (Unauthorized recipient), Factor 3 (Actual viewing/acquisition), and Factor 4 (Extent of mitigation), generating automated legal determinations (Low Risk Non-Breach vs. Reportable Breach).
+  - *Statutory 60-Day Notification Countdown (§ 164.404)*: Tracks days remaining against the mandatory 60-calendar-day deadline with color-coded warning pills, alerting compliance officers 15 days prior and immediately upon expiration.
+  - *Formal Patient Breach Notification Letter Generator (§ 164.404(c))*: Fulfills all 5 statutory elements (what happened, what information was involved, what the hospital is doing, what the individual can do, contact information) with print-ready letterhead.
+  - *HHS OCR Breach Portal JSON Filing Package (§ 164.408)*: Exports standardized filings compliant with HHS.gov OCR Breach Portal specifications (<500 annual log vs. ≥500 immediate notification).
+  - *Regulatory CSV Export & Chained Audit Trails*: Streams RFC 4180 CSV exports and commits all actions to `hipaa_audit_logs` under SHA-256 HMAC chaining.
 
 ---
 

@@ -1052,11 +1052,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Dedicated submodule tracking non-TPO releases; statutory fields; 6-year presets; printable legal statement &amp; CSV.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #fffbeb;">
+                            <tr>
                                 <td><strong>§§ 164.400 – 164.414</strong></td>
                                 <td><strong>Breach Notification &amp; 4-Factor Risk Assessment</strong></td>
-                                <td>Statutory 4-factor risk assessment engine, 60-day patient notification countdown, and OCR report generator.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-red">🔴 Roadmap (Tier 1)</span></td>
+                                <td>Statutory 4-factor risk assessment engine, 60-day notification countdown, patient letter generator, and OCR JSON export.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #fffbeb;">
                                 <td><strong>§ 164.502(e) / § 164.504(e)</strong></td>
@@ -1119,10 +1119,10 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     <div class="sysdoc-subheading" style="margin-top: 24px;">Detailed Specifications of Remaining Statutory Parameters</div>
 
                     <!-- 1. BREACH NOTIFICATION -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #dc2626;">
-                        <div class="sysdoc-rule-title" style="color: #991b1b; display: flex; align-items: center; justify-content: space-between;">
-                            <span>1. HIPAA Breach Notification Rule &amp; 4-Factor Risk Assessment (§§ 164.400 – 164.414)</span>
-                            <span class="sysdoc-badge sysdoc-badge-red">Critical Audit Gap</span>
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669;">
+                        <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
+                            <span>1. HIPAA Breach Notification Rule &amp; 4-Factor Risk Assessment (§§ 164.400 – 164.414 &amp; § 164.308(a)(6))</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
                             Under <strong>45 CFR § 164.402</strong>, any unauthorized acquisition, access, use, or disclosure of unencrypted PHI is legally presumed to be a reportable breach <em>unless</em> the covered entity demonstrates that there is a low probability the PHI has been compromised based on a mandatory <strong>4-Factor Risk Assessment</strong>:
@@ -1132,9 +1132,14 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                             <li><strong>Factor 2 (Unauthorized Recipient):</strong> Evaluates who accessed or received the PHI (e.g., another covered entity physician vs. an untrusted external party).</li>
                             <li><strong>Factor 3 (Actual Access / Viewing):</strong> Determines whether the PHI was actually opened, viewed, or acquired, or if only device storage was exposed.</li>
                             <li><strong>Factor 4 (Mitigation Extent):</strong> Documents the immediate mitigation steps taken (e.g., immediate verified deletion agreement, returned unopened envelope).</li>
-                            <li><strong>Individual Notification (§ 164.404):</strong> Covered entities must notify affected individuals in writing without unreasonable delay and in no case later than <strong>60 calendar days</strong> following discovery.</li>
-                            <li><strong>HHS OCR Reporting (§ 164.408):</strong> Breaches affecting &ge;500 individuals must be reported to the HHS Secretary without unreasonable delay (&lt;60 days); breaches affecting &lt;500 individuals must be logged and reported annually within 60 days of the calendar year end.</li>
+                            <li><strong>Individual Notification (§ 164.404):</strong> Covered entities must notify affected individuals in writing without unreasonable delay and in no case later than <strong>60 calendar days</strong> following discovery. Formal letter generator fulfills all 5 statutory elements (§ 164.404(c)).</li>
+                            <li><strong>HHS OCR Reporting (§ 164.408):</strong> Breaches affecting &ge;500 individuals must be reported to the HHS Secretary without unreasonable delay (&lt;60 days); breaches affecting &lt;500 individuals must be logged and reported annually within 60 days of calendar year end. One-click standard JSON export matches HHS OCR portal specifications.</li>
                         </ul>
+                        <div style="margin-top: 10px;">
+                            <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('security_incidents', 'Security Incidents & Breach Assessment'); }">
+                                <span>Open Security Incidents &amp; Breach Log</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 2. BAA VENDOR REGISTRY -->

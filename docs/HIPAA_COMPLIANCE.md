@@ -655,7 +655,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.502(b) / § 164.514(d)** | Minimum Necessary PHI | Clinical masking for non-clinical staff; physician assignment boundaries | **Implemented** | Low |
 | **§ 164.520** | Notice of Privacy Practices (NPP) | First-portal e-signature gating, in-clinic check-in console, audit ledger | **Implemented** | Low |
 | **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule, statutory fields (§ 164.528(b)(2)), statement export | **Implemented** | Low |
-| **§§ 164.400 - 164.414**| **Breach Notification & Risk Assessment** | Statutory 4-factor risk assessment, 60-day timers, OCR reporting | **Roadmap (Tier 1)** | Critical |
+| **§§ 164.400 - 164.414**| **Breach Notification & Risk Assessment** | Statutory 4-factor risk assessment, 60-day timers, patient letter generator, OCR export | **Implemented** | Low |
 | **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, signed BAA tracking, expiration alerts | **Roadmap (Tier 1)** | Critical |
 | **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression & EDI 837 claim blocking | **Roadmap (Tier 1)** | High |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Alternative contact toggles (phone/email/address), chart warning badge | **Roadmap (Tier 2)** | High |
@@ -683,6 +683,47 @@ Under 45 CFR § 164.402, an acquisition, access, use, or disclosure of protected
   - Breaches affecting **500 or more individuals**: Notification via HHS web portal without unreasonable delay and no later than **60 calendar days** following discovery.
   - Breaches affecting **fewer than 500 individuals**: Logged and submitted electronically to HHS OCR no later than **60 days after the end of each calendar year**.
 - **Media Notification (§ 164.406)**: Required for breaches affecting more than 500 residents of a State or jurisdiction.
+
+#### System Implementation
+
+1. **Dedicated Security Incidents & Breach Management Submodule**:
+   - Integrated into the hospital navigation under **Administration &rarr; System &rarr; Security Incidents &amp; Breach Assessment** and **Miscellaneous &rarr; Security Incidents &amp; Breach Assessment** (`data-tab="security_incidents"` / `data-tab="misc_security_incidents"`).
+   - Real-time KPI dashboard displaying Total Logged Incidents, Active Investigations, Reportable Breaches (<500 vs. ≥500 major), 60-Day Deadlines Impending, Overdue Breaches, and Total Impacted Patients.
+
+2. **Statutory 4-Factor Risk Assessment Calculator (§ 164.402)**:
+   - Evaluates each mandatory factor with a 1.0–5.0 severity rating and evidentiary narrative:
+     - **Factor 1**: Nature & Extent of PHI (identifiers, clinical sensitivity, re-identification likelihood).
+     - **Factor 2**: Unauthorized Person (identity, role, recipient's legal confidentiality duties).
+     - **Factor 3**: Actual Viewing / Acquisition (forensic logs, download/exfiltration evidence).
+     - **Factor 4**: Risk Mitigation Extent (immediate certified destruction, containment actions).
+   - Real-time composite scoring calculator (`avg = (F1 + F2 + F3 + F4) / 4`) automatically suggests the legal finding:
+     - `score <= 2.0`: Low probability of compromise demonstrated (Non-Breach finding).
+     - `score > 2.0`: Presumption of breach applies (Reportable Breach finding, segregated into Annual OCR Log for <500 vs. Immediate 60-Day OCR for ≥500).
+
+3. **Statutory 60-Day Countdown Clock Tracker (§ 164.404)**:
+   - Automatically computes elapsed and remaining days from the date of discovery.
+   - Renders dynamic status pills:
+     - `countdown-normal`: Blue timer for >15 days remaining.
+     - `countdown-warning`: Pulsing amber alert when ≤15 days remain.
+     - `countdown-overdue`: High-visibility red alert for overdue breaches (<0 days).
+     - `countdown-settled`: Green indicator for verified Non-Breaches or completed notifications.
+
+4. **Statutory Individual Breach Notification Letter Generator (§ 164.404(c))**:
+   - Generates official individualized notification letters fulfilling all 5 mandatory statutory elements:
+     1. Brief description of what happened, including dates of incident and discovery.
+     2. Description of the types of unsecured PHI involved.
+     3. Recommended steps individuals should take to protect themselves from potential harm.
+     4. Brief description of hospital mitigation actions, sanctions, and corrective safeguards.
+     5. Contact procedures for individuals to ask questions, including toll-free number, email, and Compliance Officer info.
+   - Formatted with `@media print` styling for immediate physical printing or PDF generation.
+
+5. **HHS OCR Portal Electronic Filing Package (§ 164.408)**:
+   - One-click compilation of standardized JSON filing packages formatted specifically for submission to the HHS.gov OCR Breach Portal.
+   - Includes full incident metadata, 4-factor scores and rationales, affected patient metrics, containment dates, and compliance officer attestations.
+
+6. **Database Schema (`hipaa_security_incidents` & `hipaa_incident_patients`)**:
+   - Migration `202_hipaa_security_incidents_and_breach_assessment.sql` establishes tables with strict foreign key constraints, indexing, and soft-delete capabilities.
+   - Every incident creation, assessment submission, patient linkage, letter generation, and OCR export is cryptographically chained into `hipaa_audit_logs` under SHA-256 HMAC hash chaining.
 
 ---
 

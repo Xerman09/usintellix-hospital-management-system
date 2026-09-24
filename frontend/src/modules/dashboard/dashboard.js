@@ -348,6 +348,8 @@ import { NewDocumentsView } from "../new-documents/new-documents.view.js?v=4";
 import { initNewDocuments } from "../new-documents/new-documents.js?v=4";
 import { DisclosuresView } from "../disclosures/disclosures.view.js?v=1";
 import { initDisclosures } from "../disclosures/disclosures.js?v=1";
+import { SecurityIncidentsView } from "../security-incidents/security-incidents.view.js?v=1";
+import { initSecurityIncidents } from "../security-incidents/security-incidents.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -730,6 +732,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Accounting of Disclosures', () => {
                 setTimeout(initDisclosures, 0);
                 return DisclosuresView();
+            }, activate);
+        } else if (tabId === 'security_incidents' || tabId === 'misc_security_incidents' || tabId === 'admin_security_incidents' || tabId === 'hipaa_breaches') {
+            tabManager.openTab(tabId, title || 'Security Incidents & Breach Log', () => {
+                setTimeout(initSecurityIncidents, 0);
+                return SecurityIncidentsView();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {
