@@ -73,6 +73,7 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§§ 164.400 – 164.414** | Breach Notification & 4-Factor Risk Assessment | Statutory 4-factor risk assessment calculator (§ 164.402), 60-day notification countdown clocks, formal individual notification letters (§ 164.404(c)), HHS OCR JSON portal filing package (§ 164.408), and chained audit logging. |
 | **§ 164.502(e) / § 164.504(e)** | Business Associate Agreement (BAA) Tracking & Vendor Governance | Centralized vendor registry, dynamic 60-day renewal alerts, unexecuted BAA gap warnings, downstream subcontractor PHI tracking (§ 164.504(e)(2)(ii)(D)), HHS OCR Question #1 compliance dossier, and RFC 4180 CSV export. |
 | **§ 164.522(a)(1)(vi)** | HITECH Out-of-Pocket Insurance Restriction | Encounter-level self-pay restriction card, automated `claim_suppressed = 1`, server-side EDI X12 dispatch block, Fee Sheet and Billing Manager worklist indicators, dedicated `hipaa_hitech_restrictions` registry, and RFC 4180 CSV export. |
+| **§ 164.522(b)** | Confidential Communications Preferences Enforcement | Patient right to alternative communications; binding voicemail and SMS toggles, alternative address/phone/email, Patient Chart and Context Bar alert banners, `hipaa_confidential_communications_log` audit history, and RFC 4180 CSV export. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
 ### HIPAA Audit Readiness & Remaining Statutory Parameters
@@ -84,7 +85,7 @@ To achieve 100% compliance across an official **HHS Office for Civil Rights (OCR
 | **§§ 164.400 – 164.414** | **Breach Notification & 4-Factor Risk Assessment** | Statutory presumption of breach (§ 164.402); mandatory 4-factor risk assessment formula; 60-day patient notification countdown; HHS OCR portal reporting (<500 annual log vs. ≥500 immediate reporting). | 🔴 Critical | **Implemented** |
 | **§ 164.502(e) / § 164.504(e)** | **Business Associate Agreement (BAA) Registry** | Prohibition on sharing ePHI without signed BAA; vendor inventory tracking, review/expiration dates, downstream subcontractor tracking, and automated renewal alerts. | 🔴 Critical | **Implemented** |
 | **§ 164.522(a)(1)(vi)** | **HITECH Out-of-Pocket Insurance Restriction** | Mandatory patient right to withhold disclosure to health plan for care paid in full out-of-pocket; automated claim suppression (<code>claim_suppressed = 1</code>), server-side EDI X12 block, Fee Sheet and Billing Manager worklist indicators. | 🟠 High | **Implemented** |
-| **§ 164.522(b)** | **Confidential Communications Preferences** | Patient right to alternative contact methods/locations; voicemail restrictions; chart banner warning badges. | 🟠 High | **Roadmap (Tier 2)** |
+| **§ 164.522(b)** | **Confidential Communications Preferences** | Patient right to alternative contact methods/locations; voicemail restrictions; chart banner warning badges, context bar & finder table badges, audit ledger, and CSV export. | 🟠 High | **Implemented** |
 | **§ 164.524** | **Right of Access 30-Day DRS Fulfillment Pipeline** | Designated Record Set request tracker, 30-day statutory countdown timer, one-click comprehensive PDF/JSON export bundle. | 🟠 High | **Roadmap (Tier 2)** |
 | **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | 60-day action clock, written denial notices citing 4 statutory grounds, and Statement of Disagreement linking. | 🟡 Medium | **Roadmap (Tier 2)** |
 | **§ 164.308(a)(7)** | **Backup & Contingency Verification Console** | In-app daily encrypted backup status, SHA-256 integrity verification, and periodic restoration drill logs. | 🟡 Medium | **Roadmap (Tier 3)** |
@@ -269,6 +270,14 @@ USIntellix implements strict Role-Based Access Control (RBAC):
     - *Billing Manager Worklist*: Displays `🔒 HITECH Restricted` chip, disables EDI `sent`/`accepted` status actions, and provides a `hitech_restriction` criteria builder filter.
   - *Statutory Registry Table & OCR CSV Export*: Synchronizes all restrictions into `hipaa_hitech_restrictions` with foreign keys to encounters and patients. Streams standardized RFC 4180 CSV exports for HHS OCR audit inspection.
   - *Tamper-Evident Chained Audit Logging*: Sequential HMAC-SHA-256 logs committed under `CATEGORY_HITECH` (`HITECH_RESTRICTION_APPLIED`, `HITECH_RESTRICTION_REMOVED`, `HITECH_CLAIM_SUPPRESSED`, `HITECH_CLAIM_DISPATCH_BLOCKED`, `EXPORT_HITECH_REGISTRY_CSV`).
+- **Confidential Communications Preference Enforcement (45 CFR § 164.522(b))**:
+  - *Statutory Right*: Patients have an unconditional right to mandate that providers communicate PHI through alternative means or at alternative locations (e.g., cell phone only, no voicemail, alternative mailing address).
+  - *Database & Schema Architecture (Migration 205)*: 10 structured fields added to `patients` (`allow_voicemail`, `preferred_contact_method`, alternative address/phone/email, notes, `has_confidential_restrictions`). Full historical revisions recorded in `hipaa_confidential_communications_log`.
+  - *Multi-Surface Visual Warnings*:
+    - *Patient Chart Topbar Banner (`#pdConfidentialCommBanner`)*: Displays an impassable red alert banner with explicit channel prohibitions and custom instructions before placing calls or sending mail.
+    - *Patient Context Bar & Finder Table Badges*: Persistent `🔒 RESTRICTED COMMS` and `🔒 CC` table badges alert staff across all navigation tabs.
+    - *Demographic Summary (Choices Tab)*: Complete breakdown of preferences, alternative channels, and staff notes.
+  - *Regulatory CSV Export & Audit Logging*: RFC 4180 CSV export endpoint (`/api/patients/confidential-registry/export`) for OCR audit inspection, with tamper-evident HMAC-SHA-256 logs under `CATEGORY_COMMUNICATIONS`.
 
 ---
 

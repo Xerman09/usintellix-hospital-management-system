@@ -97,3 +97,24 @@ export async function fetchAiHealthAssessment(patientId, summaryData)
         }
     );
 }
+
+export async function fetchConfidentialPreferences(patientId)
+{
+    return await api(`/patients/confidential-preferences?patient_id=${encodeURIComponent(patientId)}`);
+}
+
+export async function updateConfidentialPreferences(patientId, data)
+{
+    return await api(
+        "/patients/confidential-preferences",
+        {
+            method: "PUT",
+            body: JSON.stringify({ patient_id: patientId, ...data })
+        }
+    );
+}
+
+export function getConfidentialRegistryExportUrl()
+{
+    return "/api/patients/confidential-registry/export";
+}

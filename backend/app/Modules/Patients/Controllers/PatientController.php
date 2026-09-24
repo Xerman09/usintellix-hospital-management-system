@@ -214,9 +214,19 @@ class PatientController extends Controller
             'language',
             'allow_sms',
             'allow_voice_calls',
+            'allow_voicemail',
             'allow_email',
             'allow_hie',
             'allow_postcard',
+            'preferred_contact_method',
+            'confidential_address_line',
+            'confidential_city',
+            'confidential_state',
+            'confidential_postal_code',
+            'confidential_phone',
+            'confidential_email',
+            'communication_restrictions_notes',
+            'has_confidential_restrictions',
             'height',
             'weight',
             'ssn',
@@ -345,9 +355,19 @@ class PatientController extends Controller
             'language',
             'allow_sms',
             'allow_voice_calls',
+            'allow_voicemail',
             'allow_email',
             'allow_hie',
             'allow_postcard',
+            'preferred_contact_method',
+            'confidential_address_line',
+            'confidential_city',
+            'confidential_state',
+            'confidential_postal_code',
+            'confidential_phone',
+            'confidential_email',
+            'communication_restrictions_notes',
+            'has_confidential_restrictions',
             'height',
             'weight',
             'ssn',
@@ -453,6 +473,97 @@ class PatientController extends Controller
         }
 
         $this->success(null, 'Emergency break-glass access granted and logged in the immutable HIPAA audit trail.');
+    }
+
+    /**
+     * Retrieve 45 CFR § 164.522(b) confidential communication preferences and audit history.
+     */
+    public function getConfidentialPreferences(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $patientId = (int) ($request->input('patient_id') ?: $request->input('id'));
+
+        if (!$patientId) {
+            $this->error('Patient ID is required.', 422);
+            return;
+        }
+
+        PhiAccessGuard::assertPatientAccess($user, $patientId, false);
+
+        $result = $this->patientService->getConfidentialPreferences($patientId);
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
+     * Update 45 CFR § 164.522(b) confidential communication preferences.
+     */
+    public function setConfidentialPreferences(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $patientId = (int) ($request->input('patient_id') ?: $request->input('id'));
+
+        if (!$patientId) {
+            $this->error('Patient ID is required.', 422);
+            return;
+        }
+
+        PhiAccessGuard::assertPatientAccess($user, $patientId, false);
+
+        $data = $request->only([
+            'allow_voicemail',
+            'allow_sms',
+            'allow_voice_calls',
+            'allow_email',
+            'allow_postcard',
+            'preferred_contact_method',
+            'confidential_address_line',
+            'confidential_city',
+            'confidential_state',
+            'confidential_postal_code',
+            'confidential_phone',
+            'confidential_email',
+            'communication_restrictions_notes',
+            'has_confidential_restrictions'
+        ]);
+
+        $result = $this->patientService->setConfidentialPreferences($patientId, $data, (int) $user['id']);
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], 'Confidential communications preferences updated successfully.');
+    }
+
+    /**
+     * Export active 45 CFR § 164.522(b) confidential communications registry to CSV.
+     */
+    public function exportConfidentialRegistryCsv(): void
+    {
+        $user = Session::get('user');
+        $role = $user['role'] ?? null;
+        if (!in_array($role, ['admin', 'receptionist', 'doctor'], true)) {
+            $this->error('Unauthorized access.', 403);
+            return;
+        }
+
+        $csv = $this->patientService->exportConfidentialRegistryCsv();
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="Confidential_Communications_Registry_' . date('Ymd_His') . '.csv"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        echo $csv;
+        exit;
     }
 
     /**

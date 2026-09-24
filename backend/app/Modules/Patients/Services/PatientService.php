@@ -10,6 +10,7 @@ use App\Modules\Patients\Models\PatientEmployer;
 use App\Modules\Patients\Models\PatientGuardian;
 use App\Modules\Providers\Models\Provider;
 use App\Modules\Users\Models\User;
+use App\Core\AuditLogger;
 use PDO;
 use Throwable;
 
@@ -181,9 +182,19 @@ class PatientService
             'language'     => $data['language'] ?? null,
             'allow_sms'         => $this->normalizeYesNo($data['allow_sms'] ?? null),
             'allow_voice_calls' => $this->normalizeYesNo($data['allow_voice_calls'] ?? null),
+            'allow_voicemail'   => $this->normalizeYesNo($data['allow_voicemail'] ?? null),
             'allow_email'       => $this->normalizeYesNo($data['allow_email'] ?? null),
             'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
             'allow_postcard'    => $this->normalizeYesNo($data['allow_postcard'] ?? null),
+            'preferred_contact_method' => $this->normalizePreferredContact($data['preferred_contact_method'] ?? null),
+            'confidential_address_line' => array_key_exists('confidential_address_line', $data) ? ($data['confidential_address_line'] ?: null) : ($patient['confidential_address_line'] ?? null),
+            'confidential_city' => array_key_exists('confidential_city', $data) ? ($data['confidential_city'] ?: null) : ($patient['confidential_city'] ?? null),
+            'confidential_state' => array_key_exists('confidential_state', $data) ? ($data['confidential_state'] ?: null) : ($patient['confidential_state'] ?? null),
+            'confidential_postal_code' => array_key_exists('confidential_postal_code', $data) ? ($data['confidential_postal_code'] ?: null) : ($patient['confidential_postal_code'] ?? null),
+            'confidential_phone' => array_key_exists('confidential_phone', $data) ? ($data['confidential_phone'] ?: null) : ($patient['confidential_phone'] ?? null),
+            'confidential_email' => array_key_exists('confidential_email', $data) ? ($data['confidential_email'] ?: null) : ($patient['confidential_email'] ?? null),
+            'communication_restrictions_notes' => array_key_exists('communication_restrictions_notes', $data) ? ($data['communication_restrictions_notes'] ?: null) : ($patient['communication_restrictions_notes'] ?? null),
+            'has_confidential_restrictions' => $this->determineHasRestrictions($data, $patient),
             'height'       => $data['height'],
             'weight'       => $data['weight'],
             'ssn'          => array_key_exists('ssn', $data) ? ($data['ssn'] ?: null) : ($patient['ssn'] ?? null),
@@ -193,6 +204,21 @@ class PatientService
             'updated_at'   => date('Y-m-d H:i:s'),
             'updated_by'   => $updatedBy
         ], $id);
+
+        $hasRestrictions = $this->determineHasRestrictions($data, $patient);
+        $prevRestrictions = (bool) ($patient['has_confidential_restrictions'] ?? 0);
+        $this->logConfidentialPreferencesChange($id, array_merge($patient, $data, ['has_confidential_restrictions' => $hasRestrictions]), $updatedBy);
+
+        if ($hasRestrictions !== $prevRestrictions) {
+            $action = $hasRestrictions ? AuditLogger::ACTION_CONFIDENTIAL_COMM_RESTRICTION_SET : AuditLogger::ACTION_CONFIDENTIAL_COMM_RESTRICTION_REMOVED;
+            AuditLogger::log(
+                AuditLogger::CATEGORY_COMMUNICATIONS,
+                $action,
+                "Demographic update modified 45 CFR § 164.522(b) confidential communications restrictions for patient ID {$id}: " . ($hasRestrictions ? 'RESTRICTIONS ACTIVE' : 'RESTRICTIONS CLEARED'),
+                $id,
+                $updatedBy
+            );
+        }
 
         $this->upsertContact($id, $data, $updatedBy);
         $this->upsertEmployer($id, $data, $updatedBy);
@@ -482,9 +508,19 @@ class PatientService
                     'language'     => $data['language'] ?? null,
                     'allow_sms'         => $this->normalizeYesNo($data['allow_sms'] ?? null),
                     'allow_voice_calls' => $this->normalizeYesNo($data['allow_voice_calls'] ?? null),
+                    'allow_voicemail'   => $this->normalizeYesNo($data['allow_voicemail'] ?? null),
                     'allow_email'       => $this->normalizeYesNo($data['allow_email'] ?? null),
                     'allow_hie'         => $this->normalizeYesNo($data['allow_hie'] ?? null),
                     'allow_postcard'    => $this->normalizeYesNo($data['allow_postcard'] ?? null),
+                    'preferred_contact_method' => $this->normalizePreferredContact($data['preferred_contact_method'] ?? null),
+                    'confidential_address_line' => !empty($data['confidential_address_line']) ? $data['confidential_address_line'] : null,
+                    'confidential_city' => !empty($data['confidential_city']) ? $data['confidential_city'] : null,
+                    'confidential_state' => !empty($data['confidential_state']) ? $data['confidential_state'] : null,
+                    'confidential_postal_code' => !empty($data['confidential_postal_code']) ? $data['confidential_postal_code'] : null,
+                    'confidential_phone' => !empty($data['confidential_phone']) ? $data['confidential_phone'] : null,
+                    'confidential_email' => !empty($data['confidential_email']) ? $data['confidential_email'] : null,
+                    'communication_restrictions_notes' => !empty($data['communication_restrictions_notes']) ? $data['communication_restrictions_notes'] : null,
+                    'has_confidential_restrictions' => $this->determineHasRestrictions($data),
                     'height'       => $data['height'],
                     'weight'       => $data['weight'],
                     'ssn'          => !empty($data['ssn']) ? $data['ssn'] : null,
@@ -497,6 +533,19 @@ class PatientService
 
                 if (!$patientId) {
                     throw new \RuntimeException('Failed to create patient record.');
+                }
+
+                $hasRestrictions = $this->determineHasRestrictions($data);
+                $this->logConfidentialPreferencesChange($patientId, array_merge($data, ['has_confidential_restrictions' => $hasRestrictions]), $createdBy, 'INITIAL_PREFERENCES_RECORDED');
+
+                if ($hasRestrictions) {
+                    AuditLogger::log(
+                        AuditLogger::CATEGORY_COMMUNICATIONS,
+                        AuditLogger::ACTION_CONFIDENTIAL_COMM_RESTRICTION_SET,
+                        "Initial registration established 45 CFR § 164.522(b) confidential communication restrictions for patient ID {$patientId}",
+                        $patientId,
+                        $createdBy
+                    );
                 }
 
                 $this->upsertContact($patientId, $data, $createdBy);
@@ -656,4 +705,316 @@ class PatientService
 
         return 'PAT-' . str_pad((string) ($maxNo + 1), 6, '0', STR_PAD_LEFT);
     }
+
+    /**
+     * Normalize preferred contact method to valid statutory enum or null.
+     */
+    private function normalizePreferredContact(?string $value): ?string
+    {
+        $allowed = ['mobile_phone', 'home_phone', 'work_phone', 'email', 'postal_mail', 'confidential_address'];
+        return in_array($value, $allowed, true) ? $value : null;
+    }
+
+    /**
+     * Evaluate whether active confidential communications restrictions are in effect (§ 164.522(b)).
+     */
+    private function determineHasRestrictions(array $data, ?array $existing = null): int
+    {
+        // Explicit boolean toggle takes priority if provided
+        if (isset($data['has_confidential_restrictions'])) {
+            return !empty($data['has_confidential_restrictions']) && $data['has_confidential_restrictions'] !== '0' ? 1 : 0;
+        }
+
+        // Otherwise auto-detect from binding preference values
+        $allowVoicemail = array_key_exists('allow_voicemail', $data) ? $data['allow_voicemail'] : ($existing['allow_voicemail'] ?? null);
+        $allowVoiceCalls = array_key_exists('allow_voice_calls', $data) ? $data['allow_voice_calls'] : ($existing['allow_voice_calls'] ?? null);
+        $allowSms = array_key_exists('allow_sms', $data) ? $data['allow_sms'] : ($existing['allow_sms'] ?? null);
+        $preferred = array_key_exists('preferred_contact_method', $data) ? $data['preferred_contact_method'] : ($existing['preferred_contact_method'] ?? null);
+        
+        $altAddressVal = array_key_exists('confidential_address_line', $data) ? $data['confidential_address_line'] : ($existing['confidential_address_line'] ?? null);
+        $altAddress = !empty(trim((string) $altAddressVal));
+        
+        $altPhoneVal = array_key_exists('confidential_phone', $data) ? $data['confidential_phone'] : ($existing['confidential_phone'] ?? null);
+        $altPhone = !empty(trim((string) $altPhoneVal));
+        
+        $notesVal = array_key_exists('communication_restrictions_notes', $data) ? $data['communication_restrictions_notes'] : ($existing['communication_restrictions_notes'] ?? null);
+        $notes = !empty(trim((string) $notesVal));
+
+        if ($allowVoicemail === 'no' || $allowVoiceCalls === 'no' || $allowSms === 'no' || $preferred === 'confidential_address' || $altAddress || $altPhone || $notes) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Record change in hipaa_confidential_communications_log table.
+     */
+    private function logConfidentialPreferencesChange(int $patientId, array $data, int $operatorId, string $action = 'PREFERENCES_UPDATED'): void
+    {
+        try {
+            $db = Database::connection();
+            $stmt = $db->prepare("
+                INSERT INTO hipaa_confidential_communications_log
+                    (patient_id, operator_id, allow_voicemail, allow_sms, allow_voice_calls, allow_email, allow_postcard,
+                     preferred_contact_method, confidential_address, confidential_phone, confidential_email,
+                     restriction_notes, has_restrictions, action, created_at)
+                VALUES
+                    (:patient_id, :operator_id, :allow_voicemail, :allow_sms, :allow_voice_calls, :allow_email, :allow_postcard,
+                     :preferred_contact_method, :confidential_address, :confidential_phone, :confidential_email,
+                     :restriction_notes, :has_restrictions, :action, :created_at)
+            ");
+
+            $confAddress = trim(implode(', ', array_filter([
+                $data['confidential_address_line'] ?? null,
+                $data['confidential_city'] ?? null,
+                $data['confidential_state'] ?? null,
+                $data['confidential_postal_code'] ?? null
+            ])));
+
+            $stmt->execute([
+                'patient_id' => $patientId,
+                'operator_id' => $operatorId,
+                'allow_voicemail' => $data['allow_voicemail'] ?? null,
+                'allow_sms' => $data['allow_sms'] ?? null,
+                'allow_voice_calls' => $data['allow_voice_calls'] ?? null,
+                'allow_email' => $data['allow_email'] ?? null,
+                'allow_postcard' => $data['allow_postcard'] ?? null,
+                'preferred_contact_method' => $data['preferred_contact_method'] ?? null,
+                'confidential_address' => $confAddress ?: null,
+                'confidential_phone' => $data['confidential_phone'] ?? null,
+                'confidential_email' => $data['confidential_email'] ?? null,
+                'restriction_notes' => $data['communication_restrictions_notes'] ?? null,
+                'has_restrictions' => (int) ($data['has_confidential_restrictions'] ?? 0),
+                'action' => $action,
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Failed to log confidential communications change: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get a patient's confidential communications preference profile (§ 164.522(b)).
+     */
+    public function getConfidentialPreferences(int $patientId): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $hasRestrictions = (bool) ($patient['has_confidential_restrictions'] ?? 0);
+        
+        // Build concise human-readable warnings for banner/tooltip
+        $warnings = [];
+        if (($patient['allow_voicemail'] ?? null) === 'no') {
+            $warnings[] = 'VOICEMAIL PROHIBITED: Do not leave clinical or appointment messages on voicemail.';
+        }
+        if (($patient['allow_voice_calls'] ?? null) === 'no') {
+            $warnings[] = 'VOICE CALLS PROHIBITED: Do not contact via standard voice telephone.';
+        }
+        if (($patient['allow_sms'] ?? null) === 'no') {
+            $warnings[] = 'SMS PROHIBITED: Do not send text messages or SMS reminders.';
+        }
+        if (!empty($patient['preferred_contact_method'])) {
+            $labels = [
+                'mobile_phone' => 'Mobile Phone Only',
+                'home_phone' => 'Home Phone Only',
+                'work_phone' => 'Work Phone Only',
+                'email' => 'Email Only',
+                'postal_mail' => 'Postal Mail Only',
+                'confidential_address' => 'Confidential Address / P.O. Box Only'
+            ];
+            $warnings[] = 'PREFERRED CONTACT: ' . ($labels[$patient['preferred_contact_method']] ?? $patient['preferred_contact_method']);
+        }
+        if (!empty($patient['confidential_address_line'])) {
+            $addr = $patient['confidential_address_line'];
+            if (!empty($patient['confidential_city'])) $addr .= ', ' . $patient['confidential_city'];
+            if (!empty($patient['confidential_state'])) $addr .= ', ' . $patient['confidential_state'];
+            if (!empty($patient['confidential_postal_code'])) $addr .= ' ' . $patient['confidential_postal_code'];
+            $warnings[] = 'CONFIDENTIAL MAILING ADDRESS: ' . $addr;
+        }
+        if (!empty($patient['confidential_phone'])) {
+            $warnings[] = 'CONFIDENTIAL ALTERNATIVE PHONE: ' . $patient['confidential_phone'];
+        }
+        if (!empty($patient['communication_restrictions_notes'])) {
+            $warnings[] = 'RESTRICTION INSTRUCTIONS: ' . $patient['communication_restrictions_notes'];
+        }
+
+        return [
+            'success' => true,
+            'statutory_citation' => '45 CFR § 164.522(b)',
+            'data' => [
+                'patient_id' => $patientId,
+                'patient_no' => $patient['patient_no'],
+                'patient_name' => trim("{$patient['first_name']} {$patient['last_name']}"),
+                'has_confidential_restrictions' => $hasRestrictions,
+                'allow_voicemail' => $patient['allow_voicemail'],
+                'allow_sms' => $patient['allow_sms'],
+                'allow_voice_calls' => $patient['allow_voice_calls'],
+                'allow_email' => $patient['allow_email'],
+                'allow_postcard' => $patient['allow_postcard'],
+                'preferred_contact_method' => $patient['preferred_contact_method'],
+                'confidential_address_line' => $patient['confidential_address_line'],
+                'confidential_city' => $patient['confidential_city'],
+                'confidential_state' => $patient['confidential_state'],
+                'confidential_postal_code' => $patient['confidential_postal_code'],
+                'confidential_phone' => $patient['confidential_phone'],
+                'confidential_email' => $patient['confidential_email'],
+                'communication_restrictions_notes' => $patient['communication_restrictions_notes'],
+                'warnings' => $warnings,
+                'summary_text' => !empty($warnings) ? implode(' | ', $warnings) : 'No confidential communication restrictions in effect.'
+            ]
+        ];
+    }
+
+    /**
+     * Direct update of confidential communication preferences (§ 164.522(b)).
+     */
+    public function setConfidentialPreferences(int $patientId, array $data, int $updatedBy): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $allowVoicemail = isset($data['allow_voicemail']) ? $this->normalizeYesNo($data['allow_voicemail']) : $patient['allow_voicemail'];
+        $allowSms = isset($data['allow_sms']) ? $this->normalizeYesNo($data['allow_sms']) : $patient['allow_sms'];
+        $allowVoiceCalls = isset($data['allow_voice_calls']) ? $this->normalizeYesNo($data['allow_voice_calls']) : $patient['allow_voice_calls'];
+        $allowEmail = isset($data['allow_email']) ? $this->normalizeYesNo($data['allow_email']) : $patient['allow_email'];
+        $allowPostcard = isset($data['allow_postcard']) ? $this->normalizeYesNo($data['allow_postcard']) : $patient['allow_postcard'];
+        $preferred = isset($data['preferred_contact_method']) ? $this->normalizePreferredContact($data['preferred_contact_method']) : $patient['preferred_contact_method'];
+        $confAddressLine = array_key_exists('confidential_address_line', $data) ? ($data['confidential_address_line'] ?: null) : $patient['confidential_address_line'];
+        $confCity = array_key_exists('confidential_city', $data) ? ($data['confidential_city'] ?: null) : $patient['confidential_city'];
+        $confState = array_key_exists('confidential_state', $data) ? ($data['confidential_state'] ?: null) : $patient['confidential_state'];
+        $confPostalCode = array_key_exists('confidential_postal_code', $data) ? ($data['confidential_postal_code'] ?: null) : $patient['confidential_postal_code'];
+        $confPhone = array_key_exists('confidential_phone', $data) ? ($data['confidential_phone'] ?: null) : $patient['confidential_phone'];
+        $confEmail = array_key_exists('confidential_email', $data) ? ($data['confidential_email'] ?: null) : $patient['confidential_email'];
+        $notes = array_key_exists('communication_restrictions_notes', $data) ? ($data['communication_restrictions_notes'] ?: null) : $patient['communication_restrictions_notes'];
+
+        $mergedData = [
+            'allow_voicemail' => $allowVoicemail,
+            'allow_sms' => $allowSms,
+            'allow_voice_calls' => $allowVoiceCalls,
+            'allow_email' => $allowEmail,
+            'allow_postcard' => $allowPostcard,
+            'preferred_contact_method' => $preferred,
+            'confidential_address_line' => $confAddressLine,
+            'confidential_city' => $confCity,
+            'confidential_state' => $confState,
+            'confidential_postal_code' => $confPostalCode,
+            'confidential_phone' => $confPhone,
+            'confidential_email' => $confEmail,
+            'communication_restrictions_notes' => $notes,
+        ];
+        if (isset($data['has_confidential_restrictions'])) {
+            $mergedData['has_confidential_restrictions'] = $data['has_confidential_restrictions'];
+        }
+
+        $hasRestrictions = $this->determineHasRestrictions($mergedData, $patient);
+        $mergedData['has_confidential_restrictions'] = $hasRestrictions;
+
+        (new Patient())->update([
+            'allow_voicemail' => $allowVoicemail,
+            'allow_sms' => $allowSms,
+            'allow_voice_calls' => $allowVoiceCalls,
+            'allow_email' => $allowEmail,
+            'allow_postcard' => $allowPostcard,
+            'preferred_contact_method' => $preferred,
+            'confidential_address_line' => $confAddressLine,
+            'confidential_city' => $confCity,
+            'confidential_state' => $confState,
+            'confidential_postal_code' => $confPostalCode,
+            'confidential_phone' => $confPhone,
+            'confidential_email' => $confEmail,
+            'communication_restrictions_notes' => $notes,
+            'has_confidential_restrictions' => $hasRestrictions,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $updatedBy
+        ], $patientId);
+
+        $action = $hasRestrictions ? AuditLogger::ACTION_CONFIDENTIAL_COMM_RESTRICTION_SET : AuditLogger::ACTION_CONFIDENTIAL_COMM_RESTRICTION_REMOVED;
+        $this->logConfidentialPreferencesChange($patientId, $mergedData, $updatedBy, $action);
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_COMMUNICATIONS,
+            $action,
+            "Updated 45 CFR § 164.522(b) confidential communications preferences for patient ID {$patientId}: " . ($hasRestrictions ? 'RESTRICTIONS ACTIVE' : 'RESTRICTIONS CLEARED'),
+            $patientId,
+            $updatedBy
+        );
+
+        return $this->getConfidentialPreferences($patientId);
+    }
+
+    /**
+     * Export active confidential communications registry to RFC 4180 CSV (§ 164.522(b)).
+     */
+    public function exportConfidentialRegistryCsv(): string
+    {
+        $db = Database::connection();
+        $stmt = $db->query("
+            SELECT p.id, p.patient_no, p.first_name, p.last_name, p.birthdate,
+                   p.allow_voicemail, p.allow_sms, p.allow_voice_calls, p.allow_email, p.allow_postcard,
+                   p.preferred_contact_method, p.confidential_address_line, p.confidential_city,
+                   p.confidential_state, p.confidential_postal_code, p.confidential_phone, p.confidential_email,
+                   p.communication_restrictions_notes, p.has_confidential_restrictions, p.updated_at
+            FROM patients p
+            WHERE p.deleted_at IS NULL AND p.has_confidential_restrictions = 1
+            ORDER BY p.last_name, p.first_name
+        ");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $output = fopen('php://temp', 'r+');
+        fputcsv($output, ['# USIntellix Healthcare System - HIPAA Confidential Communications Registry']);
+        fputcsv($output, ['# Statutory Citation: 45 CFR § 164.522(b) (Patient Right to Request Confidential Communications)']);
+        fputcsv($output, ['# Generated: ' . date('Y-m-d H:i:s') . ' UTC']);
+        fputcsv($output, ['# Total Active Restrictions: ' . count($rows)]);
+        fputcsv($output, []);
+        fputcsv($output, [
+            'Patient ID', 'Patient No', 'Patient Name', 'Birthdate', 'Restrictions Enforced',
+            'Allow Voicemail', 'Allow SMS', 'Allow Voice Calls', 'Allow Email', 'Allow Postcard',
+            'Preferred Contact Method', 'Confidential Address Line', 'Confidential City',
+            'Confidential State', 'Confidential Postal Code', 'Confidential Phone', 'Confidential Email',
+            'Restriction Instructions / Notes', 'Last Updated'
+        ]);
+
+        foreach ($rows as $r) {
+            fputcsv($output, [
+                $r['id'],
+                $r['patient_no'],
+                trim("{$r['first_name']} {$r['last_name']}"),
+                $r['birthdate'],
+                $r['has_confidential_restrictions'] ? 'YES' : 'NO',
+                $r['allow_voicemail'] ?? 'Unassigned',
+                $r['allow_sms'] ?? 'Unassigned',
+                $r['allow_voice_calls'] ?? 'Unassigned',
+                $r['allow_email'] ?? 'Unassigned',
+                $r['allow_postcard'] ?? 'Unassigned',
+                $r['preferred_contact_method'] ?? 'None Specified',
+                $r['confidential_address_line'] ?? '',
+                $r['confidential_city'] ?? '',
+                $r['confidential_state'] ?? '',
+                $r['confidential_postal_code'] ?? '',
+                $r['confidential_phone'] ?? '',
+                $r['confidential_email'] ?? '',
+                $r['communication_restrictions_notes'] ?? '',
+                $r['updated_at'] ?? ''
+            ]);
+        }
+
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_COMMUNICATIONS,
+            AuditLogger::ACTION_CONFIDENTIAL_COMM_EXPORT,
+            "Exported 45 CFR § 164.522(b) confidential communications registry to CSV (" . count($rows) . " records)"
+        );
+
+        return $csv;
+    }
 }
+

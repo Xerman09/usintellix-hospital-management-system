@@ -660,7 +660,7 @@ This section documents the technical and operational compliance posture required
 | **§§ 164.400 - 164.414**| **Breach Notification & Risk Assessment** | Statutory 4-factor risk assessment, 60-day timers, patient letter generator, OCR export | **Implemented** | Low |
 | **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, executed BAA tracking, 60-day renewal alerts, OCR dossier, CSV export | **Implemented** | Low |
 | **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression, EDI 837 claim block, Fee Sheet & Billing indicators | **Implemented** | Low |
-| **§ 164.522(b)** | **Confidential Communications Preferences** | Alternative contact toggles (phone/email/address), chart warning badge | **Roadmap (Tier 2)** | High |
+| **§ 164.522(b)** | **Confidential Communications Preferences** | Mandatory alternative channel toggles (voicemail/SMS/call/email/address), visual chart alert banner, context bar & finder badges, audit ledger, and CSV export | **Implemented** | Low |
 | **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Designated Record Set request clock & one-click export bundle | **Roadmap (Tier 2)** | High |
 | **§ 164.526** | **Statutory PHI Amendment Workflow** | 60-day clock, statutory denial notices, disagreement linking | **Roadmap (Tier 2)** | Medium |
 | **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, SHA-256 checks, drill records | **Roadmap (Tier 3)** | Medium |
@@ -816,11 +816,41 @@ Under Section 13405(a) of the HITECH Act and 45 CFR § 164.522(a)(1)(vi), a cove
 ### Confidential Communications Preferences (§ 164.522(b))
 
 #### Statutory Mandate
-Covered healthcare providers must permit individuals to request and must accommodate reasonable requests by individuals to receive communications of protected health information from the covered provider by alternative means or at alternative locations.
+Covered healthcare providers must permit individuals to request and must accommodate reasonable requests by individuals to receive communications of protected health information from the covered provider by alternative means or at alternative locations (45 CFR § 164.522(b)). Unlike general discretionary restrictions under § 164.522(a)(1)(i), accommodation of reasonable confidential communication requests is mandatory for providers. Providers cannot require the individual to provide an explanation for the request as a condition of accommodation (§ 164.522(b)(2)(iii)).
 
 #### Technical Controls
-- **Demographic Preference Capture**: Structured flags for `Allow Voicemail`, `Allow SMS`, `Preferred Contact Phone`, `Alternative P.O. Box / Mailing Address`.
-- **Chart Warning Badge**: Prominent alert on the patient summary banner alerting staff before placing calls, sending mail, or dispatching automated reminders.
+1. **Schema & Database Persistence (Migration 205)**:
+   - Dedicated columns added to `patients`: `allow_voicemail`, `preferred_contact_method`, `confidential_address_line`, `confidential_city`, `confidential_state`, `confidential_postal_code`, `confidential_phone`, `confidential_email`, `communication_restrictions_notes`, `has_confidential_restrictions`.
+   - Immutable audit ledger table `hipaa_confidential_communications_log` records complete historical revisions with foreign-key cascade integrity to `patients`.
+
+2. **Binding Demographic Intake & Edit Controls**:
+   - Structured choice toggles in Add Patient and Edit Patient modals:
+     - `Allow Voicemail`: Yes / No (Strict Restriction - Staff must not leave clinical voicemails).
+     - `Allow SMS Communication`: Yes / No.
+     - `Allow Voice Call Communication`: Yes / No.
+     - `Preferred Contact Method`: Mobile/Cell Phone, Voice Call, SMS Only, Email Only, Alternative Address / P.O. Box, or Patient Portal Only.
+     - `Alternative Confidential Address`: Line, City, State, Postal Code.
+     - `Confidential Direct Contact`: Confidential Phone, Confidential Email.
+     - `Communication Restrictions & Instructions`: Specific staff guidelines (e.g. "Only call cell phone after 5 PM", "Never mention clinic name on voicemail").
+
+3. **Automated Restriction State Engine**:
+   - `PatientService::determineHasRestrictions()` automatically computes whether legally binding restrictions are active (e.g., `allow_voicemail === 'no'`, `allow_sms === 'no'`, `allow_voice_calls === 'no'`, preferred confidential address, or custom instructions).
+   - Updates `has_confidential_restrictions = 1` and logs corresponding audit events.
+
+4. **Multi-Surface Visual Warnings for Clinical & Front-Desk Staff**:
+   - **Patient Chart Topbar Banner (`#pdConfidentialCommBanner`)**: Prominent red warning banner displaying all active channel prohibitions, preferred methods, and custom staff instructions.
+   - **Top Bar Badge (`#pdConfidentialCommBadgeContainer`)**: High-visibility pill badge `CONFIDENTIAL COMMS RESTRICTED (§ 164.522(b))`.
+   - **Global Patient Context Bar (`#patientContextBar`)**: Persistent badge `🔒 RESTRICTED COMMS` and warning note visible across all opened tabs.
+   - **Patient List & Finder Table Badges**: Visual indicator `🔒 CC` rendered adjacent to the patient's name.
+   - **Demographic Summary Widget (Choices Tab)**: Full audit breakdown of preferences, alternative channels, and staff notes.
+
+5. **Direct API Endpoints & OCR Regulatory CSV Export**:
+   - `GET /patients/confidential-preferences?patient_id={id}`: Returns active preferences and chronological change log.
+   - `PUT /patients/confidential-preferences`: Granular update endpoint for clinical staff.
+   - `GET /patients/confidential-registry/export`: Downloads full RFC 4180 CSV registry with official OCR compliance header metadata.
+
+6. **Tamper-Evident Chained Audit Trail**:
+   - Recorded into `hipaa_audit_logs` under `CATEGORY_COMMUNICATIONS` with actions `CONFIDENTIAL_COMM_RESTRICTION_SET`, `CONFIDENTIAL_COMM_RESTRICTION_REMOVED`, `CONFIDENTIAL_COMM_UPDATED`, and `CONFIDENTIAL_COMM_EXPORT`, verified by HMAC-SHA-256 sequential hash chains.
 
 ---
 
@@ -925,8 +955,8 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
                                         v
 +-------------------------------------------------------------------------------+
 | PHASE 2: Enhanced Patient Rights & Privacy Rule Safeguards                    |
+| * Confidential Communications Preferences & Chart Badging (§ 164.522(b))[COMPLETE]|
 | * Patient Right of Access 30-Day DRS Fulfillment Pipeline (§ 164.524)         |
-| * Confidential Communications Preferences & Chart Badging (§ 164.522(b))      |
 | * PHI Amendment 60-Day Workflow & Denial Notice Generator (§ 164.526)         |
 +-------------------------------------------------------------------------------+
                                         |

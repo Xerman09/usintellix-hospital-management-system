@@ -200,9 +200,11 @@ function renderList()
     } else {
         tbody.innerHTML = pageRows.map((row) => {
             const maskedSsn = row.ssn ? (row.ssn.replace(/\D/g, '').length === 9 ? '***-**-' + row.ssn.replace(/\D/g, '').slice(-4) : '***' + row.ssn.slice(-4)) : '';
+            const hasCommRestrictions = Number(row.patient.has_confidential_restrictions) === 1 || row.patient.has_confidential_restrictions === true;
+            const commBadge = hasCommRestrictions ? ` <span class="pat-comm-badge" title="45 CFR § 164.522(b): Confidential Communications Restrictions Active" style="display:inline-flex;align-items:center;padding:1px 5px;font-size:10px;font-weight:700;color:#991b1b;background:#fee2e2;border:1px solid #f87171;border-radius:3px;margin-left:4px;cursor:help;">🔒 CC</span>` : "";
             return `
             <tr class="fnd-row" data-patient-id="${row.patient.id}">
-                <td class="fnd-name">${escapeHtml(row.name)}</td>
+                <td class="fnd-name">${escapeHtml(row.name)}${commBadge}</td>
                 <td>${row.phone ? escapeHtml(row.phone) : `<span class="fnd-muted">&mdash;</span>`}</td>
                 <td>${maskedSsn ? `<code style="font-family: monospace; font-weight: 600;">${escapeHtml(maskedSsn)}</code>` : `<span class="fnd-muted">&mdash;</span>`}</td>
                 <td>${row.dob ? escapeHtml(row.dob) : `<span class="fnd-muted">&mdash;</span>`}</td>

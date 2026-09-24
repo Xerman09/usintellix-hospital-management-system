@@ -512,6 +512,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-breach" class="sysdoc-nav-item hipaa-highlight">Breach Notification &amp; 4-Factor (§ 164.400)</a>
                 <a href="#sec-hipaa-baa" class="sysdoc-nav-item hipaa-highlight">BAA Vendor Registry (§ 164.502(e))</a>
                 <a href="#sec-hipaa-hitech" class="sysdoc-nav-item hipaa-highlight">HITECH Self-Pay Restriction (§ 164.522(a))</a>
+                <a href="#sec-hipaa-confidential-comm" class="sysdoc-nav-item hipaa-highlight">Confidential Communications (§ 164.522(b))</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -635,11 +636,16 @@ export function SystemDocumentationView(options = {}) {
                                 <td>HITECH Out-of-Pocket Insurance Restriction</td>
                                 <td>Mandatory patient right to withhold disclosure to health plans for self-paid services; automatic claim suppression (<code>claim_suppressed = 1</code>), server-side EDI X12 block, statutory registry table (<code>hipaa_hitech_restrictions</code>), Fee Sheet banner, and Billing Manager worklist protection.</td>
                             </tr>
+                            <tr>
+                                <td><strong>§ 164.522(b)</strong></td>
+                                <td>Confidential Communications Preferences Enforcement</td>
+                                <td>Mandatory patient right to alternative communications; binding voicemail/SMS toggles, alternative address/phone/email, Patient Chart and Context Bar alert banners, <code>hipaa_confidential_communications_log</code> audit history, and RFC 4180 CSV export.</td>
+                            </tr>
                         </tbody>
                     </table>
                     <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                         <div style="font-size: 13px; color: #065f46;">
-                            <strong>HIPAA Audit Compliance Status:</strong> 16 Core Technical, Administrative &amp; Privacy Safeguards are fully operational (~94-96% technical baseline). For the complete OCR compliance matrix and remaining statutory parameters, see the <a href="#sec-hipaa-roadmap" style="color: #047857; font-weight: 700; text-decoration: underline;">Audit Readiness &amp; Statutory Compliance Roadmap</a>.
+                            <strong>HIPAA Audit Compliance Status:</strong> 17 Core Technical, Administrative &amp; Privacy Safeguards are fully operational (~96-98% technical baseline). For the complete OCR compliance matrix and remaining statutory parameters, see the <a href="#sec-hipaa-roadmap" style="color: #047857; font-weight: 700; text-decoration: underline;">Audit Readiness &amp; Statutory Compliance Roadmap</a>.
                         </div>
                     </div>
                 </section>
@@ -1073,6 +1079,40 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: CONFIDENTIAL COMMUNICATIONS PREFERENCES (§ 164.522(b)) -->
+                <section id="sec-hipaa-confidential-comm" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            15. Confidential Communications Preference Enforcement (45 CFR § 164.522(b))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Patient Right</span>
+                    </div>
+                    <p>
+                        Under <strong>45 CFR § 164.522(b)</strong>, a covered entity <strong>must permit individuals to request</strong> and <strong>must accommodate reasonable requests</strong> to receive communications of protected health information by alternative means or at alternative locations (e.g., only call mobile phone, never leave voicemails containing clinical or appointment details, send correspondence to a P.O. Box instead of a residential address).
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Multi-Channel Safeguards &amp; Clinical Workflow Alerts</div>
+                        <p style="margin: 4px 0 8px 0; font-size: 13px;">
+                            Healthcare providers violate § 164.522(b) when front-desk staff, phone operators, or automated outreach services place calls or leave voicemails without checking the patient's legally binding communication instructions. USIntellix enforces end-to-end technical protections:
+                        </p>
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>Binding Preference Toggles:</strong> Patient demographics capture explicit toggles for <code>allow_voicemail</code> (Yes/No), <code>allow_sms</code> (Yes/No), <code>allow_voice_calls</code> (Yes/No), <code>allow_email</code>, <code>allow_postcard</code>, <code>preferred_contact_method</code>, and alternative confidential mailing address, phone, and email fields.</li>
+                            <li><strong>Automated Restriction Detection:</strong> The backend automatically sets <code>has_confidential_restrictions = 1</code> if the patient sets voicemail to No, SMS to No, prefers an alternative confidential address, or registers custom staff instructions.</li>
+                            <li><strong>Patient Chart Visual Alert Banner:</strong> The Patient Chart topbar displays an impassable red alert banner (<code>#pdConfidentialCommBanner</code>) and high-visibility header badge notifying clinicians and nurses of restricted communication channels before placing calls or sending mail.</li>
+                            <li><strong>Patient Context Bar &amp; Finder Warnings:</strong> When working across tabs, the persistent <code>patientContextBar</code> highlights active restrictions. Patient List and Patient Finder display <code>🔒 CC</code> badges next to the patient's name.</li>
+                            <li><strong>Demographics Widget Integration:</strong> The Choices panel within the Patient Summary widget displays all active restrictions, alternative channels, and staff guidance in plain view.</li>
+                            <li><strong>Statutory Ledger &amp; OCR Export:</strong> All changes are recorded in <code>hipaa_confidential_communications_log</code> with foreign-key integrity. Staff can export an RFC 4180 CSV registry with official OCR headers via <code>/api/patients/confidential-registry/export</code>.</li>
+                            <li><strong>Tamper-Evident HMAC-SHA-256 Audit Trail:</strong> Restriction updates are logged to <code>hipaa_audit_logs</code> under <code>CATEGORY_COMMUNICATIONS</code> with actions <code>CONFIDENTIAL_COMM_RESTRICTION_SET</code> and <code>CONFIDENTIAL_COMM_RESTRICTION_REMOVED</code>.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/patients/confidential-registry/export';">
+                            <span>Export Confidential Registry (CSV)</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1194,11 +1234,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Mandatory patient right to withhold disclosure to health plans for out-of-pocket services; automatic claim suppression (<code>claim_suppressed = 1</code>), server-side EDI X12 dispatch block, statutory registry (<code>hipaa_hitech_restrictions</code>), Fee Sheet and Billing Manager worklist indicators.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #f8fafc;">
+                            <tr>
                                 <td><strong>§ 164.522(b)</strong></td>
-                                <td><strong>Confidential Communications Preferences</strong></td>
-                                <td>Patient right to alternative contact methods/locations; voicemail restrictions; chart banner alert badges.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-amber">🟠 Roadmap (Tier 2)</span></td>
+                                <td><strong>Confidential Communications Preferences Enforcement</strong></td>
+                                <td>Mandatory patient right to alternative communications; binding voicemail and SMS toggles, alternative address/phone/email, Patient Chart and Context Bar alert banners, <code>hipaa_confidential_communications_log</code> audit history, and RFC 4180 CSV registry export.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
                                 <td><strong>§ 164.524</strong></td>
@@ -1308,17 +1348,19 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 4. CONFIDENTIAL COMMUNICATIONS -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #d97706; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #b45309; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #10b981; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
                             <span>4. Confidential Communications Preference Enforcement (§ 164.522(b))</span>
-                            <span class="sysdoc-badge sysdoc-badge-amber">Patient Rights Safeguard</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
                             Patients have a federal statutory right to receive communications of PHI by alternative means or at alternative locations to protect their privacy (e.g., only call mobile phone, never leave voicemails disclosing medical issues, mail statements to P.O. Box).
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
-                            <li><strong>Structured Demographics Fields:</strong> Explicit patient flags for <code>Allow Voicemail</code>, <code>Allow SMS Reminders</code>, <code>Preferred Contact Method</code>, and <code>Confidential Mailing Address</code>.</li>
-                            <li><strong>Patient Chart Warning Badge:</strong> Prominent visual alert badge on the patient chart banner notifying clinicians, nurses, and billing staff of communication restrictions before outbound contact.</li>
+                            <li><strong>Structured Demographics Fields:</strong> Explicit patient flags for <code>Allow Voicemail</code> (Yes/No), <code>Allow SMS Reminders</code> (Yes/No), <code>Allow Voice Calls</code>, <code>Preferred Contact Method</code>, and alternative confidential address, phone, and email fields.</li>
+                            <li><strong>Patient Chart Visual Alert Banner &amp; Badge:</strong> Prominent visual alert badge and banner on the patient chart topbar notifying clinicians, nurses, and front-desk staff before outbound contact.</li>
+                            <li><strong>Context Bar &amp; Finder Warnings:</strong> Global patient context bar and patient finder table indicators (<code>🔒 CC</code>) alert staff across all navigation tabs.</li>
+                            <li><strong>Statutory Ledger &amp; CSV Export:</strong> Audit history tracked in <code>hipaa_confidential_communications_log</code> with full RFC 4180 CSV registry export.</li>
                         </ul>
                     </div>
 

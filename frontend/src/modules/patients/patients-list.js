@@ -355,7 +355,9 @@ const FIELDS = [
     "username", "password", "first_name", "middle_name",
     "last_name", "suffix", "sex", "birthdate",
     "civil_status", "blood_type", "height", "weight",
-    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie", "allow_postcard",
+    "provider_id", "allow_sms", "allow_voice_calls", "allow_voicemail", "allow_email", "allow_hie", "allow_postcard",
+    "preferred_contact_method", "confidential_address_line", "confidential_city", "confidential_state", "confidential_postal_code",
+    "confidential_phone", "confidential_email", "communication_restrictions_notes", "has_confidential_restrictions",
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
@@ -368,7 +370,9 @@ const FIELDS = [
 const EDIT_FIELDS = [
     "first_name", "middle_name", "last_name", "suffix", "sex",
     "birthdate", "civil_status", "blood_type", "height", "weight",
-    "provider_id", "allow_sms", "allow_voice_calls", "allow_email", "allow_hie", "allow_postcard",
+    "provider_id", "allow_sms", "allow_voice_calls", "allow_voicemail", "allow_email", "allow_hie", "allow_postcard",
+    "preferred_contact_method", "confidential_address_line", "confidential_city", "confidential_state", "confidential_postal_code",
+    "confidential_phone", "confidential_email", "communication_restrictions_notes", "has_confidential_restrictions",
     "race", "ethnicity", "religion", "language",
     "address_line", "city", "province", "zip_code",
     "home_phone", "mobile_phone", "work_phone", "contact_email",
@@ -399,6 +403,13 @@ export async function initPatientsList()
 
     await loadPatients(user);
     setupPatientFilters(user);
+
+    const exportBtn = document.getElementById("exportConfidentialRegistryBtn");
+    if (exportBtn) {
+        exportBtn.addEventListener("click", () => {
+            window.location.href = "/api/patients/confidential-registry/export";
+        });
+    }
 
     if (user.role !== "patient") {
         await setupEditPatientModal(user);
@@ -2568,6 +2579,97 @@ export async function restorePatientChartTab(activate = true)
     return true;
 }
 
+function renderConfidentialCommunicationsAlert(patient)
+{
+    const badgeContainer = document.getElementById("pdConfidentialCommBadgeContainer");
+    const banner = document.getElementById("pdConfidentialCommBanner");
+
+    const hasRestrictions = Number(patient.has_confidential_restrictions) === 1 || patient.has_confidential_restrictions === true;
+
+    if (badgeContainer) {
+        if (hasRestrictions) {
+            badgeContainer.innerHTML = `
+                <span class="pd-confidential-badge" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;background:#fef2f2;border:1.5px solid #ef4444;color:#991b1b;font-size:12px;font-weight:700;letter-spacing:0.2px;box-shadow:0 1px 3px rgba(239,68,68,0.2);" title="Mandatory Accommodation: 45 CFR § 164.522(b) Active Restriction">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    CONFIDENTIAL COMMS RESTRICTED (§ 164.522(b))
+                </span>
+            `;
+        } else {
+            badgeContainer.innerHTML = "";
+        }
+    }
+
+    if (banner) {
+        if (hasRestrictions) {
+            const restrictions = [];
+            if (patient.allow_voicemail === "no") {
+                restrictions.push("<strong>DO NOT LEAVE VOICEMAIL</strong> &mdash; Patient prohibits clinical voicemails or messages revealing treatment/appointment details.");
+            }
+            if (patient.allow_sms === "no") {
+                restrictions.push("<strong>DO NOT SEND SMS</strong> &mdash; Text messaging prohibited.");
+            }
+            if (patient.allow_voice_calls === "no") {
+                restrictions.push("<strong>DO NOT PLACE STANDARD VOICE CALLS</strong>");
+            }
+            if (patient.allow_postcard === "no") {
+                restrictions.push("<strong>NO POSTCARDS / UNSEALED MAIL</strong> &mdash; Sealed envelopes only.");
+            }
+            if (patient.preferred_contact_method && patient.preferred_contact_method !== "none") {
+                const methodLabels = {
+                    cell_phone: "Mobile / Cell Phone Only",
+                    phone_call: "Standard Voice Call Only",
+                    sms: "SMS Text Message Only",
+                    email: "Email Only",
+                    confidential_address: "Alternative Confidential Address / P.O. Box",
+                    portal: "Patient Portal Only"
+                };
+                restrictions.push(`<strong>Preferred Communication Channel:</strong> ${methodLabels[patient.preferred_contact_method] || patient.preferred_contact_method}`);
+            }
+            const confAddr = [patient.confidential_address_line, patient.confidential_city, patient.confidential_state, patient.confidential_postal_code].filter(Boolean).join(", ");
+            if (confAddr) {
+                restrictions.push(`<strong>Confidential Alternative Address:</strong> ${escapeHtml(confAddr)}`);
+            }
+            if (patient.confidential_phone) {
+                restrictions.push(`<strong>Confidential Direct Phone:</strong> ${escapeHtml(patient.confidential_phone)}`);
+            }
+            if (patient.confidential_email) {
+                restrictions.push(`<strong>Confidential Direct Email:</strong> ${escapeHtml(patient.confidential_email)}`);
+            }
+            if (patient.communication_restrictions_notes) {
+                restrictions.push(`<strong>Specific Staff Instructions:</strong> <em>"${escapeHtml(patient.communication_restrictions_notes)}"</em>`);
+            }
+
+            banner.innerHTML = `
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="flex-shrink:0;color:#dc2626;padding-top:2px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                            <span style="font-weight:700;font-size:13.5px;color:#991b1b;letter-spacing:0.2px;">
+                                ⚠️ 45 CFR § 164.522(b) Confidential Communications Restriction Enforced
+                            </span>
+                            <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:#fee2e2;color:#991b1b;border:1px solid #f87171;">
+                                Mandatory Statutory Accommodation
+                            </span>
+                        </div>
+                        <div style="margin-top:6px;font-size:12.5px;color:#7f1d1d;line-height:1.5;">
+                            This patient has registered legally binding communication restrictions under HIPAA Privacy Rule § 164.522(b). Clinical and front-desk staff must adhere strictly to these channels prior to placing telephone calls or sending postal mail:
+                        </div>
+                        <ul style="margin:6px 0 0 18px;padding:0;font-size:12px;color:#991b1b;line-height:1.6;">
+                            ${restrictions.map((r) => `<li style="margin-bottom:3px;">${r}</li>`).join("")}
+                        </ul>
+                    </div>
+                </div>
+            `;
+            banner.style.display = "block";
+        } else {
+            banner.style.display = "none";
+            banner.innerHTML = "";
+        }
+    }
+}
+
 // Populates and wires up the Patient Chart tab for the given patient. Called
 // (via setTimeout, so the tab's markup is mounted first) whenever the chart
 // tab is opened or replaced with a different patient.
@@ -2595,6 +2697,7 @@ export async function initPatientChartTab(patient)
     setFact("pdFactBloodType", patient.blood_type);
     setFact("pdFactProvider", providerName);
 
+    renderConfidentialCommunicationsAlert(patient);
     showPatientContextBar(patient);
     setupPatientPhotoUpload(patient);
 
@@ -3298,6 +3401,18 @@ function renderDemographics(patient)
     const sexLabel = patient.sex ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1) : "";
     const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
     const yesNo = (value) => (value === "yes" ? "Yes" : value === "no" ? "No" : "");
+    const formatPreferredMethod = (value) => {
+        const map = {
+            cell_phone: "Mobile Phone Only",
+            phone_call: "Standard Voice Call",
+            sms: "SMS Only",
+            email: "Email Only",
+            confidential_address: "Alternative Address / P.O. Box",
+            portal: "Patient Portal Only",
+            none: "None Specified"
+        };
+        return map[value] || value || "";
+    };
 
     const tabRows = {
         who: [
@@ -3326,9 +3441,16 @@ function renderDemographics(patient)
             field("Care Provider", providerName),
             field("Allow SMS", yesNo(patient.allow_sms)),
             field("Allow Voice Calls", yesNo(patient.allow_voice_calls)),
+            field("Allow Voicemail", yesNo(patient.allow_voicemail)),
             field("Allow Email", yesNo(patient.allow_email)),
             field("Allow Health Info Exchange", yesNo(patient.allow_hie)),
-            field("Allow Postcard", yesNo(patient.allow_postcard))
+            field("Allow Postcard", yesNo(patient.allow_postcard)),
+            field("Preferred Contact Method", formatPreferredMethod(patient.preferred_contact_method)),
+            field("Confidential Restrictions (§ 164.522(b))", patient.has_confidential_restrictions ? "YES (Active)" : "No"),
+            field("Confidential Address", [patient.confidential_address_line, patient.confidential_city, patient.confidential_state, patient.confidential_postal_code].filter(Boolean).join(", ") || ""),
+            field("Confidential Phone", patient.confidential_phone || ""),
+            field("Confidential Email", patient.confidential_email || ""),
+            field("Restriction Instructions", patient.communication_restrictions_notes || "")
         ],
         stats: [
             field("Language", patient.language),
@@ -14230,17 +14352,22 @@ function showPatientContextBar(patient)
     const dob = formatDate(patient.birthdate);
     const age = calculateAge(patient.birthdate);
 
+    const hasRestrictions = Number(patient.has_confidential_restrictions) === 1 || patient.has_confidential_restrictions === true;
+    const commBadgeHtml = hasRestrictions
+        ? ` <span class="patient-context-comm-badge" style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:3px;background:#fee2e2;border:1px solid #ef4444;color:#991b1b;font-size:10.5px;font-weight:700;margin-left:8px;letter-spacing:0.2px;" title="45 CFR § 164.522(b): Confidential Communications Restrictions Enforced">🔒 RESTRICTED COMMS</span>`
+        : "";
+
     document.getElementById("patientContextPhoto").innerHTML = patientAvatarHtml(patient);
 
     const nameEl = document.getElementById("patientContextName");
-    nameEl.textContent = fullName || "Unnamed Patient";
+    nameEl.innerHTML = `${escapeHtml(fullName || "Unnamed Patient")}${commBadgeHtml}`;
     nameEl.onclick = (event) => {
         event.preventDefault();
         openPatientChartTab(patient);
     };
 
     document.getElementById("patientContextMeta").textContent =
-        `DOB: ${dob || "Not set"}    Age: ${age === null ? "-" : age}`;
+        `DOB: ${dob || "Not set"}    Age: ${age === null ? "-" : age}${hasRestrictions ? "    ⚠️ Communications Restricted (§ 164.522(b))" : ""}`;
 
     document.getElementById("patientContextClose").onclick = hidePatientContextBar;
 
@@ -15401,6 +15528,21 @@ function openEditModal(patient)
     document.getElementById("edit_allow_email").value = patient.allow_email ?? "";
     document.getElementById("edit_allow_hie").value = patient.allow_hie ?? "";
     document.getElementById("edit_allow_postcard").value = patient.allow_postcard ?? "";
+
+    const setIfExists = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val ?? "";
+    };
+    setIfExists("edit_allow_voicemail", patient.allow_voicemail);
+    setIfExists("edit_preferred_contact_method", patient.preferred_contact_method || "none");
+    setIfExists("edit_confidential_address_line", patient.confidential_address_line);
+    setIfExists("edit_confidential_city", patient.confidential_city);
+    setIfExists("edit_confidential_state", patient.confidential_state);
+    setIfExists("edit_confidential_postal_code", patient.confidential_postal_code);
+    setIfExists("edit_confidential_phone", patient.confidential_phone);
+    setIfExists("edit_confidential_email", patient.confidential_email);
+    setIfExists("edit_communication_restrictions_notes", patient.communication_restrictions_notes);
+
     document.getElementById("edit_race").value = patient.race ?? "";
     document.getElementById("edit_ethnicity").value = patient.ethnicity ?? "";
     document.getElementById("edit_religion").value = patient.religion ?? "";
@@ -15492,6 +15634,8 @@ function renderPatientsTable(patients, user)
         const sexLabel = sex ? sex.charAt(0).toUpperCase() + sex.slice(1) : "Not set";
         const sexClass = sex === "male" || sex === "female" ? sex : "unset";
         const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
+        const hasCommRestrictions = Number(patient.has_confidential_restrictions) === 1 || patient.has_confidential_restrictions === true;
+        const commBadge = hasCommRestrictions ? ` <span class="pat-comm-badge" title="45 CFR § 164.522(b): Confidential Communications Restrictions Active" style="display:inline-flex;align-items:center;padding:1px 5px;font-size:10.5px;font-weight:700;color:#991b1b;background:#fee2e2;border:1px solid #f87171;border-radius:3px;margin-left:5px;cursor:help;">🔒 CC</span>` : "";
 
         return `
         <tr class="pat-row" data-row-id="${patient.id}">
@@ -15499,7 +15643,7 @@ function renderPatientsTable(patients, user)
             <td>
                 <div class="pat-name-cell">
                     <div class="pat-avatar">${patientAvatarHtml(patient)}</div>
-                    <span class="pat-name">${escapeHtml(fullName)}</span>
+                    <span class="pat-name">${escapeHtml(fullName)}${commBadge}</span>
                 </div>
             </td>
             <td><span class="pat-sex-badge ${sexClass}">${escapeHtml(sexLabel)}</span></td>

@@ -161,6 +161,16 @@ export function AddPatientView()
                     </div>
 
                     <div class="form-group">
+                        <label>Allow Voicemail (45 CFR § 164.522(b))</label>
+                        <select id="allow_voicemail" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No (Strict Restriction - No Voicemails)</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
                         <label>Allow Email Communication</label>
                         <select id="allow_email" class="form-input">
                             <option value="">Unassigned</option>
@@ -177,6 +187,84 @@ export function AddPatientView()
                             <option value="yes">Yes</option>
                             <option value="no">No</option>
                         </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allow Postcard</label>
+                        <select id="allow_postcard" class="form-input">
+                            <option value="">Unassigned</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-section-header" style="margin-top:16px;margin-bottom:10px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #6366f1;border-radius:4px;">
+                    <strong style="color:#1e293b;font-size:13px;display:flex;align-items:center;gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        45 CFR § 164.522(b) Confidential Communications & Alternative Channels
+                    </strong>
+                    <p style="margin:2px 0 0;font-size:11.5px;color:#64748b;">Enforce patient legal rights to receive PHI by alternative means or at alternative locations.</p>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Preferred Contact Method</label>
+                        <select id="preferred_contact_method" class="form-input">
+                            <option value="none">None Specified (Default)</option>
+                            <option value="cell_phone">Mobile / Cell Phone Only</option>
+                            <option value="phone_call">Standard Voice Call</option>
+                            <option value="sms">SMS Text Message Only</option>
+                            <option value="email">Email Only</option>
+                            <option value="confidential_address">Alternative Confidential Address / P.O. Box</option>
+                            <option value="portal">Patient Portal Only</option>
+                        </select>
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Alternative Confidential Address</label>
+                        <input id="confidential_address_line" class="form-input" placeholder="e.g. P.O. Box 4502 or Alternative Street">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confidential City</label>
+                        <input id="confidential_city" class="form-input" placeholder="City">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confidential State / Province</label>
+                        <input id="confidential_state" class="form-input" placeholder="State / Province">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confidential Postal / Zip Code</label>
+                        <input id="confidential_postal_code" class="form-input" placeholder="Zip / Postal Code">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confidential Direct Phone</label>
+                        <input id="confidential_phone" class="form-input" placeholder="e.g. Private Cell Phone">
+                        <span class="form-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confidential Direct Email</label>
+                        <input id="confidential_email" type="email" class="form-input" placeholder="e.g. secure.personal@example.com">
+                        <span class="form-error"></span>
+                    </div>
+                </div>
+
+                <div class="form-grid" style="grid-template-columns:1fr;margin-top:8px;">
+                    <div class="form-group">
+                        <label>Communication Restrictions & Staff Instructions</label>
+                        <textarea id="communication_restrictions_notes" class="form-input" rows="2" placeholder="e.g., Only call cell phone after 5 PM; never leave messages with family members; do not reference medical clinic on voicemail."></textarea>
                         <span class="form-error"></span>
                     </div>
                 </div>

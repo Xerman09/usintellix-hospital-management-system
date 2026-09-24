@@ -49,3 +49,18 @@ $router->post('/patients/break-glass', [PatientController::class, 'breakGlass'],
     [RoleMiddleware::class, ['admin', 'doctor']]
 ]);
 
+$router->get('/patients/confidential-preferences', [PatientController::class, 'getConfidentialPreferences'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->put('/patients/confidential-preferences', [PatientController::class, 'setConfidentialPreferences'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/patients/confidential-registry/export', [PatientController::class, 'exportConfidentialRegistryCsv'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
