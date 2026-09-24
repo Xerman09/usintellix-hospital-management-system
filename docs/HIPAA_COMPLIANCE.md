@@ -29,6 +29,19 @@
 5. [Frontend Secret Isolation & Environmental Controls](#5-frontend-secret-isolation--environmental-controls)
 6. [Database Schemas & Audit Trail Structure](#6-database-schemas--audit-trail-structure)
 7. [Cryptographic Verification Procedures](#7-cryptographic-verification-procedures)
+8. [HIPAA Audit Readiness, Gap Analysis & Statutory Roadmap](#8-hipaa-audit-readiness-gap-analysis--statutory-roadmap)
+   - [Audit Compliance Status Matrix](#audit-compliance-status-matrix)
+   - [Breach Notification Rule & 4-Factor Risk Assessment (§§ 164.400 - 164.414)](#breach-notification-rule--4-factor-risk-assessment--164400---164414)
+   - [Business Associate Agreement (BAA) Governance (§ 164.502(e) & § 164.504(e))](#business-associate-agreement-baa-governance--164502e---164504e)
+   - [HITECH Paid-in-Full Out-of-Pocket Insurance Restriction (§ 164.522(a)(1)(vi))](#hitech-paid-in-full-out-of-pocket-insurance-restriction--164522a1vi)
+   - [Confidential Communications Preferences (§ 164.522(b))](#confidential-communications-preferences--164522b)
+   - [Patient Right of Access 30-Day DRS Pipeline (§ 164.524)](#patient-right-of-access-30-day-drs-pipeline--164524)
+   - [Statutory PHI Amendment 60-Day Workflow (§ 164.526)](#statutory-phi-amendment-60-day-workflow--164526)
+   - [Data Backup & Disaster Recovery Verification (§ 164.308(a)(7))](#data-backup--disaster-recovery-verification--164308a7)
+   - [Workforce Training & Sanctions Log (§ 164.308(a)(1) & (5))](#workforce-training--sanctions-log--164308a1---5)
+   - [Safe Harbor 18-Identifier De-Identification (§ 164.514(b))](#safe-harbor-18-identifier-de-identification--164514b)
+   - [HIPAA Privacy & Security Officer Designation (§ 164.308(a)(2) & § 164.530(a))](#hipaa-privacy--security-officer-designation--164308a2---164530a)
+   - [Phased Implementation Roadmap](#phased-implementation-roadmap)
 
 ---
 
@@ -619,6 +632,210 @@ if ($result['valid']) {
 } else {
     echo "ALERT: Integrity breach detected! Corrupted Log ID: {$result['corrupted_id']}\n";
 }
+```
+
+## 8. HIPAA Audit Readiness, Gap Analysis & Statutory Roadmap
+
+This section documents the technical and operational compliance posture required to pass an official Department of Health and Human Services (HHS) Office for Civil Rights (OCR) HIPAA Compliance Audit or third-party assessment (SOC 2 Type II + HIPAA, HITRUST CSF).
+
+### Audit Compliance Status Matrix
+
+| Rule & Section | Safeguard / Requirement | Technical Mechanism in USIntellix | Audit Status | Risk Rating |
+|:---|:---|:---|:---:|:---:|
+| **§ 164.312(a)(1)** | Unique User ID & Authentication | Bcrypt hashing, forced first-login reset, SMS/Email 2FA OTP | **Implemented** | Low |
+| **§ 164.312(a)(2)(i)** | Automatic Account Lockout | Locks after 5 failed logins within 15 min; 30-min cooldown or admin unlock | **Implemented** | Low |
+| **§ 164.312(a)(2)(ii)**| Emergency Break-Glass Access | Clinical override with mandatory reason & immediate audit logging | **Implemented** | Low |
+| **§ 164.312(a)(2)(iii)**| Automatic Inactivity Logoff | 15-min global inactivity tracker with 60-second warning countdown | **Implemented** | Low |
+| **§ 164.312(a)(2)(iv)**| Encryption at Rest | NIST SP 800-38D AES-256-GCM field encryption (SSN, notes, cards) | **Implemented** | Low |
+| **§ 164.312(b) & (c)** | Audit Controls & Integrity | HMAC-SHA-256 sequential chained audit logs with CLI/web verifier | **Implemented** | Low |
+| **§ 164.316(b)(2)(i)** | 6-Year Immutable Retention | Database triggers blocking record deletion & modification < 6 years | **Implemented** | Low |
+| **§ 164.312(e)(1)** | Transmission Security Headers | Anti-caching (`no-store`, `no-cache`), clickjacking & MIME defense | **Implemented** | Low |
+| **§ 164.308(a)(5)(ii)(D)**| Password Expiration & History | 90-day expiration, previous 5 passwords restricted, complexity rules | **Implemented** | Low |
+| **§ 164.308(a)(4)** | Role-Based Access Control | Granular 6-tier RBAC and dynamic ACL groups | **Implemented** | Low |
+| **§ 164.502(b) / § 164.514(d)** | Minimum Necessary PHI | Clinical masking for non-clinical staff; physician assignment boundaries | **Implemented** | Low |
+| **§ 164.520** | Notice of Privacy Practices (NPP) | First-portal e-signature gating, in-clinic check-in console, audit ledger | **Implemented** | Low |
+| **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule, statutory fields (§ 164.528(b)(2)), statement export | **Implemented** | Low |
+| **§§ 164.400 - 164.414**| **Breach Notification & Risk Assessment** | Statutory 4-factor risk assessment, 60-day timers, OCR reporting | **Roadmap (Tier 1)** | Critical |
+| **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, signed BAA tracking, expiration alerts | **Roadmap (Tier 1)** | Critical |
+| **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression & EDI 837 claim blocking | **Roadmap (Tier 1)** | High |
+| **§ 164.522(b)** | **Confidential Communications Preferences** | Alternative contact toggles (phone/email/address), chart warning badge | **Roadmap (Tier 2)** | High |
+| **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Designated Record Set request clock & one-click export bundle | **Roadmap (Tier 2)** | High |
+| **§ 164.526** | **Statutory PHI Amendment Workflow** | 60-day clock, statutory denial notices, disagreement linking | **Roadmap (Tier 2)** | Medium |
+| **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, SHA-256 checks, drill records | **Roadmap (Tier 3)** | Medium |
+| **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Annual training certification tracking & disciplinary sanctions log | **Roadmap (Tier 3)** | Medium |
+| **§ 164.514(b)** | **Safe Harbor De-Identification Tool** | Automated 18-identifier scrub filter for research & analytics export | **Roadmap (Tier 3)** | Medium |
+| **§ 164.308(a)(2)** | **HIPAA Privacy & Security Officers** | Formal designation in settings & auto-fill into statements/notices | **Roadmap (Tier 3)** | Low |
+
+---
+
+### Breach Notification Rule & 4-Factor Risk Assessment (§§ 164.400 - 164.414)
+
+#### Statutory Mandate
+Under 45 CFR § 164.402, an acquisition, access, use, or disclosure of protected health information in a manner not permitted under Subpart E of this part is presumed to be a breach unless the covered entity or business associate, as applicable, demonstrates that there is a low probability that the protected health information has been compromised based on a risk assessment of at least the following four statutory factors:
+1. **Factor 1 - Nature and Extent of PHI**: Types of identifiers involved, clinical sensitivity (diagnoses, medications, mental health, HIV status), and likelihood of re-identification.
+2. **Factor 2 - Unauthorized Person**: The recipient who impermissibly used or received the PHI (e.g., internal clinician vs. foreign IP address vs. non-HIPAA commercial entity).
+3. **Factor 3 - Actual Viewing / Acquisition**: Forensic corroboration of whether the PHI was actually accessed, read, downloaded, or copied, or whether the device/medium was merely lost with encrypted storage intact.
+4. **Factor 4 - Extent of Risk Mitigation**: Immediate containment steps taken (e.g., signed certification of immediate permanent destruction, remote wipe prior to access).
+
+#### Statutory Notification Timelines
+- **Individual Notification (§ 164.404)**: Written notice via first-class mail or encrypted email without unreasonable delay and in no case later than **60 calendar days** after discovery.
+- **HHS Secretary Notification (§ 164.408)**:
+  - Breaches affecting **500 or more individuals**: Notification via HHS web portal without unreasonable delay and no later than **60 calendar days** following discovery.
+  - Breaches affecting **fewer than 500 individuals**: Logged and submitted electronically to HHS OCR no later than **60 days after the end of each calendar year**.
+- **Media Notification (§ 164.406)**: Required for breaches affecting more than 500 residents of a State or jurisdiction.
+
+---
+
+### Business Associate Agreement (BAA) Governance (§ 164.502(e) & § 164.504(e))
+
+#### Statutory Mandate
+A covered entity may disclose protected health information to a business associate (and may allow a business associate to create, receive, maintain, or transmit protected health information on its behalf) only if the covered entity obtains satisfactory assurances through a written contract meeting the requirements of § 164.504(e).
+
+#### Vendor Governance Requirements
+- **Centralized Business Associate Registry**: Administrative inventory tracking all third parties handling ePHI (cloud hosting, email/SMS gateways, billing clearinghouses, lab interfaces, transcriptionists, external IT support).
+- **Compliance Parameters**: Legal Vendor Name, Primary Compliance Contact, Services Provided, PHI Access Scope, BAA Execution Date, Annual Audit Review Date, and Expiration Date.
+- **Automated Alerts**: Early warnings 60 days and 30 days prior to BAA renewal deadlines, and critical flags if an integration operates without a verified active agreement on file.
+
+---
+
+### HITECH Paid-in-Full Out-of-Pocket Insurance Restriction (§ 164.522(a)(1)(vi))
+
+#### Statutory Mandate
+Under Section 13405(a) of the HITECH Act and 45 CFR § 164.522(a)(1)(vi), a covered entity **must agree** to the request of an individual to restrict disclosure of protected health information about the individual to a health plan if:
+1. The disclosure is for the purpose of carrying out payment or health care operations and is not otherwise required by law; and
+2. The protected health information pertains solely to a health care item or service for which the individual, or person other than the health plan on behalf of the individual, has paid the covered entity in full.
+
+#### Technical Enforcement Mechanism
+- **Encounter / Fee Sheet Flag**: A legally binding toggle `HITECH Out-of-Pocket Disclosure Restriction (§ 164.522(a))` recorded in the database.
+- **Automated EDI Claim Suppression**: Claim generation pipelines (EDI 837P) and batch clearinghouse exports must programmatically exclude encounters flagged with this restriction.
+
+---
+
+### Confidential Communications Preferences (§ 164.522(b))
+
+#### Statutory Mandate
+Covered healthcare providers must permit individuals to request and must accommodate reasonable requests by individuals to receive communications of protected health information from the covered provider by alternative means or at alternative locations.
+
+#### Technical Controls
+- **Demographic Preference Capture**: Structured flags for `Allow Voicemail`, `Allow SMS`, `Preferred Contact Phone`, `Alternative P.O. Box / Mailing Address`.
+- **Chart Warning Badge**: Prominent alert on the patient summary banner alerting staff before placing calls, sending mail, or dispatching automated reminders.
+
+---
+
+### Patient Right of Access 30-Day DRS Pipeline (§ 164.524)
+
+#### Statutory Mandate
+The covered entity must act on a request for access no later than **30 calendar days** after receipt of the request (§ 164.524(b)(2)). If the covered entity is unable to take action within 30 days, one 30-day extension is permitted, provided the patient is provided with a written explanation of the delay and date of fulfillment.
+
+#### Technical Controls
+- **Request Pipeline & Countdown Timer**: Dedicated tracker calculating remaining days to statutory deadline.
+- **Designated Record Set (DRS) Bundling Engine**: One-click generation of the full clinical jacket (demographics, clinical notes, vital signs, lab orders/results, medications, allergies, billing ledger) in PDF or structured JSON format.
+- **Fee Rule Compliance (§ 164.524(c)(4))**: Enforcement preventing retrieval, searching, or overhead fees; only actual electronic media or postage costs may be billed.
+
+---
+
+### Statutory PHI Amendment 60-Day Workflow (§ 164.526)
+
+#### Statutory Mandate
+The covered entity must act on an individual's request for amendment no later than **60 calendar days** after receipt (§ 164.526(b)(2)).
+If the request is denied, the covered entity must provide a timely written denial stating:
+1. The statutory basis for denial (§ 164.526(a)(2)):
+   - PHI was not created by the covered entity (unless originator unavailable).
+   - PHI is not part of the Designated Record Set.
+   - PHI would not be available for inspection under § 164.524.
+   - PHI is accurate and complete.
+2. The individual's right to submit a written **Statement of Disagreement** (§ 164.526(d)(1)).
+3. Technical mechanism ensuring any submitted Statement of Disagreement is permanently appended to the disputed record and bundled with all future disclosures (§ 164.526(d)(4)).
+
+---
+
+### Data Backup & Disaster Recovery Verification (§ 164.308(a)(7))
+
+#### Statutory Mandate
+Covered entities must establish and implement procedures to create and maintain retrievable exact copies of electronic protected health information (§ 164.308(a)(7)(ii)(A)) and implement procedures for testing and revision of contingency plans (§ 164.308(a)(7)(ii)(D)).
+
+#### Technical Controls
+- **In-App Backup Health Monitor**: Displaying last automated backup timestamp, file size, SHA-256 integrity checksum, and AES-256 backup encryption status.
+- **Disaster Recovery Drill Registry**: Formal log documenting periodic database restoration drills, restorer identity, target environment, and recovery time metrics.
+
+---
+
+### Workforce Training & Sanctions Log (§ 164.308(a)(1) & (5))
+
+#### Statutory Mandate
+- **Security Awareness and Training (§ 164.308(a)(5))**: Mandatory security training for all members of the workforce within 30 days of hire and periodic updates/annual refreshers.
+- **Sanction Policy (§ 164.308(a)(1)(ii)(C))**: Mandatory documented disciplinary sanctions applied against workforce members who fail to comply with security policies.
+
+#### Technical Controls
+- Employee profile fields tracking Initial Training Date, Annual Recertification Date, and Certification Status.
+- Confidential Sanctions Log recording security incident violations, investigation findings, and disciplinary actions taken.
+
+---
+
+### Safe Harbor 18-Identifier De-Identification (§ 164.514(b))
+
+#### Statutory Mandate
+Health information is not identifiable (and thus exempt from HIPAA restrictions) if all **18 specified identifiers** of the individual or of relatives, employers, or household members of the individual are removed:
+1. Names
+2. Geographic subdivisions smaller than state
+3. All elements of dates (except year) directly related to an individual
+4. Telephone numbers
+5. Fax numbers
+6. Email addresses
+7. Social Security numbers
+8. Medical record numbers
+9. Health plan beneficiary numbers
+10. Account numbers
+11. Certificate/license numbers
+12. Vehicle identifiers and serial numbers
+13. Device identifiers and serial numbers
+14. Web Universal Resource Locators (URLs)
+15. Internet Protocol (IP) addresses
+16. Biometric identifiers (finger and voice prints)
+17. Full-face photographs and comparable images
+18. Any other unique identifying number, characteristic, or code
+
+#### Technical Controls
+Automated Safe Harbor export filter masking or stripping all 18 identifiers when generating clinical research, statistical modeling, or AI training datasets.
+
+---
+
+### HIPAA Privacy & Security Officer Designation (§ 164.308(a)(2) & § 164.530(a))
+
+#### Statutory Mandate
+Covered entities must designate a Privacy Official responsible for the development and implementation of privacy policies, and a Security Official responsible for security policy implementation and enforcement.
+
+#### Technical Controls
+Dedicated fields in System Settings recording official Privacy and Security Officers (Full Name, Direct Contact Phone, Official Email, Date of Appointment), automatically populating into the Notice of Privacy Practices, Patient Disclosure Statements, and Breach Notifications.
+
+---
+
+### Phased Implementation Roadmap
+
+```
++-------------------------------------------------------------------------------+
+| PHASE 1: Critical Statutory Modules (Audit Showstoppers)                      |
+| * Breach Assessment & Security Incident Log (§§ 164.400 - 164.414)            |
+| * Business Associate Agreement (BAA) Vendor Registry (§ 164.502(e))           |
+| * HITECH Paid-in-Full Out-of-Pocket Insurance Restriction (§ 164.522(a))      |
++-------------------------------------------------------------------------------+
+                                        |
+                                        v
++-------------------------------------------------------------------------------+
+| PHASE 2: Enhanced Patient Rights & Privacy Rule Safeguards                    |
+| * Patient Right of Access 30-Day DRS Fulfillment Pipeline (§ 164.524)         |
+| * Confidential Communications Preferences & Chart Badging (§ 164.522(b))      |
+| * PHI Amendment 60-Day Workflow & Denial Notice Generator (§ 164.526)         |
++-------------------------------------------------------------------------------+
+                                        |
+                                        v
++-------------------------------------------------------------------------------+
+| PHASE 3: Operational & Administrative Governance                              |
+| * Encrypted Backup & Disaster Recovery Verification Console (§ 164.308(a)(7)) |
+| * Workforce HIPAA Training Tracker & Disciplinary Sanctions Log (§ 164.308)   |
+| * Safe Harbor 18-Identifier PHI De-Identification Tool (§ 164.514(b))         |
+| * Official Privacy & Security Officer Settings Designation (§ 164.308(a)(2))  |
++-------------------------------------------------------------------------------+
 ```
 
 ---

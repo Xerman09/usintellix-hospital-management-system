@@ -72,6 +72,26 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.520** | Patient Consent & Notice of Privacy Practices (NPP) Signature Capture | Mandatory 45 CFR § 164.520 patient acknowledgment: first-portal-login electronic signature gating, in-clinic check-in capture console, versioning (`2026-09`), and immutable `npp_consent_log` audit retention. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
+### HIPAA Audit Readiness & Remaining Statutory Parameters
+
+To achieve 100% compliance across an official **HHS Office for Civil Rights (OCR)** audit or third-party assessment (SOC 2 Type II + HIPAA, HITRUST CSF), the remaining statutory parameters are planned under the following phased roadmap:
+
+| Rule & Section | Safeguard / Missing Parameter | Statutory Mandate & Impact | Priority | Status |
+|:---|:---|:---|:---:|:---:|
+| **§§ 164.400 – 164.414** | **Breach Notification & 4-Factor Risk Assessment** | Statutory presumption of breach (§ 164.402); mandatory 4-factor risk assessment formula; 60-day patient notification countdown; HHS OCR portal reporting (<500 annual log vs. ≥500 immediate reporting). | 🔴 Critical | **Roadmap (Tier 1)** |
+| **§ 164.502(e) / § 164.504(e)** | **Business Associate Agreement (BAA) Registry** | Prohibition on sharing ePHI without signed BAA; vendor inventory tracking, review/expiration dates, and automated renewal alerts. | 🔴 Critical | **Roadmap (Tier 1)** |
+| **§ 164.522(a)(1)(vi)** | **HITECH Out-of-Pocket Insurance Restriction** | Mandatory patient right to withhold disclosure to health plan for care paid in full out-of-pocket; automated EDI 837P claim suppression. | 🟠 High | **Roadmap (Tier 1)** |
+| **§ 164.522(b)** | **Confidential Communications Preferences** | Patient right to alternative contact methods/locations; voicemail restrictions; chart banner warning badges. | 🟠 High | **Roadmap (Tier 2)** |
+| **§ 164.524** | **Right of Access 30-Day DRS Fulfillment Pipeline** | Designated Record Set request tracker, 30-day statutory countdown timer, one-click comprehensive PDF/JSON export bundle. | 🟠 High | **Roadmap (Tier 2)** |
+| **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | 60-day action clock, written denial notices citing 4 statutory grounds, and Statement of Disagreement linking. | 🟡 Medium | **Roadmap (Tier 2)** |
+| **§ 164.308(a)(7)** | **Backup & Contingency Verification Console** | In-app daily encrypted backup status, SHA-256 integrity verification, and periodic restoration drill logs. | 🟡 Medium | **Roadmap (Tier 3)** |
+| **§ 164.308(a)(1) & (5)** | **Workforce Training & Sanctions Log** | Annual HIPAA training certification tracking in employee profiles and confidential disciplinary sanctions log. | 🟡 Medium | **Roadmap (Tier 3)** |
+| **§ 164.514(b)** | **Safe Harbor 18-Identifier De-Identification** | Automated removal/masking of all 18 HIPAA identifiers for clinical research and statistical export datasets. | 🟡 Medium | **Roadmap (Tier 3)** |
+| **§ 164.308(a)(2)** | **HIPAA Privacy & Security Officer Designation** | Dedicated system configuration of official Privacy and Security Officers with dynamic notice auto-fill. | 🟢 Low | **Roadmap (Tier 3)** |
+
+> [!NOTE]
+> Full technical specifications, statutory citations, and implementation architecture for each parameter are detailed in [docs/HIPAA_COMPLIANCE.md](HIPAA_COMPLIANCE.md#8-hipaa-audit-readiness-gap-analysis--statutory-roadmap).
+
 ---
 
 ## 3. Technology Stack & Architecture
