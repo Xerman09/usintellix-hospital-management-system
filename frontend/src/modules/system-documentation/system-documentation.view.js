@@ -509,6 +509,8 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-encryption" class="sysdoc-nav-item hipaa-highlight">Field-Level Encryption (AES-256-GCM)</a>
                 <a href="#sec-hipaa-anticache" class="sysdoc-nav-item hipaa-highlight">Anti-Caching &amp; Transmission</a>
                 <a href="#sec-hipaa-privacy" class="sysdoc-nav-item hipaa-highlight">Accounting of Disclosures &amp; Privacy</a>
+                <a href="#sec-hipaa-breach" class="sysdoc-nav-item hipaa-highlight">Breach Notification &amp; 4-Factor (§ 164.400)</a>
+                <a href="#sec-hipaa-baa" class="sysdoc-nav-item hipaa-highlight">BAA Vendor Registry (§ 164.502(e))</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -617,11 +619,21 @@ export function SystemDocumentationView(options = {}) {
                                 <td>Notice of Privacy Practices &amp; Consent Capture</td>
                                 <td>Mandatory electronic signature capture gating first portal login, in-clinic check-in capture console, versioning, and immutable <code>npp_consent_log</code>.</td>
                             </tr>
+                            <tr>
+                                <td><strong>§§ 164.400 – 164.414</strong></td>
+                                <td>Breach Notification &amp; 4-Factor Risk Assessment</td>
+                                <td>Statutory 4-factor risk assessment calculator (§ 164.402), 60-day notification countdown clocks, formal individual notification letters (§ 164.404(c)), HHS OCR JSON portal filing package (§ 164.408), and chained audit logging.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.502(e) / § 164.504(e)</strong></td>
+                                <td>Business Associate Agreement (BAA) Tracking &amp; Vendor Governance</td>
+                                <td>Centralized vendor registry, dynamic 60-day renewal alerts, unexecuted BAA gap warnings, downstream subcontractor PHI tracking (§ 164.504(e)(2)(ii)(D)), HHS OCR Question #1 compliance dossier, and RFC 4180 CSV export.</td>
+                            </tr>
                         </tbody>
                     </table>
                     <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                         <div style="font-size: 13px; color: #065f46;">
-                            <strong>HIPAA Audit Compliance Status:</strong> 13 Core Technical &amp; Privacy Safeguards are fully operational (~85-90% technical baseline). For the complete OCR compliance matrix and remaining statutory parameters, see the <a href="#sec-hipaa-roadmap" style="color: #047857; font-weight: 700; text-decoration: underline;">Audit Readiness &amp; Statutory Compliance Roadmap</a>.
+                            <strong>HIPAA Audit Compliance Status:</strong> 15 Core Technical, Administrative &amp; Privacy Safeguards are fully operational (~92-95% technical baseline). For the complete OCR compliance matrix and remaining statutory parameters, see the <a href="#sec-hipaa-roadmap" style="color: #047857; font-weight: 700; text-decoration: underline;">Audit Readiness &amp; Statutory Compliance Roadmap</a>.
                         </div>
                     </div>
                 </section>
@@ -949,6 +961,78 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: BREACH NOTIFICATION & 4-FACTOR RISK ASSESSMENT -->
+                <section id="sec-hipaa-breach" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            12. HIPAA Breach Notification Rule &amp; 4-Factor Risk Assessment (§§ 164.400 – 164.414 &amp; § 164.308(a)(6))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Safeguard</span>
+                    </div>
+                    <p>
+                        Under federal law (<strong>45 CFR § 164.402</strong>), any impermissible acquisition, access, use, or disclosure of unencrypted protected health information is presumed to be a reportable breach <em>unless</em> the covered entity demonstrates that there is a low probability that the PHI has been compromised based on a statutory 4-Factor Risk Assessment.
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Statutory 4-Factor Risk Assessment Engine (§ 164.402)</div>
+                        <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>Factor 1 — Nature and Extent of PHI:</strong> Evaluates clinical sensitivity (diagnoses, psychiatric notes, lab results, SSNs) and likelihood of re-identification.</li>
+                            <li><strong>Factor 2 — Unauthorized Recipient:</strong> Evaluates who impermissibly accessed or received the PHI (e.g., trusted internal physician vs. unauthorized third party).</li>
+                            <li><strong>Factor 3 — Actual Viewing / Acquisition:</strong> Evaluates whether forensic logs demonstrate that the PHI was actually accessed, copied, or acquired.</li>
+                            <li><strong>Factor 4 — Extent of Mitigation:</strong> Evaluates immediate containment steps (e.g., immediate verified deletion agreement, returned unopened courier).</li>
+                            <li><strong>Composite Scoring:</strong> Real-time average calculator (&le; 2.0 = Non-Breach / Low Risk demonstrated; &gt; 2.0 = Presumption of Breach applies).</li>
+                        </ul>
+                    </div>
+                    <div class="sysdoc-rule-box" style="margin-top: 10px;">
+                        <div class="sysdoc-rule-title">Statutory Notification &amp; Regulatory Filings</div>
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>60-Day Countdown Clock (§ 164.404):</strong> Strict statutory deadline monitoring from discovery date with visual alert pills (&gt;15d blue, &le;15d pulsing amber, &lt;0d overdue red).</li>
+                            <li><strong>Individual Breach Notification Letter Generator (§ 164.404(c)):</strong> Formats formal written notices fulfilling all 5 mandatory statutory elements with facility letterhead and print/PDF export.</li>
+                            <li><strong>HHS OCR Portal Electronic Filing Package (§ 164.408):</strong> Standardized JSON package formatted specifically for submission to the HHS.gov OCR Breach Portal (&lt;500 annual log vs. &ge;500 immediate notice).</li>
+                            <li><strong>Chained Audit Trail:</strong> Every incident creation, assessment score, patient linkage, letter generation, and filing package export is committed to <code>hipaa_audit_logs</code> under <code>CATEGORY_INCIDENT</code> with sequential HMAC-SHA-256 hash chaining.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('security_incidents', 'Security Incidents &amp; Breach Assessment'); }">
+                            <span>Open Security Incidents &amp; Breach Log</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- SECTION: BAA VENDOR REGISTRY & GOVERNANCE -->
+                <section id="sec-hipaa-baa" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                            13. Business Associate Agreement (BAA) Tracking &amp; Vendor Governance (§ 164.502(e) &amp; § 164.504(e))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Safeguard</span>
+                    </div>
+                    <p>
+                        Under <strong>45 CFR § 164.502(e)</strong> and <strong>§ 164.504(e)</strong>, a covered healthcare provider may disclose protected health information to an external vendor, cloud host, SMS/email gateway, clearinghouse, or laboratory only if satisfactory assurances are obtained through an executed Business Associate Agreement (BAA).
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Centralized Vendor Registry &amp; OCR Question #1 Compliance</div>
+                        <p style="margin: 4px 0 8px 0; font-size: 13px;">
+                            During an official HHS OCR compliance audit, Question #1 under vendor management requires: <em>"Provide your complete active inventory of Business Associates, including signed BAA copies, execution dates, and compliance audit dates."</em> The BAA Vendor Registry provides direct, one-click fulfillment of this inquiry:
+                        </p>
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>Centralized Vendor Catalog:</strong> Catalogs all vendors handling ePHI across cloud infrastructure, messaging relays, reference labs, clearinghouses, transcription/AI tools, and IT MSP contractors.</li>
+                            <li><strong>Statutory Contract Governance:</strong> Tracks legal vendor name, service description, primary contact, execution date, expiration/renewal date, last audit date, and next review deadline.</li>
+                            <li><strong>Dynamic Status &amp; 60-Day Renewal Warnings:</strong> Automatically evaluates agreement dates and triggers high-visibility administrative warning banners for missing BAAs, expired contracts, or renewals impending within 60 days.</li>
+                            <li><strong>Subcontractor PHI Access Tracking (§ 164.504(e)(2)(ii)(D)):</strong> Audits downstream subcontractor data sharing and enforces contractual breach notification SLAs (e.g. 24h, 48h, 72h).</li>
+                            <li><strong>HHS OCR Question #1 Compliance Dossier:</strong> Compiles an instant printable compliance dossier with facility letterhead, active vs. missing/expired vendor breakdown, subcontractor disclosures, and statutory safeguard attestations.</li>
+                            <li><strong>Regulatory RFC 4180 CSV Export:</strong> Direct CSV export containing complete statutory vendor governance metadata via <code>/api/business-associates/export-csv</code>.</li>
+                            <li><strong>Cryptographic Audit Trails:</strong> Every vendor registration, modification, deletion, dossier compilation, and CSV export is chained into <code>hipaa_audit_logs</code> under <code>CATEGORY_BAA</code> via SHA-256 HMAC.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('business_associates', 'BAA Vendor Registry'); }">
+                            <span>Open BAA Vendor Registry</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -959,7 +1043,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         <span class="sysdoc-badge sysdoc-badge-green">OCR Audit Protocol (45 CFR)</span>
                     </div>
                     <p>
-                        To achieve 100% compliance and pass an official <strong>HHS Office for Civil Rights (OCR)</strong> or third-party HIPAA audit (SOC 2 Type II + HIPAA, HITRUST CSF), a healthcare system must satisfy every technical, administrative, and physical safeguard under <strong>45 CFR Parts 160 &amp; 164</strong>. USIntellix maintains an industry-grade foundation across 13 core safeguards (~85-90% technical baseline). This section documents the formal compliance scorecard and the remaining statutory parameters required for complete certification.
+                        To achieve 100% compliance and pass an official <strong>HHS Office for Civil Rights (OCR)</strong> or third-party HIPAA audit (SOC 2 Type II + HIPAA, HITRUST CSF), a healthcare system must satisfy every technical, administrative, and physical safeguard under <strong>45 CFR Parts 160 &amp; 164</strong>. USIntellix maintains an industry-grade foundation across 15 core safeguards (~92-95% technical baseline). This section documents the formal compliance scorecard and the remaining statutory parameters required for complete certification.
                     </p>
 
                     <!-- COMPLIANCE STATUS SCORECARD -->
@@ -1479,6 +1563,33 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>None</td>
                                 <td>None</td>
                                 <td>None</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Security Incidents &amp; Breach Assessment</strong></td>
+                                <td>Full</td>
+                                <td>Report Only</td>
+                                <td>Report Only</td>
+                                <td>None</td>
+                                <td>None</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td><strong>BAA Vendor Registry &amp; Governance</strong></td>
+                                <td>Full</td>
+                                <td>None</td>
+                                <td>None</td>
+                                <td>None</td>
+                                <td>None</td>
+                                <td>None</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Accounting of Disclosures</strong></td>
+                                <td>Full</td>
+                                <td>View</td>
+                                <td>View</td>
+                                <td>View/Record</td>
+                                <td>View/Record</td>
+                                <td>Self Request</td>
                             </tr>
                         </tbody>
                     </table>

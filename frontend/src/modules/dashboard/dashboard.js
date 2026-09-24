@@ -253,7 +253,7 @@ import { TermsConditionsView } from "../terms-conditions/terms-conditions.view.j
 import { initHipaaAudit } from "../hipaa-audit/hipaa-audit.js?v=2";
 import { HipaaAuditView } from "../hipaa-audit/hipaa-audit.view.js?v=2";
 import { initSystemDocumentation } from "../system-documentation/system-documentation.js?v=5";
-import { SystemDocumentationView } from "../system-documentation/system-documentation.view.js?v=6";
+import { SystemDocumentationView } from "../system-documentation/system-documentation.view.js?v=7";
 import { initDailySummary } from "../reports/daily-summary.js";
 import { DailySummaryView } from "../reports/daily-summary.view.js";
 import { initAppointmentsReport } from "../reports/appointments.js";

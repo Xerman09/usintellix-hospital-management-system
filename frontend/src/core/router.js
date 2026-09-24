@@ -10,7 +10,7 @@ import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view
 import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=1";
 import { TermsConditionsView } from "../modules/terms-conditions/terms-conditions.view.js?v=1";
 import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=1";
-import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=7";
+import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=8";
 import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=3";
 
 

@@ -155,6 +155,9 @@ USIntellix implements strict Role-Based Access Control (RBAC):
 | **Fee Sheets & Superbills** | Full | Full | None | None | **Full** | None |
 | **EDI Claims (837) & Remittances** | Full | None | None | None | **Full** | None |
 | **Drug Inventory & Warehouses** | Full | View | View | None | None | None |
+| **Security Incidents & Breach Assessment** | **Full** | Report Only | Report Only | None | None | None |
+| **BAA Vendor Registry & Governance** | **Full** | None | None | None | None | None |
+| **Accounting of Disclosures** | **Full** | View | View | View/Record | View/Record | Self (Request) |
 | **Patient Portal (Self-Service)** | None | None | None | None | None | **Full (Self)**|
 
 ---

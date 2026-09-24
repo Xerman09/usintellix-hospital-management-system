@@ -54,6 +54,8 @@ The system implements defense-in-depth security controls across all application 
 - **Access Control**: Role-Based Access Control (RBAC), emergency clinical "Break-Glass" protocol with mandatory audit recording, and strict isolation of patient portal accounts.
 - **Audit & Integrity**: Append-only, tamper-evident audit trail utilizing sequential SHA-256 HMAC cryptographic hash chaining to verify log immutability.
 - **Data Protection**: Anti-caching HTTP headers prohibiting PHI storage on client disks or intermediate proxies, 15-minute inactivity termination, and complete segregation of backend environment secrets.
+- **Incident & Breach Management**: Statutory 4-Factor Risk Assessment calculator (§ 164.402), 60-day individual notification timers, individualized patient letter generator (§ 164.404(c)), and HHS OCR portal reporting packages (§ 164.408).
+- **Vendor Governance**: Business Associate Registry (§ 164.502(e) & § 164.504(e)), dynamic 60-day renewal alerts, unexecuted BAA gap warnings, downstream subcontractor PHI tracking (§ 164.504(e)(2)(ii)(D)), and instant HHS OCR Question #1 compliance dossiers.
 
 ---
 
