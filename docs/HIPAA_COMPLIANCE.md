@@ -664,7 +664,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Centralized 30-day countdown pipeline, single 30-day extension (§ 164.524(b)(2)(ii)) with formal written notice, complete DRS export bundles (clinical + billing), statutory fee enforcement (§ 164.524(c)(4)), and RFC 4180 CSV export | **Implemented** | Low |
 | **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | Centralized 60-day action pipeline, single 30-day extension (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial letter generator, permanent Statement of Disagreement & Rebuttal linking, automatic DRS bundle dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export | **Implemented** | Low |
 | **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, AES-256-GCM encryption, SHA-256 integrity checks, and periodic DR restoration drill records | **Implemented** | Low |
-| **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Annual training certification tracking & disciplinary sanctions log | **Roadmap (Tier 3)** | Medium |
+| **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Employee profile certifications, initial 30-day onboarding deadline, 365-day refresher countdowns, certificate generator, 5-tier disciplinary sanctions log with automatic account lockout, RFC 4180 CSV exports, and chained audit logs | **Implemented** | Low |
 | **§ 164.514(b)** | **Safe Harbor De-Identification Tool** | Automated 18-identifier scrub filter for research & analytics export | **Roadmap (Tier 3)** | Medium |
 | **§ 164.308(a)(2)** | **HIPAA Privacy & Security Officers** | Formal designation in settings & auto-fill into statements/notices | **Roadmap (Tier 3)** | Low |
 
@@ -987,12 +987,57 @@ Covered entities must establish and implement procedures to create and maintain 
 ### Workforce Training & Sanctions Log (§ 164.308(a)(1) & (5))
 
 #### Statutory Mandate
-- **Security Awareness and Training (§ 164.308(a)(5))**: Mandatory security training for all members of the workforce within 30 days of hire and periodic updates/annual refreshers.
-- **Sanction Policy (§ 164.308(a)(1)(ii)(C))**: Mandatory documented disciplinary sanctions applied against workforce members who fail to comply with security policies.
+- **Security Awareness and Training (45 CFR § 164.308(a)(5))**: Covered entities must implement a security awareness and training program for all members of the workforce (including management). All new workforce members must complete initial security training within **30 calendar days of hire** (§ 164.308(a)(5)(i)), and all active personnel must complete periodic refresher updates at least annually (**every 365 calendar days**).
+- **Sanction Policy (45 CFR § 164.308(a)(1)(ii)(C))**: Covered entities must apply appropriate sanctions against workforce members who fail to comply with the security policies and procedures of the covered entity.
 
-#### Technical Controls
-- Employee profile fields tracking Initial Training Date, Annual Recertification Date, and Certification Status.
-- Confidential Sanctions Log recording security incident violations, investigation findings, and disciplinary actions taken.
+#### Technical Implementation
+
+1. **Centralized Administrative Governance Console & Real-Time KPIs**:
+   - Integrated into the navigation under **Administration &rarr; System &rarr; Workforce HIPAA Governance (§ 164.308)** and **Miscellaneous &rarr; Workforce HIPAA Governance** (`data-tab="workforce_governance"`).
+   - Real-time KPI summary dashboard:
+     - **Total Workforce**: Total active employee headcount.
+     - **Compliant Staff**: Workforce members with active, unexpired certifications.
+     - **Approaching Due (&le;30 Days)**: Workforce members whose annual refresher is due within 30 days or new hires within their initial 30-day grace window.
+     - **Overdue / Non-Compliant**: Workforce members whose refresher is expired or new hires whose 30-day onboarding window has lapsed without certified training.
+     - **Active Sanctions**: Cumulative count of documented disciplinary actions.
+     - **Terminations Enforced**: Severe privacy violation terminations resulting in immediate security lockouts.
+
+2. **Workforce Training Historical Ledger (`hipaa_workforce_trainings`)**:
+   - Comprehensive training event tracking with unique certificate identifiers (`CERT-YYYY-XXXX`).
+   - Tracks training type (`initial_orientation`, `annual_refresher`, `remedial_post_incident`, `specialized_phi_role`), curriculum name, completion date, delivery method (`in_person`, `lms_online`, `webinar`, `self_study`), score percentage (mandatory &ge;80% passing threshold), certification expiry date (`completion_date + 365 days`), attestation statements, and certifying compliance officer identity.
+   - **Automated Profile Synchronization**: Recording a valid training event automatically syncs the employee profile fields (`hipaa_initial_training_date`, `hipaa_last_refresher_date`, `hipaa_next_refresher_due`, `hipaa_certification_status`, `hipaa_training_score`, `hipaa_cert_ref`, `hipaa_curriculum_name`).
+   - **Printable Certificate of Completion**: Instant popup print dialog rendering official facility letterhead, employee identity, curriculum completed, score, certificate reference number, validity dates, and Privacy/Security Officer signatures.
+
+3. **Disciplinary Sanctions Administrative Log (`hipaa_workforce_sanctions`)**:
+   - Mandatory tracking of all privacy and security policy violations citing 45 CFR § 164.308(a)(1)(ii)(C).
+   - Assigned unique sanction tracking numbers (`SAN-YYYY-XXXX`).
+   - Tracks violation date, discovery date, policy violated, violation severity (`minor`, `moderate`, `serious`, `severe`, `critical`), and disciplinary sanction action tier:
+     - `verbal_counseling`: Level 1 informal corrective guidance.
+     - `written_reprimand`: Level 2 formal written disciplinary warning placed in HR file.
+     - `remedial_retraining`: Level 3 mandatory corrective HIPAA retraining event.
+     - `suspension`: Level 4 temporary suspension of employment and access credentials.
+     - `immediate_termination`: Level 5 immediate employment termination and credentials revocation.
+   - **Optional Security Incident Linkage**: Directly references `hipaa_security_incidents.id` (`incident_id`) for forensic tie-in to statutory breach investigations.
+   - **Mandatory Investigation Summary & Officer Signoff**: Requires documented investigation findings, corrective action plan, supervisor, and sanctioning officer signoff.
+   - **Printable Disciplinary Sanction Dossier**: Printable formal audit dossier for HR files and OCR audit inspection using the synchronous popup engine.
+
+4. **Automated Immediate Termination Account Lockout Enforcement**:
+   - When a sanction with action tier `immediate_termination` is committed, `WorkforceService::recordSanction()` automatically locates the employee's user account in `users` and triggers an immediate irreversible lock (`is_locked = 1`, `locked_until = '2099-12-31 23:59:59'`).
+   - Immediately revokes active session access to ePHI, mitigating risks of post-termination data exfiltration.
+
+5. **Employee Directory Integration (`add-employee.view.js` & `add-employee.js`)**:
+   - Visual certification badges rendered in the main employee directory table:
+     - `Compliant`: Green badge with certificate reference.
+     - `Due Soon`: Amber warning badge for certifications expiring within 30 days.
+     - `Overdue`: Red alert badge for expired certifications or past-due initial training.
+     - `Exempt`: Gray badge for documented non-ePHI roles.
+   - Dedicated HIPAA Certification fieldset in Add/Edit Employee modal enabling direct viewing and maintenance of training metrics.
+
+6. **Regulatory RFC 4180 CSV Exports**:
+   - Dedicated endpoints `GET /api/workforce-governance/trainings/export` and `GET /api/workforce-governance/sanctions/export` streaming standardized RFC 4180 CSV files with statutory metadata headers for OCR audit reviews.
+
+7. **Tamper-Evident HMAC-SHA-256 Chained Audit Logging**:
+   - All training submissions, certification updates, attestation prints, sanction entries, updates, dossier generation, and CSV exports are recorded under `CATEGORY_WORKFORCE` in `hipaa_audit_logs` with cryptographic chaining.
 
 ---
 
@@ -1056,7 +1101,7 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
 +-------------------------------------------------------------------------------+
 | PHASE 3: Operational & Administrative Governance                              |
 | * Encrypted Backup & Disaster Recovery Verification Console (§ 164.308)[COMPLETE]|
-| * Workforce HIPAA Training Tracker & Disciplinary Sanctions Log (§ 164.308)   |
+| * Workforce HIPAA Training Tracker & Disciplinary Sanctions Log (§ 164.308)[COMPLETE]|
 | * Safe Harbor 18-Identifier PHI De-Identification Tool (§ 164.514(b))         |
 | * Official Privacy & Security Officer Settings Designation (§ 164.308(a)(2))  |
 +-------------------------------------------------------------------------------+

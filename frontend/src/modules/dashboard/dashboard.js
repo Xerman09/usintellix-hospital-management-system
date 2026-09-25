@@ -4,7 +4,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=128";
+import { getNavLinks } from "./dashboard.view.js?v=129";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -358,6 +358,8 @@ import { AmendmentsView } from "../amendments/amendments.view.js?v=1";
 import { initAmendments } from "../amendments/amendments.js?v=1";
 import { BackupRecoveryView } from "../backup-recovery/backup-recovery.view.js?v=1";
 import { initBackupRecovery } from "../backup-recovery/backup-recovery.js?v=1";
+import { WorkforceGovernanceView } from "../workforce-governance/workforce-governance.view.js?v=1";
+import { initWorkforceGovernance } from "../workforce-governance/workforce-governance.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -774,6 +776,14 @@ export function Dashboard()
                     initBackupRecovery(el ? el.parentElement : document);
                 }, 0);
                 return BackupRecoveryView.render();
+            }, activate);
+        } else if (tabId === 'workforce_governance' || tabId === 'workforce_training' || tabId === 'admin_workforce' || tabId === 'misc_workforce') {
+            tabManager.openTab(tabId, title || 'Workforce Training & Sanctions Log', () => {
+                setTimeout(() => {
+                    const el = document.querySelector('.workforce-gov-container');
+                    initWorkforceGovernance(el ? el.parentElement : document);
+                }, 0);
+                return WorkforceGovernanceView.render();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {

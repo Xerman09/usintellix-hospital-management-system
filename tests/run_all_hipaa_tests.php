@@ -1,27 +1,28 @@
 <?php
 /**
  * Master HIPAA Automated Test Suite Runner
- * Runs all 12 HIPAA test suites, collects results, and verifies the full HMAC-SHA-256 audit hash chain.
+ * Runs all 13 HIPAA test suites, collects results, and verifies the full HMAC-SHA-256 audit hash chain.
  */
 
 $testFiles = [
-    'test_backup_and_disaster_recovery.php' => 'Encrypted Backup & DR Verification (45 CFR § 164.308(a)(7))',
-    'test_phi_amendments.php'               => 'Statutory PHI Amendments Pipeline (45 CFR § 164.526)',
-    'test_drs_right_of_access.php'           => 'Designated Record Set Right of Access (45 CFR § 164.524)',
-    'test_confidential_communications.php'   => 'Confidential Communications Preferences (45 CFR § 164.522(b))',
-    'test_hitech_restriction.php'           => 'HITECH Out-of-Pocket Insurance Restriction (§ 164.522(a)(1)(vi))',
-    'test_business_associates.php'          => 'BAA Tracking & Vendor Governance (45 CFR § 164.502(e))',
-    'test_security_incidents.php'           => 'Breach Notification & 4-Factor Risk Assessment (§ 164.402)',
-    'test_accounting_of_disclosures.php'    => 'Accounting of Disclosures Registry (45 CFR § 164.528)',
-    'test_field_encryption.php'             => 'Field-Level AES-256-GCM Encryption (45 CFR § 164.312(a)(2)(iv))',
-    'test_npp_consent.php'                  => 'Notice of Privacy Practices & Consent (45 CFR § 164.520)',
-    'test_hipaa_retention_and_export.php'   => '6-Year Data Retention & Immutable Export (§ 164.316(b))',
-    'test_minimum_necessary.php'            => 'Role-Based Minimum Necessary Access (§ 164.502(b))'
+    'test_workforce_training_and_sanctions.php' => 'Workforce Training & Sanctions Log (45 CFR § 164.308(a)(1) & (5))',
+    'test_backup_and_disaster_recovery.php'     => 'Encrypted Backup & DR Verification (45 CFR § 164.308(a)(7))',
+    'test_phi_amendments.php'                   => 'Statutory PHI Amendments Pipeline (45 CFR § 164.526)',
+    'test_drs_right_of_access.php'               => 'Designated Record Set Right of Access (45 CFR § 164.524)',
+    'test_confidential_communications.php'       => 'Confidential Communications Preferences (45 CFR § 164.522(b))',
+    'test_hitech_restriction.php'               => 'HITECH Out-of-Pocket Insurance Restriction (§ 164.522(a)(1)(vi))',
+    'test_business_associates.php'              => 'BAA Tracking & Vendor Governance (45 CFR § 164.502(e))',
+    'test_security_incidents.php'               => 'Breach Notification & 4-Factor Risk Assessment (§ 164.402)',
+    'test_accounting_of_disclosures.php'        => 'Accounting of Disclosures Registry (45 CFR § 164.528)',
+    'test_field_encryption.php'                 => 'Field-Level AES-256-GCM Encryption (45 CFR § 164.312(a)(2)(iv))',
+    'test_npp_consent.php'                      => 'Notice of Privacy Practices & Consent (45 CFR § 164.520)',
+    'test_hipaa_retention_and_export.php'       => '6-Year Data Retention & Immutable Export (§ 164.316(b))',
+    'test_minimum_necessary.php'                => 'Role-Based Minimum Necessary Access (§ 164.502(b))'
 ];
 
 echo "========================================================================================\n";
 echo "   USINTELLIX HEALTHCARE SYSTEM - MASTER HIPAA AUDIT REGRESSION TEST RUNNER             \n";
-echo "   Testing All 12 Statutory HIPAA Compliance Subsystems                                 \n";
+echo "   Testing All 13 Statutory HIPAA Compliance Subsystems                                 \n";
 echo "========================================================================================\n\n";
 
 $totalPassed = 0;
@@ -99,7 +100,8 @@ echo str_repeat("=", 88) . "\n";
 echo sprintf("TOTAL TESTS: %d Passed, %d Failed (Duration: %0.2fs)\n", $totalPassed, $totalFailed, $totalDuration);
 
 if ($totalFailed === 0) {
-    echo "RESULT: ALL 12 TEST SUITES PASSED (100% SUCCESS RATE)\n";
+    $countSuites = count($testFiles);
+    echo "RESULT: ALL {$countSuites} TEST SUITES PASSED (100% SUCCESS RATE)\n";
     exit(0);
 } else {
     echo "RESULT: {$totalFailed} FAILURES DETECTED IN REGRESSION RUN\n";

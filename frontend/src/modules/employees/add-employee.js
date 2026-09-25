@@ -13,7 +13,10 @@ import { enablePasswordToggles } from "../../core/password-toggle.js";
 const FIELDS = [
     "username", "password", "role_id", "department_id",
     "first_name", "middle_name", "last_name", "suffix",
-    "sex", "birthdate", "email", "phone"
+    "sex", "birthdate", "email", "phone",
+    "hipaa_training_status", "hipaa_initial_training_date",
+    "hipaa_last_refresher_date", "hipaa_next_refresher_due",
+    "hipaa_training_score", "hipaa_cert_ref"
 ];
 
 let employees = [];
@@ -69,6 +72,12 @@ export async function initAddEmployee()
             document.getElementById("birthdate").value = employee.birthdate ?? "";
             document.getElementById("email").value = employee.email ?? "";
             document.getElementById("phone").value = employee.phone ?? "";
+            document.getElementById("hipaa_training_status").value = employee.hipaa_training_status ?? "overdue";
+            document.getElementById("hipaa_initial_training_date").value = employee.hipaa_initial_training_date ?? "";
+            document.getElementById("hipaa_last_refresher_date").value = employee.hipaa_last_refresher_date ?? "";
+            document.getElementById("hipaa_next_refresher_due").value = employee.hipaa_next_refresher_due ?? "";
+            document.getElementById("hipaa_training_score").value = employee.hipaa_training_score ?? "";
+            document.getElementById("hipaa_cert_ref").value = employee.hipaa_cert_ref ?? "";
         } else {
             modalTitle.textContent = "Add Employee";
             modalSubtitle.textContent = "Create a login account and employee record.";
@@ -78,6 +87,12 @@ export async function initAddEmployee()
 
             idInput.value = "";
             form.reset();
+            document.getElementById("hipaa_training_status").value = "overdue";
+            document.getElementById("hipaa_initial_training_date").value = "";
+            document.getElementById("hipaa_last_refresher_date").value = "";
+            document.getElementById("hipaa_next_refresher_due").value = "";
+            document.getElementById("hipaa_training_score").value = "";
+            document.getElementById("hipaa_cert_ref").value = "";
         }
 
         modalOverlay.classList.add("open");
@@ -260,6 +275,16 @@ function renderRows(openModal)
             `;
         }
 
+        const trainingStatus = employee.hipaa_training_status || 'overdue';
+        let trainingBadge = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b;"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Overdue</span>`;
+        if (trainingStatus === 'compliant') {
+            trainingBadge = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d;"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Compliant</span>`;
+        } else if (trainingStatus === 'approaching_due') {
+            trainingBadge = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#fef3c7;color:#b45309;"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Due Soon</span>`;
+        } else if (trainingStatus === 'exempt') {
+            trainingBadge = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;">Exempt</span>`;
+        }
+
         const unlockBtn = (isLocked || failedAttempts > 0)
             ? `
             <button class="vc-icon-btn unlock" data-unlock-user-id="${employee.user_id}" title="Unlock Account" style="color:#059669; border-color:#a7f3d0; margin-left: 4px;">
@@ -288,6 +313,7 @@ function renderRows(openModal)
                 <div class="vc-subtext">${escapeHtml(employee.phone || "")}</div>
             </td>
             <td>${statusBadge}</td>
+            <td>${trainingBadge}</td>
             <td>
                 <div class="vc-actions">
                     <button class="vc-icon-btn edit" data-edit-id="${employee.id}">

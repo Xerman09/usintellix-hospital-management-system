@@ -416,13 +416,14 @@ export function AddEmployeeView()
                         <th>Department</th>
                         <th>Contact</th>
                         <th>Security Status</th>
+                        <th>HIPAA Training</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody id="employeesTableBody">
-                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 60%;"></div></td></tr>
-                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 45%;"></div></td></tr>
-                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 70%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="8"><div class="vc-skeleton-bar" style="width: 60%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="8"><div class="vc-skeleton-bar" style="width: 45%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="8"><div class="vc-skeleton-bar" style="width: 70%;"></div></td></tr>
                 </tbody>
             </table>
         </div>
@@ -521,6 +522,51 @@ export function AddEmployeeView()
                     <label>Phone</label>
                     <input id="phone" class="form-input" placeholder="09XXXXXXXXX">
                     <span class="form-error" id="err-phone"></span>
+                </div>
+
+                <div class="form-group full" style="margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
+                    <div style="font-size: 13px; font-weight: 700; color: #4338ca; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>HIPAA Workforce Training Certification (45 CFR § 164.308(a)(5))</span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                        Initial security training is mandatory within 30 days of hire, with annual refreshers thereafter.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Certification Status</label>
+                    <select id="hipaa_training_status" class="form-input">
+                        <option value="compliant">Compliant</option>
+                        <option value="approaching_due">Approaching Due (&le;30d)</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="exempt">Exempt</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Initial Training Date</label>
+                    <input id="hipaa_initial_training_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Last Refresher Date</label>
+                    <input id="hipaa_last_refresher_date" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Next Refresher Due Date</label>
+                    <input id="hipaa_next_refresher_due" type="date" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label>Training Score (%)</label>
+                    <input id="hipaa_training_score" type="number" step="0.5" min="0" max="100" class="form-input" placeholder="e.g. 95.0">
+                </div>
+
+                <div class="form-group">
+                    <label>Certificate Reference</label>
+                    <input id="hipaa_cert_ref" class="form-input" placeholder="e.g. CERT-2026-0001">
                 </div>
             </div>
 

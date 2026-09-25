@@ -516,6 +516,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-drs" class="sysdoc-nav-item hipaa-highlight">Right of Access DRS (§ 164.524)</a>
                 <a href="#sec-hipaa-amendments" class="sysdoc-nav-item hipaa-highlight">Right to Amend PHI (§ 164.526)</a>
                 <a href="#sec-hipaa-backup-recovery" class="sysdoc-nav-item hipaa-highlight">Backup &amp; Contingency (§ 164.308(a)(7))</a>
+                <a href="#sec-hipaa-workforce" class="sysdoc-nav-item hipaa-highlight">Workforce Training &amp; Sanctions (§ 164.308)</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -1237,6 +1238,48 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION 19: WORKFORCE HIPAA TRAINING & DISCIPLINARY SANCTIONS LOG -->
+                <section id="sec-hipaa-workforce" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            19. Workforce HIPAA Training Tracking &amp; Disciplinary Sanctions Log (45 CFR § 164.308(a)(1)(ii)(C) &amp; § 164.308(a)(5))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Administrative Safeguards</span>
+                    </div>
+                    <p>
+                        To satisfy mandatory administrative safeguards under the <strong>HIPAA Security Rule</strong>, covered entities must implement an ongoing security awareness program for all workforce members (<strong>45 CFR § 164.308(a)(5)</strong>) and apply formal, documented disciplinary sanctions against employees who fail to comply with established privacy and security policies (<strong>45 CFR § 164.308(a)(1)(ii)(C)</strong>). Federal auditors rigorously test for proof of training within 30 days of hire, annual refresher verification, and documented sanction records.
+                    </p>
+
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 8px; font-size: 14px;">Technical &amp; Administrative Controls:</div>
+                        <ul style="margin: 0 0 0 18px; padding: 0; font-size: 13px; line-height: 1.7; color: #334155;">
+                            <li><strong>Employee Profile Certification Fields:</strong> The <code>employees</code> master table tracks Initial Training Date, Last Refresher Date, Next Refresher Due Date, Certification Status (<code>compliant</code>, <code>approaching_due</code>, <code>overdue</code>, <code>exempt</code>), Training Score, and Certificate Code Reference.</li>
+                            <li><strong>30-Day Onboarding &amp; Annual Countdown Engine:</strong> Automatically evaluates compliance status against statutory windows: new hires must complete initial orientation within 30 calendar days of hire date; active workforce must complete annual refreshers within 365 calendar days.</li>
+                            <li><strong>Perpetual Training History Ledger (<code>hipaa_workforce_trainings</code>):</strong> Immutable log of all training completions recording curriculum title, training type (initial, annual refresher, remedial, role-based), delivery method (LMS, classroom, proctored), assessment score (&ge;80% pass threshold), auto-generated certificate code (<code>CERT-YYYY-XXXX</code>), and verification notes.</li>
+                            <li><strong>Printable Official Completion Certificates:</strong> In-app generation of formal printable certificates and attestations citing 45 CFR § 164.308(a)(5) for staff HR files and OCR audit inquiries.</li>
+                            <li><strong>Confidential Disciplinary Sanctions Log (<code>hipaa_workforce_sanctions</code>):</strong> Dedicated administrative ledger recording privacy/security violations with sequential tracking codes (<code>SAN-YYYY-XXXX</code>), violation dates, reported dates, violation categories (PHI snooping, improper disclosure, credential sharing, unencrypted device, phishing negligence, willful neglect), and severity levels (minor, moderate, serious, critical).</li>
+                            <li><strong>5-Tier Disciplinary Actions:</strong> Standardized sanctions enforcement from Tier 1 (Documented Verbal Counseling) through Tier 2 (Written Warning), Tier 3 (Suspension Without Pay), Tier 4 (Immediate Termination), and Tier 5 (Licensure Board / OCR Referral).</li>
+                            <li><strong>Account Lock Integration:</strong> Imposition of immediate termination automatically locks the associated login user account (<code>is_locked = 1</code>) to prevent post-separation ePHI exfiltration.</li>
+                            <li><strong>Security Incident Linkage:</strong> Sanction records can link directly to a related security incident in <code>hipaa_security_incidents</code>, providing a closed-loop chain of evidence from breach discovery to workforce sanction.</li>
+                            <li><strong>Printable Sanction Compliance Dossier:</strong> Generates formatted legal audit dossiers detailing investigation summaries, disciplinary rationales, remediation milestones, and Compliance Officer signoffs for auditor presentation.</li>
+                            <li><strong>Regulatory RFC 4180 CSV Exports:</strong> Dedicated CSV compliance streaming for both workforce training registries (citing § 164.308(a)(5)) and disciplinary sanctions (citing § 164.308(a)(1)(ii)(C)).</li>
+                            <li><strong>HMAC-SHA-256 Audit Trail:</strong> Every training event, sanction record, dossier generation, and CSV export is sequentially hashed in <code>hipaa_audit_logs</code> under <code>CATEGORY_WORKFORCE</code>.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('workforce_governance', 'Workforce Training &amp; Sanctions Log'); }">
+                            <span>Open Workforce Governance Console</span>
+                        </button>
+                        <a href="./api/workforce/export/trainings-csv" class="sysdoc-btn-secondary" target="_blank" download>
+                            <span>Export Training Registry (CSV)</span>
+                        </a>
+                        <a href="./api/workforce/export/sanctions-csv" class="sysdoc-btn-secondary" target="_blank" download>
+                            <span>Export Sanctions Log (CSV)</span>
+                        </a>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1382,11 +1425,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>In-app daily encrypted backup status, SHA-256 integrity verification, authenticated AES-256-GCM encryption, and periodic disaster recovery drill logs (§ 164.308(a)(7)(ii)(D)).</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #f8fafc;">
+                            <tr>
                                 <td><strong>§ 164.308(a)(1) &amp; (5)</strong></td>
                                 <td><strong>Workforce Training &amp; Sanctions Log</strong></td>
-                                <td>Annual HIPAA training certification tracking in employee profiles and confidential disciplinary sanctions log.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-blue">🟡 Roadmap (Tier 3)</span></td>
+                                <td>Workforce training tracking (initial 30-day orientation &amp; annual refreshers per § 164.308(a)(5)), certification countdowns, completion certificates, and disciplinary sanctions log (§ 164.308(a)(1)(ii)(C)) with investigation findings and OCR compliance dossiers.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
                                 <td><strong>§ 164.514(b)</strong></td>
@@ -1558,18 +1601,30 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 8. WORKFORCE TRAINING & SANCTIONS -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #2563eb; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #047857; display: flex; align-items: center; justify-content: space-between;">
                             <span>8. Workforce Training Tracker &amp; Disciplinary Sanctions Log (§ 164.308(a)(1) &amp; (5))</span>
-                            <span class="sysdoc-badge sysdoc-badge-blue">Administrative Safeguard</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
-                            Covered entities must maintain proof that all employees complete security awareness training upon hire and annually thereafter, and enforce documented sanctions against policy violators (§ 164.308(a)(1)(ii)(C)).
+                            Covered entities must maintain proof that all employees complete security awareness training upon hire and annually thereafter (§ 164.308(a)(5)), and enforce documented sanctions against policy violators (§ 164.308(a)(1)(ii)(C)).
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
                             <li><strong>Employee Profile Certification:</strong> Tracks Initial HIPAA Training Date, Annual Recertification Date, and Compliance Status with renewal reminders.</li>
                             <li><strong>Confidential Sanctions Log:</strong> Administrative registry documenting security policy violations, investigation summaries, corrective action plans, and disciplinary sanctions applied.</li>
+                            <li><strong>Printable Compliance Artifacts:</strong> Formal training completion certificates and OCR disciplinary audit dossiers.</li>
                         </ul>
+                        <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('workforce_governance', 'Workforce Training &amp; Sanctions Log'); }">
+                                <span>Open Workforce Console</span>
+                            </button>
+                            <a href="./api/workforce/export/trainings-csv" class="sysdoc-btn-secondary" target="_blank" download>
+                                <span>Export Trainings (CSV)</span>
+                            </a>
+                            <a href="./api/workforce/export/sanctions-csv" class="sysdoc-btn-secondary" target="_blank" download>
+                                <span>Export Sanctions (CSV)</span>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- 9. SAFE HARBOR DE-IDENTIFICATION -->

@@ -90,7 +90,14 @@ class EmployeeController extends Controller
             'birthdate',
             'email',
             'phone',
-            'department_id'
+            'department_id',
+            'hipaa_initial_training_date',
+            'hipaa_last_refresher_date',
+            'hipaa_next_refresher_due',
+            'hipaa_training_status',
+            'hipaa_training_score',
+            'hipaa_cert_ref',
+            'hipaa_curriculum_name'
         ]);
 
         $result = $this->employeeService->update($id, $data, (int) $admin['id']);

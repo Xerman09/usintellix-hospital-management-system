@@ -159,7 +159,7 @@ class EmployeeService
 
             (new User())->update($userUpdate, (int) $employee['user_id']);
 
-            (new Employee())->update([
+            $empUpdate = [
                 'first_name'    => $data['first_name'],
                 'middle_name'   => $data['middle_name'] ?? null,
                 'last_name'     => $data['last_name'],
@@ -171,7 +171,31 @@ class EmployeeService
                 'department_id' => $data['department_id'],
                 'updated_at'    => date('Y-m-d H:i:s'),
                 'updated_by'    => $updatedBy
-            ], $id);
+            ];
+
+            if (array_key_exists('hipaa_training_status', $data)) {
+                $empUpdate['hipaa_training_status'] = $data['hipaa_training_status'];
+            }
+            if (array_key_exists('hipaa_initial_training_date', $data)) {
+                $empUpdate['hipaa_initial_training_date'] = !empty($data['hipaa_initial_training_date']) ? $data['hipaa_initial_training_date'] : null;
+            }
+            if (array_key_exists('hipaa_last_refresher_date', $data)) {
+                $empUpdate['hipaa_last_refresher_date'] = !empty($data['hipaa_last_refresher_date']) ? $data['hipaa_last_refresher_date'] : null;
+            }
+            if (array_key_exists('hipaa_next_refresher_due', $data)) {
+                $empUpdate['hipaa_next_refresher_due'] = !empty($data['hipaa_next_refresher_due']) ? $data['hipaa_next_refresher_due'] : null;
+            }
+            if (array_key_exists('hipaa_training_score', $data)) {
+                $empUpdate['hipaa_training_score'] = $data['hipaa_training_score'] !== '' && $data['hipaa_training_score'] !== null ? (float)$data['hipaa_training_score'] : null;
+            }
+            if (array_key_exists('hipaa_cert_ref', $data)) {
+                $empUpdate['hipaa_cert_ref'] = !empty($data['hipaa_cert_ref']) ? $data['hipaa_cert_ref'] : null;
+            }
+            if (array_key_exists('hipaa_curriculum_name', $data)) {
+                $empUpdate['hipaa_curriculum_name'] = !empty($data['hipaa_curriculum_name']) ? $data['hipaa_curriculum_name'] : null;
+            }
+
+            (new Employee())->update($empUpdate, $id);
 
             $db->commit();
 
