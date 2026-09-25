@@ -661,7 +661,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.502(e) / § 164.504(e)**| **Business Associate Agreement Registry** | Vendor catalog, executed BAA tracking, 60-day renewal alerts, OCR dossier, CSV export | **Implemented** | Low |
 | **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression, EDI 837 claim block, Fee Sheet & Billing indicators | **Implemented** | Low |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Mandatory alternative channel toggles (voicemail/SMS/call/email/address), visual chart alert banner, context bar & finder badges, audit ledger, and CSV export | **Implemented** | Low |
-| **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Designated Record Set request clock & one-click export bundle | **Roadmap (Tier 2)** | High |
+| **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Centralized 30-day countdown pipeline, single 30-day extension (§ 164.524(b)(2)(ii)) with formal written notice, complete DRS export bundles (clinical + billing), statutory fee enforcement (§ 164.524(c)(4)), and RFC 4180 CSV export | **Implemented** | Low |
 | **§ 164.526** | **Statutory PHI Amendment Workflow** | 60-day clock, statutory denial notices, disagreement linking | **Roadmap (Tier 2)** | Medium |
 | **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, SHA-256 checks, drill records | **Roadmap (Tier 3)** | Medium |
 | **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Annual training certification tracking & disciplinary sanctions log | **Roadmap (Tier 3)** | Medium |
@@ -854,15 +854,62 @@ Covered healthcare providers must permit individuals to request and must accommo
 
 ---
 
-### Patient Right of Access 30-Day DRS Pipeline (§ 164.524)
+### Patient Right of Access 30-Day DRS Pipeline (§ 164.524 & 21st Century Cures Act)
 
 #### Statutory Mandate
-The covered entity must act on a request for access no later than **30 calendar days** after receipt of the request (§ 164.524(b)(2)). If the covered entity is unable to take action within 30 days, one 30-day extension is permitted, provided the patient is provided with a written explanation of the delay and date of fulfillment.
+Under 45 CFR § 164.524, covered entities must permit an individual or their personal representative to inspect and obtain a copy of protected health information about the individual in a **Designated Record Set (DRS)** (§ 164.501), for as long as the PHI is maintained in the DRS. Under the HHS Office for Civil Rights (OCR) active **Right of Access Initiative** and the **21st Century Cures Act § 4004 (Information Blocking)**, covered entities face substantial civil monetary penalties if they fail to provide prompt, unhindered access in the form and format requested.
 
-#### Technical Controls
-- **Request Pipeline & Countdown Timer**: Dedicated tracker calculating remaining days to statutory deadline.
-- **Designated Record Set (DRS) Bundling Engine**: One-click generation of the full clinical jacket (demographics, clinical notes, vital signs, lab orders/results, medications, allergies, billing ledger) in PDF or structured JSON format.
-- **Fee Rule Compliance (§ 164.524(c)(4))**: Enforcement preventing retrieval, searching, or overhead fees; only actual electronic media or postage costs may be billed.
+Key statutory requirements include:
+1. **Mandatory 30-Day Action Window (§ 164.524(b)(2)(i))**: The covered entity must act on an access request no later than **30 calendar days** after receipt of the request.
+2. **Single Permissible 30-Day Extension (§ 164.524(b)(2)(ii))**: If unable to fulfill within 30 calendar days, the covered entity may take a single extension of no more than 30 days, provided it delivers to the individual a formal written statement stating the reasons for the delay and the date by which action will be completed. Only **one extension** is permissible by law.
+3. **Statutory Designated Record Set Scope (§ 164.501)**: The DRS encompasses the medical records, billing and payment records, and any record used in whole or part by or for the covered entity to make decisions about the individual.
+4. **Fee Limitation (§ 164.524(c)(4))**: The covered entity may impose only a reasonable, cost-based fee that includes only the cost of labor for copying, supplies for creating the paper copy or electronic media (e.g. CD/USB), and actual postage. **Search and retrieval fees are strictly prohibited**, and portal electronic downloads must be provided free of charge ($0.00). Electronic media charges may not exceed the OCR $6.50 safe harbor unless actual costs are documented.
+
+#### Technical Implementation
+
+1. **Centralized Administrative Pipeline & Real-Time KPI Dashboard**:
+   - Integrated into the navigation under **Administration &rarr; System &rarr; Right of Access (DRS)** (`data-tab="drs_requests"`) and **Miscellaneous &rarr; Right of Access (DRS)** (`data-tab="misc_drs_requests"`).
+   - Real-time KPI summary bar tracking **Total Requests**, **Active Pipeline**, **Impending Deadlines (&le;7 days)**, **Overdue Requests (>30/60 days)**, **Extensions Granted**, and **Total Fulfilled**.
+   - Filterable pipeline view supporting search by patient name, request number (`DRS-YYYY-XXXX`), format requested, status filter (`all`, `pending`, `in_progress`, `fulfilled`, `denied`), and urgency level (`impending`, `overdue`).
+
+2. **Automated 30-Day Countdown Engine**:
+   - Calculates elapsed days, statutory deadline date (`received_date + 30 days` or `+ 60 days` if extended), and days remaining.
+   - Highlights impending requests with an amber pulsing badge when $\le 7$ days remain, and red alert badge for overdue requests ($< 0$ days remaining).
+
+3. **Single 30-Day Statutory Extension Management (§ 164.524(b)(2)(ii))**:
+   - `DrsRequestService::grantExtension()` enforces the federal limit: exactly **one** 30-day extension per request. Attempting a second extension is strictly blocked with an HTTP 422 error.
+   - Automatically recalculates `statutory_deadline_date` to `extended_deadline_date = received_date + 60 days`.
+   - **Formal Written Extension Notice Generator**: Generates an official statutory notice letter formatted with facility letterhead, patient identifiers, request number, statutory citation, mandatory explanation of delay, expected fulfillment date, and Privacy Officer signature block. Printable via browser popup dialog.
+
+4. **Complete Designated Record Set (DRS) Bundling Engine (§ 164.501)**:
+   - `DrsRequestService::compileDrsBundle()` collates the full longitudinal patient jacket across clinical and financial domains:
+     - **Demographics**: Name, DOB, MRN, national ID, address, emergency contacts, primary provider.
+     - **Encounters & Clinical Visits**: Longitudinal visit history with encounter class, dates, providers, and clinical status.
+     - **SOAP Clinical Notes**: Subjective, Objective, Assessment, Plan documentation (automatically decrypted via AES-256-GCM engine).
+     - **Vitals & Physiological Metrics**: Longitudinal blood pressure, heart rate, temperature, SpO2, BMI, respiration.
+     - **Problem List & Active Diagnoses**: Chronic and active conditions with ICD-10 coding and onset dates.
+     - **Allergies & Adverse Reactions**: Environmental, drug, and food allergies with severity levels and reaction details.
+     - **Medications & Prescriptions**: Current and historical pharmaceutical regimens, dosages, sig instructions, and prescribing providers.
+     - **Diagnostic Lab Orders & Results**: Panel orders, specimen data, quantitative results, reference ranges, and abnormal flags.
+     - **Billing Ledger & Financial Records**: Complete itemized transactions, ledger debits, credits, copays, adjustments, and outstanding balance (`PatientLedgerService`).
+   - Generates two statutory delivery formats:
+     - **Electronic Printable PDF Bundle**: Complete multipage document with hospital branding, HIPAA certification statement, and structured clinical/billing tables. Uses synchronous popup print pattern to bypass browser popup blockers.
+     - **Machine-Readable JSON Bundle**: C-CDA / FHIR-aligned structured JSON document downloaded directly for patient health apps or external provider interoperability.
+
+5. **Strict Statutory Fee Rules Engine (§ 164.524(c)(4))**:
+   - Validates all intake requests server-side:
+     - Rejects any fee where `fee_category = 'search_retrieval'` (strictly illegal under HIPAA).
+     - Enforces `$0.00` fee for electronic portal delivery (`delivery_format = 'portal_download'`).
+     - Caps portable electronic media fees (`fee_category = 'electronic_media'`) at `$6.50` safe harbor unless certified actual costs are specified.
+     - Restricts `paper_copy` fees to reasonable per-page supply costs and actual postage.
+
+6. **Patient Chart Direct Integration**:
+   - From the Patient Chart, clicking "Records Request" automatically navigates to the Right of Access DRS Pipeline and opens the new intake modal with the active patient pre-selected.
+
+7. **Regulatory Compliance Registry & Chained Audit Logging**:
+   - Dedicated table `hipaa_drs_access_requests` stores all intake metadata, format selections, dates, deadlines, extension reasons, delivery logs, and fee audit details.
+   - **RFC 4180 CSV Export**: Endpoint `GET /api/drs-requests/registry/export` streams complete CSV data with federal compliance metadata headers for OCR audit inspections.
+   - **Tamper-Evident HMAC-SHA-256 Audit Trail**: All operations committed to `hipaa_audit_logs` under `CATEGORY_RIGHT_OF_ACCESS` (`ACTION_DRS_REQUEST_CREATED`, `ACTION_DRS_REQUEST_UPDATED`, `ACTION_DRS_EXTENSION_GRANTED`, `ACTION_DRS_EXTENSION_NOTICE`, `ACTION_DRS_BUNDLE_EXPORTED`, `ACTION_DRS_FULFILLED`, `ACTION_DRS_DENIED`, `ACTION_DRS_REGISTRY_EXPORT`).
 
 ---
 
@@ -956,7 +1003,7 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
 +-------------------------------------------------------------------------------+
 | PHASE 2: Enhanced Patient Rights & Privacy Rule Safeguards                    |
 | * Confidential Communications Preferences & Chart Badging (§ 164.522(b))[COMPLETE]|
-| * Patient Right of Access 30-Day DRS Fulfillment Pipeline (§ 164.524)         |
+| * Patient Right of Access 30-Day DRS Fulfillment Pipeline (§ 164.524)[COMPLETE]|
 | * PHI Amendment 60-Day Workflow & Denial Notice Generator (§ 164.526)         |
 +-------------------------------------------------------------------------------+
                                         |

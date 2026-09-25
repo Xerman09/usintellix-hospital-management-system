@@ -15950,7 +15950,24 @@ export function triggerRecordsHistory() {
 }
 
 export function triggerRecordsRequest() {
-    if (currentDashboardPatient) {
+    if (window.__openDashboardTab) {
+        window.__openDashboardTab('drs_requests', 'Right of Access (DRS)');
+        if (currentDashboardPatient) {
+            setTimeout(() => {
+                const btnNew = document.getElementById('btnDrsNewRequest');
+                if (btnNew) {
+                    btnNew.click();
+                    setTimeout(() => {
+                        const sel = document.getElementById('drsPatientSelect');
+                        if (sel && currentDashboardPatient.id) {
+                            sel.value = currentDashboardPatient.id;
+                            sel.dispatchEvent(new Event('change'));
+                        }
+                    }, 100);
+                }
+            }, 250);
+        }
+    } else if (currentDashboardPatient) {
         const overlay = document.getElementById("patientRecordRequestModalOverlay");
         if (overlay) {
             overlay.classList.add("open");

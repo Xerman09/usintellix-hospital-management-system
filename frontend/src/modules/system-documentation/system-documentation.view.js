@@ -513,6 +513,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-baa" class="sysdoc-nav-item hipaa-highlight">BAA Vendor Registry (§ 164.502(e))</a>
                 <a href="#sec-hipaa-hitech" class="sysdoc-nav-item hipaa-highlight">HITECH Self-Pay Restriction (§ 164.522(a))</a>
                 <a href="#sec-hipaa-confidential-comm" class="sysdoc-nav-item hipaa-highlight">Confidential Communications (§ 164.522(b))</a>
+                <a href="#sec-hipaa-drs" class="sysdoc-nav-item hipaa-highlight">Right of Access DRS (§ 164.524)</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -1113,6 +1114,41 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: RIGHT OF ACCESS 30-DAY DESIGNATED RECORD SET (§ 164.524) -->
+                <section id="sec-hipaa-drs" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            16. Patient Right of Access 30-Day Designated Record Set Management (45 CFR § 164.524 &amp; 21st Century Cures Act)
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Patient Right</span>
+                    </div>
+                    <p>
+                        Under <strong>45 CFR § 164.524</strong> and the <strong>21st Century Cures Act (Information Blocking Rule)</strong>, individuals and their personal representatives have an enforceable federal right to inspect and obtain a complete copy of their <strong>Designated Record Set (DRS)</strong> within <strong>30 calendar days</strong> of a request. Under the OCR's active Right of Access Initiative, failure to timely produce records or assessing prohibited retrieval fees incurs mandatory civil monetary penalties.
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Centralized DRS Request Pipeline &amp; Statutory Safeguards</div>
+                        <p style="margin: 4px 0 8px 0; font-size: 13px;">
+                            The system provides an administrative pipeline to govern access requests, countdown timers, extension notices, and complete export bundles:
+                        </p>
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>Automated 30-Day Statutory Countdown Clock:</strong> Calculates initial fulfillment deadlines exactly 30 calendar days from receipt date. Live urgency indicators trigger amber warnings (&le;7 days) and pulsing red alerts when overdue, mitigating OCR breach liability.</li>
+                            <li><strong>Single 30-Day Extension Enforcement (§ 164.524(b)(2)(ii)):</strong> Programmatically permits at most <em>one</em> 30-day extension per request, locking subsequent extension attempts and auto-generating the formal written statutory notice letter citing legitimate delay rationales.</li>
+                            <li><strong>Multi-Format Designated Record Set Bundle:</strong> One-click collation of demographics, clinical encounters, SOAP notes, vital signs, active diagnoses, allergies, medications, immunizations, diagnostic lab results, and billing ledgers into print-ready PDF letterheads or machine-readable JSON interoperability packages.</li>
+                            <li><strong>Statutory Fee Restriction Rules (§ 164.524(c)(4)):</strong> Programmatic validation blocks search and retrieval fees. Fees are strictly bounded to reasonable cost-based paper supplies, actual postage, or portable electronic media up to the OCR $6.50 safe harbor (with electronic portal delivery enforced at $0.00).</li>
+                            <li><strong>OCR Audit Registry &amp; Tamper-Evident Trail:</strong> Maintains full pipeline history in <code>hipaa_drs_access_requests</code> with RFC 4180 CSV export and sequential HMAC-SHA-256 audit logging under <code>CATEGORY_RIGHT_OF_ACCESS</code>.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('drs_requests', 'Right of Access (DRS)'); }">
+                            <span>Open DRS Request Pipeline</span>
+                        </button>
+                        <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/drs-requests/export-csv';">
+                            <span>Export DRS Registry (CSV)</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1240,11 +1276,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Mandatory patient right to alternative communications; binding voicemail and SMS toggles, alternative address/phone/email, Patient Chart and Context Bar alert banners, <code>hipaa_confidential_communications_log</code> audit history, and RFC 4180 CSV registry export.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #f8fafc;">
+                            <tr>
                                 <td><strong>§ 164.524</strong></td>
-                                <td><strong>Right of Access 30-Day DRS Pipeline</strong></td>
-                                <td>Designated Record Set request tracker, 30-day statutory countdown, one-click comprehensive export bundle.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-amber">🟠 Roadmap (Tier 2)</span></td>
+                                <td><strong>Right of Access 30-Day DRS Management</strong></td>
+                                <td>Designated Record Set request tracker, 30-day statutory countdown timer, single 30-day extension enforcement (§ 164.524(b)(2)(ii)), comprehensive clinical &amp; billing export bundle (PDF/JSON), and statutory fee rules (§ 164.524(c)(4)).</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
                                 <td><strong>§ 164.526</strong></td>
@@ -1365,18 +1401,20 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 5. RIGHT OF ACCESS DRS PIPELINE -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #d97706; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #b45309; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #10b981; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
                             <span>5. Patient Right of Access 30-Day Designated Record Set Pipeline (§ 164.524 &amp; Cures Act)</span>
-                            <span class="sysdoc-badge sysdoc-badge-amber">OCR Enforcement Focus</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
-                            Under the OCR's active <strong>Right of Access Initiative</strong>, covered entities are strictly required to provide patients with complete copies of their Designated Record Set (DRS) within <strong>30 calendar days</strong>.
+                            Under the OCR's active <strong>Right of Access Initiative</strong>, covered entities are strictly required to provide patients or their personal representatives with complete copies of their Designated Record Set (DRS) within <strong>30 calendar days</strong>.
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
-                            <li><strong>Statutory 30-Day Countdown Clock:</strong> Real-time tracking of request intake date, fulfillment deadline, and statutory 30-day extension notices (§ 164.524(b)(2)).</li>
-                            <li><strong>Comprehensive Designated Record Set Bundle:</strong> One-click generation of the full patient clinical jacket (demographics, encounters, SOAP notes, vital signs, lab orders &amp; results, immunizations, allergies, ledger payments) in secure PDF and structured JSON formats.</li>
-                            <li><strong>Fee Rule Enforcement (§ 164.524(c)(4)):</strong> System prevents charging search, retrieval, or administrative fees; permits only reasonable cost-based electronic media or postage fees.</li>
+                            <li><strong>Centralized Statutory Pipeline &amp; Countdown Timer:</strong> Real-time tracking of request intake date, automated 30-day statutory countdown timer, impending (&le;7d) and overdue alerts, and filterable status pipeline.</li>
+                            <li><strong>Single 30-Day Extension Management (§ 164.524(b)(2)(ii)):</strong> Enforces maximum 1 permissible 30-day extension, automated formal written extension notice generator with expected fulfillment date and statutory justification.</li>
+                            <li><strong>Designated Record Set (DRS) Export Bundle (§ 164.501):</strong> Collates complete clinical records (demographics, encounters, SOAP clinical notes, vitals, problem list, allergies, active meds, lab results) and billing records (financial ledger) into printable electronic PDF bundles and structured machine-readable JSON.</li>
+                            <li><strong>Statutory Fee Enforcement (§ 164.524(c)(4)):</strong> Strictly blocks search and retrieval fees; enforces reasonable cost-based supplies/postage or OCR $6.50 safe harbor ($0.00 for portal delivery).</li>
+                            <li><strong>Compliance Registry &amp; Tamper-Evident Audit:</strong> Dedicated <code>hipaa_drs_access_requests</code> registry table, regulatory RFC 4180 CSV export, and HMAC-SHA-256 cryptographically chained audit logging in <code>hipaa_audit_logs</code> under <code>CATEGORY_RIGHT_OF_ACCESS</code>.</li>
                         </ul>
                     </div>
 

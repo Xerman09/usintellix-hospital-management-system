@@ -352,6 +352,8 @@ import { SecurityIncidentsView } from "../security-incidents/security-incidents.
 import { initSecurityIncidents } from "../security-incidents/security-incidents.js?v=1";
 import { BusinessAssociatesView } from "../business-associates/business-associates.view.js?v=1";
 import { initBusinessAssociates } from "../business-associates/business-associates.js?v=1";
+import { DrsRequestsView } from "../drs-requests/drs-requests.view.js?v=1";
+import { initDrsRequests } from "../drs-requests/drs-requests.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -744,6 +746,14 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'BAA Vendor Registry', () => {
                 setTimeout(initBusinessAssociates, 0);
                 return BusinessAssociatesView();
+            }, activate);
+        } else if (tabId === 'drs_requests' || tabId === 'right_of_access' || tabId === 'admin_drs_requests' || tabId === 'misc_drs_requests') {
+            tabManager.openTab(tabId, title || 'Right of Access (DRS)', () => {
+                setTimeout(() => {
+                    const el = document.querySelector('.drs-container');
+                    initDrsRequests(el ? el.parentElement : document);
+                }, 0);
+                return DrsRequestsView.render();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {
