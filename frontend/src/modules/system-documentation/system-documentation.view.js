@@ -515,6 +515,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-confidential-comm" class="sysdoc-nav-item hipaa-highlight">Confidential Communications (§ 164.522(b))</a>
                 <a href="#sec-hipaa-drs" class="sysdoc-nav-item hipaa-highlight">Right of Access DRS (§ 164.524)</a>
                 <a href="#sec-hipaa-amendments" class="sysdoc-nav-item hipaa-highlight">Right to Amend PHI (§ 164.526)</a>
+                <a href="#sec-hipaa-backup-recovery" class="sysdoc-nav-item hipaa-highlight">Backup &amp; Contingency (§ 164.308(a)(7))</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -1201,6 +1202,41 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: HIPAA BACKUP & CONTINGENCY VERIFICATION -->
+                <section id="sec-hipaa-backup-recovery" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            18. Automated Encrypted Backup &amp; Contingency Verification (45 CFR § 164.308(a)(7))
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Security Rule Contingency</span>
+                    </div>
+                    <p>
+                        The HIPAA Security Rule mandates that covered entities establish and maintain retrievable exact copies of electronic protected health information (<strong>§ 164.308(a)(7)(ii)(A)</strong>) and conduct periodic testing and revision of contingency plans (<strong>§ 164.308(a)(7)(ii)(D)</strong>). USIntellix enforces authenticated encryption at rest, automatic disk checksum calculation, on-demand verification, and disaster recovery drill logging.
+                    </p>
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669;">
+                        <div class="sysdoc-rule-title" style="color: #047857;">Contingency Plan Technical Implementation Standards</div>
+                        <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 13px; line-height: 1.75;">
+                            <li><strong>NIST SP 800-38D AES-256-GCM Backup Encryption:</strong> All database dumps are compressed with GZIP and encrypted into authenticated binary envelopes containing a 96-bit initialization vector (IV), 128-bit authentication tag, and ciphertext.</li>
+                            <li><strong>Cryptographic SHA-256 File Checksums:</strong> Every archive generates a 64-character SHA-256 digest computed on storage disk immediately upon creation, stored in <code>hipaa_backup_logs</code>.</li>
+                            <li><strong>On-Demand Integrity Verification Engine:</strong> Administrators can trigger live cryptographic verification that recalculates the disk SHA-256 hash, asserts authenticated tag decryption, verifies stream decompression, and issues a verification certificate.</li>
+                            <li><strong>Disaster Recovery Drill Registry (§ 164.308(a)(7)(ii)(D)):</strong> Administrative logging of periodic restoration exercises recording simulation type (tabletop, sandbox restore, hot-site failover), restorer operator name, target recovery environment, actual vs target Recovery Time Objective (RTO &le; 240 mins), and Recovery Point Objective (RPO &le; 24 hrs).</li>
+                            <li><strong>Tamper-Evident Chained Audit Logging:</strong> Backup creations (<code>CREATE_ENCRYPTED_BACKUP</code>), integrity verifications (<code>VERIFY_BACKUP_INTEGRITY</code>), and drill logs (<code>RECORD_DR_RESTORATION_DRILL</code>) are cryptographically chained in <code>hipaa_audit_logs</code> under <code>CATEGORY_BACKUP</code>.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('backup_recovery', 'Backup &amp; Disaster Recovery (§ 164.308(a)(7))'); }">
+                            <span>Open Backup &amp; DR Console</span>
+                        </button>
+                        <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/backup/export/backups';">
+                            <span>Export Backups Registry (CSV)</span>
+                        </button>
+                        <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/backup/export/drills';">
+                            <span>Export DR Drills Log (CSV)</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1340,11 +1376,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>60-day action clock, single 30-day extension enforcement (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial letter generator, permanent Statement of Disagreement &amp; Rebuttal linking, DRS bundle auto-dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #f8fafc;">
+                            <tr>
                                 <td><strong>§ 164.308(a)(7)</strong></td>
                                 <td><strong>Backup &amp; Contingency Verification Console</strong></td>
-                                <td>In-app daily encrypted backup status, SHA-256 integrity verification, and periodic restoration drill logs.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-blue">🟡 Roadmap (Tier 3)</span></td>
+                                <td>In-app daily encrypted backup status, SHA-256 integrity verification, authenticated AES-256-GCM encryption, and periodic disaster recovery drill logs (§ 164.308(a)(7)(ii)(D)).</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
                                 <td><strong>§ 164.308(a)(1) &amp; (5)</strong></td>
@@ -1499,18 +1535,26 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 7. BACKUP & DISASTER RECOVERY -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #2563eb; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #047857; display: flex; align-items: center; justify-content: space-between;">
                             <span>7. Backup &amp; Contingency Verification Console (§ 164.308(a)(7))</span>
-                            <span class="sysdoc-badge sysdoc-badge-blue">Contingency Safeguard</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
                             Mandates an established data backup plan, disaster recovery plan, and routine testing and revision procedures (§ 164.308(a)(7)(ii)(D)).
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
-                            <li><strong>In-App Backup Health Monitor:</strong> Console tracking daily automated backup timestamps, file sizes, SHA-256 checksums, and AES-256 backup encryption status.</li>
+                            <li><strong>In-App Backup Health Monitor:</strong> Console tracking daily automated backup timestamps, file sizes, SHA-256 checksums, and authenticated AES-256-GCM encryption status.</li>
                             <li><strong>Disaster Recovery Drill Log:</strong> Formal documentation of periodic test restoration drills recording test date, operator, target environment, and recovery time objective (RTO).</li>
                         </ul>
+                        <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('backup_recovery', 'Backup &amp; Disaster Recovery (§ 164.308(a)(7))'); }">
+                                <span>Open Backup Console</span>
+                            </button>
+                            <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/backup/export/backups';">
+                                <span>Export Backups (CSV)</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 8. WORKFORCE TRAINING & SANCTIONS -->

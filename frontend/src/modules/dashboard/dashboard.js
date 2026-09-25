@@ -4,7 +4,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=127";
+import { getNavLinks } from "./dashboard.view.js?v=128";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -356,6 +356,8 @@ import { DrsRequestsView } from "../drs-requests/drs-requests.view.js?v=1";
 import { initDrsRequests } from "../drs-requests/drs-requests.js?v=1";
 import { AmendmentsView } from "../amendments/amendments.view.js?v=1";
 import { initAmendments } from "../amendments/amendments.js?v=1";
+import { BackupRecoveryView } from "../backup-recovery/backup-recovery.view.js?v=1";
+import { initBackupRecovery } from "../backup-recovery/backup-recovery.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -764,6 +766,14 @@ export function Dashboard()
                     initAmendments(el ? el.parentElement : document);
                 }, 0);
                 return AmendmentsView.render();
+            }, activate);
+        } else if (tabId === 'backup_recovery' || tabId === 'disaster_recovery' || tabId === 'admin_backup' || tabId === 'misc_backup') {
+            tabManager.openTab(tabId, title || 'Backup & Disaster Recovery (§ 164.308(a)(7))', () => {
+                setTimeout(() => {
+                    const el = document.querySelector('.backup-recovery-container');
+                    initBackupRecovery(el ? el.parentElement : document);
+                }, 0);
+                return BackupRecoveryView.render();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {

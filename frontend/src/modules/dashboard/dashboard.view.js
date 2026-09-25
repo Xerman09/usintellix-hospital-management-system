@@ -176,6 +176,7 @@ function staffNavLinks(role)
                         <a data-tab="business_associates">BAA Vendor Registry (§ 164.502(e))</a>
                         <a data-tab="drs_requests">Right of Access (DRS Pipeline § 164.524)</a>
                         <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
+                        <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
                         <a data-tab="admin_system_logs">System Logs</a>
                         <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
                         <a data-tab="admin_system_diagnostics">Diagnostics</a>
@@ -338,6 +339,7 @@ function staffNavLinks(role)
                 <a data-tab="business_associates">BAA Vendor Registry</a>
                 <a data-tab="drs_requests">Right of Access (DRS Pipeline)</a>
                 <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
+                <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Blank Forms

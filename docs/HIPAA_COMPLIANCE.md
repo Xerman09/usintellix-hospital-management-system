@@ -663,7 +663,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Mandatory alternative channel toggles (voicemail/SMS/call/email/address), visual chart alert banner, context bar & finder badges, audit ledger, and CSV export | **Implemented** | Low |
 | **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Centralized 30-day countdown pipeline, single 30-day extension (§ 164.524(b)(2)(ii)) with formal written notice, complete DRS export bundles (clinical + billing), statutory fee enforcement (§ 164.524(c)(4)), and RFC 4180 CSV export | **Implemented** | Low |
 | **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | Centralized 60-day action pipeline, single 30-day extension (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial letter generator, permanent Statement of Disagreement & Rebuttal linking, automatic DRS bundle dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export | **Implemented** | Low |
-| **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, SHA-256 checks, drill records | **Roadmap (Tier 3)** | Medium |
+| **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, AES-256-GCM encryption, SHA-256 integrity checks, and periodic DR restoration drill records | **Implemented** | Low |
 | **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Annual training certification tracking & disciplinary sanctions log | **Roadmap (Tier 3)** | Medium |
 | **§ 164.514(b)** | **Safe Harbor De-Identification Tool** | Automated 18-identifier scrub filter for research & analytics export | **Roadmap (Tier 3)** | Medium |
 | **§ 164.308(a)(2)** | **HIPAA Privacy & Security Officers** | Formal designation in settings & auto-fill into statements/notices | **Roadmap (Tier 3)** | Low |
@@ -975,8 +975,12 @@ Key statutory requirements include:
 Covered entities must establish and implement procedures to create and maintain retrievable exact copies of electronic protected health information (§ 164.308(a)(7)(ii)(A)) and implement procedures for testing and revision of contingency plans (§ 164.308(a)(7)(ii)(D)).
 
 #### Technical Controls
-- **In-App Backup Health Monitor**: Displaying last automated backup timestamp, file size, SHA-256 integrity checksum, and AES-256 backup encryption status.
-- **Disaster Recovery Drill Registry**: Formal log documenting periodic database restoration drills, restorer identity, target environment, and recovery time metrics.
+- **Authenticated AES-256-GCM Envelope Encryption**: Backups are compressed with GZIP and encrypted at rest into authenticated binary envelopes (`UHMS_AES256GCM_BKP\x01` + 96-bit IV + 128-bit Tag + Ciphertext) preventing unauthorized tampering or bit rot.
+- **In-App Backup Health Monitor**: Real-time console displaying last automated backup timestamp, file size, SHA-256 integrity checksum, and 24-hour backup SLA compliance status.
+- **On-Demand Cryptographic Integrity Verification**: Verifies exact SHA-256 file checksum match, test-decrypts AES-256-GCM authentication tags, verifies stream decompression, and issues an audit certificate.
+- **Disaster Recovery Drill Registry (§ 164.308(a)(7)(ii)(D))**: Formal administrative log documenting periodic restoration exercises recording simulation type (tabletop, sandbox restore, hot-site failover), restorer identity, target environment, Recovery Time Objective (RTO &le; 240 mins), and Recovery Point Objective (RPO &le; 24 hrs).
+- **Tamper-Evident Audit Trail**: All backup creations, verifications, and restoration drills are logged under `CATEGORY_BACKUP` with sequential HMAC-SHA-256 signatures in `hipaa_audit_logs`.
+- **Regulatory RFC 4180 CSV Exports**: Instant export of full backup and DR drill registries citing statutory authorities.
 
 ---
 
@@ -1051,7 +1055,7 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
                                         v
 +-------------------------------------------------------------------------------+
 | PHASE 3: Operational & Administrative Governance                              |
-| * Encrypted Backup & Disaster Recovery Verification Console (§ 164.308(a)(7)) |
+| * Encrypted Backup & Disaster Recovery Verification Console (§ 164.308)[COMPLETE]|
 | * Workforce HIPAA Training Tracker & Disciplinary Sanctions Log (§ 164.308)   |
 | * Safe Harbor 18-Identifier PHI De-Identification Tool (§ 164.514(b))         |
 | * Official Privacy & Security Officer Settings Designation (§ 164.308(a)(2))  |
