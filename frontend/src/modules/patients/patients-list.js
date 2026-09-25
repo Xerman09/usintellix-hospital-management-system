@@ -10660,6 +10660,17 @@ function setupAmendmentModals()
         openAmendmentFormModal(null);
     });
 
+    const btnStatutory = document.getElementById("btnOpenStatutoryAmendmentsPipeline");
+    if (btnStatutory) {
+        btnStatutory.addEventListener("click", () => {
+            closeDetail();
+            const tabBtn = document.querySelector('[data-tab="amendments"]');
+            if (tabBtn) {
+                tabBtn.click();
+            }
+        });
+    }
+
     document.getElementById("closeAmendmentFormModal").addEventListener("click", closeForm);
     document.getElementById("cancelAmendmentForm").addEventListener("click", closeForm);
     formOverlay.addEventListener("click", (event) => {

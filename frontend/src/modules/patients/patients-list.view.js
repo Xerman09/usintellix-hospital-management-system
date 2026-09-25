@@ -10635,6 +10635,7 @@ textarea.pd-sdoh-readonly {
         <div class="modal-header">
             <h2>Amendments</h2>
             <div class="modal-header-actions">
+                <button type="button" class="btn-secondary-inline" id="btnOpenStatutoryAmendmentsPipeline" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:12px; font-weight:600; padding:6px 12px; border-radius:4px; cursor:pointer; margin-right:8px;">Statutory Pipeline (§ 164.526)</button>
                 <button type="button" class="btn-primary-inline" id="openAddAmendmentBtn">+ Add Amendment</button>
                 <button type="button" class="modal-close" id="closeAmendmentDetailModal">&times;</button>
             </div>

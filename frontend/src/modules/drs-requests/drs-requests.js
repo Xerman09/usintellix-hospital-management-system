@@ -730,6 +730,32 @@ function generateBundleHtml(bundle) {
         </tr>
     `).join("") || '<tr><td colspan="5" style="padding: 8px; color: #94a3b8;">No billing ledger entries found.</td></tr>';
 
+    const amendmentsList = c.amendments_and_disagreements || [];
+    const amendmentsHtml = amendmentsList.map(am => `
+        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 10px; background: #fff;">
+            <div style="display: flex; justify-content: space-between; font-weight: 600; color: #0f172a; margin-bottom: 4px;">
+                <span>Record / Note: ${escapeHtml(am.target_record_label || (am.target_record_type + ' #' + am.target_record_id))}</span>
+                <span style="font-size: 11px; color: ${am.status === 'denied' ? '#b91c1c' : '#0369a1'}; text-transform: uppercase;">
+                    ${am.status === 'denied' ? 'Denial & Statement of Disagreement (§ 164.526(d))' : escapeHtml(am.status)}
+                </span>
+            </div>
+            <div style="font-size: 11px; margin-bottom: 4px;"><strong>Disputed Entry:</strong> <em>"${escapeHtml(am.disputed_text || '')}"</em></div>
+            <div style="font-size: 11px; margin-bottom: 4px;"><strong>Requested Amendment:</strong> ${escapeHtml(am.requested_amendment || '')}</div>
+            ${am.statement_of_disagreement ? `
+                <div style="background: #fef2f2; border-left: 3px solid #ef4444; padding: 6px 8px; margin-top: 6px; font-size: 11px;">
+                    <strong>Patient Statement of Disagreement (45 CFR § 164.526(d)(2)):</strong><br>
+                    ${escapeHtml(am.statement_of_disagreement)}
+                </div>
+            ` : ''}
+            ${am.statement_of_rebuttal ? `
+                <div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 6px 8px; margin-top: 6px; font-size: 11px;">
+                    <strong>Covered Entity Statement of Rebuttal (45 CFR § 164.526(d)(3)):</strong><br>
+                    ${escapeHtml(am.statement_of_rebuttal)}
+                </div>
+            ` : ''}
+        </div>
+    `).join("");
+
     return `
         <!DOCTYPE html>
         <html>
@@ -793,6 +819,9 @@ function generateBundleHtml(bundle) {
                 <thead><tr><th>Date</th><th>Service / Code Description</th><th style="text-align:right;">Charge</th><th style="text-align:right;">Payment</th><th style="text-align:right;">Balance</th></tr></thead>
                 <tbody>${ledgerHtml}</tbody>
             </table>
+
+            <h2>5. PHI Amendments &amp; Statements of Disagreement (45 CFR § 164.526)</h2>
+            ${amendmentsList.length > 0 ? amendmentsHtml : '<div style="padding: 10px; color: #64748b; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 4px;">No statutory amendments or statements of disagreement filed for this patient record.</div>'}
 
             <div style="margin-top: 30px; font-size: 10.5px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 10px; text-align: center;">
                 This document constitutes the official Designated Record Set under HIPAA 45 CFR § 164.501 and § 164.524. Confidential Protected Health Information.

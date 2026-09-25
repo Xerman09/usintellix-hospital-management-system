@@ -514,6 +514,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-hitech" class="sysdoc-nav-item hipaa-highlight">HITECH Self-Pay Restriction (§ 164.522(a))</a>
                 <a href="#sec-hipaa-confidential-comm" class="sysdoc-nav-item hipaa-highlight">Confidential Communications (§ 164.522(b))</a>
                 <a href="#sec-hipaa-drs" class="sysdoc-nav-item hipaa-highlight">Right of Access DRS (§ 164.524)</a>
+                <a href="#sec-hipaa-amendments" class="sysdoc-nav-item hipaa-highlight">Right to Amend PHI (§ 164.526)</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -641,6 +642,16 @@ export function SystemDocumentationView(options = {}) {
                                 <td><strong>§ 164.522(b)</strong></td>
                                 <td>Confidential Communications Preferences Enforcement</td>
                                 <td>Mandatory patient right to alternative communications; binding voicemail/SMS toggles, alternative address/phone/email, Patient Chart and Context Bar alert banners, <code>hipaa_confidential_communications_log</code> audit history, and RFC 4180 CSV export.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.524</strong></td>
+                                <td>Right of Access 30-Day DRS Management</td>
+                                <td>Mandatory delivery of Designated Record Set within 30 calendar days; countdown timers, single 30-day extension, complete PDF/JSON export bundle, and prohibition of retrieval fees.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>§ 164.526</strong></td>
+                                <td>Formal PHI Amendment 60-Day Workflow &amp; Registry</td>
+                                <td>Mandatory 60-day action timeline (§ 164.526(b)(2)), single 30-day extension enforcement (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), formal written denial notice letter generator (§ 164.526(d)(1)), permanent Statement of Disagreement &amp; Rebuttal linking (§ 164.526(d)(2)-(3)), automated dissemination in subsequent DRS export bundles (§ 164.526(d)(4)), and RFC 4180 CSV export.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1149,6 +1160,47 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: PHI AMENDMENT WORKFLOW (§ 164.526) -->
+                <section id="sec-hipaa-amendments" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            17. Patient Right to Amend PHI Formal 60-Day Workflow (45 CFR § 164.526)
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">Statutory Patient Right</span>
+                    </div>
+                    <p>
+                        Under <strong>45 CFR § 164.526</strong>, individuals have an enforceable right to have a covered entity amend Protected Health Information (PHI) or a record about the individual in a Designated Record Set for as long as the PHI is maintained. The HIPAA Privacy Rule imposes strict procedural and evidentiary mandates on covered entities:
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Statutory Procedural Mandates &amp; Safeguards</div>
+                        <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
+                            <li><strong>60-Calendar-Day Action Mandate (§ 164.526(b)(2)):</strong> The covered entity must act on the requested amendment no later than 60 calendar days after receipt. The system tracks this via an automated countdown clock with impending (&le;10d) warnings and overdue alerts.</li>
+                            <li><strong>Single 30-Day Extension Restriction (§ 164.526(b)(2)(ii)):</strong> If unable to act within 60 days, the entity may extend the deadline by at most <em>one</em> 30-calendar-day period, provided a written notice stating the reasons for delay and expected action date is delivered within the initial 60 days. Subsequent extension attempts are programmatically rejected with an HTTP 422 error.</li>
+                            <li><strong>Exclusive 4 Statutory Denial Grounds (§ 164.526(a)(2)):</strong> An amendment request may be denied <em>only</em> if the covered entity determines that the PHI:
+                                <ol style="margin: 2px 0; padding-left: 20px;">
+                                    <li><em>Was not created by this entity</em> (unless the originator is unavailable);</li>
+                                    <li><em>Is not part of the Designated Record Set</em>;</li>
+                                    <li><em>Would not be available for inspection under § 164.524</em> (e.g., psychotherapy notes); or</li>
+                                    <li><em>Is accurate and complete</em> as documented.</li>
+                                </ol>
+                            </li>
+                            <li><strong>Formal Written Denial Notice Generator (§ 164.526(d)(1)):</strong> Auto-generates statutory denial letters on hospital letterhead containing the plain-language denial rationale, instructions on submitting a Statement of Disagreement, rights regarding future disclosure dissemination, and complaint filing instructions with the Privacy Officer and HHS OCR.</li>
+                            <li><strong>Statement of Disagreement &amp; Rebuttal Linking (§ 164.526(d)(2)-(3)):</strong> If denied, the patient may submit a written Statement of Disagreement. The covered entity may also submit a Statement of Rebuttal. Both statements are permanently linked to the disputed clinical record in the EHR.</li>
+                            <li><strong>Mandatory Future Disclosure Dissemination (§ 164.526(d)(4)):</strong> Whenever an amendment has been denied and a Statement of Disagreement filed, federal law mandates that any subsequent disclosure or export of that record—including Designated Record Set bundles—must automatically include the disagreement and rebuttal statements.</li>
+                            <li><strong>Tamper-Evident Audit Trail:</strong> All lifecycle actions (<code>AMENDMENT_REQUESTED</code>, <code>AMENDMENT_EXTENSION_GRANTED</code>, <code>AMENDMENT_ACCEPTED</code>, <code>AMENDMENT_DENIED</code>, <code>AMENDMENT_DISAGREEMENT_FILED</code>, <code>AMENDMENT_REBUTTAL_FILED</code>, <code>AMENDMENT_REGISTRY_EXPORT</code>) are cryptographically chained in <code>hipaa_audit_logs</code> under <code>CATEGORY_AMENDMENTS</code>.</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('amendments', 'PHI Amendments (§ 164.526)'); }">
+                            <span>Open PHI Amendment Pipeline</span>
+                        </button>
+                        <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/amendments/registry/export';">
+                            <span>Export Amendment Registry (CSV)</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1282,11 +1334,11 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Designated Record Set request tracker, 30-day statutory countdown timer, single 30-day extension enforcement (§ 164.524(b)(2)(ii)), comprehensive clinical &amp; billing export bundle (PDF/JSON), and statutory fee rules (§ 164.524(c)(4)).</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #f8fafc;">
+                            <tr>
                                 <td><strong>§ 164.526</strong></td>
                                 <td><strong>Statutory PHI Amendment 60-Day Workflow</strong></td>
-                                <td>60-day action clock, written denial notices citing 4 statutory grounds, and Statement of Disagreement linking.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-blue">🟡 Roadmap (Tier 2)</span></td>
+                                <td>60-day action clock, single 30-day extension enforcement (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial letter generator, permanent Statement of Disagreement &amp; Rebuttal linking, DRS bundle auto-dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
                                 <td><strong>§ 164.308(a)(7)</strong></td>
@@ -1419,18 +1471,31 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
 
                     <!-- 6. PHI AMENDMENT WORKFLOW -->
-                    <div class="sysdoc-rule-box" style="border-left-color: #2563eb; margin-top: 12px;">
-                        <div class="sysdoc-rule-title" style="color: #1d4ed8; display: flex; align-items: center; justify-content: space-between;">
-                            <span>6. PHI Amendment Statutory 60-Day Workflow &amp; Denial Notices (§ 164.526)</span>
-                            <span class="sysdoc-badge sysdoc-badge-blue">Operational Workflow</span>
+                    <div class="sysdoc-rule-box" style="border-left-color: #10b981; margin-top: 12px;">
+                        <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
+                            <span>6. PHI Amendment Statutory 60-Day Workflow &amp; Registry (§ 164.526)</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
-                            While USIntellix includes an amendments table, § 164.526 mandates a formal administrative workflow with a strict <strong>60-day action timeline</strong> (§ 164.526(b)(2)).
+                            Under <strong>45 CFR § 164.526</strong>, individuals have an enforceable right to amend records in their Designated Record Set. The system enforces the complete statutory adjudication procedure:
                         </p>
                         <ul style="margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.65;">
-                            <li><strong>Statutory Denial Notices:</strong> If an amendment is denied, the system generates the formal legal denial citing one of 4 federal grounds (§ 164.526(a)(2)): not created by entity, not part of DRS, exempt from access, or accurate and complete.</li>
-                            <li><strong>Statement of Disagreement Linking (§ 164.526(d)):</strong> Ability to append patient disagreement statements directly to disputed records, ensuring any subsequent disclosure automatically includes the statement.</li>
+                            <li><strong>Automated 60-Day Action Clock (§ 164.526(b)(2)):</strong> Calculates deadlines from date of receipt with live impending (&le;10d) and overdue alerts.</li>
+                            <li><strong>Single 30-Day Extension Restriction (§ 164.526(b)(2)(ii)):</strong> Enforces maximum 1 extension with written notice letter generator citing statutory delay grounds.</li>
+                            <li><strong>4 Statutory Denial Grounds (§ 164.526(a)(2)):</strong> Programmatically restricts denials exclusively to the 4 enumerated grounds (not created by entity, not part of DRS, exempt from access, accurate &amp; complete).</li>
+                            <li><strong>Statutory Written Denial Notice Letter (§ 164.526(d)(1)):</strong> Auto-generates plain-language denial letters detailing disagreement rights and OCR complaint procedures.</li>
+                            <li><strong>Statement of Disagreement &amp; Rebuttal Linking (§ 164.526(d)(2)-(3)):</strong> Permanent linking to disputed records in EHR.</li>
+                            <li><strong>Mandatory Future Disclosure Dissemination (§ 164.526(d)(4)):</strong> Automatically bundles filed statements of disagreement into subsequent Designated Record Set PDF/JSON exports.</li>
+                            <li><strong>Tamper-Evident Audit Trail &amp; CSV Export:</strong> Sequentially hashed HMAC-SHA-256 logs under <code>CATEGORY_AMENDMENTS</code> and RFC 4180 CSV registry download.</li>
                         </ul>
+                        <div style="margin-top: 10px; display: flex; gap: 10px;">
+                            <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('amendments', 'PHI Amendments (§ 164.526)'); }">
+                                <span>Open PHI Amendment Pipeline</span>
+                            </button>
+                            <button type="button" class="sysdoc-btn-secondary" onclick="window.location.href='/api/amendments/registry/export';">
+                                <span>Export Amendment Registry (CSV)</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 7. BACKUP & DISASTER RECOVERY -->
@@ -1499,15 +1564,15 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <li><strong>HITECH Out-of-Pocket (§ 164.522(a)):</strong> Encounter self-pay claim suppression &amp; EDI X12 block. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                             </ul>
                         </div>
-                        <div style="background: #fff; border: 1px solid #fde68a; border-radius: 8px; padding: 16px;">
+                        <div style="background: #fff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span class="sysdoc-badge sysdoc-badge-amber">Phase 2</span>
-                                <strong style="font-size: 14px; color: #b45309;">Enhanced Patient Rights</strong>
+                                <span class="sysdoc-badge sysdoc-badge-green">Phase 2 Complete</span>
+                                <strong style="font-size: 14px; color: #166534;">Enhanced Patient Rights</strong>
                             </div>
                             <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #475569;">
-                                <li><strong>Right of Access 30-Day Pipeline (§ 164.524):</strong> Request clock &amp; complete DRS bundle.</li>
-                                <li><strong>Confidential Communications (§ 164.522(b)):</strong> Toggles &amp; chart banner warning badges.</li>
-                                <li><strong>PHI Amendment Workflow (§ 164.526):</strong> 60-day clock, denial letters, disagreement linking.</li>
+                                <li><strong>Right of Access 30-Day Pipeline (§ 164.524):</strong> Request clock &amp; complete DRS bundle. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
+                                <li><strong>Confidential Communications (§ 164.522(b)):</strong> Toggles &amp; chart banner warning badges. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
+                                <li><strong>PHI Amendment Workflow (§ 164.526):</strong> 60-day clock, denial letters, disagreement linking. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                             </ul>
                         </div>
                         <div style="background: #fff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px;">

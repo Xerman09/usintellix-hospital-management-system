@@ -7,6 +7,7 @@ use App\Core\Database;
 use App\Modules\DrsRequests\Models\DrsRequest;
 use App\Modules\Encounters\Services\EncounterService;
 use App\Modules\EncounterSoapNotes\Services\EncounterSoapNoteService;
+use App\Modules\Amendments\Services\AmendmentService;
 use App\Modules\EncounterVitals\Services\EncounterVitalService;
 use App\Modules\PatientAllergies\Services\PatientAllergyService;
 use App\Modules\PatientImmunizations\Services\PatientImmunizationService;
@@ -551,10 +552,14 @@ class DrsRequestService
         $to = $scopeOptions['scope_end_date'] ?? date('Y-m-d', strtotime('+1 year'));
         $ledger = $ledgerService->getLedger($patientId, $from, $to);
 
+        // Statutory PHI Amendments & Linked Statements of Disagreement (§ 164.526(d)(4))
+        $amendmentService = new AmendmentService();
+        $disagreements = $amendmentService->getLinkedDisagreementsForPatient($patientId);
+
         $bundle = [
             'metadata' => [
                 'document_type' => 'HIPAA Designated Record Set (DRS) Export Bundle',
-                'statutory_authority' => '45 CFR § 164.524 & 21st Century Cures Act § 4004',
+                'statutory_authority' => '45 CFR § 164.524, 45 CFR § 164.526(d) & 21st Century Cures Act § 4004',
                 'facility_name' => 'USIntellix Healthcare System',
                 'generated_at' => date('Y-m-d H:i:s') . ' UTC',
                 'scope' => $scopeOptions['records_scope'] ?? 'complete_designated_record_set',
@@ -589,7 +594,8 @@ class DrsRequestService
                 'encounters_and_visits' => $encounters,
                 'clinical_soap_notes' => $soapNotes,
                 'vital_signs_history' => $vitals,
-                'diagnostic_procedure_results' => $results
+                'diagnostic_procedure_results' => $results,
+                'amendments_and_disagreements' => $disagreements
             ],
             'billing_records' => [
                 'financial_ledger' => $ledger['rows'] ?? [],

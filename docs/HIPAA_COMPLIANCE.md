@@ -662,7 +662,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.522(a)(1)(vi)**| **HITECH Out-of-Pocket Restriction** | Mandatory self-pay insurance suppression, EDI 837 claim block, Fee Sheet & Billing indicators | **Implemented** | Low |
 | **§ 164.522(b)** | **Confidential Communications Preferences** | Mandatory alternative channel toggles (voicemail/SMS/call/email/address), visual chart alert banner, context bar & finder badges, audit ledger, and CSV export | **Implemented** | Low |
 | **§ 164.524** | **Right of Access 30-Day DRS Pipeline** | Centralized 30-day countdown pipeline, single 30-day extension (§ 164.524(b)(2)(ii)) with formal written notice, complete DRS export bundles (clinical + billing), statutory fee enforcement (§ 164.524(c)(4)), and RFC 4180 CSV export | **Implemented** | Low |
-| **§ 164.526** | **Statutory PHI Amendment Workflow** | 60-day clock, statutory denial notices, disagreement linking | **Roadmap (Tier 2)** | Medium |
+| **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | Centralized 60-day action pipeline, single 30-day extension (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial letter generator, permanent Statement of Disagreement & Rebuttal linking, automatic DRS bundle dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export | **Implemented** | Low |
 | **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, SHA-256 checks, drill records | **Roadmap (Tier 3)** | Medium |
 | **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Annual training certification tracking & disciplinary sanctions log | **Roadmap (Tier 3)** | Medium |
 | **§ 164.514(b)** | **Safe Harbor De-Identification Tool** | Automated 18-identifier scrub filter for research & analytics export | **Roadmap (Tier 3)** | Medium |
@@ -916,15 +916,56 @@ Key statutory requirements include:
 ### Statutory PHI Amendment 60-Day Workflow (§ 164.526)
 
 #### Statutory Mandate
-The covered entity must act on an individual's request for amendment no later than **60 calendar days** after receipt (§ 164.526(b)(2)).
-If the request is denied, the covered entity must provide a timely written denial stating:
-1. The statutory basis for denial (§ 164.526(a)(2)):
-   - PHI was not created by the covered entity (unless originator unavailable).
-   - PHI is not part of the Designated Record Set.
-   - PHI would not be available for inspection under § 164.524.
-   - PHI is accurate and complete.
-2. The individual's right to submit a written **Statement of Disagreement** (§ 164.526(d)(1)).
-3. Technical mechanism ensuring any submitted Statement of Disagreement is permanently appended to the disputed record and bundled with all future disclosures (§ 164.526(d)(4)).
+Under 45 CFR § 164.526, an individual has the right to have a covered entity amend protected health information or a record about the individual in a Designated Record Set for as long as the protected health information is maintained in the Designated Record Set.
+
+Key statutory requirements include:
+1. **Mandatory 60-Day Action Window (§ 164.526(b)(2)(i))**: The covered entity must act on an amendment request no later than **60 calendar days** after receipt.
+2. **Single Permissible 30-Day Extension (§ 164.526(b)(2)(ii))**: If unable to act within 60 days, the covered entity may extend the time for action by no more than **30 calendar days**, provided it delivers to the individual a formal written statement stating the reasons for the delay and the date by which action will be completed. Only **one extension** is permissible by law.
+3. **Four Enumerated Statutory Denial Grounds (§ 164.526(a)(2))**: An amendment request may be denied *only* if the covered entity determines that the PHI:
+   - `not_created_by_entity`: Was not created by the covered entity (unless the originator is no longer available).
+   - `not_part_of_drs`: Is not part of the Designated Record Set.
+   - `exempt_from_access`: Would not be available for inspection under § 164.524 (e.g. psychotherapy notes).
+   - `accurate_and_complete`: Is accurate and complete as documented.
+4. **Formal Written Denial Notice (§ 164.526(d)(1))**: If denied, the entity must provide a timely written denial written in plain language stating the statutory basis, the plain-language rationale, the individual's right to submit a written **Statement of Disagreement**, rights regarding future disclosure dissemination, and complaint filing instructions with the Privacy Officer and HHS OCR.
+5. **Statement of Disagreement & Rebuttal Linking (§ 164.526(d)(2)-(3))**: The patient has a right to submit a Statement of Disagreement. The covered entity may prepare a written Statement of Rebuttal. Both statements must be permanently linked to the disputed record.
+6. **Mandatory Future Disclosure Bundling (§ 164.526(d)(4))**: The covered entity must ensure that any submitted Statement of Disagreement (and optional rebuttal) is permanently linked to the disputed record so that **any future disclosure** or Designated Record Set export automatically includes the disagreement statement.
+
+#### Technical Implementation
+
+1. **Centralized Administrative Pipeline & Real-Time KPI Dashboard**:
+   - Integrated into navigation under **Administration &rarr; System &rarr; PHI Amendments (§ 164.526)** and **Miscellaneous &rarr; PHI Amendments (§ 164.526)** (`data-tab="amendments"`).
+   - Real-time KPI summary bar tracking **Total Requests**, **Active Pending**, **Impending Deadlines (&le;10 days)**, **Overdue Requests (>60/90 days)**, **30-Day Extensions Active**, **Accepted / Denied counts**, and **Statements of Disagreement Filed**.
+   - Filterable pipeline supporting search by amendment number (`AMD-YYYY-XXXX`), patient name/MRN, status (`pending`, `in_review`, `extension_granted`, `accepted`, `denied`), and urgency filters (`impending`, `overdue`, `extended`, `disagreements`).
+
+2. **Automated 60-Day Countdown Clock Engine**:
+   - Calculates elapsed days, statutory deadline date (`request_date + 60 days` or `+ 90 days` if extended), and days remaining.
+   - Triggers dynamic status pills: blue countdown for normal active requests, pulsing amber alert when $\le 10$ days remain, and red alert badge for overdue requests.
+
+3. **Single 30-Day Statutory Extension Management (§ 164.526(b)(2)(ii))**:
+   - `AmendmentService::grantExtension()` enforces the federal limit: exactly **one** 30-day extension per request. Attempting a second extension is strictly blocked with an HTTP 422 error.
+   - Automatically recalculates `effective_deadline = request_date + 90 days`.
+   - **Formal Written Extension Notice Generator**: Auto-generates statutory written extension notice letters on facility letterhead with patient identifiers, amendment number, statutory reason for delay, expected decision date, and Privacy Officer signature block. Printable via browser popup dialog.
+
+4. **Exclusive 4 Statutory Denial Grounds Adjudication & Written Denial Notice Generator (§ 164.526(d)(1))**:
+   - Adjudication modal strictly mandates selection of one of the four statutory grounds under § 164.526(a)(2) along with an evidentiary plain-language rationale.
+   - **Formal Written Denial Notice Letter**: Auto-generates statutory denial letters on hospital letterhead containing:
+     - Cited federal statutory ground and citation.
+     - Evidentiary plain-language denial explanation.
+     - Notice of individual's right to submit a Statement of Disagreement (§ 164.526(d)(2)).
+     - Notice of right to have request and denial accompany future disclosures (§ 164.526(d)(4)).
+     - Official complaint filing instructions with the Privacy Officer and HHS OCR (§ 164.530(d)).
+
+5. **Permanent EHR Linkage & Future Disclosure Bundling Engine (§ 164.526(d)(4))**:
+   - Statements of Disagreement and Statements of Rebuttal are permanently linked to the target record in `amendments` table (`statement_of_disagreement`, `statement_of_rebuttal`, `disagreement_received_at`, `future_disclosure_dissemination_requested`).
+   - `DrsRequestService::compileDrsBundle()` automatically fetches active amendments and statements of disagreement via `AmendmentService::getLinkedDisagreementsForPatient()`, appending Section 5 into the official Designated Record Set export bundle (PDF & JSON).
+
+6. **Patient Chart Direct Integration**:
+   - In the Patient Chart amendments modal, a dedicated button **"Statutory Pipeline (§ 164.526)"** allows clinicians to jump directly into the administrative pipeline.
+
+7. **Regulatory Compliance Registry & Tamper-Evident Chained Audit Logging**:
+   - Database schema upgraded via migration `207_hipaa_phi_amendments.sql` with statutory columns, foreign keys, and indexes.
+   - **RFC 4180 CSV Export**: Endpoint `GET /api/amendments/registry/export` streams complete CSV data with federal compliance metadata headers for OCR audit inspections.
+   - **Tamper-Evident HMAC-SHA-256 Audit Trail**: All operations committed to `hipaa_audit_logs` under `CATEGORY_AMENDMENTS` (`ACTION_AMENDMENT_REQUESTED`, `ACTION_AMENDMENT_UPDATED`, `ACTION_AMENDMENT_EXTENSION_GRANTED`, `ACTION_AMENDMENT_EXTENSION_NOTICE`, `ACTION_AMENDMENT_ACCEPTED`, `ACTION_AMENDMENT_DENIED`, `ACTION_AMENDMENT_DENIAL_NOTICE`, `ACTION_AMENDMENT_DISAGREEMENT_FILED`, `ACTION_AMENDMENT_REBUTTAL_FILED`, `ACTION_AMENDMENT_REGISTRY_EXPORT`).
 
 ---
 
@@ -1001,10 +1042,10 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
                                         |
                                         v
 +-------------------------------------------------------------------------------+
-| PHASE 2: Enhanced Patient Rights & Privacy Rule Safeguards                    |
+| PHASE 2: Enhanced Patient Rights & Privacy Rule Safeguards [ALL COMPLETE]       |
 | * Confidential Communications Preferences & Chart Badging (§ 164.522(b))[COMPLETE]|
 | * Patient Right of Access 30-Day DRS Fulfillment Pipeline (§ 164.524)[COMPLETE]|
-| * PHI Amendment 60-Day Workflow & Denial Notice Generator (§ 164.526)         |
+| * PHI Amendment 60-Day Workflow & Denial Notice Generator (§ 164.526)[COMPLETE]|
 +-------------------------------------------------------------------------------+
                                         |
                                         v

@@ -354,6 +354,8 @@ import { BusinessAssociatesView } from "../business-associates/business-associat
 import { initBusinessAssociates } from "../business-associates/business-associates.js?v=1";
 import { DrsRequestsView } from "../drs-requests/drs-requests.view.js?v=1";
 import { initDrsRequests } from "../drs-requests/drs-requests.js?v=1";
+import { AmendmentsView } from "../amendments/amendments.view.js?v=1";
+import { initAmendments } from "../amendments/amendments.js?v=1";
 
 function renderPlaceholderTab(title) {
     return `
@@ -754,6 +756,14 @@ export function Dashboard()
                     initDrsRequests(el ? el.parentElement : document);
                 }, 0);
                 return DrsRequestsView.render();
+            }, activate);
+        } else if (tabId === 'amendments' || tabId === 'phi_amendments' || tabId === 'admin_amendments' || tabId === 'misc_amendments') {
+            tabManager.openTab(tabId, title || 'PHI Amendments (§ 164.526)', () => {
+                setTimeout(() => {
+                    const el = document.querySelector('.amendments-container');
+                    initAmendments(el ? el.parentElement : document);
+                }, 0);
+                return AmendmentsView.render();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {
