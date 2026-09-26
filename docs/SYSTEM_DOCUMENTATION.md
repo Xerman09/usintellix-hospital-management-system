@@ -78,6 +78,7 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.526** | Formal PHI Amendment 60-Day Workflow & Registry | Administrative 60-day action pipeline, single 30-day extension enforcement (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial notice generator, permanent Statement of Disagreement & Rebuttal linking, DRS bundle auto-dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export. |
 | **§ 164.308(a)(7)** | Automated Encrypted Backup & Disaster Recovery Console | Authenticated AES-256-GCM backup encryption, SHA-256 integrity checksum verification, SLA monitoring, disaster recovery restoration drill logs, and RFC 4180 CSV exports. |
 | **§ 164.308(a)(1) & (5)** | Workforce Training Tracking & Disciplinary Sanctions Log | Initial 30-day onboarding deadline, 365-day refresher countdowns, certificate generator, 5-tier disciplinary sanctions log with automatic account lockout, RFC 4180 CSV exports, and chained audit logs. |
+| **§ 164.514(a)–(c)** | Safe Harbor 18-Identifier PHI De-Identification | Statutory 18-identifier scrub engine (§ 164.514(b)(2)), 3-digit Census restricted ZIP filter (≤20,000 → 000), age > 89 aggregation to "90 or older", all dates reduced to year, clinical narrative regex scrubber, isolated re-identification vault (§ 164.514(c)), RFC 4180 CSV & FHIR ResearchStudy JSON exports, attestation certificates, and chained audit trails. |
 | **Secrets Isolation** | Zero Frontend Secrets Exposure | All database credentials, mail passwords, and API keys isolated to backend `.env`. |
 
 ### HIPAA Audit Readiness & Remaining Statutory Parameters
@@ -94,7 +95,7 @@ To achieve 100% compliance across an official **HHS Office for Civil Rights (OCR
 | **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | 60-day action clock, single 30-day extension enforcement (§ 164.526(b)(2)(ii)), written denial notices citing 4 statutory grounds, Statement of Disagreement linking, and DRS bundle auto-dissemination. | 🟡 Medium | **Implemented** |
 | **§ 164.308(a)(7)** | **Backup & Contingency Verification Console** | In-app daily encrypted backup status, authenticated AES-256-GCM encryption, SHA-256 integrity verification, and periodic restoration drill logs. | 🟡 Medium | **Implemented** |
 | **§ 164.308(a)(1) & (5)** | **Workforce Training & Sanctions Log** | Annual HIPAA training certification tracking in employee profiles, 30-day onboarding timers, and confidential 5-tier disciplinary sanctions log with immediate termination account lock. | 🟡 Medium | **Implemented** |
-| **§ 164.514(b)** | **Safe Harbor 18-Identifier De-Identification** | Automated removal/masking of all 18 HIPAA identifiers for clinical research and statistical export datasets. | 🟡 Medium | **Roadmap (Tier 3)** |
+| **§ 164.514(b)** | **Safe Harbor 18-Identifier De-Identification** | Automated removal/masking of all 18 HIPAA identifiers for clinical research and statistical export datasets; isolated re-ID vault, census ZIP filter, age 90+ aggregation, RFC 4180 CSV & FHIR exports, and printable attestation certificate. | 🟡 Medium | **Implemented** |
 | **§ 164.308(a)(2)** | **HIPAA Privacy & Security Officer Designation** | Dedicated system configuration of official Privacy and Security Officers with dynamic notice auto-fill. | 🟢 Low | **Roadmap (Tier 3)** |
 
 > [!NOTE]
@@ -316,6 +317,22 @@ USIntellix implements strict Role-Based Access Control (RBAC):
   - *Automated Account Lockout Enforcement*: Selecting the `immediate_termination` sanction tier automatically triggers an irreversible administrative user lock (`is_locked = 1`, `locked_until = '2099-12-31 23:59:59'`) to immediately sever ePHI access.
   - *Staff Directory Integration*: Adds color-coded certification badges (`Compliant`, `Due Soon`, `Overdue`, `Exempt`) to the Employee Directory table and dedicated HIPAA fields to the Add/Edit Employee modal.
   - *Compliance Registries & Chained Audit Logging*: Database schema migration 209 (`employees` extension, `hipaa_workforce_trainings`, `hipaa_workforce_sanctions`), RFC 4180 CSV exports (`/api/workforce-governance/trainings/export` and `/api/workforce-governance/sanctions/export`), and sequential HMAC-SHA-256 cryptographically chained audit logging in `hipaa_audit_logs` under `CATEGORY_WORKFORCE`.
+- **Safe Harbor 18-Identifier PHI De-Identification Tool (45 CFR § 164.514(a)–(c))**:
+  - *Statutory Standard*: Covered entities may de-identify Protected Health Information without patient authorization only if all 18 direct and indirect identifiers are removed pursuant to the Safe Harbor method (§ 164.514(b)(2)) and the entity has no actual knowledge that remaining information could identify an individual (§ 164.514(b)(2)(ii)).
+  - *Centralized Console & Telemetry*: Accessible under `Administration &rarr; System &rarr; Safe Harbor De-Identification (§ 164.514)`, `Reports &rarr; Clients &rarr; Safe Harbor De-Identification`, or `Miscellaneous` (`data-tab="safe_harbor"`). Displays real-time KPI metrics (Total Exports, Records De-Identified, Re-ID Vault Keys, Restricted Census ZIPs Scrubbed, Age 90+ Aggregations, Free-Text Scrubber Hits).
+  - *Statutory 18-Identifier Sanitizer Engine*:
+    - *Names & Unique Codes*: Automatically converts names and identifying numbers into random, non-derivable research subject pseudonyms (`SUBJ-XXXXXX`).
+    - *Geographic Subdivisions*: Limits geography to State level; retains first 3 digits of 5-digit ZIP codes only if population > 20,000 according to Census Bureau data; strictly converts the 17 restricted 3-digit prefixes (`036, 059, 063, 102, 203, 556, 692, 790, 821, 823, 830, 831, 878, 879, 884, 890, 893`) to `000`.
+    - *Dates & Age Aggregation*: Truncates all dates (DOB, visit dates, lab dates, prescription dates) strictly to year; aggregates all ages over 89 into a single category `"90 or older"` with birth years set to `"1935 or earlier"`.
+    - *Direct Identifiers Redaction*: Fully removes telephone, fax, email, SSN, MRN, health plan beneficiary, account, certificate/license, vehicle, device identifiers, URLs, IP addresses, biometrics, and photos.
+    - *Clinical SOAP Note Scrubber*: Sanitizes unstructured clinical text (Subjective, Objective, Assessment, Plan) with high-precision regex patterns.
+  - *Isolated Re-Identification Vault (§ 164.514(c))*: Cryptographically decouples patient identities into `hipaa_reidentification_vault` storing SHA-256 HMAC verification tokens (`hmac_sha256(patient_id, system_salt)`). Access is strictly gated to authorized compliance officers and permanently audited; keys are never disclosed to export recipients.
+  - *Multi-Format Exports & Attestation*:
+    - *RFC 4180 CSV*: Formats data with official statutory compliance header citing 45 CFR § 164.514(b).
+    - *FHIR ResearchStudy JSON*: Exports machine-readable HL7 FHIR-aligned JSON bundles.
+    - *Printable Attestation Certificate*: Generates a formal Safe Harbor De-Identification Attestation Certificate with cryptographic export hash, dataset scope, and Privacy Officer signature block.
+  - *Reporting Integration*: Adds one-click `safe_harbor=1` filter toggle to Patient List, Prescription Report, and Clinical Quality Reports.
+  - *Compliance Registries & Chained Audit Logging*: Database schema migration 210 (`hipaa_deidentified_exports`, `hipaa_reidentification_vault`), RFC 4180 CSV exports (`/api/deidentification/registry/export`), and sequential HMAC-SHA-256 cryptographically chained audit logging in `hipaa_audit_logs` under `CATEGORY_DEIDENTIFICATION`.
 
 ---
 

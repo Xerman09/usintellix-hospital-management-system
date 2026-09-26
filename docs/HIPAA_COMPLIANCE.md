@@ -665,7 +665,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.526** | **Statutory PHI Amendment 60-Day Workflow** | Centralized 60-day action pipeline, single 30-day extension (§ 164.526(b)(2)(ii)), 4 statutory denial grounds (§ 164.526(a)(2)), written denial letter generator, permanent Statement of Disagreement & Rebuttal linking, automatic DRS bundle dissemination (§ 164.526(d)(4)), and RFC 4180 CSV export | **Implemented** | Low |
 | **§ 164.308(a)(7)** | **Backup & Disaster Recovery Console** | In-app backup health monitor, AES-256-GCM encryption, SHA-256 integrity checks, and periodic DR restoration drill records | **Implemented** | Low |
 | **§ 164.308(a)(1) & (5)**| **Workforce Training & Sanctions Log** | Employee profile certifications, initial 30-day onboarding deadline, 365-day refresher countdowns, certificate generator, 5-tier disciplinary sanctions log with automatic account lockout, RFC 4180 CSV exports, and chained audit logs | **Implemented** | Low |
-| **§ 164.514(b)** | **Safe Harbor De-Identification Tool** | Automated 18-identifier scrub filter for research & analytics export | **Roadmap (Tier 3)** | Medium |
+| **§ 164.514(a)–(c)** | **Safe Harbor 18-Identifier De-Identification Tool** | Automated 18-identifier scrub filter, Census 3-digit safe ZIP rule, age >89 aggregation, clinical SOAP regex scrubber, isolated re-ID vault, RFC 4180 CSV & FHIR JSON exports, and printable Safe Harbor certificates | **Implemented** | Low |
 | **§ 164.308(a)(2)** | **HIPAA Privacy & Security Officers** | Formal designation in settings & auto-fill into statements/notices | **Roadmap (Tier 3)** | Low |
 
 ---
@@ -1044,28 +1044,35 @@ Covered entities must establish and implement procedures to create and maintain 
 ### Safe Harbor 18-Identifier De-Identification (§ 164.514(b))
 
 #### Statutory Mandate
-Health information is not identifiable (and thus exempt from HIPAA restrictions) if all **18 specified identifiers** of the individual or of relatives, employers, or household members of the individual are removed:
-1. Names
-2. Geographic subdivisions smaller than state
-3. All elements of dates (except year) directly related to an individual
-4. Telephone numbers
-5. Fax numbers
-6. Email addresses
-7. Social Security numbers
-8. Medical record numbers
-9. Health plan beneficiary numbers
-10. Account numbers
-11. Certificate/license numbers
-12. Vehicle identifiers and serial numbers
-13. Device identifiers and serial numbers
-14. Web Universal Resource Locators (URLs)
-15. Internet Protocol (IP) addresses
-16. Biometric identifiers (finger and voice prints)
-17. Full-face photographs and comparable images
-18. Any other unique identifying number, characteristic, or code
+Under 45 CFR § 164.514(a)–(c), health information is deemed de-identified (and thus exempt from HIPAA restrictions) if all **18 specified identifiers** of the individual or of relatives, employers, or household members of the individual are definitively removed under the Safe Harbor method (§ 164.514(b)(2)), and the covered entity maintains re-identification codes in an isolated vault never disclosed to data recipients (§ 164.514(c)):
+1. **(A) Names**: Removed; synthetic pseudonyms (`SUBJ-XXXXXX`) assigned.
+2. **(B) Geographic subdivisions smaller than state**: Removed; initial 3 digits of ZIP retained only if population >20,000; the 17 restricted Census prefixes (036, 059, 063, 102, 203, 556, 692, 790, 821, 823, 830, 831, 878, 879, 884, 890, 893) are converted to `000`.
+3. **(C) Dates**: All elements of dates directly related to an individual reduced strictly to **Year Only**; all ages over 89 aggregated to "90 or older" (birth year "1935 or earlier").
+4. **(D) Telephone numbers**: Completely redacted (`[REDACTED_PHONE]`).
+5. **(E) Fax numbers**: Completely redacted.
+6. **(F) Email addresses**: Completely redacted (`[REDACTED_EMAIL]`).
+7. **(G) Social Security numbers**: Completely redacted (`[REDACTED_SSN]`).
+8. **(H) Medical record numbers**: Completely redacted (`[REDACTED_MRN]`).
+9. **(I) Health plan beneficiary numbers**: Completely redacted.
+10. **(J) Account numbers**: Completely redacted.
+11. **(K) Certificate/license numbers**: Completely redacted.
+12. **(L) Vehicle identifiers and serial numbers**: Completely redacted.
+13. **(M) Device identifiers and serial numbers**: Completely redacted.
+14. **(N) Web Universal Resource Locators (URLs)**: Completely redacted.
+15. **(O) Internet Protocol (IP) addresses**: Completely redacted.
+16. **(P) Biometric identifiers (finger and voice prints)**: Completely excluded.
+17. **(Q) Full-face photographs and comparable images**: Completely excluded.
+18. **(R) Any other unique identifying number, characteristic, or code**: Assigned non-derivable research pseudonym code; key stored in isolated vault (§ 164.514(c)).
 
 #### Technical Controls
-Automated Safe Harbor export filter masking or stripping all 18 identifiers when generating clinical research, statistical modeling, or AI training datasets.
+1. **Dedicated Safe Harbor Console**: Navigation entry at **Administration &rarr; System &rarr; Safe Harbor De-Identification** and **Reports &rarr; Safe Harbor De-ID Export** (`data-tab="safe_harbor"`). Real-time KPI summary bar tracking Total Exports, Records Sanitized, 18 / 18 Identifiers Verified, Active Research Cohorts, and Encrypted Vault Keys.
+2. **Census-Restricted 3-Digit Safe ZIP Rule**: `DeidentificationService::sanitizeZip()` checks initial 3 digits against Census restricted array (`RESTRICTED_ZIP3`) and replaces matching prefixes with `000XX`.
+3. **Age > 89 Aggregation Engine**: `DeidentificationService::sanitizeAgeAndDob()` calculates age; any age &gt; 89 yields `age_category = '90 or older'` and `birth_year = '1935 or earlier'`.
+4. **Clinical SOAP Narrative Scrubber**: `DeidentificationService::scrubFreeText()` executes regex filters to scrub patient names, phones, SSNs, emails, full dates, and ZIPs from clinical notes.
+5. **Isolated Cryptographic Re-Identification Vault**: `hipaa_reidentification_vault` records SHA-256 HMAC lookup keys. Strictly restricted to Compliance Officers (`ACTION_DEID_REID_KEY_ACCESSED`).
+6. **Statutory RFC 4180 CSV & FHIR JSON Exports**: Streams RFC 4180 CSV with official 45 CFR § 164.514(b) compliance header and FHIR ResearchStudy bundles with cryptographic SHA-256 seals.
+7. **Printable Safe Harbor Compliance Attestation Certificate**: Generates official certificate for IRB protocol binders and compliance files.
+8. **Chained Audit Trail**: All actions cryptographically logged in `hipaa_audit_logs` under `CATEGORY_DEIDENTIFICATION`.
 
 ---
 
@@ -1102,7 +1109,7 @@ Dedicated fields in System Settings recording official Privacy and Security Offi
 | PHASE 3: Operational & Administrative Governance                              |
 | * Encrypted Backup & Disaster Recovery Verification Console (§ 164.308)[COMPLETE]|
 | * Workforce HIPAA Training Tracker & Disciplinary Sanctions Log (§ 164.308)[COMPLETE]|
-| * Safe Harbor 18-Identifier PHI De-Identification Tool (§ 164.514(b))         |
+| * Safe Harbor 18-Identifier PHI De-Identification Tool (§ 164.514(b))[COMPLETE]|
 | * Official Privacy & Security Officer Settings Designation (§ 164.308(a)(2))  |
 +-------------------------------------------------------------------------------+
 ```

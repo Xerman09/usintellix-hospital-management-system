@@ -360,6 +360,8 @@ import { BackupRecoveryView } from "../backup-recovery/backup-recovery.view.js?v
 import { initBackupRecovery } from "../backup-recovery/backup-recovery.js?v=1";
 import { WorkforceGovernanceView } from "../workforce-governance/workforce-governance.view.js?v=1";
 import { initWorkforceGovernance } from "../workforce-governance/workforce-governance.js?v=1";
+import { SafeHarborView } from "../safe-harbor/safe-harbor.view.js?v=2";
+import { initSafeHarbor } from "../safe-harbor/safe-harbor.js?v=2";
 
 function renderPlaceholderTab(title) {
     return `
@@ -784,6 +786,11 @@ export function Dashboard()
                     initWorkforceGovernance(el ? el.parentElement : document);
                 }, 0);
                 return WorkforceGovernanceView.render();
+            }, activate);
+        } else if (tabId === 'safe_harbor' || tabId === 'deidentification' || tabId === 'admin_safe_harbor' || tabId === 'misc_safe_harbor' || tabId === 'reports_safe_harbor') {
+            tabManager.openTab(tabId, title || 'Safe Harbor De-Identification (§ 164.514)', () => {
+                setTimeout(initSafeHarbor, 0);
+                return SafeHarborView();
             }, activate);
         } else if (tabId === 'misc_blank_forms_referral') {
             tabManager.openTab(tabId, title, () => {

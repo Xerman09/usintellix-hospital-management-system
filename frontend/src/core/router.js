@@ -1,6 +1,6 @@
 import { LoginView } from "../modules/auth/login.view.js?v=106";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=134";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=191";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=135";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=192";
 import { initLogin } from "../modules/auth/auth.js?v=106";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=102";
 import { initAddEmployee } from "../modules/employees/add-employee.js?v=102";
@@ -10,8 +10,8 @@ import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view
 import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=1";
 import { TermsConditionsView } from "../modules/terms-conditions/terms-conditions.view.js?v=1";
 import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=1";
-import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=15";
-import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=3";
+import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=16";
+import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=4";
 
 
 const app = document.getElementById("app");

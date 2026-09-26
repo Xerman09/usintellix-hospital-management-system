@@ -74,8 +74,28 @@ export function ReportsView() {
     <div class="reports-header-bar">
         Medical Reports
     </div>
+
+    <!-- Safe Harbor De-Identification Banner -->
+    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1px solid #86efac; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background: #dcfce7; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px;">🔒</div>
+            <div>
+                <strong style="color: #166534; font-size: 14px;">HIPAA Safe Harbor 18-Identifier De-Identification Standard (45 CFR § 164.514)</strong>
+                <p style="margin: 0; font-size: 12px; color: #15803d;">Scrub all 18 direct/indirect identifiers for clinical research, AI training, or quality studies without individual patient authorizations.</p>
+            </div>
+        </div>
+        <button id="btnOpenSafeHarborConsole" style="background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            Launch Safe Harbor De-ID Console &rarr;
+        </button>
+    </div>
     
     <div class="reports-grid">
+        <!-- Safe Harbor PHI De-Identification Tool -->
+        <div class="report-card" style="border-top: 3px solid #16a34a;">
+            <svg class="report-icon" style="color: #16a34a;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <button class="report-btn" id="btnLaunchSafeHarbor" style="background-color: #16a34a;">Safe Harbor De-ID (§ 164.514)</button>
+        </div>
+
         <!-- View Summary of Care -->
         <div class="report-card">
             <svg class="report-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>

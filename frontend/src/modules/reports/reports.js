@@ -12,6 +12,24 @@ export function initReports() {
     const btnCustomizedHistory = document.getElementById("btnCustomizedHistory");
     const btnDownloadDocs = document.getElementById("btnDownloadDocs");
     const btnHelp = document.getElementById("btnHelp");
+    const btnLaunchSafeHarbor = document.getElementById("btnLaunchSafeHarbor");
+    const btnOpenSafeHarborConsole = document.getElementById("btnOpenSafeHarborConsole");
+
+    const navigateToSafeHarbor = () => {
+        const navBtn = document.querySelector('[data-tab="safe_harbor"]');
+        if (navBtn) {
+            navBtn.click();
+        } else {
+            window.location.hash = '#dashboard?tab=safe_harbor';
+        }
+    };
+
+    if (btnLaunchSafeHarbor) {
+        btnLaunchSafeHarbor.addEventListener("click", navigateToSafeHarbor);
+    }
+    if (btnOpenSafeHarborConsole) {
+        btnOpenSafeHarborConsole.addEventListener("click", navigateToSafeHarbor);
+    }
 
     if (btnDownloadSummary) {
         btnDownloadSummary.addEventListener("click", async () => {

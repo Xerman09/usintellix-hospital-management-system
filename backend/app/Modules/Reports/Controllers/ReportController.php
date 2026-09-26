@@ -5,14 +5,17 @@ namespace App\Modules\Reports\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Modules\Reports\Services\ReportService;
+use App\Modules\Deidentification\Services\DeidentificationService;
 
 class ReportController extends Controller
 {
     private ReportService $reportService;
+    private DeidentificationService $deidService;
 
     public function __construct()
     {
         $this->reportService = new ReportService();
+        $this->deidService = new DeidentificationService();
     }
 
     /**
@@ -26,6 +29,31 @@ class ReportController extends Controller
         
         $data = $this->reportService->getPatientList($filters);
 
+        if ($request->input('safe_harbor') === '1' || $request->input('safe_harbor') === 'true') {
+            $sanitized = [];
+            foreach ($data as $idx => $row) {
+                $subjCode = 'SUBJ-' . strtoupper(substr(md5('report_pat_' . ($row['id'] ?? $idx)), 0, 8));
+                $zipSafe = $this->deidService->sanitizeZip($row['zip_code'] ?? null);
+                $sanitized[] = [
+                    'id' => $subjCode,
+                    'patient_no' => '[REDACTED_MRN]',
+                    'first_name' => 'Subject',
+                    'last_name' => $subjCode,
+                    'address_line' => '[REDACTED_ADDRESS]',
+                    'city' => '[REDACTED_CITY]',
+                    'state' => strtoupper(substr(trim($row['state'] ?? 'XX'), 0, 2)),
+                    'zip_code' => $zipSafe,
+                    'home_phone' => '[REDACTED_PHONE]',
+                    'work_phone' => '[REDACTED_PHONE]',
+                    'last_visit' => $this->deidService->sanitizeDateToYear($row['last_visit'] ?? null),
+                    'safe_harbor_certified' => true,
+                    'statutory_standard' => '45 CFR § 164.514(b)'
+                ];
+            }
+            $this->success($sanitized, 'Safe Harbor de-identified patient list retrieved successfully.');
+            return;
+        }
+
         $this->success($data, 'Patient list retrieved successfully.');
     }
 
@@ -37,6 +65,24 @@ class ReportController extends Controller
         $request = new Request();
         $filters = $request->only(['facility_id', 'date_from', 'date_to', 'patient_id', 'drug', 'lot']);
         $data = $this->reportService->getRxReport($filters);
+
+        if ($request->input('safe_harbor') === '1' || $request->input('safe_harbor') === 'true') {
+            $sanitized = [];
+            foreach ($data as $idx => $row) {
+                $subjCode = 'SUBJ-' . strtoupper(substr(md5('report_rx_' . ($row['patient_id'] ?? $idx)), 0, 8));
+                $dispensedYear = $this->deidService->sanitizeDateToYear($row['dispensed'] ?? null);
+                $sanitized[] = array_merge($row, [
+                    'patient_name' => "Subject {$subjCode}",
+                    'patient_id' => '[REDACTED_MRN]',
+                    'dispensed' => $dispensedYear,
+                    'reactions' => '',
+                    'safe_harbor_certified' => true,
+                    'statutory_standard' => '45 CFR § 164.514(b)'
+                ]);
+            }
+            $this->success($sanitized, 'Safe Harbor de-identified Rx report retrieved successfully.');
+            return;
+        }
 
         $this->success($data, 'Rx report retrieved successfully.');
     }
@@ -64,6 +110,28 @@ class ReportController extends Controller
         $request = new Request();
         $filters = $request->only(['date_from', 'date_to', 'patient_id', 'age_min', 'age_max', 'gender', 'race', 'ethnicity']);
         $data = $this->reportService->getClinicalReport($filters);
+
+        if ($request->input('safe_harbor') === '1' || $request->input('safe_harbor') === 'true') {
+            $sanitized = [];
+            foreach ($data as $idx => $row) {
+                $subjCode = 'SUBJ-' . strtoupper(substr(md5('report_clin_' . ($row['id'] ?? $idx)), 0, 8));
+                $age = (int) ($row['age'] ?? 0);
+                $sanitized[] = [
+                    'id' => $subjCode,
+                    'pid' => '[REDACTED_MRN]',
+                    'patient_name' => "Subject {$subjCode}",
+                    'gender' => $row['gender'] ?? 'UNKNOWN',
+                    'race' => $row['race'] ?? 'UNKNOWN',
+                    'ethnicity' => $row['ethnicity'] ?? 'UNKNOWN',
+                    'age' => $age > 89 ? '90 or older' : (string) $age,
+                    'provider' => '[REDACTED_PROVIDER]',
+                    'safe_harbor_certified' => true,
+                    'statutory_standard' => '45 CFR § 164.514(b)'
+                ];
+            }
+            $this->success($sanitized, 'Safe Harbor de-identified clinical report retrieved successfully.');
+            return;
+        }
 
         $this->success($data, 'Clinical report retrieved successfully.');
     }

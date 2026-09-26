@@ -1,10 +1,11 @@
 <?php
 /**
  * Master HIPAA Automated Test Suite Runner
- * Runs all 13 HIPAA test suites, collects results, and verifies the full HMAC-SHA-256 audit hash chain.
+ * Runs all 14 HIPAA test suites, collects results, and verifies the full HMAC-SHA-256 audit hash chain.
  */
 
 $testFiles = [
+    'test_safe_harbor_deidentification.php'     => 'Safe Harbor 18-Identifier De-Identification (45 CFR § 164.514)',
     'test_workforce_training_and_sanctions.php' => 'Workforce Training & Sanctions Log (45 CFR § 164.308(a)(1) & (5))',
     'test_backup_and_disaster_recovery.php'     => 'Encrypted Backup & DR Verification (45 CFR § 164.308(a)(7))',
     'test_phi_amendments.php'                   => 'Statutory PHI Amendments Pipeline (45 CFR § 164.526)',
@@ -22,7 +23,7 @@ $testFiles = [
 
 echo "========================================================================================\n";
 echo "   USINTELLIX HEALTHCARE SYSTEM - MASTER HIPAA AUDIT REGRESSION TEST RUNNER             \n";
-echo "   Testing All 13 Statutory HIPAA Compliance Subsystems                                 \n";
+echo "   Testing All 14 Statutory HIPAA Compliance Subsystems                                 \n";
 echo "========================================================================================\n\n";
 
 $totalPassed = 0;

@@ -178,6 +178,7 @@ function staffNavLinks(role)
                         <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
                         <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
                         <a data-tab="workforce_governance">Workforce Training &amp; Sanctions (§ 164.308(a)(1) &amp; (5))</a>
+                        <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
                         <a data-tab="admin_system_logs">System Logs</a>
                         <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
                         <a data-tab="admin_system_diagnostics">Diagnostics</a>
@@ -219,6 +220,7 @@ function staffNavLinks(role)
                         <a data-tab="clinical_reports">Clinical</a>
                         <a data-tab="referrals_reports">Referrals</a>
                         <a data-tab="immunization_registry">Immunization Registry</a>
+                        <a data-tab="safe_harbor">Safe Harbor De-ID Export (§ 164.514)</a>
                     </div>
                 </div>
                 <div class="dropdown-submenu">
@@ -342,6 +344,7 @@ function staffNavLinks(role)
                 <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
                 <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
                 <a data-tab="workforce_governance">Workforce Training &amp; Sanctions Log</a>
+                <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
                 <div class="dropdown-submenu">
                     <span class="dropdown-submenu-trigger">
                         Blank Forms
@@ -556,6 +559,7 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="business_associates">BAA Vendor Registry</a>
             <a data-tab="drs_requests">Right of Access (DRS Pipeline)</a>
             <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
+            <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
@@ -638,6 +642,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="business_associates">BAA Vendor Registry</a>
             <a data-tab="drs_requests">Right of Access (DRS Pipeline)</a>
             <a data-tab="amendments">PHI Amendments (§ 164.526)</a>
+            <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
                     Blank Forms
