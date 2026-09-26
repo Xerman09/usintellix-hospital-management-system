@@ -383,11 +383,18 @@ class DrsRequestService
 
         $reasonText = $reasonLabels[$request['extension_reason']] ?? $request['extension_reason'];
 
+        $privacyOfficer = (new \App\Modules\HipaaOfficers\Services\HipaaOfficerService())->getByType('privacy_officer');
+        $poPhone = !empty($privacyOfficer['phone']) ? $privacyOfficer['phone'] . (!empty($privacyOfficer['extension']) ? ' Ext. ' . $privacyOfficer['extension'] : '') : '1-800-555-PRIVACY (Toll-Free)';
+        $poEmail = !empty($privacyOfficer['email']) ? $privacyOfficer['email'] : 'compliance@usintellix-health.org';
+        $poAddress = !empty($privacyOfficer['physical_office_address']) ? $privacyOfficer['physical_office_address'] : '100 Medical Center Parkway, Suite 500, Healthcare City, NY 10001';
+
         $notice = [
             'facility_name' => 'USIntellix Healthcare System',
-            'facility_address' => '100 Medical Center Parkway, Suite 500, Healthcare City, NY 10001',
-            'privacy_office_phone' => '1-800-555-PRIVACY (Toll-Free)',
-            'privacy_office_email' => 'compliance@usintellix-health.org',
+            'facility_address' => $poAddress,
+            'privacy_office_phone' => $poPhone,
+            'privacy_office_email' => $poEmail,
+            'privacy_officer_name' => $privacyOfficer['full_name'] ?? 'Chief Privacy Officer',
+            'privacy_officer_title' => $privacyOfficer['title'] ?? 'HIPAA Privacy Official',
             'notice_date' => $request['extension_notice_date'] ?: date('Y-m-d'),
             'patient_name' => $request['patient_name'],
             'patient_no' => $request['patient_no'],

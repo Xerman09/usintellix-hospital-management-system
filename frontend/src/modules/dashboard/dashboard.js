@@ -151,8 +151,8 @@ import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
 import { ProfileView } from "../profile/profile.view.js";
 import { initProfile } from "../profile/profile.js";
-import { BusinessSettingsView } from "../business-settings/business-settings.view.js";
-import { initBusinessSettings } from "../business-settings/business-settings.js";
+import { BusinessSettingsView } from "../business-settings/business-settings.view.js?v=2";
+import { initBusinessSettings } from "../business-settings/business-settings.js?v=2";
 import { GeneralSettingsView } from "../general-settings/general-settings.view.js";
 import { initGeneralSettings } from "../general-settings/general-settings.js";
 import { PharmaciesView } from "../pharmacies/pharmacies.view.js";
@@ -1061,7 +1061,12 @@ export function Dashboard()
             }, activate);
         } else if (tabId === 'business_settings' && user.role === 'admin') {
             tabManager.openTab(tabId, title, () => {
-                setTimeout(initBusinessSettings, 0);
+                setTimeout(() => initBusinessSettings('general'), 0);
+                return BusinessSettingsView();
+            }, activate);
+        } else if ((tabId === 'hipaa_officers' || tabId === 'admin_hipaa_officers' || tabId === 'practice_hipaa_officers') && user.role === 'admin') {
+            tabManager.openTab('business_settings', title || 'Practice Settings', () => {
+                setTimeout(() => initBusinessSettings('hipaa_officers'), 0);
                 return BusinessSettingsView();
             }, activate);
         } else if (tabId === 'pharmacies' && user.role === 'admin') {

@@ -124,6 +124,7 @@ function staffNavLinks(role)
                     </span>
                     <div class="dropdown-submenu-content">
                         <a data-tab="business_settings">Practice Settings</a>
+                        <a data-tab="hipaa_officers">🛡️ HIPAA Officers (§ 164.530 / § 164.308)</a>
                         <a data-tab="admin_practice_rules">Rules</a>
                         <a data-tab="admin_plans_configuration">Plans Configuration</a>
                         <a data-tab="admin_alert_manager">Alert Manager</a>
@@ -179,6 +180,7 @@ function staffNavLinks(role)
                         <a data-tab="backup_recovery">Backup &amp; Disaster Recovery (§ 164.308(a)(7))</a>
                         <a data-tab="workforce_governance">Workforce Training &amp; Sanctions (§ 164.308(a)(1) &amp; (5))</a>
                         <a data-tab="safe_harbor">Safe Harbor De-Identification (§ 164.514)</a>
+                        <a data-tab="hipaa_officers">HIPAA Privacy &amp; Security Officers (§ 164.530 / § 164.308)</a>
                         <a data-tab="admin_system_logs">System Logs</a>
                         <a data-tab="admin_system_audit_log_tamper">Audit Log Tamper</a>
                         <a data-tab="admin_system_diagnostics">Diagnostics</a>

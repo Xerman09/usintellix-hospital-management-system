@@ -200,8 +200,15 @@ class DeidentificationService
         $recipientInstitution = trim($params['recipient_institution'] ?? 'Clinical Research Center');
         $recipientInvestigator = trim($params['recipient_investigator'] ?? 'Principal Investigator');
         $dataFormat = $params['data_format'] ?? 'rfc4180_csv';
-        $attestationOfficerName = trim($params['attestation_officer_name'] ?? 'Compliance Officer');
-        $attestationOfficerRole = trim($params['attestation_officer_role'] ?? 'HIPAA Privacy Officer');
+
+        $designatedPrivacyOfficer = (new \App\Modules\HipaaOfficers\Services\HipaaOfficerService())->getByType('privacy_officer');
+        $attestationOfficerName = !empty($params['attestation_officer_name']) 
+            ? trim($params['attestation_officer_name']) 
+            : ($designatedPrivacyOfficer['full_name'] ?? 'Sarah Jenkins, JD, CHPC');
+        $attestationOfficerRole = !empty($params['attestation_officer_role']) 
+            ? trim($params['attestation_officer_role']) 
+            : ($designatedPrivacyOfficer['title'] ?? 'HIPAA Privacy Official');
+
         $limit = max(1, min(1000, (int) ($params['limit'] ?? 200)));
 
         $exportCode = 'DEID-' . date('Y') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));

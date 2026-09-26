@@ -542,9 +542,19 @@ class SecurityIncidentService
         }
 
         // Fulfills mandatory statutory contents under 45 CFR § 164.404(c):
+        $hipaaOfficerService = new \App\Modules\HipaaOfficers\Services\HipaaOfficerService();
+        $privacyOfficer = $hipaaOfficerService->getByType('privacy_officer');
+        $securityOfficer = $hipaaOfficerService->getByType('security_officer');
+
+        $contactPhone = !empty($privacyOfficer['phone']) ? $privacyOfficer['phone'] . (!empty($privacyOfficer['extension']) ? ' Ext. ' . $privacyOfficer['extension'] : '') : '1-800-555-HIPAA (1-800-555-4472)';
+        $contactEmail = !empty($privacyOfficer['email']) ? $privacyOfficer['email'] : 'privacy-officer@usintellix-health.org';
+        $contactOfficer = !empty($incident['investigating_officer_name']) 
+            ? $incident['investigating_officer_name'] 
+            : (!empty($securityOfficer['full_name']) ? "{$securityOfficer['full_name']} ({$securityOfficer['title']})" : 'HIPAA Privacy & Security Officer');
+
         $letterData = [
             'facility_name'         => 'USIntellix Hospital & Health Systems',
-            'facility_address'      => '1000 Healthcare Plaza, Suite 400, Medical City, USA',
+            'facility_address'      => !empty($privacyOfficer['physical_office_address']) ? $privacyOfficer['physical_office_address'] : '1000 Healthcare Plaza, Suite 400, Medical City, USA',
             'notice_date'           => date('F j, Y'),
             'patient_name'          => $patient['first_name'] . ' ' . $patient['last_name'],
             'patient_no'            => $patient['patient_no'],
@@ -556,9 +566,9 @@ class SecurityIncidentService
             'what_happened'         => $incident['incident_description'],
             'what_we_are_doing'     => $incident['corrective_actions'] ?: 'Our information security and compliance team immediately contained the incident, isolated affected credentials, applied technical safeguards, and engaged external forensics to verify data integrity.',
             'what_you_can_do'       => 'We recommend monitoring your credit reports, reviewing your health insurance explanation of benefits (EOB) statements for suspicious billing, and placing a fraud alert on credit files if financial information was involved.',
-            'contact_phone'         => '1-800-555-HIPAA (1-800-555-4472)',
-            'contact_email'         => 'privacy-officer@usintellix-health.org',
-            'contact_officer'       => $incident['investigating_officer_name'] ?: 'HIPAA Privacy & Security Officer',
+            'contact_phone'         => $contactPhone,
+            'contact_email'         => $contactEmail,
+            'contact_officer'       => $contactOfficer,
             'statutory_citation'    => 'Notice required pursuant to Section 13402 of the HITECH Act and 45 CFR § 164.404'
         ];
 
@@ -617,7 +627,9 @@ class SecurityIncidentService
             'individual_notice_status'  => $incident['individual_notification_status'],
             'individual_notice_date'    => $incident['individual_notified_date'],
             'media_notice_required'     => (bool) $incident['media_notification_required'],
-            'investigating_officer'     => $incident['investigating_officer_name'],
+            'investigating_officer'     => !empty($incident['investigating_officer_name']) 
+                ? $incident['investigating_officer_name'] 
+                : ((new \App\Modules\HipaaOfficers\Services\HipaaOfficerService())->getByType('security_officer')['full_name'] ?? 'HIPAA Security Official'),
             'generation_timestamp'      => date('Y-m-d H:i:s')
         ];
 

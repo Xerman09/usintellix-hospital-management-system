@@ -518,6 +518,7 @@ export function SystemDocumentationView(options = {}) {
                 <a href="#sec-hipaa-backup-recovery" class="sysdoc-nav-item hipaa-highlight">Backup &amp; Contingency (§ 164.308(a)(7))</a>
                 <a href="#sec-hipaa-workforce" class="sysdoc-nav-item hipaa-highlight">Workforce Training &amp; Sanctions (§ 164.308)</a>
                 <a href="#sec-hipaa-safe-harbor" class="sysdoc-nav-item hipaa-highlight">Safe Harbor De-Identification (§ 164.514)</a>
+                <a href="#sec-hipaa-officers" class="sysdoc-nav-item hipaa-highlight">HIPAA Officers Designation (§ 164.530 / § 164.308)</a>
                 <a href="#sec-hipaa-roadmap" class="sysdoc-nav-item hipaa-highlight" style="font-weight: 700; color: #047857;">★ Audit Readiness &amp; Roadmap</a>
 
                 <div class="sysdoc-nav-group-title">🏛️ 2. SYSTEM ARCHITECTURE</div>
@@ -1333,6 +1334,51 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     </div>
                 </section>
 
+                <!-- SECTION: HIPAA PRIVACY & SECURITY OFFICER DESIGNATION -->
+                <section id="sec-hipaa-officers" class="sysdoc-card hipaa-card">
+                    <div class="sysdoc-section-header">
+                        <h2 class="sysdoc-section-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            21. Official HIPAA Privacy &amp; Security Officer Designation
+                        </h2>
+                        <span class="sysdoc-badge sysdoc-badge-green">45 CFR § 164.530(a) &amp; § 164.308(a)(2)</span>
+                    </div>
+                    <p>
+                        Federal law establishes mandatory personnel appointments that every covered healthcare entity must formalize, maintain in writing, and operationalize across its clinical workflows and public documentation:
+                    </p>
+                    <div class="sysdoc-rule-box">
+                        <div class="sysdoc-rule-title">Dual Federal Mandate &amp; 6-Year Documentation Retention</div>
+                        <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 13px; line-height: 1.65;">
+                            <li><strong>HIPAA Privacy Official (45 CFR § 164.530(a)(1)(i)):</strong> A covered entity must designate a privacy official who is responsible for the development and implementation of the policies and procedures of the entity.</li>
+                            <li><strong>Contact Person or Contact Office (45 CFR § 164.530(a)(1)(ii)):</strong> A covered entity must designate a contact person or contact office who is responsible for receiving complaints under § 164.530(d) and who is able to provide further information about matters covered by the Notice of Privacy Practices.</li>
+                            <li><strong>HIPAA Security Official (45 CFR § 164.308(a)(2)):</strong> A covered entity must identify the security official who is responsible for the development and implementation of the policies and procedures required by the Security Rule for the entity.</li>
+                            <li><strong>Mandatory 6-Year Retention (45 CFR § 164.530(j) &amp; § 164.316(b)):</strong> A covered entity must document the personnel designations in written or electronic form and retain the documentation for at least 6 years from the date of its creation or the date when it last was in effect.</li>
+                        </ul>
+                    </div>
+                    <div class="sysdoc-subheading">System Technical Implementation &amp; Dynamic EHR Propagation</div>
+                    <p>
+                        Rather than storing officer details as static administrative text, USIntellix incorporates a centralized <strong>HIPAA Officers Governance Console</strong> in <strong>Administration &rarr; Practice Settings / HIPAA Officers</strong> that dynamically populates real-time officer credentials throughout all statutory EHR subsystems:
+                    </p>
+                    <ul style="margin: 6px 0 16px 18px; padding: 0; font-size: 13px; line-height: 1.65;">
+                        <li><strong>Notice of Privacy Practices (NPP) Section 10:</strong> Dynamically injects the active Privacy Officer's name, credentials, telephone extension, direct email, and postal address.</li>
+                        <li><strong>Accounting of Disclosures (§ 164.528):</strong> Automatically includes the Privacy Officer certification block and signature credentials on all generated patient disclosure statements.</li>
+                        <li><strong>Breach Notification Letters (§ 164.404):</strong> Fulfills statutory contact requirements by printing the designated officer's official phone, email, and title on individual patient breach letters and HHS OCR reporting packages (§ 164.408).</li>
+                        <li><strong>Designated Record Set (DRS) Extension Notices (§ 164.524):</strong> Injects official Privacy Office contact details on formal 30-day delay notices.</li>
+                        <li><strong>PHI Amendment Adjudications (§ 164.526):</strong> Features official Privacy Office contact information on all statutory extension notices and formal written denial letters.</li>
+                        <li><strong>Safe Harbor De-Identification (§ 164.514):</strong> Automatically assigns the active Privacy Officer as the certifying official on research export attestation certificates.</li>
+                        <li><strong>Sequential Cryptographic Audit Trail:</strong> Every creation, update, and export of officer designations is cryptographically hashed with sequential HMAC-SHA-256 signatures in <code>hipaa_audit_logs</code> under <code>CATEGORY_HIPAA_GOVERNANCE</code>.</li>
+                        <li><strong>Printable Formal Appointment Attestations:</strong> Generates official legal appointment certificates suitable for federal OCR audit inspection.</li>
+                    </ul>
+                    <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('hipaa_officers', 'HIPAA Officers'); }">
+                            <span>Open HIPAA Officers Console</span>
+                        </button>
+                        <a href="./api/hipaa-officers/export-csv" class="sysdoc-btn-secondary" target="_blank" download>
+                            <span>Export Officers Registry (CSV)</span>
+                        </a>
+                    </div>
+                </section>
+
                 <!-- SECTION: HIPAA AUDIT READINESS & STATUTORY ROADMAP -->
                 <section id="sec-hipaa-roadmap" class="sysdoc-card hipaa-card">
                     <div class="sysdoc-section-header">
@@ -1491,10 +1537,10 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr style="background: #f8fafc;">
-                                <td><strong>§ 164.308(a)(2)</strong></td>
+                                <td><strong>§ 164.308(a)(2) &amp; § 164.530(a)</strong></td>
                                 <td><strong>HIPAA Privacy &amp; Security Officer Designation</strong></td>
-                                <td>Dedicated system configuration of official Privacy and Security Officers with dynamic notice auto-fill.</td>
-                                <td><span class="sysdoc-badge sysdoc-badge-green">🟢 Roadmap (Tier 3)</span></td>
+                                <td>Dedicated governance console in Practice Settings; dynamic auto-population into NPP Section 10 (§ 164.520), Accounting of Disclosures Statements (§ 164.528), Breach Notification Letters (§ 164.404), DRS Extension Notices (§ 164.524), PHI Amendment Denial Letters (§ 164.526), and Safe Harbor Attestations (§ 164.514); tamper-evident sequential HMAC-SHA-256 audit logging.</td>
+                                <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                         </tbody>
                     </table>
@@ -1703,11 +1749,19 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     <div class="sysdoc-rule-box" style="border-left-color: #059669; margin-top: 12px;">
                         <div class="sysdoc-rule-title" style="color: #065f46; display: flex; align-items: center; justify-content: space-between;">
                             <span>10. Official HIPAA Privacy &amp; Security Officer Designation (§ 164.308(a)(2) &amp; § 164.530(a))</span>
-                            <span class="sysdoc-badge sysdoc-badge-green">Governance Configuration</span>
+                            <span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span>
                         </div>
                         <p style="margin: 6px 0; font-size: 13px;">
-                            Designation fields in System Settings for the official <strong>HIPAA Privacy Officer</strong> and <strong>HIPAA Security Officer</strong> (names, direct phone, official email, appointment date). Automatically injects officer credentials into the Notice of Privacy Practices, Accounting of Disclosures certifications, and breach notification letters.
+                            Dedicated governance console in <strong>Administration &rarr; Practice Settings / HIPAA Officers</strong> capturing full legal names, credentials, direct phones, confidential emails, office addresses, appointment dates, and statutory scopes of responsibility. Automatically operationalizes officer details across the Notice of Privacy Practices (§ 164.520), Accounting of Disclosures Statements (§ 164.528), Breach Notification Letters (§ 164.404), DRS Extension Notices (§ 164.524), PHI Amendment Denial Letters (§ 164.526), and Safe Harbor Attestations (§ 164.514). Every change is sequentially signed in the HMAC-SHA-256 audit ledger, fulfilling the 6-year retention mandate (§ 164.530(j) &amp; § 164.316(b)).
                         </p>
+                        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px;">
+                            <button type="button" class="sysdoc-btn-secondary" onclick="if (window.__openDashboardTab) { window.__openDashboardTab('hipaa_officers', 'HIPAA Officers'); }">
+                                <span>Open HIPAA Officers Console</span>
+                            </button>
+                            <a href="./api/hipaa-officers/export-csv" class="sysdoc-btn-secondary" target="_blank" download>
+                                <span>Export Officers Registry (CSV)</span>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- IMPLEMENTATION ROADMAP -->
@@ -1744,7 +1798,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <li><strong>Backup &amp; Contingency Console (§ 164.308(a)(7)):</strong> Backup health &amp; drill verification. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>Workforce Training &amp; Sanctions (§ 164.308(a)):</strong> Employee tracking &amp; disciplinary log. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>Safe Harbor De-Identification (§ 164.514(b)):</strong> 18-identifier scrub filter &amp; vault. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
-                                <li><strong>Officer Designation (§ 164.308(a)(2)):</strong> Official Privacy &amp; Security Officer config.</li>
+                                <li><strong>Officer Designation (§ 164.308(a)(2)):</strong> Official Privacy &amp; Security Officer config. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                             </ul>
                         </div>
                     </div>

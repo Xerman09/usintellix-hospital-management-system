@@ -465,12 +465,19 @@ class AmendmentService
 
         $reasonText = $reasonLabels[$record['extension_reason']] ?? $record['extension_reason'];
 
+        $privacyOfficer = (new \App\Modules\HipaaOfficers\Services\HipaaOfficerService())->getByType('privacy_officer');
+        $poPhone = !empty($privacyOfficer['phone']) ? $privacyOfficer['phone'] . (!empty($privacyOfficer['extension']) ? ' Ext. ' . $privacyOfficer['extension'] : '') : '1-800-555-PRIVACY (Toll-Free)';
+        $poEmail = !empty($privacyOfficer['email']) ? $privacyOfficer['email'] : 'compliance@usintellix-health.org';
+        $poAddress = !empty($privacyOfficer['physical_office_address']) ? $privacyOfficer['physical_office_address'] : '100 Medical Center Parkway, Suite 500, Healthcare City, NY 10001';
+        $poContact = ($privacyOfficer['full_name'] ?? 'Chief Privacy Officer') . ", {$poPhone} / {$poEmail}";
+
         $notice = [
             'facility_name' => 'USIntellix Healthcare System',
-            'facility_address' => '100 Medical Center Parkway, Suite 500, Healthcare City, NY 10001',
-            'privacy_office_phone' => '1-800-555-PRIVACY (Toll-Free)',
-            'privacy_office_email' => 'compliance@usintellix-health.org',
-            'privacy_officer_contact' => 'Chief Privacy Officer, 1-800-555-PRIVACY / compliance@usintellix-health.org',
+            'facility_address' => $poAddress,
+            'privacy_office_phone' => $poPhone,
+            'privacy_office_email' => $poEmail,
+            'privacy_officer_name' => $privacyOfficer['full_name'] ?? 'Chief Privacy Officer',
+            'privacy_officer_contact' => $poContact,
             'notice_date' => $record['extension_notice_date'] ?: date('Y-m-d'),
             'patient_name' => $record['patient_name'],
             'patient_no' => $record['patient_no'],
@@ -630,12 +637,18 @@ class AmendmentService
             'description' => 'Denial under HIPAA Privacy Rule'
         ];
 
+        $privacyOfficer = (new \App\Modules\HipaaOfficers\Services\HipaaOfficerService())->getByType('privacy_officer');
+        $poPhone = !empty($privacyOfficer['phone']) ? $privacyOfficer['phone'] . (!empty($privacyOfficer['extension']) ? ' Ext. ' . $privacyOfficer['extension'] : '') : '1-800-555-PRIVACY (Toll-Free: 1-800-555-7748)';
+        $poEmail = !empty($privacyOfficer['email']) ? $privacyOfficer['email'] : 'hipaa-privacy@usintellix-health.org';
+        $poAddress = !empty($privacyOfficer['physical_office_address']) ? $privacyOfficer['physical_office_address'] : '100 Medical Center Parkway, Suite 500, Healthcare City, NY 10001';
+        $poName = !empty($privacyOfficer['full_name']) ? "{$privacyOfficer['full_name']} ({$privacyOfficer['title']})" : 'Chief Privacy Officer / Compliance Director';
+
         $notice = [
             'facility_name' => 'USIntellix Healthcare System',
-            'facility_address' => '100 Medical Center Parkway, Suite 500, Healthcare City, NY 10001',
-            'privacy_office_phone' => '1-800-555-PRIVACY (Toll-Free: 1-800-555-7748)',
-            'privacy_office_email' => 'hipaa-privacy@usintellix-health.org',
-            'privacy_officer_name' => 'Chief Privacy Officer / Compliance Director',
+            'facility_address' => $poAddress,
+            'privacy_office_phone' => $poPhone,
+            'privacy_office_email' => $poEmail,
+            'privacy_officer_name' => $poName,
             'hhs_ocr_portal_url' => 'https://www.hhs.gov/hipaa/filing-a-complaint/index.html',
             'hhs_ocr_address' => 'U.S. Department of Health and Human Services, 200 Independence Avenue, S.W., Washington, D.C. 20201',
             'notice_date' => $record['denial_notice_date'] ?: date('Y-m-d'),

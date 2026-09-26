@@ -902,29 +902,60 @@ export function PrivacyPolicyView(options = {}) {
                         If you have questions about this Notice of Privacy Practices, believe your privacy rights have been violated, or wish to exercise any of your statutory patient rights, please contact our hospital's dedicated Privacy & Compliance Officer:
                     </p>
 
-                    <div class="privacy-officer-card">
-                        <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
-                            USIntellix Hospital Privacy & Data Protection Office
+                    <div class="privacy-officer-card" style="margin-bottom: 20px;">
+                        <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>USIntellix Hospital Privacy &amp; Data Protection Office</span>
+                            <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #e0f2fe; color: #0369a1; font-weight: 600;">45 CFR § 164.530(a)</span>
                         </div>
-                        <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
-                            Office of HIPAA Compliance, Ethics & Risk Management
+                        <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-muted);">
+                            Designated HIPAA Privacy Official &amp; Patient Grievance Contact Office
                         </p>
                         <div class="privacy-officer-grid">
                             <div class="officer-info-item">
                                 <div class="officer-info-label">HIPAA Privacy Officer</div>
-                                <div class="officer-info-val">Chief Privacy & Compliance Officer</div>
+                                <div class="officer-info-val" id="nppPrivacyOfficerName">Sarah Jenkins, JD, CHPC</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted);" id="nppPrivacyOfficerTitle">Chief Privacy &amp; Compliance Officer</div>
                             </div>
                             <div class="officer-info-item">
                                 <div class="officer-info-label">Direct Telephone</div>
-                                <div class="officer-info-val">(800) 555-0199 / Ext. 4040</div>
+                                <div class="officer-info-val" id="nppPrivacyOfficerPhone">(800) 555-0199 / Ext. 4040</div>
                             </div>
                             <div class="officer-info-item">
                                 <div class="officer-info-label">Confidential Email</div>
-                                <div class="officer-info-val">privacy@usintellix-hospital.com</div>
+                                <div class="officer-info-val" id="nppPrivacyOfficerEmail">privacy@usintellix-hospital.com</div>
                             </div>
                             <div class="officer-info-item">
-                                <div class="officer-info-label">Postal Address</div>
-                                <div class="officer-info-val">100 Healthcare Boulevard, Suite 500, Medical District</div>
+                                <div class="officer-info-label">Postal Office Address</div>
+                                <div class="officer-info-val" id="nppPrivacyOfficerAddress">100 Healthcare Boulevard, Suite 500, Medical District, NY 10001</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="privacy-officer-card" style="margin-bottom: 20px; border-left: 4px solid #10b981;">
+                        <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>USIntellix Information Security &amp; Technology Safeguards</span>
+                            <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #dcfce7; color: #15803d; font-weight: 600;">45 CFR § 164.308(a)(2)</span>
+                        </div>
+                        <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-muted);">
+                            Designated HIPAA Security Official &amp; Cyber Governance Office
+                        </p>
+                        <div class="privacy-officer-grid">
+                            <div class="officer-info-item">
+                                <div class="officer-info-label">HIPAA Security Officer</div>
+                                <div class="officer-info-val" id="nppSecurityOfficerName">Marcus Vance, CISSP, HCISPP</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted);" id="nppSecurityOfficerTitle">Chief Information Security Officer</div>
+                            </div>
+                            <div class="officer-info-item">
+                                <div class="officer-info-label">Security Incident Desk</div>
+                                <div class="officer-info-val" id="nppSecurityOfficerPhone">(800) 555-0199 / Ext. 4088</div>
+                            </div>
+                            <div class="officer-info-item">
+                                <div class="officer-info-label">Security &amp; Breach Email</div>
+                                <div class="officer-info-val" id="nppSecurityOfficerEmail">security@usintellix-hospital.com</div>
+                            </div>
+                            <div class="officer-info-item">
+                                <div class="officer-info-label">Appointment Date</div>
+                                <div class="officer-info-val" id="nppSecurityOfficerDate">Official Statutory Designation Active</div>
                             </div>
                         </div>
                     </div>

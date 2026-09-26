@@ -383,6 +383,7 @@ class DisclosureService
                 ],
                 'disclosures_count'  => count($reportableDisclosures),
                 'disclosures'        => $reportableDisclosures,
+                'privacy_officer'    => (new \App\Modules\HipaaOfficers\Services\HipaaOfficerService())->getByType('privacy_officer'),
                 'statutory_notice'   => 'In accordance with 45 CFR § 164.528, this document accounts for all non-routine disclosures of protected health information made by this covered entity outside of Treatment, Payment, and Health Care Operations (TPO) for the requested period. Disclosures made pursuant to patient authorization, national security, or incidental releases are excluded per § 164.528(a)(1).'
             ]
         ];

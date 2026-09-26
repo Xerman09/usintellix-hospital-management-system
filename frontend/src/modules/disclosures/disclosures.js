@@ -811,16 +811,18 @@ export function initDisclosures() {
                 <!-- PRIVACY OFFICER CERTIFICATION & SIGNATURE BLOCK -->
                 <div style="margin-top: 24px; padding-top: 14px; border-top: 1px solid #cbd5e1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size: 11.5px;">
                     <div>
-                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 30px;">Privacy Officer Certification:</div>
+                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 25px;">Privacy Officer Certification:</div>
                         <div style="border-bottom: 1px solid #0f172a; width: 85%;"></div>
-                        <div style="font-weight: 600; color: #334155; margin-top: 4px;">Authorized HIPAA Privacy Official</div>
-                        <div style="color: #64748b; font-size: 10.5px;">USIntellix Hospital &amp; Health Systems</div>
+                        <div style="font-weight: 700; color: #0f172a; margin-top: 6px;">${escapeHtml(data.privacy_officer?.full_name || "Sarah Jenkins, JD, CHPC")}</div>
+                        <div style="font-weight: 600; color: #334155; font-size: 11px;">${escapeHtml(data.privacy_officer?.title || "Chief Privacy & Compliance Officer")}</div>
+                        <div style="color: #64748b; font-size: 10.5px;">${escapeHtml(data.privacy_officer?.email || "privacy@usintellix-hospital.com")} &bull; ${escapeHtml(data.privacy_officer?.phone || "(800) 555-0199")}</div>
                     </div>
                     <div>
-                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 30px;">Certification Date:</div>
+                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 25px;">Certification Date:</div>
                         <div style="border-bottom: 1px solid #0f172a; width: 60%;"></div>
-                        <div style="font-weight: 600; color: #334155; margin-top: 4px;">Date of Official Issuance</div>
-                        <div style="color: #64748b; font-size: 10.5px;">Official Seal &amp; Audit ID: ${data.patient.patient_no || data.patient.id}-${Date.now().toString(36).toUpperCase()}</div>
+                        <div style="font-weight: 600; color: #334155; margin-top: 6px;">Date of Official Issuance: ${new Date().toISOString().split("T")[0]}</div>
+                        <div style="color: #64748b; font-size: 10.5px;">Statutory Citation: 45 CFR § 164.530(a) &bull; § 164.528</div>
+                        <div style="color: #64748b; font-size: 10px;">Audit Tracking: ${data.patient.patient_no || data.patient.id}-${Date.now().toString(36).toUpperCase()}</div>
                     </div>
                 </div>
             </div>
@@ -966,15 +968,17 @@ export function initDisclosures() {
 
                 <div style="margin-top: 36px; padding-top: 14px; border-top: 1px solid #ccc; display: flex; justify-content: space-between; font-size: 11px;">
                     <div style="width: 45%;">
-                        <div style="font-weight: 700; color: #000; margin-bottom: 35px;">Privacy Officer Certification:</div>
+                        <div style="font-weight: 700; color: #000; margin-bottom: 30px;">Privacy Officer Certification:</div>
                         <div style="border-bottom: 1px solid #000;"></div>
-                        <div style="font-weight: 600; margin-top: 4px;">Authorized HIPAA Privacy Official</div>
-                        <div style="color: #64748b; font-size: 10px;">USIntellix Hospital &amp; Health Systems</div>
+                        <div style="font-weight: 700; color: #000; margin-top: 5px;">${escapeHtml(data.privacy_officer?.full_name || "Sarah Jenkins, JD, CHPC")}</div>
+                        <div style="font-weight: 600; color: #333; font-size: 10.5px;">${escapeHtml(data.privacy_officer?.title || "Chief Privacy & Compliance Officer")}</div>
+                        <div style="color: #64748b; font-size: 10px;">${escapeHtml(data.privacy_officer?.email || "privacy@usintellix-hospital.com")} &bull; ${escapeHtml(data.privacy_officer?.phone || "(800) 555-0199")}</div>
                     </div>
-                    <div style="width: 40%;">
-                        <div style="font-weight: 700; color: #000; margin-bottom: 35px;">Certification Date:</div>
+                    <div style="width: 45%;">
+                        <div style="font-weight: 700; color: #000; margin-bottom: 30px;">Certification Date:</div>
                         <div style="border-bottom: 1px solid #000;"></div>
-                        <div style="font-weight: 600; margin-top: 4px;">Date of Official Issuance</div>
+                        <div style="font-weight: 600; margin-top: 5px;">Date of Official Issuance: ${new Date().toISOString().split("T")[0]}</div>
+                        <div style="color: #64748b; font-size: 10px;">Statutory Authority: 45 CFR § 164.530(a) &bull; § 164.528</div>
                         <div style="color: #64748b; font-size: 10px;">Audit ID: ${data.patient.patient_no || data.patient.id}-${Date.now().toString(36).toUpperCase()}</div>
                     </div>
                 </div>

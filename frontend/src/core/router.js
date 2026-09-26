@@ -1,16 +1,16 @@
 import { LoginView } from "../modules/auth/login.view.js?v=106";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=135";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=192";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=136";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=193";
 import { initLogin } from "../modules/auth/auth.js?v=106";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=102";
 import { initAddEmployee } from "../modules/employees/add-employee.js?v=102";
 import { AddPatientView } from "../modules/patients/add-patient.view.js?v=102";
 import { initAddPatient } from "../modules/patients/add-patient.js?v=102";
-import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=1";
-import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=1";
+import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=2";
+import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=2";
 import { TermsConditionsView } from "../modules/terms-conditions/terms-conditions.view.js?v=1";
 import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=1";
-import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=16";
+import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=17";
 import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=4";
 
 
