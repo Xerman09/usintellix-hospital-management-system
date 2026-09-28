@@ -399,6 +399,13 @@ export function SystemDocumentationView(options = {}) {
                 background: #e2e8f0;
             }
 
+            .sysdoc-phase-card {
+                background: #ffffff;
+                border: 1px solid #bbf7d0;
+                border-radius: 8px;
+                padding: 16px;
+            }
+
             /* Dark Theme Overrides */
             :root[data-theme="dark"] .sysdoc-card,
             :root[data-theme="dark"] .sysdoc-sidebar {
@@ -406,8 +413,27 @@ export function SystemDocumentationView(options = {}) {
                 border-color: var(--border-color, #334155);
             }
             :root[data-theme="dark"] .sysdoc-rule-box {
+                background: #0f172a !important;
+                border-color: #334155 !important;
+            }
+            :root[data-theme="dark"] .sysdoc-rule-title {
+                color: #34d399 !important;
+            }
+            :root[data-theme="dark"] .sysdoc-rule-box ul,
+            :root[data-theme="dark"] .sysdoc-rule-box p,
+            :root[data-theme="dark"] .sysdoc-card p,
+            :root[data-theme="dark"] .sysdoc-card ul {
+                color: #cbd5e1;
+            }
+            :root[data-theme="dark"] .sysdoc-phase-card {
                 background: #0f172a;
-                border-color: #334155;
+                border-color: #065f46;
+            }
+            :root[data-theme="dark"] .sysdoc-phase-card ul {
+                color: #94a3b8;
+            }
+            :root[data-theme="dark"] .sysdoc-phase-card strong {
+                color: #34d399 !important;
             }
             :root[data-theme="dark"] .sysdoc-table th {
                 background: #0f172a;
@@ -1268,9 +1294,9 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         To satisfy mandatory administrative safeguards under the <strong>HIPAA Security Rule</strong>, covered entities must implement an ongoing security awareness program for all workforce members (<strong>45 CFR § 164.308(a)(5)</strong>) and apply formal, documented disciplinary sanctions against employees who fail to comply with established privacy and security policies (<strong>45 CFR § 164.308(a)(1)(ii)(C)</strong>). Federal auditors rigorously test for proof of training within 30 days of hire, annual refresher verification, and documented sanction records.
                     </p>
 
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 8px; font-size: 14px;">Technical &amp; Administrative Controls:</div>
-                        <ul style="margin: 0 0 0 18px; padding: 0; font-size: 13px; line-height: 1.7; color: #334155;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669;">
+                        <div class="sysdoc-rule-title" style="color: #047857; margin-bottom: 8px;">Technical &amp; Administrative Controls:</div>
+                        <ul style="margin: 0 0 0 18px; padding: 0; font-size: 13px; line-height: 1.7;">
                             <li><strong>Employee Profile Certification Fields:</strong> The <code>employees</code> master table tracks Initial Training Date, Last Refresher Date, Next Refresher Due Date, Certification Status (<code>compliant</code>, <code>approaching_due</code>, <code>overdue</code>, <code>exempt</code>), Training Score, and Certificate Code Reference.</li>
                             <li><strong>30-Day Onboarding &amp; Annual Countdown Engine:</strong> Automatically evaluates compliance status against statutory windows: new hires must complete initial orientation within 30 calendar days of hire date; active workforce must complete annual refreshers within 365 calendar days.</li>
                             <li><strong>Perpetual Training History Ledger (<code>hipaa_workforce_trainings</code>):</strong> Immutable log of all training completions recording curriculum title, training type (initial, annual refresher, remedial, role-based), delivery method (LMS, classroom, proctored), assessment score (&ge;80% pass threshold), auto-generated certificate code (<code>CERT-YYYY-XXXX</code>), and verification notes.</li>
@@ -1310,9 +1336,9 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                         Under <strong>45 CFR § 164.514(a)</strong>, health information that does not identify an individual and with respect to which there is no reasonable basis to believe that the information can be used to identify an individual is not individually identifiable health information (PHI). To support clinical research, health AI training, quality improvement studies, and data sharing without obtaining individual patient HIPAA authorizations, USIntellix implements the statutory <strong>Safe Harbor Method (45 CFR § 164.514(b)(2))</strong> and isolated <strong>Re-Identification Vault Protocol (45 CFR § 164.514(c))</strong>.
                     </p>
 
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 8px; font-size: 14px;">Technical &amp; Statutory Implementation Specifications:</div>
-                        <ul style="margin: 0 0 0 18px; padding: 0; font-size: 13px; line-height: 1.7; color: #334155;">
+                    <div class="sysdoc-rule-box" style="border-left-color: #059669;">
+                        <div class="sysdoc-rule-title" style="color: #047857; margin-bottom: 8px;">Technical &amp; Statutory Implementation Specifications:</div>
+                        <ul style="margin: 0 0 0 18px; padding: 0; font-size: 13px; line-height: 1.7;">
                             <li><strong>Definitive Removal of All 18 Statutory Identifiers (§ 164.514(b)(2)(i)(A)–(R)):</strong> Automated stripping of patient names, telephone/mobile numbers, fax numbers, email addresses, Social Security numbers (SSNs), medical record numbers (MRNs), health plan beneficiary numbers, account numbers, certificate/license numbers, vehicle identifiers and serials (VINs), medical device serials, web URLs, IP addresses, biometric identifiers, and full-face photos.</li>
                             <li><strong>Census-Restricted 3-Digit Safe ZIP Rule (§ 164.514(b)(2)(i)(B)):</strong> All geographic subdivisions smaller than a State (street address, apartment, city, precinct) are removed. The initial 3 digits of a 5-digit ZIP code are retained <em>only</em> if the population of the 3-digit prefix exceeds 20,000 per US Census Bureau data. The 17 restricted 3-digit ZIP prefixes with &le;20,000 residents (<code>036, 059, 063, 102, 203, 556, 692, 790, 821, 823, 830, 831, 878, 879, 884, 890, 893</code>) are automatically converted to <code>000</code>.</li>
                             <li><strong>Date Masking &amp; Age &gt; 89 Aggregation (§ 164.514(b)(2)(i)(C)):</strong> All dates directly related to an individual (dates of birth, encounter dates, admission dates, discharge dates, prescription dates, specimen collection dates) are reduced strictly to <strong>Year Only</strong>. All ages over 89 are aggregated into a single open-ended category of <strong>"90 or older"</strong> (with birth year reported as "1935 or earlier").</li>
@@ -1536,7 +1562,7 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                                 <td>Automated removal of all 18 direct/indirect identifiers, Census 3-digit safe ZIP rule, age &gt; 89 aggregation, date reduction to year, SOAP regex scrubber, isolated re-ID vault, RFC 4180 CSV &amp; FHIR JSON exports, and printable Safe Harbor certificates.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
-                            <tr style="background: #f8fafc;">
+                            <tr>
                                 <td><strong>§ 164.308(a)(2) &amp; § 164.530(a)</strong></td>
                                 <td><strong>HIPAA Privacy &amp; Security Officer Designation</strong></td>
                                 <td>Dedicated governance console in Practice Settings; dynamic auto-population into NPP Section 10 (§ 164.520), Accounting of Disclosures Statements (§ 164.528), Breach Notification Letters (§ 164.404), DRS Extension Notices (§ 164.524), PHI Amendment Denial Letters (§ 164.526), and Safe Harbor Attestations (§ 164.514); tamper-evident sequential HMAC-SHA-256 audit logging.</td>
@@ -1767,34 +1793,34 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                     <!-- IMPLEMENTATION ROADMAP -->
                     <div class="sysdoc-subheading" style="margin-top: 24px;">Recommended Implementation Sequence</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 10px;">
-                        <div style="background: #fff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+                        <div class="sysdoc-phase-card">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                                 <span class="sysdoc-badge sysdoc-badge-green">Phase 1 Complete</span>
                                 <strong style="font-size: 14px; color: #166534;">Tier 1 Statutory Modules</strong>
                             </div>
-                            <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #475569;">
+                            <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6;">
                                 <li><strong>Breach Assessment Log (§§ 164.400-414):</strong> 4-factor risk assessment, 60-day timers, OCR export. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>BAA Vendor Registry (§ 164.502(e)):</strong> Vendor tracking, signed BAAs, OCR Question #1 dossiers. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>HITECH Out-of-Pocket (§ 164.522(a)):</strong> Encounter self-pay claim suppression &amp; EDI X12 block. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                             </ul>
                         </div>
-                        <div style="background: #fff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+                        <div class="sysdoc-phase-card">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                                 <span class="sysdoc-badge sysdoc-badge-green">Phase 2 Complete</span>
                                 <strong style="font-size: 14px; color: #166534;">Enhanced Patient Rights</strong>
                             </div>
-                            <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #475569;">
+                            <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6;">
                                 <li><strong>Right of Access 30-Day Pipeline (§ 164.524):</strong> Request clock &amp; complete DRS bundle. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>Confidential Communications (§ 164.522(b)):</strong> Toggles &amp; chart banner warning badges. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>PHI Amendment Workflow (§ 164.526):</strong> 60-day clock, denial letters, disagreement linking. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                             </ul>
                         </div>
-                        <div style="background: #fff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+                        <div class="sysdoc-phase-card">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                                 <span class="sysdoc-badge sysdoc-badge-green">Phase 3 Complete</span>
                                 <strong style="font-size: 14px; color: #166534;">Operational Governance</strong>
                             </div>
-                            <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #475569;">
+                            <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6;">
                                 <li><strong>Backup &amp; Contingency Console (§ 164.308(a)(7)):</strong> Backup health &amp; drill verification. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>Workforce Training &amp; Sanctions (§ 164.308(a)):</strong> Employee tracking &amp; disciplinary log. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
                                 <li><strong>Safe Harbor De-Identification (§ 164.514(b)):</strong> 18-identifier scrub filter &amp; vault. <span class="sysdoc-badge sysdoc-badge-green" style="font-size: 10px; padding: 1px 5px;">✓ Completed</span></li>
