@@ -13282,22 +13282,33 @@ function bindEyeExamEvents()
     });
 
     // Side Navigation Rail Tabs (HPI, PMH, Ext, Ant, Retina, Neuro, Imp)
+    // By default all are active and sections are visible.
+    // Clicking a button toggles its active state and shows/hides the target section card.
     const navTabs = document.querySelectorAll(".eye-exam-nav-tab");
     navTabs.forEach(tab => {
         tab.addEventListener("click", () => {
-            navTabs.forEach(t => t.classList.remove("active"));
-            tab.classList.add("active");
             const targetId = tab.getAttribute("data-target");
             const targetEl = targetId ? document.getElementById(targetId) : null;
-            if (targetEl) {
-                targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (!targetEl) return;
+
+            const isCurrentlyActive = tab.classList.contains("active");
+
+            if (isCurrentlyActive) {
+                // Deactivate and hide input section
+                tab.classList.remove("active");
+                targetEl.style.display = "none";
+            } else {
+                // Activate and show input section
+                tab.classList.add("active");
+                targetEl.style.display = "";
+                targetEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
                 // Subtle highlight flash to draw the eye
                 targetEl.style.transition = "box-shadow 0.3s ease";
                 const origShadow = targetEl.style.boxShadow;
                 targetEl.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.4)";
                 setTimeout(() => {
                     targetEl.style.boxShadow = origShadow;
-                }, 1200);
+                }, 1000);
             }
         });
     });

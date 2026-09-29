@@ -332,33 +332,40 @@ export const EYE_EXAM_STYLES = `
     padding: 7px 4px 7px 8px;
     background: #eef6ff;
     border: 1px solid #bfdbfe;
-    border-left: 3.5px solid #2563eb;
+    border-left: 3.5px solid #cbd5e1;
     border-radius: 4px;
     font-size: 11.5px;
     font-weight: 700;
-    color: #1e40af;
+    color: #475569;
     cursor: pointer;
     text-decoration: none;
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     transition: all 0.15s ease;
     user-select: none;
     text-align: center;
+    opacity: 0.7;
 }
 
 .eye-exam-nav-tab:hover {
     background: #dbeafe;
     border-color: #93c5fd;
-    border-left-color: #1d4ed8;
-    color: #1d4ed8;
-    transform: translateX(2px);
+    color: #1e40af;
+    opacity: 0.95;
+    transform: translateX(1px);
 }
 
 .eye-exam-nav-tab.active {
     background: #2563eb;
     border-color: #1d4ed8;
-    border-left-color: #1e3a8a;
+    border-left: 3.5px solid #1e3a8a;
     color: #ffffff;
-    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+    opacity: 1;
+}
+
+.eye-exam-nav-tab.active:hover {
+    background: #1d4ed8;
+    color: #ffffff;
 }
 
 .eye-exam-content-area {
@@ -436,24 +443,32 @@ export const EYE_EXAM_STYLES = `
 }
 
 :root[data-theme="dark"] .eye-exam-nav-tab {
-    background: #1e293b;
+    background: #0f172a;
     border-color: #334155;
-    border-left-color: #3b82f6;
-    color: #93c5fd;
+    border-left-color: #475569;
+    color: #94a3b8;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    opacity: 0.7;
 }
 
 :root[data-theme="dark"] .eye-exam-nav-tab:hover {
-    background: #2563eb;
-    border-color: #3b82f6;
+    background: #1e293b;
+    border-color: #475569;
     border-left-color: #60a5fa;
-    color: #ffffff;
+    color: #93c5fd;
+    opacity: 0.95;
 }
 
 :root[data-theme="dark"] .eye-exam-nav-tab.active {
-    background: #1d4ed8;
+    background: #2563eb;
     border-color: #3b82f6;
     border-left-color: #93c5fd;
+    color: #ffffff;
+    opacity: 1;
+}
+
+:root[data-theme="dark"] .eye-exam-nav-tab.active:hover {
+    background: #1d4ed8;
     color: #ffffff;
 }
 
@@ -898,13 +913,13 @@ export function renderEyeExamHtml(encounter, patient) {
         <div class="eye-exam-workspace">
             <!-- Left Side Navigation Buttons (HPI, PMH, Ext, Ant, Retina, Neuro, Imp) -->
             <nav class="eye-exam-nav-rail" aria-label="Eye Exam Sections">
-                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecHpi" title="History of Present Illness">HPI</button>
-                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecPmh" title="Past Medical & Medication History">PMH</button>
-                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecExt" title="External Examination">Ext</button>
-                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecAnt" title="Anterior Segment (Slit Lamp)">Ant</button>
-                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecRetina" title="Retina / Posterior Pole">Retina</button>
-                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecNeuro" title="Neuro-Ophthalmology & Motility">Neuro</button>
-                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecImp" title="Impression & Plan">Imp</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecHpi" title="Click to show/hide HPI section">HPI</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecPmh" title="Click to show/hide PMH & Meds section">PMH</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecExt" title="Click to show/hide External Examination">Ext</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecAnt" title="Click to show/hide Anterior Segment (Slit Lamp)">Ant</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecRetina" title="Click to show/hide Retina & Posterior Pole">Retina</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecNeuro" title="Click to show/hide Neuro-Ophthalmology & Motility">Neuro</button>
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecImp" title="Click to show/hide Impression & Plan">Imp</button>
             </nav>
 
             <!-- Main Content Area -->
