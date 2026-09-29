@@ -114,7 +114,7 @@ import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment 
 import {
     fetchPatientEncounters, fetchLinkableIssues, addEncounter, updateEncounter, removeEncounter,
     fetchDischargeDispositions, updateEncounterBillingNote, fetchEncounterFormOptions,
-    fetchEncounterTransferSummary
+    fetchEncounterTransferSummary, fetchEncounterSummary
 } from "../encounters/encounters.service.js";
 import { fetchCareTeam, fetchCareTeamOptions, saveCareTeam } from "../care-team/care-team.service.js";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
@@ -144,6 +144,10 @@ import {
 import {
     fetchSoapNotes, addSoapNote, updateSoapNote, removeSoapNote, signSoapNote
 } from "../encounter-sections/encounter-soap-notes.service.js";
+import {
+    fetchEncounterEyeExam, saveEncounterEyeExam
+} from "../encounter-sections/encounter-eye-exam.service.js";
+import { renderEyeExamHtml } from "../encounter-sections/encounter-eye-exam.view.js";
 import {
     fetchSpeechDictationItems, addSpeechDictationItem, updateSpeechDictationItem, removeSpeechDictationItem
 } from "../encounter-sections/encounter-speech-dictation-items.service.js";
@@ -2692,8 +2696,8 @@ export async function initPatientChartTab(patient)
 
     setFact("pdFactSex", sex);
     setFact("pdFactBirthdate", formatDate(patient.birthdate));
-    const age = calculateAge(patient.birthdate);
-    setFact("pdFactAge", age === null ? "" : String(age));
+    const clinicalAge = formatClinicalAge(patient.birthdate);
+    setFact("pdFactAge", clinicalAge === "-" ? "" : clinicalAge);
     setFact("pdFactBloodType", patient.blood_type);
     setFact("pdFactProvider", providerName);
 
@@ -12436,6 +12440,18 @@ async function loadEncounterSummary(encounter)
     document.getElementById("pdEncounterSwitchLoadingOverlay").classList.add("open");
 
     try {
+        const summaryResult = await fetchEncounterSummary(encounter.id);
+
+        if (summaryResult && summaryResult.success && summaryResult.data) {
+            currentEncounterSummary = {
+                ...summaryResult.data,
+                encounter: { ...encounter, ...summaryResult.data.encounter }
+            };
+            renderEncounterSummary();
+            return;
+        }
+
+        // Fallback to parallel requests if consolidated endpoint is unavailable
         const [
             sectionsResult, vitalsResult, carePlanResult, clinicalInstructionsResult, clinicalNotesResult,
             miscBillingResult, functionalCognitiveResult, observationResult, reviewOfSystemsResult,
@@ -12474,7 +12490,8 @@ async function loadEncounterSummary(encounter)
             reviewOfSystems: reviewOfSystemsResult.success ? reviewOfSystemsResult.data : null,
             reviewOfSystemsChecks: reviewOfSystemsChecksResult.success ? reviewOfSystemsChecksResult.data : null,
             soapNotes: soapNotesResult.success ? soapNotesResult.data : [],
-            speechDictationItems: speechDictationResult.success ? speechDictationResult.data : []
+            speechDictationItems: speechDictationResult.success ? speechDictationResult.data : [],
+            eyeExam: null
         };
 
         renderEncounterSummary();
@@ -12512,6 +12529,7 @@ function renderEncounterSummary()
     renderReviewOfSystemsChecksSection();
     renderSoapNotesSection();
     renderSpeechDictationSection();
+    switchToSummarySubtab();
 }
 
 function renderLockedBadge(badgeId, lockedAt)
@@ -13034,6 +13052,14 @@ function setupEncounterSummaryPanel()
         openClinicalNotesFormModal(null);
     });
 
+    const eyeExamMenuLink = document.getElementById("pdClinicalMenuEyeExamLink");
+    if (eyeExamMenuLink) {
+        eyeExamMenuLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            openEyeExamSubtab();
+        });
+    }
+
     document.getElementById("pdClinicalMenuFunctionalCognitiveLink").addEventListener("click", (event) => {
         event.preventDefault();
         openFunctionalCognitiveFormModal(null);
@@ -13075,6 +13101,572 @@ function setupEncounterSummaryPanel()
     setupDeleteSectionModal();
     setupCollapsibleCards();
     setupMiscBillingOptionsModal();
+    setupEyeExamSubnav();
+}
+
+let eyeExamActiveCcTab = "cc1";
+
+function setupEyeExamSubnav()
+{
+    const summaryBtn = document.getElementById("pdEncSubnavSummaryBtn");
+    const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    const eyeExamClose = document.getElementById("pdEncSubnavEyeExamClose");
+
+    if (summaryBtn) {
+        summaryBtn.addEventListener("click", () => {
+            switchToSummarySubtab();
+        });
+    }
+
+    if (eyeExamBtn) {
+        eyeExamBtn.addEventListener("click", (e) => {
+            if (e.target !== eyeExamClose) {
+                switchToEyeExamSubtab();
+            }
+        });
+    }
+
+    if (eyeExamClose) {
+        eyeExamClose.addEventListener("click", (e) => {
+            e.stopPropagation();
+            closeEyeExamSubtab();
+        });
+    }
+}
+
+function switchToSummarySubtab()
+{
+    const summaryBtn = document.getElementById("pdEncSubnavSummaryBtn");
+    const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    const cardsWrap = document.getElementById("pdEncounterCardsWrap");
+    const eyeExamPanel = document.getElementById("pdEncounterEyeExamPanel");
+
+    if (summaryBtn) summaryBtn.classList.add("active");
+    if (eyeExamBtn) eyeExamBtn.classList.remove("active");
+    if (cardsWrap) cardsWrap.style.display = "block";
+    if (eyeExamPanel) eyeExamPanel.style.display = "none";
+}
+
+function switchToEyeExamSubtab()
+{
+    const summaryBtn = document.getElementById("pdEncSubnavSummaryBtn");
+    const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    const cardsWrap = document.getElementById("pdEncounterCardsWrap");
+    const eyeExamPanel = document.getElementById("pdEncounterEyeExamPanel");
+
+    if (summaryBtn) summaryBtn.classList.remove("active");
+    if (eyeExamBtn) {
+        eyeExamBtn.style.display = "inline-flex";
+        eyeExamBtn.classList.add("active");
+    }
+    if (cardsWrap) cardsWrap.style.display = "none";
+    if (eyeExamPanel) {
+        eyeExamPanel.style.display = "block";
+        renderEyeExamContent();
+    }
+}
+
+export function openEyeExamSubtab()
+{
+    switchToEyeExamSubtab();
+}
+
+function closeEyeExamSubtab()
+{
+    const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    if (eyeExamBtn) eyeExamBtn.style.display = "none";
+    switchToSummarySubtab();
+}
+
+async function renderEyeExamContent()
+{
+    const container = document.getElementById("pdEncounterEyeExamPanel");
+    if (!container || !currentEncounterSummary) return;
+
+    const { encounter } = currentEncounterSummary;
+    if (!currentEncounterSummary.eyeExam) {
+        container.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: var(--text-muted, #64748b);">
+                <div class="spinner" style="margin: 0 auto 12px auto; width: 28px; height: 28px; border: 3px solid var(--border-color, #e2e8f0); border-top-color: var(--accent, #1d4ed8); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                <div>Loading Eye Exam...</div>
+            </div>
+        `;
+        try {
+            const res = await fetchEncounterEyeExam(encounter.id);
+            if (res && res.success) {
+                currentEncounterSummary.eyeExam = res.data;
+            }
+        } catch (err) {
+            console.error("Failed to load Eye Exam:", err);
+        }
+    }
+
+    container.innerHTML = renderEyeExamHtml(encounter, currentDashboardPatient);
+    bindEyeExamEvents();
+    populateEyeExamForm(currentEncounterSummary.eyeExam || {});
+}
+
+function bindEyeExamEvents()
+{
+    const saveBtn = document.getElementById("eyeExamSaveBtn");
+    const saveBottomBtn = document.getElementById("eyeExamSaveBottomBtn");
+    const defaultsBtn = document.getElementById("eyeExamDefaultsBtn");
+    const firstVisitBtn = document.getElementById("eyeExamFirstVisitBtn");
+    const cancelBtn = document.getElementById("eyeExamCancelBtn");
+
+    if (saveBtn) saveBtn.addEventListener("click", () => handleSaveEyeExam());
+    if (saveBottomBtn) saveBottomBtn.addEventListener("click", () => handleSaveEyeExam());
+    if (defaultsBtn) defaultsBtn.addEventListener("click", () => applyEyeExamDefaults());
+    if (firstVisitBtn) firstVisitBtn.addEventListener("click", () => handleFirstVisitDefaults());
+    if (cancelBtn) cancelBtn.addEventListener("click", () => switchToSummarySubtab());
+
+    // Chief Complaint Tabs
+    const ccTabs = document.querySelectorAll("#eyeExamCcTabs .eye-exam-pill");
+    ccTabs.forEach(pill => {
+        pill.addEventListener("click", () => {
+            ccTabs.forEach(p => p.classList.remove("active"));
+            pill.classList.add("active");
+            eyeExamActiveCcTab = pill.getAttribute("data-tab");
+            const label = document.getElementById("eyeExamCcLabel");
+            if (label) {
+                label.textContent = eyeExamActiveCcTab === "cc1" ? "Chief Complaint 1:" :
+                                    eyeExamActiveCcTab === "cc2" ? "Chief Complaint 2:" : "Chief Complaint 3:";
+            }
+            if (currentEncounterSummary && currentEncounterSummary.eyeExam) {
+                const hpi = currentEncounterSummary.eyeExam.hpi_data || {};
+                const input = document.getElementById("eyeExam_cc");
+                if (input) input.value = hpi[eyeExamActiveCcTab] || "";
+            }
+        });
+    });
+}
+
+function populateEyeExamForm(data)
+{
+    if (!data) return;
+
+    const hpi = data.hpi_data || {};
+    const pmsfh = data.pmsfh_data || {};
+    const pe = data.physical_exam_data || {};
+    const ext = data.external_exam_data || {};
+    const ant = data.anterior_segment_data || {};
+    const ret = data.retina_data || {};
+    const neuro = data.neuro_data || {};
+    const imp = data.impression_plan_data || {};
+
+    // HPI
+    const ccInput = document.getElementById("eyeExam_cc");
+    if (ccInput) ccInput.value = hpi[eyeExamActiveCcTab] || hpi.cc1 || data.chief_complaint || "";
+    const hpiText = document.getElementById("eyeExam_hpi_text");
+    if (hpiText) hpiText.value = hpi.hpi_text || "";
+    const cpInput = document.getElementById("eyeExam_chronic_problems");
+    if (cpInput) cpInput.value = hpi.chronic_problems || "";
+
+    // PMSFH
+    if (pmsfh.category) {
+        const radio = document.querySelector(`input[name="eyeExamPmsfhCat"][value="${pmsfh.category}"]`);
+        if (radio) radio.checked = true;
+    }
+    const medInput = document.getElementById("eyeExam_medication");
+    if (medInput) medInput.value = pmsfh.medication || "";
+    const medStart = document.getElementById("eyeExam_med_start");
+    if (medStart) medStart.value = pmsfh.start || "";
+    const medFinish = document.getElementById("eyeExam_med_finish");
+    if (medFinish) medFinish.value = pmsfh.finish || "";
+    const isEyeMed = document.getElementById("eyeExam_is_eye_med");
+    if (isEyeMed) isEyeMed.checked = !!pmsfh.eye_med;
+    const pmsfhComm = document.getElementById("eyeExam_pmsfh_comments");
+    if (pmsfhComm) pmsfhComm.value = pmsfh.comments || "";
+
+    // Physical Exam
+    const ms = pe.mental_status || {};
+    const msAlert = document.getElementById("eyeExam_ms_alert");
+    if (msAlert && ms.alert !== undefined) msAlert.checked = !!ms.alert;
+    const msOriented = document.getElementById("eyeExam_ms_oriented");
+    if (msOriented && ms.oriented_tpp !== undefined) msOriented.checked = !!ms.oriented_tpp;
+    const msMood = document.getElementById("eyeExam_ms_mood");
+    if (msMood && ms.mood_affect_nml !== undefined) msMood.checked = !!ms.mood_affect_nml;
+
+    const vis = pe.vision || {};
+    ['sc_od', 'sc_os', 'cc_od', 'cc_os', 'ph_od', 'ph_os', 'mr_od', 'mr_os', 'add_od', 'add_os', 'va_od', 'va_os'].forEach(k => {
+        const el = document.getElementById(`eyeExam_vis_${k}`);
+        if (el && vis[k] !== undefined) el.value = vis[k];
+    });
+
+    const tens = pe.tension || {};
+    const tensTime = document.getElementById("eyeExam_tension_time");
+    if (tensTime && tens.time) tensTime.value = tens.time;
+    const tensOd = document.getElementById("eyeExam_tension_od");
+    if (tensOd && tens.ap_od !== undefined) tensOd.value = tens.ap_od;
+    const tensOs = document.getElementById("eyeExam_tension_os");
+    if (tensOs && tens.ap_os !== undefined) tensOs.value = tens.ap_os;
+
+    const fields = pe.fields || {};
+    const ftcfCheck = document.getElementById("eyeExam_fields_ftcf");
+    if (ftcfCheck && fields.ftcf !== undefined) ftcfCheck.checked = !!fields.ftcf;
+    const amsler = pe.amsler || {};
+    const amslerCheck = document.getElementById("eyeExam_amsler_normal");
+    if (amslerCheck && amsler.normal !== undefined) amslerCheck.checked = !!amsler.normal;
+    const fieldsNotes = document.getElementById("eyeExam_fields_notes");
+    if (fieldsNotes && fields.od_desc) fieldsNotes.value = fields.od_desc;
+
+    const pup = pe.pupils || {};
+    const pupNormal = document.getElementById("eyeExam_pupils_normal");
+    if (pupNormal && pup.normal !== undefined) pupNormal.checked = !!pup.normal;
+    const pupOdSize = document.getElementById("eyeExam_pupils_od_size");
+    if (pupOdSize && pup.od_size) pupOdSize.value = pup.od_size;
+    const pupOsSize = document.getElementById("eyeExam_pupils_os_size");
+    if (pupOsSize && pup.os_size) pupOsSize.value = pup.os_size;
+    const pupApd = document.getElementById("eyeExam_pupils_apd");
+    if (pupApd && pup.apd) pupApd.value = pup.apd;
+
+    // External Exam
+    const extOd = ext.od || {};
+    const extOs = ext.os || {};
+    if (extOd.brow) document.getElementById("eyeExam_ext_od_brow").value = extOd.brow;
+    if (extOs.brow) document.getElementById("eyeExam_ext_os_brow").value = extOs.brow;
+    if (extOd.upper_lids) document.getElementById("eyeExam_ext_od_upper_lids").value = extOd.upper_lids;
+    if (extOs.upper_lids) document.getElementById("eyeExam_ext_os_upper_lids").value = extOs.upper_lids;
+    if (extOd.lower_lids) document.getElementById("eyeExam_ext_od_lower_lids").value = extOd.lower_lids;
+    if (extOs.lower_lids) document.getElementById("eyeExam_ext_os_lower_lids").value = extOs.lower_lids;
+    if (extOd.medial_canthi) document.getElementById("eyeExam_ext_od_canthi").value = extOd.medial_canthi;
+    if (extOs.medial_canthi) document.getElementById("eyeExam_ext_os_canthi").value = extOs.medial_canthi;
+    if (extOd.adnoxa) document.getElementById("eyeExam_ext_od_adnoxa").value = extOd.adnoxa;
+    if (extOs.adnoxa) document.getElementById("eyeExam_ext_os_adnoxa").value = extOs.adnoxa;
+    if (ext.lev_fn) document.getElementById("eyeExam_ext_lev_fn").value = ext.lev_fn;
+    if (ext.mrd) document.getElementById("eyeExam_ext_mrd").value = ext.mrd;
+    if (ext.vert_fissure) document.getElementById("eyeExam_ext_vert_fissure").value = ext.vert_fissure;
+    if (ext.comments) document.getElementById("eyeExam_ext_comments").value = ext.comments;
+
+    // Anterior Segment
+    const antOd = ant.od || {};
+    const antOs = ant.os || {};
+    if (antOd.conj_sclera) document.getElementById("eyeExam_ant_od_conj").value = antOd.conj_sclera;
+    if (antOs.conj_sclera) document.getElementById("eyeExam_ant_os_conj").value = antOs.conj_sclera;
+    if (antOd.cornea) document.getElementById("eyeExam_ant_od_cornea").value = antOd.cornea;
+    if (antOs.cornea) document.getElementById("eyeExam_ant_os_cornea").value = antOs.cornea;
+    if (antOd.ac) document.getElementById("eyeExam_ant_od_ac").value = antOd.ac;
+    if (antOs.ac) document.getElementById("eyeExam_ant_os_ac").value = antOs.ac;
+    if (antOd.lens) document.getElementById("eyeExam_ant_od_lens").value = antOd.lens;
+    if (antOs.lens) document.getElementById("eyeExam_ant_os_lens").value = antOs.lens;
+    if (antOd.iris) document.getElementById("eyeExam_ant_od_iris").value = antOd.iris;
+    if (antOs.iris) document.getElementById("eyeExam_ant_os_iris").value = antOs.iris;
+
+    const dil = ant.dilation || {};
+    const dilTrop = document.getElementById("eyeExam_dil_trop");
+    if (dilTrop) dilTrop.checked = !!dil.tropicamide;
+    const dilPhen = document.getElementById("eyeExam_dil_phen");
+    if (dilPhen) dilPhen.checked = !!dil.phenylephrine;
+    const dilCyclo = document.getElementById("eyeExam_dil_cyclo");
+    if (dilCyclo) dilCyclo.checked = !!dil.cyclopentolate;
+    const dilTime = document.getElementById("eyeExam_dil_time");
+    if (dilTime && dil.time) dilTime.value = dil.time;
+    if (ant.comments) document.getElementById("eyeExam_ant_comments").value = ant.comments;
+
+    // Retina
+    const retOd = ret.od || {};
+    const retOs = ret.os || {};
+    if (retOd.disc) document.getElementById("eyeExam_ret_od_disc").value = retOd.disc;
+    if (retOs.disc) document.getElementById("eyeExam_ret_os_disc").value = retOs.disc;
+    if (ret.cd_ratio_od) document.getElementById("eyeExam_ret_od_cd").value = ret.cd_ratio_od;
+    if (ret.cd_ratio_os) document.getElementById("eyeExam_ret_os_cd").value = ret.cd_ratio_os;
+    if (retOd.macula) document.getElementById("eyeExam_ret_od_macula").value = retOd.macula;
+    if (retOs.macula) document.getElementById("eyeExam_ret_os_macula").value = retOs.macula;
+    if (retOd.vessels) document.getElementById("eyeExam_ret_od_vessels").value = retOd.vessels;
+    if (retOs.vessels) document.getElementById("eyeExam_ret_os_vessels").value = retOs.vessels;
+    if (retOd.vitreous) document.getElementById("eyeExam_ret_od_vitreous").value = retOd.vitreous;
+    if (retOs.vitreous) document.getElementById("eyeExam_ret_os_vitreous").value = retOs.vitreous;
+    if (retOd.periph) document.getElementById("eyeExam_ret_od_periph").value = retOd.periph;
+    if (retOs.periph) document.getElementById("eyeExam_ret_os_periph").value = retOs.periph;
+    if (ret.comments) document.getElementById("eyeExam_ret_comments").value = ret.comments;
+
+    // Neuro
+    const neuroOd = neuro.od || {};
+    const neuroOs = neuro.os || {};
+    if (neuro.motility_normal !== undefined) document.getElementById("eyeExam_neuro_motility_normal").checked = !!neuro.motility_normal;
+    if (neuro.act_ortho !== undefined) document.getElementById("eyeExam_neuro_ortho").checked = !!neuro.act_ortho;
+    if (neuroOd.color) document.getElementById("eyeExam_neuro_od_color").value = neuroOd.color;
+    if (neuroOs.color) document.getElementById("eyeExam_neuro_os_color").value = neuroOs.color;
+    if (neuroOd.red_desat) document.getElementById("eyeExam_neuro_od_red").value = neuroOd.red_desat;
+    if (neuroOs.red_desat) document.getElementById("eyeExam_neuro_os_red").value = neuroOs.red_desat;
+    if (neuro.stereopsis) document.getElementById("eyeExam_neuro_stereopsis").value = neuro.stereopsis;
+    if (neuro.comments) document.getElementById("eyeExam_neuro_comments").value = neuro.comments;
+
+    // Impression & Plan
+    const impNewDx = document.getElementById("eyeExam_impression_new_dx");
+    if (impNewDx) impNewDx.value = imp.new_dx || data.new_dx || "";
+    const impOrders = document.getElementById("eyeExam_impression_orders");
+    if (impOrders) impOrders.value = imp.next_visit_orders || "";
+}
+
+function collectEyeExamFormData()
+{
+    const existing = currentEncounterSummary?.eyeExam || {};
+    const hpi = existing.hpi_data || {};
+    hpi[eyeExamActiveCcTab] = document.getElementById("eyeExam_cc")?.value || "";
+    hpi.hpi_text = document.getElementById("eyeExam_hpi_text")?.value || "";
+    hpi.chronic_problems = document.getElementById("eyeExam_chronic_problems")?.value || "";
+
+    const pmsfhCat = document.querySelector('input[name="eyeExamPmsfhCat"]:checked')?.value || "POH";
+    const pmsfh = {
+        category: pmsfhCat,
+        medication: document.getElementById("eyeExam_medication")?.value || "",
+        start: document.getElementById("eyeExam_med_start")?.value || "",
+        finish: document.getElementById("eyeExam_med_finish")?.value || "",
+        eye_med: !!document.getElementById("eyeExam_is_eye_med")?.checked,
+        comments: document.getElementById("eyeExam_pmsfh_comments")?.value || ""
+    };
+
+    const physical_exam = {
+        mental_status: {
+            alert: !!document.getElementById("eyeExam_ms_alert")?.checked,
+            oriented_tpp: !!document.getElementById("eyeExam_ms_oriented")?.checked,
+            mood_affect_nml: !!document.getElementById("eyeExam_ms_mood")?.checked
+        },
+        vision: {
+            sc_od: document.getElementById("eyeExam_vis_sc_od")?.value || "",
+            sc_os: document.getElementById("eyeExam_vis_sc_os")?.value || "",
+            cc_od: document.getElementById("eyeExam_vis_cc_od")?.value || "",
+            cc_os: document.getElementById("eyeExam_vis_cc_os")?.value || "",
+            ph_od: document.getElementById("eyeExam_vis_ph_od")?.value || "",
+            ph_os: document.getElementById("eyeExam_vis_ph_os")?.value || "",
+            mr_od: document.getElementById("eyeExam_vis_mr_od")?.value || "",
+            mr_os: document.getElementById("eyeExam_vis_mr_os")?.value || "",
+            add_od: document.getElementById("eyeExam_vis_add_od")?.value || "",
+            add_os: document.getElementById("eyeExam_vis_add_os")?.value || "",
+            va_od: document.getElementById("eyeExam_vis_va_od")?.value || "",
+            va_os: document.getElementById("eyeExam_vis_va_os")?.value || ""
+        },
+        tension: {
+            time: document.getElementById("eyeExam_tension_time")?.value || "",
+            ap_od: document.getElementById("eyeExam_tension_od")?.value || "",
+            ap_os: document.getElementById("eyeExam_tension_os")?.value || ""
+        },
+        fields: {
+            ftcf: !!document.getElementById("eyeExam_fields_ftcf")?.checked,
+            od_desc: document.getElementById("eyeExam_fields_notes")?.value || "",
+            os_desc: document.getElementById("eyeExam_fields_notes")?.value || ""
+        },
+        amsler: {
+            normal: !!document.getElementById("eyeExam_amsler_normal")?.checked
+        },
+        pupils: {
+            normal: !!document.getElementById("eyeExam_pupils_normal")?.checked,
+            od_size: document.getElementById("eyeExam_pupils_od_size")?.value || "",
+            os_size: document.getElementById("eyeExam_pupils_os_size")?.value || "",
+            apd: document.getElementById("eyeExam_pupils_apd")?.value || ""
+        }
+    };
+
+    const external_exam = {
+        od: {
+            brow: document.getElementById("eyeExam_ext_od_brow")?.value || "Normal",
+            upper_lids: document.getElementById("eyeExam_ext_od_upper_lids")?.value || "Normal",
+            lower_lids: document.getElementById("eyeExam_ext_od_lower_lids")?.value || "Normal",
+            medial_canthi: document.getElementById("eyeExam_ext_od_canthi")?.value || "Normal",
+            adnoxa: document.getElementById("eyeExam_ext_od_adnoxa")?.value || "Normal"
+        },
+        os: {
+            brow: document.getElementById("eyeExam_ext_os_brow")?.value || "Normal",
+            upper_lids: document.getElementById("eyeExam_ext_os_upper_lids")?.value || "Normal",
+            lower_lids: document.getElementById("eyeExam_ext_os_lower_lids")?.value || "Normal",
+            medial_canthi: document.getElementById("eyeExam_ext_os_canthi")?.value || "Normal",
+            adnoxa: document.getElementById("eyeExam_ext_os_adnoxa")?.value || "Normal"
+        },
+        lev_fn: document.getElementById("eyeExam_ext_lev_fn")?.value || "",
+        mrd: document.getElementById("eyeExam_ext_mrd")?.value || "",
+        vert_fissure: document.getElementById("eyeExam_ext_vert_fissure")?.value || "",
+        comments: document.getElementById("eyeExam_ext_comments")?.value || ""
+    };
+
+    const anterior_segment = {
+        od: {
+            conj_sclera: document.getElementById("eyeExam_ant_od_conj")?.value || "Clear / White",
+            cornea: document.getElementById("eyeExam_ant_od_cornea")?.value || "Clear, no infiltrate",
+            ac: document.getElementById("eyeExam_ant_od_ac")?.value || "Deep & Quiet, no C/F",
+            lens: document.getElementById("eyeExam_ant_od_lens")?.value || "Clear",
+            iris: document.getElementById("eyeExam_ant_od_iris")?.value || "Flat & Intact, round pupil"
+        },
+        os: {
+            conj_sclera: document.getElementById("eyeExam_ant_os_conj")?.value || "Clear / White",
+            cornea: document.getElementById("eyeExam_ant_os_cornea")?.value || "Clear, no infiltrate",
+            ac: document.getElementById("eyeExam_ant_os_ac")?.value || "Deep & Quiet, no C/F",
+            lens: document.getElementById("eyeExam_ant_os_lens")?.value || "Clear",
+            iris: document.getElementById("eyeExam_ant_os_iris")?.value || "Flat & Intact, round pupil"
+        },
+        dilation: {
+            tropicamide: !!document.getElementById("eyeExam_dil_trop")?.checked,
+            phenylephrine: !!document.getElementById("eyeExam_dil_phen")?.checked,
+            cyclopentolate: !!document.getElementById("eyeExam_dil_cyclo")?.checked,
+            time: document.getElementById("eyeExam_dil_time")?.value || ""
+        },
+        comments: document.getElementById("eyeExam_ant_comments")?.value || ""
+    };
+
+    const retina = {
+        od: {
+            disc: document.getElementById("eyeExam_ret_od_disc")?.value || "Pink, Sharp Margins",
+            macula: document.getElementById("eyeExam_ret_od_macula")?.value || "Normal flat, +foveal reflex",
+            vessels: document.getElementById("eyeExam_ret_od_vessels")?.value || "Normal caliber & course",
+            vitreous: document.getElementById("eyeExam_ret_od_vitreous")?.value || "Clear, syneresis neg",
+            periph: document.getElementById("eyeExam_ret_od_periph")?.value || "Attached 360, no tears/holes"
+        },
+        os: {
+            disc: document.getElementById("eyeExam_ret_os_disc")?.value || "Pink, Sharp Margins",
+            macula: document.getElementById("eyeExam_ret_os_macula")?.value || "Normal flat, +foveal reflex",
+            vessels: document.getElementById("eyeExam_ret_os_vessels")?.value || "Normal caliber & course",
+            vitreous: document.getElementById("eyeExam_ret_os_vitreous")?.value || "Clear, syneresis neg",
+            periph: document.getElementById("eyeExam_ret_os_periph")?.value || "Attached 360, no tears/holes"
+        },
+        cd_ratio_od: document.getElementById("eyeExam_ret_od_cd")?.value || "0.30",
+        cd_ratio_os: document.getElementById("eyeExam_ret_os_cd")?.value || "0.30",
+        comments: document.getElementById("eyeExam_ret_comments")?.value || ""
+    };
+
+    const neuro = {
+        motility_normal: !!document.getElementById("eyeExam_neuro_motility_normal")?.checked,
+        act_ortho: !!document.getElementById("eyeExam_neuro_ortho")?.checked,
+        od: {
+            color: document.getElementById("eyeExam_neuro_od_color")?.value || "14/14 Ishihara",
+            red_desat: document.getElementById("eyeExam_neuro_od_red")?.value || "100%"
+        },
+        os: {
+            color: document.getElementById("eyeExam_neuro_os_color")?.value || "14/14 Ishihara",
+            red_desat: document.getElementById("eyeExam_neuro_os_red")?.value || "100%"
+        },
+        stereopsis: document.getElementById("eyeExam_neuro_stereopsis")?.value || "40 sec of arc (Circles 9/9)",
+        comments: document.getElementById("eyeExam_neuro_comments")?.value || ""
+    };
+
+    const impression_plan = {
+        new_dx: document.getElementById("eyeExam_impression_new_dx")?.value || "",
+        next_visit_orders: document.getElementById("eyeExam_impression_orders")?.value || ""
+    };
+
+    return {
+        hpi_data: hpi,
+        pmsfh_data: pmsfh,
+        physical_exam_data: physical_exam,
+        external_exam_data: external_exam,
+        anterior_segment_data: anterior_segment,
+        retina_data: retina,
+        neuro_data: neuro,
+        impression_plan_data: impression_plan,
+        chief_complaint: hpi.cc1 || hpi[eyeExamActiveCcTab] || "",
+        new_dx: impression_plan.new_dx || ""
+    };
+}
+
+async function handleSaveEyeExam()
+{
+    if (!currentEncounterSummary || !currentEncounterSummary.encounter) {
+        showToast("No active encounter selected.", "error");
+        return;
+    }
+
+    const payload = collectEyeExamFormData();
+    const saveBtn = document.getElementById("eyeExamSaveBtn");
+    const saveBottomBtn = document.getElementById("eyeExamSaveBottomBtn");
+    if (saveBtn) saveBtn.disabled = true;
+    if (saveBottomBtn) saveBottomBtn.disabled = true;
+
+    try {
+        const result = await saveEncounterEyeExam(currentEncounterSummary.encounter.id, payload);
+        if (result && result.success) {
+            currentEncounterSummary.eyeExam = result.data;
+            showToast("Eye Exam saved successfully!", "success");
+            showAlert("eyeExamAlert", "Eye Exam saved successfully under HIPAA § 164.312 audit logging.", "success");
+        } else {
+            showToast(result?.message || "Failed to save Eye Exam", "error");
+            showAlert("eyeExamAlert", result?.message || "Failed to save Eye Exam.", "error");
+        }
+    } catch (err) {
+        console.error("Save eye exam error:", err);
+        showToast("Error saving Eye Exam", "error");
+        showAlert("eyeExamAlert", "Server error while saving Eye Exam.", "error");
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+        if (saveBottomBtn) saveBottomBtn.disabled = false;
+    }
+}
+
+function applyEyeExamDefaults()
+{
+    document.getElementById("eyeExam_ms_alert").checked = true;
+    document.getElementById("eyeExam_ms_oriented").checked = true;
+    document.getElementById("eyeExam_ms_mood").checked = true;
+
+    document.getElementById("eyeExam_vis_sc_od").value = "20/25";
+    document.getElementById("eyeExam_vis_sc_os").value = "20/25";
+    document.getElementById("eyeExam_vis_cc_od").value = "20/20";
+    document.getElementById("eyeExam_vis_cc_os").value = "20/20";
+    document.getElementById("eyeExam_vis_ph_od").value = "20/20";
+    document.getElementById("eyeExam_vis_ph_os").value = "20/20";
+    document.getElementById("eyeExam_vis_va_od").value = "20/20";
+    document.getElementById("eyeExam_vis_va_os").value = "20/20";
+
+    document.getElementById("eyeExam_tension_od").value = "14 mmHg";
+    document.getElementById("eyeExam_tension_os").value = "15 mmHg";
+    document.getElementById("eyeExam_fields_ftcf").checked = true;
+    document.getElementById("eyeExam_amsler_normal").checked = true;
+    document.getElementById("eyeExam_pupils_normal").checked = true;
+    document.getElementById("eyeExam_pupils_od_size").value = "3";
+    document.getElementById("eyeExam_pupils_os_size").value = "3";
+    document.getElementById("eyeExam_pupils_apd").value = "None";
+
+    ['brow', 'upper_lids', 'lower_lids', 'canthi', 'adnoxa'].forEach(k => {
+        const odEl = document.getElementById(`eyeExam_ext_od_${k}`);
+        const osEl = document.getElementById(`eyeExam_ext_os_${k}`);
+        if (odEl) odEl.value = "Normal";
+        if (osEl) osEl.value = "Normal";
+    });
+
+    document.getElementById("eyeExam_ant_od_conj").value = "Clear / White";
+    document.getElementById("eyeExam_ant_os_conj").value = "Clear / White";
+    document.getElementById("eyeExam_ant_od_cornea").value = "Clear, no infiltrate";
+    document.getElementById("eyeExam_ant_os_cornea").value = "Clear, no infiltrate";
+    document.getElementById("eyeExam_ant_od_ac").value = "Deep & Quiet, no C/F";
+    document.getElementById("eyeExam_ant_os_ac").value = "Deep & Quiet, no C/F";
+    document.getElementById("eyeExam_ant_od_lens").value = "Clear";
+    document.getElementById("eyeExam_ant_os_lens").value = "Clear";
+    document.getElementById("eyeExam_ant_od_iris").value = "Flat & Intact, round pupil";
+    document.getElementById("eyeExam_ant_os_iris").value = "Flat & Intact, round pupil";
+
+    document.getElementById("eyeExam_ret_od_disc").value = "Pink, Sharp Margins";
+    document.getElementById("eyeExam_ret_os_disc").value = "Pink, Sharp Margins";
+    document.getElementById("eyeExam_ret_od_cd").value = "0.30";
+    document.getElementById("eyeExam_ret_os_cd").value = "0.30";
+    document.getElementById("eyeExam_ret_od_macula").value = "Normal flat, +foveal reflex";
+    document.getElementById("eyeExam_ret_os_macula").value = "Normal flat, +foveal reflex";
+    document.getElementById("eyeExam_ret_od_vessels").value = "Normal caliber & course";
+    document.getElementById("eyeExam_ret_os_vessels").value = "Normal caliber & course";
+    document.getElementById("eyeExam_ret_od_vitreous").value = "Clear, syneresis neg";
+    document.getElementById("eyeExam_ret_os_vitreous").value = "Clear, syneresis neg";
+    document.getElementById("eyeExam_ret_od_periph").value = "Attached 360, no tears/holes";
+    document.getElementById("eyeExam_ret_os_periph").value = "Attached 360, no tears/holes";
+
+    document.getElementById("eyeExam_neuro_motility_normal").checked = true;
+    document.getElementById("eyeExam_neuro_ortho").checked = true;
+    document.getElementById("eyeExam_neuro_od_color").value = "14/14 Ishihara";
+    document.getElementById("eyeExam_neuro_os_color").value = "14/14 Ishihara";
+    document.getElementById("eyeExam_neuro_od_red").value = "100%";
+    document.getElementById("eyeExam_neuro_os_red").value = "100%";
+    document.getElementById("eyeExam_neuro_stereopsis").value = "40 sec of arc (Circles 9/9)";
+
+    showToast("Exam normal defaults populated.", "info");
+}
+
+function handleFirstVisitDefaults()
+{
+    const hpiText = document.getElementById("eyeExam_hpi_text");
+    if (hpiText && !hpiText.value) {
+        hpiText.value = "New patient presenting for routine baseline ocular and refractive evaluation. No prior records on file.";
+    }
+    const pmsfhComm = document.getElementById("eyeExam_pmsfh_comments");
+    if (pmsfhComm && !pmsfhComm.value) {
+        pmsfhComm.value = "First visit: No previous ophthalmic records available. No history of ocular trauma or surgery reported.";
+    }
+    applyEyeExamDefaults();
 }
 
 const MISC_BILLING_FIELDS = [
@@ -14363,9 +14955,16 @@ function showPatientContextBar(patient)
     const dob = formatDate(patient.birthdate);
     const age = calculateAge(patient.birthdate);
 
+    const sexStr = (patient.sex || "").toLowerCase();
+    const sexLabel = sexStr ? (sexStr.charAt(0).toUpperCase() + sexStr.slice(1)) : "";
+    const sexBadgeClass = (sexStr === "male" || sexStr === "female") ? `pc-sex-${sexStr}` : "pc-sex-other";
+    const clinicalAge = formatClinicalAge(patient.birthdate);
+    const patientNo = patient.patient_no || "";
+    const phone = patient.phone_cell || patient.phone_home || patient.phone_contact || "";
+
     const hasRestrictions = Number(patient.has_confidential_restrictions) === 1 || patient.has_confidential_restrictions === true;
     const commBadgeHtml = hasRestrictions
-        ? ` <span class="patient-context-comm-badge" style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:3px;background:#fee2e2;border:1px solid #ef4444;color:#991b1b;font-size:10.5px;font-weight:700;margin-left:8px;letter-spacing:0.2px;" title="45 CFR § 164.522(b): Confidential Communications Restrictions Enforced">🔒 RESTRICTED COMMS</span>`
+        ? ` <span class="patient-context-comm-badge" title="45 CFR § 164.522(b): Confidential Communications Restrictions Enforced">🔒 RESTRICTED COMMS</span>`
         : "";
 
     document.getElementById("patientContextPhoto").innerHTML = patientAvatarHtml(patient);
@@ -14377,8 +14976,42 @@ function showPatientContextBar(patient)
         openPatientChartTab(patient);
     };
 
-    document.getElementById("patientContextMeta").textContent =
-        `DOB: ${dob || "Not set"}    Age: ${age === null ? "-" : age}${hasRestrictions ? "    ⚠️ Communications Restricted (§ 164.522(b))" : ""}`;
+    let metaHtml = `
+        <span class="patient-context-item"><span class="patient-context-label">DOB:</span> <span class="patient-context-val">${dob || "Not set"}</span></span>
+        <span class="patient-context-sep">&bull;</span>
+        <span class="patient-context-item"><span class="patient-context-label">Age:</span> <span class="patient-context-val">${clinicalAge}</span></span>
+    `;
+
+    if (sexLabel) {
+        metaHtml += `
+            <span class="patient-context-sep">&bull;</span>
+            <span class="patient-context-item"><span class="patient-context-badge ${sexBadgeClass}">${escapeHtml(sexLabel)}</span></span>
+        `;
+    }
+
+    if (patientNo) {
+        metaHtml += `
+            <span class="patient-context-sep">&bull;</span>
+            <span class="patient-context-item"><span class="patient-context-label">MRN:</span> <span class="patient-context-val patient-context-mrn">${escapeHtml(patientNo)}</span></span>
+        `;
+    }
+
+    if (phone) {
+        metaHtml += `
+            <span class="patient-context-sep">&bull;</span>
+            <span class="patient-context-item"><span class="patient-context-label">Phone:</span> <span class="patient-context-val">${escapeHtml(phone)}</span></span>
+        `;
+    }
+
+    if (hasRestrictions) {
+        metaHtml += `
+            <span class="patient-context-sep">&bull;</span>
+            <span class="patient-context-item"><span class="patient-context-warning" title="Legally binding communication restrictions (§ 164.522(b))">⚠️ Comms Restricted (§ 164.522(b))</span></span>
+        `;
+    }
+
+    const metaEl = document.getElementById("patientContextMeta");
+    metaEl.innerHTML = metaHtml;
 
     document.getElementById("patientContextClose").onclick = hidePatientContextBar;
 
@@ -15793,6 +16426,52 @@ function calculateAge(birthdate)
     }
 
     return age;
+}
+
+function formatClinicalAge(birthdate)
+{
+    if (!birthdate) {
+        return "-";
+    }
+
+    const dob = new Date(birthdate);
+    if (Number.isNaN(dob.getTime())) {
+        return "-";
+    }
+
+    const today = new Date();
+    if (dob > today) {
+        return "Newborn";
+    }
+
+    let years = today.getFullYear() - dob.getFullYear();
+    let months = today.getMonth() - dob.getMonth();
+    let days = today.getDate() - dob.getDate();
+
+    if (days < 0) {
+        months--;
+        const prevMonthLastDay = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+        days += prevMonthLastDay;
+    }
+
+    if (months < 0) {
+        years--;
+        months += 12;
+    }
+
+    if (years >= 2) {
+        return `${years} yrs`;
+    }
+
+    if (years === 1) {
+        return months > 0 ? `1 yr ${months} mo` : `1 yr`;
+    }
+
+    if (months > 0) {
+        return days > 0 ? `${months} mo ${days} d` : `${months} mo`;
+    }
+
+    return days <= 1 ? `${days} day` : `${days} days`;
 }
 
 function formatDateTime(value)

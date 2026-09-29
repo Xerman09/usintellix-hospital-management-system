@@ -168,6 +168,103 @@ class EncounterService
     }
 
     /**
+     * Get fully optimized and consolidated encounter summary for a single encounter.
+     * Replaces 12 individual network requests with a single consolidated payload.
+     */
+    public function getEncounterSummary(int $encounterId): ?array
+    {
+        $stmt = Database::connection()->prepare(
+            self::LIST_SQL . " WHERE e.id = :id AND e.deleted_at IS NULL LIMIT 1"
+        );
+        $stmt->execute(['id' => $encounterId]);
+        $encounter = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$encounter) {
+            return null;
+        }
+
+        $sectionsResult = [];
+        try {
+            $sections = (new \App\Modules\EncounterSections\Services\EncounterSectionService())->list($encounterId);
+            foreach ($sections as $sec) {
+                $sectionsResult[$sec['section_type']] = $sec;
+            }
+        } catch (\Throwable $e) {}
+
+        $vitals = null;
+        try {
+            $vitals = (new \App\Modules\EncounterVitals\Services\EncounterVitalService())->find($encounterId);
+        } catch (\Throwable $e) {}
+
+        $carePlanItems = [];
+        try {
+            $carePlanItems = (new \App\Modules\EncounterCarePlanItems\Services\EncounterCarePlanItemService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        $clinicalInstructionItems = [];
+        try {
+            $clinicalInstructionItems = (new \App\Modules\EncounterClinicalInstructionItems\Services\EncounterClinicalInstructionItemService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        $clinicalNoteItems = [];
+        try {
+            $clinicalNoteItems = (new \App\Modules\EncounterClinicalNoteItems\Services\EncounterClinicalNoteItemService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        $miscBillingOptions = null;
+        try {
+            $miscBillingOptions = (new \App\Modules\EncounterMiscBillingOptions\Services\EncounterMiscBillingOptionService())->find($encounterId);
+        } catch (\Throwable $e) {}
+
+        $functionalCognitiveItems = [];
+        try {
+            $functionalCognitiveItems = (new \App\Modules\EncounterFunctionalCognitiveStatusItems\Services\EncounterFunctionalCognitiveStatusItemService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        $observationItems = [];
+        try {
+            $observationItems = (new \App\Modules\EncounterObservationItems\Services\EncounterObservationItemService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        $reviewOfSystems = null;
+        try {
+            $reviewOfSystems = (new \App\Modules\EncounterReviewOfSystems\Services\EncounterReviewOfSystemService())->find($encounterId);
+        } catch (\Throwable $e) {}
+
+        $reviewOfSystemsChecks = null;
+        try {
+            $reviewOfSystemsChecks = (new \App\Modules\EncounterReviewOfSystemsChecks\Services\EncounterReviewOfSystemsCheckService())->find($encounterId);
+        } catch (\Throwable $e) {}
+
+        $soapNotes = [];
+        try {
+            $soapNotes = (new \App\Modules\EncounterSoapNotes\Services\EncounterSoapNoteService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        $speechDictationItems = [];
+        try {
+            $speechDictationItems = (new \App\Modules\EncounterSpeechDictationItems\Services\EncounterSpeechDictationItemService())->list($encounterId);
+        } catch (\Throwable $e) {}
+
+        return [
+            'encounter' => $encounter,
+            'sections' => $sectionsResult,
+            'vitals' => $vitals,
+            'carePlanItems' => $carePlanItems,
+            'clinicalInstructionItems' => $clinicalInstructionItems,
+            'clinicalNoteItems' => $clinicalNoteItems,
+            'miscBillingOptions' => $miscBillingOptions,
+            'functionalCognitiveItems' => $functionalCognitiveItems,
+            'observationItems' => $observationItems,
+            'reviewOfSystems' => $reviewOfSystems,
+            'reviewOfSystemsChecks' => $reviewOfSystemsChecks,
+            'soapNotes' => $soapNotes,
+            'speechDictationItems' => $speechDictationItems,
+            'eyeExam' => null
+        ];
+    }
+
+    /**
      * The patient's existing allergies, problems, medications, and health
      * concerns, in one combined pick-list for "Link Issues to This Visit".
      */

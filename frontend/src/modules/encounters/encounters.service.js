@@ -124,3 +124,8 @@ export async function fetchHitechRegistry(params = {})
     return await api(`/encounters/hitech-registry?${query}`);
 }
 
+export async function fetchEncounterSummary(encounterId)
+{
+    return await api(`/encounters/summary?encounter_id=${encodeURIComponent(encounterId)}`);
+}
+

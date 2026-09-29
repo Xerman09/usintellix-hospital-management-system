@@ -14,6 +14,11 @@ $router->get('/encounters/transfer-summary', [EncounterController::class, 'trans
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/encounters/summary', [EncounterController::class, 'summary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/encounters/issues', [EncounterController::class, 'issuesIndex'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

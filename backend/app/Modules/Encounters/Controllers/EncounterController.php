@@ -106,6 +106,46 @@ class EncounterController extends Controller
     }
 
     /**
+     * Get consolidated encounter summary for a single encounter (optimized).
+     */
+    public function summary(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+        $encounterId = (int) $request->input('encounter_id');
+
+        if (!$encounterId) {
+            $this->error('Encounter is required.', 422);
+            return;
+        }
+
+        $encounter = $this->encounterService->find($encounterId);
+        if (!$encounter || $encounter['deleted_at'] !== null) {
+            $this->error('Encounter record not found.', 404);
+            return;
+        }
+
+        $patientId = (int) $encounter['patient_id'];
+        PhiAccessGuard::assertPatientAccess($user, $patientId, false);
+
+        if (!PhiAccessGuard::isClinicalRole($user['role'] ?? null)) {
+            $sens = strtolower(trim((string) ($encounter['sensitivity'] ?? '')));
+            if ($sens === 'sensitive' || $sens === 'very sensitive') {
+                $this->error('Access to sensitive encounter is restricted.', 403);
+                return;
+            }
+        }
+
+        $summary = $this->encounterService->getEncounterSummary($encounterId);
+        if (!$summary) {
+            $this->error('Encounter summary could not be retrieved.', 404);
+            return;
+        }
+
+        $this->success($summary, 'Encounter summary retrieved successfully.');
+    }
+
+    /**
      * The patient's existing allergies/problems/medications/health
      * concerns, for the "Link Issues to This Visit" picker.
      */

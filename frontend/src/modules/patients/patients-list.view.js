@@ -3754,6 +3754,274 @@ export function PatientChartView(user)
     color: var(--text-primary);
 }
 
+/* Eye Exam Styles */
+.eye-exam-container {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--text-primary, #1e293b);
+}
+.eye-exam-top-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.eye-exam-subnav-btn {
+    background: var(--bg-surface-alt, #f8fafc);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.eye-exam-subnav-btn:hover {
+    background: var(--accent-light, #eff6ff);
+    color: var(--accent-text, #1d4ed8);
+}
+.eye-exam-subnav-btn.active {
+    background: var(--accent, #1d4ed8);
+    color: #ffffff;
+    border-color: var(--accent, #1d4ed8);
+}
+.eye-exam-btn-close {
+    cursor: pointer;
+    font-size: 12px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1;
+}
+.eye-exam-btn-close:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+.eye-exam-action-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.eye-exam-btn {
+    background: var(--bg-surface-alt, #f1f5f9);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #334155);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.eye-exam-btn:hover {
+    background: var(--accent-light, #e2e8f0);
+}
+.eye-exam-btn-primary {
+    background: var(--accent, #1d4ed8);
+    color: #ffffff;
+    border-color: var(--accent, #1d4ed8);
+}
+.eye-exam-btn-primary:hover {
+    background: var(--accent-hover, #1e40af);
+}
+.eye-exam-card {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+.eye-exam-card-header {
+    background: var(--bg-surface-alt, #f8fafc);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-primary, #0f172a);
+}
+.eye-exam-card-body {
+    padding: 14px;
+}
+.eye-exam-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 1024px) {
+    .eye-exam-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+.eye-exam-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 6px;
+}
+.eye-exam-table th, .eye-exam-table td {
+    border: 1px solid var(--border-color, #cbd5e1);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: middle;
+}
+.eye-exam-table th {
+    background: var(--bg-surface-alt, #f1f5f9);
+    font-weight: 600;
+    color: var(--text-primary, #334155);
+}
+.eye-exam-input {
+    width: 100%;
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 12px;
+    color: var(--text-primary, #1e293b);
+    box-sizing: border-box;
+}
+.eye-exam-input:focus {
+    outline: none;
+    border-color: var(--accent, #1d4ed8);
+}
+.eye-exam-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+.eye-exam-radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.eye-exam-pill-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+.eye-exam-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    background: var(--bg-surface-alt, #f1f5f9);
+    border: 1px solid var(--border-color, #cbd5e1);
+    cursor: pointer;
+    color: var(--text-muted, #64748b);
+}
+.eye-exam-pill.active {
+    background: var(--accent, #1d4ed8);
+    color: #ffffff;
+    border-color: var(--accent, #1d4ed8);
+}
+.eye-exam-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 8px 0;
+}
+.eye-exam-strip-box {
+    flex: 1;
+    min-width: 180px;
+    background: var(--bg-surface-alt, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    padding: 10px;
+}
+.eye-exam-strip-title {
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 8px;
+    color: var(--text-primary, #1e293b);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.eye-od-badge {
+    background: #dbeafe;
+    color: #1e40af;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    display: inline-block;
+}
+.eye-os-badge {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    display: inline-block;
+}
+:root[data-theme="dark"] .eye-od-badge {
+    background: #1e3a8a;
+    color: #bfdbfe;
+}
+:root[data-theme="dark"] .eye-os-badge {
+    background: #78350f;
+    color: #fde68a;
+}
+:root[data-theme="dark"] .eye-exam-container {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .eye-exam-card {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .eye-exam-card-header {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .eye-exam-strip-box {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .eye-exam-table th {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .eye-exam-table td {
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .eye-exam-input {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .eye-exam-btn {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+:root[data-theme="dark"] .eye-exam-subnav-btn {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
 .pd-fee-price-input {
     width: 90px;
     padding: 5px 8px;
@@ -6632,7 +6900,7 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdClinicalMenuCarePlanLink">Care Plan</a>
                                     <a href="#" id="pdClinicalMenuInstructionsLink">Clinical Instructions</a>
                                     <a href="#" id="pdClinicalMenuNotesLink">Clinical Notes</a>
-                                    <a href="#" class="pd-toolbar-disabled-link" tabindex="-1">Eye Exam (Coming soon)</a>
+                                    <a href="#" id="pdClinicalMenuEyeExamLink">Eye Exam</a>
                                     <a href="#" id="pdClinicalMenuFunctionalCognitiveLink">Functional and Cognitive Status</a>
                                     <a href="#" id="pdClinicalMenuObservationLink">Observation</a>
                                     <a href="#" id="pdClinicalMenuReviewOfSystemsLink">Review Of Systems</a>
@@ -6655,6 +6923,18 @@ textarea.pd-sdoh-readonly {
 
                     <div id="pdEncounterSummaryAlert"></div>
 
+                    <!-- Encounter Subnavigation Bar (Summary | Eye Exam) -->
+                    <div class="eye-exam-subnav" id="pdEncounterSubnav" style="display: flex; align-items: center; gap: 8px; margin: 10px 0 14px 0; border-bottom: 2px solid var(--border-color, #e2e8f0); padding-bottom: 8px;">
+                        <button type="button" class="eye-exam-subnav-btn active" id="pdEncSubnavSummaryBtn">
+                            Summary
+                        </button>
+                        <button type="button" class="eye-exam-subnav-btn" id="pdEncSubnavEyeExamBtn" style="display: none;">
+                            <span>Eye Exam</span>
+                            <span class="eye-exam-btn-close" id="pdEncSubnavEyeExamClose" title="Close Eye Exam tab">&times;</span>
+                        </button>
+                    </div>
+
+                    <div id="pdEncounterCardsWrap">
                     <div class="pd-report-card" id="pdEncSummaryVisitSummaryCard">
                         <div class="pd-report-card-header">
                             <h3>
@@ -7074,6 +7354,9 @@ textarea.pd-sdoh-readonly {
                     </div>
 
                     <div id="pdSoapNotesContainer"></div>
+                    </div><!-- /#pdEncounterCardsWrap -->
+
+                    <div id="pdEncounterEyeExamPanel" style="display: none;"></div>
                 </div>
 
                 <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">
