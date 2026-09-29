@@ -1,6 +1,6 @@
 /**
  * Eye Exam View component HTML template and CSS styles.
- * Renders the comprehensive OpenEMR-style Ophthalmology/Optometry examination form.
+ * Comprehensive Ophthalmology/Optometry clinical examination documentation.
  */
 
 export const EYE_EXAM_STYLES = `
@@ -19,11 +19,99 @@ export const EYE_EXAM_STYLES = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border-color, #e2e8f0);
-    padding-bottom: 12px;
-    margin-bottom: 16px;
+    background: var(--bg-surface-alt, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
     flex-wrap: wrap;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.eye-exam-header-title-wrap {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+    flex: 1 1 500px;
+}
+
+.eye-exam-header-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.2px;
+}
+
+.eye-exam-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--accent-light, #eff6ff);
+    color: var(--accent, #1d4ed8);
+    flex-shrink: 0;
+}
+
+.eye-exam-header-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.4;
+}
+
+.eye-exam-meta-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.eye-exam-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.eye-exam-meta-label {
+    color: var(--text-muted, #64748b);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+}
+
+.eye-exam-meta-val {
+    color: var(--text-primary, #1e293b);
+    font-weight: 600;
+}
+
+.eye-exam-meta-chip-reason {
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .eye-exam-subnav {
@@ -75,7 +163,7 @@ export const EYE_EXAM_STYLES = `
 
 .eye-exam-action-bar {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
     align-items: center;
 }
@@ -83,27 +171,245 @@ export const EYE_EXAM_STYLES = `
 .eye-exam-btn {
     background: var(--bg-surface-alt, #f1f5f9);
     border: 1px solid var(--border-color, #cbd5e1);
-    border-radius: 4px;
-    padding: 6px 12px;
+    border-radius: 5px;
+    padding: 6px 13px;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary, #334155);
     cursor: pointer;
     transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .eye-exam-btn:hover {
     background: var(--accent-light, #e2e8f0);
+    border-color: var(--accent-border, #93c5fd);
+    color: var(--accent-text, #1d4ed8);
 }
 
 .eye-exam-btn-primary {
     background: var(--accent, #1d4ed8);
     color: #ffffff;
     border-color: var(--accent, #1d4ed8);
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.2);
+}
+
+/* Eye Exam Clinical Menubar */
+.eye-exam-menubar {
+    display: flex;
+    align-items: center;
+    background: #dbeafe;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 2px 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    gap: 4px;
+    user-select: none;
+}
+
+.eye-exam-menu-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #1e3a8a;
+    padding: 6px 12px 6px 6px;
+    margin-right: 4px;
+    border-right: 1px solid #bfdbfe;
+    font-size: 13px;
+}
+
+.eye-exam-menu-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.eye-exam-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #1e3a8a;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.eye-exam-menu-trigger:hover,
+.eye-exam-menu-trigger.active {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.eye-exam-menu-popover {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 190px;
+    background: #e0f2fe;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+    z-index: 999;
+    padding: 4px 0;
+}
+
+.eye-exam-menu-dropdown.open .eye-exam-menu-popover {
+    display: block;
+}
+
+.eye-exam-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    color: #1e293b;
+    border: none;
+    background: transparent;
+    text-align: left;
+    gap: 12px;
+    box-sizing: border-box;
+}
+
+.eye-exam-menu-item.disabled {
+    color: #64748b;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+.eye-exam-menu-item.disabled:hover {
+    background: rgba(147, 197, 253, 0.35);
+}
+
+.eye-exam-menu-item .menu-shortcut {
+    font-size: 11px;
+    color: #475569;
+    font-family: inherit;
+    font-weight: 500;
+}
+
+.eye-exam-menu-item .menu-icon {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    color: #475569;
 }
 
 .eye-exam-btn-primary:hover {
     background: var(--accent-hover, #1e40af);
+    border-color: var(--accent-hover, #1e40af);
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .eye-exam-menubar {
+    background: #172554;
+    border-color: #1e3a8a;
+}
+
+:root[data-theme="dark"] .eye-exam-menu-brand {
+    color: #93c5fd;
+    border-right-color: #1e3a8a;
+}
+
+:root[data-theme="dark"] .eye-exam-menu-trigger {
+    color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .eye-exam-menu-trigger:hover,
+:root[data-theme="dark"] .eye-exam-menu-trigger.active {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .eye-exam-menu-popover {
+    background: #0f172a;
+    border-color: #1e3a8a;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .eye-exam-menu-item {
+    color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .eye-exam-menu-item.disabled {
+    color: #94a3b8;
+}
+
+:root[data-theme="dark"] .eye-exam-menu-item.disabled:hover {
+    background: rgba(30, 58, 138, 0.4);
+}
+
+:root[data-theme="dark"] .eye-exam-menu-item .menu-shortcut,
+:root[data-theme="dark"] .eye-exam-menu-item .menu-icon {
+    color: #64748b;
+}
+
+:root[data-theme="dark"] .eye-exam-top-actions {
+    background: var(--bg-surface-alt, #0f172a);
+    border-color: var(--border-color, #334155);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="dark"] .eye-exam-header-title {
+    color: var(--text-primary, #f8fafc);
+}
+
+:root[data-theme="dark"] .eye-exam-title-icon {
+    background: rgba(37, 99, 235, 0.2);
+    color: #60a5fa;
+}
+
+:root[data-theme="dark"] .eye-exam-header-badge {
+    background: rgba(30, 58, 138, 0.4);
+    border-color: #2563eb;
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .eye-exam-meta-chip {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-color, #334155);
+}
+
+:root[data-theme="dark"] .eye-exam-meta-label {
+    color: var(--text-muted, #94a3b8);
+}
+
+:root[data-theme="dark"] .eye-exam-meta-val {
+    color: var(--text-primary, #f1f5f9);
+}
+
+:root[data-theme="dark"] .eye-exam-btn {
+    background: var(--bg-surface-alt, #1e293b);
+    border-color: var(--border-color, #334155);
+    color: var(--text-primary, #e2e8f0);
+}
+
+:root[data-theme="dark"] .eye-exam-btn:hover {
+    background: rgba(37, 99, 235, 0.2);
+    border-color: #3b82f6;
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .eye-exam-btn-primary {
+    background: var(--accent, #2563eb);
+    color: #ffffff;
+    border-color: #3b82f6;
+}
+
+:root[data-theme="dark"] .eye-exam-btn-primary:hover {
+    background: #1d4ed8;
+    color: #ffffff;
 }
 
 .eye-exam-card {
@@ -278,30 +584,211 @@ export const EYE_EXAM_STYLES = `
 
 export function renderEyeExamHtml(encounter, patient) {
     const pName = [patient?.first_name, patient?.middle_name, patient?.last_name].filter(Boolean).join(" ") || "Patient";
-    const dob = patient?.date_of_birth ? patient.date_of_birth.slice(0, 10) : "-";
+    const dob = patient?.birthdate ? patient.birthdate.slice(0, 10) : (patient?.date_of_birth ? patient.date_of_birth.slice(0, 10) : "-");
     const dos = encounter?.date_of_service ? encounter.date_of_service.slice(0, 10) : "-";
-    const provider = encounter?.encounter_provider_name || encounter?.provider_name || "-";
+    const provider = encounter?.encounter_provider_name || encounter?.provider_name || "Unassigned";
     const reason = encounter?.reason_for_visit || encounter?.reason || "Comprehensive Eye Exam";
+    const mrn = patient?.patient_no || "";
 
     return `
+    <style id="eyeExamDynamicStyles">
+        ${EYE_EXAM_STYLES}
+    </style>
+
     <div id="eyeExamAlert"></div>
 
     <div class="eye-exam-container" id="eyeExamMainContainer">
-        <!-- Top Toolbar & Header -->
-        <div class="eye-exam-top-actions">
-            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <div style="font-size: 13px; font-weight: 700; color: var(--accent-text, #1d4ed8);">
-                    OpenEMR Eye Exam Clinical Documentation
+        <!-- Clinical Eye Exam Menubar (Temporarily disabled items) -->
+        <div class="eye-exam-menubar" id="eyeExamClinicalMenubar">
+            <span class="eye-exam-menu-brand">
+                <span class="eye-exam-caduceus-icon" style="font-size: 14px;">⚕</span>
+                <span>Eye Exam</span>
+            </span>
+
+            <!-- File Dropdown -->
+            <div class="eye-exam-menu-dropdown" id="eyeExamMenuDropdownFile">
+                <button type="button" class="eye-exam-menu-trigger" data-menu="file">
+                    <span>File</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <div class="eye-exam-menu-popover">
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Print Report</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Save Report as PDF</span>
+                    </button>
                 </div>
-                <div style="font-size: 11px; color: var(--text-muted, #64748b);">
-                    ${pName} | DOB: ${dob} | DOS: ${dos} | Provider: ${provider} | Reason: ${reason}
+            </div>
+
+            <!-- Edit Dropdown -->
+            <div class="eye-exam-menu-dropdown" id="eyeExamMenuDropdownEdit">
+                <button type="button" class="eye-exam-menu-trigger" data-menu="edit">
+                    <span>Edit</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <div class="eye-exam-menu-popover">
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Default Values</span>
+                        <span class="menu-icon">&#9998;</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Text</span>
+                        <span class="menu-shortcut">Ctl-T</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Draw</span>
+                        <span class="menu-shortcut">Ctl-D</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Quick Picks</span>
+                        <span class="menu-shortcut">Ctl-B</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Prior Visits</span>
+                        <span class="menu-shortcut">Ctl-P</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Shorthand</span>
+                        <span class="menu-shortcut">Ctl-K</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Fullscreen</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- View Dropdown -->
+            <div class="eye-exam-menu-dropdown" id="eyeExamMenuDropdownView">
+                <button type="button" class="eye-exam-menu-trigger" data-menu="view">
+                    <span>View</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <div class="eye-exam-menu-popover">
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>HPI</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>PMH</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>External</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Anterior Segment</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Posterior Segment</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Neuro</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Imp Plan</span>
+                    </button>
+                    <div style="border-top: 1px solid rgba(147, 197, 253, 0.4); margin: 3px 0;"></div>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>PMSFH Panel</span>
+                        <span class="menu-icon">&#9776;</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Chart View</span>
+                        <span class="menu-icon">&#128100;</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Library Dropdown -->
+            <div class="eye-exam-menu-dropdown" id="eyeExamMenuDropdownLibrary">
+                <button type="button" class="eye-exam-menu-trigger" data-menu="library">
+                    <span>Library</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <div class="eye-exam-menu-popover">
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>IOP Graph</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Help Dropdown -->
+            <div class="eye-exam-menu-dropdown" id="eyeExamMenuDropdownHelp">
+                <button type="button" class="eye-exam-menu-trigger" data-menu="help">
+                    <span>Help</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <div class="eye-exam-menu-popover">
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Clinical Documentation Guide</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>Keyboard Shortcuts</span>
+                    </button>
+                    <button type="button" class="eye-exam-menu-item disabled" title="Feature temporarily unavailable">
+                        <span>About Eye Exam</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Toolbar & Header Banner -->
+        <div class="eye-exam-top-actions">
+            <div class="eye-exam-header-title-wrap">
+                <div class="eye-exam-header-title">
+                    <span class="eye-exam-title-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </span>
+                    <span class="eye-exam-title-text">Eye Examination &amp; Clinical Vision Documentation</span>
+                    <span class="eye-exam-header-badge">Ophthalmology</span>
+                </div>
+                <div class="eye-exam-meta-strip">
+                    <span class="eye-exam-meta-chip">
+                        <span class="eye-exam-meta-label">Patient</span>
+                        <span class="eye-exam-meta-val">${pName}</span>
+                    </span>
+                    ${mrn ? `
+                    <span class="eye-exam-meta-chip">
+                        <span class="eye-exam-meta-label">MRN</span>
+                        <span class="eye-exam-meta-val">${mrn}</span>
+                    </span>` : ""}
+                    <span class="eye-exam-meta-chip">
+                        <span class="eye-exam-meta-label">DOB</span>
+                        <span class="eye-exam-meta-val">${dob}</span>
+                    </span>
+                    <span class="eye-exam-meta-chip">
+                        <span class="eye-exam-meta-label">DOS</span>
+                        <span class="eye-exam-meta-val">${dos}</span>
+                    </span>
+                    <span class="eye-exam-meta-chip">
+                        <span class="eye-exam-meta-label">Provider</span>
+                        <span class="eye-exam-meta-val">${provider}</span>
+                    </span>
+                    <span class="eye-exam-meta-chip eye-exam-meta-chip-reason">
+                        <span class="eye-exam-meta-label">Reason</span>
+                        <span class="eye-exam-meta-val">${reason}</span>
+                    </span>
                 </div>
             </div>
             <div class="eye-exam-action-bar">
-                <button type="button" class="eye-exam-btn" id="eyeExamDefaultsBtn">Defaults</button>
-                <button type="button" class="eye-exam-btn" id="eyeExamQuickPicksBtn">Quick Picks</button>
-                <button type="button" class="eye-exam-btn" id="eyeExamFirstVisitBtn">First visit: No Old Records</button>
-                <button type="button" class="eye-exam-btn eye-exam-btn-primary" id="eyeExamSaveBtn">Save Eye Exam</button>
+                <button type="button" class="eye-exam-btn" id="eyeExamDefaultsBtn" title="Fill normal/default findings">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8M9 9l-6-6m6 6V4.2M9 9H4.2"></path></svg>
+                    <span>Defaults</span>
+                </button>
+                <button type="button" class="eye-exam-btn" id="eyeExamQuickPicksBtn" title="Select quick picks">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <span>Quick Picks</span>
+                </button>
+                <button type="button" class="eye-exam-btn" id="eyeExamFirstVisitBtn" title="Set initial baseline visit findings">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                    <span>First Visit: No Prior Records</span>
+                </button>
+                <button type="button" class="eye-exam-btn eye-exam-btn-primary" id="eyeExamSaveBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    <span>Save Eye Exam</span>
+                </button>
             </div>
         </div>
 

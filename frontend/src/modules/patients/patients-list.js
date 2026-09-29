@@ -13239,6 +13239,47 @@ function bindEyeExamEvents()
             }
         });
     });
+
+    // Clinical Menubar dropdowns (File, Edit, View, Library, Help)
+    const menuTriggers = document.querySelectorAll("#eyeExamClinicalMenubar .eye-exam-menu-trigger");
+    const menuDropdowns = document.querySelectorAll("#eyeExamClinicalMenubar .eye-exam-menu-dropdown");
+
+    menuTriggers.forEach(trigger => {
+        trigger.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const parent = trigger.closest(".eye-exam-menu-dropdown");
+            const wasOpen = parent ? parent.classList.contains("open") : false;
+            menuDropdowns.forEach(d => {
+                d.classList.remove("open");
+                const t = d.querySelector(".eye-exam-menu-trigger");
+                if (t) t.classList.remove("active");
+            });
+            if (parent && !wasOpen) {
+                parent.classList.add("open");
+                trigger.classList.add("active");
+            }
+        });
+    });
+
+    // Close menubar dropdowns when clicking outside
+    document.addEventListener("click", () => {
+        menuDropdowns.forEach(d => {
+            d.classList.remove("open");
+            const t = d.querySelector(".eye-exam-menu-trigger");
+            if (t) t.classList.remove("active");
+        });
+    });
+
+    // Temporarily disabled items alert
+    const disabledMenuItems = document.querySelectorAll("#eyeExamClinicalMenubar .eye-exam-menu-item.disabled");
+    disabledMenuItems.forEach(item => {
+        item.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const itemName = item.querySelector("span:first-child")?.textContent || "This action";
+            showEyeExamNotification(`${itemName} is temporarily disabled in this version.`, "info");
+        });
+    });
 }
 
 function populateEyeExamForm(data)
