@@ -549,6 +549,41 @@ export const EYE_EXAM_STYLES = `
     color: var(--text-primary, #0f172a);
 }
 
+.eye-exam-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.eye-exam-header-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary, #0f172a);
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s ease;
+}
+
+.eye-exam-header-icon-btn:hover {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--accent, #1d4ed8);
+}
+
+:root[data-theme="dark"] .eye-exam-header-icon-btn {
+    color: var(--text-primary, #f1f5f9);
+}
+
+:root[data-theme="dark"] .eye-exam-header-icon-btn:hover {
+    background: rgba(37, 99, 235, 0.25);
+    color: #93c5fd;
+}
+
 .eye-exam-card-body {
     padding: 14px;
 }
@@ -929,14 +964,42 @@ export function renderEyeExamHtml(encounter, patient) {
                     <!-- HPI Card -->
                     <div class="eye-exam-card" id="eyeExamSecHpi">
                         <div class="eye-exam-card-header">
-                            <span>HPI (History of Present Illness)</span>
-                            <div class="eye-exam-pill-tabs" id="eyeExamCcTabs">
-                                <button type="button" class="eye-exam-pill active" data-tab="cc1">CC 1</button>
-                        <button type="button" class="eye-exam-pill" data-tab="cc2">CC 2</button>
-                        <button type="button" class="eye-exam-pill" data-tab="cc3">CC 3</button>
-                    </div>
-                </div>
-                <div class="eye-exam-card-body">
+                            <span>HPI:</span>
+                            <div class="eye-exam-card-actions">
+                                <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiDoctorBtn" title="Doctor / Provider details">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                        <path d="M10 19v2m4-2v2"></path>
+                                    </svg>
+                                </button>
+                                <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiHistoryBtn" title="Prior HPI / Database history">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                                    </svg>
+                                </button>
+                                <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiDrawBtn" title="Drawing / Annotation Tool">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path>
+                                        <path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92.92 2.25 1.06 3.12 1 1.86-.14 3.88-1.5 3.88-3.5 0-.83-.67-1.5-1.5-1.5H7.07Z"></path>
+                                    </svg>
+                                </button>
+                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiClearBtn" title="Clear HPI Fields">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="8" y1="12" x2="16" y2="12" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="eye-exam-card-body">
+                            <div class="eye-exam-pill-tabs" id="eyeExamCcTabs" style="margin-bottom: 12px;">
+                                <button type="button" class="eye-exam-pill active" data-tab="cc1">&#10003; CC 1</button>
+                                <button type="button" class="eye-exam-pill" data-tab="cc2">CC 2</button>
+                                <button type="button" class="eye-exam-pill" data-tab="cc3">CC 3</button>
+                            </div>
                     <div style="margin-bottom: 10px;">
                         <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 3px;" id="eyeExamCcLabel">Chief Complaint 1:</label>
                         <textarea class="eye-exam-input" id="eyeExam_cc" rows="2" placeholder="Primary complaint (e.g. blurry vision, dryness, eye strain)..."></textarea>

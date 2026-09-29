@@ -13312,6 +13312,38 @@ function bindEyeExamEvents()
             }
         });
     });
+    // HPI Card Header Action Buttons
+    const hpiDoctorBtn = document.getElementById("eyeExamHpiDoctorBtn");
+    const hpiHistoryBtn = document.getElementById("eyeExamHpiHistoryBtn");
+    const hpiDrawBtn = document.getElementById("eyeExamHpiDrawBtn");
+    const hpiClearBtn = document.getElementById("eyeExamHpiClearBtn");
+
+    if (hpiDoctorBtn) {
+        hpiDoctorBtn.addEventListener("click", () => {
+            showEyeExamNotification("Provider details view is temporarily disabled.", "info");
+        });
+    }
+    if (hpiHistoryBtn) {
+        hpiHistoryBtn.addEventListener("click", () => {
+            showEyeExamNotification("Prior HPI history lookup is temporarily disabled.", "info");
+        });
+    }
+    if (hpiDrawBtn) {
+        hpiDrawBtn.addEventListener("click", () => {
+            showEyeExamNotification("HPI drawing and sketchpad tool is temporarily disabled.", "info");
+        });
+    }
+    if (hpiClearBtn) {
+        hpiClearBtn.addEventListener("click", () => {
+            const ccInput = document.getElementById("eyeExam_cc");
+            const hpiText = document.getElementById("eyeExam_hpi_text");
+            const cpInput = document.getElementById("eyeExam_chronic_problems");
+            if (ccInput) ccInput.value = "";
+            if (hpiText) hpiText.value = "";
+            if (cpInput) cpInput.value = "";
+            showEyeExamNotification("HPI fields cleared.", "info");
+        });
+    }
 }
 
 function populateEyeExamForm(data)
