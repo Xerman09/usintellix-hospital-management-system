@@ -13312,17 +13312,133 @@ function bindEyeExamEvents()
             }
         });
     });
-    // HPI Card Header Action Buttons
+    // HPI Card Header Action Buttons & Shorthand Feature
     const hpiDoctorBtn = document.getElementById("eyeExamHpiDoctorBtn");
     const hpiHistoryBtn = document.getElementById("eyeExamHpiHistoryBtn");
     const hpiDrawBtn = document.getElementById("eyeExamHpiDrawBtn");
     const hpiClearBtn = document.getElementById("eyeExamHpiClearBtn");
 
-    if (hpiDoctorBtn) {
-        hpiDoctorBtn.addEventListener("click", () => {
-            showEyeExamNotification("Provider details view is temporarily disabled.", "info");
+    const shorthandPopup = document.getElementById("eyeExamShorthandPopup");
+    const shorthandCloseBtn = document.getElementById("eyeExamShorthandCloseBtn");
+    const shorthandInfoBtn = document.getElementById("eyeExamShorthandInfoBtn");
+    const shorthandInput = document.getElementById("eyeExamShorthandInput");
+
+    const helpModal = document.getElementById("eyeExamShorthandHelpModal");
+    const helpCloseBtn = document.getElementById("eyeExamHelpModalCloseBtn");
+    const helpTabs = document.querySelectorAll("#eyeExamHelpTabs .eye-help-tab-link");
+
+    // Shorthand Popup Toggle
+    if (hpiDoctorBtn && shorthandPopup) {
+        hpiDoctorBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = shorthandPopup.style.display === "block";
+            shorthandPopup.style.display = isOpen ? "none" : "block";
+            if (!isOpen && shorthandInput) {
+                setTimeout(() => shorthandInput.focus(), 50);
+            }
         });
     }
+
+    if (shorthandCloseBtn && shorthandPopup) {
+        shorthandCloseBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            shorthandPopup.style.display = "none";
+        });
+    }
+
+    // Stop click inside popup from bubbling to document
+    if (shorthandPopup) {
+        shorthandPopup.addEventListener("click", (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    // Shorthand Info / Help Modal Open
+    if (shorthandInfoBtn && helpModal) {
+        shorthandInfoBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            helpModal.classList.add("open");
+        });
+    }
+
+    // Help Modal Close Buttons & Outside Click
+    if (helpCloseBtn && helpModal) {
+        helpCloseBtn.addEventListener("click", () => {
+            helpModal.classList.remove("open");
+        });
+    }
+
+    if (helpModal) {
+        helpModal.addEventListener("click", (e) => {
+            if (e.target === helpModal) {
+                helpModal.classList.remove("open");
+            }
+        });
+    }
+
+    // Help Modal Tab Navigation
+    helpTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            helpTabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            const targetPanel = tab.getAttribute("data-tab");
+            const panels = document.querySelectorAll("#eyeExamHelpContent .eye-help-panel");
+            panels.forEach(p => {
+                if (p.getAttribute("data-panel") === targetPanel) {
+                    p.style.display = "block";
+                } else {
+                    p.style.display = "none";
+                }
+            });
+        });
+    });
+
+    // Shorthand Input Live Parsing: Format Field:text;Field:text;
+    if (shorthandInput) {
+        // Automatically insert semicolon on Enter key for rapid entry
+        shorthandInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const pos = shorthandInput.selectionStart;
+                const val = shorthandInput.value;
+                shorthandInput.value = val.substring(0, pos) + ";\n" + val.substring(pos);
+                shorthandInput.selectionStart = shorthandInput.selectionEnd = pos + 2;
+                shorthandInput.dispatchEvent(new Event("input"));
+            }
+        });
+
+        // Parse pairs whenever typed
+        shorthandInput.addEventListener("input", () => {
+            const raw = shorthandInput.value;
+            // Match pattern like name:value;
+            const regex = /([a-zA-Z0-9_\-]+)\s*:\s*([^;]+);/g;
+            let match;
+            while ((match = regex.exec(raw)) !== null) {
+                const key = match[1].toLowerCase().trim();
+                const val = match[2].trim();
+
+                if (!val) continue;
+
+                if (key === "cc") {
+                    const ccField = document.getElementById("eyeExam_cc");
+                    if (ccField && !ccField.value.includes(val)) {
+                        ccField.value = ccField.value ? `${ccField.value}, ${val}` : val;
+                    }
+                } else if (key === "hpi") {
+                    const hpiField = document.getElementById("eyeExam_hpi_text");
+                    if (hpiField && !hpiField.value.includes(val)) {
+                        hpiField.value = hpiField.value ? `${hpiField.value} ${val}` : val;
+                    }
+                } else if (key === "chr" || key === "chronic") {
+                    const chrField = document.getElementById("eyeExam_chronic_problems");
+                    if (chrField && !chrField.value.includes(val)) {
+                        chrField.value = chrField.value ? `${chrField.value}, ${val}` : val;
+                    }
+                }
+            }
+        });
+    }
+
     if (hpiHistoryBtn) {
         hpiHistoryBtn.addEventListener("click", () => {
             showEyeExamNotification("Prior HPI history lookup is temporarily disabled.", "info");

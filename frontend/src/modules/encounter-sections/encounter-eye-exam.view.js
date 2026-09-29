@@ -534,7 +534,6 @@ export const EYE_EXAM_STYLES = `
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 6px;
     margin-bottom: 16px;
-    overflow: hidden;
 }
 
 .eye-exam-card-header {
@@ -547,12 +546,14 @@ export const EYE_EXAM_STYLES = `
     justify-content: space-between;
     align-items: center;
     color: var(--text-primary, #0f172a);
+    position: relative;
 }
 
 .eye-exam-card-actions {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    position: relative;
 }
 
 .eye-exam-header-icon-btn {
@@ -582,6 +583,270 @@ export const EYE_EXAM_STYLES = `
 :root[data-theme="dark"] .eye-exam-header-icon-btn:hover {
     background: rgba(37, 99, 235, 0.25);
     color: #93c5fd;
+}
+
+/* Eye Exam Shorthand Floating Popup */
+.eye-shorthand-popup {
+    position: absolute;
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+    width: 250px;
+    z-index: 1000;
+    padding: 12px 14px 14px 14px;
+    display: none;
+    animation: eyePopupFadeIn 0.15s ease-out;
+}
+
+@keyframes eyePopupFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.eye-shorthand-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.eye-shorthand-popup-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: -0.2px;
+}
+
+.eye-shorthand-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: serif;
+    cursor: pointer;
+    border: none;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+
+.eye-shorthand-info-btn:hover {
+    background: #2563eb;
+    transform: scale(1.08);
+}
+
+.eye-shorthand-popup-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--text-muted, #64748b);
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.eye-shorthand-popup-close:hover {
+    color: var(--text-primary, #0f172a);
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.eye-shorthand-textarea {
+    width: 100%;
+    height: 100px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    color: #1e293b;
+    box-sizing: border-box;
+    resize: vertical;
+    outline: none;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.eye-shorthand-textarea:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+:root[data-theme="dark"] .eye-shorthand-popup {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="dark"] .eye-shorthand-info-btn {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .eye-shorthand-textarea {
+    background: #292524;
+    border-color: #57534e;
+    color: #fef3c7;
+}
+
+/* Shorthand Help Modal */
+.eye-help-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.eye-help-modal-overlay.open {
+    display: flex;
+}
+
+.eye-help-modal-content {
+    background: var(--bg-surface, #ffffff);
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #cbd5e1);
+    max-width: 760px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.eye-help-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--bg-surface-alt, #f8fafc);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.eye-help-modal-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.eye-help-nav-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 18px;
+    background: #f1f5f9;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.eye-help-tab-link {
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #1d4ed8;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.eye-help-tab-link:hover {
+    background: #dbeafe;
+}
+
+.eye-help-tab-link.active {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.eye-help-modal-body {
+    padding: 18px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary, #1e293b);
+}
+
+.eye-help-quote {
+    font-style: italic;
+    color: #1e3a8a;
+    background: #eff6ff;
+    padding: 10px 14px;
+    border-left: 4px solid #3b82f6;
+    border-radius: 4px;
+    margin-bottom: 14px;
+}
+
+.eye-help-code-block {
+    background: var(--bg-surface-alt, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: monospace;
+    font-size: 12px;
+    margin: 10px 0;
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .eye-help-modal-content {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+:root[data-theme="dark"] .eye-help-modal-header {
+    background: #0f172a;
+    border-bottom-color: #334155;
+}
+
+:root[data-theme="dark"] .eye-help-nav-tabs {
+    background: #0f172a;
+    border-bottom-color: #334155;
+}
+
+:root[data-theme="dark"] .eye-help-tab-link {
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .eye-help-tab-link:hover {
+    background: #1e3a8a;
+}
+
+:root[data-theme="dark"] .eye-help-tab-link.active {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .eye-help-quote {
+    background: #172554;
+    color: #bfdbfe;
+    border-left-color: #2563eb;
+}
+
+:root[data-theme="dark"] .eye-help-code-block {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
 }
 
 .eye-exam-card-body {
@@ -966,13 +1231,24 @@ export function renderEyeExamHtml(encounter, patient) {
                         <div class="eye-exam-card-header">
                             <span>HPI:</span>
                             <div class="eye-exam-card-actions">
-                                <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiDoctorBtn" title="Doctor / Provider details">
+                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiDoctorBtn" title="Shorthand entry">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
                                         <circle cx="12" cy="7" r="4"></circle>
                                         <path d="M10 19v2m4-2v2"></path>
                                     </svg>
                                 </button>
+                                <!-- Shorthand Floating Popup -->
+                                <div class="eye-shorthand-popup" id="eyeExamShorthandPopup" style="top: 36px; right: 0;">
+                                    <div class="eye-shorthand-popup-header">
+                                        <div class="eye-shorthand-popup-title">
+                                            <span>Shorthand</span>
+                                            <button type="button" class="eye-shorthand-info-btn" id="eyeExamShorthandInfoBtn" title="Shorthand Help & Reference">i</button>
+                                        </div>
+                                        <button type="button" class="eye-shorthand-popup-close" id="eyeExamShorthandCloseBtn" title="Close Shorthand">&times;</button>
+                                    </div>
+                                    <textarea class="eye-shorthand-textarea" id="eyeExamShorthandInput" placeholder="Field:text;Field:text;"></textarea>
+                                </div>
                                 <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiHistoryBtn" title="Prior HPI / Database history">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
@@ -1404,6 +1680,136 @@ export function renderEyeExamHtml(encounter, patient) {
         </div>
             </div><!-- /.eye-exam-content-area -->
         </div><!-- /.eye-exam-workspace -->
+
+        <!-- Eye Exam Shorthand Help Modal -->
+        <div class="eye-help-modal-overlay" id="eyeExamShorthandHelpModal">
+            <div class="eye-help-modal-content">
+                <div class="eye-help-modal-header">
+                    <h3>
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#2563eb;color:#ffffff;font-size:12px;font-family:serif;">i</span>
+                        <span>Eye Exam Shorthand Help</span>
+                    </h3>
+                    <button type="button" class="eye-shorthand-popup-close" id="eyeExamHelpModalCloseBtn" style="font-size: 20px; padding: 4px 8px;" title="Close Help">&times;</button>
+                </div>
+                <div class="eye-help-nav-tabs" id="eyeExamHelpTabs">
+                    <button type="button" class="eye-help-tab-link active" data-tab="intro">Introduction (current)</button>
+                    <button type="button" class="eye-help-tab-link" data-tab="hpi">HPI</button>
+                    <button type="button" class="eye-help-tab-link" data-tab="pmh">PMH</button>
+                    <button type="button" class="eye-help-tab-link" data-tab="external">External</button>
+                    <button type="button" class="eye-help-tab-link" data-tab="anterior">Anterior Segment</button>
+                    <button type="button" class="eye-help-tab-link" data-tab="retina">Retina</button>
+                    <button type="button" class="eye-help-tab-link" data-tab="neuro">Neuro</button>
+                </div>
+                <div class="eye-help-modal-body" id="eyeExamHelpContent">
+                    <div class="eye-help-panel" data-panel="intro">
+                        <div class="eye-help-quote">
+                            "Documenting an exam on paper is faster because we develop our own shorthand."
+                        </div>
+                        <p>Starting with this "paper" shorthand, we forged an electronic Shorthand, specifically designed for rapid data entry. Using Shorthand, all your findings are entered in one box and automatically distributed across the form upon entry.</p>
+                        
+                        <h4 style="margin: 14px 0 6px 0; font-size: 13.5px; font-weight: 700;">Syntax:</h4>
+                        <div class="eye-help-code-block">
+                            Field:text;Field:text;Field:text
+                        </div>
+                        <p style="margin-bottom: 8px;">The basic syntax is <strong>Field</strong>, followed by a <strong>colon (:)</strong>, followed by your <strong>text findings</strong>, and terminated with a <strong>semi-colon (;)</strong>.</p>
+                        <p style="margin-bottom: 8px;">For convenience, pressing <strong>ENTER</strong> automatically converts to a semicolon. Semicolons can also separate multiple findings for the same field.</p>
+
+                        <h4 style="margin: 14px 0 6px 0; font-size: 13.5px; font-weight: 700;">Examples:</h4>
+                        <div class="eye-help-code-block" style="line-height: 1.5;">
+                            cc:blurred vision; [Enter]<br>
+                            hpi:gradual onset over 2 months, worse with reading; [Enter]<br>
+                            va:od 20/25, os 20/30; [Enter]<br>
+                            iop:od 15, os 16;
+                        </div>
+                        <p style="margin-top: 10px; font-size: 12px; color: var(--text-muted, #64748b);">Click the tabs above to view specific field codes for HPI, PMH, External, Anterior Segment, Retina, and Neuro sections.</p>
+                    </div>
+
+                    <div class="eye-help-panel" data-panel="hpi" style="display: none;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">HPI Shorthand Fields</h4>
+                        <table class="eye-exam-table" style="margin-bottom: 12px;">
+                            <thead>
+                                <tr><th>Code</th><th>Target Field</th><th>Example</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>cc:</code></td><td>Chief Complaint</td><td><code>cc:Distance blur with spectacles;</code></td></tr>
+                                <tr><td><code>hpi:</code></td><td>HPI Narrative Details</td><td><code>hpi:Started 2 weeks ago OD only;</code></td></tr>
+                                <tr><td><code>chr:</code> / <code>chronic:</code></td><td>Chronic Problems</td><td><code>chr:HTN x 10 yrs, DM type 2;</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="eye-help-panel" data-panel="pmh" style="display: none;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">PMH & Medications Shorthand Fields</h4>
+                        <table class="eye-exam-table" style="margin-bottom: 12px;">
+                            <thead>
+                                <tr><th>Code</th><th>Target Field</th><th>Example</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>med:</code> / <code>meds:</code></td><td>Eye Medications</td><td><code>med:Latanoprost 1 gtt QHS OU;</code></td></tr>
+                                <tr><td><code>allergies:</code></td><td>Allergies</td><td><code>allergies:NKDA;</code></td></tr>
+                                <tr><td><code>fhx:</code></td><td>Family Eye History</td><td><code>fhx:Maternal glaucoma;</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="eye-help-panel" data-panel="external" style="display: none;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">External Exam Shorthand Fields</h4>
+                        <table class="eye-exam-table" style="margin-bottom: 12px;">
+                            <thead>
+                                <tr><th>Code</th><th>Target Field</th><th>Example</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>lids:</code></td><td>Lids & Lashes</td><td><code>lids:Clear, no ptosis OU;</code></td></tr>
+                                <tr><td><code>conj:</code></td><td>Conjunctiva & Sclera</td><td><code>conj:White and quiet OU;</code></td></tr>
+                                <tr><td><code>pupils:</code></td><td>Pupils</td><td><code>pupils:PERRL, no APD;</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="eye-help-panel" data-panel="anterior" style="display: none;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">Anterior Segment (Slit Lamp) Fields</h4>
+                        <table class="eye-exam-table" style="margin-bottom: 12px;">
+                            <thead>
+                                <tr><th>Code</th><th>Target Field</th><th>Example</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>cornea:</code></td><td>Cornea findings</td><td><code>cornea:Clear central, no infiltrates;</code></td></tr>
+                                <tr><td><code>ac:</code></td><td>Anterior Chamber</td><td><code>ac:Deep and quiet, no cell or flare;</code></td></tr>
+                                <tr><td><code>lens:</code></td><td>Lens</td><td><code>lens:1+ NS OU, clear cortex;</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="eye-help-panel" data-panel="retina" style="display: none;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">Retina & Posterior Pole Fields</h4>
+                        <table class="eye-exam-table" style="margin-bottom: 12px;">
+                            <thead>
+                                <tr><th>Code</th><th>Target Field</th><th>Example</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>disc:</code> / <code>cd:</code></td><td>Optic Disc / C/D Ratio</td><td><code>disc:Pink, sharp margins, 0.3 OU;</code></td></tr>
+                                <tr><td><code>macula:</code></td><td>Macula</td><td><code>macula:Flat, good foveal reflex;</code></td></tr>
+                                <tr><td><code>periph:</code></td><td>Periphery</td><td><code>periph:360 flat, no tears or holes;</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="eye-help-panel" data-panel="neuro" style="display: none;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">Neuro-Ophthalmology Fields</h4>
+                        <table class="eye-exam-table" style="margin-bottom: 12px;">
+                            <thead>
+                                <tr><th>Code</th><th>Target Field</th><th>Example</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>eom:</code></td><td>Extraocular Motility</td><td><code>eom:Full and smooth, orthophoric;</code></td></tr>
+                                <tr><td><code>color:</code></td><td>Color Vision (Ishihara)</td><td><code>color:14/14 Ishihara plates OU;</code></td></tr>
+                                <tr><td><code>stereo:</code></td><td>Stereopsis</td><td><code>stereo:40 seconds of arc;</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     `;
 }
