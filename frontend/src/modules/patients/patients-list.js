@@ -13220,22 +13220,31 @@ function bindEyeExamEvents()
     if (firstVisitBtn) firstVisitBtn.addEventListener("click", () => handleFirstVisitDefaults());
     if (cancelBtn) cancelBtn.addEventListener("click", () => switchToSummarySubtab());
 
-    // Chief Complaint Tabs
+    // Chief Complaint Tabs (CC 1, CC 2, CC 3)
     const ccTabs = document.querySelectorAll("#eyeExamCcTabs .eye-exam-pill");
+    const ccPanels = document.querySelectorAll(".eye-hpi-view-panel");
     ccTabs.forEach(pill => {
         pill.addEventListener("click", () => {
             ccTabs.forEach(p => p.classList.remove("active"));
             pill.classList.add("active");
             eyeExamActiveCcTab = pill.getAttribute("data-tab");
-            const label = document.getElementById("eyeExamCcLabel");
-            if (label) {
-                label.textContent = eyeExamActiveCcTab === "cc1" ? "Chief Complaint 1:" :
-                                    eyeExamActiveCcTab === "cc2" ? "Chief Complaint 2:" : "Chief Complaint 3:";
-            }
-            if (currentEncounterSummary && currentEncounterSummary.eyeExam) {
-                const hpi = currentEncounterSummary.eyeExam.hpi_data || {};
-                const input = document.getElementById("eyeExam_cc");
-                if (input) input.value = hpi[eyeExamActiveCcTab] || "";
+            
+            // Switch CC View Panels
+            ccPanels.forEach(panel => {
+                if (panel.getAttribute("data-ccpanel") === eyeExamActiveCcTab) {
+                    panel.style.display = "block";
+                } else {
+                    panel.style.display = "none";
+                }
+            });
+
+            // If HPI Elements box is visible, also synchronize the active HPI element tab
+            const hpiElemCard = document.getElementById("eyeExamHpiElementsCard");
+            if (hpiElemCard && hpiElemCard.style.display !== "none") {
+                const num = eyeExamActiveCcTab === "cc2" ? "2" : eyeExamActiveCcTab === "cc3" ? "3" : "1";
+                if (typeof switchHpiElementsTab === "function") {
+                    switchHpiElementsTab(num);
+                }
             }
         });
     });
@@ -13439,16 +13448,281 @@ function bindEyeExamEvents()
         });
     }
 
-    if (hpiHistoryBtn) {
-        hpiHistoryBtn.addEventListener("click", () => {
-            showEyeExamNotification("Prior HPI history lookup is temporarily disabled.", "info");
+    // HPI Elements Box (Database Button Toggle)
+    const hpiElementsCard = document.getElementById("eyeExamHpiElementsCard");
+    const hpiElementsCloseBtn = document.getElementById("eyeExamHpiElementsCloseBtn");
+    const hpiElementsTabs = document.querySelectorAll("#eyeExamHpiElementsTabs .eye-hpi-tab-btn");
+
+    function switchHpiElementsTab(tabNum) {
+        if (!hpiElementsTabs || hpiElementsTabs.length === 0) return;
+        hpiElementsTabs.forEach(t => {
+            if (t.getAttribute("data-hpitab") === String(tabNum)) {
+                t.classList.add("active");
+            } else {
+                t.classList.remove("active");
+            }
+        });
+        const panels = document.querySelectorAll("#eyeExamHpiElementsCard .eye-hpi-elements-panel");
+        panels.forEach(p => {
+            if (p.getAttribute("data-hpipanel") === String(tabNum)) {
+                p.style.display = "block";
+            } else {
+                p.style.display = "none";
+            }
         });
     }
-    if (hpiDrawBtn) {
-        hpiDrawBtn.addEventListener("click", () => {
-            showEyeExamNotification("HPI drawing and sketchpad tool is temporarily disabled.", "info");
+
+    if (hpiHistoryBtn && hpiElementsCard) {
+        hpiHistoryBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isCurrentlyOpen = hpiElementsCard.style.display === "block";
+            if (isCurrentlyOpen) {
+                hpiElementsCard.style.display = "none";
+                hpiHistoryBtn.classList.remove("active");
+            } else {
+                hpiElementsCard.style.display = "block";
+                hpiHistoryBtn.classList.add("active");
+                // Match the currently active CC tab with HPI 1/2/3
+                const num = eyeExamActiveCcTab === "cc2" ? "2" : eyeExamActiveCcTab === "cc3" ? "3" : "1";
+                switchHpiElementsTab(num);
+                hpiElementsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
         });
     }
+
+    hpiElementsTabs.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const num = btn.getAttribute("data-hpitab");
+            switchHpiElementsTab(num);
+        });
+    });
+
+    if (hpiElementsCloseBtn && hpiElementsCard) {
+        hpiElementsCloseBtn.addEventListener("click", () => {
+            hpiElementsCard.style.display = "none";
+            if (hpiHistoryBtn) hpiHistoryBtn.classList.remove("active");
+        });
+    }
+    // HPI Drawing / Sketchpad Card Box Wiring
+    const hpiDrawCard = document.getElementById("eyeExamHpiDrawCard");
+    const hpiDrawCloseBtn = document.getElementById("eyeExamHpiDrawCloseBtn");
+    const drawCanvas = document.getElementById("eyeExamHpiDrawCanvas");
+    let drawCtx = null;
+    let isDrawing = false;
+    let currentColor = "#18181b";
+    let currentLineWidth = 2.5;
+    let isEraserMode = false;
+    let drawHistory = [];
+    let historyStep = -1;
+    let initialDrawState = null;
+
+    function saveDrawState() {
+        if (!drawCanvas || !drawCtx) return;
+        historyStep++;
+        if (historyStep < drawHistory.length) {
+            drawHistory.length = historyStep;
+        }
+        drawHistory.push(drawCanvas.toDataURL());
+    }
+
+    function initDrawCanvas() {
+        if (!drawCanvas) return;
+        drawCtx = drawCanvas.getContext("2d");
+        
+        // Match internal pixel resolution with CSS layout width
+        const rect = drawCanvas.getBoundingClientRect();
+        if (rect.width > 0 && drawCanvas.width !== Math.round(rect.width)) {
+            const temp = drawCanvas.toDataURL();
+            drawCanvas.width = Math.round(rect.width);
+            drawCanvas.height = Math.round(rect.height || 215);
+            const img = new Image();
+            img.onload = () => {
+                if (drawCtx) drawCtx.drawImage(img, 0, 0);
+            };
+            img.src = temp;
+        }
+
+        if (drawHistory.length === 0) {
+            drawHistory = [drawCanvas.toDataURL()];
+            historyStep = 0;
+            initialDrawState = drawHistory[0];
+        }
+    }
+
+    function getCanvasCoords(e) {
+        if (!drawCanvas) return { x: 0, y: 0 };
+        const rect = drawCanvas.getBoundingClientRect();
+        const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+        const scaleX = drawCanvas.width / rect.width;
+        const scaleY = drawCanvas.height / rect.height;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function startDrawing(e) {
+        if (!drawCanvas || !drawCtx) return;
+        isDrawing = true;
+        const pos = getCanvasCoords(e);
+        drawCtx.beginPath();
+        drawCtx.moveTo(pos.x, pos.y);
+        drawCtx.lineCap = "round";
+        drawCtx.lineJoin = "round";
+        drawCtx.lineWidth = isEraserMode ? currentLineWidth * 4 : currentLineWidth;
+        if (isEraserMode) {
+            drawCtx.globalCompositeOperation = "destination-out";
+        } else {
+            drawCtx.globalCompositeOperation = "source-over";
+            drawCtx.strokeStyle = currentColor;
+        }
+    }
+
+    function continueDrawing(e) {
+        if (!isDrawing || !drawCtx) return;
+        e.preventDefault();
+        const pos = getCanvasCoords(e);
+        drawCtx.lineTo(pos.x, pos.y);
+        drawCtx.stroke();
+    }
+
+    function stopDrawing() {
+        if (!isDrawing || !drawCtx) return;
+        isDrawing = false;
+        drawCtx.closePath();
+        saveDrawState();
+    }
+
+    if (drawCanvas) {
+        drawCanvas.addEventListener("mousedown", startDrawing);
+        drawCanvas.addEventListener("mousemove", continueDrawing);
+        window.addEventListener("mouseup", stopDrawing);
+        drawCanvas.addEventListener("touchstart", startDrawing, { passive: false });
+        drawCanvas.addEventListener("touchmove", continueDrawing, { passive: false });
+        window.addEventListener("touchend", stopDrawing);
+    }
+
+    // Toggle Drawing Box via pencil button
+    if (hpiDrawBtn && hpiDrawCard) {
+        hpiDrawBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = hpiDrawCard.style.display === "block";
+            if (isOpen) {
+                hpiDrawCard.style.display = "none";
+                hpiDrawBtn.classList.remove("active");
+            } else {
+                hpiDrawCard.style.display = "block";
+                hpiDrawBtn.classList.add("active");
+                setTimeout(initDrawCanvas, 30);
+                hpiDrawCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+        });
+    }
+
+    if (hpiDrawCloseBtn && hpiDrawCard) {
+        hpiDrawCloseBtn.addEventListener("click", () => {
+            hpiDrawCard.style.display = "none";
+            if (hpiDrawBtn) hpiDrawBtn.classList.remove("active");
+        });
+    }
+
+    // Color Pencils Palette selection
+    const pencilEls = document.querySelectorAll("#eyeExamDrawPencils .eye-draw-pencil");
+    pencilEls.forEach(pen => {
+        pen.addEventListener("click", () => {
+            pencilEls.forEach(p => p.classList.remove("active"));
+            pen.classList.add("active");
+            currentColor = pen.getAttribute("data-color") || "#18181b";
+            isEraserMode = false;
+            const eraserEl = document.getElementById("eyeExamDrawEraser");
+            if (eraserEl) eraserEl.style.outline = "none";
+        });
+    });
+
+    // Eraser Block Tool
+    const eraserBlock = document.getElementById("eyeExamDrawEraser");
+    if (eraserBlock) {
+        eraserBlock.addEventListener("click", () => {
+            isEraserMode = true;
+            pencilEls.forEach(p => p.classList.remove("active"));
+            eraserBlock.style.outline = "2px solid #2563eb";
+            eraserBlock.style.outlineOffset = "2px";
+        });
+    }
+
+    // Brush Stroke Sizes
+    const sizeDots = document.querySelectorAll("#eyeExamDrawSizes .eye-draw-size-dot");
+    sizeDots.forEach(dot => {
+        dot.addEventListener("click", () => {
+            sizeDots.forEach(d => d.classList.remove("active"));
+            dot.classList.add("active");
+            currentLineWidth = parseFloat(dot.getAttribute("data-size")) || 2.5;
+        });
+    });
+
+    // Bottom Action Buttons: Undo, Redo, Revert, New, Blank
+    const undoBtn = document.getElementById("eyeExamDrawUndoBtn");
+    const redoBtn = document.getElementById("eyeExamDrawRedoBtn");
+    const revertBtn = document.getElementById("eyeExamDrawRevertBtn");
+    const newBtn = document.getElementById("eyeExamDrawNewBtn");
+    const blankBtn = document.getElementById("eyeExamDrawBlankBtn");
+
+    function renderHistoryImage(dataUri) {
+        if (!drawCanvas || !drawCtx || !dataUri) return;
+        const img = new Image();
+        img.onload = () => {
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            drawCtx.drawImage(img, 0, 0);
+        };
+        img.src = dataUri;
+    }
+
+    if (undoBtn) {
+        undoBtn.addEventListener("click", () => {
+            if (historyStep > 0) {
+                historyStep--;
+                renderHistoryImage(drawHistory[historyStep]);
+            }
+        });
+    }
+
+    if (redoBtn) {
+        redoBtn.addEventListener("click", () => {
+            if (historyStep < drawHistory.length - 1) {
+                historyStep++;
+                renderHistoryImage(drawHistory[historyStep]);
+            }
+        });
+    }
+
+    if (revertBtn) {
+        revertBtn.addEventListener("click", () => {
+            if (initialDrawState) {
+                renderHistoryImage(initialDrawState);
+                drawHistory = [initialDrawState];
+                historyStep = 0;
+            }
+        });
+    }
+
+    if (newBtn) {
+        newBtn.addEventListener("click", () => {
+            if (!drawCanvas || !drawCtx) return;
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            saveDrawState();
+            showEyeExamNotification("New sketch initialized.", "info");
+        });
+    }
+
+    if (blankBtn) {
+        blankBtn.addEventListener("click", () => {
+            if (!drawCanvas || !drawCtx) return;
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            saveDrawState();
+        });
+    }
+
     if (hpiClearBtn) {
         hpiClearBtn.addEventListener("click", () => {
             const ccInput = document.getElementById("eyeExam_cc");
@@ -13475,13 +13749,56 @@ function populateEyeExamForm(data)
     const neuro = data.neuro_data || {};
     const imp = data.impression_plan_data || {};
 
-    // HPI
+    // HPI Chief Complaints & Text for CC 1, CC 2, CC 3
     const ccInput = document.getElementById("eyeExam_cc");
-    if (ccInput) ccInput.value = hpi[eyeExamActiveCcTab] || hpi.cc1 || data.chief_complaint || "";
+    if (ccInput) ccInput.value = hpi.cc1 || hpi.cc || data.chief_complaint || "";
+    const cc2Input = document.getElementById("eyeExam_cc2");
+    if (cc2Input) cc2Input.value = hpi.cc2 || "";
+    const cc3Input = document.getElementById("eyeExam_cc3");
+    if (cc3Input) cc3Input.value = hpi.cc3 || "";
+
     const hpiText = document.getElementById("eyeExam_hpi_text");
-    if (hpiText) hpiText.value = hpi.hpi_text || "";
+    if (hpiText) hpiText.value = hpi.hpi_text || hpi.hpi1 || "";
+    const hpi2Text = document.getElementById("eyeExam_hpi2_text");
+    if (hpi2Text) hpi2Text.value = hpi.hpi2 || "";
+    const hpi3Text = document.getElementById("eyeExam_hpi3_text");
+    if (hpi3Text) hpi3Text.value = hpi.hpi3 || "";
+
     const cpInput = document.getElementById("eyeExam_chronic_problems");
     if (cpInput) cpInput.value = hpi.chronic_problems || "";
+    const ch1 = document.getElementById("eyeExam_chronic_1");
+    if (ch1) ch1.value = hpi.chronic_1 || (hpi.chronic_problems ? hpi.chronic_problems.split("\n")[0] || "" : "");
+    const ch2 = document.getElementById("eyeExam_chronic_2");
+    if (ch2) ch2.value = hpi.chronic_2 || (hpi.chronic_problems ? hpi.chronic_problems.split("\n")[1] || "" : "");
+    const ch3 = document.getElementById("eyeExam_chronic_3");
+    if (ch3) ch3.value = hpi.chronic_3 || (hpi.chronic_problems ? hpi.chronic_problems.split("\n")[2] || "" : "");
+
+    // HPI Elements
+    const elements = hpi.elements || {};
+    const elemKeys = ['timing', 'context', 'severity', 'modifying', 'associated', 'location', 'quality', 'duration'];
+    ['1', '2', '3'].forEach(num => {
+        const set = elements[`hpi_${num}`] || elements[num] || {};
+        elemKeys.forEach(k => {
+            const input = document.getElementById(`eyeExam_elem_${k}_${num}`);
+            if (input && set[k] !== undefined) {
+                input.value = set[k] || "";
+            }
+        });
+    });
+
+    // HPI Drawing Canvas State
+    if (hpi.drawing_data) {
+        const dCanvas = document.getElementById("eyeExamHpiDrawCanvas");
+        if (dCanvas) {
+            const ctx = dCanvas.getContext("2d");
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, dCanvas.width, dCanvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = hpi.drawing_data;
+        }
+    }
 
     // PMSFH
     if (pmsfh.category) {
@@ -13624,9 +13941,36 @@ function collectEyeExamFormData()
 {
     const existing = currentEncounterSummary?.eyeExam || {};
     const hpi = existing.hpi_data || {};
-    hpi[eyeExamActiveCcTab] = document.getElementById("eyeExam_cc")?.value || "";
-    hpi.hpi_text = document.getElementById("eyeExam_hpi_text")?.value || "";
-    hpi.chronic_problems = document.getElementById("eyeExam_chronic_problems")?.value || "";
+    hpi.cc1 = document.getElementById("eyeExam_cc")?.value || "";
+    hpi.cc2 = document.getElementById("eyeExam_cc2")?.value || "";
+    hpi.cc3 = document.getElementById("eyeExam_cc3")?.value || "";
+    hpi.cc = hpi[eyeExamActiveCcTab] || hpi.cc1;
+
+    hpi.hpi1 = document.getElementById("eyeExam_hpi_text")?.value || "";
+    hpi.hpi2 = document.getElementById("eyeExam_hpi2_text")?.value || "";
+    hpi.hpi3 = document.getElementById("eyeExam_hpi3_text")?.value || "";
+    hpi.hpi_text = hpi.hpi1;
+
+    hpi.chronic_1 = document.getElementById("eyeExam_chronic_1")?.value || "";
+    hpi.chronic_2 = document.getElementById("eyeExam_chronic_2")?.value || "";
+    hpi.chronic_3 = document.getElementById("eyeExam_chronic_3")?.value || "";
+    hpi.chronic_problems = [hpi.chronic_1, hpi.chronic_2, hpi.chronic_3].filter(Boolean).join("\n") || document.getElementById("eyeExam_chronic_problems")?.value || "";
+
+    // Collect HPI Elements
+    const elemKeys = ['timing', 'context', 'severity', 'modifying', 'associated', 'location', 'quality', 'duration'];
+    hpi.elements = hpi.elements || {};
+    ['1', '2', '3'].forEach(num => {
+        hpi.elements[`hpi_${num}`] = {};
+        elemKeys.forEach(k => {
+            hpi.elements[`hpi_${num}`][k] = document.getElementById(`eyeExam_elem_${k}_${num}`)?.value || "";
+        });
+    });
+
+    // Save HPI Drawing Canvas
+    const dCanvas = document.getElementById("eyeExamHpiDrawCanvas");
+    if (dCanvas) {
+        hpi.drawing_data = dCanvas.toDataURL("image/png");
+    }
 
     const pmsfhCat = document.querySelector('input[name="eyeExamPmsfhCat"]:checked')?.value || "POH";
     const pmsfh = {

@@ -997,6 +997,431 @@ export const EYE_EXAM_STYLES = `
     background: #78350f;
     color: #fde68a;
 }
+
+/* HPI Elements Card Box Styling (Toggled by Database Button) */
+.eye-hpi-elements-card {
+    background: #fdfbf7;
+    border: 1px solid #e7dfd5;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    position: relative;
+    font-size: 13px;
+    color: #1e293b;
+    display: none;
+}
+
+:root[data-theme="dark"] .eye-hpi-elements-card {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+.eye-hpi-elements-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px 6px 16px;
+    background: #fbf8f1;
+}
+
+:root[data-theme="dark"] .eye-hpi-elements-header {
+    background: #0f172a;
+}
+
+.eye-hpi-elements-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .eye-hpi-elements-title {
+    color: #f8fafc;
+}
+
+.eye-hpi-elements-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 16px 8px 16px;
+    background: #fbf8f1;
+    border-bottom: 1px solid #e7dfd5;
+}
+
+:root[data-theme="dark"] .eye-hpi-elements-tabs {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.eye-hpi-tab-btn {
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 4px 4px 0 0;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    background: #cbd5e1;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.eye-hpi-tab-btn.active {
+    background: #ffffff;
+    color: #1d4ed8;
+    border-color: #cbd5e1;
+    font-weight: 700;
+}
+
+:root[data-theme="dark"] .eye-hpi-tab-btn {
+    background: #334155;
+    color: #94a3b8;
+    border-color: #475569;
+}
+
+:root[data-theme="dark"] .eye-hpi-tab-btn.active {
+    background: #1e293b;
+    color: #60a5fa;
+    border-color: #475569;
+}
+
+.eye-hpi-elements-body {
+    padding: 16px 18px;
+    background: #ffffff;
+    max-height: 75vh;
+    overflow-y: auto;
+}
+
+:root[data-theme="dark"] .eye-hpi-elements-body {
+    background: #1e293b;
+}
+
+.eye-hpi-element-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.eye-hpi-element-label {
+    width: 82px;
+    font-weight: 700;
+    font-size: 12px;
+    text-align: right;
+    color: #0f172a;
+    flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .eye-hpi-element-label {
+    color: #e2e8f0;
+}
+
+.eye-hpi-element-input {
+    flex: 1;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #1e293b;
+    outline: none;
+    resize: none;
+    height: 32px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+}
+
+.eye-hpi-element-input:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+:root[data-theme="dark"] .eye-hpi-element-input {
+    background: #292524;
+    border-color: #57534e;
+    color: #fef3c7;
+}
+
+.eye-hpi-element-hint {
+    width: 220px;
+    font-size: 11.5px;
+    font-style: italic;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .eye-hpi-element-hint {
+    color: #94a3b8;
+}
+
+.eye-hpi-elements-footer {
+    padding: 8px 16px 12px 16px;
+    font-size: 11px;
+    text-align: center;
+    color: #64748b;
+    background: #ffffff;
+    border-top: 1px solid #f1f5f9;
+}
+
+:root[data-theme="dark"] .eye-hpi-elements-footer {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+/* HPI Drawing & Sketchpad Card Box */
+.eye-hpi-draw-card {
+    background: #fbf5e8;
+    background-image: radial-gradient(#eadbc8 1px, transparent 1px);
+    background-size: 8px 8px;
+    border: 1px solid #dcd1be;
+    border-radius: 8px;
+    padding: 8px 10px 12px 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    display: none;
+    animation: eyePopupFadeIn 0.2s ease-out;
+}
+
+:root[data-theme="dark"] .eye-hpi-draw-card {
+    background: #1c1917;
+    background-image: radial-gradient(#292524 1px, transparent 1px);
+    border-color: #44403c;
+}
+
+.eye-hpi-draw-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 2px 4px 6px 4px;
+    position: relative;
+    user-select: none;
+}
+
+.eye-hpi-draw-toolbar {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.eye-hpi-draw-eraser-block {
+    width: 24px;
+    height: 30px;
+    background: #18181b;
+    border: 1px solid #09090b;
+    border-radius: 2px 2px 0 0;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.1s ease;
+}
+
+.eye-hpi-draw-eraser-block:hover {
+    transform: translateY(-2px);
+}
+
+.eye-hpi-draw-eraser-block::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 4px;
+    right: 4px;
+    height: 8px;
+    background: #d4a373;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.eye-hpi-draw-pencils {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding-bottom: 2px;
+}
+
+.eye-draw-pencil {
+    width: 10px;
+    height: 26px;
+    border-radius: 2px 2px 0 0;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.12s ease, filter 0.12s ease;
+    border: 1px solid rgba(0,0,0,0.15);
+}
+
+.eye-draw-pencil::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: 1px;
+    right: 1px;
+    height: 7px;
+    background: #fde047;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.eye-draw-pencil::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: 3px;
+    right: 3px;
+    height: 3px;
+    background: inherit;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.eye-draw-pencil:hover {
+    transform: translateY(-3px);
+}
+
+.eye-draw-pencil.active {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.25);
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+}
+
+.eye-hpi-draw-sizes {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: 6px;
+    padding: 0 4px 4px 4px;
+}
+
+.eye-draw-size-dot {
+    background: #18181b;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s ease, background 0.1s ease;
+}
+
+:root[data-theme="dark"] .eye-draw-size-dot {
+    background: #f4f4f5;
+}
+
+.eye-draw-size-dot:hover {
+    transform: scale(1.2);
+}
+
+.eye-draw-size-dot.active {
+    box-shadow: 0 0 0 2px #2563eb;
+}
+
+.eye-hpi-draw-canvas-container {
+    background: #ffffff;
+    border: 1px solid #dcd1be;
+    border-radius: 6px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+    position: relative;
+    overflow: hidden;
+}
+
+:root[data-theme="dark"] .eye-hpi-draw-canvas-container {
+    background: #ffffff; /* keep paper canvas light for medical diagram drawing */
+    border-color: #57534e;
+}
+
+.eye-hpi-draw-paper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #0f172a;
+    user-select: none;
+}
+
+.eye-draw-paper-header {
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+    color: #1e293b;
+}
+
+.eye-draw-paper-field {
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: #1e293b;
+}
+
+.eye-draw-paper-line {
+    border-bottom: 1.5px solid #1e293b;
+    display: inline-block;
+    min-width: 240px;
+    height: 12px;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.eye-draw-canvas-elem {
+    display: block;
+    width: 100%;
+    height: 215px;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.eye-hpi-draw-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.eye-draw-action-btn {
+    background: #e0f2fe;
+    border: 1px solid #bae6fd;
+    color: #0369a1;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 4px 16px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(3, 105, 161, 0.08);
+    transition: all 0.15s ease;
+}
+
+.eye-draw-action-btn:hover {
+    background: #bae6fd;
+    border-color: #7dd3fc;
+    color: #0284c7;
+}
+
+.eye-draw-action-btn:active {
+    transform: translateY(1px);
+}
+
+:root[data-theme="dark"] .eye-draw-action-btn {
+    background: #075985;
+    border-color: #0284c7;
+    color: #e0f2fe;
+}
+
+:root[data-theme="dark"] .eye-draw-action-btn:hover {
+    background: #0284c7;
+}
+
+/* HPI CC Card custom yellow surface styling */
+.eye-hpi-cream-surface {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+}
+
+:root[data-theme="dark"] .eye-hpi-cream-surface {
+    background: #292524;
+    border-color: #57534e;
+    color: #fef3c7;
+}
 `;
 
 export function renderEyeExamHtml(encounter, patient) {
@@ -1249,14 +1674,14 @@ export function renderEyeExamHtml(encounter, patient) {
                                     </div>
                                     <textarea class="eye-shorthand-textarea" id="eyeExamShorthandInput" placeholder="Field:text;Field:text;"></textarea>
                                 </div>
-                                <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiHistoryBtn" title="Prior HPI / Database history">
+                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiHistoryBtn" title="HPI Elements / Database">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
                                         <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
                                         <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                                     </svg>
                                 </button>
-                                <button type="button" class="eye-exam-header-icon-btn disabled" id="eyeExamHpiDrawBtn" title="Drawing / Annotation Tool">
+                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiDrawBtn" title="Drawing / Annotation Tool">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path>
                                         <path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92.92 2.25 1.06 3.12 1 1.86-.14 3.88-1.5 3.88-3.5 0-.83-.67-1.5-1.5-1.5H7.07Z"></path>
@@ -1276,20 +1701,296 @@ export function renderEyeExamHtml(encounter, patient) {
                                 <button type="button" class="eye-exam-pill" data-tab="cc2">CC 2</button>
                                 <button type="button" class="eye-exam-pill" data-tab="cc3">CC 3</button>
                             </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 3px;" id="eyeExamCcLabel">Chief Complaint 1:</label>
-                        <textarea class="eye-exam-input" id="eyeExam_cc" rows="2" placeholder="Primary complaint (e.g. blurry vision, dryness, eye strain)..."></textarea>
+                            
+                            <!-- CC 1 View Panel -->
+                            <div class="eye-hpi-view-panel" data-ccpanel="cc1">
+                                <div style="margin-bottom: 10px;">
+                                    <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;" id="eyeExamCcLabel">Chief Complaint 1:</label>
+                                    <textarea class="eye-exam-input" id="eyeExam_cc" rows="2" placeholder="Primary complaint (e.g. blurry vision, dryness, eye strain)..."></textarea>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">HPI:</label>
+                                        <textarea class="eye-exam-input" id="eyeExam_hpi_text" rows="6" placeholder="Onset, location, duration, characteristics, aggravating/relieving factors..."></textarea>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">Chronic Problems:</label>
+                                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                                            <div>
+                                                <span style="font-size: 9.5px; font-weight: 700; color: #dc2626; display: block; text-align: right;">CHRONIC 1</span>
+                                                <textarea class="eye-exam-input" id="eyeExam_chronic_1" rows="1" placeholder="Hypertension..."></textarea>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 9.5px; font-weight: 700; color: #dc2626; display: block; text-align: right;">CHRONIC 2</span>
+                                                <textarea class="eye-exam-input" id="eyeExam_chronic_2" rows="1" placeholder="Diabetes mellitus..."></textarea>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 9.5px; font-weight: 700; color: #dc2626; display: block; text-align: right;">CHRONIC 3</span>
+                                                <textarea class="eye-exam-input" id="eyeExam_chronic_3" rows="1" placeholder="Glaucoma suspect..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="text-align: center; font-size: 10.5px; color: #64748b; margin-top: 10px;">
+                                    Detailed HPI: &gt; 3 HPI elements OR the status of three chronic/inactive problems
+                                </div>
+                            </div>
+
+                            <!-- CC 2 View Panel -->
+                            <div class="eye-hpi-view-panel" data-ccpanel="cc2" style="display: none;">
+                                <div style="margin-bottom: 10px;">
+                                    <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">Chief Complaint 2:</label>
+                                    <textarea class="eye-exam-input" id="eyeExam_cc2" rows="2" placeholder="Second complaint..."></textarea>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">HPI 2:</label>
+                                    <textarea class="eye-exam-input" id="eyeExam_hpi2_text" rows="6" placeholder="HPI details for complaint 2..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- CC 3 View Panel -->
+                            <div class="eye-hpi-view-panel" data-ccpanel="cc3" style="display: none;">
+                                <div style="margin-bottom: 10px;">
+                                    <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">Chief Complaint 3:</label>
+                                    <textarea class="eye-exam-input" id="eyeExam_cc3" rows="2" placeholder="Third complaint..."></textarea>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">HPI 3:</label>
+                                    <textarea class="eye-exam-input" id="eyeExam_hpi3_text" rows="6" placeholder="HPI details for complaint 3..."></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div style="margin-bottom: 10px;">
-                        <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 3px;">HPI Narrative Details:</label>
-                        <textarea class="eye-exam-input" id="eyeExam_hpi_text" rows="3" placeholder="Onset, location, duration, characteristics, aggravating/relieving factors..."></textarea>
+
+                    <!-- HPI Elements Box (Toggled by Database Button) -->
+                    <div class="eye-hpi-elements-card" id="eyeExamHpiElementsCard">
+                        <div class="eye-hpi-elements-header">
+                            <span class="eye-hpi-elements-title">HPI Elements:</span>
+                            <button type="button" class="eye-shorthand-popup-close" id="eyeExamHpiElementsCloseBtn" title="Close HPI Elements">&times;</button>
+                        </div>
+                        <div class="eye-hpi-elements-tabs" id="eyeExamHpiElementsTabs">
+                            <button type="button" class="eye-hpi-tab-btn active" data-hpitab="1">HPI 1</button>
+                            <button type="button" class="eye-hpi-tab-btn" data-hpitab="2">HPI 2</button>
+                            <button type="button" class="eye-hpi-tab-btn" data-hpitab="3">HPI 3</button>
+                        </div>
+                        <div class="eye-hpi-elements-body">
+                            <!-- HPI 1 Panel -->
+                            <div class="eye-hpi-elements-panel" data-hpipanel="1">
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Timing:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_timing_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">When and how often?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Context:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_context_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Does it occur in certain situations?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Severity:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_severity_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">How bad is it? 0-10, mild, mod, severe?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Modifying:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_modifying_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Does anything make it better? Worse?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Associated:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_associated_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Anything else occur at the same time?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Location:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_location_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Where on your body does it occur?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Quality:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_quality_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">eg. aching, burning, radiating pain</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Duration:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_duration_1" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">How long does it last?</span>
+                                </div>
+                            </div>
+
+                            <!-- HPI 2 Panel -->
+                            <div class="eye-hpi-elements-panel" data-hpipanel="2" style="display: none;">
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Timing:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_timing_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">When and how often?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Context:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_context_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Does it occur in certain situations?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Severity:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_severity_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">How bad is it? 0-10, mild, mod, severe?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Modifying:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_modifying_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Does anything make it better? Worse?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Associated:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_associated_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Anything else occur at the same time?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Location:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_location_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Where on your body does it occur?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Quality:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_quality_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">eg. aching, burning, radiating pain</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Duration:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_duration_2" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">How long does it last?</span>
+                                </div>
+                            </div>
+
+                            <!-- HPI 3 Panel -->
+                            <div class="eye-hpi-elements-panel" data-hpipanel="3" style="display: none;">
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Timing:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_timing_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">When and how often?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Context:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_context_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Does it occur in certain situations?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Severity:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_severity_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">How bad is it? 0-10, mild, mod, severe?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Modifying:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_modifying_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Does anything make it better? Worse?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Associated:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_associated_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Anything else occur at the same time?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Location:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_location_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">Where on your body does it occur?</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Quality:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_quality_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">eg. aching, burning, radiating pain</span>
+                                </div>
+                                <div class="eye-hpi-element-row">
+                                    <span class="eye-hpi-element-label">Duration:</span>
+                                    <textarea class="eye-hpi-element-input" id="eyeExam_elem_duration_3" rows="1"></textarea>
+                                    <span class="eye-hpi-element-hint">How long does it last?</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="eye-hpi-elements-footer">
+                            Detailed HPI: &gt; 3 HPI elements OR the status of three chronic/inactive problems
+                        </div>
                     </div>
-                    <div>
-                        <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 3px;">Chronic Problems / Medical History:</label>
-                        <textarea class="eye-exam-input" id="eyeExam_chronic_problems" rows="2" placeholder="Hypertension, Diabetes, Glaucoma suspect, Macular degeneration..."></textarea>
+
+                    <!-- HPI Drawing / Sketchpad Card (Toggled by Pencil Button) -->
+                    <div class="eye-hpi-draw-card" id="eyeExamHpiDrawCard">
+                        <div class="eye-hpi-draw-header">
+                            <div class="eye-hpi-draw-toolbar">
+                                <!-- Big eraser block tool on the left -->
+                                <div class="eye-hpi-draw-eraser-block" id="eyeExamDrawEraser" title="Eraser tool"></div>
+
+                                <!-- Colored pencil tips -->
+                                <div class="eye-hpi-draw-pencils" id="eyeExamDrawPencils">
+                                    <div class="eye-draw-pencil" data-color="#0284c7" style="background: #0284c7;" title="Cyan/Blue pencil"></div>
+                                    <div class="eye-draw-pencil" data-color="#eab308" style="background: #eab308;" title="Yellow pencil"></div>
+                                    <div class="eye-draw-pencil" data-color="#ea580c" style="background: #ea580c;" title="Orange pencil"></div>
+                                    <div class="eye-draw-pencil" data-color="#854d0e" style="background: #854d0e;" title="Brown pencil"></div>
+                                    <div class="eye-draw-pencil" data-color="#dc2626" style="background: #dc2626;" title="Red pencil"></div>
+                                    <div class="eye-draw-pencil active" data-color="#18181b" style="background: #18181b;" title="Black pencil"></div>
+                                    <div class="eye-draw-pencil" data-color="#ffffff" style="background: #ffffff; border: 1px solid #cbd5e1;" title="White pencil / Cover"></div>
+                                </div>
+
+                                <!-- Brush stroke size dots -->
+                                <div class="eye-hpi-draw-sizes" id="eyeExamDrawSizes">
+                                    <span class="eye-draw-size-dot" data-size="1" style="width: 3px; height: 3px;" title="Fine line (1px)"></span>
+                                    <span class="eye-draw-size-dot active" data-size="2.5" style="width: 6px; height: 6px;" title="Normal line (2.5px)"></span>
+                                    <span class="eye-draw-size-dot" data-size="4.5" style="width: 8px; height: 8px;" title="Medium line (4.5px)"></span>
+                                    <span class="eye-draw-size-dot" data-size="7" style="width: 10px; height: 10px;" title="Thick line (7px)"></span>
+                                    <span class="eye-draw-size-dot" data-size="11" style="width: 13px; height: 13px;" title="Extra thick line (11px)"></span>
+                                </div>
+                            </div>
+
+                            <!-- Header right action icons matching screenshot -->
+                            <div class="eye-exam-card-actions" style="margin-bottom: 4px;">
+                                <button type="button" class="eye-exam-header-icon-btn" title="Doctor Shorthand">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                </button>
+                                <button type="button" class="eye-exam-header-icon-btn" title="Database Elements">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                                </button>
+                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiDrawCloseBtn" title="Close Drawing Card">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Canvas Workspace with medical template overlay -->
+                        <div class="eye-hpi-draw-canvas-container" id="eyeExamHpiCanvasContainer">
+                            <div class="eye-hpi-draw-paper">
+                                <div class="eye-draw-paper-header">
+                                    <span>NP</span>
+                                    <span>CONSULT</span>
+                                    <span>OBS</span>
+                                    <span>P/O</span>
+                                    <span>OTHER: <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 60px; height: 10px;"></span></span>
+                                </div>
+                                <div class="eye-draw-paper-field">
+                                    Chief complaint:
+                                    <span class="eye-draw-paper-line" style="width: calc(100% - 120px);"></span>
+                                </div>
+                                <div class="eye-draw-paper-field" style="margin-bottom: 60px;">
+                                    History:
+                                </div>
+                                <div style="margin-bottom: 12px;">
+                                    <span class="eye-draw-paper-line" style="width: 75%; margin-left: 0; min-width: 200px;"></span>
+                                </div>
+                                <div class="eye-draw-paper-field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 0;">
+                                    <span>ROS:</span>
+                                    <span style="display: inline-block; width: 14px; height: 14px; border: 1.8px solid #0f172a; border-radius: 2px;"></span>
+                                    <span style="font-weight: 500;">Reviewed</span>
+                                </div>
+                            </div>
+                            <canvas class="eye-draw-canvas-elem" id="eyeExamHpiDrawCanvas" width="600" height="215"></canvas>
+                        </div>
+
+                        <!-- Bottom Action Buttons: Undo, Redo, Revert, New, Blank -->
+                        <div class="eye-hpi-draw-footer">
+                            <button type="button" class="eye-draw-action-btn" id="eyeExamDrawUndoBtn">Undo</button>
+                            <button type="button" class="eye-draw-action-btn" id="eyeExamDrawRedoBtn">Redo</button>
+                            <button type="button" class="eye-draw-action-btn" id="eyeExamDrawRevertBtn">Revert</button>
+                            <button type="button" class="eye-draw-action-btn" id="eyeExamDrawNewBtn">New</button>
+                            <button type="button" class="eye-draw-action-btn" id="eyeExamDrawBlankBtn">Blank</button>
+                        </div>
                     </div>
-                </div>
-            </div>
 
             <!-- PMSFH Card -->
             <div class="eye-exam-card" id="eyeExamSecPmh">
@@ -1809,7 +2510,7 @@ export function renderEyeExamHtml(encounter, patient) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div><!-- /.eye-help-modal-overlay -->
     </div>
     `;
 }
