@@ -13280,6 +13280,27 @@ function bindEyeExamEvents()
             showEyeExamNotification(`${itemName} is temporarily disabled in this version.`, "info");
         });
     });
+
+    // Side Navigation Rail Tabs (HPI, PMH, Ext, Ant, Retina, Neuro, Imp)
+    const navTabs = document.querySelectorAll(".eye-exam-nav-tab");
+    navTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            navTabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            const targetId = tab.getAttribute("data-target");
+            const targetEl = targetId ? document.getElementById(targetId) : null;
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                // Subtle highlight flash to draw the eye
+                targetEl.style.transition = "box-shadow 0.3s ease";
+                const origShadow = targetEl.style.boxShadow;
+                targetEl.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.4)";
+                setTimeout(() => {
+                    targetEl.style.boxShadow = origShadow;
+                }, 1200);
+            }
+        });
+    });
 }
 
 function populateEyeExamForm(data)

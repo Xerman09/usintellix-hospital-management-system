@@ -306,6 +306,86 @@ export const EYE_EXAM_STYLES = `
     color: #475569;
 }
 
+/* Eye Exam Side Navigation Rail Layout */
+.eye-exam-workspace {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.eye-exam-nav-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 68px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 16px;
+    z-index: 10;
+}
+
+.eye-exam-nav-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 4px 7px 8px;
+    background: #eef6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 3.5px solid #2563eb;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1e40af;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    transition: all 0.15s ease;
+    user-select: none;
+    text-align: center;
+}
+
+.eye-exam-nav-tab:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    border-left-color: #1d4ed8;
+    color: #1d4ed8;
+    transform: translateX(2px);
+}
+
+.eye-exam-nav-tab.active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    border-left-color: #1e3a8a;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+}
+
+.eye-exam-content-area {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 768px) {
+    .eye-exam-workspace {
+        flex-direction: column;
+    }
+    .eye-exam-nav-rail {
+        flex-direction: row;
+        width: 100%;
+        overflow-x: auto;
+        position: static;
+        padding-bottom: 4px;
+    }
+    .eye-exam-nav-tab {
+        flex: 1;
+        min-width: 55px;
+        padding: 6px;
+        border-left-width: 1px;
+        border-top: 3px solid #2563eb;
+    }
+}
+
 .eye-exam-btn-primary:hover {
     background: var(--accent-hover, #1e40af);
     border-color: var(--accent-hover, #1e40af);
@@ -353,6 +433,28 @@ export const EYE_EXAM_STYLES = `
 :root[data-theme="dark"] .eye-exam-menu-item .menu-shortcut,
 :root[data-theme="dark"] .eye-exam-menu-item .menu-icon {
     color: #64748b;
+}
+
+:root[data-theme="dark"] .eye-exam-nav-tab {
+    background: #1e293b;
+    border-color: #334155;
+    border-left-color: #3b82f6;
+    color: #93c5fd;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="dark"] .eye-exam-nav-tab:hover {
+    background: #2563eb;
+    border-color: #3b82f6;
+    border-left-color: #60a5fa;
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .eye-exam-nav-tab.active {
+    background: #1d4ed8;
+    border-color: #3b82f6;
+    border-left-color: #93c5fd;
+    color: #ffffff;
 }
 
 :root[data-theme="dark"] .eye-exam-top-actions {
@@ -792,14 +894,29 @@ export function renderEyeExamHtml(encounter, patient) {
             </div>
         </div>
 
-        <!-- SECTION 1: HPI & PMSFH -->
-        <div class="eye-exam-grid-2">
-            <!-- HPI Card -->
-            <div class="eye-exam-card">
-                <div class="eye-exam-card-header">
-                    <span>HPI (History of Present Illness)</span>
-                    <div class="eye-exam-pill-tabs" id="eyeExamCcTabs">
-                        <button type="button" class="eye-exam-pill active" data-tab="cc1">CC 1</button>
+        <!-- Workspace with Side Navigation Rail & Content Area -->
+        <div class="eye-exam-workspace">
+            <!-- Left Side Navigation Buttons (HPI, PMH, Ext, Ant, Retina, Neuro, Imp) -->
+            <nav class="eye-exam-nav-rail" aria-label="Eye Exam Sections">
+                <button type="button" class="eye-exam-nav-tab active" data-target="eyeExamSecHpi" title="History of Present Illness">HPI</button>
+                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecPmh" title="Past Medical & Medication History">PMH</button>
+                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecExt" title="External Examination">Ext</button>
+                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecAnt" title="Anterior Segment (Slit Lamp)">Ant</button>
+                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecRetina" title="Retina / Posterior Pole">Retina</button>
+                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecNeuro" title="Neuro-Ophthalmology & Motility">Neuro</button>
+                <button type="button" class="eye-exam-nav-tab" data-target="eyeExamSecImp" title="Impression & Plan">Imp</button>
+            </nav>
+
+            <!-- Main Content Area -->
+            <div class="eye-exam-content-area">
+                <!-- SECTION 1: HPI & PMSFH -->
+                <div class="eye-exam-grid-2">
+                    <!-- HPI Card -->
+                    <div class="eye-exam-card" id="eyeExamSecHpi">
+                        <div class="eye-exam-card-header">
+                            <span>HPI (History of Present Illness)</span>
+                            <div class="eye-exam-pill-tabs" id="eyeExamCcTabs">
+                                <button type="button" class="eye-exam-pill active" data-tab="cc1">CC 1</button>
                         <button type="button" class="eye-exam-pill" data-tab="cc2">CC 2</button>
                         <button type="button" class="eye-exam-pill" data-tab="cc3">CC 3</button>
                     </div>
@@ -821,7 +938,7 @@ export function renderEyeExamHtml(encounter, patient) {
             </div>
 
             <!-- PMSFH Card -->
-            <div class="eye-exam-card">
+            <div class="eye-exam-card" id="eyeExamSecPmh">
                 <div class="eye-exam-card-header">
                     <span>PMSFH (Past Medical, Social, Family History & Meds)</span>
                 </div>
@@ -971,7 +1088,7 @@ export function renderEyeExamHtml(encounter, patient) {
         <!-- SECTION 3: External Exam & Anterior Segment -->
         <div class="eye-exam-grid-2">
             <!-- External Exam Card -->
-            <div class="eye-exam-card">
+            <div class="eye-exam-card" id="eyeExamSecExt">
                 <div class="eye-exam-card-header">
                     <span>External Exam</span>
                 </div>
@@ -1033,7 +1150,7 @@ export function renderEyeExamHtml(encounter, patient) {
             </div>
 
             <!-- Anterior Segment Card -->
-            <div class="eye-exam-card">
+            <div class="eye-exam-card" id="eyeExamSecAnt">
                 <div class="eye-exam-card-header">
                     <span>Anterior Segment (Slit Lamp)</span>
                 </div>
@@ -1091,7 +1208,7 @@ export function renderEyeExamHtml(encounter, patient) {
         <!-- SECTION 4: Retina & Neuro Exam -->
         <div class="eye-exam-grid-2">
             <!-- Retina Card -->
-            <div class="eye-exam-card">
+            <div class="eye-exam-card" id="eyeExamSecRetina">
                 <div class="eye-exam-card-header">
                     <span>Retina / Posterior Pole</span>
                 </div>
@@ -1144,7 +1261,7 @@ export function renderEyeExamHtml(encounter, patient) {
             </div>
 
             <!-- Neuro & Motility Card -->
-            <div class="eye-exam-card">
+            <div class="eye-exam-card" id="eyeExamSecNeuro">
                 <div class="eye-exam-card-header">
                     <span>Neuro-Ophthalmology & Motility</span>
                 </div>
@@ -1186,7 +1303,7 @@ export function renderEyeExamHtml(encounter, patient) {
         </div>
 
         <!-- SECTION 5: Impression & Plan -->
-        <div class="eye-exam-card">
+        <div class="eye-exam-card" id="eyeExamSecImp">
             <div class="eye-exam-card-header">
                 <span>Impression & Plan</span>
             </div>
@@ -1207,6 +1324,8 @@ export function renderEyeExamHtml(encounter, patient) {
                 </div>
             </div>
         </div>
+            </div><!-- /.eye-exam-content-area -->
+        </div><!-- /.eye-exam-workspace -->
     </div>
     `;
 }
