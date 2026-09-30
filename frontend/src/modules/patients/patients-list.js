@@ -13612,6 +13612,7 @@ function bindEyeExamEvents()
                 hpiDrawCard.style.display = "none";
                 hpiDrawBtn.classList.remove("active");
             } else {
+                hpiDrawCard.setAttribute("data-paper", "hpi");
                 hpiDrawCard.style.display = "block";
                 hpiDrawBtn.classList.add("active");
                 setTimeout(initDrawCanvas, 30);
@@ -13725,13 +13726,118 @@ function bindEyeExamEvents()
 
     if (hpiClearBtn) {
         hpiClearBtn.addEventListener("click", () => {
-            const ccInput = document.getElementById("eyeExam_cc");
-            const hpiText = document.getElementById("eyeExam_hpi_text");
-            const cpInput = document.getElementById("eyeExam_chronic_problems");
-            if (ccInput) ccInput.value = "";
-            if (hpiText) hpiText.value = "";
-            if (cpInput) cpInput.value = "";
-            showEyeExamNotification("HPI fields cleared.", "info");
+            const hpiCard = document.getElementById("eyeExamSecHpi");
+            const pmhCard = document.getElementById("eyeExamSecPmh");
+            const hpiNavTab = document.querySelector('.eye-exam-nav-tab[data-target="eyeExamSecHpi"]');
+            const pmhNavTab = document.querySelector('.eye-exam-nav-tab[data-target="eyeExamSecPmh"]');
+
+            if (!hpiCard) return;
+
+            const isCurrentlyHidden = hpiCard.style.display === "none";
+            if (isCurrentlyHidden) {
+                // Show HPI card again
+                hpiCard.style.display = "";
+                if (hpiNavTab) hpiNavTab.classList.add("active");
+                if (hpiDrawCard) {
+                    hpiDrawCard.setAttribute("data-paper", "hpi");
+                }
+            } else {
+                // Hide entire HPI card and close any open HPI side panels (elements, shorthand)
+                hpiCard.style.display = "none";
+                if (hpiNavTab) hpiNavTab.classList.remove("active");
+                if (hpiElementsCard) {
+                    hpiElementsCard.style.display = "none";
+                    if (hpiHistoryBtn) hpiHistoryBtn.classList.remove("active");
+                }
+                if (shorthandPopup) {
+                    shorthandPopup.style.display = "none";
+                }
+
+                // Activate PMH section & switch drawing template to PMSFH
+                if (pmhCard) {
+                    pmhCard.style.display = "";
+                }
+                if (pmhNavTab) {
+                    pmhNavTab.classList.add("active");
+                }
+                if (hpiDrawCard) {
+                    hpiDrawCard.setAttribute("data-paper", "pmh");
+                    hpiDrawCard.style.display = "block";
+                    setTimeout(initDrawCanvas, 30);
+                }
+                if (pmhCard) {
+                    pmhCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }
+            }
+        });
+    }
+
+    // PMSFH Action Buttons Wiring
+    const pmhDoctorBtn = document.getElementById("eyeExamPmhDoctorBtn");
+    const pmhHistoryBtn = document.getElementById("eyeExamPmhHistoryBtn");
+    const pmhDrawBtn = document.getElementById("eyeExamPmhDrawBtn");
+    const pmhClearBtn = document.getElementById("eyeExamPmhClearBtn");
+    const pmhSaveBtn = document.getElementById("eyeExamPmsfhSaveBtn");
+
+    if (pmhDoctorBtn && shorthandPopup) {
+        pmhDoctorBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = shorthandPopup.style.display === "block";
+            shorthandPopup.style.display = isOpen ? "none" : "block";
+            if (!isOpen && shorthandInput) {
+                setTimeout(() => shorthandInput.focus(), 50);
+            }
+        });
+    }
+
+    if (pmhHistoryBtn && hpiElementsCard) {
+        pmhHistoryBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = hpiElementsCard.style.display === "block";
+            hpiElementsCard.style.display = isOpen ? "none" : "block";
+            if (!isOpen) {
+                switchHpiElementsTab(1);
+            }
+        });
+    }
+
+    if (pmhDrawBtn && hpiDrawCard) {
+        pmhDrawBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = hpiDrawCard.style.display === "block";
+            if (isOpen) {
+                hpiDrawCard.style.display = "none";
+                pmhDrawBtn.classList.remove("active");
+            } else {
+                hpiDrawCard.setAttribute("data-paper", "pmh");
+                hpiDrawCard.style.display = "block";
+                pmhDrawBtn.classList.add("active");
+                setTimeout(initDrawCanvas, 30);
+                hpiDrawCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+        });
+    }
+
+    if (pmhClearBtn) {
+        pmhClearBtn.addEventListener("click", () => {
+            const pmhCard = document.getElementById("eyeExamSecPmh");
+            const pmhNavTab = document.querySelector('.eye-exam-nav-tab[data-target="eyeExamSecPmh"]');
+            if (!pmhCard) return;
+
+            const isCurrentlyHidden = pmhCard.style.display === "none";
+            if (isCurrentlyHidden) {
+                pmhCard.style.display = "";
+                if (pmhNavTab) pmhNavTab.classList.add("active");
+            } else {
+                pmhCard.style.display = "none";
+                if (pmhNavTab) pmhNavTab.classList.remove("active");
+            }
+        });
+    }
+
+    if (pmhSaveBtn) {
+        pmhSaveBtn.addEventListener("click", () => {
+            showEyeExamNotification("PMSFH record saved.", "success");
         });
     }
 }

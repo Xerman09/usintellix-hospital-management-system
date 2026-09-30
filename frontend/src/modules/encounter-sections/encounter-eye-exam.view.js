@@ -1422,6 +1422,52 @@ export const EYE_EXAM_STYLES = `
     border-color: #57534e;
     color: #fef3c7;
 }
+
+.eye-pmh-cream-box {
+    background: #fef9c3;
+    border: 1px solid #fef08a;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+:root[data-theme="dark"] .eye-pmh-cream-box {
+    background: #292524;
+    border-color: #44403c;
+}
+
+.eye-pmh-save-btn {
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid #1d4ed8;
+    border-radius: 5px;
+    padding: 6px 18px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+    transition: all 0.15s ease;
+}
+
+.eye-pmh-save-btn:hover {
+    background: #1d4ed8;
+    box-shadow: 0 2px 6px rgba(29, 78, 216, 0.35);
+}
+
+.eye-draw-paper-pmsfh {
+    display: none;
+}
+
+.eye-hpi-draw-card[data-paper="pmh"] .eye-draw-paper-hpi {
+    display: none;
+}
+
+.eye-hpi-draw-card[data-paper="pmh"] .eye-draw-paper-pmsfh {
+    display: block;
+}
 `;
 
 export function renderEyeExamHtml(encounter, patient) {
@@ -1687,7 +1733,7 @@ export function renderEyeExamHtml(encounter, patient) {
                                         <path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92.92 2.25 1.06 3.12 1 1.86-.14 3.88-1.5 3.88-3.5 0-.83-.67-1.5-1.5-1.5H7.07Z"></path>
                                     </svg>
                                 </button>
-                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiClearBtn" title="Clear HPI Fields">
+                                <button type="button" class="eye-exam-header-icon-btn" id="eyeExamHpiClearBtn" title="Hide / Toggle HPI">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                                         <circle cx="12" cy="12" r="10"></circle>
                                         <line x1="8" y1="12" x2="16" y2="12" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"></line>
@@ -1955,7 +2001,8 @@ export function renderEyeExamHtml(encounter, patient) {
 
                         <!-- Canvas Workspace with medical template overlay -->
                         <div class="eye-hpi-draw-canvas-container" id="eyeExamHpiCanvasContainer">
-                            <div class="eye-hpi-draw-paper">
+                            <!-- HPI Paper Template -->
+                            <div class="eye-hpi-draw-paper eye-draw-paper-hpi">
                                 <div class="eye-draw-paper-header">
                                     <span>NP</span>
                                     <span>CONSULT</span>
@@ -1979,6 +2026,42 @@ export function renderEyeExamHtml(encounter, patient) {
                                     <span style="font-weight: 500;">Reviewed</span>
                                 </div>
                             </div>
+
+                            <!-- PMSFH Paper Template -->
+                            <div class="eye-hpi-draw-paper eye-draw-paper-pmsfh">
+                                <div class="eye-draw-paper-field" style="margin-bottom: 10px;">
+                                    Referred by:
+                                    <span class="eye-draw-paper-line" style="width: calc(100% - 110px); min-width: 200px;"></span>
+                                </div>
+                                <div class="eye-draw-paper-field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                                    <span style="display: inline-block; width: 14px; height: 14px; border: 1.8px solid #0f172a; border-radius: 2px;"></span>
+                                    <span style="font-size: 11px; font-weight: 700;">PMSH/FH/MEDS/ALL/FH/ROS same as</span>
+                                    <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 30px; height: 12px;"></span>
+                                    <span>/</span>
+                                    <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 30px; height: 12px;"></span>
+                                    <span>/</span>
+                                    <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 30px; height: 12px;"></span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 10px; font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 16px;">
+                                    <div>
+                                        <div>PMH:</div>
+                                        <div style="margin-top: 36px;">PSH:</div>
+                                    </div>
+                                    <div>
+                                        <div>Meds:</div>
+                                        <div style="margin-top: 36px;">FH:</div>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                                            <span>SocHx:</span>
+                                            <span>cigs: <span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span>/<span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span></span>
+                                            <span>ETOH: <span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span>/<span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span></span>
+                                        </div>
+                                        <div style="margin-top: 36px;">ALL:</div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <canvas class="eye-draw-canvas-elem" id="eyeExamHpiDrawCanvas" width="600" height="215"></canvas>
                         </div>
 
@@ -1995,7 +2078,45 @@ export function renderEyeExamHtml(encounter, patient) {
             <!-- PMSFH Card -->
             <div class="eye-exam-card" id="eyeExamSecPmh">
                 <div class="eye-exam-card-header">
-                    <span>PMSFH (Past Medical, Social, Family History & Meds)</span>
+                    <span>PMSFH:</span>
+                    <div class="eye-exam-card-actions">
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmhDoctorBtn" title="Doctor Shorthand">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                                <path d="M10 19v2m4-2v2"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmhHistoryBtn" title="PMSFH Elements / Database">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmhDrawBtn" title="Drawing / Annotation Tool">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path>
+                                <path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92.92 2.25 1.06 3.12 1 1.86-.14 3.88-1.5 3.88-3.5 0-.83-.67-1.5-1.5-1.5H7.07Z"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmhListBtn" title="List View">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="8" y1="6" x2="21" y2="6"></line>
+                                <line x1="8" y1="12" x2="21" y2="12"></line>
+                                <line x1="8" y1="18" x2="21" y2="18"></line>
+                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                            </svg>
+                        </button>
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmhClearBtn" title="Collapse / Hide PMSFH">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="8" y1="12" x2="16" y2="12" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"></line>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="eye-exam-card-body">
                     <div class="eye-exam-radio-group">
@@ -2010,27 +2131,36 @@ export function renderEyeExamHtml(encounter, patient) {
                         <label class="eye-exam-radio-label"><input type="radio" name="eyeExamPmsfhCat" value="Soc"> Soc</label>
                         <label class="eye-exam-radio-label"><input type="radio" name="eyeExamPmsfhCat" value="ROS"> ROS</label>
                     </div>
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                        <div>
-                            <label style="font-size: 11px; font-weight: 600; display: block;">Medication / History:</label>
+
+                    <div class="eye-pmh-cream-box">
+                        <div style="margin-bottom: 8px;">
+                            <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">Medication:</label>
                             <input type="text" class="eye-exam-input" id="eyeExam_medication" placeholder="Name / condition">
                         </div>
-                        <div>
-                            <label style="font-size: 11px; font-weight: 600; display: block;">Start:</label>
-                            <input type="date" class="eye-exam-input" id="eyeExam_med_start">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                            <div>
+                                <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">Start:</label>
+                                <input type="date" class="eye-exam-input" id="eyeExam_med_start">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <input type="checkbox" id="eyeExam_med_finish_check"> Finish:
+                                </label>
+                                <input type="date" class="eye-exam-input" id="eyeExam_med_finish">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <label class="eye-exam-radio-label" style="font-weight: 700;"><input type="checkbox" id="eyeExam_is_eye_med"> Eye Med</label>
                         </div>
                         <div>
-                            <label style="font-size: 11px; font-weight: 600; display: block;">Finish:</label>
-                            <input type="date" class="eye-exam-input" id="eyeExam_med_finish">
+                            <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px;">Comments:</label>
+                            <textarea class="eye-exam-input" id="eyeExam_pmsfh_comments" rows="3" placeholder="Dosage, instructions, compliance..."></textarea>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <label class="eye-exam-radio-label"><input type="checkbox" id="eyeExam_is_eye_med"> Eye Med</label>
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 3px;">Comments / Dosing / Notes:</label>
-                        <textarea class="eye-exam-input" id="eyeExam_pmsfh_comments" rows="2" placeholder="Dosage, compliance, side-effects..."></textarea>
-                    </div>
+
+                    <button type="button" class="eye-pmh-save-btn" id="eyeExamPmsfhSaveBtn">
+                        <span>&#10003; Save</span>
+                    </button>
                 </div>
             </div>
         </div>
