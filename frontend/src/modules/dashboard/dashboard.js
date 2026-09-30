@@ -115,6 +115,8 @@ import { VisitTypesView } from "../visit-types/visit-types.view.js";
 import { initVisitTypes } from "../visit-types/visit-types.js";
 import { FacilitiesView } from "../facilities/facilities.view.js";
 import { initFacilities } from "../facilities/facilities.js";
+import { DepartmentRegistrationView } from "../department-registration/department-registration.view.js";
+import { initDepartmentRegistration } from "../department-registration/department-registration.js";
 import { FacilityBillingsView } from "../facility-billings/facility-billings.view.js";
 import { initFacilityBillings } from "../facility-billings/facility-billings.js";
 import { AllergiesView } from "../allergies/allergies.view.js";
@@ -868,6 +870,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initFacilities, 0);
                 return FacilitiesView();
+            }, activate);
+        } else if (tabId === 'department_registration' || tabId === 'departments') {
+            tabManager.openTab('department_registration', 'Department Registration', () => {
+                setTimeout(initDepartmentRegistration, 0);
+                return DepartmentRegistrationView();
             }, activate);
         } else if (tabId === 'facility_billings') {
             tabManager.openTab(tabId, title, () => {

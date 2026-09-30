@@ -5636,3 +5636,54 @@ select.form-input {
     color: #b91c1c;
 }
 
+/* ==========================================================================
+   Department Registration Module Dark Mode Overrides
+   ========================================================================== */
+:root[data-theme="dark"] .dept-stat-card,
+:root[data-theme="dark"] .dept-card-item,
+:root[data-theme="dark"] .dept-table-wrap {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .dept-table th {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .dept-table td {
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .dept-table tbody tr:hover {
+    background: rgba(29, 78, 216, 0.08);
+}
+
+:root[data-theme="dark"] .dept-search-input,
+:root[data-theme="dark"] .dept-select-filter,
+:root[data-theme="dark"] .dept-info-textarea {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .dept-btn-icon,
+:root[data-theme="dark"] .dept-view-btn {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .dept-stat-val {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .dept-name-title {
+    color: var(--text-primary);
+}
+
+
+
