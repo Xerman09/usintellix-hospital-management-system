@@ -102,7 +102,7 @@ function staffNavLinks(role)
                     <div class="dropdown-submenu-content">
                         <a data-tab="facilities">Facilities</a>
                         <a data-tab="room_management">Buildings &amp; Rooms</a>
-                        <a data-tab="department_registration">Department Registration</a>
+                        <a data-tab="department_management">Department Management</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
