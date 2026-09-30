@@ -246,13 +246,14 @@ async function loadOptions() {
 
             // Head of Department Select in Form
             const formHead = document.getElementById("dept_head");
-            if (formHead && employees) {
+            if (formHead && Array.isArray(employees)) {
                 formHead.innerHTML = '<option value="">-- Select Assigned HOD --</option>';
                 employees.forEach(emp => {
                     const opt = document.createElement("option");
                     opt.value = emp.id;
-                    const roleSuffix = emp.user_role ? ` (${emp.user_role})` : '';
-                    opt.textContent = `${emp.name}${roleSuffix}`;
+                    const displayName = emp.full_name || emp.name || emp.username || `Staff #${emp.employee_no || emp.id}`;
+                    const roleSuffix = emp.user_role ? ` (${emp.user_role.charAt(0).toUpperCase() + emp.user_role.slice(1)})` : '';
+                    opt.textContent = `${displayName}${roleSuffix}`;
                     formHead.appendChild(opt);
                 });
             }

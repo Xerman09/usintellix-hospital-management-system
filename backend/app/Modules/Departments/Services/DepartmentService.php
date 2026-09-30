@@ -451,10 +451,15 @@ class DepartmentService
 
         $employeesStmt = $db->query("
             SELECT e.id, e.employee_no, 
-                   TRIM(CONCAT(e.first_name, ' ', e.last_name)) AS full_name,
+                   TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))) AS full_name,
+                   TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))) AS name,
                    e.email,
+                   u.username,
+                   r.name AS user_role,
                    d.name AS current_department
             FROM employees e
+            LEFT JOIN users u ON u.id = e.user_id AND u.deleted_at IS NULL
+            LEFT JOIN roles r ON r.id = u.role_id AND r.deleted_at IS NULL
             LEFT JOIN departments d ON d.id = e.department_id AND d.deleted_at IS NULL
             WHERE e.deleted_at IS NULL
             ORDER BY e.last_name ASC, e.first_name ASC
