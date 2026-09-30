@@ -10973,6 +10973,9 @@ function setupEncounterModals()
         await loadEncounterDetailTable(currentDashboardPatient);
         await loadDashboardEncounters(currentDashboardPatient);
         await loadVisitHistoryList(currentDashboardPatient);
+        if (patientContextActivePatient) {
+            setupPatientContextEncounters(patientContextActivePatient);
+        }
 
         const savedEncounter = savedEncounterId
             ? visitHistoryEncounters.find((e) => String(e.id) === String(savedEncounterId))
@@ -11081,6 +11084,9 @@ function renderEncounterDetailTable(encounters)
             await loadEncounterDetailTable(currentDashboardPatient);
             await loadDashboardEncounters(currentDashboardPatient);
             await loadVisitHistoryList(currentDashboardPatient);
+            if (patientContextActivePatient) {
+                setupPatientContextEncounters(patientContextActivePatient);
+            }
         });
     });
 }
@@ -12933,6 +12939,9 @@ function setupDeleteSectionModal()
 
             if (currentDashboardPatient) {
                 await loadVisitHistoryList(currentDashboardPatient);
+                if (patientContextActivePatient) {
+                    setupPatientContextEncounters(patientContextActivePatient);
+                }
             }
 
             return;
@@ -15687,6 +15696,347 @@ function showPatientContextBar(patient)
     document.getElementById("patientContextClose").onclick = hidePatientContextBar;
 
     bar.style.display = "flex";
+    setupPatientContextEncounters(patient);
+}
+
+let patientContextActivePatient = null;
+let patientContextEncountersList = [];
+let patientContextEventsWired = false;
+
+function ensurePatientContextDropdownListeners()
+{
+    if (patientContextEventsWired) return;
+    patientContextEventsWired = true;
+
+    document.addEventListener("click", (e) => {
+        const wrap = document.getElementById("patientContextDropdownWrap");
+        const menu = document.getElementById("patientContextEncounterMenu");
+        const dropdownBtn = document.getElementById("patientContextEncounterBtn");
+        if (wrap && menu && menu.style.display === "block") {
+            if (!wrap.contains(e.target)) {
+                menu.style.display = "none";
+                if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            }
+        }
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            const menu = document.getElementById("patientContextEncounterMenu");
+            const dropdownBtn = document.getElementById("patientContextEncounterBtn");
+            if (menu && menu.style.display === "block") {
+                menu.style.display = "none";
+                if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            }
+        }
+    });
+}
+
+async function setupPatientContextEncounters(patient)
+{
+    patientContextActivePatient = patient;
+    ensurePatientContextDropdownListeners();
+
+    const encountersContainer = document.getElementById("patientContextEncounters");
+    if (!encountersContainer) {
+        return;
+    }
+
+    const countBadge = document.getElementById("patientContextEncounterCountBadge");
+    const menu = document.getElementById("patientContextEncounterMenu");
+    const listEl = document.getElementById("patientContextEncounterList");
+    const dropdownBtn = document.getElementById("patientContextEncounterBtn");
+    const historyBtn = document.getElementById("patientContextHistoryBtn");
+    const addBtn = document.getElementById("patientContextAddEncounterBtn");
+
+    if (countBadge) {
+        countBadge.textContent = "...";
+    }
+
+    if (menu) {
+        menu.style.display = "none";
+    }
+    if (dropdownBtn) {
+        dropdownBtn.setAttribute("aria-expanded", "false");
+    }
+
+    // Past encounters / History button
+    if (historyBtn) {
+        historyBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!patientContextActivePatient) return;
+            if (menu) menu.style.display = "none";
+            if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            if (window.tabManager && window.tabManager.activeTabId === 'patient_chart' && currentDashboardPatient?.id === patientContextActivePatient.id) {
+                showChartSection("encounter");
+                const vhp = document.getElementById("pdVisitHistoryPanel");
+                const esp = document.getElementById("pdEncounterSummaryPanel");
+                if (vhp) vhp.style.display = "block";
+                if (esp) esp.style.display = "none";
+            } else {
+                openPatientChartTab(patientContextActivePatient, true);
+                setTimeout(() => {
+                    showChartSection("encounter");
+                    const vhp = document.getElementById("pdVisitHistoryPanel");
+                    const esp = document.getElementById("pdEncounterSummaryPanel");
+                    if (vhp) vhp.style.display = "block";
+                    if (esp) esp.style.display = "none";
+                }, 250);
+            }
+        };
+    }
+
+    // Add Encounter (+) button
+    if (addBtn) {
+        addBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!patientContextActivePatient) return;
+            if (menu) menu.style.display = "none";
+            if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            if (window.tabManager && window.tabManager.activeTabId === 'patient_chart' && currentDashboardPatient?.id === patientContextActivePatient.id) {
+                openEncounterFormModal(null);
+            } else {
+                openPatientChartTab(patientContextActivePatient, true);
+                setTimeout(() => {
+                    openEncounterFormModal(null);
+                }, 250);
+            }
+        };
+    }
+
+    // Dropdown toggle button
+    if (dropdownBtn) {
+        dropdownBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!menu) return;
+            const isOpen = menu.style.display === "block";
+            menu.style.display = isOpen ? "none" : "block";
+            dropdownBtn.setAttribute("aria-expanded", isOpen ? "false" : "true");
+        };
+    }
+
+    try {
+        const result = await fetchPatientEncounters(patient.id);
+        const encounters = (result && result.success && Array.isArray(result.data)) ? result.data : [];
+        patientContextEncountersList = encounters;
+
+        if (countBadge) {
+            countBadge.textContent = String(encounters.length);
+        }
+
+        renderPatientContextEncountersMenu(encounters, patient);
+    } catch (err) {
+        console.error("Failed to load patient encounters for context bar", err);
+        if (countBadge) {
+            countBadge.textContent = "0";
+        }
+        if (listEl) {
+            listEl.innerHTML = `<div class="pc-encounter-empty">Unable to load encounters.</div>`;
+        }
+    }
+}
+
+let pcEncounterFilterText = "";
+
+function renderPatientContextEncountersMenu(encounters, patient)
+{
+    const listEl = document.getElementById("patientContextEncounterList");
+    const menu = document.getElementById("patientContextEncounterMenu");
+    const dropdownBtn = document.getElementById("patientContextEncounterBtn");
+    const searchWrap = document.getElementById("patientContextSearchWrap");
+    const searchInput = document.getElementById("pcEncounterSearchInput");
+    const counterBadge = document.getElementById("patientContextEncounterCountBadge");
+    const menuCounter = document.getElementById("patientContextMenuCounter");
+    const quickAddBtn = document.getElementById("pcMenuQuickAddBtn");
+    const historyLink = document.getElementById("pcMenuHistoryLink");
+
+    if (!listEl) return;
+
+    if (counterBadge) {
+        counterBadge.textContent = String(encounters.length);
+    }
+    if (menuCounter) {
+        menuCounter.textContent = `${encounters.length} visit${encounters.length === 1 ? '' : 's'}`;
+    }
+
+    if (quickAddBtn) {
+        quickAddBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (menu) menu.style.display = "none";
+            if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            if (window.tabManager && window.tabManager.activeTabId === 'patient_chart' && currentDashboardPatient?.id === patient.id) {
+                openEncounterFormModal(null);
+            } else {
+                openPatientChartTab(patient, true);
+                setTimeout(() => openEncounterFormModal(null), 250);
+            }
+        };
+    }
+
+    if (historyLink) {
+        historyLink.onclick = (e) => {
+            e.stopPropagation();
+            if (menu) menu.style.display = "none";
+            if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            if (window.tabManager && window.tabManager.activeTabId === 'patient_chart' && currentDashboardPatient?.id === patient.id) {
+                showChartSection("encounter");
+                const vhp = document.getElementById("pdVisitHistoryPanel");
+                const esp = document.getElementById("pdEncounterSummaryPanel");
+                if (vhp) vhp.style.display = "block";
+                if (esp) esp.style.display = "none";
+            } else {
+                openPatientChartTab(patient, true);
+                setTimeout(() => {
+                    showChartSection("encounter");
+                    const vhp = document.getElementById("pdVisitHistoryPanel");
+                    const esp = document.getElementById("pdEncounterSummaryPanel");
+                    if (vhp) vhp.style.display = "block";
+                    if (esp) esp.style.display = "none";
+                }, 250);
+            }
+        };
+    }
+
+    if (searchWrap) {
+        if (encounters.length >= 4) {
+            searchWrap.style.display = "flex";
+            if (searchInput && !searchInput.dataset.wired) {
+                searchInput.dataset.wired = "true";
+                searchInput.addEventListener("input", (e) => {
+                    pcEncounterFilterText = e.target.value.toLowerCase().trim();
+                    renderPatientContextEncountersMenu(patientContextEncountersList, patient);
+                });
+            }
+        } else {
+            searchWrap.style.display = "none";
+            pcEncounterFilterText = "";
+            if (searchInput) searchInput.value = "";
+        }
+    }
+
+    const filtered = pcEncounterFilterText
+        ? encounters.filter((enc) => {
+            const dateStr = (enc.date_of_service || "").toLowerCase();
+            const catStr = (enc.visit_category_name || "").toLowerCase();
+            const reasonStr = (enc.reason_for_visit || "").toLowerCase();
+            const provStr = (enc.encounter_provider_name || "").toLowerCase();
+            return dateStr.includes(pcEncounterFilterText) ||
+                catStr.includes(pcEncounterFilterText) ||
+                reasonStr.includes(pcEncounterFilterText) ||
+                provStr.includes(pcEncounterFilterText);
+        })
+        : encounters;
+
+    if (!filtered.length) {
+        if (pcEncounterFilterText) {
+            listEl.innerHTML = `<div class="pc-encounter-empty">No visits match "${escapeHtml(pcEncounterFilterText)}".</div>`;
+        } else {
+            listEl.innerHTML = `
+                <div class="pc-encounter-empty">
+                    <div>No encounters recorded for this patient.</div>
+                    <button type="button" class="btn-primary pc-encounter-new-inline-btn" id="pcEncounterEmptyNewBtn">+ New Encounter</button>
+                </div>
+            `;
+            const newBtn = document.getElementById("pcEncounterEmptyNewBtn");
+            if (newBtn) {
+                newBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (menu) menu.style.display = "none";
+                    if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+                    if (window.tabManager && window.tabManager.activeTabId === 'patient_chart' && currentDashboardPatient?.id === patient.id) {
+                        openEncounterFormModal(null);
+                    } else {
+                        openPatientChartTab(patient, true);
+                        setTimeout(() => openEncounterFormModal(null), 250);
+                    }
+                };
+            }
+        }
+        return;
+    }
+
+    const currentActiveEncId = currentEncounterSummary?.encounter?.id ? String(currentEncounterSummary.encounter.id) : null;
+
+    listEl.innerHTML = filtered.map((enc) => {
+        const rawDate = (enc.date_of_service || "").slice(0, 10);
+        const categoryName = enc.visit_category_name || "";
+        const reason = enc.reason_for_visit || "";
+        const provider = enc.encounter_provider_name || "";
+        const isActive = currentActiveEncId && String(enc.id) === currentActiveEncId;
+
+        const categoryBadgeHtml = categoryName
+            ? `<span class="pc-category-tag">${escapeHtml(categoryName)}</span>`
+            : "";
+        const activeBadgeHtml = isActive
+            ? `<span class="pc-active-indicator">Active</span>`
+            : "";
+
+        const subtitleParts = [];
+        if (reason) subtitleParts.push(escapeHtml(reason));
+        if (provider) subtitleParts.push(`Dr. ${escapeHtml(provider)}`);
+        const subHtml = subtitleParts.length
+            ? `<div class="pc-item-sub">${subtitleParts.join(" &bull; ")}</div>`
+            : "";
+
+        return `
+            <div class="pc-encounter-item ${isActive ? 'active' : ''}" data-encounter-id="${enc.id}">
+                <div class="pc-item-main">
+                    <div class="pc-item-top">
+                        <span class="pc-item-date">${escapeHtml(rawDate || "Undated")}</span>
+                        ${categoryBadgeHtml}
+                        ${activeBadgeHtml}
+                    </div>
+                    ${subHtml}
+                </div>
+                <div class="pc-item-actions">
+                    <button type="button" class="pc-encounter-item-review" data-review-encounter-id="${enc.id}" title="Review this encounter">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                            <path d="M3 3v5h5"></path>
+                        </svg>
+                        <span>Review</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    listEl.querySelectorAll(".pc-encounter-item").forEach((item) => {
+        const encId = item.getAttribute("data-encounter-id");
+        const enc = encounters.find((e) => String(e.id) === String(encId));
+        if (!enc) return;
+
+        const openEncounterAction = () => {
+            if (menu) menu.style.display = "none";
+            if (dropdownBtn) dropdownBtn.setAttribute("aria-expanded", "false");
+            if (window.tabManager && window.tabManager.activeTabId === 'patient_chart' && currentDashboardPatient?.id === patient.id) {
+                showChartSection("encounter");
+                openEncounterSummary(enc);
+            } else {
+                openPatientChartTab(patient, true);
+                setTimeout(() => {
+                    showChartSection("encounter");
+                    openEncounterSummary(enc);
+                }, 250);
+            }
+        };
+
+        item.onclick = (e) => {
+            if (e.target.closest(".pc-encounter-item-review")) return;
+            openEncounterAction();
+        };
+
+        const reviewBtn = item.querySelector(".pc-encounter-item-review");
+        if (reviewBtn) {
+            reviewBtn.onclick = (e) => {
+                e.stopPropagation();
+                openEncounterAction();
+            };
+        }
+    });
 }
 
 function hidePatientContextBar()
@@ -15696,6 +16046,17 @@ function hidePatientContextBar()
     if (bar) {
         bar.style.display = "none";
     }
+
+    const menu = document.getElementById("patientContextEncounterMenu");
+    if (menu) {
+        menu.style.display = "none";
+    }
+    const dropdownBtn = document.getElementById("patientContextEncounterBtn");
+    if (dropdownBtn) {
+        dropdownBtn.setAttribute("aria-expanded", "false");
+    }
+    patientContextActivePatient = null;
+    patientContextEncountersList = [];
 
     clearLastActivePatientChart();
 

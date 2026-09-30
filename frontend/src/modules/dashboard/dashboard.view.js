@@ -749,6 +749,58 @@ export function DashboardView()
             </div>
             <div class="patient-context-meta" id="patientContextMeta">&nbsp;</div>
         </div>
+        <div class="patient-context-encounters" id="patientContextEncounters">
+            <button type="button" class="pc-encounter-icon-btn" id="patientContextHistoryBtn" title="Past Encounters / Visit History" aria-label="Past Encounters">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                </svg>
+            </button>
+            <div class="pc-encounter-btn-group">
+                <div class="pc-encounter-dropdown-wrap" id="patientContextDropdownWrap">
+                    <button type="button" class="pc-encounter-dropdown-btn" id="patientContextEncounterBtn" aria-haspopup="true" aria-expanded="false" title="Select Encounter">
+                        <svg class="pc-btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span id="patientContextEncounterBtnText">Select Encounter</span>
+                        <span class="pc-count-badge" id="patientContextEncounterCountBadge">0</span>
+                        <svg class="pc-encounter-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="pc-encounter-menu" id="patientContextEncounterMenu" style="display: none;">
+                        <div class="pc-encounter-menu-header">
+                            <div class="pc-menu-title-wrap">
+                                <span class="pc-menu-title">Patient Encounters</span>
+                                <span class="pc-menu-counter" id="patientContextMenuCounter">0 visits</span>
+                            </div>
+                            <button type="button" class="pc-menu-quick-add-btn" id="pcMenuQuickAddBtn" title="Create New Encounter">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <span>New</span>
+                            </button>
+                        </div>
+                        <div class="pc-encounter-search-wrap" id="patientContextSearchWrap" style="display: none;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" class="pc-encounter-search-input" id="pcEncounterSearchInput" placeholder="Filter encounters..." autocomplete="off">
+                        </div>
+                        <div class="pc-encounter-list" id="patientContextEncounterList">
+                            <!-- Loaded dynamically -->
+                        </div>
+                        <div class="pc-encounter-menu-footer">
+                            <button type="button" class="pc-menu-footer-link" id="pcMenuHistoryLink">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                                <span>View All Visit History</span>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="pc-encounter-add-btn" id="patientContextAddEncounterBtn" title="New Encounter" aria-label="New Encounter">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="tab-bar" id="tabBar">
