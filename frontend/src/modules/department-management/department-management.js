@@ -197,7 +197,7 @@ export async function initDepartmentManagement() {
 async function loadStats() {
     try {
         const res = await fetchDepartmentStats();
-        if (res.status === "success" && res.data) {
+        if ((res.success || res.status === "success") && res.data) {
             const stats = res.data;
             const elTotal = document.getElementById("statTotalDepts");
             const elActive = document.getElementById("statActiveDepts");
@@ -217,12 +217,13 @@ async function loadStats() {
 async function loadOptions() {
     try {
         const res = await fetchDepartmentOptions();
-        if (res.status === "success" && res.data) {
+        if ((res.success || res.status === "success") && res.data) {
             const { facilities, employees } = res.data;
 
             // Facility Filter in Toolbar
             const facilityFilter = document.getElementById("deptFacilityFilter");
-            if (facilityFilter && facilities) {
+            if (facilityFilter && Array.isArray(facilities)) {
+                const currentFilterVal = facilityFilter.value;
                 facilityFilter.innerHTML = '<option value="all">All Facilities</option>';
                 facilities.forEach(fac => {
                     const opt = document.createElement("option");
@@ -230,11 +231,13 @@ async function loadOptions() {
                     opt.textContent = fac.name;
                     facilityFilter.appendChild(opt);
                 });
+                if (currentFilterVal) facilityFilter.value = currentFilterVal;
             }
 
             // Facility Select in Form
             const formFacility = document.getElementById("dept_facility");
-            if (formFacility && facilities) {
+            if (formFacility && Array.isArray(facilities)) {
+                const currentFacVal = formFacility.value;
                 formFacility.innerHTML = '<option value="">-- Main Facility / General --</option>';
                 facilities.forEach(fac => {
                     const opt = document.createElement("option");
@@ -242,11 +245,13 @@ async function loadOptions() {
                     opt.textContent = fac.name;
                     formFacility.appendChild(opt);
                 });
+                if (currentFacVal) formFacility.value = currentFacVal;
             }
 
             // Head of Department Select in Form
             const formHead = document.getElementById("dept_head");
             if (formHead && Array.isArray(employees)) {
+                const currentHeadVal = formHead.value;
                 formHead.innerHTML = '<option value="">-- Select Assigned HOD --</option>';
                 employees.forEach(emp => {
                     const opt = document.createElement("option");
@@ -256,6 +261,7 @@ async function loadOptions() {
                     opt.textContent = `${displayName}${roleSuffix}`;
                     formHead.appendChild(opt);
                 });
+                if (currentHeadVal) formHead.value = currentHeadVal;
             }
         }
     } catch (err) {
@@ -275,7 +281,7 @@ async function loadDepartments(filters = {}) {
 
     try {
         const res = await fetchDepartments(filters);
-        if (res.status === "success" && Array.isArray(res.data)) {
+        if ((res.success || res.status === "success") && Array.isArray(res.data)) {
             departmentsData = res.data;
             sortAndRender();
         } else {
@@ -575,8 +581,9 @@ function renderGridView(departments) {
 // Form & Modal Management
 // =========================================================================
 
-function openCreateModal() {
+async function openCreateModal() {
     clearForm();
+    await loadOptions();
     const modalTitle = document.getElementById("deptModalTitle");
     if (modalTitle) {
         modalTitle.textContent = "Add Department";
@@ -585,8 +592,9 @@ function openCreateModal() {
     if (modal) modal.classList.add("open");
 }
 
-function openEditModal(dept) {
+async function openEditModal(dept) {
     clearForm();
+    await loadOptions();
     const modalTitle = document.getElementById("deptModalTitle");
     if (modalTitle) {
         modalTitle.textContent = `Edit Department: ${dept.name}`;
@@ -783,7 +791,7 @@ window.deptViewStaff = async function(id) {
 
     try {
         const res = await fetchDepartmentStaff(id);
-        if (res.status === "success" && res.data) {
+        if ((res.success || res.status === "success") && res.data) {
             const { department, staff } = res.data;
             if (title) {
                 title.textContent = `${department.name} - Personnel Roster (${staff.length})`;

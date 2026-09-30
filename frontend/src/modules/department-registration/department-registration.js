@@ -160,7 +160,7 @@ async function loadStats() {
 async function loadOptions() {
     try {
         const res = await fetchDepartmentOptions();
-        if (res.status === "success" && res.data) {
+        if ((res.success || res.status === "success") && res.data) {
             const { facilities, employees } = res.data;
 
             // Facility Filter in Toolbar
@@ -220,7 +220,7 @@ async function loadDepartments(filters = {}) {
 
     try {
         const res = await fetchDepartments(filters);
-        if (res.status === "success" && Array.isArray(res.data)) {
+        if ((res.success || res.status === "success") && Array.isArray(res.data)) {
             departmentsData = res.data;
             renderDepartments(departmentsData);
         } else {
