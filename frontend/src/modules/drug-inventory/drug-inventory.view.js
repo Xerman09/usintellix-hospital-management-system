@@ -568,6 +568,10 @@ export function DrugInventoryView() {
     <div class="di-toolbar">
         <h1>Drug Inventory</h1>
         <div class="di-toolbar-actions">
+            <button type="button" class="di-btn" id="diTemplateBtn" title="Blank CSV with the import columns and one example row">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download Template
+            </button>
             <button type="button" class="di-btn" id="diImportBtn">Import CSV</button>
             <button type="button" class="di-btn" id="diReceiveBtn">Receive Stock</button>
             <button type="button" class="di-btn primary" id="diAddDrugBtn">+ Register Drug</button>

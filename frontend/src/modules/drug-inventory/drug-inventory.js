@@ -662,15 +662,10 @@ function setupImportModal() {
     document.getElementById("diCancelImport").addEventListener("click", closeModal);
     overlay.addEventListener("click", (event) => { if (event.target === overlay) closeModal(); });
 
+    document.getElementById("diTemplateBtn").addEventListener("click", downloadImportTemplate);
     document.getElementById("diDownloadTemplate").addEventListener("click", (event) => {
         event.preventDefault();
-        const csv = [CSV_COLUMNS, CSV_EXAMPLE].map((row) => row.map(csvEscape).join(",")).join("\r\n");
-        const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "drug-catalog-template.csv";
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        downloadImportTemplate();
     });
 
     fileInput.addEventListener("change", async () => {
@@ -732,6 +727,17 @@ function setupImportModal() {
 
         if (created > 0) await loadCatalog();
     });
+}
+
+function downloadImportTemplate() {
+    const csv = [CSV_COLUMNS, CSV_EXAMPLE].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+    // The BOM makes Excel open the file as UTF-8 (the example row has a degree sign).
+    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "drug-catalog-template.csv";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function parseCsv(text) {
