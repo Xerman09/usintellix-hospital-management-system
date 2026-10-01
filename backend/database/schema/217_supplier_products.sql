@@ -8,9 +8,9 @@
 --              box -- uses drugs.package_quantity to get a unit price)
 --            * discount_*: optional % or fixed-peso discount with an
 --              optional label, validity window and minimum quantity
---          One active listing per supplier + item + price basis is
---          enforced in SupplierProductService (soft deletes rule out a
---          plain UNIQUE key).
+--          One listing per supplier + item (whatever its price basis)
+--          is enforced in SupplierProductService (soft deletes rule out
+--          a plain UNIQUE key).
 -- ========================================================
 
 CREATE TABLE IF NOT EXISTS supplier_products (

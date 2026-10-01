@@ -4,7 +4,7 @@ import {
 import { showToast } from "../../core/toast.js";
 import { createCsvImport } from "../../core/csv-import.js?v=1";
 import { fetchSupplierPrices, deleteSupplierPrice } from "../supplier-prices/supplier-prices.service.js?v=2";
-import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=2";
+import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=3";
 
 const IMPORT_COLUMNS = [
     "name", "supplier_type", "product_types", "contact_person", "phone", "mobile", "email", "website",
@@ -531,7 +531,7 @@ function setupProducts() {
 function addProduct() {
     if (!editing) return;
 
-    priceForm.open({ supplierId: editing.id, lockSupplier: true, existing: products });
+    priceForm.open({ supplierId: editing.id, lockSupplier: true });
 }
 
 async function loadProducts() {
@@ -591,6 +591,7 @@ function renderProducts() {
         const basisLabel = p.price_basis === "package" ? (p.package_unit_name || "package") : unit;
         const discounted = p.discount_status === "active" && p.discounted_price !== p.price;
         const usable = p.is_active && p.supplier_is_active;
+        const isDuplicate = products.filter((other) => other.drug_id === p.drug_id).length > 1;
 
         let compared = `<span class="sp-sub">—</span>`;
 
@@ -607,6 +608,7 @@ function renderProducts() {
                     ${escapeHtml(p.drug_name)}
                     <span class="sp-sub">${escapeHtml([p.supplier_item_code ? `Item ${p.supplier_item_code}` : null, p.min_order_qty ? `Min. order ${formatQuantity(p.min_order_qty)} ${basisLabel}` : null].filter(Boolean).join(" · ") || "")}</span>
                     ${p.is_active ? "" : `<span class="spf-tag inactive">Not available</span>`}
+                    ${isDuplicate ? `<span class="spf-tag duplicate" title="Each supplier should have one price per item. Remove the one you don't need.">Duplicate &mdash; remove one</span>` : ""}
                 </td>
                 <td style="white-space:nowrap;">
                     ${discounted ? `<span class="spf-strike">${formatPrice(p.price)}</span>` : ""}
@@ -629,7 +631,7 @@ function renderProducts() {
     body.querySelectorAll("[data-sp-price-edit]").forEach((btn) => {
         btn.addEventListener("click", () => {
             const listing = products.find((p) => p.id === Number(btn.dataset.spPriceEdit));
-            priceForm.open({ listing, lockSupplier: true, existing: products });
+            priceForm.open({ listing, lockSupplier: true });
         });
     });
 

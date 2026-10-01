@@ -12,7 +12,7 @@
  */
 
 import {
-    fetchSupplierPriceOptions, createSupplierPrice, updateSupplierPrice, deleteSupplierPrice
+    fetchSupplierPrices, fetchSupplierPriceOptions, createSupplierPrice, updateSupplierPrice, deleteSupplierPrice
 } from "./supplier-prices.service.js?v=2";
 import { showToast } from "../../core/toast.js";
 
@@ -41,7 +41,10 @@ export function createSupplierPriceForm(config) {
 
     let options = { drugs: [], suppliers: [] };
     let editing = null;
-    let existingForSupplier = [];
+    let lastOpts = {};
+    // Every existing price (all suppliers), used to stop a second price
+    // for a supplier + item that already has one.
+    let allListings = [];
 
     config.mount.insertAdjacentHTML("beforeend", markup(p));
 
@@ -53,7 +56,11 @@ export function createSupplierPriceForm(config) {
     $("Cancel").addEventListener("click", close);
     overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
 
-    field("drug_id").addEventListener("change", applyDrug);
+    field("drug_id").addEventListener("change", () => {
+        applyDrug();
+        refreshAvailability();
+    });
+    field("supplier_id").addEventListener("change", refreshAvailability);
     form.addEventListener("input", updateSummary);
     form.addEventListener("change", (event) => {
         if (event.target.name === `${p}_discount_type`) applyDiscountType();
@@ -79,6 +86,11 @@ export function createSupplierPriceForm(config) {
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
         clearErrors();
+
+        if (findDuplicate()) {
+            refreshAvailability();
+            return;
+        }
 
         const payload = {
             drug_id: field("drug_id").value,
@@ -120,19 +132,19 @@ export function createSupplierPriceForm(config) {
      * @param {number} [opts.drugId]         preset item for a new price
      * @param {number} [opts.supplierId]     preset supplier for a new price
      * @param {boolean} [opts.lockSupplier]  keep the supplier fixed
-     * @param {object[]} [opts.existing]     this supplier's current listings, to flag items already priced
      */
     async function open(opts = {}) {
-        const result = await fetchSupplierPriceOptions();
+        const [result, listingsResult] = await Promise.all([fetchSupplierPriceOptions(), fetchSupplierPrices(true)]);
 
-        if (!result.success) {
-            showToast(result.message || "Couldn't load items and suppliers.", "error");
+        if (!result.success || !listingsResult.success) {
+            showToast(result.message || listingsResult.message || "Couldn't load items and suppliers.", "error");
             return;
         }
 
         options = result.data;
+        allListings = listingsResult.data || [];
         editing = opts.listing || null;
-        existingForSupplier = opts.existing || [];
+        lastOpts = opts;
 
         form.reset();
         clearErrors();
@@ -162,6 +174,7 @@ export function createSupplierPriceForm(config) {
         applyDrug();
         applyDiscountType();
         updateSummary();
+        refreshAvailability();
 
         overlay.classList.add("open");
 
@@ -170,13 +183,8 @@ export function createSupplierPriceForm(config) {
     }
 
     function fillSelects(listing) {
-        const priced = new Map(existingForSupplier.map((l) => [l.drug_id, l.price_basis]));
-
         field("drug_id").innerHTML = `<option value="">-- Select a medicine or item --</option>` +
-            options.drugs.map((d) => {
-                const tags = [d.is_active ? null : "inactive", priced.has(d.id) && d.id !== listing?.drug_id ? "already listed" : null].filter(Boolean);
-                return `<option value="${d.id}">${escapeHtml(d.name)}${tags.length ? ` (${tags.join(", ")})` : ""}</option>`;
-            }).join("");
+            options.drugs.map((d) => `<option value="${d.id}" data-label="${escapeHtml(d.name)}${d.is_active ? "" : " (inactive)"}"></option>`).join("");
 
         const suppliers = [...options.suppliers];
 
@@ -186,7 +194,61 @@ export function createSupplierPriceForm(config) {
         }
 
         field("supplier_id").innerHTML = `<option value="">-- Select a supplier --</option>` +
-            suppliers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+            suppliers.map((s) => `<option value="${s.id}" data-label="${escapeHtml(s.name)}"></option>`).join("");
+    }
+
+    /** The existing price (other than the one being edited) for the chosen supplier + item, if any. */
+    function findDuplicate() {
+        const supplierId = Number(field("supplier_id").value);
+        const drugId = Number(field("drug_id").value);
+
+        if (!supplierId || !drugId) return null;
+
+        return allListings.find((l) => l.supplier_id === supplierId && l.drug_id === drugId && l.id !== editing?.id) || null;
+    }
+
+    /**
+     * Greys out items the chosen supplier already has a price for, and
+     * suppliers that already price the chosen item, then warns (and
+     * blocks saving) if the current pick is still a duplicate.
+     */
+    function refreshAvailability() {
+        const supplierId = Number(field("supplier_id").value);
+        const drugId = Number(field("drug_id").value);
+        const others = allListings.filter((l) => l.id !== editing?.id);
+
+        const takenDrugs = new Set(others.filter((l) => l.supplier_id === supplierId).map((l) => l.drug_id));
+        const takenSuppliers = new Set(others.filter((l) => l.drug_id === drugId).map((l) => l.supplier_id));
+
+        [...field("drug_id").options].forEach((option) => {
+            if (!option.value) return;
+            const taken = supplierId && takenDrugs.has(Number(option.value));
+            option.disabled = Boolean(taken) && option.value !== field("drug_id").value;
+            option.textContent = option.dataset.label + (taken ? " — already listed" : "");
+        });
+
+        [...field("supplier_id").options].forEach((option) => {
+            if (!option.value) return;
+            const taken = drugId && takenSuppliers.has(Number(option.value));
+            option.disabled = Boolean(taken) && option.value !== field("supplier_id").value;
+            option.textContent = option.dataset.label + (taken ? " — already has a price" : "");
+        });
+
+        const duplicate = findDuplicate();
+        const warning = $("Duplicate");
+
+        warning.hidden = !duplicate;
+        $("Save").disabled = Boolean(duplicate);
+
+        if (duplicate) {
+            warning.innerHTML = `
+                <span><strong>${escapeHtml(duplicate.supplier_name)}</strong> already has a price for this item
+                (${formatMoney(duplicate.price)} per ${escapeHtml(duplicate.price_basis === "package" ? (duplicate.package_unit_name || "package") : (duplicate.unit_name || "unit"))}).
+                Each supplier can have one price per item.</span>
+                <button type="button" class="spf-btn" id="${p}EditExisting">Edit existing price</button>
+            `;
+            $("EditExisting").addEventListener("click", () => open({ ...lastOpts, listing: duplicate, drugId: undefined, supplierId: undefined }));
+        }
     }
 
     function selectedDrug() {
@@ -349,6 +411,7 @@ function markup(p) {
                         <input type="text" id="${p}_supplier_item_code" maxlength="100" placeholder="Their SKU / catalog no.">
                     </div>
                 </div>
+                <div class="spf-duplicate" id="${p}Duplicate" role="alert" hidden></div>
             </div>
 
             <div class="spf-section">
@@ -472,6 +535,14 @@ function injectStyles() {
 .spf-field .form-error { display: block; }
 .spf-hint { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
 .spf-hint[hidden] { display: none; }
+.spf-duplicate {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; font-size: 12.5px;
+    border: 1px solid #f59e0b; background: #fffbeb; color: #92400e;
+}
+.spf-duplicate[hidden] { display: none; }
+.spf-duplicate .spf-btn { height: 30px; font-size: 12px; }
+:root[data-theme="dark"] .spf-duplicate { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.5); }
 .spf-check { display: inline-flex; align-items: center; gap: 6px; height: 34px; font-size: 12.5px; color: var(--text-primary); }
 
 .spf-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
@@ -519,6 +590,8 @@ function injectStyles() {
 .spf-tag.promo { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
 .spf-tag.scheduled { background: #e0f2fe; color: #075985; }
 .spf-tag.expired, .spf-tag.inactive { background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
+.spf-tag.duplicate { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+:root[data-theme="dark"] .spf-tag.duplicate { background: rgba(245,158,11,.18); color: #fde68a; border-color: rgba(245,158,11,.5); }
 .spf-tag.preferred { background: var(--accent-light); color: var(--accent-text, var(--accent)); }
 :root[data-theme="dark"] .spf-tag.best { background: rgba(34,197,94,.18); color: #bbf7d0; }
 :root[data-theme="dark"] .spf-tag.promo { background: rgba(249,115,22,.18); color: #fed7aa; border-color: rgba(249,115,22,.5); }

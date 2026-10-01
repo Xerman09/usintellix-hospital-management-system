@@ -11,7 +11,7 @@
 -- Idempotent: each supplier is inserted only if no supplier with that
 -- name exists (deleted or not, so removing a sample doesn't make a
 -- re-run bring it back); each price only if that supplier has no price
--- for the drug on the same basis. Codes (SUP-0001...) follow the app's
+-- for the drug yet (one price per supplier + item). Codes (SUP-0001...) follow the app's
 -- own id-based format.
 -- =============================================
 
@@ -89,7 +89,7 @@ SELECT @luzon, @drug_id, 'LMS-PCM500', 'package', 150.00, 2, CURDATE(),
        'Sample price', 1, NOW()
 FROM DUAL
 WHERE @drug_id IS NOT NULL AND @has_box AND @luzon IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @luzon AND drug_id = @drug_id AND price_basis = 'package');
+  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @luzon AND drug_id = @drug_id);
 
 -- Per tablet, no discount
 INSERT INTO supplier_products (supplier_id, drug_id, supplier_item_code, price_basis, price, min_order_qty, price_as_of,
@@ -98,7 +98,7 @@ SELECT @visayas, @drug_id, 'VPT-0500', 'unit', 1.60, 200, CURDATE(),
        'none', 'Sample price', 1, NOW()
 FROM DUAL
 WHERE @drug_id IS NOT NULL AND @visayas IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @visayas AND drug_id = @drug_id AND price_basis = 'unit');
+  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @visayas AND drug_id = @drug_id);
 
 -- Per box, P10 off sale starting next week (shown as upcoming)
 INSERT INTO supplier_products (supplier_id, drug_id, supplier_item_code, price_basis, price, min_order_qty, price_as_of,
@@ -109,7 +109,7 @@ SELECT @mindanao, @drug_id, NULL, 'package', 145.00, NULL, CURDATE(),
        'Sample price', 1, NOW()
 FROM DUAL
 WHERE @drug_id IS NOT NULL AND @has_box AND @mindanao IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @mindanao AND drug_id = @drug_id AND price_basis = 'package');
+  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @mindanao AND drug_id = @drug_id);
 
 -- Per box direct from the manufacturer, minimum 10 boxes
 INSERT INTO supplier_products (supplier_id, drug_id, supplier_item_code, price_basis, price, min_order_qty, price_as_of,
@@ -118,4 +118,4 @@ SELECT @golden, @drug_id, 'GLP-PARA-500-100', 'package', 138.00, 10, CURDATE(),
        'none', 'Sample price', 1, NOW()
 FROM DUAL
 WHERE @drug_id IS NOT NULL AND @has_box AND @golden IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @golden AND drug_id = @drug_id AND price_basis = 'package');
+  AND NOT EXISTS (SELECT 1 FROM supplier_products WHERE supplier_id = @golden AND drug_id = @drug_id);

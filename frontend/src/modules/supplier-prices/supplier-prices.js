@@ -1,7 +1,7 @@
 import { fetchSupplierPrices, fetchSupplierPriceOptions } from "./supplier-prices.service.js?v=2";
 import {
     createSupplierPriceForm, renderDiscountTag, formatMoney, formatQty, formatDate, escapeHtml
-} from "./supplier-price-form.js?v=2";
+} from "./supplier-price-form.js?v=3";
 
 let listings = [];
 let priceForm = null;
@@ -110,6 +110,11 @@ function renderGroup(items) {
         return (a.effective_unit_price ?? Infinity) - (b.effective_unit_price ?? Infinity);
     });
 
+    // Flag pre-existing duplicates (same supplier twice for this item).
+    const perSupplier = new Map();
+    items.forEach((l) => perSupplier.set(l.supplier_id, (perSupplier.get(l.supplier_id) || 0) + 1));
+    items.forEach((l) => { l.is_duplicate = perSupplier.get(l.supplier_id) > 1; });
+
     const packInfo = first.package_quantity && first.package_unit_name
         ? `1 ${first.package_unit_name} = ${formatQty(first.package_quantity)} ${unit}`
         : "";
@@ -148,6 +153,7 @@ function renderRow(l) {
     if (l.is_preferred_supplier) tags.push(`<span class="spf-tag preferred">Preferred</span>`);
     if (!l.is_active) tags.push(`<span class="spf-tag inactive">Not available</span>`);
     if (!l.supplier_is_active) tags.push(`<span class="spf-tag inactive">Supplier inactive</span>`);
+    if (l.is_duplicate) tags.push(`<span class="spf-tag duplicate" title="Each supplier should have one price per item. Remove the one you don't need.">Duplicate &mdash; remove one</span>`);
 
     const terms = [
         l.min_order_qty ? `Min. ${formatQty(l.min_order_qty)} ${basisLabel}` : null,

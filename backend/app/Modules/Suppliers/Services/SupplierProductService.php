@@ -336,22 +336,22 @@ class SupplierProductService
 
     private function findConflicts(array $values, ?int $ignoreId = null): array
     {
+        // One price per supplier + item, whether it's quoted per unit or
+        // per package -- two would make "what does this cost?" ambiguous.
         $stmt = Database::connection()->prepare(
             "SELECT id FROM supplier_products
              WHERE deleted_at IS NULL AND id <> :ignore
-               AND supplier_id = :supplier AND drug_id = :drug AND price_basis = :basis
+               AND supplier_id = :supplier AND drug_id = :drug
              LIMIT 1"
         );
         $stmt->execute([
             'ignore' => (int) $ignoreId,
             'supplier' => $values['supplier_id'],
-            'drug' => $values['drug_id'],
-            'basis' => $values['price_basis']
+            'drug' => $values['drug_id']
         ]);
 
         if ($stmt->fetchColumn() !== false) {
-            $basis = $values['price_basis'] === 'package' ? 'per package' : 'per unit';
-            return ['drug_id' => "This supplier already has a {$basis} price for this item. Edit that one instead."];
+            return ['drug_id' => 'This supplier already has a price for this item. Edit that one instead, or remove it first.'];
         }
 
         return [];
