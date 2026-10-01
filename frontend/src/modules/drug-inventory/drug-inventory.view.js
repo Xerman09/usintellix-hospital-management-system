@@ -171,6 +171,11 @@ export function DrugInventoryView() {
 }
 
 .di-destroy-btn:hover { background: #fee2e2; border-color: #b91c1c; color: #b91c1c; }
+.di-custodian { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.di-custodian-note { margin: 0 0 12px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
+.di-custodian-note strong { color: var(--text-primary); }
+.di-custodian-note.warn { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+:root[data-theme="dark"] .di-custodian-note.warn { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.5); }
 :root[data-theme="dark"] .di-destroy-btn:hover { background: #450a0a; border-color: #fca5a5; color: #fca5a5; }
 
 .di-expired { color: #b91c1c; font-weight: 600; }
@@ -1115,6 +1120,7 @@ export function DrugInventoryView() {
                 <div class="di-field">
                     <label>Storage Location<span class="di-req">*</span></label>
                     <select id="di_rcv_warehouse_id"></select>
+                    <span class="di-custodian" id="diRcvCustodian"></span>
                     <span class="form-error" id="err-di_rcv_warehouse_id"></span>
                 </div>
                 <div class="di-field">
@@ -1292,6 +1298,7 @@ export function DrugInventoryView() {
         </div>
 
         <div class="di-modal-readonly" id="diDestroySource"></div>
+        <div class="di-custodian-note" id="diDestroyCustodian"></div>
 
         <div id="diDestroyAlert"></div>
 

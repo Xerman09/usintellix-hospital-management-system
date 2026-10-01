@@ -42,7 +42,7 @@ class WarehouseController extends Controller
         $user = Session::get('user');
         $request = new Request();
 
-        $result = $this->service->register($request->only(['name', 'facility_id']), (int) $user['id']);
+        $result = $this->service->register($request->only(WarehouseService::INPUT_FIELDS), (int) $user['id']);
 
         if (!$result['success']) {
             $this->error($result['message'], 422, $result['errors'] ?? null);
@@ -59,11 +59,67 @@ class WarehouseController extends Controller
 
         $id = (int) $request->input('id');
 
-        $result = $this->service->update($id, $request->only(['name', 'facility_id', 'is_active']), (int) $user['id']);
+        $result = $this->service->update($id, $request->only(WarehouseService::INPUT_FIELDS), (int) $user['id']);
 
         if (!$result['success']) {
             $status = $result['message'] === 'Storage location not found.' ? 404 : 422;
             $this->error($result['message'], $status, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /** Location types, departments and staff for the form. */
+    public function options(): void
+    {
+        $this->success($this->service->options(), 'Options retrieved successfully.');
+    }
+
+    /** Stock Check for one location. Query: id */
+    public function stock(): void
+    {
+        $request = new Request();
+
+        $result = $this->service->stockCheck((int) $request->input('id'));
+
+        if (!$result) {
+            $this->error('Storage location not found.', 404);
+            return;
+        }
+
+        $this->success($result, 'Stock check retrieved successfully.');
+    }
+
+    /** Body: warehouse_id, drug_id, min_level, max_level? */
+    public function saveStockLevel(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->service->saveStockLevel(
+            (int) $request->input('warehouse_id'),
+            $request->only(['drug_id', 'min_level', 'max_level']),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], !empty($result['not_found']) ? 404 : 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /** Body: warehouse_id, drug_id */
+    public function removeStockLevel(): void
+    {
+        $request = new Request();
+
+        $result = $this->service->removeStockLevel((int) $request->input('warehouse_id'), (int) $request->input('drug_id'));
+
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
             return;
         }
 

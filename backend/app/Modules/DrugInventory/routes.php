@@ -70,6 +70,27 @@ $router->get('/warehouses', [WarehouseController::class, 'index'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/warehouses/options', [WarehouseController::class, 'options'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/warehouses/stock', [WarehouseController::class, 'stock'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Minimum / maximum stock per item at a location.
+$router->post('/warehouses/stock-levels', [WarehouseController::class, 'saveStockLevel'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->delete('/warehouses/stock-levels', [WarehouseController::class, 'removeStockLevel'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
 $router->post('/warehouses', [WarehouseController::class, 'store'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]

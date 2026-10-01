@@ -212,6 +212,7 @@ export function ReceivingView() {
                     <div class="rv-field">
                         <label for="rv_warehouse_id">Received Into<span class="req">*</span></label>
                         <select id="rv_warehouse_id"></select>
+                        <span class="rv-hint" id="rvCustodian"></span>
                         <span class="form-error" id="err-rv_warehouse_id"></span>
                     </div>
                     <div class="rv-field">

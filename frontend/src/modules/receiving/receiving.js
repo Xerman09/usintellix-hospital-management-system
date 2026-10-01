@@ -333,6 +333,17 @@ async function openForm(orderId) {
     $("rv_warehouse_id").innerHTML = `<option value="">-- Select a location --</option>` +
         warehouses.map((w) => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join("");
     $("rv_warehouse_id").value = order.warehouse_id || "";
+
+    // Receiving into a location is its custodian's job -- say who that is.
+    const showCustodian = () => {
+        const location = warehouses.find((w) => Number(w.id) === Number($("rv_warehouse_id").value));
+        $("rvCustodian").textContent = !location ? ""
+            : location.custodian_name
+                ? `Custodian: ${location.custodian_name}${location.alternate_custodian_name ? ` (alternate: ${location.alternate_custodian_name})` : ""}`
+                : "No custodian assigned to this location yet.";
+    };
+    $("rv_warehouse_id").onchange = showCustodian;
+    showCustodian();
     $("rv_received_date").value = isoToday();
     $("rv_received_date").max = isoToday();
 

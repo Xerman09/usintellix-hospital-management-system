@@ -612,6 +612,11 @@ function openReceiveModal(drugId) {
     document.getElementById("di_rcv_received_date").max = today;
     document.getElementById("di_rcv_expires_date").min = isoDateOffset(1);
 
+    const rcvLocation = document.getElementById("di_rcv_warehouse_id");
+    const showRcvCustodian = () => { document.getElementById("diRcvCustodian").textContent = custodianText(rcvLocation.value); };
+    rcvLocation.onchange = showRcvCustodian;
+    setTimeout(showRcvCustodian, 0);
+
     if (options.warehouses.length === 1) {
         document.getElementById("di_rcv_warehouse_id").value = String(options.warehouses[0].id);
     }
@@ -1306,10 +1311,29 @@ function setupDestroyModal() {
     });
 }
 
+/** "Custodian: X (alternate: Y)" for a storage location, or a prompt to assign one. */
+function custodianText(warehouseId) {
+    const location = options.warehouses.find((w) => Number(w.id) === Number(warehouseId));
+    if (!location) return "";
+    if (!location.custodian_name) return `No custodian assigned to ${location.name} yet (set one under Pharmacy > Storage Locations).`;
+    return `Custodian: ${location.custodian_name}${location.alternate_custodian_name ? ` (alternate: ${location.alternate_custodian_name})` : ""}`;
+}
+
 function openDestroyModal(lotId) {
     activeDestroyLot = allRows.find((r) => r.lot_id === lotId);
 
     if (!activeDestroyLot) return;
+
+    // Disposal is the custodian's responsibility -- say who that is.
+    const custodianNote = document.getElementById("diDestroyCustodian");
+    const location = options.warehouses.find((w) => Number(w.id) === Number(activeDestroyLot.warehouse_id));
+    custodianNote.className = `di-custodian-note ${location && !location.custodian_name ? "warn" : ""}`;
+    custodianNote.innerHTML = location?.custodian_name
+        ? `Disposal from <strong>${escapeHtml(location.name)}</strong> is the responsibility of its custodian,
+           <strong>${escapeHtml(location.custodian_name)}</strong>${location.alternate_custodian_name
+                ? ` (alternate: ${escapeHtml(location.alternate_custodian_name)})` : ""}. Record a witness below.`
+        : escapeHtml(custodianText(activeDestroyLot.warehouse_id) || "");
+    custodianNote.hidden = !custodianNote.innerHTML;
 
     document.getElementById("diDestroySource").innerHTML = `
         <strong>${escapeHtml(activeDestroyLot.name)}</strong> &middot; Lot ${escapeHtml(activeDestroyLot.lot_number)}
