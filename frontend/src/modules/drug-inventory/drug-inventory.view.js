@@ -552,15 +552,257 @@ export function DrugInventoryView() {
 :root[data-theme="dark"] .di-delete-btn { color: #fca5a5; border-color: rgba(252,165,165,.5); }
 :root[data-theme="dark"] .di-delete-btn:hover { background: rgba(239,68,68,.15); }
 
-.di-import-results { margin-top: 12px; max-height: 260px; overflow-y: auto; font-size: 12.5px; padding-left: 18px; }
-.di-import-results li { margin-bottom: 4px; color: var(--text-primary); }
-.di-import-results .di-sub { display: inline; }
 
 .di-field input[type="file"] { height: auto; padding: 6px 10px; }
 
 @media (max-width: 720px) {
     .di-form-grid, .di-form-grid.cols-3 { grid-template-columns: 1fr; }
     .di-filters input[type="text"] { min-width: 0; width: 100%; }
+}
+/* ---- Import modal ---- */
+.di-import-modal { max-width: 860px; }
+.di-import-modal .modal-header { align-items: flex-start; margin-bottom: 14px; }
+.di-import-modal .modal-header h2 { margin: 0; }
+.di-import-lead { margin: 4px 0 0; color: var(--text-muted); font-size: 13.5px; }
+
+.di-step {
+    display: flex;
+    gap: 14px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.di-step:first-child { border-top: none; padding-top: 4px; }
+
+.di-step-num {
+    flex: 0 0 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-text, var(--accent));
+    background: var(--accent-light);
+    border: 1px solid var(--accent-border, transparent);
+}
+
+.di-step-body { flex: 1 1 auto; min-width: 0; }
+.di-step-body h3 { margin: 3px 0 4px; font-size: 14.5px; color: var(--text-primary); }
+.di-step-body > p { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.di-step-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+
+.di-ref summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent-text, var(--accent));
+}
+
+.di-ref-body {
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    max-height: 260px;
+    overflow-y: auto;
+    font-size: 12.5px;
+    color: var(--text-primary);
+}
+
+.di-ref-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 6px 0; border-top: 1px dashed var(--border-color); }
+.di-ref-row:first-child { border-top: none; padding-top: 0; }
+.di-ref-row > span:first-child { font-weight: 600; color: var(--text-muted); }
+.di-ref-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.di-ref-chips code {
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    font-family: inherit;
+    font-size: 11.5px;
+    color: var(--text-primary);
+}
+
+.di-dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 22px 16px;
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface-alt);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background-color .15s;
+}
+
+.di-dropzone:hover,
+.di-dropzone.is-dragover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+
+.di-dropzone input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.di-dropzone:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.di-dropzone svg { width: 30px; height: 30px; color: var(--text-muted); margin-bottom: 4px; }
+.di-dropzone-title { font-size: 13.5px; color: var(--text-primary); }
+.di-dropzone-title u { color: var(--accent-text, var(--accent)); text-underline-offset: 2px; }
+.di-dropzone-hint { font-size: 12px; color: var(--text-muted); }
+
+.di-file-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface-alt);
+}
+
+.di-file-chip[hidden], .di-dropzone[hidden], .di-step[hidden] { display: none; }
+.di-file-chip > svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--accent-text, var(--accent)); }
+.di-file-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.di-file-meta strong { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.di-file-meta span { font-size: 12px; color: var(--text-muted); }
+
+.di-file-remove {
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+
+.di-file-remove:hover { color: #b91c1c; background: #fee2e2; }
+:root[data-theme="dark"] .di-file-remove:hover { color: #fecaca; background: rgba(239,68,68,.15); }
+
+.di-review-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+
+.di-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.di-stat strong { font-size: 15px; color: var(--text-primary); }
+.di-stat.ok strong { color: #15803d; }
+.di-stat.bad strong { color: #b91c1c; }
+:root[data-theme="dark"] .di-stat.ok strong { color: #86efac; }
+:root[data-theme="dark"] .di-stat.bad strong { color: #fca5a5; }
+
+.di-review-note { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
+.di-review-note:empty { display: none; }
+
+.di-preview-wrap {
+    max-height: 260px;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.di-preview-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+
+.di-preview-table th {
+    position: sticky;
+    top: 0;
+    text-align: left;
+    padding: 7px 10px;
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.di-preview-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: top; }
+.di-preview-table tbody tr:last-child td { border-bottom: none; }
+.di-preview-table td:first-child { color: var(--text-muted); width: 48px; }
+.di-preview-table tr.has-issue td { background: rgba(239,68,68,.05); }
+
+.di-status-ok { color: #15803d; font-weight: 600; white-space: nowrap; }
+.di-status-bad { color: #b91c1c; }
+:root[data-theme="dark"] .di-status-ok { color: #86efac; }
+:root[data-theme="dark"] .di-status-bad { color: #fca5a5; }
+
+.di-result-head { display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 14px; }
+
+.di-result-card {
+    flex: 1 1 200px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+}
+
+.di-result-card svg { width: 26px; height: 26px; flex-shrink: 0; }
+.di-result-card strong { display: block; font-size: 20px; line-height: 1.1; color: var(--text-primary); }
+.di-result-card span { font-size: 12.5px; color: var(--text-muted); }
+.di-result-card.ok svg { color: #16a34a; }
+.di-result-card.bad svg { color: #dc2626; }
+:root[data-theme="dark"] .di-result-card.ok svg { color: #86efac; }
+:root[data-theme="dark"] .di-result-card.bad svg { color: #fca5a5; }
+
+.di-result-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.di-result-sub h3 { margin: 0; font-size: 14px; color: var(--text-primary); }
+
+.di-import-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.di-import-footnote { font-size: 12px; color: var(--text-muted); }
+.di-import-buttons { display: flex; gap: 8px; margin-left: auto; }
+.di-import-buttons .di-btn { height: 38px; padding: 0 18px; font-size: 13px; }
+.di-btn:disabled { opacity: .5; cursor: not-allowed; }
+.di-btn.primary:disabled:hover { background: var(--accent); border-color: var(--accent); }
+
+.di-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(255,255,255,.45);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: di-spin .7s linear infinite;
+}
+
+@keyframes di-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+    .di-ref-row { grid-template-columns: 1fr; gap: 4px; }
+    .di-import-buttons { width: 100%; }
+    .di-import-buttons .di-btn { flex: 1 1 0; justify-content: center; }
 }
 </style>
 
@@ -915,32 +1157,82 @@ export function DrugInventoryView() {
 </div>
 
 <div class="modal-overlay" id="diImportModalOverlay">
-    <div class="modal-box">
+    <div class="modal-box di-modal-wide di-import-modal">
         <div class="modal-header">
-            <h2>Import Drugs from CSV</h2>
-            <button type="button" class="modal-close" id="diCloseImportModal">&times;</button>
+            <div>
+                <h2>Import Drugs</h2>
+                <p class="di-import-lead">Add many drugs to the catalog at once from a spreadsheet.</p>
+            </div>
+            <button type="button" class="modal-close" id="diCloseImportModal" aria-label="Close">&times;</button>
         </div>
 
         <div id="diImportAlert"></div>
 
-        <p class="form-subtitle" style="margin-top:0;">
-            One drug per row. Dosage form, route, units and category must match names already in their lists
-            (e.g. <em>Tablet</em>, <em>Oral</em>, <em>tablet</em>, <em>box</em>). Yes/No columns accept yes/no or 1/0.
-            Duplicates and invalid rows are skipped and listed below.
-        </p>
-        <p><a href="#" id="diDownloadTemplate">Download CSV template</a></p>
+        <div id="diImportSteps">
+            <section class="di-step">
+                <div class="di-step-num">1</div>
+                <div class="di-step-body">
+                    <h3>Get the template</h3>
+                    <p>Fill in one drug per row and keep the header row as it is. Names for dosage form, route, units and category must match your lists.</p>
+                    <div class="di-step-actions">
+                        <button type="button" class="di-btn" id="diDownloadTemplate">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Download template
+                        </button>
+                    </div>
+                    <details class="di-ref">
+                        <summary>Column guide &amp; allowed values</summary>
+                        <div class="di-ref-body" id="diImportReference"></div>
+                    </details>
+                </div>
+            </section>
 
-        <div class="di-field" style="margin-bottom:12px;">
-            <label>CSV File</label>
-            <input type="file" id="di_import_file" accept=".csv,text/csv">
-            <span class="di-hint" id="diImportSummary">&nbsp;</span>
+            <section class="di-step">
+                <div class="di-step-num">2</div>
+                <div class="di-step-body">
+                    <h3>Upload your file</h3>
+                    <label class="di-dropzone" id="diDropzone" for="di_import_file">
+                        <input type="file" id="di_import_file" accept=".csv,text/csv">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+                        <span class="di-dropzone-title"><strong>Drag &amp; drop</strong> your CSV here, or <u>browse</u></span>
+                        <span class="di-dropzone-hint">.csv only &middot; up to 1,000 rows</span>
+                    </label>
+                    <div class="di-file-chip" id="diFileChip" hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        <div class="di-file-meta">
+                            <strong id="diFileName"></strong>
+                            <span id="diFileInfo"></span>
+                        </div>
+                        <button type="button" class="di-file-remove" id="diFileRemove">Remove</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="di-step" id="diReviewStep" hidden>
+                <div class="di-step-num">3</div>
+                <div class="di-step-body">
+                    <h3>Review</h3>
+                    <div class="di-review-stats" id="diReviewStats"></div>
+                    <div class="di-review-note" id="diReviewNote"></div>
+                    <label class="di-checkbox-label" style="margin-bottom:8px;"><input type="checkbox" id="diProblemsOnly"> Show only rows that need attention</label>
+                    <div class="di-preview-wrap">
+                        <table class="di-preview-table">
+                            <thead><tr><th>Line</th><th>Drug</th><th>Form</th><th>Unit</th><th>Status</th></tr></thead>
+                            <tbody id="diPreviewBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </div>
 
-        <ul class="di-import-results" id="diImportResults"></ul>
+        <div id="diImportResult" hidden></div>
 
-        <div class="form-actions">
-            <button type="button" class="btn-secondary" id="diCancelImport">Close</button>
-            <button type="button" class="login-btn" id="diRunImport" disabled>Import</button>
+        <div class="di-import-footer">
+            <span class="di-import-footnote" id="diImportFootnote">Rows with problems are skipped; the rest are imported.</span>
+            <div class="di-import-buttons">
+                <button type="button" class="di-btn" id="diCancelImport">Cancel</button>
+                <button type="button" class="di-btn primary" id="diRunImport" disabled>Import</button>
+            </div>
         </div>
     </div>
 </div>

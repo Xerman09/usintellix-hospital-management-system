@@ -54,7 +54,6 @@ let searchTerm = "";
 let editingDrug = null;
 let activeTransferLot = null;
 let activeDestroyLot = null;
-let importRows = [];
 
 export async function initDrugInventory() {
     await loadOptions();
@@ -642,19 +641,25 @@ function updateReceiveTotal() {
  * CSV Import
  * ------------------------------------------------------------- */
 
+const MAX_IMPORT_ROWS = 1000;
+
+const ICON_OK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+const ICON_SKIP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+
+// Parsed file: { header: [...], rows: [{ line, cells, data, errors }] }
+let importFile = null;
+let importSkipped = [];
+
 function setupImportModal() {
     const overlay = document.getElementById("diImportModalOverlay");
     const fileInput = document.getElementById("di_import_file");
+    const dropzone = document.getElementById("diDropzone");
     const runBtn = document.getElementById("diRunImport");
     const closeModal = () => overlay.classList.remove("open");
 
     document.getElementById("diImportBtn").addEventListener("click", () => {
-        fileInput.value = "";
-        importRows = [];
-        runBtn.disabled = true;
-        document.getElementById("diImportSummary").innerHTML = "&nbsp;";
-        document.getElementById("diImportResults").innerHTML = "";
-        document.getElementById("diImportAlert").innerHTML = "";
+        resetImport();
+        renderImportReference();
         overlay.classList.add("open");
     });
 
@@ -663,81 +668,341 @@ function setupImportModal() {
     overlay.addEventListener("click", (event) => { if (event.target === overlay) closeModal(); });
 
     document.getElementById("diTemplateBtn").addEventListener("click", downloadImportTemplate);
-    document.getElementById("diDownloadTemplate").addEventListener("click", (event) => {
+    document.getElementById("diDownloadTemplate").addEventListener("click", downloadImportTemplate);
+
+    fileInput.addEventListener("change", () => {
+        if (fileInput.files[0]) loadImportFile(fileInput.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach((type) => dropzone.addEventListener(type, (event) => {
         event.preventDefault();
-        downloadImportTemplate();
+        dropzone.classList.add("is-dragover");
+    }));
+
+    ["dragleave", "drop"].forEach((type) => dropzone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove("is-dragover");
+    }));
+
+    dropzone.addEventListener("drop", (event) => {
+        const file = event.dataTransfer?.files?.[0];
+        if (file) loadImportFile(file);
     });
 
-    fileInput.addEventListener("change", async () => {
-        document.getElementById("diImportResults").innerHTML = "";
-        document.getElementById("diImportAlert").innerHTML = "";
-        importRows = [];
-        runBtn.disabled = true;
+    document.getElementById("diFileRemove").addEventListener("click", resetImport);
+    document.getElementById("diProblemsOnly").addEventListener("change", renderImportPreview);
 
-        const file = fileInput.files[0];
-        if (!file) return;
+    runBtn.addEventListener("click", runImport);
+}
 
-        const parsed = parseCsv((await file.text()).replace(/^﻿/, ""));
+function resetImport() {
+    importFile = null;
+    importSkipped = [];
 
-        if (parsed.length < 2) {
-            showAlert("diImportAlert", "The file has no data rows.", "error");
-            return;
-        }
+    document.getElementById("di_import_file").value = "";
+    document.getElementById("diImportAlert").innerHTML = "";
+    document.getElementById("diDropzone").hidden = false;
+    document.getElementById("diFileChip").hidden = true;
+    document.getElementById("diReviewStep").hidden = true;
+    document.getElementById("diProblemsOnly").checked = false;
+    document.getElementById("diImportSteps").hidden = false;
+    document.getElementById("diImportResult").hidden = true;
+    document.getElementById("diImportResult").innerHTML = "";
+    document.getElementById("diImportFootnote").textContent = "Rows with problems are skipped; the rest are imported.";
+    document.getElementById("diCancelImport").textContent = "Cancel";
 
-        const header = parsed[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    const runBtn = document.getElementById("diRunImport");
+    runBtn.hidden = false;
+    runBtn.disabled = true;
+    runBtn.textContent = "Import";
+}
 
-        if (!header.includes("generic_name")) {
-            showAlert("diImportAlert", "Missing the generic_name column. Start from the CSV template.", "error");
-            return;
-        }
+async function loadImportFile(file) {
+    const alertBox = document.getElementById("diImportAlert");
+    alertBox.innerHTML = "";
 
-        importRows = parsed.slice(1)
-            .filter((cells) => cells.some((c) => c.trim() !== ""))
-            .map((cells) => Object.fromEntries(header.map((key, i) => [key, (cells[i] ?? "").trim()])));
+    if (!/\.csv$/i.test(file.name)) {
+        showAlert("diImportAlert", "Please choose a .csv file. In Excel, use File > Save As > CSV UTF-8.", "error");
+        return;
+    }
 
-        document.getElementById("diImportSummary").textContent = `${importRows.length} row(s) ready to import.`;
-        runBtn.disabled = importRows.length === 0;
+    const parsed = parseCsv((await file.text()).replace(/^\ufeff/, ""));
+    const header = (parsed[0] || []).map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+
+    if (!header.includes("generic_name")) {
+        showAlert("diImportAlert", "This file has no generic_name column. Start from the template so the headers match.", "error");
+        return;
+    }
+
+    const rows = parsed.slice(1)
+        .map((cells, i) => ({ line: i + 2, cells }))
+        .filter((r) => r.cells.some((c) => c.trim() !== ""));
+
+    if (!rows.length) {
+        showAlert("diImportAlert", "The file has a header row but no drugs under it.", "error");
+        return;
+    }
+
+    if (rows.length > MAX_IMPORT_ROWS) {
+        showAlert("diImportAlert", `This file has ${rows.length.toLocaleString()} rows. Split it into files of ${MAX_IMPORT_ROWS.toLocaleString()} rows or fewer.`, "error");
+        return;
+    }
+
+    rows.forEach((row) => {
+        row.data = Object.fromEntries(header.map((key, i) => [key, (row.cells[i] ?? "").trim()]));
     });
 
-    runBtn.addEventListener("click", async () => {
-        runBtn.disabled = true;
-        runBtn.textContent = "Importing...";
+    validateImportRows(rows);
 
-        const result = await importDrugs(importRows);
+    importFile = { name: file.name, size: file.size, header, rows };
 
-        runBtn.textContent = "Import";
+    document.getElementById("diDropzone").hidden = true;
+    document.getElementById("diFileChip").hidden = false;
+    document.getElementById("diFileName").textContent = file.name;
+    document.getElementById("diFileInfo").textContent = `${formatFileSize(file.size)} · ${rows.length} ${rows.length === 1 ? "row" : "rows"}`;
+    document.getElementById("diReviewStep").hidden = false;
 
-        if (!result.success) {
-            runBtn.disabled = false;
-            showAlert("diImportAlert", result.message || "Import failed.", "error");
-            return;
+    const unknown = header.filter((h) => h && !CSV_COLUMNS.includes(h));
+    document.getElementById("diReviewNote").textContent = unknown.length
+        ? `These columns aren't recognised and will be ignored: ${unknown.join(", ")}.`
+        : "";
+
+    renderImportPreview();
+}
+
+/**
+ * Mirrors the server's rules so problems show up before importing. The
+ * server still validates every row it receives.
+ */
+function validateImportRows(rows) {
+    const byName = (list) => new Set(list.map((item) => (item.name ?? item).toLowerCase()));
+    const sets = {
+        dosage_form: byName(options.dosage_forms),
+        route: byName(options.routes),
+        category: byName(options.categories),
+        dispensing_unit: byName(options.units),
+        package_unit: byName(options.units),
+        product_type: byName(options.product_types),
+        controlled_class: byName(options.controlled_classes),
+        storage_condition: byName(options.storage_conditions)
+    };
+    const labels = {
+        dosage_form: "Dosage form", route: "Route", category: "Category", dispensing_unit: "Dispensing unit",
+        package_unit: "Package unit", product_type: "Product type", controlled_class: "Controlled class",
+        storage_condition: "Storage"
+    };
+    const keyOf = (d) => [d.generic_name, d.brand_name, (d.strength || "").replace(/\s+/g, ""), d.dosage_form]
+        .map((v) => (v || "").trim().toLowerCase()).join("|");
+
+    const existing = new Set(catalog.map((drug) => keyOf({
+        generic_name: drug.generic_name, brand_name: drug.brand_name, strength: drug.strength, dosage_form: drug.dosage_form_name
+    })));
+    const seen = new Map();
+
+    rows.forEach((row) => {
+        const d = row.data;
+        const errors = [];
+        const type = d.product_type || "Drug";
+        const isMedicine = MEDICINE_TYPES.some((t) => t.toLowerCase() === type.toLowerCase());
+
+        if (!d.generic_name) errors.push("Generic name is missing.");
+        if (type.toLowerCase() === "drug" && !d.strength) errors.push("Strength is missing.");
+        if (isMedicine && !d.dosage_form) errors.push("Dosage form is missing.");
+        if (!d.dispensing_unit) errors.push("Dispensing unit is missing.");
+
+        Object.entries(sets).forEach(([field, allowed]) => {
+            if (d[field] && !allowed.has(d[field].toLowerCase())) {
+                errors.push(`${labels[field]} "${d[field]}" isn't in the list.`);
+            }
+        });
+
+        if (d.package_unit && !(Number(d.package_quantity) > 0)) errors.push("Package quantity is needed with a package unit.");
+
+        ["package_quantity", "reorder_level", "max_stock", "unit_cost", "selling_price"].forEach((field) => {
+            if (d[field] && (Number.isNaN(Number(d[field])) || Number(d[field]) < 0)) {
+                errors.push(`${field.replace(/_/g, " ")} must be a number of 0 or more.`);
+            }
+        });
+
+        if (d.generic_name) {
+            const key = keyOf(d);
+
+            if (existing.has(key)) {
+                errors.push("Already in the catalog.");
+            } else if (seen.has(key)) {
+                errors.push(`Duplicate of line ${seen.get(key)}.`);
+            } else {
+                seen.set(key, row.line);
+            }
         }
 
-        const { created, failed } = result.data;
-        showAlert("diImportAlert", result.message, failed.length ? "warning" : "success");
-
-        document.getElementById("diImportResults").innerHTML = failed.map((f) => `
-            <li><strong>Row ${f.row}${f.name ? ` &middot; ${escapeHtml(f.name)}` : ""}:</strong>
-                <span class="di-sub">${escapeHtml(f.errors.join(" "))}</span></li>
-        `).join("");
-
-        importRows = [];
-        fileInput.value = "";
-        document.getElementById("diImportSummary").innerHTML = "&nbsp;";
-
-        if (created > 0) await loadCatalog();
+        row.errors = errors;
     });
 }
 
+function renderImportPreview() {
+    const rows = importFile?.rows || [];
+    const bad = rows.filter((r) => r.errors.length);
+    const good = rows.length - bad.length;
+    const problemsOnly = document.getElementById("diProblemsOnly").checked;
+    const runBtn = document.getElementById("diRunImport");
+
+    document.getElementById("diReviewStats").innerHTML = `
+        <span class="di-stat"><strong>${rows.length}</strong> rows</span>
+        <span class="di-stat ok"><strong>${good}</strong> ready</span>
+        ${bad.length ? `<span class="di-stat bad"><strong>${bad.length}</strong> need attention</span>` : ""}
+    `;
+
+    document.getElementById("diProblemsOnly").parentElement.style.display = bad.length ? "" : "none";
+
+    const shown = problemsOnly ? bad : rows;
+
+    document.getElementById("diPreviewBody").innerHTML = shown.length ? shown.map((r) => {
+        const d = r.data;
+        const name = [d.generic_name, d.strength].filter(Boolean).join(" ") + (d.brand_name ? ` (${d.brand_name})` : "");
+
+        return `
+            <tr class="${r.errors.length ? "has-issue" : ""}">
+                <td>${r.line}</td>
+                <td>${escapeHtml(name || "—")}</td>
+                <td>${escapeHtml(d.dosage_form || "—")}</td>
+                <td>${escapeHtml(d.dispensing_unit || "—")}</td>
+                <td>${r.errors.length
+                    ? `<span class="di-status-bad">${escapeHtml(r.errors.join(" "))}</span>`
+                    : `<span class="di-status-ok">Ready</span>`}</td>
+            </tr>
+        `;
+    }).join("") : `<tr><td colspan="5" class="di-empty-state">No rows to show.</td></tr>`;
+
+    runBtn.disabled = good === 0;
+    runBtn.textContent = good ? `Import ${good} ${good === 1 ? "drug" : "drugs"}` : "Nothing to import";
+    document.getElementById("diImportFootnote").textContent = bad.length
+        ? `${bad.length} ${bad.length === 1 ? "row" : "rows"} with problems will be skipped.`
+        : "All rows look good.";
+}
+
+async function runImport() {
+    const runBtn = document.getElementById("diRunImport");
+    const ready = importFile.rows.filter((r) => !r.errors.length);
+
+    runBtn.disabled = true;
+    runBtn.innerHTML = `<span class="di-spinner" aria-hidden="true"></span>Importing...`;
+    document.getElementById("diImportAlert").innerHTML = "";
+
+    const result = await importDrugs(ready.map((r) => r.data));
+
+    if (!result.success) {
+        renderImportPreview();
+        showAlert("diImportAlert", result.message || "Import failed. Nothing was saved.", "error");
+        return;
+    }
+
+    // Server reports failures by position in what we sent (+2 for the
+    // header line); map them back to the line numbers in the user's file.
+    const serverFailed = (result.data.failed || []).map((f) => {
+        const row = ready[f.row - 2];
+        return { ...row, errors: f.errors };
+    });
+
+    importSkipped = [...importFile.rows.filter((r) => r.errors.length), ...serverFailed]
+        .sort((a, b) => a.line - b.line);
+
+    renderImportResult(result.data.created);
+
+    if (result.data.created > 0) await loadCatalog();
+}
+
+function renderImportResult(created) {
+    const skipped = importSkipped.length;
+    const resultBox = document.getElementById("diImportResult");
+
+    document.getElementById("diImportSteps").hidden = true;
+    resultBox.hidden = false;
+
+    resultBox.innerHTML = `
+        <div class="di-result-head">
+            <div class="di-result-card ok">${ICON_OK}<div><strong>${created}</strong><span>${created === 1 ? "drug" : "drugs"} imported</span></div></div>
+            ${skipped ? `<div class="di-result-card bad">${ICON_SKIP}<div><strong>${skipped}</strong><span>${skipped === 1 ? "row" : "rows"} skipped</span></div></div>` : ""}
+        </div>
+        ${skipped ? `
+            <div class="di-result-sub">
+                <h3>Skipped rows</h3>
+                <button type="button" class="di-btn" id="diDownloadSkipped">Download skipped rows to fix</button>
+            </div>
+            <div class="di-preview-wrap">
+                <table class="di-preview-table">
+                    <thead><tr><th>Line</th><th>Drug</th><th>Reason</th></tr></thead>
+                    <tbody>${importSkipped.map((r) => `
+                        <tr class="has-issue">
+                            <td>${r.line}</td>
+                            <td>${escapeHtml([r.data.generic_name, r.data.strength].filter(Boolean).join(" ") || "—")}</td>
+                            <td><span class="di-status-bad">${escapeHtml(r.errors.join(" "))}</span></td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>` : ""}
+    `;
+
+    document.getElementById("diDownloadSkipped")?.addEventListener("click", downloadSkippedRows);
+
+    const runBtn = document.getElementById("diRunImport");
+    runBtn.hidden = true;
+    document.getElementById("diCancelImport").textContent = "Done";
+    document.getElementById("diImportFootnote").innerHTML = skipped
+        ? `Fix the skipped rows, then <a href="#" id="diImportAnother">import that file</a>.`
+        : `<a href="#" id="diImportAnother">Import another file</a>`;
+
+    document.getElementById("diImportAnother").addEventListener("click", (event) => {
+        event.preventDefault();
+        resetImport();
+    });
+}
+
+function downloadSkippedRows() {
+    const header = [...importFile.header, "import_error"];
+    const lines = importSkipped.map((r) => [...importFile.header.map((_, i) => r.cells[i] ?? ""), r.errors.join(" ")]);
+    const base = importFile.name.replace(/\.csv$/i, "");
+
+    saveCsv([header, ...lines], `${base}-skipped.csv`);
+}
+
+function renderImportReference() {
+    const chips = (list) => `<div class="di-ref-chips">${list.map((v) => `<code>${escapeHtml(v.name ?? v)}</code>`).join("")}</div>`;
+    const row = (label, content) => `<div class="di-ref-row"><span>${label}</span>${content}</div>`;
+
+    document.getElementById("diImportReference").innerHTML = [
+        row("Required", `<div>generic_name, dispensing_unit; plus strength for drugs and dosage_form for drugs/vaccines</div>`),
+        row("Yes / No columns", `<div>requires_prescription, is_high_alert, is_lasa &mdash; use yes/no or 1/0</div>`),
+        row("Numbers", `<div>package_quantity, reorder_level, max_stock, unit_cost, selling_price &mdash; plain numbers, no &#8369; sign</div>`),
+        row("dosage_form", chips(options.dosage_forms)),
+        row("route", chips(options.routes)),
+        row("dispensing_unit / package_unit", chips(options.units)),
+        row("category", chips(options.categories)),
+        row("product_type", chips(options.product_types)),
+        row("controlled_class", chips(options.controlled_classes)),
+        row("storage_condition", chips(options.storage_conditions))
+    ].join("");
+}
+
 function downloadImportTemplate() {
-    const csv = [CSV_COLUMNS, CSV_EXAMPLE].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+    saveCsv([CSV_COLUMNS, CSV_EXAMPLE], "drug-catalog-template.csv");
+}
+
+function saveCsv(rows, filename) {
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
     // The BOM makes Excel open the file as UTF-8 (the example row has a degree sign).
     const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = "drug-catalog-template.csv";
+    link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function parseCsv(text) {
