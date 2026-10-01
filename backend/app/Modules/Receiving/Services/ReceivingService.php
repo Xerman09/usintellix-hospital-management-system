@@ -23,6 +23,13 @@ use Throwable;
  *     in the order's history.
  * Quantity rejected on arrival is recorded but not stocked, and doesn't
  * count as received -- the supplier still owes it.
+ *
+ * Deliveries don't always match the order, so a receipt may also hold:
+ *   * more than was still due on a line -- accepted, with the excess
+ *     kept in over_quantity so it shows as an over-delivery;
+ *   * items that aren't on the order at all -- rows with no order line
+ *     (purchase_order_item_id NULL), costed at the price entered, else
+ *     the supplier's price list, else the catalog cost.
  */
 class ReceivingService
 {
@@ -108,7 +115,9 @@ class ReceivingService
             "SELECT gr.*, po.po_number, s.name AS supplier_name, s.code AS supplier_code, w.name AS warehouse_name,
                     " . self::userNameSql('gr.created_by') . " AS received_by_name,
                     (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS item_count,
-                    (SELECT COALESCE(SUM(i.rejected_quantity), 0) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS rejected_total
+                    (SELECT COALESCE(SUM(i.rejected_quantity), 0) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS rejected_total,
+                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.purchase_order_item_id IS NULL) AS extra_count,
+                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.over_quantity > 0) AS over_count
              FROM goods_receipts gr
              JOIN purchase_orders po ON po.id = gr.purchase_order_id
              JOIN suppliers s ON s.id = gr.supplier_id
@@ -131,7 +140,9 @@ class ReceivingService
                     w.name AS warehouse_name,
                     " . self::userNameSql('gr.created_by') . " AS received_by_name,
                     (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS item_count,
-                    (SELECT COALESCE(SUM(i.rejected_quantity), 0) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS rejected_total
+                    (SELECT COALESCE(SUM(i.rejected_quantity), 0) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS rejected_total,
+                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.purchase_order_item_id IS NULL) AS extra_count,
+                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.over_quantity > 0) AS over_count
              FROM goods_receipts gr
              JOIN purchase_orders po ON po.id = gr.purchase_order_id
              JOIN suppliers s ON s.id = gr.supplier_id
@@ -152,28 +163,30 @@ class ReceivingService
         $receipt['supplier_tin'] = $row['tin'];
 
         $items = Database::connection()->prepare(
-            "SELECT i.*, poi.line_no, poi.order_unit, poi.quantity AS ordered_quantity, poi.supplier_item_code,
-                    d.name AS drug_name, du.name AS unit_name, pu.name AS package_unit_name
+            "SELECT i.*, poi.line_no, COALESCE(i.order_unit, poi.order_unit) AS row_unit, poi.quantity AS ordered_quantity,
+                    poi.supplier_item_code, d.name AS drug_name, du.name AS unit_name, pu.name AS package_unit_name
              FROM goods_receipt_items i
-             JOIN purchase_order_items poi ON poi.id = i.purchase_order_item_id
+             LEFT JOIN purchase_order_items poi ON poi.id = i.purchase_order_item_id
              JOIN drugs d ON d.id = i.drug_id
              LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
              LEFT JOIN amount_units pu ON pu.id = d.package_unit_id
              WHERE i.goods_receipt_id = :id
-             ORDER BY poi.line_no, i.id"
+             ORDER BY poi.line_no IS NULL, poi.line_no, i.id"
         );
         $items->execute(['id' => $id]);
 
         $receipt['items'] = array_map(fn(array $r) => [
             'id' => (int) $r['id'],
-            'line_no' => (int) $r['line_no'],
+            'line_no' => $r['line_no'] !== null ? (int) $r['line_no'] : null,
+            'on_order' => $r['purchase_order_item_id'] !== null,
             'drug_id' => (int) $r['drug_id'],
             'drug_name' => $r['drug_name'],
             'supplier_item_code' => $r['supplier_item_code'],
-            'order_unit' => $r['order_unit'],
+            'order_unit' => $r['row_unit'] ?: 'unit',
             'unit_name' => $r['unit_name'],
             'package_unit_name' => $r['package_unit_name'],
-            'ordered_quantity' => (float) $r['ordered_quantity'],
+            'ordered_quantity' => $r['ordered_quantity'] !== null ? (float) $r['ordered_quantity'] : null,
+            'over_quantity' => (float) $r['over_quantity'],
             'lot_number' => $r['lot_number'],
             'expires_date' => $r['expires_date'],
             'quantity' => (float) $r['quantity'],
@@ -196,11 +209,64 @@ class ReceivingService
     }
 
     /**
+     * Items that can be received but aren't on this order: active,
+     * stock-tracked catalog items, with this supplier's price if listed.
+     */
+    public function extraProducts(int $supplierId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT d.id, d.name, d.product_type, d.package_quantity, d.unit_cost,
+                    du.name AS unit_name, pu.name AS package_unit_name,
+                    sp.price AS list_price, sp.price_basis
+             FROM drugs d
+             LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
+             LEFT JOIN amount_units pu ON pu.id = d.package_unit_id
+             LEFT JOIN supplier_products sp ON sp.id = (
+                 SELECT x.id FROM supplier_products x
+                 WHERE x.drug_id = d.id AND x.supplier_id = :supplier AND x.deleted_at IS NULL AND x.is_active = 1
+                 ORDER BY x.id LIMIT 1
+             )
+             WHERE d.deleted_at IS NULL AND d.is_active = 1 AND d.allow_inventory = 1
+             ORDER BY d.name"
+        );
+        $stmt->execute(['supplier' => $supplierId]);
+
+        return array_map(function (array $r) {
+            $perPackage = $r['package_quantity'] !== null && (float) $r['package_quantity'] > 0 ? (float) $r['package_quantity'] : null;
+            $unitPrice = null;
+
+            if ($r['list_price'] !== null) {
+                $unitPrice = $r['price_basis'] === 'package' && $perPackage
+                    ? round((float) $r['list_price'] / $perPackage, 4)
+                    : (float) $r['list_price'];
+            } elseif ($r['unit_cost'] !== null) {
+                $unitPrice = (float) $r['unit_cost'];
+            }
+
+            return [
+                'id' => (int) $r['id'],
+                'name' => $r['name'],
+                'product_type' => $r['product_type'],
+                'unit_name' => $r['unit_name'],
+                'package_unit_name' => $r['package_unit_name'],
+                'package_quantity' => $perPackage,
+                // Cost per dispensing unit to suggest; null = unknown.
+                'unit_price' => $unitPrice,
+                'price_source' => $r['list_price'] !== null ? 'supplier' : ($r['unit_cost'] !== null ? 'catalog' : null)
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /**
      * Records a delivery. Body: purchase_order_id, received_date,
-     * warehouse_id, delivery_receipt_no?, invoice_no?, notes?, items[]
-     * of { purchase_order_item_id, quantity, lot_number, expires_date,
-     * rejected_quantity?, rejection_reason? } -- quantities in the
-     * order line's unit (boxes if it was ordered in boxes).
+     * warehouse_id, delivery_receipt_no?, invoice_no?, notes?, items[].
+     * Each item is either
+     *   an order line: { purchase_order_item_id, quantity, ... } with
+     *     the quantity in the line's unit (boxes if ordered in boxes) --
+     *     more than is still due is allowed and recorded as over-delivery;
+     *   or an item not on the order: { drug_id, order_unit, quantity,
+     *     unit_price?, ... } where unit_price is per order_unit.
+     * Both take lot_number, expires_date, rejected_quantity?, rejection_reason?.
      */
     public function receive(array $data, int $userId): array
     {
@@ -260,8 +326,15 @@ class ReceivingService
 
         // Rows
         $lines = [];
+        $lineByDrug = [];
         foreach ($order['items'] as $item) {
             $lines[$item['id']] = $item;
+            $lineByDrug[$item['drug_id']] = $item;
+        }
+
+        $extraProducts = [];
+        foreach ($this->extraProducts($order['supplier_id']) as $product) {
+            $extraProducts[$product['id']] = $product;
         }
 
         $rows = is_array($data['items'] ?? null) ? array_values($data['items']) : [];
@@ -272,18 +345,13 @@ class ReceivingService
             $key = "items.{$i}";
             $row = is_array($row) ? $row : [];
             $lineId = (int) ($row['purchase_order_item_id'] ?? 0);
-            $line = $lines[$lineId] ?? null;
+            $line = $lineId ? ($lines[$lineId] ?? null) : null;
 
             $qty = $this->number($row['quantity'] ?? '');
             $rejected = $this->number($row['rejected_quantity'] ?? '');
 
             if ($qty === null && $rejected === null) {
                 continue; // untouched row
-            }
-
-            if (!$line) {
-                $errors["{$key}.quantity"] = 'This item is not on the purchase order.';
-                continue;
             }
 
             $qty = $qty ?? 0.0;
@@ -307,38 +375,86 @@ class ReceivingService
                 $errors["{$key}.rejection_reason"] = 'Say why it was rejected (e.g. damaged, near expiry).';
             }
 
-            if ($qty > 0 && (!$line['drug_is_active'] || !$line['allow_inventory'])) {
-                $errors["{$key}.quantity"] = $line['drug_is_active']
-                    ? 'Inventory tracking is off for this item in the drug catalog.'
-                    : 'This item is inactive in the drug catalog. Re-activate it to receive stock.';
-            }
-
-            $accepted[$lineId] = ($accepted[$lineId] ?? 0) + max(0, $qty);
-
-            $toSave[] = [
+            $entry = [
                 'index' => $i,
                 'line' => $line,
                 'quantity' => round(max(0, $qty), 3),
                 'rejected' => round(max(0, $rejected), 3),
                 'reason' => $reason !== '' ? mb_substr($reason, 0, 255) : null,
                 'lot_number' => trim((string) ($row['lot_number'] ?? '')),
-                'expires_date' => trim((string) ($row['expires_date'] ?? '')) ?: null
+                'expires_date' => trim((string) ($row['expires_date'] ?? '')) ?: null,
+                'over' => 0.0
             ];
-        }
 
-        // Can't accept more than is still outstanding on a line.
-        foreach ($accepted as $lineId => $total) {
-            $line = $lines[$lineId];
-
-            if ($total > $line['quantity_remaining'] + self::EPSILON) {
-                foreach ($toSave as $entry) {
-                    if ($entry['line']['id'] === $lineId && $entry['quantity'] > 0) {
-                        $errors["items.{$entry['index']}.quantity"] = 'Only ' . $this->formatNumber($line['quantity_remaining'])
-                            . ' ' . $this->unitLabel($line) . ' still to receive on this line'
-                            . ($total > 0 && count(array_filter($toSave, fn($e) => $e['line']['id'] === $lineId)) > 1 ? ' (all its lots together).' : '.');
-                    }
+            if ($lineId) {
+                // A line on the order.
+                if (!$line) {
+                    $errors["{$key}.quantity"] = 'This item is not on the purchase order.';
+                    continue;
                 }
+
+                if ($qty > 0 && (!$line['drug_is_active'] || !$line['allow_inventory'])) {
+                    $errors["{$key}.quantity"] = $line['drug_is_active']
+                        ? 'Inventory tracking is off for this item in the drug catalog.'
+                        : 'This item is inactive in the drug catalog. Re-activate it to receive stock.';
+                }
+
+                $entry['drug_id'] = $line['drug_id'];
+                $entry['order_unit'] = $line['order_unit'];
+                $entry['units_per_package'] = $line['order_unit'] === 'package' ? $line['units_per_package'] : null;
+                $entry['cost_per_order_unit'] = $line['net_unit_price'];
+
+                // Whatever goes past what was still due is an over-delivery.
+                $before = $accepted[$lineId] ?? 0.0;
+                $stillDue = max(0, $line['quantity_remaining'] - $before);
+                $entry['over'] = round(max(0, $entry['quantity'] - $stillDue), 3);
+                $accepted[$lineId] = $before + $entry['quantity'];
+            } else {
+                // Not on the order.
+                $drugId = (int) ($row['drug_id'] ?? 0);
+                $product = $extraProducts[$drugId] ?? null;
+
+                if (!$drugId) {
+                    $errors["{$key}.drug_id"] = 'Choose the item that was delivered.';
+                    continue;
+                }
+
+                if (isset($lineByDrug[$drugId])) {
+                    $errors["{$key}.drug_id"] = 'This item is on the order (line ' . $lineByDrug[$drugId]['line_no'] . '). Receive it on that line.';
+                    continue;
+                }
+
+                if (!$product) {
+                    $errors["{$key}.drug_id"] = 'Item not found, inactive, or not tracked in inventory.';
+                    continue;
+                }
+
+                $unit = ($row['order_unit'] ?? 'unit') === 'package' ? 'package' : 'unit';
+
+                if ($unit === 'package' && !$product['package_quantity']) {
+                    $errors["{$key}.order_unit"] = 'This item has no package size. Receive it in units.';
+                    $unit = 'unit';
+                }
+
+                $perPackage = $unit === 'package' ? $product['package_quantity'] : null;
+                $rawPrice = $row['unit_price'] ?? '';
+
+                if ($rawPrice !== '' && $rawPrice !== null && (!is_numeric($rawPrice) || (float) $rawPrice < 0)) {
+                    $errors["{$key}.unit_price"] = 'Enter zero or more.';
+                }
+
+                $costPerOrderUnit = is_numeric($rawPrice)
+                    ? round((float) $rawPrice, 4)
+                    : ($product['unit_price'] !== null ? round($product['unit_price'] * ($perPackage ?: 1), 4) : 0.0);
+
+                $entry['drug_id'] = $drugId;
+                $entry['product'] = $product;
+                $entry['order_unit'] = $unit;
+                $entry['units_per_package'] = $perPackage;
+                $entry['cost_per_order_unit'] = $costPerOrderUnit;
             }
+
+            $toSave[] = $entry;
         }
 
         if (!$toSave && !$errors) {
@@ -392,16 +508,15 @@ class ReceivingService
             $stockErrors = [];
 
             foreach ($toSave as $entry) {
-                $line = $entry['line'];
-                $perPackage = $line['order_unit'] === 'package' && $line['units_per_package'] ? $line['units_per_package'] : 1.0;
+                $perPackage = $entry['order_unit'] === 'package' && $entry['units_per_package'] ? $entry['units_per_package'] : 1.0;
                 $baseQty = round($entry['quantity'] * $perPackage, 3);
-                $unitCost = round($line['net_unit_price'] / $perPackage, 4);
+                $unitCost = round($entry['cost_per_order_unit'] / $perPackage, 4);
                 $lotId = null;
                 $inventoryReceiptId = null;
 
                 if ($entry['quantity'] > 0) {
                     $result = $inventory->receiveStock([
-                        'drug_id' => $line['drug_id'],
+                        'drug_id' => $entry['drug_id'],
                         'warehouse_id' => $warehouseId,
                         'lot_number' => $entry['lot_number'],
                         'expires_date' => $entry['expires_date'],
@@ -414,7 +529,7 @@ class ReceivingService
                         'supplier' => $order['supplier_name'],
                         'invoice_number' => $header['invoice_no'] ?? $header['delivery_receipt_no'],
                         'unit_cost' => $unitCost,
-                        'notes' => "{$grNumber} for {$order['po_number']}",
+                        'notes' => "{$grNumber} for {$order['po_number']}" . ($entry['line'] ? '' : ' (not on the order)'),
                         'goods_receipt_id' => $receiptId
                     ], $userId);
 
@@ -442,12 +557,15 @@ class ReceivingService
 
                 (new GoodsReceiptItem())->create([
                     'goods_receipt_id' => $receiptId,
-                    'purchase_order_item_id' => $line['id'],
-                    'drug_id' => $line['drug_id'],
+                    'purchase_order_item_id' => $entry['line']['id'] ?? null,
+                    'drug_id' => $entry['drug_id'],
+                    'order_unit' => $entry['order_unit'],
+                    'units_per_package' => $entry['units_per_package'],
                     'lot_number' => $entry['lot_number'] !== '' ? mb_substr($entry['lot_number'], 0, 100) : null,
                     'expires_date' => $entry['expires_date'],
                     'quantity' => $entry['quantity'],
                     'base_quantity' => $baseQty,
+                    'over_quantity' => $entry['over'],
                     'rejected_quantity' => $entry['rejected'],
                     'rejection_reason' => $entry['rejected'] > 0 ? $entry['reason'] : null,
                     'unit_cost' => $unitCost,
@@ -485,10 +603,15 @@ class ReceivingService
             (new PurchaseOrder())->update($values, $orderId);
 
             $rejectedCount = count(array_filter($toSave, fn($e) => $e['rejected'] > 0));
+            $extraCount = count(array_filter($toSave, fn($e) => !$e['line']));
+            $overCount = count(array_filter($toSave, fn($e) => $e['over'] > 0));
+
             $poService->log(
                 $orderId,
                 $complete ? 'received' : 'partially_received',
                 $grNumber . ($header['delivery_receipt_no'] ? " · DR {$header['delivery_receipt_no']}" : '')
+                    . ($overCount ? " · more than ordered on {$overCount} line(s)" : '')
+                    . ($extraCount ? " · {$extraCount} item(s) not on the order" : '')
                     . ($rejectedCount ? " · {$rejectedCount} line(s) with rejected items" : ''),
                 $userId,
                 $now
@@ -536,6 +659,8 @@ class ReceivingService
             'total_cost' => (float) $r['total_cost'],
             'item_count' => (int) $r['item_count'],
             'rejected_total' => (float) $r['rejected_total'],
+            'extra_count' => (int) ($r['extra_count'] ?? 0),
+            'over_count' => (int) ($r['over_count'] ?? 0),
             'received_by_name' => $r['received_by_name'],
             'created_at' => $r['created_at']
         ];

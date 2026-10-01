@@ -110,6 +110,21 @@ export function ReceivingView() {
 .rv-remove { width: 28px; height: 28px; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--text-muted); font-size: 17px; cursor: pointer; line-height: 1; }
 .rv-remove:hover { border-color: #fca5a5; color: #b91c1c; background: #fee2e2; }
 .rv-done-note { margin-top: 10px; font-size: 12.5px; color: var(--text-muted); }
+.rv-add-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.rv-add-extra select { flex: 0 1 420px; height: 34px; padding: 0 10px; border-radius: 6px; border: 1px dashed var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; font-family: inherit; }
+.rv-add-extra .rv-hint { margin: 0; }
+.rv-lines tr.is-extra td { background: rgba(245,158,11,.05); }
+.rv-extra-fields { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.rv-extra-fields select { width: auto; min-width: 110px; height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 12.5px; font-family: inherit; }
+.rv-price { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.rv-price input { width: 92px !important; height: 30px !important; text-align: right; }
+.rv-badge.extra { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; margin-left: 4px; }
+:root[data-theme="dark"] .rv-badge.extra { background: rgba(245,158,11,.18); color: #fde68a; border-color: rgba(245,158,11,.5); }
+.rv-over { display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #ffedd5; color: #9a3412; white-space: nowrap; }
+.rv-over[hidden] { display: none; }
+:root[data-theme="dark"] .rv-over { background: rgba(249,115,22,.2); color: #fed7aa; }
+.rv-warn { margin: 0 0 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; font-size: 12.5px; }
+:root[data-theme="dark"] .rv-warn { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.5); }
 .rv-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
 .rv-note strong { color: var(--text-primary); }
 
@@ -225,6 +240,10 @@ export function ReceivingView() {
                 <div class="rv-note" id="rvPartialNote"></div>
                 <span class="form-error" id="err-rv_items"></span>
                 <div id="rvLines"></div>
+                <div class="rv-add-extra">
+                    <select id="rvAddExtra" aria-label="Add an item not on this purchase order"></select>
+                    <span class="rv-hint">For items the supplier delivered that aren't on the order (bonus, substitute, or extra stock).</span>
+                </div>
             </div>
 
             <div class="rv-footer">

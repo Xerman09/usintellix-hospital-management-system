@@ -166,7 +166,10 @@ function renderList() {
                         <td>${escapeHtml(r.supplier_name)}</td>
                         <td>${escapeHtml([r.delivery_receipt_no ? `DR ${r.delivery_receipt_no}` : null, r.invoice_no ? `SI ${r.invoice_no}` : null].filter(Boolean).join(" · ") || "—")}</td>
                         <td>${escapeHtml(r.warehouse_name || "—")}</td>
-                        <td class="num">${r.item_count}${r.rejected_total > 0 ? `<span class="rv-badge rejected" title="Some items were rejected on arrival">Rejected ${formatQty(r.rejected_total)}</span>` : ""}</td>
+                        <td class="num">${r.item_count}
+                            ${r.over_count ? `<span class="rv-over" title="More than ordered on ${r.over_count} line(s)">Over</span>` : ""}
+                            ${r.extra_count ? `<span class="rv-badge extra" title="${r.extra_count} item(s) not on the purchase order">+${r.extra_count} not on PO</span>` : ""}
+                            ${r.rejected_total > 0 ? `<span class="rv-badge rejected" title="Some items were rejected on arrival">Rejected ${formatQty(r.rejected_total)}</span>` : ""}</td>
                         <td class="num">${formatMoney(r.total_cost)}</td>
                         <td>${escapeHtml(r.received_by_name || "—")}</td>
                     </tr>`).join("")}
@@ -202,16 +205,29 @@ function setupForm() {
     });
 
     $("rvFillAll").addEventListener("click", () => {
-        // One row per line, set to everything still outstanding.
+        // One row per order line, set to everything still outstanding.
+        // Items not on the order are left as they are.
         const seen = new Set();
-        rows = rows.filter((r) => !seen.has(r.lineId) && seen.add(r.lineId));
-        rows.forEach((r) => { r.quantity = formatInput(lineById(r.lineId).quantity_remaining); });
+        rows = rows.filter((r) => !r.lineId || (!seen.has(r.lineId) && seen.add(r.lineId)));
+        rows.forEach((r) => { if (r.lineId) r.quantity = formatInput(lineById(r.lineId).quantity_remaining); });
         renderRows();
     });
 
     $("rvClearAll").addEventListener("click", () => {
         rows.forEach((r) => { r.quantity = ""; r.rejected_quantity = ""; r.rejection_reason = ""; });
         renderRows();
+    });
+
+    $("rvAddExtra").addEventListener("change", () => {
+        const drugId = Number($("rvAddExtra").value);
+        $("rvAddExtra").value = "";
+        if (!drugId) return;
+
+        const product = extraProduct(drugId);
+        const row = newExtraRow(product);
+        rows.push(row);
+        renderRows();
+        document.querySelector(`[data-row="${row.key}"] [data-field="quantity"]`)?.focus();
     });
 
     $("rvLines").addEventListener("input", (event) => {
@@ -225,21 +241,38 @@ function setupForm() {
         const err = $(`err-rv_row_${row.key}_${field}`);
         if (err) err.textContent = "";
 
-        if (field === "rejected_quantity") {
-            tr.querySelector('[data-field="rejection_reason"]').required = Number(row.rejected_quantity) > 0;
+        refreshFlags();
+        refreshSummary();
+    });
+
+    $("rvLines").addEventListener("change", (event) => {
+        const tr = event.target.closest("[data-row]");
+        if (!tr || event.target.dataset.field !== "order_unit") return;
+
+        // Switching an extra item between units and packages: keep the
+        // price per unit right.
+        const row = rows.find((r) => r.key === Number(tr.dataset.row));
+        const product = extraProduct(row.drugId);
+        const per = product?.package_quantity;
+        const price = Number(row.unit_price);
+
+        if (per && row.unit_price !== "" && !Number.isNaN(price)) {
+            row.unit_price = formatPrice(event.target.value === "package" ? price * per : price / per);
         }
 
-        refreshSummary();
+        row.order_unit = event.target.value;
+        renderRows();
     });
 
     $("rvLines").addEventListener("click", (event) => {
         const add = event.target.closest("[data-add-lot]");
         if (add) {
-            const lineId = Number(add.dataset.addLot);
-            const lastIndex = rows.map((r) => r.lineId).lastIndexOf(lineId);
-            rows.splice(lastIndex + 1, 0, newRow(lineId, ""));
+            const source = rows.find((r) => r.key === Number(add.dataset.addLot));
+            const index = rows.lastIndexOf(rows.filter((r) => groupKey(r) === groupKey(source)).at(-1));
+            const row = source.lineId ? newRow(source.lineId, "") : { ...newExtraRow(extraProduct(source.drugId)), order_unit: source.order_unit, unit_price: source.unit_price };
+            rows.splice(index + 1, 0, row);
             renderRows();
-            document.querySelector(`[data-row="${rows[lastIndex + 1].key}"] [data-field="quantity"]`)?.focus();
+            document.querySelector(`[data-row="${row.key}"] [data-field="quantity"]`)?.focus();
             return;
         }
 
@@ -279,9 +312,10 @@ async function openForm(orderId) {
     // A purchase order can be delivered in several parts; each part gets
     // its own Receiving Report until everything has arrived.
     $("rvPartialNote").innerHTML = `
-        <strong>Partial deliveries are fine.</strong>
-        Enter only what came in this delivery. Whatever is still missing stays open on ${escapeHtml(order.po_number)},
-        and you receive it later as another delivery with its own Receiving Report.
+        <strong>Enter what actually arrived.</strong>
+        Partial deliveries are fine: whatever is still missing stays open on ${escapeHtml(order.po_number)} for the next delivery.
+        If the supplier sent more than ordered, enter the full amount (it's marked as over-delivery), and add anything
+        that isn't on the order with &ldquo;Add an item not on this PO&rdquo; below.
         ${order.receipts?.length ? `<br>Already received on this order: ${order.receipts.map((r) =>
             `<strong>${escapeHtml(r.gr_number)}</strong> (${formatDate(r.received_date)})`).join(", ")}.` : ""}`;
 
@@ -302,6 +336,14 @@ async function openForm(orderId) {
     $("rv_received_date").value = isoToday();
     $("rv_received_date").max = isoToday();
 
+    // Items not on the order, for the "add an item" picker.
+    const onOrder = new Set(order.items.map((i) => i.drug_id));
+    const extras = (order.extra_products || []).filter((p) => !onOrder.has(p.id));
+    $("rvAddExtra").innerHTML = `<option value="">+ Add an item not on this PO...</option>` +
+        extras.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}${p.unit_price != null
+            ? ` — ${formatMoney(p.unit_price, 4)} / ${escapeHtml(p.unit_name || "unit")}${p.price_source === "supplier" ? " (supplier price)" : ""}` : ""}</option>`).join("");
+    $("rvAddExtra").disabled = !extras.length;
+
     // One empty row per outstanding line: enter what was counted, so a
     // short delivery isn't accidentally received in full. "Fill all
     // remaining" fills everything for a complete delivery.
@@ -312,11 +354,61 @@ async function openForm(orderId) {
 }
 
 function newRow(lineId, quantity) {
-    return { key: ++rowKey, lineId, quantity, lot_number: "", expires_date: "", rejected_quantity: "", rejection_reason: "" };
+    return { key: ++rowKey, lineId, drugId: null, quantity, lot_number: "", expires_date: "", rejected_quantity: "", rejection_reason: "" };
+}
+
+/** A row for an item that isn't on the order. unit_price is per order_unit. */
+function newExtraRow(product) {
+    return {
+        key: ++rowKey,
+        lineId: null,
+        drugId: product.id,
+        order_unit: "unit",
+        unit_price: product.unit_price != null ? formatPrice(product.unit_price) : "",
+        quantity: "",
+        lot_number: "",
+        expires_date: "",
+        rejected_quantity: "",
+        rejection_reason: ""
+    };
 }
 
 function lineById(id) {
     return order.items.find((i) => i.id === id);
+}
+
+function extraProduct(id) {
+    return (order.extra_products || []).find((p) => p.id === Number(id)) || null;
+}
+
+function groupKey(row) {
+    return row.lineId ? `line-${row.lineId}` : `extra-${row.drugId}`;
+}
+
+/** Name, unit and rules for a row, whether it's an order line or not. */
+function rowInfo(row) {
+    if (row.lineId) {
+        const line = lineById(row.lineId);
+        return {
+            name: line.drug_name,
+            unit: unitLabel(line),
+            unitName: line.unit_name || "units",
+            needsLot: needsLot(line),
+            costPerUnit: line.net_unit_price,
+            line
+        };
+    }
+
+    const product = extraProduct(row.drugId);
+    const isPackage = row.order_unit === "package";
+    return {
+        name: product?.name || "Item",
+        unit: isPackage ? (product?.package_unit_name || "package") : (product?.unit_name || "unit"),
+        unitName: product?.unit_name || "units",
+        needsLot: MEDICINE_TYPES.includes(product?.product_type),
+        costPerUnit: Number(row.unit_price) || 0,
+        product
+    };
 }
 
 function unitLabel(line) {
@@ -327,19 +419,37 @@ function needsLot(line) {
     return MEDICINE_TYPES.includes(line.product_type);
 }
 
+/** How much of each order-line row goes past what was still due (in row order). */
+function overByRow() {
+    const used = new Map();
+    const over = new Map();
+
+    rows.forEach((row) => {
+        if (!row.lineId) return;
+        const line = lineById(row.lineId);
+        const qty = Math.max(0, Number(row.quantity) || 0);
+        const before = used.get(row.lineId) || 0;
+        const stillDue = Math.max(0, line.quantity_remaining - before);
+        over.set(row.key, Math.max(0, qty - stillDue));
+        used.set(row.lineId, before + qty);
+    });
+
+    return over;
+}
+
 function renderRows() {
     const outstanding = order.items.filter((i) => i.quantity_remaining > 0);
     const done = order.items.length - outstanding.length;
 
     if (!rows.length) {
         $("rvLines").innerHTML = `<div class="rv-empty">${outstanding.length
-            ? "No rows. Use “Fill all remaining” to start again."
-            : "Everything on this order has been received."}</div>`;
+            ? "No rows. Use “Fill all remaining” to start again, or add an item not on this PO."
+            : "Everything on this order has been received. You can still add an item not on this PO below."}</div>`;
         refreshSummary();
         return;
     }
 
-    let previousLine = null;
+    let previousGroup = null;
 
     $("rvLines").innerHTML = `
         <div class="rv-lines-wrap">
@@ -349,36 +459,29 @@ function renderRows() {
                     <th class="col-rej">Rejected</th><th class="col-reason">Reason for Rejection</th><th style="width:34px;"></th>
                 </tr></thead>
                 <tbody>${rows.map((row) => {
-                    const line = lineById(row.lineId);
-                    const first = previousLine !== row.lineId;
-                    previousLine = row.lineId;
-                    const lotsForLine = rows.filter((r) => r.lineId === row.lineId).length;
-                    const unit = unitLabel(line);
-                    const required = needsLot(line) ? `<span class="req">*</span>` : "";
+                    const info = rowInfo(row);
+                    const group = groupKey(row);
+                    const first = previousGroup !== group;
+                    previousGroup = group;
+                    const lotsInGroup = rows.filter((r) => groupKey(r) === group).length;
+                    const canRemove = !row.lineId || lotsInGroup > 1;
 
                     return `
-                    <tr data-row="${row.key}" class="${first ? "line-start" : "lot-extra"}">
-                        <td style="min-width:240px;">
-                            ${first ? `
-                                <div class="rv-item-name">${line.line_no}. ${escapeHtml(line.drug_name)}</div>
-                                <div class="rv-qtybar">
-                                    <span class="rv-chip">Ordered ${formatQty(line.quantity)} ${escapeHtml(unit)}</span>
-                                    ${line.quantity_received > 0 ? `<span class="rv-chip">Received ${formatQty(line.quantity_received)}</span>` : ""}
-                                    <span class="rv-chip todo">To receive ${formatQty(line.quantity_remaining)}</span>
-                                </div>
-                                ${line.order_unit === "package" && line.units_per_package ? `<span class="rv-sub">1 ${escapeHtml(unit)} = ${formatQty(line.units_per_package)} ${escapeHtml(line.unit_name || "units")}</span>` : ""}
-                                <button type="button" class="rv-btn link" data-add-lot="${line.id}" style="margin-top:4px;" title="The delivery has more than one lot of this item">+ Another lot</button>
-                            ` : `<span class="rv-sub" style="padding-left:14px;">&#8627; another lot of ${escapeHtml(line.drug_name)}</span>`}
+                    <tr data-row="${row.key}" class="${first ? "line-start" : "lot-extra"} ${row.lineId ? "" : "is-extra"}">
+                        <td style="min-width:260px;">
+                            ${first ? itemCell(row, info) : `<span class="rv-sub" style="padding-left:14px;">&#8627; another lot of ${escapeHtml(info.name)}</span>`}
                             <span class="form-error" id="err-rv_row_${row.key}_line"></span>
+                            <span class="form-error" id="err-rv_row_${row.key}_drug_id"></span>
                         </td>
                         <td class="col-qty">
                             <input type="number" min="0" step="any" data-field="quantity" value="${escapeHtml(row.quantity)}" aria-label="Quantity received">
-                            <span class="rv-unit">${escapeHtml(unit)}</span>
+                            <span class="rv-unit">${escapeHtml(info.unit)}</span>
+                            <span class="rv-over" data-flag="over" hidden></span>
                             <span class="form-error" id="err-rv_row_${row.key}_quantity"></span>
                         </td>
                         <td class="col-lot">
-                            <input type="text" maxlength="100" data-field="lot_number" value="${escapeHtml(row.lot_number)}" placeholder="${needsLot(line) ? "Required" : "Optional"}" aria-label="Lot number">
-                            ${required ? `<span class="rv-unit" style="text-align:left;">Required for medicines</span>` : ""}
+                            <input type="text" maxlength="100" data-field="lot_number" value="${escapeHtml(row.lot_number)}" placeholder="${info.needsLot ? "Required" : "Optional"}" aria-label="Lot number">
+                            ${info.needsLot ? `<span class="rv-unit" style="text-align:left;">Required for medicines</span>` : ""}
                             <span class="form-error" id="err-rv_row_${row.key}_lot_number"></span>
                         </td>
                         <td class="col-exp">
@@ -393,7 +496,7 @@ function renderRows() {
                             <input type="text" maxlength="255" data-field="rejection_reason" value="${escapeHtml(row.rejection_reason)}" placeholder="e.g. Damaged, near expiry" aria-label="Reason for rejection">
                             <span class="form-error" id="err-rv_row_${row.key}_rejection_reason"></span>
                         </td>
-                        <td>${lotsForLine > 1 ? `<button type="button" class="rv-remove" data-remove-row="${row.key}" title="Remove this lot" aria-label="Remove this lot">&times;</button>` : ""}</td>
+                        <td>${canRemove ? `<button type="button" class="rv-remove" data-remove-row="${row.key}" title="${row.lineId ? "Remove this lot" : "Remove this item"}" aria-label="Remove">&times;</button>` : ""}</td>
                     </tr>`;
                 }).join("")}
                 </tbody>
@@ -401,30 +504,83 @@ function renderRows() {
         </div>
         ${done ? `<div class="rv-done-note">${done} item${done === 1 ? " is" : "s are"} already fully received and not shown.</div>` : ""}`;
 
+    refreshFlags();
     refreshSummary();
 }
 
+function itemCell(row, info) {
+    if (row.lineId) {
+        const line = info.line;
+        return `
+            <div class="rv-item-name">${line.line_no}. ${escapeHtml(line.drug_name)}</div>
+            <div class="rv-qtybar">
+                <span class="rv-chip">Ordered ${formatQty(line.quantity)} ${escapeHtml(info.unit)}</span>
+                ${line.quantity_received > 0 ? `<span class="rv-chip">Received ${formatQty(line.quantity_received)}</span>` : ""}
+                <span class="rv-chip todo">To receive ${formatQty(line.quantity_remaining)}</span>
+            </div>
+            ${line.order_unit === "package" && line.units_per_package ? `<span class="rv-sub">1 ${escapeHtml(info.unit)} = ${formatQty(line.units_per_package)} ${escapeHtml(info.unitName)}</span>` : ""}
+            <button type="button" class="rv-btn link" data-add-lot="${row.key}" style="margin-top:4px;" title="The delivery has more than one lot of this item">+ Another lot</button>`;
+    }
+
+    const product = info.product;
+    const hasPackage = Boolean(product?.package_quantity && product?.package_unit_name);
+
+    return `
+        <div class="rv-item-name">${escapeHtml(info.name)} <span class="rv-badge extra">Not on PO</span></div>
+        <div class="rv-extra-fields">
+            <select data-field="order_unit" aria-label="Unit">
+                <option value="unit" ${row.order_unit === "unit" ? "selected" : ""}>${escapeHtml(capitalize(product?.unit_name || "unit"))}</option>
+                ${hasPackage ? `<option value="package" ${row.order_unit === "package" ? "selected" : ""}>${escapeHtml(capitalize(product.package_unit_name))} of ${formatQty(product.package_quantity)}</option>` : ""}
+            </select>
+            <label class="rv-price">&#8369;<input type="number" min="0" step="any" data-field="unit_price" value="${escapeHtml(row.unit_price)}" placeholder="0.00" aria-label="Price per ${escapeHtml(info.unit)}"><span>/ ${escapeHtml(info.unit)}</span></label>
+        </div>
+        <span class="form-error" id="err-rv_row_${row.key}_order_unit"></span>
+        <span class="form-error" id="err-rv_row_${row.key}_unit_price"></span>
+        <button type="button" class="rv-btn link" data-add-lot="${row.key}" style="margin-top:4px;">+ Another lot</button>`;
+}
+
+/** Live "Over by N" flags, without re-rendering the inputs. */
+function refreshFlags() {
+    const over = overByRow();
+
+    rows.forEach((row) => {
+        const flag = document.querySelector(`[data-row="${row.key}"] [data-flag="over"]`);
+        if (!flag) return;
+        const amount = over.get(row.key) || 0;
+        flag.hidden = !(amount > 0.0005);
+        flag.textContent = amount > 0.0005 ? `Over by ${formatQty(round3(amount))}` : "";
+    });
+}
+
 function refreshSummary() {
-    let items = 0;
+    const items = new Set();
     let cost = 0;
     let rejected = 0;
-    const counted = new Set();
+    let extras = 0;
+    const over = overByRow();
+    const overLines = new Set();
 
     rows.forEach((row) => {
         const qty = Number(row.quantity) || 0;
-        const line = lineById(row.lineId);
 
         if (qty > 0) {
-            if (!counted.has(row.lineId)) items += 1;
-            counted.add(row.lineId);
-            cost += qty * line.net_unit_price;
+            items.add(groupKey(row));
+            cost += qty * rowInfo(row).costPerUnit;
+            if (!row.lineId) extras += 1;
         }
 
+        if ((over.get(row.key) || 0) > 0.0005) overLines.add(row.lineId);
         if (Number(row.rejected_quantity) > 0) rejected += 1;
     });
 
-    $("rvSummary").innerHTML = items
-        ? `Receiving <strong>${items} item${items === 1 ? "" : "s"}</strong> worth <strong>${formatMoney(cost)}</strong>${rejected ? ` · ${rejected} with rejected quantity` : ""}`
+    const notes = [
+        overLines.size ? `<span class="rv-over">${overLines.size} over the order</span>` : null,
+        extras ? `<span class="rv-badge extra">${extras} not on PO</span>` : null,
+        rejected ? `${rejected} with rejected quantity` : null
+    ].filter(Boolean);
+
+    $("rvSummary").innerHTML = items.size
+        ? `Receiving <strong>${items.size} item${items.size === 1 ? "" : "s"}</strong> worth <strong>${formatMoney(cost)}</strong>${notes.length ? ` · ${notes.join(" · ")}` : ""}`
         : "Enter the quantity that arrived for each item.";
 }
 
@@ -433,30 +589,22 @@ async function save() {
 
     // Quick checks so the obvious mistakes don't need a round trip.
     let problems = 0;
-    const totals = new Map();
 
     rows.forEach((row) => {
-        const line = lineById(row.lineId);
+        const info = rowInfo(row);
         const qty = Number(row.quantity) || 0;
-        totals.set(row.lineId, (totals.get(row.lineId) || 0) + qty);
 
-        if (qty > 0 && needsLot(line)) {
+        if (qty > 0 && info.needsLot) {
             if (!row.lot_number.trim()) { setRowError(row, "lot_number", "Lot / batch number is required."); problems++; }
             if (!row.expires_date) { setRowError(row, "expires_date", "Expiry date is required."); problems++; }
         }
 
+        if (!row.lineId && qty > 0 && row.unit_price !== "" && Number(row.unit_price) < 0) {
+            setRowError(row, "unit_price", "Enter zero or more."); problems++;
+        }
+
         if (Number(row.rejected_quantity) > 0 && !row.rejection_reason.trim()) {
             setRowError(row, "rejection_reason", "Say why it was rejected."); problems++;
-        }
-    });
-
-    totals.forEach((total, lineId) => {
-        const line = lineById(lineId);
-        if (total > line.quantity_remaining + 0.0005) {
-            rows.filter((r) => r.lineId === lineId && Number(r.quantity) > 0).forEach((r) => {
-                setRowError(r, "quantity", `Only ${formatQty(line.quantity_remaining)} ${unitLabel(line)} left to receive.`);
-            });
-            problems++;
         }
     });
 
@@ -488,7 +636,9 @@ async function save() {
         invoice_no: $("rv_invoice_no").value.trim(),
         notes: $("rv_notes").value.trim(),
         items: rows.map((r) => ({
-            purchase_order_item_id: r.lineId,
+            ...(r.lineId
+                ? { purchase_order_item_id: r.lineId }
+                : { drug_id: r.drugId, order_unit: r.order_unit, unit_price: r.unit_price }),
             quantity: r.quantity,
             lot_number: r.lot_number.trim(),
             expires_date: r.expires_date,
@@ -527,12 +677,26 @@ async function save() {
 }
 
 function confirmReceive() {
-    const lines = new Set(rows.filter((r) => Number(r.quantity) > 0).map((r) => r.lineId));
-    const lots = rows.filter((r) => Number(r.quantity) > 0).length;
+    const received = rows.filter((r) => Number(r.quantity) > 0);
+    const items = new Set(received.map(groupKey));
     const rejected = rows.filter((r) => Number(r.rejected_quantity) > 0).length;
+    const over = overByRow();
+    const overRows = rows.filter((r) => (over.get(r.key) || 0) > 0.0005);
+    const extras = received.filter((r) => !r.lineId);
     const allDone = order.items.every((i) => {
         const now = rows.filter((r) => r.lineId === i.id).reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
         return i.quantity_remaining - now <= 0.0005;
+    });
+
+    const overList = [...new Set(overRows.map((r) => r.lineId))].map((lineId) => {
+        const line = lineById(lineId);
+        const amount = overRows.filter((r) => r.lineId === lineId).reduce((sum, r) => sum + over.get(r.key), 0);
+        return `${escapeHtml(line.drug_name)}: +${formatQty(round3(amount))} ${escapeHtml(unitLabel(line))}`;
+    });
+    const extraList = [...new Set(extras.map((r) => r.drugId))].map((drugId) => {
+        const qty = extras.filter((r) => r.drugId === drugId).reduce((sum, r) => sum + Number(r.quantity), 0);
+        const sample = extras.find((r) => r.drugId === drugId);
+        return `${escapeHtml(rowInfo(sample).name)}: ${formatQty(round3(qty))} ${escapeHtml(rowInfo(sample).unit)}`;
     });
 
     const body = `
@@ -541,10 +705,12 @@ function confirmReceive() {
             <dt>Supplier</dt><dd>${escapeHtml(order.supplier_name)}</dd>
             <dt>Received into</dt><dd>${escapeHtml($("rv_warehouse_id").selectedOptions[0]?.textContent || "—")}</dd>
             <dt>Date</dt><dd>${formatDate($("rv_received_date").value)}</dd>
-            <dt>Items</dt><dd>${lines.size} (${lots} lot${lots === 1 ? "" : "s"})</dd>
+            <dt>Items</dt><dd>${items.size} (${received.length} lot${received.length === 1 ? "" : "s"})</dd>
             ${rejected ? `<dt>With rejected quantity</dt><dd>${rejected}</dd>` : ""}
             <dt>After this</dt><dd>${allDone ? "Order fully received" : "Order stays open for the rest"}</dd>
         </dl>
+        ${overList.length ? `<div class="po-note-like rv-warn"><strong>More than ordered:</strong> ${overList.join("; ")}. The extra is accepted and marked as over-delivery.</div>` : ""}
+        ${extraList.length ? `<div class="po-note-like rv-warn"><strong>Not on the purchase order:</strong> ${extraList.join("; ")}. Received into stock and marked &ldquo;Not on PO&rdquo;; the order itself isn't changed.</div>` : ""}
         <p class="rv-confirm-note">The quantities go into stock now, under the lot numbers and expiry dates entered. Rejected quantities are recorded but not stocked.</p>`;
 
     return new Promise((resolve) => {
@@ -642,7 +808,10 @@ async function openReceipt(id) {
                     <thead><tr><th>Item</th><th>Lot / Batch</th><th>Expiry</th><th class="num">Received</th><th class="num">Into Stock</th><th>Rejected</th><th class="num">Cost</th></tr></thead>
                     <tbody>${r.items.map((i) => `
                         <tr>
-                            <td><span class="rv-item-name">${i.line_no}. ${escapeHtml(i.drug_name)}</span>${i.supplier_item_code ? `<span class="rv-sub">Item ${escapeHtml(i.supplier_item_code)}</span>` : ""}</td>
+                            <td><span class="rv-item-name">${i.on_order ? `${i.line_no}. ` : ""}${escapeHtml(i.drug_name)}</span>
+                                ${i.on_order ? "" : ` <span class="rv-badge extra">Not on PO</span>`}
+                                ${i.over_quantity > 0 ? ` <span class="rv-over">Over by ${formatQty(i.over_quantity)}</span>` : ""}
+                                ${i.supplier_item_code ? `<span class="rv-sub">Item ${escapeHtml(i.supplier_item_code)}</span>` : ""}</td>
                             <td>${escapeHtml(i.lot_number || "—")}</td>
                             <td style="white-space:nowrap;">${i.expires_date ? formatDate(i.expires_date) : "—"}</td>
                             <td class="num">${formatQty(i.quantity)} ${escapeHtml(itemUnit(i))}</td>
@@ -699,6 +868,7 @@ function printReceipt(r) {
     table.items td { padding: 7px 8px; border: 1px solid #d1d5db; vertical-align: top; }
     .num { text-align: right; white-space: nowrap; }
     .notes { margin-top: 14px; white-space: pre-wrap; }
+    .flag { display: inline-block; margin-top: 3px; padding: 0 5px; border: 1px solid #b45309; color: #b45309; font-size: 9.5px; font-weight: 700; letter-spacing: .3px; }
     .signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 56px; }
     .signs div { border-top: 1px solid #111827; padding-top: 4px; text-align: center; font-size: 11px; color: #4b5563; }
     @media print { body { padding: 0; } }
@@ -732,8 +902,10 @@ function printReceipt(r) {
     <thead><tr><th>#</th><th>Item</th><th>Lot / Batch</th><th>Expiry</th><th class="num">Qty Received</th><th class="num">Rejected</th><th>Remarks</th><th class="num">Unit Cost</th><th class="num">Amount</th></tr></thead>
     <tbody>${r.items.map((i) => `
         <tr>
-            <td>${i.line_no}</td>
-            <td>${escapeHtml(i.drug_name)}${i.supplier_item_code ? `<div class="muted">${escapeHtml(i.supplier_item_code)}</div>` : ""}</td>
+            <td>${i.on_order ? i.line_no : "&ndash;"}</td>
+            <td>${escapeHtml(i.drug_name)}${i.supplier_item_code ? `<div class="muted">${escapeHtml(i.supplier_item_code)}</div>` : ""}
+                ${i.on_order ? "" : `<div class="flag">NOT ON PO</div>`}
+                ${i.over_quantity > 0 ? `<div class="flag">OVER BY ${formatQty(i.over_quantity)} ${escapeHtml(itemUnit(i))}</div>` : ""}</td>
             <td>${escapeHtml(i.lot_number || "")}</td>
             <td>${i.expires_date ? formatDate(i.expires_date) : ""}</td>
             <td class="num">${formatQty(i.quantity)} ${escapeHtml(itemUnit(i))}${i.order_unit === "package" ? `<div class="muted">${formatQty(i.base_quantity)} ${escapeHtml(i.unit_name || "units")}</div>` : ""}</td>
@@ -762,6 +934,19 @@ ${r.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r.notes)}</
 /* ---------------------------------------------------------------
  * Helpers
  * ------------------------------------------------------------- */
+
+function formatPrice(value) {
+    return String(Number(Number(value).toFixed(4)));
+}
+
+function round3(value) {
+    return Math.round(Number(value) * 1000) / 1000;
+}
+
+function capitalize(value) {
+    const text = String(value || "");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 function formatInput(value) {
     return String(Number(Number(value).toFixed(3)));

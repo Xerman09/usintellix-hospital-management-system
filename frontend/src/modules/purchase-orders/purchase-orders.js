@@ -1063,7 +1063,9 @@ function showDetail(order) {
                                     item.order_unit === "package" && item.units_per_package ? `${formatQty(item.base_quantity)} ${item.unit_name || "units"}` : null].filter(Boolean).join(" · "))}</span></td>
                             <td class="num">${formatQty(item.quantity)} ${escapeHtml(itemUnit(item))}</td>
                             ${showReceived ? `<td class="num">${formatQty(item.quantity_received)}
-                                <span class="po-recv ${item.quantity_remaining <= 0 ? "done" : ""}">${item.quantity_remaining <= 0 ? "Complete" : `${formatQty(item.quantity_remaining)} to go`}</span></td>` : ""}
+                                <span class="po-recv ${item.quantity_remaining <= 0 ? "done" : ""}">${item.quantity_received > item.quantity + 0.0005
+                                    ? `Complete · over by ${formatQty(Math.round((item.quantity_received - item.quantity) * 1000) / 1000)}`
+                                    : item.quantity_remaining <= 0 ? "Complete" : `${formatQty(item.quantity_remaining)} to go`}</span></td>` : ""}
                             <td class="num">${formatMoney(item.unit_price, 4)}</td>
                             <td class="num">${item.discount_amount ? `− ${formatMoney(item.discount_amount)}` : "—"}</td>
                             <td class="num"><strong>${formatMoney(item.line_total)}</strong></td>

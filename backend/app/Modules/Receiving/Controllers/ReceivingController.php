@@ -35,6 +35,9 @@ class ReceivingController extends Controller
             return;
         }
 
+        // For "add an item not on the order".
+        $order['extra_products'] = $this->service->extraProducts($order['supplier_id']);
+
         $this->success($order, 'Purchase order retrieved successfully.');
     }
 
