@@ -1647,6 +1647,8 @@ body {
 
 .navbar-links {
     display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 100%;
 }
 
@@ -1695,7 +1697,7 @@ body {
     padding: 6px;
 }
 
-.nav-dropdown:not(.nav-profile):hover .dropdown-content {
+.nav-dropdown:not(.nav-profile):hover > .dropdown-content {
     display: flex;
 }
 
@@ -1811,6 +1813,127 @@ body {
 .dropdown-right {
     left: auto;
     right: 0;
+}
+
+/* ---- Navbar overflow ("More") + smart menu placement (core/nav-overflow.js) ---- */
+
+.nav-more.is-empty {
+    display: none;
+}
+
+.nav-more > span {
+    gap: 4px;
+}
+
+.nav-more-chevron {
+    width: 13px;
+    height: 13px;
+}
+
+.nav-more.has-active > span {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* A whole top-level menu moved into "More" becomes a row with a flyout. */
+.nav-more-menu > .nav-dropdown {
+    display: block;
+}
+
+.nav-more-menu > .nav-dropdown > span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: auto;
+    padding: 9px 12px;
+    border-bottom: none;
+    border-radius: 6px;
+    color: #384252;
+    font-weight: 600;
+}
+
+.nav-more-menu > .nav-dropdown > span::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-left: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    opacity: .55;
+}
+
+.nav-more-menu > .nav-dropdown:hover > span {
+    background-color: var(--accent-light);
+    color: var(--accent);
+}
+
+/* Flyouts out of "More" open leftward by default -- it sits at the right edge. */
+.nav-more-menu .nav-dropdown > .dropdown-content,
+.nav-more-menu .dropdown-submenu-content {
+    top: 0;
+    left: auto;
+    right: 100%;
+}
+
+.dropdown-content.nav-open-left {
+    left: auto;
+    right: 0;
+}
+
+.dropdown-submenu-content.nav-open-left,
+.nav-more-menu .dropdown-content.nav-open-left {
+    left: auto;
+    right: 100%;
+}
+
+.dropdown-submenu-content.nav-open-right,
+.nav-more-menu .dropdown-content.nav-open-right {
+    left: 100%;
+    right: auto;
+}
+
+/* Menus taller than the screen are split into columns. */
+.nav-dropdown:not(.nav-profile):hover > .dropdown-content.nav-mega,
+.dropdown-submenu:hover > .dropdown-submenu-content.nav-mega {
+    display: block;
+}
+
+.nav-mega {
+    width: max-content;
+    column-gap: 8px;
+    column-rule: 1px solid #eef1f5;
+}
+
+.nav-mega > * {
+    break-inside: avoid;
+    min-width: 220px;
+}
+
+.nav-mega > .dropdown-section-label {
+    break-after: avoid;
+}
+
+.nav-scroll {
+    overflow-y: auto;
+}
+
+:root[data-theme="dark"] .nav-more-menu > .nav-dropdown > span {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .nav-more-menu > .nav-dropdown:hover > span {
+    background: var(--bg-surface-alt);
+    color: var(--accent-text);
+}
+
+:root[data-theme="dark"] .nav-more.has-active > span {
+    color: var(--accent-text);
+    border-bottom-color: var(--accent-text);
+}
+
+:root[data-theme="dark"] .nav-mega {
+    column-rule-color: var(--border-color);
 }
 
 .profile-header {
@@ -1959,6 +2082,7 @@ body {
 /* Right Nav items */
 .navbar-right {
     margin-left: auto;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 14px;

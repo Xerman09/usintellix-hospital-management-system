@@ -1,3 +1,4 @@
+import { initNavOverflow } from "../../core/nav-overflow.js?v=1";
 import { getUser, clearSession, syncSessionUser } from "../../core/session.js?v=2";
 import { renderAvatar } from "../../core/avatar.js";
 import { initBranding } from "../../core/branding.js";
@@ -1454,6 +1455,7 @@ export function Dashboard()
         });
     }
     attachNavListeners();
+    initNavOverflow();
 
     // Top navbar "Search by any demographic..." box -- pressing Enter hands
     // the typed term off to the Finder tab (same one-shot localStorage
@@ -1505,6 +1507,7 @@ export function Dashboard()
             if (navLinksContainer) {
                 navLinksContainer.innerHTML = getNavLinks(freshUser.role);
                 attachNavListeners();
+                initNavOverflow();
                 updatePatientNavState();
             }
             const profileRole = document.getElementById('profileRole');
