@@ -110,6 +110,8 @@ export function ReceivingView() {
 .rv-remove { width: 28px; height: 28px; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--text-muted); font-size: 17px; cursor: pointer; line-height: 1; }
 .rv-remove:hover { border-color: #fca5a5; color: #b91c1c; background: #fee2e2; }
 .rv-done-note { margin-top: 10px; font-size: 12.5px; color: var(--text-muted); }
+.rv-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.rv-note strong { color: var(--text-primary); }
 
 .rv-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 0 4px; }
 .rv-footer-right { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
@@ -220,6 +222,7 @@ export function ReceivingView() {
                         <button type="button" class="rv-btn small" id="rvClearAll">Clear all</button>
                     </span>
                 </div>
+                <div class="rv-note" id="rvPartialNote"></div>
                 <span class="form-error" id="err-rv_items"></span>
                 <div id="rvLines"></div>
             </div>

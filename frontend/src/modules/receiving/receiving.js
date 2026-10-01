@@ -124,11 +124,12 @@ function renderList() {
                             <td class="rv-progress">
                                 <div class="rv-bar"><span style="width:${o.percent_received}%;"></span></div>
                                 <span class="rv-sub">${o.lines_complete} of ${o.line_count} item${o.line_count === 1 ? "" : "s"} complete · ${o.percent_received}%</span>
+                                ${o.delivery_count ? `<span class="rv-sub">${o.delivery_count} deliver${o.delivery_count === 1 ? "y" : "ies"} so far</span>` : ""}
                             </td>
                             <td class="num">${formatMoney(o.total)}</td>
                             <td><span class="rv-badge ${o.status}">${STATUS_LABELS[o.status] || o.status}</span></td>
                             <td>${canReceive()
-                                ? `<button type="button" class="rv-btn small primary">Receive</button>`
+                                ? `<button type="button" class="rv-btn small primary">${o.status === "partially_received" ? "Receive More" : "Receive"}</button>`
                                 : `<span class="rv-sub" title="Received by admin, receptionist or doctor accounts">Awaiting pharmacy</span>`}</td>
                         </tr>`).join("")}
                     </tbody>
@@ -271,8 +272,18 @@ async function openForm(orderId) {
     clearErrors();
     $("rvForm").reset();
 
-    $("rvFormTitle").textContent = `Receive Delivery — ${order.po_number}`;
-    $("rvFormSub").textContent = `From ${order.supplier_name}. Enter what actually arrived; anything not delivered stays open on the order.`;
+    const deliveryNo = (order.receipts?.length || 0) + 1;
+    $("rvFormTitle").textContent = `Receive Delivery #${deliveryNo} — ${order.po_number}`;
+    $("rvFormSub").textContent = `From ${order.supplier_name}. Count what arrived in this delivery and enter only that.`;
+
+    // A purchase order can be delivered in several parts; each part gets
+    // its own Receiving Report until everything has arrived.
+    $("rvPartialNote").innerHTML = `
+        <strong>Partial deliveries are fine.</strong>
+        Enter only what came in this delivery. Whatever is still missing stays open on ${escapeHtml(order.po_number)},
+        and you receive it later as another delivery with its own Receiving Report.
+        ${order.receipts?.length ? `<br>Already received on this order: ${order.receipts.map((r) =>
+            `<strong>${escapeHtml(r.gr_number)}</strong> (${formatDate(r.received_date)})`).join(", ")}.` : ""}`;
 
     $("rvOrderInfo").innerHTML = [
         ["Purchase Order", `<strong>${escapeHtml(order.po_number)}</strong><span class="rv-sub">${STATUS_LABELS[order.status] || order.status}</span>`],
@@ -280,7 +291,9 @@ async function openForm(orderId) {
         ["Ordered", formatDate(order.order_date)],
         ["Expected", order.expected_date ? `${formatDate(order.expected_date)}${order.is_overdue ? ` <span class="rv-badge overdue">Overdue</span>` : ""}` : "—"],
         ["Approved by", escapeHtml(order.approved_by_name || "—")],
-        ["Previous deliveries", order.receipts?.length ? order.receipts.map((r) => escapeHtml(r.gr_number)).join(", ") : "None yet"]
+        ["Previous deliveries", order.receipts?.length
+            ? order.receipts.map((r) => `${escapeHtml(r.gr_number)}<span class="rv-sub">${formatDate(r.received_date)}</span>`).join("")
+            : "None yet — this is the first"]
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
 
     $("rv_warehouse_id").innerHTML = `<option value="">-- Select a location --</option>` +
@@ -289,8 +302,10 @@ async function openForm(orderId) {
     $("rv_received_date").value = isoToday();
     $("rv_received_date").max = isoToday();
 
-    // Start with one row per outstanding line, filled with what's still due.
-    rows = order.items.filter((i) => i.quantity_remaining > 0).map((i) => newRow(i.id, formatInput(i.quantity_remaining)));
+    // One empty row per outstanding line: enter what was counted, so a
+    // short delivery isn't accidentally received in full. "Fill all
+    // remaining" fills everything for a complete delivery.
+    rows = order.items.filter((i) => i.quantity_remaining > 0).map((i) => newRow(i.id, ""));
 
     renderRows();
     showPanel("form");
@@ -588,7 +603,12 @@ async function openReceipt(id) {
     }
 
     const r = result.data;
-    const status = { received: "The order is now fully received.", partially_received: "The rest of the order is still open.", closed: "The order was closed." }[r.po_status] || "";
+    const status = {
+        received: "The order is now fully received.",
+        partially_received: "The rest of the order is still open for the next delivery.",
+        closed: "The order was closed."
+    }[r.po_status] || "";
+    const moreToCome = r.po_status === "partially_received" && canReceive();
 
     $("rvDetail").innerHTML = `
         <div class="rv-banner">
@@ -598,6 +618,7 @@ async function openReceipt(id) {
             </div>
             <div class="rv-actions">
                 <button type="button" class="rv-btn" id="rvPrintBtn">Print Receiving Report</button>
+                ${moreToCome ? `<button type="button" class="rv-btn primary" id="rvNextBtn">Receive Next Delivery</button>` : ""}
             </div>
         </div>
 
@@ -636,6 +657,7 @@ async function openReceipt(id) {
         </div>`;
 
     $("rvPrintBtn").addEventListener("click", () => printReceipt(r));
+    $("rvNextBtn")?.addEventListener("click", () => openForm(r.purchase_order_id));
     showPanel("detail");
 }
 

@@ -41,8 +41,8 @@ import { SupplierPricesView } from "../supplier-prices/supplier-prices.view.js?v
 import { initSupplierPrices } from "../supplier-prices/supplier-prices.js?v=4";
 import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v=5";
 import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=9";
-import { ReceivingView } from "../receiving/receiving.view.js?v=2";
-import { initReceiving } from "../receiving/receiving.js?v=4";
+import { ReceivingView } from "../receiving/receiving.view.js?v=3";
+import { initReceiving } from "../receiving/receiving.js?v=5";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js";

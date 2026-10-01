@@ -67,7 +67,16 @@ class ReceivingService
             $progress[(int) $row['purchase_order_id']] = $row;
         }
 
+        $stmt = Database::connection()->prepare(
+            "SELECT purchase_order_id, COUNT(*) FROM goods_receipts
+             WHERE purchase_order_id IN ({$placeholders})
+             GROUP BY purchase_order_id"
+        );
+        $stmt->execute($ids);
+        $deliveries = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
         foreach ($pending as &$order) {
+            $order['delivery_count'] = (int) ($deliveries[$order['id']] ?? 0);
             $p = $progress[$order['id']] ?? null;
             $order['line_count'] = $p ? (int) $p['line_count'] : 0;
             $order['lines_complete'] = $p ? (int) $p['lines_complete'] : 0;
