@@ -11,7 +11,7 @@ const RECEIVER_ROLES = ["admin", "receptionist", "doctor"];
 const canReceive = () => RECEIVER_ROLES.includes(getUser()?.role);
 
 const MEDICINE_TYPES = ["Drug", "Vaccine"];
-const STATUS_LABELS = { approved: "Approved", partially_received: "Partially received", received: "Fully received", closed: "Closed" };
+const STATUS_LABELS = { approved: "Ready for receiving", partially_received: "Partially received", received: "Fully received", closed: "Closed" };
 
 let pending = [];
 let receipts = [];
@@ -26,10 +26,9 @@ const $ = (id) => document.getElementById(id);
 
 export async function initReceiving() {
     if (!canReceive()) {
-        activeTab = "received";
-        document.querySelector('[data-rv-tab="pending"]').hidden = true;
-        document.querySelector('[data-rv-tab="received"]').classList.add("active");
-        document.querySelector(".rv-header p").textContent = "Deliveries received against purchase orders.";
+        document.querySelector(".rv-header p").textContent =
+            "Approved purchase orders ready for receiving, and deliveries already received. "
+            + "Deliveries are received into stock by admin, receptionist or doctor accounts.";
     }
 
     document.querySelectorAll("[data-rv-tab]").forEach((btn) => btn.addEventListener("click", () => {
@@ -71,10 +70,7 @@ function onReceiveRequest(event) {
 async function loadLists() {
     $("rvList").innerHTML = `<div class="rv-empty">Loading...</div>`;
 
-    const [pendingResult, receiptsResult] = await Promise.all([
-        canReceive() ? fetchPendingDeliveries() : Promise.resolve({ success: true, data: [] }),
-        fetchReceipts()
-    ]);
+    const [pendingResult, receiptsResult] = await Promise.all([fetchPendingDeliveries(), fetchReceipts()]);
 
     if (!pendingResult?.success || !receiptsResult?.success) {
         const message = (!pendingResult?.success ? pendingResult : receiptsResult)?.message;
@@ -111,7 +107,7 @@ function renderList() {
         if (!list.length) {
             $("rvList").innerHTML = `<div class="rv-empty">${pending.length
                 ? "No orders match your search."
-                : "Nothing to receive. Approved purchase orders show up here until everything on them has arrived."}</div>`;
+                : "Nothing ready for receiving. As soon as a purchase order is approved it shows up here, and stays until everything on it has arrived."}</div>`;
             return;
         }
 
@@ -131,15 +127,21 @@ function renderList() {
                             </td>
                             <td class="num">${formatMoney(o.total)}</td>
                             <td><span class="rv-badge ${o.status}">${STATUS_LABELS[o.status] || o.status}</span></td>
-                            <td><button type="button" class="rv-btn small primary">Receive</button></td>
+                            <td>${canReceive()
+                                ? `<button type="button" class="rv-btn small primary">Receive</button>`
+                                : `<span class="rv-sub" title="Received by admin, receptionist or doctor accounts">Awaiting pharmacy</span>`}</td>
                         </tr>`).join("")}
                     </tbody>
                 </table>
             </div>`;
 
-        $("rvList").querySelectorAll("[data-rv-receive]").forEach((row) => {
-            row.addEventListener("click", () => openForm(Number(row.dataset.rvReceive)));
-        });
+        if (canReceive()) {
+            $("rvList").querySelectorAll("[data-rv-receive]").forEach((row) => {
+                row.addEventListener("click", () => openForm(Number(row.dataset.rvReceive)));
+            });
+        } else {
+            $("rvList").querySelectorAll("[data-rv-receive]").forEach((row) => { row.style.cursor = "default"; });
+        }
         return;
     }
 

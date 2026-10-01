@@ -16,7 +16,7 @@ const canCreate = () => CREATOR_ROLES.includes(getUser()?.role);
 const STATUS_LABELS = {
     draft: "Draft",
     pending_approval: "Pending Approval",
-    approved: "Approved",
+    approved: "Approved · Ready for Receiving",
     rejected: "Rejected",
     cancelled: "Cancelled",
     partially_received: "Partially Received",
@@ -159,7 +159,7 @@ function renderList() {
                         <td class="num">${o.item_count}</td>
                         <td class="num"><strong>${formatMoney(o.total)}</strong></td>
                         <td style="white-space:nowrap;">${statusBadge(o)}</td>
-                        <td><button type="button" class="po-btn small ${o.can_approve ? "primary" : ""}">${o.can_edit ? "Edit" : o.can_approve ? "Review" : "View"}</button></td>
+                        <td><button type="button" class="po-btn small ${o.can_approve || (o.can_receive && canCreate()) ? "primary" : ""}">${o.can_edit ? "Edit" : o.can_approve ? "Review" : o.can_receive && canCreate() ? "Receive" : "View"}</button></td>
                     </tr>`).join("")}
                 </tbody>
             </table>
@@ -167,7 +167,20 @@ function renderList() {
     `;
 
     $("poList").querySelectorAll("[data-po-open]").forEach((row) => {
-        row.addEventListener("click", () => openOrder(Number(row.dataset.poOpen)));
+        row.addEventListener("click", (event) => {
+            const id = Number(row.dataset.poOpen);
+            const o = orders.find((x) => x.id === id);
+
+            // The row's "Receive" button jumps straight to receiving.
+            if (event.target.closest("button") && o?.can_receive && !o.can_approve && canCreate()) {
+                window.__pendingReceivePoId = id;
+                window.__openDashboardTab?.("pharmacy_receiving", "Receiving");
+                window.dispatchEvent(new CustomEvent("po:receive", { detail: { id } }));
+                return;
+            }
+
+            openOrder(id);
+        });
     });
 }
 
@@ -1111,12 +1124,14 @@ function showDetail(order) {
     $("poCopyBtn")?.addEventListener("click", () => openEditor(order, true));
     $("poCancelBtn")?.addEventListener("click", () => openAction("cancel"));
     $("poCloseBtn")?.addEventListener("click", () => openAction("close"));
-    $("poReceiveBtn")?.addEventListener("click", () => {
+    const receiveNow = () => {
         // Hand the order to the Receiving tab (open, or already open).
         window.__pendingReceivePoId = order.id;
         window.__openDashboardTab?.("pharmacy_receiving", "Receiving");
         window.dispatchEvent(new CustomEvent("po:receive", { detail: { id: order.id } }));
-    });
+    };
+    $("poReceiveBtn")?.addEventListener("click", receiveNow);
+    document.querySelector("[data-po-receive-now]")?.addEventListener("click", receiveNow);
     $("poApproveBtn")?.addEventListener("click", () => openAction("approve"));
     $("poRejectBtn")?.addEventListener("click", () => openAction("reject"));
 
@@ -1155,10 +1170,13 @@ function approvalBanner(order) {
         return `
             <div class="po-approval approved">
                 <div>
-                    <strong>Approved by ${by(order.approved_by_name)} on ${escapeHtml(formatDateTime(order.approved_at))}</strong>
-                    <span>Ready to send to the supplier &mdash; print it or save it as PDF.</span>
+                    <strong>Approved by ${by(order.approved_by_name)} on ${escapeHtml(formatDateTime(order.approved_at))} &mdash; ready for receiving</strong>
+                    <span>${canCreate()
+                        ? "Send it to the supplier (print or save as PDF). When the delivery arrives, receive it here or under Pharmacy &gt; Receiving."
+                        : "Send it to the supplier. When the delivery arrives, pharmacy staff (admin, receptionist or doctor accounts) receive it under Pharmacy &gt; Receiving."}</span>
                     ${order.approval_notes ? `<span class="quote">&ldquo;${escapeHtml(order.approval_notes)}&rdquo;</span>` : ""}
                 </div>
+                ${canCreate() ? `<div class="po-approval-actions"><button type="button" class="po-btn primary" data-po-receive-now>Receive Delivery</button></div>` : ""}
             </div>`;
     }
 

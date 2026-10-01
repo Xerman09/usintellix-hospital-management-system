@@ -146,14 +146,14 @@ export function ReceivingView() {
         </div>
 
         <div class="rv-stats">
-            <div class="rv-stat"><strong id="rvStatAwaiting">0</strong><span>Orders awaiting delivery</span></div>
+            <div class="rv-stat"><strong id="rvStatAwaiting">0</strong><span>Ready for receiving</span></div>
             <div class="rv-stat warn"><strong id="rvStatOverdue">0</strong><span>Past expected delivery</span></div>
             <div class="rv-stat"><strong id="rvStatPartial">0</strong><span>Partially received</span></div>
             <div class="rv-stat"><strong id="rvStatMonth">0</strong><span>Deliveries received this month</span></div>
         </div>
 
         <div class="rv-tabs" role="tablist">
-            <button type="button" class="active" data-rv-tab="pending" role="tab">Awaiting Delivery</button>
+            <button type="button" class="active" data-rv-tab="pending" role="tab">Ready for Receiving</button>
             <button type="button" data-rv-tab="received" role="tab">Received Deliveries</button>
         </div>
 
