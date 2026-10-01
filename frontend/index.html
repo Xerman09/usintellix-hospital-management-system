@@ -15,24 +15,68 @@ Intellix Hospital System
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Fonts and icons come from outside sites: load them without blocking
+     the page, so a slow connection to them can't leave the screen blank. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="./src/styles/main.css?v=43">
+
+<style>
+#appBoot { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    font-family: Inter, "Segoe UI", Arial, sans-serif; color: #475569; background: #f8fafc; text-align: center; padding: 16px; }
+#appBoot .boot-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #cbd5e1; border-top-color: #2563eb; animation: bootspin .8s linear infinite; }
+#appBoot .boot-msg { font-size: 14px; max-width: 420px; line-height: 1.5; }
+#appBoot button { height: 34px; padding: 0 16px; border-radius: 6px; border: 1px solid #2563eb; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; }
+@keyframes bootspin { to { transform: rotate(360deg); } }
+@media (prefers-color-scheme: dark) { #appBoot { background: #0f172a; color: #94a3b8; } #appBoot .boot-spin { border-color: #334155; border-top-color: #60a5fa; } }
+</style>
 
 </head>
 
 
 <body>
 
-<div id="app"></div>
+<!-- Shown until the app draws its first screen (main.js replaces #app's content). -->
+<div id="app">
+    <div id="appBoot" role="status" aria-live="polite">
+        <div class="boot-spin"></div>
+        <div class="boot-msg" id="appBootMsg">Loading Intellix&hellip;</div>
+    </div>
+</div>
 
+<script>
+// If the app hasn't drawn anything after 20 s, say so instead of leaving a blank page.
+(function () {
+    function stillLoading() {
+        var msg = document.getElementById("appBootMsg");
+        if (!msg) return; // the app has rendered
+        msg.innerHTML = "This is taking longer than usual. Check your internet connection, then reload.";
+        var btn = document.createElement("button");
+        btn.textContent = "Reload";
+        btn.onclick = function () { location.reload(); };
+        msg.parentNode.appendChild(btn);
+    }
+    setTimeout(stillLoading, 20000);
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    // A file of the app failed to load (e.g. server stopped): show it.
+    window.addEventListener("error", function (event) {
+        var msg = document.getElementById("appBootMsg");
+        var target = event.target;
+        if (msg && target && target.tagName === "SCRIPT" && target.type === "module") {
+            msg.innerHTML = "The app couldn't load. Make sure the server is running, then reload.";
+        }
+    }, true);
+})();
+</script>
+
+<!-- Used only for ZIP exports and barcodes, which check they're loaded: async
+     so they never hold up the rest of the app. -->
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 <script
     type="module"
-    src="./src/main.js?v=206">
+    src="./src/main.js?v=207">
 </script>
 
 
