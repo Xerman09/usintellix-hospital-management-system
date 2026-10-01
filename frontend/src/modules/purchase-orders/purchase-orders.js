@@ -1,11 +1,27 @@
 import {
     fetchPurchaseOrders, fetchPurchaseOrder, fetchPurchaseOrderOptions,
-    createPurchaseOrder, updatePurchaseOrder, cancelPurchaseOrder, deletePurchaseOrder
-} from "./purchase-orders.service.js?v=1";
+    createPurchaseOrder, updatePurchaseOrder, cancelPurchaseOrder, deletePurchaseOrder,
+    approvePurchaseOrder, rejectPurchaseOrder
+} from "./purchase-orders.service.js?v=2";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 
-const STATUS_LABELS = { draft: "Draft", submitted: "Submitted", cancelled: "Cancelled" };
+const STATUS_LABELS = {
+    draft: "Draft",
+    pending_approval: "Pending Approval",
+    approved: "Approved",
+    rejected: "Rejected",
+    cancelled: "Cancelled"
+};
+
+const HISTORY_LABELS = {
+    created: "Created",
+    submitted: "Submitted for approval",
+    resubmitted: "Resubmitted for approval",
+    approved: "Approved",
+    rejected: "Rejected",
+    cancelled: "Cancelled"
+};
 const LICENSE_WARNING_DAYS = 60;
 
 let orders = [];
@@ -29,7 +45,7 @@ export async function initPurchaseOrders() {
     document.querySelectorAll("[data-po-back]").forEach((btn) => btn.addEventListener("click", showList));
 
     setupEditor();
-    setupCancelDialog();
+    setupActionDialog();
 
     await loadList();
 }
@@ -39,11 +55,19 @@ export async function initPurchaseOrders() {
  * ------------------------------------------------------------- */
 
 async function loadList() {
+    $("poList").innerHTML = `<div class="po-empty">Loading...</div>`;
+
     const result = await fetchPurchaseOrders();
 
-    if (!result.success) {
+    if (!result?.success) {
         orders = [];
-        $("poList").innerHTML = `<div class="po-empty">Failed to load purchase orders.</div>`;
+        $("poList").innerHTML = `
+            <div class="po-empty">
+                <strong>Couldn't load purchase orders.</strong>
+                <span class="po-sub">${escapeHtml(result?.message || "The server didn't respond.")}</span>
+                <button type="button" class="po-btn small" id="poRetry" style="margin-top:10px;">Try Again</button>
+            </div>`;
+        $("poRetry").addEventListener("click", loadList);
         return;
     }
 
@@ -64,11 +88,16 @@ async function loadList() {
 function renderStats() {
     const month = isoToday().slice(0, 7);
 
-    $("poStatDrafts").textContent = orders.filter((o) => o.status === "draft").length;
-    $("poStatOpen").textContent = orders.filter((o) => o.status === "submitted").length;
+    const pending = orders.filter((o) => o.status === "pending_approval");
+    const mine = pending.filter((o) => o.can_approve).length;
+
+    $("poStatDrafts").textContent = orders.filter((o) => o.can_edit).length;
+    $("poStatPending").textContent = pending.length;
+    $("poStatPendingLabel").textContent = mine ? `Awaiting approval · ${mine} for you` : "Awaiting approval";
+    $("poStatOpen").textContent = orders.filter((o) => o.status === "approved").length;
     $("poStatOverdue").textContent = orders.filter((o) => o.is_overdue).length;
     $("poStatMonth").textContent = formatMoney(orders
-        .filter((o) => o.status === "submitted" && String(o.order_date).slice(0, 7) === month)
+        .filter((o) => o.status === "approved" && String(o.order_date).slice(0, 7) === month)
         .reduce((sum, o) => sum + o.total, 0));
 }
 
@@ -78,7 +107,7 @@ function renderList() {
     const supplierId = $("poSupplierFilter").value;
 
     const rows = orders.filter((o) => {
-        if (status && o.status !== status) return false;
+        if (status === "mine" ? !o.can_approve : status && o.status !== status) return false;
         if (supplierId && String(o.supplier_id) !== supplierId) return false;
         if (!term) return true;
 
@@ -113,7 +142,7 @@ function renderList() {
                         <td class="num">${o.item_count}</td>
                         <td class="num"><strong>${formatMoney(o.total)}</strong></td>
                         <td style="white-space:nowrap;">${statusBadge(o)}</td>
-                        <td><button type="button" class="po-btn small">${o.status === "draft" ? "Edit" : "View"}</button></td>
+                        <td><button type="button" class="po-btn small ${o.can_approve ? "primary" : ""}">${o.can_edit ? "Edit" : o.can_approve ? "Review" : "View"}</button></td>
                     </tr>`).join("")}
                 </tbody>
             </table>
@@ -150,7 +179,7 @@ async function openOrder(id) {
         return;
     }
 
-    if (result.data.status === "draft") {
+    if (result.data.can_edit) {
         await openEditor(result.data);
     } else {
         showDetail(result.data);
@@ -185,9 +214,9 @@ function setupEditor() {
         if (!editing) return;
 
         const ok = await confirmDialog({
-            title: `Delete draft ${editing.po_number}?`,
-            body: `<p>This draft and its ${lines.length} item${lines.length === 1 ? "" : "s"} will be removed. This can't be undone.</p>`,
-            confirmLabel: "Delete Draft",
+            title: `Delete ${editing.po_number}?`,
+            body: `<p>This ${editing.status === "rejected" ? "rejected order" : "draft"} and its ${lines.length} item${lines.length === 1 ? "" : "s"} will be removed. This can't be undone.</p>`,
+            confirmLabel: editing.status === "rejected" ? "Delete Order" : "Delete Draft",
             danger: true
         });
         if (!ok) return;
@@ -288,11 +317,7 @@ async function openEditor(order = null, copy = false) {
     $("po_warehouse_id").innerHTML = `<option value="">-- Select a location --</option>` +
         options.warehouses.map((w) => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join("");
 
-    $("poEditorTitle").textContent = editing ? `Edit ${editing.po_number}` : "New Purchase Order";
-    $("poEditorSub").textContent = editing
-        ? "Draft — not yet sent. Submit it when it's ready to go to the supplier."
-        : "Fill in the supplier and items, then save as a draft or submit the order.";
-    $("poDeleteDraft").hidden = !editing;
+    setEditorHeading();
 
     if (order) {
         $("po_supplier_id").value = order.supplier_id;
@@ -835,9 +860,7 @@ async function save(submit) {
         const detail = await fetchPurchaseOrder(result.data.id);
         if (detail.success) {
             editing = detail.data;
-            $("poEditorTitle").textContent = `Edit ${editing.po_number}`;
-            $("poEditorSub").textContent = "Draft — not yet sent. Submit it when it's ready to go to the supplier.";
-            $("poDeleteDraft").hidden = false;
+            setEditorHeading();
             return;
         }
     }
@@ -860,14 +883,14 @@ function confirmSubmit() {
     ];
 
     return confirmDialog({
-        title: "Submit purchase order?",
+        title: "Submit for approval?",
         body: `
             <dl class="po-confirm-summary">
                 ${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}
                 <dt class="grand">Total</dt><dd class="grand">${escapeHtml($("poTotal").textContent)}</dd>
             </dl>
-            <p class="po-confirm-note">Once submitted, the order is locked and can no longer be edited. You can still print it or cancel it.</p>`,
-        confirmLabel: "Submit Order"
+            <p class="po-confirm-note">An administrator other than you will review it before it goes to the supplier. While it waits, it can't be edited; if it's rejected, it comes back to you with the reason.</p>`,
+        confirmLabel: "Submit for Approval"
     });
 }
 
@@ -910,6 +933,28 @@ function confirmDialog({ title, body, confirmLabel = "Confirm", danger = false }
     });
 }
 
+function setEditorHeading() {
+    const rejected = editing?.status === "rejected";
+
+    $("poEditorTitle").textContent = editing ? `Edit ${editing.po_number}` : "New Purchase Order";
+    $("poEditorSub").textContent = !editing
+        ? "Fill in the supplier and items, then save as a draft or submit it for approval."
+        : rejected
+            ? "Rejected — make the changes asked for, then submit it for approval again."
+            : "Draft — not yet submitted. Submit it for approval when it's ready.";
+    $("poDeleteDraft").hidden = !editing;
+    $("poDeleteDraft").textContent = rejected ? "Delete Order" : "Delete Draft";
+    $("poSubmit").textContent = rejected ? "Resubmit for Approval" : "Submit for Approval";
+
+    $("poEditorNotice").innerHTML = rejected ? `
+        <div class="po-approval rejected">
+            <div>
+                <strong>Rejected by ${escapeHtml(editing.rejected_by_name || "an approver")} on ${escapeHtml(formatDateTime(editing.rejected_at))}</strong>
+                <span class="quote">&ldquo;${escapeHtml(editing.rejection_reason || "")}&rdquo;</span>
+            </div>
+        </div>` : "";
+}
+
 function clearErrors() {
     $("poEditorAlert").innerHTML = "";
     document.querySelectorAll("#poForm .form-error").forEach((el) => { el.textContent = ""; });
@@ -946,14 +991,16 @@ function showDetail(order) {
         ["Deliver To", escapeHtml(order.warehouse_name || "—")],
         ["Payment Terms", escapeHtml(order.payment_terms || "—")],
         ["Supplier Ref.", escapeHtml(order.supplier_reference || "—")],
-        ["Submitted", order.submitted_at ? formatDateTime(order.submitted_at) : "—"]
+        ["Prepared by", escapeHtml(order.created_by_name || "—")],
+        ["Submitted", order.submitted_at ? `${formatDateTime(order.submitted_at)}${order.submitted_by_name ? `<span class="po-sub">by ${escapeHtml(order.submitted_by_name)}</span>` : ""}` : "—"]
     ];
 
-    if (order.status === "cancelled") {
-        info.push(["Cancelled", `${formatDateTime(order.cancelled_at)}${order.cancel_reason ? `<span class="po-sub">${escapeHtml(order.cancel_reason)}</span>` : ""}`]);
+    if (order.approved_at && order.status !== "pending_approval") {
+        info.push(["Approved", `${formatDateTime(order.approved_at)}<span class="po-sub">by ${escapeHtml(order.approved_by_name || "—")}</span>`]);
     }
 
     $("poDetail").innerHTML = `
+        ${approvalBanner(order)}
         <div class="po-card">
             <div class="po-detail-head">
                 <div>
@@ -963,7 +1010,7 @@ function showDetail(order) {
                 <div class="po-header-actions">
                     <button type="button" class="po-btn" id="poPrintBtn">Print / Save PDF</button>
                     <button type="button" class="po-btn" id="poCopyBtn" title="Start a new draft with the same supplier and items">Reorder</button>
-                    ${order.status === "submitted" ? `<button type="button" class="po-btn danger" id="poCancelBtn">Cancel Order</button>` : ""}
+                    ${["pending_approval", "approved"].includes(order.status) ? `<button type="button" class="po-btn danger" id="poCancelBtn">Cancel Order</button>` : ""}
                 </div>
             </div>
             <dl class="po-info">${info.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
@@ -1004,40 +1051,162 @@ function showDetail(order) {
                 </div>
             </div>
         </div>
+
+        <div class="po-card">
+            <div class="po-card-title">History</div>
+            <ol class="po-timeline">${(order.history || []).map((h) => `
+                <li class="${h.action}">
+                    <strong>${HISTORY_LABELS[h.action] || escapeHtml(h.action)}</strong>${h.user_name ? ` by ${escapeHtml(h.user_name)}` : ""}
+                    <span class="when">${escapeHtml(formatDateTime(h.created_at))}</span>
+                    ${h.notes ? `<span class="note">&ldquo;${escapeHtml(h.notes)}&rdquo;</span>` : ""}
+                </li>`).join("") || "<li>No history recorded.</li>"}
+            </ol>
+        </div>
     `;
 
     $("poPrintBtn").addEventListener("click", () => printOrder(order));
     $("poCopyBtn").addEventListener("click", () => openEditor(order, true));
-    $("poCancelBtn")?.addEventListener("click", openCancelDialog);
+    $("poCancelBtn")?.addEventListener("click", () => openAction("cancel"));
+    $("poApproveBtn")?.addEventListener("click", () => openAction("approve"));
+    $("poRejectBtn")?.addEventListener("click", () => openAction("reject"));
 
     showPanel("detail");
 }
 
-function setupCancelDialog() {
-    const overlay = $("poCancelOverlay");
-    const close = () => overlay.classList.remove("open");
+/** The coloured strip at the top of an order saying where it stands in approval. */
+function approvalBanner(order) {
+    const by = (name) => escapeHtml(name || "someone");
 
-    $("poCancelClose").addEventListener("click", close);
-    $("poCancelBack").addEventListener("click", close);
+    if (order.status === "pending_approval") {
+        if (order.can_approve) {
+            return `
+                <div class="po-approval pending">
+                    <div>
+                        <strong>Waiting for your approval</strong>
+                        <span>Submitted by ${by(order.submitted_by_name)} on ${escapeHtml(formatDateTime(order.submitted_at))}. Check the supplier, items and total, then approve or send it back.</span>
+                    </div>
+                    <div class="po-approval-actions">
+                        <button type="button" class="po-btn danger" id="poRejectBtn">Reject</button>
+                        <button type="button" class="po-btn primary" id="poApproveBtn">Approve</button>
+                    </div>
+                </div>`;
+        }
+
+        return `
+            <div class="po-approval pending">
+                <div>
+                    <strong>Pending approval</strong>
+                    <span>Submitted by ${by(order.submitted_by_name)} on ${escapeHtml(formatDateTime(order.submitted_at))}. ${escapeHtml(order.approval_blocker || "Waiting for an administrator to approve it.")}</span>
+                </div>
+            </div>`;
+    }
+
+    if (order.status === "approved") {
+        return `
+            <div class="po-approval approved">
+                <div>
+                    <strong>Approved by ${by(order.approved_by_name)} on ${escapeHtml(formatDateTime(order.approved_at))}</strong>
+                    <span>Ready to send to the supplier &mdash; print it or save it as PDF.</span>
+                    ${order.approval_notes ? `<span class="quote">&ldquo;${escapeHtml(order.approval_notes)}&rdquo;</span>` : ""}
+                </div>
+            </div>`;
+    }
+
+    if (order.status === "rejected") {
+        return `
+            <div class="po-approval rejected">
+                <div>
+                    <strong>Rejected by ${by(order.rejected_by_name)} on ${escapeHtml(formatDateTime(order.rejected_at))}</strong>
+                    <span>Sent back to ${by(order.submitted_by_name)} to fix and submit again.</span>
+                    ${order.rejection_reason ? `<span class="quote">&ldquo;${escapeHtml(order.rejection_reason)}&rdquo;</span>` : ""}
+                </div>
+            </div>`;
+    }
+
+    if (order.status === "cancelled") {
+        return `
+            <div class="po-approval cancelled">
+                <div>
+                    <strong>Cancelled on ${escapeHtml(formatDateTime(order.cancelled_at))}</strong>
+                    ${order.cancel_reason ? `<span class="quote">&ldquo;${escapeHtml(order.cancel_reason)}&rdquo;</span>` : ""}
+                </div>
+            </div>`;
+    }
+
+    return "";
+}
+
+const ACTIONS = {
+    approve: {
+        title: (o) => `Approve ${o.po_number}?`,
+        intro: (o) => `
+            <dl class="po-confirm-summary">
+                <dt>Supplier</dt><dd>${escapeHtml(o.supplier_name)}</dd>
+                <dt>Deliver to</dt><dd>${escapeHtml(o.warehouse_name || "—")}</dd>
+                <dt>Items</dt><dd>${o.item_count}</dd>
+                <dt class="grand">Total</dt><dd class="grand">${formatMoney(o.total)}</dd>
+            </dl>
+            ${licenseWarning(o)}`,
+        label: "Approval notes (optional)",
+        placeholder: "e.g. Within this month's budget",
+        required: false,
+        button: "Approve Order",
+        danger: false,
+        run: (o, text) => approvePurchaseOrder(o.id, text)
+    },
+    reject: {
+        title: (o) => `Reject ${o.po_number}?`,
+        intro: (o) => `<p>The order goes back to ${escapeHtml(o.submitted_by_name || "whoever submitted it")} to fix and submit again. Your reason is shown to them.</p>`,
+        label: "Reason",
+        placeholder: "e.g. Quantity too high for current usage; get a second quotation",
+        required: "Say why it's rejected, so it can be fixed.",
+        button: "Reject Order",
+        danger: true,
+        run: (o, text) => rejectPurchaseOrder(o.id, text)
+    },
+    cancel: {
+        title: (o) => `Cancel ${o.po_number}?`,
+        intro: (o) => `<p>The order stays on record, marked cancelled.${o.status === "approved" ? " If it was already sent, let the supplier know it has been called off." : ""}</p>`,
+        label: "Reason",
+        placeholder: "e.g. Supplier out of stock; ordered elsewhere",
+        required: "Say why the order is being cancelled.",
+        button: "Cancel Order",
+        danger: true,
+        run: (o, text) => cancelPurchaseOrder(o.id, text)
+    }
+};
+
+let activeAction = null;
+
+function setupActionDialog() {
+    const overlay = $("poActionOverlay");
+    const close = () => { overlay.classList.remove("open"); activeAction = null; };
+
+    $("poActionClose").addEventListener("click", close);
+    $("poActionBack").addEventListener("click", close);
     overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && overlay.classList.contains("open")) close(); });
 
-    $("poCancelForm").addEventListener("submit", async (event) => {
+    $("poActionForm").addEventListener("submit", async (event) => {
         event.preventDefault();
-        $("err-po_cancel_reason").textContent = "";
+        if (!activeAction) return;
 
-        const reason = $("po_cancel_reason").value.trim();
+        const action = ACTIONS[activeAction];
+        const text = $("po_action_text").value.trim();
+        $("err-po_action_text").textContent = "";
 
-        if (!reason) {
-            $("err-po_cancel_reason").textContent = "Say why the order is being cancelled.";
+        if (action.required && !text) {
+            $("err-po_action_text").textContent = action.required;
             return;
         }
 
-        $("poCancelConfirm").disabled = true;
-        const result = await cancelPurchaseOrder(current.id, reason);
-        $("poCancelConfirm").disabled = false;
+        $("poActionConfirm").disabled = true;
+        const result = await action.run(current, text);
+        $("poActionConfirm").disabled = false;
 
         if (!result.success) {
-            $("err-po_cancel_reason").textContent = result.errors?.cancel_reason || result.message || "Failed to cancel the order.";
+            const errors = result.errors && typeof result.errors === "object" ? Object.values(result.errors) : [];
+            $("err-po_action_text").textContent = errors[0] || result.message || "Something went wrong.";
             return;
         }
 
@@ -1049,12 +1218,26 @@ function setupCancelDialog() {
     });
 }
 
-function openCancelDialog() {
-    $("poCancelTitle").textContent = `Cancel ${current.po_number}`;
-    $("po_cancel_reason").value = "";
-    $("err-po_cancel_reason").textContent = "";
-    $("poCancelOverlay").classList.add("open");
-    $("po_cancel_reason").focus();
+function openAction(name) {
+    const action = ACTIONS[name];
+    activeAction = name;
+
+    $("poActionTitle").textContent = action.title(current);
+    $("poActionIntro").innerHTML = action.intro(current);
+    $("poActionLabel").innerHTML = escapeHtml(action.label) + (action.required ? `<span class="req">*</span>` : "");
+    $("po_action_text").placeholder = action.placeholder;
+    $("po_action_text").value = "";
+    $("err-po_action_text").textContent = "";
+    $("poActionConfirm").textContent = action.button;
+    $("poActionConfirm").className = `po-btn ${action.danger ? "danger" : "primary"}`;
+    $("poActionOverlay").classList.add("open");
+    $("po_action_text").focus();
+}
+
+function licenseWarning(order) {
+    const expiry = order.supplier?.license_expiry;
+    if (!expiry || daysUntil(expiry) >= 0) return "";
+    return `<div class="po-note warn">&#9888; The supplier's FDA License to Operate expired on ${escapeHtml(formatDate(expiry))}.</div>`;
 }
 
 /* ---------------------------------------------------------------
@@ -1071,7 +1254,12 @@ function printOrder(order) {
 
     const buyer = order.buyer || {};
     const s = order.supplier || {};
-    const stamp = order.status === "cancelled" ? "CANCELLED" : order.status === "draft" ? "DRAFT" : "";
+    const stamp = {
+        draft: "DRAFT",
+        pending_approval: "FOR APPROVAL",
+        rejected: "NOT APPROVED",
+        cancelled: "CANCELLED"
+    }[order.status] || "";
 
     win.document.write(`<!DOCTYPE html>
 <html lang="en">
@@ -1178,8 +1366,8 @@ ${stamp ? `<div class="stamp">${stamp}</div>` : ""}
 ${order.notes ? `<div class="notes"><strong>Notes / Instructions:</strong><br>${escapeHtml(order.notes)}</div>` : ""}
 
 <div class="signs">
-    <div>Prepared by</div>
-    <div>Approved by</div>
+    <div>${order.created_by_name ? `<strong>${escapeHtml(order.created_by_name)}</strong><br>` : ""}Prepared by</div>
+    <div>${order.status === "approved" && order.approved_by_name ? `<strong>${escapeHtml(order.approved_by_name)}</strong> &middot; ${formatDate(String(order.approved_at).slice(0, 10))}<br>` : ""}Approved by</div>
     <div>Supplier's Conforme / Date</div>
 </div>
 <script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script>

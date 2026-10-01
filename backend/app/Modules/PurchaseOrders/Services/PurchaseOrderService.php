@@ -11,16 +11,33 @@ use PDO;
 use Throwable;
 
 /**
- * Purchase orders to suppliers. An order starts as a draft (editable),
- * is submitted once it's ready to send to the supplier (then locked),
- * and can be cancelled. Line prices are pre-filled on screen from
- * Supplier Prices, but the amounts typed on the order are what's saved
- * -- a negotiated price shouldn't be overwritten by the price list.
- * Totals are always recomputed here from the lines.
+ * Purchase orders to suppliers.
+ *
+ *   draft --submit--> pending_approval --approve--> approved
+ *                           |  ^                       |
+ *                    reject |  | resubmit              | cancel
+ *                           v  |                       v
+ *                         rejected                 cancelled
+ *
+ * Drafts and rejected orders are editable; anything submitted is locked.
+ * An order can only be approved by an approver (see APPROVER_ROLES) who
+ * neither created nor submitted it. Every step is written to
+ * purchase_order_history.
+ *
+ * Line prices are pre-filled on screen from Supplier Prices, but the
+ * amounts typed on the order are what's saved -- a negotiated price
+ * shouldn't be overwritten by the price list. Totals are always
+ * recomputed here from the lines.
  */
 class PurchaseOrderService
 {
-    public const STATUSES = ['draft', 'submitted', 'cancelled'];
+    public const STATUSES = ['draft', 'pending_approval', 'approved', 'rejected', 'cancelled'];
+
+    public const EDITABLE_STATUSES = ['draft', 'rejected'];
+
+    public const CANCELLABLE_STATUSES = ['pending_approval', 'approved'];
+
+    public const APPROVER_ROLES = ['admin'];
 
     public const ORDER_UNITS = ['unit', 'package'];
 
@@ -29,7 +46,8 @@ class PurchaseOrderService
         'notes', 'shipping_fee', 'items', 'submit'
     ];
 
-    public function list(array $filters = []): array
+    /** @param array|null $viewer the signed-in user (id, role) -- used for the can_approve flag */
+    public function list(array $filters = [], ?array $viewer = null): array
     {
         $where = ['po.deleted_at IS NULL'];
         $params = [];
@@ -61,11 +79,11 @@ class PurchaseOrderService
         );
         $stmt->execute($params);
 
-        return array_map(fn(array $r) => $this->formatHeader($r), $stmt->fetchAll(PDO::FETCH_ASSOC));
+        return array_map(fn(array $r) => $this->formatHeader($r, $viewer), $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    /** One order with its lines, the supplier's details and the hospital's (for printing). */
-    public function get(int $id): ?array
+    /** One order with its lines, history, the supplier's details and the hospital's (for printing). */
+    public function get(int $id, ?array $viewer = null): ?array
     {
         $stmt = Database::connection()->prepare(
             "SELECT po.*, s.name AS supplier_name, s.code AS supplier_code, w.name AS warehouse_name,
@@ -74,7 +92,11 @@ class PurchaseOrderService
                     s.province AS supplier_province, s.postal_code AS supplier_postal_code, s.tin AS supplier_tin,
                     s.fda_license_number AS supplier_license, s.license_expiry AS supplier_license_expiry,
                     s.is_active AS supplier_is_active,
-                    (SELECT COUNT(*) FROM purchase_order_items i WHERE i.purchase_order_id = po.id) AS item_count
+                    (SELECT COUNT(*) FROM purchase_order_items i WHERE i.purchase_order_id = po.id) AS item_count,
+                    " . self::userNameSql('po.created_by') . " AS created_by_name,
+                    " . self::userNameSql('po.submitted_by') . " AS submitted_by_name,
+                    " . self::userNameSql('po.approved_by') . " AS approved_by_name,
+                    " . self::userNameSql('po.rejected_by') . " AS rejected_by_name
              FROM purchase_orders po
              JOIN suppliers s ON s.id = po.supplier_id
              LEFT JOIN warehouses w ON w.id = po.warehouse_id
@@ -87,7 +109,14 @@ class PurchaseOrderService
             return null;
         }
 
-        $order = $this->formatHeader($row);
+        $order = $this->formatHeader($row, $viewer);
+
+        foreach (['created_by', 'submitted_by', 'approved_by', 'rejected_by'] as $field) {
+            $order["{$field}_name"] = $row["{$field}_name"];
+        }
+
+        $order['approval_notes'] = $row['approval_notes'];
+        $order['history'] = $this->history($id);
 
         $order['supplier'] = [
             'contact_person' => $row['supplier_contact'],
@@ -114,6 +143,33 @@ class PurchaseOrderService
         ];
 
         return $order;
+    }
+
+    private function history(int $orderId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT h.id, h.action, h.notes, h.user_id, h.created_at, " . self::userNameSql('h.user_id') . " AS user_name
+             FROM purchase_order_history h
+             WHERE h.purchase_order_id = :id
+             ORDER BY h.created_at, h.id"
+        );
+        $stmt->execute(['id' => $orderId]);
+
+        return array_map(fn(array $r) => [
+            'id' => (int) $r['id'],
+            'action' => $r['action'],
+            'notes' => $r['notes'],
+            'user_name' => $r['user_name'],
+            'created_at' => $r['created_at']
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** "First Last" from the employee record, else the username. */
+    private static function userNameSql(string $column): string
+    {
+        return "(SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))), ''), u.username)
+                 FROM users u LEFT JOIN employees e ON e.user_id = u.id AND e.deleted_at IS NULL
+                 WHERE u.id = {$column} LIMIT 1)";
     }
 
     private function items(int $orderId): array
@@ -243,7 +299,7 @@ class PurchaseOrderService
         }
 
         try {
-            $header['status'] = $submit ? 'submitted' : 'draft';
+            $header['status'] = $submit ? 'pending_approval' : 'draft';
             $header['created_at'] = $now;
             $header['created_by'] = $userId;
 
@@ -262,6 +318,11 @@ class PurchaseOrderService
             (new PurchaseOrder())->update(['po_number' => $poNumber], $id);
 
             $this->saveLines($id, $lines, $userId);
+            $this->log($id, 'created', null, $userId, $now);
+
+            if ($submit) {
+                $this->log($id, 'submitted', null, $userId, $now);
+            }
 
             if ($ownsTransaction) {
                 $db->commit();
@@ -276,7 +337,9 @@ class PurchaseOrderService
 
         return [
             'success' => true,
-            'message' => $submit ? "Purchase order {$poNumber} submitted." : "Purchase order {$poNumber} saved as a draft.",
+            'message' => $submit
+                ? "Purchase order {$poNumber} submitted for approval."
+                : "Purchase order {$poNumber} saved as a draft.",
             'data' => ['id' => $id, 'po_number' => $poNumber, 'status' => $header['status']]
         ];
     }
@@ -289,8 +352,8 @@ class PurchaseOrderService
             return ['success' => false, 'message' => 'Purchase order not found.', 'not_found' => true];
         }
 
-        if ($existing['status'] !== 'draft') {
-            return ['success' => false, 'message' => 'Only draft purchase orders can be edited.'];
+        if (!in_array($existing['status'], self::EDITABLE_STATUSES, true)) {
+            return ['success' => false, 'message' => 'Only draft or rejected purchase orders can be edited.'];
         }
 
         $submit = !empty($data['submit']);
@@ -313,15 +376,23 @@ class PurchaseOrderService
             $header['updated_by'] = $userId;
 
             if ($submit) {
-                $header['status'] = 'submitted';
+                $header['status'] = 'pending_approval';
                 $header['submitted_at'] = $now;
                 $header['submitted_by'] = $userId;
+                // A fresh decision is needed; the old rejection stays in the history.
+                $header['rejected_at'] = null;
+                $header['rejected_by'] = null;
+                $header['rejection_reason'] = null;
             }
 
             (new PurchaseOrder())->update($header, $id);
 
             $db->prepare("DELETE FROM purchase_order_items WHERE purchase_order_id = :id")->execute(['id' => $id]);
             $this->saveLines($id, $lines, $userId);
+
+            if ($submit) {
+                $this->log($id, $existing['status'] === 'rejected' ? 'resubmitted' : 'submitted', null, $userId, $now);
+            }
 
             if ($ownsTransaction) {
                 $db->commit();
@@ -336,9 +407,100 @@ class PurchaseOrderService
 
         return [
             'success' => true,
-            'message' => $submit ? "Purchase order {$existing['po_number']} submitted." : "Purchase order {$existing['po_number']} saved.",
-            'data' => ['id' => $id, 'po_number' => $existing['po_number'], 'status' => $submit ? 'submitted' : 'draft']
+            'message' => $submit
+                ? "Purchase order {$existing['po_number']} submitted for approval."
+                : "Purchase order {$existing['po_number']} saved.",
+            'data' => ['id' => $id, 'po_number' => $existing['po_number'], 'status' => $submit ? 'pending_approval' : $existing['status']]
         ];
+    }
+
+    /**
+     * Why $user can't approve/reject this order, or null if they can.
+     * Shared by the actions and the can_approve flag the screens use.
+     */
+    public function approvalBlocker(array $order, ?array $user): ?string
+    {
+        if (!$user || !in_array($user['role'] ?? null, self::APPROVER_ROLES, true)) {
+            return 'Only an administrator can approve purchase orders.';
+        }
+
+        if ($order['status'] !== 'pending_approval') {
+            return 'This purchase order is not waiting for approval.';
+        }
+
+        $userId = (int) ($user['id'] ?? 0);
+
+        if ($userId === (int) $order['created_by'] || $userId === (int) $order['submitted_by']) {
+            return 'You prepared or submitted this order, so someone else has to approve it.';
+        }
+
+        return null;
+    }
+
+    public function approve(int $id, string $notes, array $user): array
+    {
+        $existing = $this->findOrder($id);
+
+        if (!$existing) {
+            return ['success' => false, 'message' => 'Purchase order not found.', 'not_found' => true];
+        }
+
+        if ($blocker = $this->approvalBlocker($existing, $user)) {
+            return ['success' => false, 'message' => $blocker];
+        }
+
+        $stmt = Database::connection()->prepare("SELECT is_active FROM suppliers WHERE id = :id AND deleted_at IS NULL");
+        $stmt->execute(['id' => $existing['supplier_id']]);
+
+        if (!(int) $stmt->fetchColumn()) {
+            return ['success' => false, 'message' => 'The supplier on this order is inactive. Reject the order or re-activate the supplier first.'];
+        }
+
+        $notes = mb_substr(trim($notes), 0, 255);
+        $now = date('Y-m-d H:i:s');
+        $userId = (int) $user['id'];
+
+        $this->transition($id, [
+            'status' => 'approved',
+            'approved_at' => $now,
+            'approved_by' => $userId,
+            'approval_notes' => $notes !== '' ? $notes : null
+        ], 'approved', $notes, $userId, $now);
+
+        return ['success' => true, 'message' => "Purchase order {$existing['po_number']} approved."];
+    }
+
+    public function reject(int $id, string $reason, array $user): array
+    {
+        $existing = $this->findOrder($id);
+
+        if (!$existing) {
+            return ['success' => false, 'message' => 'Purchase order not found.', 'not_found' => true];
+        }
+
+        if ($blocker = $this->approvalBlocker($existing, $user)) {
+            return ['success' => false, 'message' => $blocker];
+        }
+
+        $reason = mb_substr(trim($reason), 0, 255);
+
+        if ($reason === '') {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
+                'reason' => 'Say why the order is rejected, so it can be fixed and submitted again.'
+            ]];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $userId = (int) $user['id'];
+
+        $this->transition($id, [
+            'status' => 'rejected',
+            'rejected_at' => $now,
+            'rejected_by' => $userId,
+            'rejection_reason' => $reason
+        ], 'rejected', $reason, $userId, $now);
+
+        return ['success' => true, 'message' => "Purchase order {$existing['po_number']} rejected and sent back for changes."];
     }
 
     public function cancel(int $id, string $reason, int $userId): array
@@ -349,33 +511,33 @@ class PurchaseOrderService
             return ['success' => false, 'message' => 'Purchase order not found.', 'not_found' => true];
         }
 
-        if ($existing['status'] === 'cancelled') {
-            return ['success' => false, 'message' => 'This purchase order is already cancelled.'];
+        if (!in_array($existing['status'], self::CANCELLABLE_STATUSES, true)) {
+            return ['success' => false, 'message' => $existing['status'] === 'cancelled'
+                ? 'This purchase order is already cancelled.'
+                : 'Only submitted or approved orders can be cancelled. Delete a draft instead.'];
         }
 
         $reason = mb_substr(trim($reason), 0, 255);
 
-        if ($existing['status'] === 'submitted' && $reason === '') {
+        if ($reason === '') {
             return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
-                'cancel_reason' => 'Say why the order is being cancelled -- it has already been sent to the supplier.'
+                'cancel_reason' => 'Say why the order is being cancelled.'
             ]];
         }
 
         $now = date('Y-m-d H:i:s');
 
-        (new PurchaseOrder())->update([
+        $this->transition($id, [
             'status' => 'cancelled',
             'cancelled_at' => $now,
             'cancelled_by' => $userId,
-            'cancel_reason' => $reason !== '' ? $reason : null,
-            'updated_at' => $now,
-            'updated_by' => $userId
-        ], $id);
+            'cancel_reason' => $reason
+        ], 'cancelled', $reason, $userId, $now);
 
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} cancelled."];
     }
 
-    /** Drafts only -- a submitted order is cancelled instead, so its record stays. */
+    /** Drafts and rejected orders only -- anything submitted is cancelled instead, so its record stays. */
     public function remove(int $id, int $userId): array
     {
         $existing = $this->findOrder($id);
@@ -384,13 +546,52 @@ class PurchaseOrderService
             return ['success' => false, 'message' => 'Purchase order not found.', 'not_found' => true];
         }
 
-        if ($existing['status'] !== 'draft') {
-            return ['success' => false, 'message' => 'Only drafts can be deleted. Cancel a submitted order instead.'];
+        if (!in_array($existing['status'], self::EDITABLE_STATUSES, true)) {
+            return ['success' => false, 'message' => 'Only drafts or rejected orders can be deleted. Cancel a submitted order instead.'];
         }
 
         (new PurchaseOrder())->update(['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $userId], $id);
 
-        return ['success' => true, 'message' => "Draft {$existing['po_number']} deleted."];
+        return ['success' => true, 'message' => "Purchase order {$existing['po_number']} deleted."];
+    }
+
+    /** Status change + its history entry, together. */
+    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now): void
+    {
+        $db = Database::connection();
+        $ownsTransaction = !$db->inTransaction();
+
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
+
+        try {
+            (new PurchaseOrder())->update($values + ['updated_at' => $now, 'updated_by' => $userId], $id);
+            $this->log($id, $action, $notes, $userId, $now);
+
+            if ($ownsTransaction) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownsTransaction) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    private function log(int $orderId, string $action, ?string $notes, int $userId, string $now): void
+    {
+        Database::connection()->prepare(
+            "INSERT INTO purchase_order_history (purchase_order_id, action, notes, user_id, created_at)
+             VALUES (:order, :action, :notes, :user, :created)"
+        )->execute([
+            'order' => $orderId,
+            'action' => $action,
+            'notes' => $notes !== null && $notes !== '' ? $notes : null,
+            'user' => $userId,
+            'created' => $now
+        ]);
     }
 
     private function findOrder(int $id): ?array
@@ -602,7 +803,7 @@ class PurchaseOrderService
         return [$header, $lines, $errors];
     }
 
-    private function formatHeader(array $r): array
+    private function formatHeader(array $r, ?array $viewer = null): array
     {
         return [
             'id' => (int) $r['id'],
@@ -623,8 +824,14 @@ class PurchaseOrderService
             'shipping_fee' => (float) $r['shipping_fee'],
             'total' => (float) $r['total'],
             'item_count' => (int) $r['item_count'],
-            'is_overdue' => $r['status'] === 'submitted' && $r['expected_date'] !== null && $r['expected_date'] < date('Y-m-d'),
+            'is_overdue' => $r['status'] === 'approved' && $r['expected_date'] !== null && $r['expected_date'] < date('Y-m-d'),
+            'can_edit' => in_array($r['status'], self::EDITABLE_STATUSES, true),
+            'can_approve' => $viewer !== null && $this->approvalBlocker($r, $viewer) === null,
+            'approval_blocker' => $r['status'] === 'pending_approval' ? $this->approvalBlocker($r, $viewer) : null,
             'submitted_at' => $r['submitted_at'],
+            'approved_at' => $r['approved_at'],
+            'rejected_at' => $r['rejected_at'],
+            'rejection_reason' => $r['rejection_reason'],
             'cancelled_at' => $r['cancelled_at'],
             'cancel_reason' => $r['cancel_reason'],
             'created_at' => $r['created_at']

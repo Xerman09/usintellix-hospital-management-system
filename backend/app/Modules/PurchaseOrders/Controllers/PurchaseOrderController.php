@@ -26,14 +26,14 @@ class PurchaseOrderController extends Controller
         $this->success($this->service->list([
             'status' => $request->input('status'),
             'supplier_id' => $request->input('supplier_id')
-        ]), 'Purchase orders retrieved successfully.');
+        ], Session::get('user')), 'Purchase orders retrieved successfully.');
     }
 
     public function show(): void
     {
         $request = new Request();
 
-        $order = $this->service->get((int) $request->input('id'));
+        $order = $this->service->get((int) $request->input('id'), Session::get('user'));
 
         if (!$order) {
             $this->error('Purchase order not found.', 404);
@@ -66,6 +66,30 @@ class PurchaseOrderController extends Controller
             (int) $request->input('id'),
             $request->only(PurchaseOrderService::INPUT_FIELDS),
             (int) $user['id']
+        ));
+    }
+
+    /** Body: id, notes? */
+    public function approve(): void
+    {
+        $request = new Request();
+
+        $this->respond($this->service->approve(
+            (int) $request->input('id'),
+            (string) $request->input('notes', ''),
+            Session::get('user')
+        ));
+    }
+
+    /** Body: id, reason */
+    public function reject(): void
+    {
+        $request = new Request();
+
+        $this->respond($this->service->reject(
+            (int) $request->input('id'),
+            (string) $request->input('reason', ''),
+            Session::get('user')
         ));
     }
 

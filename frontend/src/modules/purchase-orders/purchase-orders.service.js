@@ -32,6 +32,20 @@ export async function updatePurchaseOrder(id, details) {
     });
 }
 
+export async function approvePurchaseOrder(id, notes) {
+    return api("/purchase-orders/approve", {
+        method: "POST",
+        body: JSON.stringify({ id, notes })
+    });
+}
+
+export async function rejectPurchaseOrder(id, reason) {
+    return api("/purchase-orders/reject", {
+        method: "POST",
+        body: JSON.stringify({ id, reason })
+    });
+}
+
 export async function cancelPurchaseOrder(id, reason) {
     return api("/purchase-orders/cancel", {
         method: "POST",

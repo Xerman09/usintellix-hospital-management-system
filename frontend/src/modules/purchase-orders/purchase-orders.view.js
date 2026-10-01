@@ -58,10 +58,14 @@ export function PurchaseOrdersView() {
 
 .po-status { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .po-status.draft { background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
-.po-status.submitted { background: #dbeafe; color: #1e40af; }
+.po-status.pending_approval { background: #fef3c7; color: #92400e; }
+.po-status.approved { background: #dcfce7; color: #166534; }
+.po-status.rejected { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
 .po-status.cancelled { background: #fee2e2; color: #991b1b; }
 .po-status.overdue { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; margin-left: 4px; }
-:root[data-theme="dark"] .po-status.submitted { background: rgba(59,130,246,.2); color: #bfdbfe; }
+:root[data-theme="dark"] .po-status.pending_approval { background: rgba(245,158,11,.18); color: #fde68a; }
+:root[data-theme="dark"] .po-status.approved { background: rgba(34,197,94,.18); color: #bbf7d0; }
+:root[data-theme="dark"] .po-status.rejected { background: rgba(249,115,22,.18); color: #fed7aa; border-color: rgba(249,115,22,.5); }
 :root[data-theme="dark"] .po-status.cancelled { background: rgba(239,68,68,.18); color: #fecaca; }
 :root[data-theme="dark"] .po-status.overdue { background: rgba(245,158,11,.18); color: #fde68a; border-color: rgba(245,158,11,.5); }
 
@@ -134,12 +138,40 @@ export function PurchaseOrdersView() {
 .po-info dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--text-muted); }
 .po-info dd { margin: 2px 0 0; color: var(--text-primary); }
 
+/* Approval banner + history */
+.po-approval { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-surface); }
+.po-approval strong { display: block; font-size: 14px; color: var(--text-primary); margin-bottom: 2px; }
+.po-approval span { font-size: 12.5px; color: var(--text-muted); }
+.po-approval .po-approval-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.po-approval.pending { border-color: #f59e0b; background: #fffbeb; }
+.po-approval.approved { border-color: #86efac; background: #f0fdf4; }
+.po-approval.rejected { border-color: #fdba74; background: #fff7ed; }
+.po-approval.cancelled { border-color: #fca5a5; background: #fef2f2; }
+:root[data-theme="dark"] .po-approval.pending { background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.5); }
+:root[data-theme="dark"] .po-approval.approved { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.45); }
+:root[data-theme="dark"] .po-approval.rejected { background: rgba(249,115,22,.10); border-color: rgba(249,115,22,.5); }
+:root[data-theme="dark"] .po-approval.cancelled { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.45); }
+.po-approval .quote { display: block; margin-top: 4px; color: var(--text-primary); font-style: italic; }
+
+.po-timeline { list-style: none; margin: 0; padding: 0; }
+.po-timeline li { position: relative; padding: 0 0 14px 22px; font-size: 13px; color: var(--text-primary); }
+.po-timeline li::before { content: ""; position: absolute; left: 4px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.po-timeline li::after { content: ""; position: absolute; left: 7px; top: 15px; bottom: 0; width: 2px; background: var(--border-color); }
+.po-timeline li:last-child { padding-bottom: 0; }
+.po-timeline li:last-child::after { display: none; }
+.po-timeline li.approved::before { background: #16a34a; }
+.po-timeline li.rejected::before, .po-timeline li.cancelled::before { background: #dc2626; }
+.po-timeline li.submitted::before, .po-timeline li.resubmitted::before { background: #d97706; }
+.po-timeline .when { display: block; font-size: 11.5px; color: var(--text-muted); }
+.po-timeline .note { display: block; margin-top: 2px; color: var(--text-muted); font-style: italic; }
+
 .po-confirm-summary { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface-alt); font-size: 13px; }
 .po-confirm-summary dt { color: var(--text-muted); }
 .po-confirm-summary dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); text-align: right; font-weight: 600; }
 .po-confirm-summary .grand { padding-top: 8px; border-top: 1px solid var(--border-color); font-size: 16px; font-weight: 800; color: var(--text-primary); }
 .po-confirm-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
-#poConfirmBody p { margin: 0 0 4px; color: var(--text-primary); font-size: 13.5px; }
+#poConfirmBody p, #poActionIntro p { margin: 0 0 12px; color: var(--text-primary); font-size: 13.5px; }
+#poActionIntro .po-note { margin: 0 0 12px; }
 #poConfirmBody p.po-confirm-note { color: var(--text-muted); font-size: 12.5px; }
 
 @media (max-width: 900px) {
@@ -167,8 +199,9 @@ export function PurchaseOrdersView() {
         </div>
 
         <div class="po-stats">
-            <div class="po-stat"><strong id="poStatDrafts">0</strong><span>Drafts</span></div>
-            <div class="po-stat"><strong id="poStatOpen">0</strong><span>Submitted, awaiting delivery</span></div>
+            <div class="po-stat"><strong id="poStatDrafts">0</strong><span>Drafts &amp; rejected</span></div>
+            <div class="po-stat warn"><strong id="poStatPending">0</strong><span id="poStatPendingLabel">Awaiting approval</span></div>
+            <div class="po-stat"><strong id="poStatOpen">0</strong><span>Approved, awaiting delivery</span></div>
             <div class="po-stat warn"><strong id="poStatOverdue">0</strong><span>Past expected delivery</span></div>
             <div class="po-stat"><strong id="poStatMonth">₱0.00</strong><span>Ordered this month</span></div>
         </div>
@@ -177,8 +210,11 @@ export function PurchaseOrdersView() {
             <input type="text" id="poSearch" placeholder="Search PO number, supplier, reference...">
             <select id="poStatusFilter">
                 <option value="">All statuses</option>
+                <option value="mine">Waiting for my approval</option>
                 <option value="draft">Draft</option>
-                <option value="submitted">Submitted</option>
+                <option value="pending_approval">Pending approval</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
                 <option value="cancelled">Cancelled</option>
             </select>
             <select id="poSupplierFilter"><option value="">All suppliers</option></select>
@@ -199,6 +235,7 @@ export function PurchaseOrdersView() {
             </div>
         </div>
 
+        <div id="poEditorNotice"></div>
         <div id="poEditorAlert"></div>
 
         <form id="poForm" novalidate>
@@ -283,7 +320,7 @@ export function PurchaseOrdersView() {
                 <div class="po-footer-right">
                     <button type="button" class="po-btn" data-po-back>Cancel</button>
                     <button type="button" class="po-btn" id="poSaveDraft">Save as Draft</button>
-                    <button type="submit" class="po-btn primary" id="poSubmit">Submit Order</button>
+                    <button type="submit" class="po-btn primary" id="poSubmit">Submit for Approval</button>
                 </div>
             </div>
         </form>
@@ -312,23 +349,24 @@ export function PurchaseOrdersView() {
     </div>
 </div>
 
-<div class="modal-overlay" id="poCancelOverlay">
-    <div class="modal-box" style="max-width: 480px;">
+<!-- Approve / Reject / Cancel: one dialog, set up per action -->
+<div class="modal-overlay" id="poActionOverlay">
+    <div class="modal-box" style="max-width: 500px;" role="dialog" aria-modal="true" aria-labelledby="poActionTitle">
         <div class="modal-header">
-            <h2 id="poCancelTitle">Cancel Purchase Order</h2>
-            <button type="button" class="modal-close" id="poCancelClose" aria-label="Close">&times;</button>
+            <h2 id="poActionTitle">Cancel Purchase Order</h2>
+            <button type="button" class="modal-close" id="poActionClose" aria-label="Close">&times;</button>
         </div>
-        <form id="poCancelForm" novalidate>
-            <p style="margin: 0 0 12px; color: var(--text-muted); font-size: 13px;">The order stays on record, marked cancelled. Let the supplier know it has been called off.</p>
+        <form id="poActionForm" novalidate>
+            <div id="poActionIntro"></div>
             <div class="po-field">
-                <label for="po_cancel_reason">Reason<span class="req">*</span></label>
-                <input type="text" id="po_cancel_reason" maxlength="255" placeholder="e.g. Supplier out of stock; ordered elsewhere">
-                <span class="form-error" id="err-po_cancel_reason"></span>
+                <label for="po_action_text" id="poActionLabel">Reason<span class="req">*</span></label>
+                <textarea id="po_action_text" maxlength="255" rows="3"></textarea>
+                <span class="form-error" id="err-po_action_text"></span>
             </div>
             <div class="po-footer">
                 <div class="po-footer-right">
-                    <button type="button" class="po-btn" id="poCancelBack">Keep Order</button>
-                    <button type="submit" class="po-btn danger" id="poCancelConfirm">Cancel Order</button>
+                    <button type="button" class="po-btn" id="poActionBack">Go Back</button>
+                    <button type="submit" class="po-btn danger" id="poActionConfirm">Confirm</button>
                 </div>
             </div>
         </form>
