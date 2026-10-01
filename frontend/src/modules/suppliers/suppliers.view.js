@@ -76,7 +76,45 @@ export function SuppliersView() {
 :root[data-theme="dark"] .sp-badge.expiring { background: rgba(245,158,11,.18); color: #fde68a; }
 :root[data-theme="dark"] .sp-badge.expired { background: rgba(239,68,68,.2); color: #fecaca; }
 
-.sp-modal { max-width: 900px; }
+.sp-modal { max-width: 960px; }
+.sp-modal .modal-header { align-items: flex-start; }
+.sp-modal-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12.5px; color: var(--text-muted); }
+.sp-modal-sub:empty { display: none; }
+
+.sp-tabs { display: flex; gap: 2px; margin: 0 0 16px; border-bottom: 1px solid var(--border-color); overflow-x: auto; }
+.sp-tabs[hidden] { display: none; }
+.sp-tab {
+    display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; margin-bottom: -1px;
+    border: none; border-bottom: 2px solid transparent; background: none; color: var(--text-muted);
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.sp-tab:hover { color: var(--text-primary); }
+.sp-tab.active { color: var(--accent-text, var(--accent)); border-bottom-color: var(--accent); }
+.sp-tab-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bg-surface-alt); border: 1px solid var(--border-color); font-size: 11px; line-height: 16px; text-align: center; color: var(--text-muted); }
+.sp-tab.active .sp-tab-count { background: var(--accent-light); border-color: transparent; color: var(--accent-text, var(--accent)); }
+.sp-panel[hidden] { display: none; }
+.sp-panel-lead { margin: 0 0 10px; font-size: 12.5px; color: var(--text-muted); }
+
+.sp-products-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.sp-products-summary { font-size: 13px; color: var(--text-muted); }
+.sp-products-summary strong { color: var(--text-primary); }
+.sp-products-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sp-products-actions input {
+    height: 34px; padding: 0 10px; border-radius: 6px; min-width: 200px;
+    border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 12.5px;
+}
+.sp-products-wrap { max-height: 420px; }
+.sp-products-empty { padding: 30px 16px; text-align: center; color: var(--text-muted); }
+.sp-products-empty strong { display: block; margin-bottom: 4px; color: var(--text-primary); font-size: 14px; }
+.sp-products-empty .sp-btn { margin-top: 12px; }
+.sp-cheaper { color: #b45309; }
+:root[data-theme="dark"] .sp-cheaper { color: #fcd34d; }
+.sp-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.sp-link { padding: 0; border: none; background: none; font: inherit; font-weight: 600; color: var(--accent-text, var(--accent)); cursor: pointer; }
+.sp-link:hover { text-decoration: underline; }
+.sp-promo-note { color: #c2410c; font-weight: 600; }
+:root[data-theme="dark"] .sp-promo-note { color: #fdba74; }
+.sp-table tr.is-off td { opacity: .6; }
 .sp-section { border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 16px 6px; margin-bottom: 14px; }
 .sp-section-title { margin: 0 0 10px; font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; }
 .sp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 16px; margin-bottom: 10px; }
@@ -162,9 +200,9 @@ export function SuppliersView() {
     <div class="sp-table-wrap">
         <table class="sp-table">
             <thead>
-                <tr><th>Supplier</th><th>Supplies</th><th>Contact</th><th>Location</th><th>FDA License (LTO)</th><th>Terms</th><th>Deliveries</th><th></th></tr>
+                <tr><th>Supplier</th><th>Supplies</th><th>Contact</th><th>Location</th><th>FDA License (LTO)</th><th>Terms</th><th>Products</th><th>Deliveries</th><th></th></tr>
             </thead>
-            <tbody id="spBody"><tr><td colspan="8" class="sp-empty">Loading...</td></tr></tbody>
+            <tbody id="spBody"><tr><td colspan="9" class="sp-empty">Loading...</td></tr></tbody>
         </table>
     </div>
 </div>
@@ -172,13 +210,48 @@ export function SuppliersView() {
 <div class="modal-overlay" id="spModalOverlay">
     <div class="modal-box sp-modal">
         <div class="modal-header">
-            <h2 id="spModalTitle">Add Supplier</h2>
+            <div>
+                <h2 id="spModalTitle">Add Supplier</h2>
+                <div class="sp-modal-sub" id="spModalSub"></div>
+            </div>
             <button type="button" class="modal-close" id="spCloseModal" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="sp-tabs" id="spTabs" role="tablist" hidden>
+            <button type="button" class="sp-tab active" data-sp-tab="details" role="tab">Details</button>
+            <button type="button" class="sp-tab" data-sp-tab="products" role="tab">Products &amp; Prices <span class="sp-tab-count" id="spProductCount">0</span></button>
+            <button type="button" class="sp-tab" data-sp-tab="history" role="tab">Delivery History</button>
         </div>
 
         <div id="spAlert"></div>
 
-        <form id="spForm" novalidate>
+        <div class="sp-panel" data-sp-panel="products" hidden>
+            <div class="sp-products-bar">
+                <div class="sp-products-summary" id="spProductsSummary"></div>
+                <div class="sp-products-actions">
+                    <input type="text" id="spProductSearch" placeholder="Search products...">
+                    <button type="button" class="sp-btn primary" id="spAddProductBtn">+ Add Product</button>
+                </div>
+            </div>
+            <div class="sp-items-wrap sp-products-wrap">
+                <table class="sp-table">
+                    <thead><tr><th>Product</th><th>Price</th><th>Discount</th><th>Per Unit</th><th>Compared</th><th></th></tr></thead>
+                    <tbody id="spProductsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="sp-panel" data-sp-panel="history" hidden>
+            <p class="sp-panel-lead">Items received from this supplier through Receive Stock, plus items that name them as preferred supplier.</p>
+            <div class="sp-items-wrap">
+                <table class="sp-table">
+                    <thead><tr><th>Item</th><th>Deliveries</th><th>Total Received</th><th>Last Received</th><th>Last Cost</th></tr></thead>
+                    <tbody id="spItemsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <form id="spForm" class="sp-panel" data-sp-panel="details" novalidate>
             <div class="sp-section">
                 <div class="sp-section-title">Company</div>
                 <div class="sp-grid">
@@ -294,16 +367,6 @@ export function SuppliersView() {
                         <label for="sp_notes">Notes</label>
                         <textarea id="sp_notes" placeholder="Account number, ordering instructions, delivery days..."></textarea>
                     </div>
-                </div>
-            </div>
-
-            <div class="sp-section" id="spItemsSection" hidden>
-                <div class="sp-section-title">Items Supplied</div>
-                <div class="sp-items-wrap">
-                    <table class="sp-table">
-                        <thead><tr><th>Item</th><th>Deliveries</th><th>Total Received</th><th>Last Received</th><th>Last Cost</th></tr></thead>
-                        <tbody id="spItemsBody"></tbody>
-                    </table>
                 </div>
             </div>
 

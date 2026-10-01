@@ -3,6 +3,8 @@ import {
 } from "./suppliers.service.js";
 import { showToast } from "../../core/toast.js";
 import { createCsvImport } from "../../core/csv-import.js?v=1";
+import { fetchSupplierPrices, deleteSupplierPrice } from "../supplier-prices/supplier-prices.service.js?v=2";
+import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=2";
 
 const IMPORT_COLUMNS = [
     "name", "supplier_type", "product_types", "contact_person", "phone", "mobile", "email", "website",
@@ -27,6 +29,8 @@ const SELECT_FIELDS = ["supplier_type", "payment_terms"];
 let options = { supplier_types: [], payment_terms: [], product_types: [], license_warning_days: 60 };
 let suppliers = [];
 let editing = null;
+let products = [];
+let priceForm = null;
 
 export async function initSuppliers() {
     const result = await fetchSupplierOptions();
@@ -64,6 +68,7 @@ export async function initSuppliers() {
     });
 
     setupModal();
+    setupProducts();
     setupImport();
     await load();
 }
@@ -206,7 +211,7 @@ async function load() {
 
     if (!result.success) {
         suppliers = [];
-        document.getElementById("spBody").innerHTML = `<tr><td colspan="8" class="sp-empty">Failed to load suppliers.</td></tr>`;
+        document.getElementById("spBody").innerHTML = `<tr><td colspan="9" class="sp-empty">Failed to load suppliers.</td></tr>`;
         return;
     }
 
@@ -253,7 +258,7 @@ function render() {
     document.getElementById("spCount").textContent = `${rows.length} of ${suppliers.length} ${suppliers.length === 1 ? "supplier" : "suppliers"}`;
 
     if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="sp-empty">${suppliers.length
+        tbody.innerHTML = `<tr><td colspan="9" class="sp-empty">${suppliers.length
             ? "No suppliers match these filters."
             : "No suppliers yet. Click &ldquo;+ Add Supplier&rdquo; to add your first one."}</td></tr>`;
         return;
@@ -263,6 +268,10 @@ function render() {
 
     tbody.querySelectorAll("[data-sp-open]").forEach((btn) => {
         btn.addEventListener("click", () => openModal(Number(btn.dataset.spOpen)));
+    });
+
+    tbody.querySelectorAll("[data-sp-products]").forEach((btn) => {
+        btn.addEventListener("click", () => openModal(Number(btn.dataset.spProducts), "products"));
     });
 }
 
@@ -292,6 +301,12 @@ function renderRow(s) {
             <td>${escapeHtml(location || "—")}</td>
             <td>${renderLicense(s)}</td>
             <td>${terms.length ? terms.map((t, i) => i ? `<span class="sp-sub">${escapeHtml(t)}</span>` : escapeHtml(t)).join("") : "—"}</td>
+            <td style="white-space:nowrap;">
+                <button type="button" class="sp-link" data-sp-products="${s.id}">${s.product_count
+                    ? `${s.product_count} ${s.product_count === 1 ? "product" : "products"}`
+                    : "+ Add products"}</button>
+                ${s.promo_count ? `<span class="sp-sub sp-promo-note">${s.promo_count} on promo</span>` : ""}
+            </td>
             <td>${s.receipt_count
                 ? `${s.receipt_count}<span class="sp-sub">last ${formatDate(s.last_received)}</span>`
                 : `<span class="sp-sub">None yet</span>`}
@@ -389,17 +404,26 @@ function setupModal() {
             return;
         }
 
-        close();
-        showToast(editing ? "Supplier updated." : `Supplier added as ${result.data?.code || ""}.`.trim(), "success");
+        if (editing) {
+            close();
+            showToast("Supplier updated.", "success");
+            await load();
+            return;
+        }
+
+        // New supplier: go straight to adding the products they sell.
+        showToast(`Supplier added as ${result.data?.code || ""}. Now add the products they sell.`, "success");
         await load();
+        await openModal(result.data.id, "products");
     });
 }
 
-async function openModal(id) {
+async function openModal(id, tab = "details") {
     const form = document.getElementById("spForm");
     form.reset();
     clearErrors();
     editing = null;
+    products = [];
 
     if (id) {
         const result = await fetchSupplier(id);
@@ -432,19 +456,204 @@ async function openModal(id) {
         cb.checked = Boolean(s?.product_types.includes(cb.value));
     });
 
-    renderItems(s?.items || null);
+    renderModalSub(s);
+    renderItems(s?.items || []);
     updateLicenseHint();
 
+    // Products and history only exist once the supplier is saved.
+    document.getElementById("spTabs").hidden = !s;
+    document.getElementById("spProductSearch").value = "";
+    switchTab(s ? tab : "details");
+
     document.getElementById("spModalOverlay").classList.add("open");
-    document.getElementById("sp_name").focus();
+
+    if (s) {
+        await loadProducts();
+    }
+
+    if (!s || tab === "details") {
+        document.getElementById("sp_name").focus();
+    }
+}
+
+function renderModalSub(s) {
+    const sub = document.getElementById("spModalSub");
+
+    if (!s) {
+        sub.innerHTML = "";
+        return;
+    }
+
+    sub.innerHTML = [
+        escapeHtml(s.code || ""),
+        escapeHtml(s.supplier_type),
+        s.license_status ? `<span class="sp-badge ${s.license_status}">LTO ${{ valid: "valid", expiring: "expiring", expired: "expired" }[s.license_status]}</span>` : "",
+        s.is_active ? "" : `<span class="sp-badge inactive">Inactive</span>`
+    ].filter(Boolean).join(" &middot; ");
+}
+
+function switchTab(tab) {
+    document.querySelectorAll("#spTabs [data-sp-tab]").forEach((btn) => {
+        const active = btn.dataset.spTab === tab;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", String(active));
+    });
+
+    document.querySelectorAll("#spModalOverlay [data-sp-panel]").forEach((panel) => {
+        panel.hidden = panel.dataset.spPanel !== tab;
+    });
+
+    document.getElementById("spAlert").innerHTML = "";
+}
+
+/* ---------------------------------------------------------------
+ * Products & Prices tab
+ * ------------------------------------------------------------- */
+
+function setupProducts() {
+    priceForm = createSupplierPriceForm({
+        mount: document.querySelector(".sp-page").parentElement,
+        id: "spPriceForm",
+        onSaved: async () => {
+            await loadProducts();
+            await load();
+        }
+    });
+
+    document.querySelectorAll("#spTabs [data-sp-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => switchTab(btn.dataset.spTab));
+    });
+
+    document.getElementById("spAddProductBtn").addEventListener("click", addProduct);
+    document.getElementById("spProductSearch").addEventListener("input", renderProducts);
+}
+
+function addProduct() {
+    if (!editing) return;
+
+    priceForm.open({ supplierId: editing.id, lockSupplier: true, existing: products });
+}
+
+async function loadProducts() {
+    if (!editing) return;
+
+    const supplierId = editing.id;
+    document.getElementById("spProductsBody").innerHTML = `<tr><td colspan="6" class="sp-empty">Loading...</td></tr>`;
+
+    const result = await fetchSupplierPrices(true, { supplier_id: supplierId });
+
+    // Ignore a late response for a supplier that's no longer open.
+    if (editing?.id !== supplierId) return;
+
+    products = result.success ? result.data : [];
+    renderProducts();
+}
+
+function renderProducts() {
+    const body = document.getElementById("spProductsBody");
+    const term = document.getElementById("spProductSearch").value.trim().toLowerCase();
+    const live = products.filter((p) => p.is_active);
+    const promos = live.filter((p) => p.discount_status === "active").length;
+    const best = live.filter((p) => p.is_best_price).length;
+    const itemCount = new Set(products.map((p) => p.drug_id)).size;
+
+    document.getElementById("spProductCount").textContent = itemCount;
+    document.getElementById("spProductsSummary").innerHTML = products.length
+        ? `<strong>${itemCount}</strong> ${itemCount === 1 ? "product" : "products"}`
+            + (promos ? ` &middot; <strong>${promos}</strong> on promo` : "")
+            + (best ? ` &middot; best price on <strong>${best}</strong>` : "")
+        : "No products yet";
+
+    const rows = term
+        ? products.filter((p) => [p.drug_name, p.supplier_item_code, p.discount_label].some((v) => (v || "").toLowerCase().includes(term)))
+        : products;
+
+    if (!products.length) {
+        body.innerHTML = `
+            <tr><td colspan="6">
+                <div class="sp-products-empty">
+                    <strong>What does ${escapeHtml(editing.name)} sell?</strong>
+                    Add each medicine or item they supply with their price, and tag any discount they offer.
+                    <div><button type="button" class="sp-btn primary" data-sp-empty-add>+ Add First Product</button></div>
+                </div>
+            </td></tr>`;
+        body.querySelector("[data-sp-empty-add]").addEventListener("click", addProduct);
+        return;
+    }
+
+    if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="6" class="sp-empty">No products match &ldquo;${escapeHtml(term)}&rdquo;.</td></tr>`;
+        return;
+    }
+
+    body.innerHTML = rows.map((p) => {
+        const unit = p.unit_name || "unit";
+        const basisLabel = p.price_basis === "package" ? (p.package_unit_name || "package") : unit;
+        const discounted = p.discount_status === "active" && p.discounted_price !== p.price;
+        const usable = p.is_active && p.supplier_is_active;
+
+        let compared = `<span class="sp-sub">—</span>`;
+
+        if (p.is_best_price) {
+            compared = `<span class="spf-tag best">Best price</span>`;
+        } else if (usable && p.best_unit_price != null && p.effective_unit_price != null) {
+            compared = `<span class="sp-cheaper">Cheaper elsewhere</span>
+                <span class="sp-sub">${formatPrice(p.best_unit_price, 4)}/${escapeHtml(unit)} at ${escapeHtml(p.best_supplier_name)}</span>`;
+        }
+
+        return `
+            <tr class="${usable ? "" : "is-off"}">
+                <td style="min-width:200px;">
+                    ${escapeHtml(p.drug_name)}
+                    <span class="sp-sub">${escapeHtml([p.supplier_item_code ? `Item ${p.supplier_item_code}` : null, p.min_order_qty ? `Min. order ${formatQuantity(p.min_order_qty)} ${basisLabel}` : null].filter(Boolean).join(" · ") || "")}</span>
+                    ${p.is_active ? "" : `<span class="spf-tag inactive">Not available</span>`}
+                </td>
+                <td style="white-space:nowrap;">
+                    ${discounted ? `<span class="spf-strike">${formatPrice(p.price)}</span>` : ""}
+                    <span class="spf-price">${formatPrice(p.discounted_price)}</span>
+                    <span class="sp-sub">per ${escapeHtml(basisLabel)}</span>
+                </td>
+                <td>${renderDiscountTag(p)}</td>
+                <td style="white-space:nowrap;">${p.effective_unit_price != null ? `${formatPrice(p.effective_unit_price, 4)}<span class="sp-sub">per ${escapeHtml(unit)}</span>` : "—"}</td>
+                <td>${compared}</td>
+                <td>
+                    <div class="sp-row-actions">
+                        <button type="button" class="sp-btn small" data-sp-price-edit="${p.id}">Edit</button>
+                        <button type="button" class="sp-btn small" data-sp-price-remove="${p.id}" title="Remove from this supplier">Remove</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    body.querySelectorAll("[data-sp-price-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const listing = products.find((p) => p.id === Number(btn.dataset.spPriceEdit));
+            priceForm.open({ listing, lockSupplier: true, existing: products });
+        });
+    });
+
+    body.querySelectorAll("[data-sp-price-remove]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const listing = products.find((p) => p.id === Number(btn.dataset.spPriceRemove));
+
+            if (!listing || !confirm(`Remove ${listing.drug_name} from ${editing.name}'s products?`)) return;
+
+            const result = await deleteSupplierPrice(listing.id);
+
+            if (!result.success) {
+                showToast(result.message || "Failed to remove the product.", "error");
+                return;
+            }
+
+            showToast("Product removed from this supplier.", "success");
+            await loadProducts();
+            await load();
+        });
+    });
 }
 
 function renderItems(items) {
-    const section = document.getElementById("spItemsSection");
-    section.hidden = items === null;
-
-    if (items === null) return;
-
     document.getElementById("spItemsBody").innerHTML = items.length ? items.map((item) => `
         <tr>
             <td>${escapeHtml(item.name)}

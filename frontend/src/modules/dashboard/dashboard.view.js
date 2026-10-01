@@ -73,6 +73,7 @@ function staffNavLinks(role)
                 ${role === "admin" ? `<a data-tab="medication_management">Medication Management</a>` : ""}
                 <div class="dropdown-section-label">Stock</div>
                 <a data-tab="pharmacy_suppliers">Suppliers</a>
+                <a data-tab="pharmacy_supplier_prices">Supplier Prices</a>
                 <a data-tab="inventory_destroyed">Destroyed Drugs</a>
                 <a data-tab="inventory_warehouses">Manage Warehouses</a>
                 ${role === "admin" ? `

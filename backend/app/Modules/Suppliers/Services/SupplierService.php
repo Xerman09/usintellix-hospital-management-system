@@ -51,7 +51,9 @@ class SupplierService
             "SELECT s.*,
                     COALESCE(r.receipt_count, 0) AS receipt_count,
                     r.last_received,
-                    COALESCE(it.item_count, 0) AS item_count
+                    COALESCE(it.item_count, 0) AS item_count,
+                    COALESCE(pr.product_count, 0) AS product_count,
+                    COALESCE(pr.promo_count, 0) AS promo_count
              FROM suppliers s
              LEFT JOIN (
                  SELECT supplier_id, COUNT(*) AS receipt_count, MAX(received_date) AS last_received
@@ -68,6 +70,17 @@ class SupplierService
                  ) links
                  GROUP BY supplier_id
              ) it ON it.supplier_id = s.id
+             LEFT JOIN (
+                 SELECT sp.supplier_id,
+                        COUNT(DISTINCT sp.drug_id) AS product_count,
+                        SUM(sp.discount_type <> 'none'
+                            AND (sp.discount_starts IS NULL OR sp.discount_starts <= CURDATE())
+                            AND (sp.discount_ends IS NULL OR sp.discount_ends >= CURDATE())) AS promo_count
+                 FROM supplier_products sp
+                 JOIN drugs d ON d.id = sp.drug_id AND d.deleted_at IS NULL
+                 WHERE sp.deleted_at IS NULL AND sp.is_active = 1
+                 GROUP BY sp.supplier_id
+             ) pr ON pr.supplier_id = s.id
              WHERE " . implode(' AND ', $where) . "
              ORDER BY s.name ASC"
         );
@@ -468,7 +481,9 @@ class SupplierService
             'is_active' => (bool) $r['is_active'],
             'receipt_count' => (int) $r['receipt_count'],
             'last_received' => $r['last_received'],
-            'item_count' => (int) $r['item_count']
+            'item_count' => (int) $r['item_count'],
+            'product_count' => (int) $r['product_count'],
+            'promo_count' => (int) $r['promo_count']
         ];
     }
 }

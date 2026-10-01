@@ -35,8 +35,10 @@ import { EdiFilesView } from "../edi-files/edi-files.view.js";
 import { initEdiFiles } from "../edi-files/edi-files.js";
 import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js?v=5";
 import { initDrugInventory } from "../drug-inventory/drug-inventory.js?v=5";
-import { SuppliersView } from "../suppliers/suppliers.view.js?v=2";
-import { initSuppliers } from "../suppliers/suppliers.js?v=2";
+import { SuppliersView } from "../suppliers/suppliers.view.js?v=3";
+import { initSuppliers } from "../suppliers/suppliers.js?v=4";
+import { SupplierPricesView } from "../supplier-prices/supplier-prices.view.js?v=2";
+import { initSupplierPrices } from "../supplier-prices/supplier-prices.js?v=3";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js";
@@ -606,6 +608,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Drug Inventory', () => {
                 setTimeout(initDrugInventory, 0);
                 return DrugInventoryView();
+            }, activate);
+        } else if (tabId === 'pharmacy_supplier_prices') {
+            tabManager.openTab(tabId, 'Supplier Prices', () => {
+                setTimeout(initSupplierPrices, 0);
+                return SupplierPricesView();
             }, activate);
         } else if (tabId === 'pharmacy_suppliers') {
             tabManager.openTab(tabId, 'Suppliers', () => {
