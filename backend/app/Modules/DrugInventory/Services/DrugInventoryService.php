@@ -498,7 +498,13 @@ class DrugInventoryService
         }
 
         $db = Database::connection();
-        $db->beginTransaction();
+        // Receiving a delivery (Pharmacy > Receiving) calls this once per
+        // line inside its own transaction -- join it rather than nesting.
+        $ownsTransaction = !$db->inTransaction();
+
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
 
         try {
             if ($existingLot) {
@@ -529,12 +535,14 @@ class DrugInventoryService
                 }
             }
 
-            (new DrugInventoryReceipt())->create([
+            $receiptId = (new DrugInventoryReceipt())->create([
                 'drug_id' => $drugId,
                 'lot_id' => $lotId,
                 'quantity' => $quantity,
                 'received_date' => $receivedDate,
                 'supplier_id' => $supplierId,
+                // Internal only (not in RECEIVE_INPUT_FIELDS): set by Receiving.
+                'goods_receipt_id' => !empty($data['goods_receipt_id']) ? (int) $data['goods_receipt_id'] : null,
                 'supplier' => $supplierName,
                 'invoice_number' => trim((string) ($data['invoice_number'] ?? '')) ?: null,
                 'unit_cost' => isset($data['unit_cost']) && $data['unit_cost'] !== '' ? round((float) $data['unit_cost'], 2) : null,
@@ -543,9 +551,17 @@ class DrugInventoryService
                 'created_by' => $userId
             ]);
 
-            $db->commit();
+            if (!$receiptId) {
+                throw new \RuntimeException('receipt insert failed');
+            }
+
+            if ($ownsTransaction) {
+                $db->commit();
+            }
         } catch (Throwable $e) {
-            $db->rollBack();
+            if ($ownsTransaction) {
+                $db->rollBack();
+            }
             error_log('receive stock failed: ' . $e->getMessage());
             return ['success' => false, 'message' => 'Failed to receive stock.'];
         }
@@ -553,7 +569,7 @@ class DrugInventoryService
         return [
             'success' => true,
             'message' => 'Received ' . $this->formatNumber($quantity) . ' into lot ' . $lotNumber . '.',
-            'data' => ['lot_id' => $lotId, 'quantity' => $quantity]
+            'data' => ['lot_id' => $lotId, 'receipt_id' => (int) $receiptId, 'quantity' => $quantity]
         ];
     }
 

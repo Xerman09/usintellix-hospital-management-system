@@ -62,6 +62,16 @@ export function PurchaseOrdersView() {
 .po-status.approved { background: #dcfce7; color: #166534; }
 .po-status.rejected { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
 .po-status.cancelled { background: #fee2e2; color: #991b1b; }
+.po-status.partially_received { background: #e0f2fe; color: #075985; }
+.po-status.received { background: #ede9fe; color: #5b21b6; }
+.po-status.closed { background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
+:root[data-theme="dark"] .po-status.partially_received { background: rgba(14,165,233,.18); color: #bae6fd; }
+:root[data-theme="dark"] .po-status.received { background: rgba(139,92,246,.2); color: #ddd6fe; }
+.po-recv { display: block; font-size: 11.5px; margin-top: 2px; color: var(--text-muted); }
+.po-recv.done { color: #15803d; }
+:root[data-theme="dark"] .po-recv.done { color: #86efac; }
+.po-timeline li.partially_received::before, .po-timeline li.received::before { background: #0284c7; }
+.po-timeline li.closed::before { background: var(--text-muted); }
 .po-status.overdue { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; margin-left: 4px; }
 :root[data-theme="dark"] .po-status.pending_approval { background: rgba(245,158,11,.18); color: #fde68a; }
 :root[data-theme="dark"] .po-status.approved { background: rgba(34,197,94,.18); color: #bbf7d0; }
@@ -202,6 +212,7 @@ export function PurchaseOrdersView() {
             <div class="po-stat"><strong id="poStatDrafts">0</strong><span>Drafts &amp; rejected</span></div>
             <div class="po-stat warn"><strong id="poStatPending">0</strong><span id="poStatPendingLabel">Awaiting approval</span></div>
             <div class="po-stat"><strong id="poStatOpen">0</strong><span>Approved, awaiting delivery</span></div>
+            <div class="po-stat"><strong id="poStatReceived">0</strong><span>Fully received</span></div>
             <div class="po-stat warn"><strong id="poStatOverdue">0</strong><span>Past expected delivery</span></div>
             <div class="po-stat"><strong id="poStatMonth">₱0.00</strong><span>Ordered this month</span></div>
         </div>
@@ -215,6 +226,9 @@ export function PurchaseOrdersView() {
                 <option value="pending_approval">Pending approval</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
+                <option value="partially_received">Partially received</option>
+                <option value="received">Fully received</option>
+                <option value="closed">Closed</option>
                 <option value="cancelled">Cancelled</option>
             </select>
             <select id="poSupplierFilter"><option value="">All suppliers</option></select>

@@ -46,6 +46,13 @@ export async function rejectPurchaseOrder(id, reason) {
     });
 }
 
+export async function closePurchaseOrder(id, reason) {
+    return api("/purchase-orders/close", {
+        method: "POST",
+        body: JSON.stringify({ id, reason })
+    });
+}
+
 export async function cancelPurchaseOrder(id, reason) {
     return api("/purchase-orders/cancel", {
         method: "POST",

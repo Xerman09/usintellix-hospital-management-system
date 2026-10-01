@@ -19,6 +19,14 @@ use Throwable;
  *                           v  |                       v
  *                         rejected                 cancelled
  *
+ *   approved --receive some--> partially_received --receive rest--> received
+ *                                    |
+ *                                    +--close (rest won't come)--> closed
+ *
+ * Receiving happens in Pharmacy > Receiving (ReceivingService), which
+ * keeps purchase_order_items.quantity_received and the status above up
+ * to date.
+ *
  * Drafts and rejected orders are editable; anything submitted is locked.
  * An order can only be approved by an approver (see APPROVER_ROLES) who
  * neither created nor submitted it. Every step is written to
@@ -31,7 +39,13 @@ use Throwable;
  */
 class PurchaseOrderService
 {
-    public const STATUSES = ['draft', 'pending_approval', 'approved', 'rejected', 'cancelled'];
+    public const STATUSES = [
+        'draft', 'pending_approval', 'approved', 'rejected', 'cancelled',
+        'partially_received', 'received', 'closed'
+    ];
+
+    /** Orders that can still take deliveries. */
+    public const RECEIVABLE_STATUSES = ['approved', 'partially_received'];
 
     public const EDITABLE_STATUSES = ['draft', 'rejected'];
 
@@ -121,6 +135,7 @@ class PurchaseOrderService
 
         $order['approval_notes'] = $row['approval_notes'];
         $order['history'] = $this->history($id);
+        $order['receipts'] = $this->receipts($id);
 
         $order['supplier'] = [
             'contact_person' => $row['supplier_contact'],
@@ -168,6 +183,31 @@ class PurchaseOrderService
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** Deliveries received against this order (Pharmacy > Receiving). */
+    private function receipts(int $orderId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT gr.id, gr.gr_number, gr.received_date, gr.delivery_receipt_no, gr.invoice_no, gr.total_cost,
+                    w.name AS warehouse_name, " . self::userNameSql('gr.created_by') . " AS received_by_name
+             FROM goods_receipts gr
+             LEFT JOIN warehouses w ON w.id = gr.warehouse_id
+             WHERE gr.purchase_order_id = :id
+             ORDER BY gr.id"
+        );
+        $stmt->execute(['id' => $orderId]);
+
+        return array_map(fn(array $r) => [
+            'id' => (int) $r['id'],
+            'gr_number' => $r['gr_number'],
+            'received_date' => $r['received_date'],
+            'delivery_receipt_no' => $r['delivery_receipt_no'],
+            'invoice_no' => $r['invoice_no'],
+            'total_cost' => (float) $r['total_cost'],
+            'warehouse_name' => $r['warehouse_name'],
+            'received_by_name' => $r['received_by_name']
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     /** "First Last" from the employee record, else the username. */
     private static function userNameSql(string $column): string
     {
@@ -179,7 +219,8 @@ class PurchaseOrderService
     private function items(int $orderId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT i.*, d.name AS drug_name, du.name AS unit_name, pu.name AS package_unit_name
+            "SELECT i.*, d.name AS drug_name, d.product_type, d.is_active AS drug_is_active, d.allow_inventory,
+                    du.name AS unit_name, pu.name AS package_unit_name
              FROM purchase_order_items i
              JOIN drugs d ON d.id = i.drug_id
              LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
@@ -212,6 +253,12 @@ class PurchaseOrderService
                 'discount_amount' => (float) $r['discount_amount'],
                 'line_total' => (float) $r['line_total'],
                 'quantity_received' => (float) $r['quantity_received'],
+                'quantity_remaining' => max(0, round($quantity - (float) $r['quantity_received'], 3)),
+                // What one order unit actually costs after the line discount.
+                'net_unit_price' => $quantity > 0 ? round((float) $r['line_total'] / $quantity, 4) : 0.0,
+                'product_type' => $r['product_type'],
+                'drug_is_active' => (bool) $r['drug_is_active'],
+                'allow_inventory' => (bool) $r['allow_inventory'],
                 'notes' => $r['notes']
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -541,6 +588,44 @@ class PurchaseOrderService
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} cancelled."];
     }
 
+    /**
+     * A partially received order whose remaining items won't arrive
+     * (supplier out of stock, no longer needed): stop waiting for them.
+     */
+    public function close(int $id, string $reason, int $userId): array
+    {
+        $existing = $this->findOrder($id);
+
+        if (!$existing) {
+            return ['success' => false, 'message' => 'Purchase order not found.', 'not_found' => true];
+        }
+
+        if ($existing['status'] !== 'partially_received') {
+            return ['success' => false, 'message' => $existing['status'] === 'approved'
+                ? 'Nothing has been received on this order yet. Cancel it instead.'
+                : 'Only partially received orders can be closed.'];
+        }
+
+        $reason = mb_substr(trim($reason), 0, 255);
+
+        if ($reason === '') {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
+                'reason' => 'Say why the rest of the order won\'t be received.'
+            ]];
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $this->transition($id, [
+            'status' => 'closed',
+            'closed_at' => $now,
+            'closed_by' => $userId,
+            'close_reason' => $reason
+        ], 'closed', $reason, $userId, $now);
+
+        return ['success' => true, 'message' => "Purchase order {$existing['po_number']} closed; the remaining items are no longer expected."];
+    }
+
     /** Drafts and rejected orders only -- anything submitted is cancelled instead, so its record stays. */
     public function remove(int $id, int $userId): array
     {
@@ -584,7 +669,7 @@ class PurchaseOrderService
         }
     }
 
-    private function log(int $orderId, string $action, ?string $notes, int $userId, string $now): void
+    public function log(int $orderId, string $action, ?string $notes, int $userId, string $now): void
     {
         Database::connection()->prepare(
             "INSERT INTO purchase_order_history (purchase_order_id, action, notes, user_id, created_at)
@@ -828,7 +913,9 @@ class PurchaseOrderService
             'shipping_fee' => (float) $r['shipping_fee'],
             'total' => (float) $r['total'],
             'item_count' => (int) $r['item_count'],
-            'is_overdue' => $r['status'] === 'approved' && $r['expected_date'] !== null && $r['expected_date'] < date('Y-m-d'),
+            'is_overdue' => in_array($r['status'], self::RECEIVABLE_STATUSES, true)
+                && $r['expected_date'] !== null && $r['expected_date'] < date('Y-m-d'),
+            'can_receive' => in_array($r['status'], self::RECEIVABLE_STATUSES, true),
             'can_edit' => in_array($r['status'], self::EDITABLE_STATUSES, true),
             'can_approve' => $viewer !== null && $this->approvalBlocker($r, $viewer) === null,
             'approval_blocker' => $r['status'] === 'pending_approval' ? $this->approvalBlocker($r, $viewer) : null,
@@ -836,6 +923,9 @@ class PurchaseOrderService
             'approved_at' => $r['approved_at'],
             'rejected_at' => $r['rejected_at'],
             'rejection_reason' => $r['rejection_reason'],
+            'received_at' => $r['received_at'] ?? null,
+            'closed_at' => $r['closed_at'] ?? null,
+            'close_reason' => $r['close_reason'] ?? null,
             'cancelled_at' => $r['cancelled_at'],
             'cancel_reason' => $r['cancel_reason'],
             'created_at' => $r['created_at']

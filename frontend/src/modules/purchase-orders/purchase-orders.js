@@ -1,8 +1,8 @@
 import {
     fetchPurchaseOrders, fetchPurchaseOrder, fetchPurchaseOrderOptions,
     createPurchaseOrder, updatePurchaseOrder, cancelPurchaseOrder, deletePurchaseOrder,
-    approvePurchaseOrder, rejectPurchaseOrder
-} from "./purchase-orders.service.js?v=2";
+    approvePurchaseOrder, rejectPurchaseOrder, closePurchaseOrder
+} from "./purchase-orders.service.js?v=3";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
@@ -18,8 +18,13 @@ const STATUS_LABELS = {
     pending_approval: "Pending Approval",
     approved: "Approved",
     rejected: "Rejected",
-    cancelled: "Cancelled"
+    cancelled: "Cancelled",
+    partially_received: "Partially Received",
+    received: "Fully Received",
+    closed: "Closed"
 };
+
+const RECEIVED_STATUSES = ["partially_received", "received", "closed"];
 
 const HISTORY_LABELS = {
     created: "Created",
@@ -27,7 +32,10 @@ const HISTORY_LABELS = {
     resubmitted: "Resubmitted for approval",
     approved: "Approved",
     rejected: "Rejected",
-    cancelled: "Cancelled"
+    cancelled: "Cancelled",
+    partially_received: "Delivery received (partial)",
+    received: "Delivery received — order complete",
+    closed: "Closed"
 };
 const LICENSE_WARNING_DAYS = 60;
 
@@ -102,10 +110,11 @@ function renderStats() {
     $("poStatDrafts").textContent = orders.filter((o) => o.can_edit).length;
     $("poStatPending").textContent = pending.length;
     $("poStatPendingLabel").textContent = mine ? `Awaiting approval · ${mine} for you` : "Awaiting approval";
-    $("poStatOpen").textContent = orders.filter((o) => o.status === "approved").length;
+    $("poStatOpen").textContent = orders.filter((o) => o.can_receive).length;
+    $("poStatReceived").textContent = orders.filter((o) => o.status === "received").length;
     $("poStatOverdue").textContent = orders.filter((o) => o.is_overdue).length;
     $("poStatMonth").textContent = formatMoney(orders
-        .filter((o) => o.status === "approved" && String(o.order_date).slice(0, 7) === month)
+        .filter((o) => ["approved", ...RECEIVED_STATUSES].includes(o.status) && String(o.order_date).slice(0, 7) === month)
         .reduce((sum, o) => sum + o.total, 0));
 }
 
@@ -1007,6 +1016,8 @@ function showDetail(order) {
         info.push(["Approved", `${formatDateTime(order.approved_at)}<span class="po-sub">by ${escapeHtml(order.approved_by_name || "—")}</span>`]);
     }
 
+    const showReceived = order.can_receive || RECEIVED_STATUSES.includes(order.status);
+
     $("poDetail").innerHTML = `
         ${approvalBanner(order)}
         <div class="po-card">
@@ -1018,6 +1029,8 @@ function showDetail(order) {
                 <div class="po-header-actions">
                     <button type="button" class="po-btn" id="poPrintBtn">Print / Save PDF</button>
                     ${canCreate() ? `<button type="button" class="po-btn" id="poCopyBtn" title="Start a new draft with the same supplier and items">Reorder</button>` : ""}
+                    ${order.can_receive && canCreate() ? `<button type="button" class="po-btn primary" id="poReceiveBtn">Receive Delivery</button>` : ""}
+                    ${order.status === "partially_received" && canCreate() ? `<button type="button" class="po-btn" id="poCloseBtn" title="Stop waiting for the items not yet delivered">Close Order</button>` : ""}
                     ${["pending_approval", "approved"].includes(order.status) ? `<button type="button" class="po-btn danger" id="poCancelBtn">Cancel Order</button>` : ""}
                 </div>
             </div>
@@ -1028,7 +1041,7 @@ function showDetail(order) {
             <div class="po-card-title">Items</div>
             <div class="po-lines-wrap">
                 <table class="po-lines" style="min-width:640px;">
-                    <thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Price / Unit</th><th class="num">Discount</th><th class="num">Amount</th></tr></thead>
+                    <thead><tr><th>#</th><th>Item</th><th class="num">Qty</th>${showReceived ? `<th class="num">Received</th>` : ""}<th class="num">Price / Unit</th><th class="num">Discount</th><th class="num">Amount</th></tr></thead>
                     <tbody>${order.items.map((item) => `
                         <tr>
                             <td>${item.line_no}</td>
@@ -1036,6 +1049,8 @@ function showDetail(order) {
                                 <span class="po-sub">${escapeHtml([item.supplier_item_code ? `Item ${item.supplier_item_code}` : null,
                                     item.order_unit === "package" && item.units_per_package ? `${formatQty(item.base_quantity)} ${item.unit_name || "units"}` : null].filter(Boolean).join(" · "))}</span></td>
                             <td class="num">${formatQty(item.quantity)} ${escapeHtml(itemUnit(item))}</td>
+                            ${showReceived ? `<td class="num">${formatQty(item.quantity_received)}
+                                <span class="po-recv ${item.quantity_remaining <= 0 ? "done" : ""}">${item.quantity_remaining <= 0 ? "Complete" : `${formatQty(item.quantity_remaining)} to go`}</span></td>` : ""}
                             <td class="num">${formatMoney(item.unit_price, 4)}</td>
                             <td class="num">${item.discount_amount ? `− ${formatMoney(item.discount_amount)}` : "—"}</td>
                             <td class="num"><strong>${formatMoney(item.line_total)}</strong></td>
@@ -1060,6 +1075,26 @@ function showDetail(order) {
             </div>
         </div>
 
+        ${order.receipts?.length ? `
+        <div class="po-card">
+            <div class="po-card-title">Deliveries Received</div>
+            <div class="po-lines-wrap">
+                <table class="po-lines" style="min-width:560px;">
+                    <thead><tr><th>RR No.</th><th>Date</th><th>DR / Invoice</th><th>Received Into</th><th>Received By</th><th class="num">Cost</th></tr></thead>
+                    <tbody>${order.receipts.map((r) => `
+                        <tr>
+                            <td><strong>${escapeHtml(r.gr_number)}</strong></td>
+                            <td>${formatDate(r.received_date)}</td>
+                            <td>${escapeHtml([r.delivery_receipt_no ? `DR ${r.delivery_receipt_no}` : null, r.invoice_no ? `SI ${r.invoice_no}` : null].filter(Boolean).join(" · ") || "—")}</td>
+                            <td>${escapeHtml(r.warehouse_name || "—")}</td>
+                            <td>${escapeHtml(r.received_by_name || "—")}</td>
+                            <td class="num">${formatMoney(r.total_cost)}</td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>` : ""}
+
         <div class="po-card">
             <div class="po-card-title">History</div>
             <ol class="po-timeline">${(order.history || []).map((h) => `
@@ -1075,6 +1110,13 @@ function showDetail(order) {
     $("poPrintBtn").addEventListener("click", () => printOrder(order));
     $("poCopyBtn")?.addEventListener("click", () => openEditor(order, true));
     $("poCancelBtn")?.addEventListener("click", () => openAction("cancel"));
+    $("poCloseBtn")?.addEventListener("click", () => openAction("close"));
+    $("poReceiveBtn")?.addEventListener("click", () => {
+        // Hand the order to the Receiving tab (open, or already open).
+        window.__pendingReceivePoId = order.id;
+        window.__openDashboardTab?.("pharmacy_receiving", "Receiving");
+        window.dispatchEvent(new CustomEvent("po:receive", { detail: { id: order.id } }));
+    });
     $("poApproveBtn")?.addEventListener("click", () => openAction("approve"));
     $("poRejectBtn")?.addEventListener("click", () => openAction("reject"));
 
@@ -1131,6 +1173,38 @@ function approvalBanner(order) {
             </div>`;
     }
 
+    if (order.status === "partially_received") {
+        const open = order.items.filter((i) => i.quantity_remaining > 0).length;
+        return `
+            <div class="po-approval pending">
+                <div>
+                    <strong>Partially received</strong>
+                    <span>${order.receipts?.length || 0} deliver${order.receipts?.length === 1 ? "y" : "ies"} so far; ${open} item${open === 1 ? "" : "s"} still to come. Receive the rest under Pharmacy &gt; Receiving, or close the order if it won't arrive.</span>
+                </div>
+            </div>`;
+    }
+
+    if (order.status === "received") {
+        return `
+            <div class="po-approval approved">
+                <div>
+                    <strong>Fully received${order.received_at ? ` on ${escapeHtml(formatDateTime(order.received_at))}` : ""}</strong>
+                    <span>Everything ordered has arrived and is in stock.</span>
+                </div>
+            </div>`;
+    }
+
+    if (order.status === "closed") {
+        return `
+            <div class="po-approval cancelled">
+                <div>
+                    <strong>Closed on ${escapeHtml(formatDateTime(order.closed_at))}</strong>
+                    <span>Some items were received; the rest are no longer expected.</span>
+                    ${order.close_reason ? `<span class="quote">&ldquo;${escapeHtml(order.close_reason)}&rdquo;</span>` : ""}
+                </div>
+            </div>`;
+    }
+
     if (order.status === "cancelled") {
         return `
             <div class="po-approval cancelled">
@@ -1181,6 +1255,20 @@ const ACTIONS = {
         button: "Cancel Order",
         danger: true,
         run: (o, text) => cancelPurchaseOrder(o.id, text)
+    },
+    close: {
+        title: (o) => `Close ${o.po_number}?`,
+        intro: (o) => {
+            const open = o.items.filter((i) => i.quantity_remaining > 0);
+            return `<p>Stop waiting for what hasn't arrived. What was already received stays in stock; these won't be expected any more:</p>
+                <dl class="po-confirm-summary">${open.map((i) => `<dt>${escapeHtml(i.drug_name)}</dt><dd>${formatQty(i.quantity_remaining)} ${escapeHtml(itemUnit(i))}</dd>`).join("")}</dl>`;
+        },
+        label: "Reason",
+        placeholder: "e.g. Supplier can't deliver the rest; will reorder elsewhere",
+        required: "Say why the rest won't be received.",
+        button: "Close Order",
+        danger: true,
+        run: (o, text) => closePurchaseOrder(o.id, text)
     }
 };
 

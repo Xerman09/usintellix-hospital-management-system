@@ -93,6 +93,19 @@ class PurchaseOrderController extends Controller
         ));
     }
 
+    /** Body: id, reason -- partially received order, rest won't come. */
+    public function close(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond($this->service->close(
+            (int) $request->input('id'),
+            (string) $request->input('reason', ''),
+            (int) $user['id']
+        ));
+    }
+
     public function cancel(): void
     {
         $request = new Request();

@@ -17,4 +17,5 @@ $router->put('/purchase-orders', [PurchaseOrderController::class, 'update'], [Au
 $router->post('/purchase-orders/approve', [PurchaseOrderController::class, 'approve'], [AuthMiddleware::class, [RoleMiddleware::class, PurchaseOrderService::APPROVER_ROLES]]);
 $router->post('/purchase-orders/reject', [PurchaseOrderController::class, 'reject'], [AuthMiddleware::class, [RoleMiddleware::class, PurchaseOrderService::APPROVER_ROLES]]);
 $router->post('/purchase-orders/cancel', [PurchaseOrderController::class, 'cancel'], [AuthMiddleware::class, [RoleMiddleware::class, $purchaseOrderViewRoles]]);
+$router->post('/purchase-orders/close', [PurchaseOrderController::class, 'close'], [AuthMiddleware::class, [RoleMiddleware::class, $purchaseOrderRoles]]);
 $router->delete('/purchase-orders', [PurchaseOrderController::class, 'destroy'], [AuthMiddleware::class, [RoleMiddleware::class, $purchaseOrderRoles]]);
