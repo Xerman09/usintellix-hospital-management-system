@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=131";
+import { getNavLinks } from "./dashboard.view.js?v=132";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -39,6 +39,8 @@ import { SuppliersView } from "../suppliers/suppliers.view.js?v=3";
 import { initSuppliers } from "../suppliers/suppliers.js?v=5";
 import { SupplierPricesView } from "../supplier-prices/supplier-prices.view.js?v=2";
 import { initSupplierPrices } from "../supplier-prices/supplier-prices.js?v=4";
+import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v=1";
+import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=2";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js";
@@ -613,6 +615,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Supplier Prices', () => {
                 setTimeout(initSupplierPrices, 0);
                 return SupplierPricesView();
+            }, activate);
+        } else if (tabId === 'pharmacy_purchase_orders') {
+            tabManager.openTab(tabId, 'Purchase Orders', () => {
+                setTimeout(initPurchaseOrders, 0);
+                return PurchaseOrdersView();
             }, activate);
         } else if (tabId === 'pharmacy_suppliers') {
             tabManager.openTab(tabId, 'Suppliers', () => {
