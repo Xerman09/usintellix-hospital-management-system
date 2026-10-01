@@ -19,6 +19,13 @@ export async function createSupplier(details) {
     });
 }
 
+export async function importSuppliers(rows) {
+    return api("/suppliers/import", {
+        method: "POST",
+        body: JSON.stringify({ rows })
+    });
+}
+
 export async function updateSupplier(id, details) {
     return api("/suppliers", {
         method: "PUT",

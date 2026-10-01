@@ -6,6 +6,7 @@ export function SuppliersView() {
 .sp-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .sp-header h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: var(--text-primary); }
 .sp-header p { margin: 0; color: var(--text-muted); font-size: 13px; }
+.sp-header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .sp-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -126,7 +127,14 @@ export function SuppliersView() {
             <h1>Suppliers</h1>
             <p>Companies you buy medicines, supplies, vaccines and equipment from.</p>
         </div>
-        <button type="button" class="sp-btn primary" id="spAddBtn">+ Add Supplier</button>
+        <div class="sp-header-actions">
+            <button type="button" class="sp-btn" id="spTemplateBtn" title="Blank CSV with the import columns and one example row">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download Template
+            </button>
+            <button type="button" class="sp-btn" id="spImportBtn">Import CSV</button>
+            <button type="button" class="sp-btn primary" id="spAddBtn">+ Add Supplier</button>
+        </div>
     </div>
 
     <div class="sp-stats">

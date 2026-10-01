@@ -1,7 +1,22 @@
 import {
-    fetchSuppliers, fetchSupplier, fetchSupplierOptions, createSupplier, updateSupplier, deleteSupplier
+    fetchSuppliers, fetchSupplier, fetchSupplierOptions, createSupplier, updateSupplier, deleteSupplier, importSuppliers
 } from "./suppliers.service.js";
 import { showToast } from "../../core/toast.js";
+import { createCsvImport } from "../../core/csv-import.js?v=1";
+
+const IMPORT_COLUMNS = [
+    "name", "supplier_type", "product_types", "contact_person", "phone", "mobile", "email", "website",
+    "address_line", "city", "province", "postal_code", "country", "tin", "fda_license_number",
+    "license_expiry", "payment_terms", "lead_time_days", "notes", "is_active"
+];
+
+const IMPORT_EXAMPLE = [
+    "Sample Pharma Distributors Inc.", "Distributor", "Drug; Vaccine", "Juan Dela Cruz", "(02) 8123 4567", "0917 123 4567",
+    "orders@samplepharma.ph", "www.samplepharma.ph", "123 Shaw Blvd", "Mandaluyong", "Metro Manila", "1550", "Philippines",
+    "123-456-789-000", "LTO-3000001234567", "2027-12-31", "Net 30", "3", "Deliveries Mon-Fri, 8am-5pm", "yes"
+];
+
+const YES_NO = ["", "1", "0", "yes", "no", "y", "n", "true", "false", "active", "inactive"];
 
 const TEXT_FIELDS = [
     "name", "contact_person", "phone", "mobile", "email", "website", "address_line", "city",
@@ -49,7 +64,141 @@ export async function initSuppliers() {
     });
 
     setupModal();
+    setupImport();
     await load();
+}
+
+/* ---------------------------------------------------------------
+ * CSV import
+ * ------------------------------------------------------------- */
+
+function setupImport() {
+    const importer = createCsvImport({
+        mount: document.querySelector(".sp-page").parentElement,
+        id: "spImport",
+        title: "Import Suppliers",
+        lead: "Add many suppliers at once from a spreadsheet.",
+        intro: "Fill in one supplier per row and keep the header row as it is. Only the name is required; leave anything you don't have blank.",
+        noun: { one: "supplier", many: "suppliers" },
+        templateName: "suppliers-template.csv",
+        columns: IMPORT_COLUMNS,
+        example: IMPORT_EXAMPLE,
+        requiredColumn: "name",
+        guide: importGuide,
+        validate: validateImportRows,
+        preview: [
+            { label: "Supplier", value: (d) => d.name },
+            { label: "Type", value: (d) => d.supplier_type || "Distributor" },
+            { label: "Contact", value: (d) => [d.contact_person, d.phone || d.mobile].filter(Boolean).join(" · ") },
+            { label: "LTO Expiry", value: (d) => d.license_expiry }
+        ],
+        submit: importSuppliers,
+        onImported: load
+    });
+
+    document.getElementById("spImportBtn").addEventListener("click", importer.open);
+    document.getElementById("spTemplateBtn").addEventListener("click", importer.downloadTemplate);
+}
+
+function importGuide() {
+    const chips = (list) => `<div class="ci-chips">${list.map((v) => `<code>${escapeHtml(v)}</code>`).join("")}</div>`;
+
+    return [
+        ["Required", "name"],
+        ["supplier_type", `${chips(options.supplier_types)}<div class="sp-hint">Blank = Distributor</div>`],
+        ["product_types", `${chips(options.product_types)}<div class="sp-hint">Several allowed, separated by ; e.g. <code>Drug; Vaccine</code></div>`],
+        ["payment_terms", chips(options.payment_terms)],
+        ["license_expiry", "YYYY-MM-DD (e.g. 2027-12-31). Excel-style 12/31/2027 also works."],
+        ["tin", "9 to 14 digits; dashes optional (123-456-789-000)"],
+        ["lead_time_days", "Whole number of days, 0 to 365"],
+        ["is_active", "yes / no (blank = yes)"]
+    ];
+}
+
+/**
+ * Mirrors the server's rules so problems show before importing; the
+ * server still validates every row it receives.
+ */
+function validateImportRows(rows) {
+    const lower = (list) => new Set(list.map((v) => v.toLowerCase()));
+    const types = lower(options.supplier_types);
+    const terms = lower(options.payment_terms);
+    const productTypes = lower(options.product_types);
+    const existing = new Map(suppliers.map((s) => [s.name.trim().toLowerCase(), s.code]));
+    const tins = new Map(suppliers.filter((s) => s.tin).map((s) => [s.tin.replace(/\D/g, ""), s.name]));
+    const seenNames = new Map();
+    const seenTins = new Map();
+
+    rows.forEach((row) => {
+        const d = row.data;
+        const errors = row.errors;
+        const name = (d.name || "").trim().toLowerCase();
+
+        if (!name) {
+            errors.push("Name is missing.");
+        } else if (existing.has(name)) {
+            errors.push(`Already exists (${existing.get(name)}).`);
+        } else if (seenNames.has(name)) {
+            errors.push(`Duplicate of line ${seenNames.get(name)}.`);
+        } else {
+            seenNames.set(name, row.line);
+        }
+
+        if (d.supplier_type && !types.has(d.supplier_type.toLowerCase())) errors.push(`Type "${d.supplier_type}" isn't in the list.`);
+        if (d.payment_terms && !terms.has(d.payment_terms.toLowerCase())) errors.push(`Payment terms "${d.payment_terms}" aren't in the list.`);
+
+        (d.product_types || "").split(/[;,|]/).map((t) => t.trim()).filter(Boolean).forEach((t) => {
+            if (!productTypes.has(t.toLowerCase())) errors.push(`Product type "${t}" isn't in the list.`);
+        });
+
+        if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) errors.push("Email looks invalid.");
+
+        ["phone", "mobile"].forEach((field) => {
+            if (d[field] && !/^[0-9+()\-.\s/]{6,}$/.test(d[field])) errors.push(`${field === "phone" ? "Phone" : "Mobile"} has invalid characters.`);
+        });
+
+        if (d.tin) {
+            const digits = d.tin.replace(/\D/g, "");
+
+            if (digits.length < 9 || digits.length > 14) {
+                errors.push("TIN should be 9 to 14 digits.");
+            } else if (tins.has(digits)) {
+                errors.push(`TIN already used by ${tins.get(digits)}.`);
+            } else if (seenTins.has(digits)) {
+                errors.push(`Same TIN as line ${seenTins.get(digits)}.`);
+            } else {
+                seenTins.set(digits, row.line);
+            }
+        }
+
+        if (d.license_expiry && !normalizeDate(d.license_expiry)) errors.push(`LTO expiry "${d.license_expiry}" isn't a valid date.`);
+
+        if (d.lead_time_days && !(/^\d+$/.test(d.lead_time_days) && Number(d.lead_time_days) <= 365)) {
+            errors.push("Lead time must be a whole number from 0 to 365.");
+        }
+
+        if (d.is_active && !YES_NO.includes(d.is_active.toLowerCase())) errors.push("is_active should be yes or no.");
+    });
+}
+
+/** YYYY-MM-DD or M/D/YYYY -> YYYY-MM-DD, or null if not a real date. */
+function normalizeDate(value) {
+    let m = value.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    let y, mo, d;
+
+    if (m) {
+        [, y, mo, d] = m.map(Number);
+    } else if ((m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) {
+        [, mo, d, y] = m.map(Number);
+    } else {
+        return null;
+    }
+
+    const date = new Date(Date.UTC(y, mo - 1, d));
+
+    return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d
+        ? date.toISOString().slice(0, 10)
+        : null;
 }
 
 async function load() {

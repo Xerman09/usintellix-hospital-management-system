@@ -92,6 +92,31 @@ class SupplierController extends Controller
         $this->success(null, $result['message']);
     }
 
+    /**
+     * Bulk-add suppliers. Body: { rows: [ {name, supplier_type, ...}, ... ] }.
+     */
+    public function import(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $rows = $request->input('rows');
+
+        if (!is_array($rows) || !$rows) {
+            $this->error('No rows to import.', 422);
+            return;
+        }
+
+        $result = $this->service->import($rows, (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
     public function destroy(): void
     {
         $request = new Request();

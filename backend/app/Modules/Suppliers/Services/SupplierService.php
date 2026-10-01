@@ -211,6 +211,97 @@ class SupplierService
         return ['success' => true, 'message' => 'Supplier deleted.'];
     }
 
+    /**
+     * Bulk-add suppliers from parsed CSV rows. Each row is validated and
+     * saved on its own so one bad row doesn't block the rest; failures
+     * are reported by CSV line (header = line 1).
+     */
+    public function import(array $rows, int $userId): array
+    {
+        if (count($rows) > 1000) {
+            return ['success' => false, 'message' => 'Import at most 1000 rows at a time.'];
+        }
+
+        $created = 0;
+        $failed = [];
+
+        foreach (array_values($rows) as $index => $row) {
+            $input = [];
+
+            foreach ((array) $row as $key => $value) {
+                $input[$key] = is_string($value) ? trim($value) : $value;
+            }
+
+            foreach (['supplier_type' => self::SUPPLIER_TYPES, 'payment_terms' => self::PAYMENT_TERMS] as $field => $allowed) {
+                foreach ($allowed as $option) {
+                    if (!empty($input[$field]) && strcasecmp($option, $input[$field]) === 0) {
+                        $input[$field] = $option;
+                    }
+                }
+            }
+
+            if (isset($input['product_types']) && is_string($input['product_types'])) {
+                $types = preg_split('/[;,|]/', $input['product_types']);
+                $input['product_types'] = array_map(function ($type) {
+                    foreach (DrugInventoryService::PRODUCT_TYPES as $option) {
+                        if (strcasecmp($option, trim($type)) === 0) {
+                            return $option;
+                        }
+                    }
+
+                    return trim($type);
+                }, $types);
+            }
+
+            if (!empty($input['license_expiry'])) {
+                $input['license_expiry'] = self::normalizeDate($input['license_expiry']);
+            }
+
+            if (isset($input['is_active']) && is_string($input['is_active'])) {
+                $input['is_active'] = $input['is_active'] === '' || in_array(strtolower($input['is_active']), ['1', 'yes', 'y', 'true', 'active'], true);
+            }
+
+            $result = $this->create(array_intersect_key($input, array_flip(self::INPUT_FIELDS)), $userId);
+
+            if ($result['success']) {
+                $created++;
+            } else {
+                $failed[] = [
+                    'row' => $index + 2,
+                    'name' => $input['name'] ?? '',
+                    'errors' => array_values($result['errors'] ?? [$result['message']])
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => "Imported {$created} supplier(s)" . ($failed ? ', ' . count($failed) . ' row(s) skipped.' : '.'),
+            'data' => ['created' => $created, 'failed' => $failed]
+        ];
+    }
+
+    /**
+     * Spreadsheets love to reformat dates. Accepts YYYY-MM-DD as well as
+     * M/D/YYYY (how Excel shows dates on PH/US-locale machines) and
+     * returns YYYY-MM-DD; anything else is returned untouched so normal
+     * validation reports it.
+     */
+    public static function normalizeDate(string $value): string
+    {
+        $value = trim($value);
+
+        if (preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+        }
+
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', $m[3], $m[1], $m[2]);
+        }
+
+        return $value;
+    }
+
     /** Active suppliers as id+name, for dropdowns elsewhere. */
     public function listActiveForSelect(): array
     {
