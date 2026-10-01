@@ -6908,6 +6908,8 @@ textarea.pd-sdoh-readonly {
                                     <a href="#" id="pdClinicalMenuSoapLink">SOAP</a>
                                     <a href="#" id="pdClinicalMenuSpeechDictationLink">Speech Dictation</a>
                                     <a href="#" id="pdClinicalMenuVitalsLink">Vitals</a>
+                                    <a href="#" id="pdClinicalMenuGad7Link">GAD-7</a>
+                                    <a href="#" id="pdClinicalMenuPhq9Link">PHQ-9</a>
                                 </div>
                             </div>
                             <span class="pd-toolbar-btn pd-toolbar-btn-disabled">Orders<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"></path></svg></span>

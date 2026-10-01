@@ -13104,6 +13104,22 @@ function setupEncounterSummaryPanel()
         openVitalsFormModal();
     });
 
+    const gad7MenuLink = document.getElementById("pdClinicalMenuGad7Link");
+    if (gad7MenuLink) {
+        gad7MenuLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            showToast("GAD-7 questionnaire form is coming soon.", "info");
+        });
+    }
+
+    const phq9MenuLink = document.getElementById("pdClinicalMenuPhq9Link");
+    if (phq9MenuLink) {
+        phq9MenuLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            showToast("PHQ-9 questionnaire form is coming soon.", "info");
+        });
+    }
+
     document.getElementById("pdEncSummaryDeleteEncounterBtn").addEventListener("click", () => openDeleteEncounterModal());
 
     setupEsignModal();
