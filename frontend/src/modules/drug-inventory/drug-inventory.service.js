@@ -18,10 +18,46 @@ export async function fetchDrugInventoryOptions() {
     return api("/drug-inventory/options");
 }
 
+export async function fetchDrugCatalog(showInactive = false) {
+    return api(`/drug-inventory/catalog${showInactive ? "?show_inactive=1" : ""}`);
+}
+
+export async function fetchDrug(id) {
+    return api(`/drug-inventory/drug?id=${encodeURIComponent(id)}`);
+}
+
 export async function createDrug(details) {
     return api("/drug-inventory", {
         method: "POST",
         body: JSON.stringify(details)
+    });
+}
+
+export async function updateDrug(id, details) {
+    return api("/drug-inventory", {
+        method: "PUT",
+        body: JSON.stringify({ id, ...details })
+    });
+}
+
+export async function deleteDrug(id) {
+    return api("/drug-inventory", {
+        method: "DELETE",
+        body: JSON.stringify({ id })
+    });
+}
+
+export async function receiveStock(details) {
+    return api("/drug-inventory/receive", {
+        method: "POST",
+        body: JSON.stringify(details)
+    });
+}
+
+export async function importDrugs(rows) {
+    return api("/drug-inventory/import", {
+        method: "POST",
+        body: JSON.stringify({ rows })
     });
 }
 

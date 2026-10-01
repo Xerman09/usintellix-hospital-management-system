@@ -68,7 +68,7 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Inventory</span>
             <div class="dropdown-content">
-                <a data-tab="inventory_management">Management</a>
+                <a data-tab="inventory_management">Drug Catalog &amp; Stock</a>
                 <a data-tab="inventory_destroyed">Destroyed</a>
                 <a data-tab="inventory_warehouses">Manage Warehouses</a>
             </div>
@@ -438,6 +438,8 @@ function staffNavLinks(role)
                 <a data-tab="allergies">Allergy Management</a>
                 <a data-tab="medical_problems">Medical Problem Management</a>
                 <a data-tab="medication_management">Medication Management</a>
+                <a data-tab="dosage_forms">Dosage Forms</a>
+                <a data-tab="drug_categories">Drug Categories</a>
                 <a data-tab="prescription_categories">Prescription Categories</a>
                 <a data-tab="payer_types">Payer Type Management</a>
                 <a data-tab="x12_partners">X12 Partner</a>

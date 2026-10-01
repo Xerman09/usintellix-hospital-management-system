@@ -75,6 +75,21 @@ class AuthController extends Controller
     }
 
     /**
+     * Issue a new 2FA code for the pending login.
+     */
+    public function resendTwoFactor(): void
+    {
+        $result = $this->authService->resendTwoFactor();
+
+        if (!$result['success']) {
+            $this->error($result['message'], 429, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
      * Handle user logout.
      */
     public function logout(): void

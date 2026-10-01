@@ -85,7 +85,14 @@ export function LoginView()
                 <span class="form-error" id="err-tfa_code"></span>
             </div>
 
+            <p id="tfaTimer" class="tfa-timer" aria-live="polite"></p>
+
             <button class="login-btn" type="submit">Verify</button>
+
+            <p class="tfa-resend">
+                Didn't get the code?
+                <button type="button" id="resendTfaBtn" class="tfa-resend-btn" disabled>Resend code</button>
+            </p>
 
             <p class="login-forgot"><a id="backToLoginBtn">Back to Login</a></p>
 

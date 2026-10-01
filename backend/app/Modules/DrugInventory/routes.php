@@ -20,6 +20,36 @@ $router->post('/drug-inventory', [DrugInventoryController::class, 'store'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/drug-inventory/catalog', [DrugInventoryController::class, 'catalog'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/drug-inventory/drug', [DrugInventoryController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->put('/drug-inventory', [DrugInventoryController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->delete('/drug-inventory', [DrugInventoryController::class, 'destroyDrug'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/drug-inventory/receive', [DrugInventoryController::class, 'receive'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->post('/drug-inventory/import', [DrugInventoryController::class, 'import'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/drug-inventory/transfer', [DrugInventoryController::class, 'transfer'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

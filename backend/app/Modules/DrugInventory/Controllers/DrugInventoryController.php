@@ -46,13 +46,31 @@ class DrugInventoryController extends Controller
             'warehouses' => [],
             'facilities' => [],
             'drugs' => [],
+            'dosage_forms' => [],
+            'routes' => [],
+            'units' => [],
+            'categories' => [],
             'product_types' => DrugInventoryService::PRODUCT_TYPES,
-            'forms' => DrugInventoryService::FORMS,
-            'routes' => DrugInventoryService::ROUTES,
-            'units' => DrugInventoryService::UNITS,
+            'controlled_classes' => DrugInventoryService::CONTROLLED_CLASSES,
+            'storage_conditions' => DrugInventoryService::STORAGE_CONDITIONS,
             'intervals' => DrugInventoryService::INTERVALS,
             'destruction_methods' => DrugInventoryService::DESTRUCTION_METHODS
         ];
+
+        $lookups = [
+            'dosage_forms' => 'dosage_forms',
+            'routes' => 'administration_routes',
+            'units' => 'amount_units',
+            'categories' => 'drug_categories'
+        ];
+
+        foreach ($lookups as $key => $table) {
+            try {
+                $result[$key] = $this->service->listLookup($table);
+            } catch (\Throwable $e) {
+                error_log("drug-inventory options: {$key} failed: " . $e->getMessage());
+            }
+        }
 
         try {
             $result['warehouses'] = $this->service->listWarehouses();
@@ -75,18 +93,44 @@ class DrugInventoryController extends Controller
         $this->success($result, 'Options retrieved successfully.');
     }
 
+    /**
+     * Drug Catalog list. Query: show_inactive? (optional).
+     */
+    public function catalog(): void
+    {
+        $request = new Request();
+
+        $rows = $this->service->listCatalog([
+            'show_inactive' => $request->input('show_inactive')
+        ]);
+
+        $this->success($rows, 'Drug catalog retrieved successfully.');
+    }
+
+    /**
+     * One drug with its prescription templates, for the edit form.
+     */
+    public function show(): void
+    {
+        $request = new Request();
+
+        $drug = $this->service->getDrug((int) $request->input('id'));
+
+        if (!$drug) {
+            $this->error('Drug not found.', 404);
+            return;
+        }
+
+        $this->success($drug, 'Drug retrieved successfully.');
+    }
+
     public function store(): void
     {
         $request = new Request();
         $user = Session::get('user');
 
         $result = $this->service->createDrug(
-            $request->only([
-                'name', 'ndc', 'rxcui', 'form', 'size', 'unit', 'route', 'product_type',
-                'is_active', 'is_consumable', 'allow_inventory', 'allow_multiple_lots', 'allow_combining_lots',
-                'on_order', 'min_level_global', 'max_level_global', 'min_level_onsite', 'max_level_onsite',
-                'lot_number', 'facility_id', 'warehouse_id', 'quantity_on_hand', 'expires_date', 'templates'
-            ]),
+            $request->only(DrugInventoryService::DRUG_INPUT_FIELDS),
             (int) $user['id']
         );
 
@@ -96,6 +140,86 @@ class DrugInventoryController extends Controller
         }
 
         $this->success($result['data'], $result['message'], 201);
+    }
+
+    public function update(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $result = $this->service->updateDrug(
+            (int) $request->input('id'),
+            $request->only(DrugInventoryService::DRUG_INPUT_FIELDS),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $status = $result['message'] === 'Drug not found.' ? 404 : 422;
+            $this->error($result['message'], $status, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    public function destroyDrug(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $result = $this->service->deleteDrug((int) $request->input('id'), (int) $user['id']);
+
+        if (!$result['success']) {
+            $status = $result['message'] === 'Drug not found.' ? 404 : 422;
+            $this->error($result['message'], $status);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    public function receive(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $result = $this->service->receiveStock(
+            $request->only(DrugInventoryService::RECEIVE_INPUT_FIELDS),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * Bulk registration. Body: { rows: [ {generic_name, strength,
+     * dosage_form, ...}, ... ] } -- lookups given by name.
+     */
+    public function import(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $rows = $request->input('rows');
+
+        if (!is_array($rows) || !$rows) {
+            $this->error('No rows to import.', 422);
+            return;
+        }
+
+        $result = $this->service->importDrugs($rows, (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
     }
 
     public function transfer(): void

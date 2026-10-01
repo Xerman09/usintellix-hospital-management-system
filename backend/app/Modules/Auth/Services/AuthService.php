@@ -29,6 +29,12 @@ class AuthService
     private const MAX_ATTEMPTS = 5;
 
     /**
+     * Minimum wait between issuing codes for the same pending login, so
+     * the resend button can't be used to spam the user's inbox.
+     */
+    private const RESEND_COOLDOWN_SECONDS = 60;
+
+    /**
      * Authenticate a user.
      */
     public function login(string $username, string $password): array
@@ -260,6 +266,60 @@ class AuthService
         $employee = (new Employee())->where('user_id', $user['id'])->first();
 
         return $this->grantSession($user, $employee);
+    }
+
+    /**
+     * Issue a fresh code for the pending login, replacing the previous
+     * one. Only allowed once the resend cooldown has elapsed.
+     */
+    public function resendTwoFactor(): array
+    {
+        $userId = (int) Session::get('pending_2fa_user_id');
+
+        if (!$userId) {
+            return [
+                'success' => false,
+                'message' => 'No pending verification. Please log in again.'
+            ];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT created_at FROM two_factor_codes
+             WHERE user_id = :user_id
+             ORDER BY id DESC LIMIT 1"
+        );
+        $stmt->execute(['user_id' => $userId]);
+        $lastCreatedAt = $stmt->fetchColumn();
+
+        if ($lastCreatedAt) {
+            $wait = strtotime($lastCreatedAt) + self::RESEND_COOLDOWN_SECONDS - time();
+
+            if ($wait > 0) {
+                return [
+                    'success' => false,
+                    'message' => "Please wait {$wait} second(s) before requesting a new code.",
+                    'errors' => ['resend_in' => $wait]
+                ];
+            }
+        }
+
+        $user = (new User())->where('id', $userId)->first();
+
+        if (!$user) {
+            Session::forget('pending_2fa_user_id');
+            return [
+                'success' => false,
+                'message' => 'No pending verification. Please log in again.'
+            ];
+        }
+
+        $employee = (new Employee())->where('user_id', $user['id'])->first();
+        $settings = (new GeneralSettingService())->get();
+
+        $result = $this->beginTwoFactor($user, $employee, (string) $settings['two_factor_method']);
+        $result['message'] = 'A new verification code has been sent.';
+
+        return $result;
     }
 
     /**
@@ -558,6 +618,12 @@ class AuthService
     {
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
+        // Retire any still-open code so only the newest one can be used.
+        Database::connection()->prepare(
+            "UPDATE two_factor_codes SET expires_at = :now
+             WHERE user_id = :user_id AND consumed_at IS NULL"
+        )->execute(['now' => date('Y-m-d H:i:s'), 'user_id' => $user['id']]);
+
         (new TwoFactorCode())->create([
             'user_id'    => $user['id'],
             'code'       => $code,
@@ -583,7 +649,9 @@ class AuthService
         $data = [
             'requires_2fa' => true,
             'method' => $method,
-            'destination' => $this->maskDestination($method, $employee)
+            'destination' => $this->maskDestination($method, $employee),
+            'expires_in' => self::CODE_TTL_MINUTES * 60,
+            'resend_in' => self::RESEND_COOLDOWN_SECONDS
         ];
 
         // Mail isn't configured yet (or the send failed) -- fall back to

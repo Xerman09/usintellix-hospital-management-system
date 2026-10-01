@@ -1,5 +1,5 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor, completeFirstLogin, updateExpiredPassword, logout, acknowledgeNpp } from "./auth.service.js?v=4";
+import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, logout, acknowledgeNpp } from "./auth.service.js?v=5";
 import { saveUser, clearSession } from "../../core/session.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
@@ -190,6 +190,30 @@ export function initLogin()
 
         }
     );
+
+
+    document.getElementById("resendTfaBtn").addEventListener("click", async () => {
+        const resendBtn = document.getElementById("resendTfaBtn");
+        resendBtn.disabled = true;
+        resendBtn.textContent = "Sending...";
+
+        const result = await resendTwoFactor();
+
+        if (!result.success) {
+            const wait = Number(result.errors?.resend_in) || 0;
+            document.getElementById("err-tfa_code").textContent = result.message;
+            if (wait > 0) {
+                startResendCooldown(wait);
+            } else {
+                resendBtn.textContent = "Resend code";
+                resendBtn.disabled = false;
+            }
+            return;
+        }
+
+        showTwoFactorStep(result.data);
+        showAlert(result.message, "success");
+    });
 
 
     document.getElementById("backToLoginBtn").addEventListener("click", (event) => {
@@ -525,13 +549,95 @@ function showTwoFactorStep(data)
         devNotice.innerHTML = "";
     }
 
+    // Drop any leftover alert from the password step (e.g. an earlier
+    // "Invalid username or password") so it doesn't sit above the code form.
+    const alertEl = document.getElementById("formAlert");
+    if (alertEl) alertEl.innerHTML = "";
+
     document.getElementById("tfa_code").value = "";
     document.getElementById("err-tfa_code").textContent = "";
     document.getElementById("tfa_code").focus();
+
+    startTfaTimers(Number(data.expires_in) || 600, Number(data.resend_in) || 60);
+}
+
+let tfaTimerInterval = null;
+let tfaExpiresAt = 0;
+let tfaResendAt = 0;
+
+function startTfaTimers(expiresIn, resendIn)
+{
+    const now = Date.now();
+    tfaExpiresAt = now + expiresIn * 1000;
+    tfaResendAt = now + resendIn * 1000;
+    runTfaTimer();
+}
+
+function startResendCooldown(seconds)
+{
+    tfaResendAt = Date.now() + seconds * 1000;
+    runTfaTimer();
+}
+
+function stopTfaTimers()
+{
+    clearInterval(tfaTimerInterval);
+    tfaTimerInterval = null;
+}
+
+function runTfaTimer()
+{
+    stopTfaTimers();
+    renderTfaTimer();
+    tfaTimerInterval = setInterval(renderTfaTimer, 1000);
+}
+
+function renderTfaTimer()
+{
+    const timerEl = document.getElementById("tfaTimer");
+    const resendBtn = document.getElementById("resendTfaBtn");
+    const verifyBtn = document.querySelector("#twoFactorForm .login-btn");
+
+    if (!timerEl || !resendBtn) {
+        stopTfaTimers();
+        return;
+    }
+
+    const now = Date.now();
+    const expiresLeft = Math.max(0, Math.ceil((tfaExpiresAt - now) / 1000));
+    const resendLeft = Math.max(0, Math.ceil((tfaResendAt - now) / 1000));
+
+    if (expiresLeft > 0) {
+        const mins = Math.floor(expiresLeft / 60);
+        const secs = String(expiresLeft % 60).padStart(2, "0");
+        timerEl.textContent = `Code expires in ${mins}:${secs}`;
+        timerEl.classList.toggle("is-urgent", expiresLeft <= 60);
+        timerEl.classList.remove("is-expired");
+        if (verifyBtn && !verifyBtn.classList.contains("is-loading")) verifyBtn.disabled = false;
+    } else {
+        timerEl.textContent = "This code has expired. Please request a new one.";
+        timerEl.classList.remove("is-urgent");
+        timerEl.classList.add("is-expired");
+        if (verifyBtn) verifyBtn.disabled = true;
+    }
+
+    // An expired code makes the cooldown moot -- let them resend right away.
+    if (resendLeft > 0 && expiresLeft > 0) {
+        resendBtn.disabled = true;
+        resendBtn.textContent = `Resend code (${resendLeft}s)`;
+    } else {
+        resendBtn.disabled = false;
+        resendBtn.textContent = "Resend code";
+    }
+
+    if (expiresLeft === 0 && resendLeft === 0) {
+        stopTfaTimers();
+    }
 }
 
 function showLoginStep()
 {
+    stopTfaTimers();
     document.getElementById("twoFactorForm").style.display = "none";
     document.getElementById("firstLoginForm").style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");

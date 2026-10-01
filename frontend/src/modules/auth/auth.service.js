@@ -43,6 +43,17 @@ export async function verifyTwoFactor(code)
 }
 
 
+export async function resendTwoFactor()
+{
+    return await api(
+        "/resend-2fa",
+        {
+            method:"POST"
+        }
+    );
+}
+
+
 export async function completeFirstLogin(data)
 {
     return await api(

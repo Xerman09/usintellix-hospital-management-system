@@ -32,8 +32,10 @@ import { EobPostingView } from "../eob-posting/eob-posting.view.js";
 import { initEobPosting } from "../eob-posting/eob-posting.js";
 import { EdiFilesView } from "../edi-files/edi-files.view.js";
 import { initEdiFiles } from "../edi-files/edi-files.js";
-import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js";
-import { initDrugInventory } from "../drug-inventory/drug-inventory.js";
+import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js?v=2";
+import { initDrugInventory } from "../drug-inventory/drug-inventory.js?v=2";
+import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
+import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js";
 import { initWarehouses } from "../warehouses/warehouses.js";
 import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
@@ -960,6 +962,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initAdministrationSites, 0);
                 return AdministrationSitesView();
+            }, activate);
+        } else if (tabId === 'dosage_forms' || tabId === 'drug_categories') {
+            tabManager.openTab(tabId, title, () => {
+                setTimeout(() => initDrugLookup(tabId), 0);
+                return DrugLookupView(tabId);
             }, activate);
         } else if (tabId === 'amount_units') {
             tabManager.openTab(tabId, title, () => {

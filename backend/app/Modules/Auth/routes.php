@@ -6,6 +6,7 @@ use App\Modules\Auth\Controllers\AuthController;
 
 $router->post('/login', [AuthController::class, 'login']);
 $router->post('/verify-2fa', [AuthController::class, 'verifyTwoFactor']);
+$router->post('/resend-2fa', [AuthController::class, 'resendTwoFactor']);
 $router->get('/ping', [AuthController::class, 'ping'], [AuthMiddleware::class]);
 $router->get('/auth/me', [AuthController::class, 'me'], [AuthMiddleware::class]);
 $router->post('/logout', [AuthController::class, 'logout'], [AuthMiddleware::class]);
