@@ -37,7 +37,11 @@ class PurchaseOrderService
 
     public const CANCELLABLE_STATUSES = ['pending_approval', 'approved'];
 
-    public const APPROVER_ROLES = ['admin'];
+    /** Can create, edit and submit orders. */
+    public const CREATOR_ROLES = ['admin', 'receptionist', 'doctor'];
+
+    /** Can approve or reject orders (never their own). */
+    public const APPROVER_ROLES = ['admin', 'accountant'];
 
     public const ORDER_UNITS = ['unit', 'package'];
 
@@ -421,7 +425,7 @@ class PurchaseOrderService
     public function approvalBlocker(array $order, ?array $user): ?string
     {
         if (!$user || !in_array($user['role'] ?? null, self::APPROVER_ROLES, true)) {
-            return 'Only an administrator can approve purchase orders.';
+            return 'Only an administrator or accountant can approve purchase orders.';
         }
 
         if ($order['status'] !== 'pending_approval') {

@@ -5,6 +5,13 @@ import {
 } from "./purchase-orders.service.js?v=2";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
+import { getUser } from "../../core/session.js";
+
+// Keep in step with PurchaseOrderService::CREATOR_ROLES. Approver-only
+// roles (e.g. accountant) can view, approve, reject and cancel, but not
+// create or copy orders.
+const CREATOR_ROLES = ["admin", "receptionist", "doctor"];
+const canCreate = () => CREATOR_ROLES.includes(getUser()?.role);
 
 const STATUS_LABELS = {
     draft: "Draft",
@@ -41,6 +48,7 @@ export async function initPurchaseOrders() {
     $("poStatusFilter").addEventListener("change", renderList);
     $("poSupplierFilter").addEventListener("change", renderList);
     $("poNewBtn").addEventListener("click", () => openEditor());
+    $("poNewBtn").hidden = !canCreate();
 
     document.querySelectorAll("[data-po-back]").forEach((btn) => btn.addEventListener("click", showList));
 
@@ -889,7 +897,7 @@ function confirmSubmit() {
                 ${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}
                 <dt class="grand">Total</dt><dd class="grand">${escapeHtml($("poTotal").textContent)}</dd>
             </dl>
-            <p class="po-confirm-note">An administrator other than you will review it before it goes to the supplier. While it waits, it can't be edited; if it's rejected, it comes back to you with the reason.</p>`,
+            <p class="po-confirm-note">An approver (an administrator or accountant) other than you will review it before it goes to the supplier. While it waits, it can't be edited; if it's rejected, it comes back to you with the reason.</p>`,
         confirmLabel: "Submit for Approval"
     });
 }
@@ -1009,7 +1017,7 @@ function showDetail(order) {
                 </div>
                 <div class="po-header-actions">
                     <button type="button" class="po-btn" id="poPrintBtn">Print / Save PDF</button>
-                    <button type="button" class="po-btn" id="poCopyBtn" title="Start a new draft with the same supplier and items">Reorder</button>
+                    ${canCreate() ? `<button type="button" class="po-btn" id="poCopyBtn" title="Start a new draft with the same supplier and items">Reorder</button>` : ""}
                     ${["pending_approval", "approved"].includes(order.status) ? `<button type="button" class="po-btn danger" id="poCancelBtn">Cancel Order</button>` : ""}
                 </div>
             </div>
@@ -1065,7 +1073,7 @@ function showDetail(order) {
     `;
 
     $("poPrintBtn").addEventListener("click", () => printOrder(order));
-    $("poCopyBtn").addEventListener("click", () => openEditor(order, true));
+    $("poCopyBtn")?.addEventListener("click", () => openEditor(order, true));
     $("poCancelBtn")?.addEventListener("click", () => openAction("cancel"));
     $("poApproveBtn")?.addEventListener("click", () => openAction("approve"));
     $("poRejectBtn")?.addEventListener("click", () => openAction("reject"));
@@ -1096,7 +1104,7 @@ function approvalBanner(order) {
             <div class="po-approval pending">
                 <div>
                     <strong>Pending approval</strong>
-                    <span>Submitted by ${by(order.submitted_by_name)} on ${escapeHtml(formatDateTime(order.submitted_at))}. ${escapeHtml(order.approval_blocker || "Waiting for an administrator to approve it.")}</span>
+                    <span>Submitted by ${by(order.submitted_by_name)} on ${escapeHtml(formatDateTime(order.submitted_at))}. ${escapeHtml(order.approval_blocker || "Waiting for an administrator or accountant to approve it.")}</span>
                 </div>
             </div>`;
     }
