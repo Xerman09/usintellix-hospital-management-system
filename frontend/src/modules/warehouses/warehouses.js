@@ -28,7 +28,7 @@ async function loadWarehouses() {
     const result = await fetchWarehouses();
 
     if (!result.success) {
-        tbody.innerHTML = `<tr><td colspan="5" class="wh-empty-state">Failed to load warehouses.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="wh-empty-state">Failed to load storage locations.</td></tr>`;
         return;
     }
 
@@ -51,7 +51,7 @@ function renderTable() {
     const tbody = document.getElementById("whTableBody");
 
     if (!warehouses.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="wh-empty-state">No warehouses yet -- click "Add Warehouse" to create one.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="wh-empty-state">No storage locations yet -- click "Add Storage Location" to create one.</td></tr>`;
         return;
     }
 
@@ -86,7 +86,7 @@ function openModal(warehouse) {
     document.getElementById("whFormAlert").innerHTML = "";
     document.querySelectorAll("#whForm .form-error").forEach((el) => { el.textContent = ""; });
 
-    document.getElementById("whModalTitle").textContent = warehouse ? "Edit Warehouse" : "Add Warehouse";
+    document.getElementById("whModalTitle").textContent = warehouse ? "Edit Storage Location" : "Add Storage Location";
     document.getElementById("wh_id").value = warehouse ? warehouse.id : "";
     document.getElementById("wh_name").value = warehouse ? warehouse.name : "";
     document.getElementById("wh_facility_id").value = warehouse && warehouse.facility_id ? warehouse.facility_id : "";
@@ -126,7 +126,7 @@ async function saveWarehouse() {
     if (!result.success) {
         const hasFieldErrors = result.errors && Object.keys(result.errors).length > 0;
 
-        showAlert("whFormAlert", hasFieldErrors ? Object.values(result.errors).join(" ") : (result.message || "Failed to save the warehouse."), "error");
+        showAlert("whFormAlert", hasFieldErrors ? Object.values(result.errors).join(" ") : (result.message || "Failed to save the storage location."), "error");
 
         if (hasFieldErrors) {
             Object.entries(result.errors).forEach(([field, message]) => {
@@ -144,14 +144,14 @@ async function saveWarehouse() {
 }
 
 async function removeWarehouse(id) {
-    if (!confirm("Delete this warehouse? Any existing lots stay on record, but it will no longer appear in the Add Drug / Transfer pickers.")) {
+    if (!confirm("Delete this storage location? Any existing lots stay on record, but it will no longer appear in the Add Drug / Transfer pickers.")) {
         return;
     }
 
     const result = await deleteWarehouse(id);
 
     if (!result.success) {
-        showToast(result.message || "Failed to delete the warehouse.", "error");
+        showToast(result.message || "Failed to delete the storage location.", "error");
         return;
     }
 

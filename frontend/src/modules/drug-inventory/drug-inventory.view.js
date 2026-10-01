@@ -853,7 +853,7 @@ export function DrugInventoryView() {
         <div class="di-toolbar" style="margin-bottom:10px;">
             <div class="di-filters">
                 <select id="diFacilityFilter"><option value="">-- All Facilities --</option></select>
-                <select id="diWarehouseFilter"><option value="">All Warehouses</option></select>
+                <select id="diWarehouseFilter"><option value="">All Storage Locations</option></select>
                 <select id="diProductTypeFilter"><option value="">All Product Types</option></select>
                 <label class="di-checkbox-label"><input type="checkbox" id="diShowEmptyLots"> Show empty lots</label>
                 <label class="di-checkbox-label"><input type="checkbox" id="diShowInactive"> Show inactive</label>
@@ -881,7 +881,7 @@ export function DrugInventoryView() {
             <table class="di-table">
                 <thead>
                     <tr>
-                        <th>Name</th><th>Form</th><th>Lot</th><th>Facility</th><th>Warehouse</th><th>QOH</th><th>Expires</th><th>Tran</th><th>Destroy</th>
+                        <th>Name</th><th>Form</th><th>Lot</th><th>Facility</th><th>Storage Location</th><th>QOH</th><th>Expires</th><th>Tran</th><th>Destroy</th>
                     </tr>
                 </thead>
                 <tbody id="diTableBody"><tr><td colspan="9" class="di-empty-state">Loading...</td></tr></tbody>
@@ -1113,7 +1113,7 @@ export function DrugInventoryView() {
                     <span class="form-error" id="err-di_rcv_expires_date"></span>
                 </div>
                 <div class="di-field">
-                    <label>Warehouse<span class="di-req">*</span></label>
+                    <label>Storage Location<span class="di-req">*</span></label>
                     <select id="di_rcv_warehouse_id"></select>
                     <span class="form-error" id="err-di_rcv_warehouse_id"></span>
                 </div>
@@ -1259,7 +1259,7 @@ export function DrugInventoryView() {
         <form id="diTransferForm">
             <div class="di-form-grid">
                 <div class="di-field">
-                    <label>Destination Warehouse</label>
+                    <label>Destination Storage Location</label>
                     <select id="di_tran_warehouse_id"></select>
                     <span class="form-error" id="err-di_tran_warehouse_id"></span>
                 </div>

@@ -34,7 +34,7 @@ class WarehouseController extends Controller
             error_log('warehouses index: facilities failed: ' . $e->getMessage());
         }
 
-        $this->success($result, 'Warehouses retrieved successfully.');
+        $this->success($result, 'Storage locations retrieved successfully.');
     }
 
     public function store(): void
@@ -62,7 +62,7 @@ class WarehouseController extends Controller
         $result = $this->service->update($id, $request->only(['name', 'facility_id', 'is_active']), (int) $user['id']);
 
         if (!$result['success']) {
-            $status = $result['message'] === 'Warehouse not found.' ? 404 : 422;
+            $status = $result['message'] === 'Storage location not found.' ? 404 : 422;
             $this->error($result['message'], $status, $result['errors'] ?? null);
             return;
         }

@@ -152,7 +152,7 @@ export function InventoryListReportView() {
                 <select id="ilFacilityFilter"><option value="">-- All Facilities --</option></select>
             </div>
             <div class="il-filter-group">
-                <select id="ilWarehouseFilter"><option value="">All Warehouses</option></select>
+                <select id="ilWarehouseFilter"><option value="">All Storage Locations</option></select>
             </div>
             <div class="il-filter-group">
                 <label>For the past</label>

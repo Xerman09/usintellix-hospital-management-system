@@ -77,7 +77,7 @@ function staffNavLinks(role)
                 <a data-tab="pharmacy_purchase_orders">Purchase Orders</a>
                 <a data-tab="pharmacy_receiving">Receiving</a>
                 <a data-tab="inventory_destroyed">Destroyed Drugs</a>
-                <a data-tab="inventory_warehouses">Manage Warehouses</a>
+                <a data-tab="inventory_warehouses">Storage Locations</a>
                 ${role === "admin" ? `
                 <div class="dropdown-section-label">Setup</div>
                 <a data-tab="dosage_forms">Dosage Forms</a>

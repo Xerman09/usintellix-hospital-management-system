@@ -174,13 +174,13 @@ export function WarehousesView() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"></path></svg>
             </div>
             <div>
-                <h1>Manage Warehouses</h1>
-                <p>Storage locations used by Inventory &gt; Management for stocking and transferring drugs.</p>
+                <h1>Storage Locations</h1>
+                <p>Where stock is kept (e.g. Main Pharmacy, Central Supply Room, ward stock). Used when receiving, stocking and transferring items.</p>
             </div>
         </div>
         <button type="button" class="wh-add-btn" id="whAddBtn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
-            Add Warehouse
+            Add Storage Location
         </button>
     </div>
 
@@ -199,7 +199,7 @@ export function WarehousesView() {
 <div class="modal-overlay" id="whModalOverlay">
     <div class="modal-box">
         <div class="modal-header">
-            <h2 id="whModalTitle">Add Warehouse</h2>
+            <h2 id="whModalTitle">Add Storage Location</h2>
             <button type="button" class="modal-close" id="whCloseModal">&times;</button>
         </div>
 

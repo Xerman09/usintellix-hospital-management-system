@@ -69,7 +69,7 @@ function renderHead(isSummary) {
 
     thead.innerHTML = isSummary
         ? `<tr><th>Name</th><th>NDC</th><th>Form</th><th>Unit</th><th style="text-align: right;">Total QOH</th><th style="text-align: right;">Lots</th></tr>`
-        : `<tr><th>Name</th><th>NDC</th><th>Form</th><th>Size</th><th>Unit</th><th>Lot</th><th>Facility</th><th>Warehouse</th><th>QOH</th><th>Expires</th></tr>`;
+        : `<tr><th>Name</th><th>NDC</th><th>Form</th><th>Size</th><th>Unit</th><th>Lot</th><th>Facility</th><th>Storage Location</th><th>QOH</th><th>Expires</th></tr>`;
 }
 
 function renderSummary() {
@@ -171,7 +171,7 @@ function exportToCsv() {
             rows.push([g.name, g.ndc || "", g.form || "", g.unit || "", g.totalQty, g.lots]);
         });
     } else {
-        rows.push(["Name", "NDC", "Form", "Size", "Unit", "Lot", "Facility", "Warehouse", "QOH", "Expires"]);
+        rows.push(["Name", "NDC", "Form", "Size", "Unit", "Lot", "Facility", "Storage Location", "QOH", "Expires"]);
 
         allRows.forEach((row) => {
             rows.push([

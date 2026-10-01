@@ -3,13 +3,13 @@ import { fetchDrugInventoryOptions } from "../drug-inventory/drug-inventory.serv
 
 const FOR_OPTIONS = {
     product: { placeholder: "-- All Products --", key: "drugs" },
-    warehouse: { placeholder: "-- All Warehouses --", key: "warehouses" },
+    warehouse: { placeholder: "-- All Storage Locations --", key: "warehouses" },
     facility: { placeholder: "-- All Facilities --", key: "facilities" }
 };
 
 const GROUP_LABELS = {
     product: "Product",
-    warehouse: "Warehouse",
+    warehouse: "Storage Location",
     facility: "Facility"
 };
 

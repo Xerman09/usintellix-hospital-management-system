@@ -426,7 +426,7 @@ class DrugInventoryService
         }
 
         if (!$warehouseId) {
-            $errors['warehouse_id'] = 'Warehouse is required.';
+            $errors['warehouse_id'] = 'Storage location is required.';
         }
 
         if ($quantity <= 0) {
@@ -749,7 +749,7 @@ class DrugInventoryService
         }
 
         if (!$warehouseId) {
-            return ['success' => false, 'message' => 'Select a destination warehouse.'];
+            return ['success' => false, 'message' => 'Select a destination storage location.'];
         }
 
         $facilityId = !empty($data['facility_id']) ? (int) $data['facility_id'] : null;
@@ -758,7 +758,7 @@ class DrugInventoryService
         if ($warehouseId === (int) $sourceLot['warehouse_id']
             && $facilityId === ($sourceLot['facility_id'] !== null ? (int) $sourceLot['facility_id'] : null)
             && $lotNumber === $sourceLot['lot_number']) {
-            return ['success' => false, 'message' => 'Choose a different warehouse, facility, or lot number to transfer into.'];
+            return ['success' => false, 'message' => 'Choose a different storage location, facility, or lot number to transfer into.'];
         }
 
         $destLot = (new DrugInventoryLot())

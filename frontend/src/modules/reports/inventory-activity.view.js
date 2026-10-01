@@ -181,7 +181,7 @@ export function InventoryActivityReportView() {
                     <label>By:</label>
                     <select id="iaBy">
                         <option value="product">Product</option>
-                        <option value="warehouse">Warehouse</option>
+                        <option value="warehouse">Storage Location</option>
                         <option value="facility">Facility</option>
                     </select>
                 </div>

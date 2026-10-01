@@ -597,7 +597,7 @@ function openReceiveModal(drugId) {
     clearFormErrors("diReceiveForm", "diReceiveAlert");
 
     if (!options.warehouses.length) {
-        showAlert("diReceiveAlert", "No warehouses exist yet. Add one under Pharmacy > Manage Warehouses first.", "error");
+        showAlert("diReceiveAlert", "No storage locations exist yet. Add one under Pharmacy > Storage Locations first.", "error");
     }
 
     const select = document.getElementById("di_rcv_drug_id");
