@@ -949,6 +949,12 @@ export function DrugInventoryView() {
                         <label>Manufacturer</label>
                         <input type="text" id="di_manufacturer" maxlength="255">
                     </div>
+                    <div class="di-field">
+                        <label>Preferred Supplier</label>
+                        <select id="di_preferred_supplier_id"></select>
+                        <span class="di-hint">Who you usually reorder from</span>
+                        <span class="form-error" id="err-di_preferred_supplier_id"></span>
+                    </div>
                 </div>
 
                 <div class="di-name-preview">Will be listed as: <strong id="diNamePreview">&mdash;</strong></div>
@@ -1131,7 +1137,9 @@ export function DrugInventoryView() {
                 </div>
                 <div class="di-field">
                     <label>Supplier</label>
-                    <input type="text" id="di_rcv_supplier" maxlength="255">
+                    <select id="di_rcv_supplier_id"></select>
+                    <input type="text" id="di_rcv_supplier" maxlength="255" placeholder="Supplier name" hidden style="margin-top:6px;">
+                    <span class="form-error" id="err-di_rcv_supplier_id"></span>
                 </div>
                 <div class="di-field">
                     <label>Invoice / PO No.</label>

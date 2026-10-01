@@ -51,7 +51,8 @@ class DrugInventoryService
         'route_id' => ['administration_routes', 'Route'],
         'dispensing_unit_id' => ['amount_units', 'Dispensing unit'],
         'package_unit_id' => ['amount_units', 'Package unit'],
-        'category_id' => ['drug_categories', 'Category']
+        'category_id' => ['drug_categories', 'Category'],
+        'preferred_supplier_id' => ['suppliers', 'Preferred supplier']
     ];
 
     private const NULLABLE_DECIMAL_FIELDS = ['package_quantity', 'unit_cost', 'selling_price'];
@@ -79,12 +80,12 @@ class DrugInventoryService
         'dosage_form_id', 'route_id', 'dispensing_unit_id', 'package_unit_id', 'category_id',
         'package_quantity', 'unit_cost', 'selling_price', 'on_order', 'min_level_global', 'max_level_global',
         'is_active', 'is_consumable', 'requires_prescription', 'is_high_alert', 'is_lasa',
-        'allow_inventory', 'allow_multiple_lots', 'allow_combining_lots', 'templates'
+        'allow_inventory', 'allow_multiple_lots', 'allow_combining_lots', 'preferred_supplier_id', 'templates'
     ];
 
     public const RECEIVE_INPUT_FIELDS = [
         'drug_id', 'warehouse_id', 'facility_id', 'lot_number', 'expires_date', 'quantity', 'quantity_in',
-        'received_date', 'supplier', 'invoice_number', 'unit_cost', 'notes'
+        'received_date', 'supplier_id', 'supplier', 'invoice_number', 'unit_cost', 'notes'
     ];
 
     /**
@@ -235,6 +236,7 @@ class DrugInventoryService
             "SELECT d.*,
                     df.name AS dosage_form_name, ar.name AS route_name, dc.name AS category_name,
                     du.name AS dispensing_unit_name, pu.name AS package_unit_name,
+                    ps.name AS preferred_supplier_name,
                     COALESCE(st.qoh, 0) AS qoh, COALESCE(st.lot_count, 0) AS lot_count, st.next_expiry
              FROM drugs d
              LEFT JOIN dosage_forms df ON df.id = d.dosage_form_id
@@ -242,6 +244,7 @@ class DrugInventoryService
              LEFT JOIN drug_categories dc ON dc.id = d.category_id
              LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
              LEFT JOIN amount_units pu ON pu.id = d.package_unit_id
+             LEFT JOIN suppliers ps ON ps.id = d.preferred_supplier_id
              LEFT JOIN (
                  SELECT drug_id,
                         SUM(quantity_on_hand) AS qoh,
@@ -448,6 +451,25 @@ class DrugInventoryService
             $errors['unit_cost'] = 'Cost cannot be negative.';
         }
 
+        // A listed supplier wins over free text; its name is also stored
+        // in the text column so the receipt reads correctly on its own.
+        $supplierId = !empty($data['supplier_id']) ? (int) $data['supplier_id'] : null;
+        $supplierName = trim((string) ($data['supplier'] ?? '')) ?: null;
+
+        if ($supplierId !== null) {
+            $stmt = Database::connection()->prepare("SELECT name, is_active FROM suppliers WHERE id = :id AND deleted_at IS NULL");
+            $stmt->execute(['id' => $supplierId]);
+            $supplier = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$supplier) {
+                $errors['supplier_id'] = 'Supplier not found.';
+            } elseif (!(int) $supplier['is_active']) {
+                $errors['supplier_id'] = 'This supplier is inactive.';
+            } else {
+                $supplierName = $supplier['name'];
+            }
+        }
+
         if (($data['quantity_in'] ?? 'unit') === 'package' && !isset($errors['quantity'])) {
             $perPackage = (float) ($drug['package_quantity'] ?? 0);
 
@@ -512,7 +534,8 @@ class DrugInventoryService
                 'lot_id' => $lotId,
                 'quantity' => $quantity,
                 'received_date' => $receivedDate,
-                'supplier' => trim((string) ($data['supplier'] ?? '')) ?: null,
+                'supplier_id' => $supplierId,
+                'supplier' => $supplierName,
                 'invoice_number' => trim((string) ($data['invoice_number'] ?? '')) ?: null,
                 'unit_cost' => isset($data['unit_cost']) && $data['unit_cost'] !== '' ? round((float) $data['unit_cost'], 2) : null,
                 'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
@@ -1117,6 +1140,8 @@ class DrugInventoryService
             'package_quantity' => $decimal($r['package_quantity']),
             'category_id' => $r['category_id'] !== null ? (int) $r['category_id'] : null,
             'category_name' => $r['category_name'],
+            'preferred_supplier_id' => $r['preferred_supplier_id'] !== null ? (int) $r['preferred_supplier_id'] : null,
+            'preferred_supplier_name' => $r['preferred_supplier_name'],
             'manufacturer' => $r['manufacturer'],
             'registration_number' => $r['registration_number'],
             'barcode' => $r['barcode'],

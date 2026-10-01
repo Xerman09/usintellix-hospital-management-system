@@ -5,9 +5,11 @@ import {
 import { showToast } from "../../core/toast.js";
 
 const EMPTY_OPTIONS = {
-    warehouses: [], facilities: [], dosage_forms: [], routes: [], units: [], categories: [],
+    warehouses: [], facilities: [], dosage_forms: [], routes: [], units: [], categories: [], suppliers: [],
     product_types: [], controlled_classes: [], storage_conditions: [], intervals: [], destruction_methods: []
 };
+
+const OTHER_SUPPLIER = "__other";
 
 const MEDICINE_TYPES = ["Drug", "Vaccine"];
 const EXPIRY_WARNING_DAYS = 90;
@@ -16,14 +18,15 @@ const CSV_COLUMNS = [
     "generic_name", "brand_name", "strength", "dosage_form", "route", "category", "manufacturer",
     "registration_number", "barcode", "product_type", "controlled_class", "requires_prescription",
     "storage_condition", "is_high_alert", "is_lasa", "dispensing_unit", "package_unit", "package_quantity",
-    "reorder_level", "max_stock", "unit_cost", "selling_price"
+    "reorder_level", "max_stock", "unit_cost", "selling_price", "preferred_supplier"
 ];
 
+// preferred_supplier is left blank so the example row imports on any system.
 const CSV_EXAMPLE = [
     "Paracetamol", "Biogesic", "500 mg", "Tablet", "Oral", "Analgesic / Antipyretic", "Unilab",
     "DR-XY12345", "4800000000000", "Drug", "None", "no",
     "Room temperature (15-30 °C)", "no", "no", "tablet", "box", "100",
-    "200", "2000", "1.50", "3.00"
+    "200", "2000", "1.50", "3.00", ""
 ];
 
 // Drug form fields: [input id suffix, payload key, kind]
@@ -32,7 +35,7 @@ const DRUG_TEXT_FIELDS = [
 ];
 const DRUG_SELECT_FIELDS = [
     "product_type", "dosage_form_id", "route_id", "category_id", "controlled_class", "storage_condition",
-    "dispensing_unit_id", "package_unit_id"
+    "dispensing_unit_id", "package_unit_id", "preferred_supplier_id"
 ];
 const DRUG_NUMBER_FIELDS = [
     "package_quantity", "min_level_global", "max_level_global", "on_order", "unit_cost", "selling_price"
@@ -112,6 +115,11 @@ async function loadOptions() {
     fill("di_storage_condition", options.storage_conditions, "-- Not specified --", plain);
     fill("di_dispensing_unit_id", options.units, "-- Select --");
     fill("di_package_unit_id", options.units, "-- None --");
+    fill("di_preferred_supplier_id", options.suppliers, "-- None --");
+
+    const receiveSupplier = document.getElementById("di_rcv_supplier_id");
+    fill("di_rcv_supplier_id", options.suppliers, "-- Not specified --");
+    receiveSupplier.appendChild(new Option("Other (not in the list)...", OTHER_SUPPLIER));
     fill("di_destroy_method", options.destruction_methods, "-- Select --", plain);
 }
 
@@ -219,7 +227,11 @@ function renderCatalogRow(drug) {
     }
     if (!drug.is_active) badges.push(`<span class="di-badge inactive">Inactive</span>`);
 
-    const subParts = [drug.manufacturer, drug.registration_number ? `Reg. ${drug.registration_number}` : null].filter(Boolean);
+    const subParts = [
+        drug.manufacturer,
+        drug.registration_number ? `Reg. ${drug.registration_number}` : null,
+        drug.preferred_supplier_name ? `Supplier: ${drug.preferred_supplier_name}` : null
+    ].filter(Boolean);
 
     let stockCell;
 
@@ -526,7 +538,7 @@ function readTemplateRows() {
 
 const RECEIVE_FIELDS = [
     "drug_id", "warehouse_id", "facility_id", "lot_number", "expires_date", "quantity", "quantity_in",
-    "received_date", "supplier", "invoice_number", "unit_cost", "notes"
+    "received_date", "supplier_id", "supplier", "invoice_number", "unit_cost", "notes"
 ];
 
 function setupReceiveModal() {
@@ -542,6 +554,7 @@ function setupReceiveModal() {
     document.getElementById("di_rcv_drug_id").addEventListener("change", applyReceiveDrug);
     document.getElementById("di_rcv_quantity").addEventListener("input", updateReceiveTotal);
     document.getElementById("di_rcv_quantity_in").addEventListener("change", updateReceiveTotal);
+    document.getElementById("di_rcv_supplier_id").addEventListener("change", syncOtherSupplierInput);
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -549,6 +562,13 @@ function setupReceiveModal() {
 
         const payload = {};
         RECEIVE_FIELDS.forEach((f) => { payload[f] = document.getElementById(`di_rcv_${f}`).value.trim(); });
+
+        // A listed supplier is sent by id; "Other" sends the typed name.
+        if (payload.supplier_id === OTHER_SUPPLIER) {
+            payload.supplier_id = "";
+        } else {
+            payload.supplier = "";
+        }
 
         if (!payload.drug_id) {
             document.getElementById("err-di_rcv_drug_id").textContent = "Choose a drug.";
@@ -577,7 +597,7 @@ function openReceiveModal(drugId) {
     clearFormErrors("diReceiveForm", "diReceiveAlert");
 
     if (!options.warehouses.length) {
-        showAlert("diReceiveAlert", "No warehouses exist yet. Add one under Inventory > Manage Warehouses first.", "error");
+        showAlert("diReceiveAlert", "No warehouses exist yet. Add one under Pharmacy > Manage Warehouses first.", "error");
     }
 
     const select = document.getElementById("di_rcv_drug_id");
@@ -596,6 +616,8 @@ function openReceiveModal(drugId) {
         document.getElementById("di_rcv_warehouse_id").value = String(options.warehouses[0].id);
     }
 
+    document.getElementById("di_rcv_supplier_id").value = "";
+    syncOtherSupplierInput();
     applyReceiveDrug();
     document.getElementById("diReceiveModalOverlay").classList.add("open");
 }
@@ -619,7 +641,28 @@ function applyReceiveDrug() {
         document.getElementById("di_rcv_unit_cost").value = drug.unit_cost;
     }
 
+    // Default to the drug's preferred supplier unless one was already picked.
+    const supplierSelect = document.getElementById("di_rcv_supplier_id");
+    const preferred = drug?.preferred_supplier_id ? String(drug.preferred_supplier_id) : "";
+
+    if (!supplierSelect.value && preferred && [...supplierSelect.options].some((o) => o.value === preferred)) {
+        supplierSelect.value = preferred;
+    }
+
     updateReceiveTotal();
+}
+
+function syncOtherSupplierInput() {
+    const isOther = document.getElementById("di_rcv_supplier_id").value === OTHER_SUPPLIER;
+    const input = document.getElementById("di_rcv_supplier");
+
+    input.hidden = !isOther;
+
+    if (isOther) {
+        input.focus();
+    } else {
+        input.value = "";
+    }
 }
 
 function updateReceiveTotal() {
@@ -782,13 +825,14 @@ function validateImportRows(rows) {
         category: byName(options.categories),
         dispensing_unit: byName(options.units),
         package_unit: byName(options.units),
+        preferred_supplier: byName(options.suppliers),
         product_type: byName(options.product_types),
         controlled_class: byName(options.controlled_classes),
         storage_condition: byName(options.storage_conditions)
     };
     const labels = {
         dosage_form: "Dosage form", route: "Route", category: "Category", dispensing_unit: "Dispensing unit",
-        package_unit: "Package unit", product_type: "Product type", controlled_class: "Controlled class",
+        package_unit: "Package unit", preferred_supplier: "Supplier", product_type: "Product type", controlled_class: "Controlled class",
         storage_condition: "Storage"
     };
     const keyOf = (d) => [d.generic_name, d.brand_name, (d.strength || "").replace(/\s+/g, ""), d.dosage_form]
@@ -978,6 +1022,9 @@ function renderImportReference() {
         row("route", chips(options.routes)),
         row("dispensing_unit / package_unit", chips(options.units)),
         row("category", chips(options.categories)),
+        row("preferred_supplier", options.suppliers.length
+            ? chips(options.suppliers)
+            : `<div>No suppliers yet &mdash; add them under Pharmacy &gt; Suppliers, or leave this column blank</div>`),
         row("product_type", chips(options.product_types)),
         row("controlled_class", chips(options.controlled_classes)),
         row("storage_condition", chips(options.storage_conditions))

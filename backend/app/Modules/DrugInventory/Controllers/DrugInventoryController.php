@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\DrugInventory\Services\DrugInventoryService;
 use App\Modules\Facilities\Services\FacilityService;
+use App\Modules\Suppliers\Services\SupplierService;
 
 class DrugInventoryController extends Controller
 {
@@ -46,6 +47,7 @@ class DrugInventoryController extends Controller
             'warehouses' => [],
             'facilities' => [],
             'drugs' => [],
+            'suppliers' => [],
             'dosage_forms' => [],
             'routes' => [],
             'units' => [],
@@ -82,6 +84,12 @@ class DrugInventoryController extends Controller
             $result['facilities'] = (new FacilityService())->list();
         } catch (\Throwable $e) {
             error_log('drug-inventory options: facilities failed: ' . $e->getMessage());
+        }
+
+        try {
+            $result['suppliers'] = (new SupplierService())->listActiveForSelect();
+        } catch (\Throwable $e) {
+            error_log('drug-inventory options: suppliers failed: ' . $e->getMessage());
         }
 
         try {

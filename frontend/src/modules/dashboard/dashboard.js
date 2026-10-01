@@ -33,8 +33,10 @@ import { EobPostingView } from "../eob-posting/eob-posting.view.js";
 import { initEobPosting } from "../eob-posting/eob-posting.js";
 import { EdiFilesView } from "../edi-files/edi-files.view.js";
 import { initEdiFiles } from "../edi-files/edi-files.js";
-import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js?v=4";
-import { initDrugInventory } from "../drug-inventory/drug-inventory.js?v=4";
+import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js?v=5";
+import { initDrugInventory } from "../drug-inventory/drug-inventory.js?v=5";
+import { SuppliersView } from "../suppliers/suppliers.view.js?v=1";
+import { initSuppliers } from "../suppliers/suppliers.js?v=1";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js";
@@ -604,6 +606,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Drug Inventory', () => {
                 setTimeout(initDrugInventory, 0);
                 return DrugInventoryView();
+            }, activate);
+        } else if (tabId === 'pharmacy_suppliers') {
+            tabManager.openTab(tabId, 'Suppliers', () => {
+                setTimeout(initSuppliers, 0);
+                return SuppliersView();
             }, activate);
         } else if (tabId === 'inventory_warehouses') {
             tabManager.openTab(tabId, 'Manage Warehouses', () => {
