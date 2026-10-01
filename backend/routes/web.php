@@ -60,6 +60,7 @@ require_once __DIR__ . '/../app/Modules/EncounterReviewOfSystemsChecks/routes.ph
 require_once __DIR__ . '/../app/Modules/EncounterSoapNotes/routes.php';
 require_once __DIR__ . '/../app/Modules/EncounterSpeechDictationItems/routes.php';
 require_once __DIR__ . '/../app/Modules/EyeExam/routes.php';
+require_once __DIR__ . '/../app/Modules/Gad7/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientLedger/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientDocuments/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientExternalData/routes.php';

@@ -6934,6 +6934,10 @@ textarea.pd-sdoh-readonly {
                             <span>Eye Exam</span>
                             <span class="eye-exam-btn-close" id="pdEncSubnavEyeExamClose" title="Close Eye Exam tab">&times;</span>
                         </button>
+                        <button type="button" class="eye-exam-subnav-btn" id="pdEncSubnavGad7Btn" style="display: none;">
+                            <span>GAD-7</span>
+                            <span class="eye-exam-btn-close" id="pdEncSubnavGad7Close" title="Close GAD-7 tab">&times;</span>
+                        </button>
                     </div>
 
                     <div id="pdEncounterCardsWrap">
@@ -7359,6 +7363,7 @@ textarea.pd-sdoh-readonly {
                     </div><!-- /#pdEncounterCardsWrap -->
 
                     <div id="pdEncounterEyeExamPanel" style="display: none;"></div>
+                    <div id="pdEncounterGad7Panel" style="display: none;"></div>
                 </div>
 
                 <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">

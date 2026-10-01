@@ -20,4 +20,5 @@ VALUES
     ('SOAP', NULL, 'enabled', 'Clinical', 'encounters|notes', 0, 1, 1, NOW()),
     ('Speech Dictation', 'speech_dictation', 'enabled', 'Clinical', 'encounters|notes', 0, 1, 1, NOW()),
     ('Vitals', 'vitals', 'enabled', 'Clinical', 'encounters|notes', 0, 1, 1, NOW()),
-    ('Visit Summary', 'visit_summary', 'enabled', 'Clinical', 'encounters|notes', 0, 1, 1, NOW());
+    ('Visit Summary', 'visit_summary', 'enabled', 'Clinical', 'encounters|notes', 0, 1, 1, NOW()),
+    ('GAD-7', 'gad7', 'enabled', 'Clinical', 'encounters|notes', 0, 1, 1, NOW());

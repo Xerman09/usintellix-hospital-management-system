@@ -149,6 +149,10 @@ import {
 } from "../encounter-sections/encounter-eye-exam.service.js";
 import { renderEyeExamHtml } from "../encounter-sections/encounter-eye-exam.view.js";
 import {
+    fetchEncounterGad7, saveEncounterGad7
+} from "../encounter-sections/encounter-gad7.service.js";
+import { renderGad7Html } from "../encounter-sections/encounter-gad7.view.js";
+import {
     fetchSpeechDictationItems, addSpeechDictationItem, updateSpeechDictationItem, removeSpeechDictationItem
 } from "../encounter-sections/encounter-speech-dictation-items.service.js";
 import {
@@ -12535,6 +12539,10 @@ function renderEncounterSummary()
     renderReviewOfSystemsChecksSection();
     renderSoapNotesSection();
     renderSpeechDictationSection();
+    const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    if (eyeExamBtn) eyeExamBtn.style.display = "none";
+    const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
+    if (gad7Btn) gad7Btn.style.display = "none";
     switchToSummarySubtab();
 }
 
@@ -13108,7 +13116,7 @@ function setupEncounterSummaryPanel()
     if (gad7MenuLink) {
         gad7MenuLink.addEventListener("click", (event) => {
             event.preventDefault();
-            showToast("GAD-7 questionnaire form is coming soon.", "info");
+            openGad7Subtab();
         });
     }
 
@@ -13127,6 +13135,7 @@ function setupEncounterSummaryPanel()
     setupCollapsibleCards();
     setupMiscBillingOptionsModal();
     setupEyeExamSubnav();
+    setupGad7Subnav();
 }
 
 let eyeExamActiveCcTab = "cc1";
@@ -13159,32 +13168,61 @@ function setupEyeExamSubnav()
     }
 }
 
+function setupGad7Subnav()
+{
+    const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
+    const gad7Close = document.getElementById("pdEncSubnavGad7Close");
+
+    if (gad7Btn) {
+        gad7Btn.addEventListener("click", (e) => {
+            if (e.target !== gad7Close) {
+                switchToGad7Subtab();
+            }
+        });
+    }
+
+    if (gad7Close) {
+        gad7Close.addEventListener("click", (e) => {
+            e.stopPropagation();
+            closeGad7Subtab();
+        });
+    }
+}
+
 function switchToSummarySubtab()
 {
     const summaryBtn = document.getElementById("pdEncSubnavSummaryBtn");
     const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
     const cardsWrap = document.getElementById("pdEncounterCardsWrap");
     const eyeExamPanel = document.getElementById("pdEncounterEyeExamPanel");
+    const gad7Panel = document.getElementById("pdEncounterGad7Panel");
 
     if (summaryBtn) summaryBtn.classList.add("active");
     if (eyeExamBtn) eyeExamBtn.classList.remove("active");
+    if (gad7Btn) gad7Btn.classList.remove("active");
     if (cardsWrap) cardsWrap.style.display = "block";
     if (eyeExamPanel) eyeExamPanel.style.display = "none";
+    if (gad7Panel) gad7Panel.style.display = "none";
 }
 
 function switchToEyeExamSubtab()
 {
     const summaryBtn = document.getElementById("pdEncSubnavSummaryBtn");
     const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
     const cardsWrap = document.getElementById("pdEncounterCardsWrap");
     const eyeExamPanel = document.getElementById("pdEncounterEyeExamPanel");
+    const gad7Panel = document.getElementById("pdEncounterGad7Panel");
 
     if (summaryBtn) summaryBtn.classList.remove("active");
+    if (gad7Btn) gad7Btn.classList.remove("active");
     if (eyeExamBtn) {
         eyeExamBtn.style.display = "inline-flex";
         eyeExamBtn.classList.add("active");
     }
     if (cardsWrap) cardsWrap.style.display = "none";
+    if (gad7Panel) gad7Panel.style.display = "none";
     if (eyeExamPanel) {
         eyeExamPanel.style.display = "block";
         renderEyeExamContent();
@@ -13201,6 +13239,158 @@ function closeEyeExamSubtab()
     const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
     if (eyeExamBtn) eyeExamBtn.style.display = "none";
     switchToSummarySubtab();
+}
+
+function switchToGad7Subtab()
+{
+    const summaryBtn = document.getElementById("pdEncSubnavSummaryBtn");
+    const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
+    const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
+    const cardsWrap = document.getElementById("pdEncounterCardsWrap");
+    const eyeExamPanel = document.getElementById("pdEncounterEyeExamPanel");
+    const gad7Panel = document.getElementById("pdEncounterGad7Panel");
+
+    if (summaryBtn) summaryBtn.classList.remove("active");
+    if (eyeExamBtn) eyeExamBtn.classList.remove("active");
+    if (gad7Btn) {
+        gad7Btn.style.display = "inline-flex";
+        gad7Btn.classList.add("active");
+    }
+    if (cardsWrap) cardsWrap.style.display = "none";
+    if (eyeExamPanel) eyeExamPanel.style.display = "none";
+    if (gad7Panel) {
+        gad7Panel.style.display = "block";
+        renderGad7Content();
+    }
+}
+
+export function openGad7Subtab()
+{
+    switchToGad7Subtab();
+}
+
+function closeGad7Subtab()
+{
+    const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
+    if (gad7Btn) gad7Btn.style.display = "none";
+    switchToSummarySubtab();
+}
+
+async function renderGad7Content()
+{
+    const container = document.getElementById("pdEncounterGad7Panel");
+    if (!container || !currentEncounterSummary) return;
+
+    const { encounter } = currentEncounterSummary;
+    if (!currentEncounterSummary.gad7) {
+        container.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: var(--text-muted, #64748b);">
+                <div class="spinner" style="margin: 0 auto 12px auto; width: 28px; height: 28px; border: 3px solid var(--border-color, #e2e8f0); border-top-color: var(--accent, #1d4ed8); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                <div>Loading GAD-7...</div>
+            </div>
+        `;
+        try {
+            const res = await fetchEncounterGad7(encounter.id);
+            if (res && res.success) {
+                currentEncounterSummary.gad7 = res.data;
+            }
+        } catch (err) {
+            console.error("Failed to load GAD-7:", err);
+        }
+    }
+
+    container.innerHTML = renderGad7Html(currentEncounterSummary.gad7 || {});
+    bindGad7Events();
+}
+
+function bindGad7Events()
+{
+    const selects = document.querySelectorAll(".gad7-select");
+    selects.forEach((sel) => {
+        sel.addEventListener("change", () => {
+            recalcGad7Score();
+        });
+    });
+
+    const saveTopBtn = document.getElementById("gad7SaveTopBtn");
+    const saveBottomBtn = document.getElementById("gad7SaveBottomBtn");
+    if (saveTopBtn) saveTopBtn.addEventListener("click", () => handleSaveGad7());
+    if (saveBottomBtn) saveBottomBtn.addEventListener("click", () => handleSaveGad7());
+
+    const cancelTopBtn = document.getElementById("gad7CancelTopBtn");
+    const cancelBottomBtn = document.getElementById("gad7CancelBottomBtn");
+    if (cancelTopBtn) cancelTopBtn.addEventListener("click", () => closeGad7Subtab());
+    if (cancelBottomBtn) cancelBottomBtn.addEventListener("click", () => closeGad7Subtab());
+}
+
+function recalcGad7Score()
+{
+    let total = 0;
+    const selects = document.querySelectorAll(".gad7-select");
+    selects.forEach((sel) => {
+        if (sel.value !== "" && !isNaN(sel.value)) {
+            total += parseInt(sel.value, 10);
+        }
+    });
+
+    let severity = "No anxiety disorder";
+    if (total >= 15) {
+        severity = "Severe anxiety disorder";
+    } else if (total >= 10) {
+        severity = "Moderate anxiety disorder";
+    } else if (total >= 5) {
+        severity = "Mild anxiety disorder";
+    }
+
+    const displayEl = document.getElementById("gad7TotalScoreDisplay");
+    if (displayEl) {
+        displayEl.textContent = `${total} - ${severity}`;
+    }
+}
+
+async function handleSaveGad7()
+{
+    if (!currentEncounterSummary || !currentEncounterSummary.encounter) {
+        showToast("No active encounter selected.", "error");
+        return;
+    }
+
+    const fields = [
+        "q1_feeling_nervous",
+        "q2_control_worrying",
+        "q3_worrying_too_much",
+        "q4_trouble_relaxing",
+        "q5_hard_to_sit_still",
+        "q6_easily_annoyed",
+        "q7_feeling_afraid"
+    ];
+
+    const payload = {};
+    fields.forEach((f) => {
+        const el = document.getElementById(`gad7_${f}`);
+        payload[f] = el && el.value !== "" ? el.value : null;
+    });
+
+    const saveTopBtn = document.getElementById("gad7SaveTopBtn");
+    const saveBottomBtn = document.getElementById("gad7SaveBottomBtn");
+    if (saveTopBtn) saveTopBtn.disabled = true;
+    if (saveBottomBtn) saveBottomBtn.disabled = true;
+
+    try {
+        const result = await saveEncounterGad7(currentEncounterSummary.encounter.id, payload);
+        if (result && result.success) {
+            currentEncounterSummary.gad7 = result.data;
+            showToast("GAD-7 saved successfully!", "success");
+        } else {
+            showToast(result?.message || "Failed to save GAD-7.", "error");
+        }
+    } catch (err) {
+        console.error("Failed to save GAD-7", err);
+        showToast("Error saving GAD-7.", "error");
+    } finally {
+        if (saveTopBtn) saveTopBtn.disabled = false;
+        if (saveBottomBtn) saveBottomBtn.disabled = false;
+    }
 }
 
 async function renderEyeExamContent()
