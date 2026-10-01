@@ -23,10 +23,11 @@ class DepartmentController extends Controller
     {
         $request = new Request();
         $filters = [
-            'keyword'     => $request->input('keyword'),
-            'type'        => $request->input('type'),
-            'status'      => $request->input('status'),
-            'facility_id' => $request->input('facility_id')
+            'keyword'       => $request->input('keyword'),
+            'type'          => $request->input('type'),
+            'status'        => $request->input('status'),
+            'facility_id'   => $request->input('facility_id'),
+            'med_inventory' => $request->input('med_inventory')
         ];
 
         $departments = $this->service->list(array_filter($filters, static function ($v) {

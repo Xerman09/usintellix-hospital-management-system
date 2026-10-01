@@ -61,11 +61,17 @@ class DepartmentService
             $params[] = (int) $filters['facility_id'];
         }
 
+        if (isset($filters['med_inventory']) && $filters['med_inventory'] !== 'all' && $filters['med_inventory'] !== '') {
+            $conditions[] = "d.has_medication_inventory = ?";
+            $params[] = (int) $filters['med_inventory'];
+        }
+
         $whereClause = implode(" AND ", $conditions);
 
         $sql = "
             SELECT d.id, d.code, d.name, d.type, d.head_of_department_id, d.phone, d.email,
                    d.location, d.facility_id, d.operating_hours, d.status, d.description,
+                   d.has_medication_inventory,
                    d.created_at, d.updated_at,
                    f.name AS facility_name,
                    NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '') AS head_name,
@@ -94,6 +100,7 @@ class DepartmentService
         $sql = "
             SELECT d.id, d.code, d.name, d.type, d.head_of_department_id, d.phone, d.email,
                    d.location, d.facility_id, d.operating_hours, d.status, d.description,
+                   d.has_medication_inventory,
                    d.created_at, d.updated_at,
                    f.name AS facility_name,
                    NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '') AS head_name,
@@ -162,10 +169,12 @@ class DepartmentService
                 INSERT INTO departments (
                     name, code, type, head_of_department_id, phone, email,
                     location, facility_id, operating_hours, status, description,
+                    has_medication_inventory,
                     created_at, created_by
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
+                    ?,
                     NOW(), ?
                 )
             ");
@@ -175,6 +184,7 @@ class DepartmentService
             $headId = !empty($data['head_of_department_id']) ? (int) $data['head_of_department_id'] : null;
             $facilityId = !empty($data['facility_id']) ? (int) $data['facility_id'] : null;
             $operatingHours = !empty($data['operating_hours']) ? trim($data['operating_hours']) : '24/7';
+            $hasMedInv = !empty($data['has_medication_inventory']) ? 1 : 0;
 
             $stmt->execute([
                 trim($data['name']),
@@ -188,6 +198,7 @@ class DepartmentService
                 $operatingHours,
                 $status,
                 !empty($data['description']) ? trim($data['description']) : null,
+                $hasMedInv,
                 $userId
             ]);
 
@@ -268,6 +279,9 @@ class DepartmentService
                 ? (int) $data['facility_id']
                 : null;
             $operatingHours = !empty($data['operating_hours']) ? trim($data['operating_hours']) : $existing['operating_hours'];
+            $hasMedInv = isset($data['has_medication_inventory'])
+                ? (!empty($data['has_medication_inventory']) ? 1 : 0)
+                : (int) ($existing['has_medication_inventory'] ?? 0);
 
             $stmt = $db->prepare("
                 UPDATE departments SET
@@ -282,6 +296,7 @@ class DepartmentService
                     operating_hours = ?,
                     status = ?,
                     description = ?,
+                    has_medication_inventory = ?,
                     updated_at = NOW(),
                     updated_by = ?
                 WHERE id = ? AND deleted_at IS NULL
@@ -299,6 +314,7 @@ class DepartmentService
                 $operatingHours,
                 $status,
                 !empty($data['description']) ? trim($data['description']) : null,
+                $hasMedInv,
                 $userId,
                 $id
             ]);
@@ -399,7 +415,8 @@ class DepartmentService
                 COUNT(CASE WHEN status = 'maintenance' THEN 1 END) AS maintenance_departments,
                 COUNT(CASE WHEN type IN ('Clinical', 'Inpatient', 'Outpatient', 'Emergency', 'Surgical') THEN 1 END) AS clinical_departments,
                 COUNT(CASE WHEN type IN ('Diagnostic', 'Laboratory') THEN 1 END) AS diagnostic_departments,
-                COUNT(CASE WHEN type IN ('Administrative', 'Support Services') THEN 1 END) AS support_departments
+                COUNT(CASE WHEN type IN ('Administrative', 'Support Services') THEN 1 END) AS support_departments,
+                COUNT(CASE WHEN has_medication_inventory = 1 THEN 1 END) AS med_inventory_departments
             FROM departments
             WHERE deleted_at IS NULL
         ");
@@ -429,6 +446,7 @@ class DepartmentService
             'clinical_departments' => (int) ($summary['clinical_departments'] ?? 0),
             'diagnostic_departments' => (int) ($summary['diagnostic_departments'] ?? 0),
             'support_departments' => (int) ($summary['support_departments'] ?? 0),
+            'med_inventory_departments' => (int) ($summary['med_inventory_departments'] ?? 0),
             'total_assigned_staff' => $staffCount,
             'by_type' => $byType
         ];

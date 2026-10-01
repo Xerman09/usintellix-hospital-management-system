@@ -48,6 +48,8 @@ export async function initDepartmentManagement() {
     const cardAll = document.getElementById("cardFilterAll");
     const cardActive = document.getElementById("cardFilterActive");
     const cardClinical = document.getElementById("cardFilterClinical");
+    const cardMedInv = document.getElementById("cardFilterMedInv");
+    const medInvFilter = document.getElementById("deptMedInvFilter");
 
     if (cardAll) {
         cardAll.addEventListener("click", () => {
@@ -55,6 +57,7 @@ export async function initDepartmentManagement() {
             cardAll.classList.add("active-filter");
             if (typeFilter) typeFilter.value = "all";
             if (statusFilter) statusFilter.value = "all";
+            if (medInvFilter) medInvFilter.value = "all";
             applyFilters();
         });
     }
@@ -77,8 +80,17 @@ export async function initDepartmentManagement() {
         });
     }
 
+    if (cardMedInv) {
+        cardMedInv.addEventListener("click", () => {
+            clearKpiSelection();
+            cardMedInv.classList.add("active-filter");
+            if (medInvFilter) medInvFilter.value = "1";
+            applyFilters();
+        });
+    }
+
     function clearKpiSelection() {
-        [cardAll, cardActive, cardClinical].forEach(card => card?.classList.remove("active-filter"));
+        [cardAll, cardActive, cardClinical, cardMedInv].forEach(card => card?.classList.remove("active-filter"));
     }
 
     // 3. View Mode Toggling
@@ -133,6 +145,12 @@ export async function initDepartmentManagement() {
     }
     if (statusFilter) {
         statusFilter.addEventListener("change", () => {
+            clearKpiSelection();
+            applyFilters();
+        });
+    }
+    if (medInvFilter) {
+        medInvFilter.addEventListener("change", () => {
             clearKpiSelection();
             applyFilters();
         });
@@ -203,11 +221,13 @@ async function loadStats() {
             const elActive = document.getElementById("statActiveDepts");
             const elClinical = document.getElementById("statClinicalDepts");
             const elStaff = document.getElementById("statAssignedStaff");
+            const elMedInv = document.getElementById("statMedInvDepts");
 
             if (elTotal) elTotal.textContent = stats.total_departments ?? 0;
             if (elActive) elActive.textContent = stats.active_departments ?? 0;
             if (elClinical) elClinical.textContent = stats.clinical_departments ?? 0;
             if (elStaff) elStaff.textContent = stats.total_assigned_staff ?? 0;
+            if (elMedInv) elMedInv.textContent = stats.med_inventory_departments ?? 0;
         }
     } catch (err) {
         console.error("Failed to load department stats:", err);
@@ -306,12 +326,14 @@ function applyFilters() {
     const keyword = document.getElementById("deptSearchInput")?.value.trim() || "";
     const type = document.getElementById("deptTypeFilter")?.value || "all";
     const status = document.getElementById("deptStatusFilter")?.value || "all";
+    const med_inventory = document.getElementById("deptMedInvFilter")?.value || "all";
     const facility_id = document.getElementById("deptFacilityFilter")?.value || "all";
 
     loadDepartments({
         keyword,
         type,
         status,
+        med_inventory,
         facility_id
     });
 }
@@ -419,9 +441,20 @@ function renderTableView(departments) {
                     </div>
                 </td>
                 <td>
-                    <span class="dept-pill-badge ${typeClass}">
-                        ${escapeHtml(dept.type || 'Clinical')}
-                    </span>
+                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                        <span class="dept-pill-badge ${typeClass}">
+                            ${escapeHtml(dept.type || 'Clinical')}
+                        </span>
+                        ${Number(dept.has_medication_inventory) === 1 ? `
+                            <span class="dept-pill-badge med-inv" title="Department holds and dispenses medications">
+                                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+                                    <path d="m8.5 8.5 7 7"></path>
+                                </svg>
+                                Rx Inventory
+                            </span>
+                        ` : ''}
+                    </div>
                 </td>
                 <td>
                     <div style="font-weight: 500;">${escapeHtml(dept.facility_name || 'Main Facility')}</div>
@@ -512,10 +545,19 @@ function renderGridView(departments) {
                         </span>
                     </div>
 
-                    <div style="margin-bottom: 14px;">
+                    <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         <span class="dept-pill-badge ${typeClass}">
                             ${escapeHtml(dept.type || 'Clinical')}
                         </span>
+                        ${Number(dept.has_medication_inventory) === 1 ? `
+                            <span class="dept-pill-badge med-inv" title="Department holds and dispenses medications">
+                                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+                                    <path d="m8.5 8.5 7 7"></path>
+                                </svg>
+                                Rx Inventory
+                            </span>
+                        ` : ''}
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #71809b; margin-bottom: 16px;">
@@ -588,6 +630,9 @@ async function openCreateModal() {
     if (modalTitle) {
         modalTitle.textContent = "Add Department";
     }
+    const medInvCheckbox = document.getElementById("dept_has_med_inventory");
+    if (medInvCheckbox) medInvCheckbox.checked = false;
+
     const modal = document.getElementById("deptFormModal");
     if (modal) modal.classList.add("open");
 }
@@ -607,6 +652,10 @@ async function openEditModal(dept) {
     document.getElementById("dept_facility").value = dept.facility_id || "";
     document.getElementById("dept_head").value = dept.head_of_department_id || "";
     document.getElementById("dept_status").value = dept.status || "active";
+    const medInvCheckbox = document.getElementById("dept_has_med_inventory");
+    if (medInvCheckbox) {
+        medInvCheckbox.checked = Number(dept.has_medication_inventory) === 1;
+    }
     document.getElementById("dept_phone").value = dept.phone || "";
     document.getElementById("dept_email").value = dept.email || "";
     document.getElementById("dept_location").value = dept.location || "";
@@ -628,6 +677,8 @@ function clearForm() {
     if (form) form.reset();
     const idInput = document.getElementById("dept_id");
     if (idInput) idInput.value = "";
+    const medInvCheckbox = document.getElementById("dept_has_med_inventory");
+    if (medInvCheckbox) medInvCheckbox.checked = false;
     document.querySelectorAll(".form-error").forEach(el => {
         el.textContent = "";
     });
@@ -648,6 +699,7 @@ async function handleSaveDepartment() {
     const facility_id = document.getElementById("dept_facility")?.value;
     const head_of_department_id = document.getElementById("dept_head")?.value;
     const status = document.getElementById("dept_status")?.value || "active";
+    const has_medication_inventory = document.getElementById("dept_has_med_inventory")?.checked ? 1 : 0;
     const phone = document.getElementById("dept_phone")?.value.trim() || "";
     const email = document.getElementById("dept_email")?.value.trim() || "";
     const location = document.getElementById("dept_location")?.value.trim() || "";
@@ -673,6 +725,7 @@ async function handleSaveDepartment() {
         facility_id: facility_id ? parseInt(facility_id) : null,
         head_of_department_id: head_of_department_id ? parseInt(head_of_department_id) : null,
         status,
+        has_medication_inventory,
         phone,
         email,
         location,

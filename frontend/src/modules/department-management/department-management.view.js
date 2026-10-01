@@ -136,6 +136,7 @@ export function DepartmentManagementView() {
 .dept-stat-icon.active { background: #ecfdf5; color: #10b981; }
 .dept-stat-icon.clinical { background: #f5f3ff; color: #8b5cf6; }
 .dept-stat-icon.staff { background: #fffbeb; color: #f59e0b; }
+.dept-stat-icon.medinv { background: #ecfdf5; color: #059669; }
 
 .dept-stat-info {
     display: flex;
@@ -418,6 +419,86 @@ export function DepartmentManagementView() {
 .dept-pill-badge.surgical { background: #ffedd5; color: #c2410c; }
 .dept-pill-badge.support { background: #f1f5f9; color: #475569; }
 
+.dept-pill-badge.med-inv {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    font-size: 11px;
+    padding: 2px 8px;
+    font-weight: 600;
+}
+
+:root[data-theme="dark"] .dept-pill-badge.med-inv {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.3);
+}
+
+/* Medication Inventory Toggle Card in Form */
+.dept-checkbox-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all .15s ease;
+    user-select: none;
+}
+
+.dept-checkbox-card:hover {
+    border-color: var(--accent);
+    background: #f1f5f9;
+}
+
+.dept-checkbox-card input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.dept-checkbox-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dept-checkbox-content strong {
+    font-size: 13.5px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dept-checkbox-content span {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+:root[data-theme="dark"] .dept-checkbox-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+:root[data-theme="dark"] .dept-checkbox-card:hover {
+    border-color: var(--accent);
+    background: #273549;
+}
+
+:root[data-theme="dark"] .dept-checkbox-content strong {
+    color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .dept-checkbox-content span {
+    color: #94a3b8;
+}
+
 .dept-actions {
     display: flex;
     align-items: center;
@@ -650,6 +731,18 @@ export function DepartmentManagementView() {
                     <span class="dept-stat-lbl">Assigned Personnel</span>
                 </div>
             </div>
+            <div class="dept-stat-card" id="cardFilterMedInv" title="Click to filter departments with medication inventory">
+                <div class="dept-stat-icon medinv">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+                        <path d="m8.5 8.5 7 7"></path>
+                    </svg>
+                </div>
+                <div class="dept-stat-info">
+                    <span class="dept-stat-val" id="statMedInvDepts">--</span>
+                    <span class="dept-stat-lbl">Medication Inventory</span>
+                </div>
+            </div>
         </div>
 
         <!-- Filter & Search Toolbar -->
@@ -682,6 +775,12 @@ export function DepartmentManagementView() {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                     <option value="maintenance">Maintenance</option>
+                </select>
+
+                <select class="dept-select-filter" id="deptMedInvFilter">
+                    <option value="all">All Inventory Types</option>
+                    <option value="1">With Medication Inventory</option>
+                    <option value="0">No Medication Inventory</option>
                 </select>
 
                 <select class="dept-select-filter" id="deptFacilityFilter">
@@ -792,6 +891,21 @@ export function DepartmentManagementView() {
                             <option value="inactive">Inactive</option>
                             <option value="maintenance">Maintenance</option>
                         </select>
+                    </div>
+                    <div class="form-group full">
+                        <label class="dept-checkbox-card" for="dept_has_med_inventory">
+                            <input type="checkbox" id="dept_has_med_inventory" value="1">
+                            <div class="dept-checkbox-content">
+                                <strong>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #059669;">
+                                        <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+                                        <path d="m8.5 8.5 7 7"></path>
+                                    </svg>
+                                    Medication &amp; Drug Inventory
+                                </strong>
+                                <span>Tag this department as holding and dispensing pharmaceutical supplies, drugs, or floor stock medications.</span>
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>

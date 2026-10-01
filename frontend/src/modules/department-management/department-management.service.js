@@ -6,6 +6,7 @@ export async function fetchDepartments(filters = {}) {
     if (filters.type && filters.type !== "all") params.set("type", filters.type);
     if (filters.status && filters.status !== "all") params.set("status", filters.status);
     if (filters.facility_id && filters.facility_id !== "all") params.set("facility_id", filters.facility_id);
+    if (filters.med_inventory && filters.med_inventory !== "all") params.set("med_inventory", filters.med_inventory);
 
     const qs = params.toString();
     return await api(`/departments${qs ? `?${qs}` : ""}`);
