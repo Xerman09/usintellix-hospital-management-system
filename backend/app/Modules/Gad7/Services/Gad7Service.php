@@ -127,10 +127,14 @@ class Gad7Service
 
         if ($existing && !empty($existing['id'])) {
             $gad7Id = (int) $existing['id'];
+            if (empty($existing['author_name'])) {
+                $rowPayload['author_name'] = $this->resolveAuthorName($userId);
+            }
             $model->where('id', $gad7Id)->update($rowPayload);
             $action = 'UPDATE_GAD7';
             $msg = 'GAD-7 updated successfully.';
         } else {
+            $rowPayload['author_name'] = $this->resolveAuthorName($userId);
             $rowPayload['created_at'] = $now;
             $rowPayload['created_by'] = $userId;
             $gad7Id = (int) $model->insert($rowPayload);
@@ -153,8 +157,29 @@ class Gad7Service
         ];
     }
 
+    public function resolveAuthorName(int $userId): string
+    {
+        $employee = (new \App\Modules\Employees\Models\Employee())->where('user_id', $userId)->first();
+        if ($employee) {
+            $prefix = 'Dr ';
+            if (!empty($employee['title'])) {
+                $prefix = trim($employee['title']) . ' ';
+            }
+            $firstName = trim((string) ($employee['first_name'] ?? ''));
+            $lastName = trim((string) ($employee['last_name'] ?? ''));
+            $num = !empty($employee['npi']) ? ', ' . trim($employee['npi']) : (!empty($employee['employee_number']) ? ', ' . trim($employee['employee_number']) : '');
+            return trim($prefix . $firstName . ' ' . $lastName . $num);
+        }
+
+        $user = (new \App\Modules\Users\Models\User())->where('id', $userId)->first();
+        return $user['username'] ?? 'Clinical Staff';
+    }
+
     private function formatRow(array $row): array
     {
+        if (empty($row['author_name']) && !empty($row['created_by'])) {
+            $row['author_name'] = $this->resolveAuthorName((int)$row['created_by']);
+        }
         $calculated = self::calculateScoreAndSeverity($row);
         $row['formatted_score'] = "{$row['total_score']} - {$row['severity']}";
         return $row;

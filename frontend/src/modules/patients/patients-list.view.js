@@ -3547,6 +3547,33 @@ export function PatientChartView(user)
     display: none;
 }
 
+.pd-report-title-link {
+    color: var(--accent, #1d4ed8);
+    text-decoration: underline;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pd-report-author {
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--text-muted, #6b7280);
+}
+
+.pd-gad7-summary-findings {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-primary, #0f172a);
+}
+
+.pd-gad7-answers-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+    max-width: 750px;
+}
+
+
 :root[data-theme="dark"] .pd-report-panel {
     border-color: var(--border-color);
 }
@@ -7358,6 +7385,52 @@ textarea.pd-sdoh-readonly {
                             </div>
                         </div>
                     </div>
+
+                    <div class="pd-report-card" id="pdEncSummaryGad7Card" style="display: none;">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryGad7Toggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                GAD-7 Form
+                                <span class="pd-locked-badge" id="pdEncSummaryGad7LockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryGad7EditBtn">Edit</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryGad7SignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryGad7DeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryGad7CardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Feeling Nervous</th>
+                                            <th>Uncontrollable Worry</th>
+                                            <th>Excessive Worry</th>
+                                            <th>Trouble Relaxing</th>
+                                            <th>Restlessness</th>
+                                            <th>Irritability</th>
+                                            <th>Feeling Afraid</th>
+                                            <th>GAD-7 Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdGad7SummaryTableBody">
+                                        <tr><td colspan="8" class="table-empty">No data recorded.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table" id="pdEncSummaryGad7LogTable">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryGad7Log"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
 
                     <div id="pdSoapNotesContainer"></div>
                     </div><!-- /#pdEncounterCardsWrap -->

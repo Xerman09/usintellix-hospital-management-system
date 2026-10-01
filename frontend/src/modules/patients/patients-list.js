@@ -12539,6 +12539,7 @@ function renderEncounterSummary()
     renderReviewOfSystemsChecksSection();
     renderSoapNotesSection();
     renderSpeechDictationSection();
+    renderGad7Section();
     const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
     if (eyeExamBtn) eyeExamBtn.style.display = "none";
     const gad7Btn = document.getElementById("pdEncSubnavGad7Btn");
@@ -12871,6 +12872,60 @@ function renderMiscBillingOptionsSection()
     document.getElementById("pdEncSummaryMiscBillingDeleteBtn").style.display = locked ? "none" : "";
 }
 
+function renderGad7Section()
+{
+    const card = document.getElementById("pdEncSummaryGad7Card");
+    if (!card) return;
+
+    const { gad7 } = currentEncounterSummary;
+    const section = currentEncounterSummary.sections?.gad7 || {};
+    const locked = !!section.locked_at;
+
+    // Show card if there is a GAD-7 record or if the section has been initialized/signed
+    if (!gad7 && !section.id) {
+        card.style.display = "none";
+        return;
+    }
+
+    card.style.display = "";
+
+    const optMap = {
+        "0": "Not at all",
+        "1": "Several days",
+        "2": "More than half",
+        "3": "Nearly every day"
+    };
+
+    const formatAns = (val) => (val !== undefined && val !== null && optMap[String(val)]) ? optMap[String(val)] : "-";
+
+    // Populate the answers table row
+    const tbody = document.getElementById("pdGad7SummaryTableBody");
+    if (tbody) {
+        if (gad7) {
+            tbody.innerHTML = `<tr>
+                <td>${formatAns(gad7.q1_feeling_nervous)}</td>
+                <td>${formatAns(gad7.q2_control_worrying)}</td>
+                <td>${formatAns(gad7.q3_worrying_too_much)}</td>
+                <td>${formatAns(gad7.q4_trouble_relaxing)}</td>
+                <td>${formatAns(gad7.q5_hard_to_sit_still)}</td>
+                <td>${formatAns(gad7.q6_easily_annoyed)}</td>
+                <td>${formatAns(gad7.q7_feeling_afraid)}</td>
+                <td><strong>${gad7.formatted_score || "0 - No anxiety disorder"}</strong></td>
+            </tr>`;
+        } else {
+            tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No data recorded.</td></tr>`;
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryGad7LockedBadge", section.locked_at);
+
+    const signatures = section.signatures || [];
+    renderEsignLog("pdEncSummaryGad7Log", signatures);
+
+    document.getElementById("pdEncSummaryGad7EditBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdEncSummaryGad7DeleteBtn").style.display = locked ? "none" : "";
+}
+
 const SECTION_LABELS = {
     visit_summary: "Visit Summary",
     care_plan: "Care Plan Form",
@@ -12882,12 +12937,13 @@ const SECTION_LABELS = {
     observation: "Observation Form",
     review_of_systems: "Review Of Systems Form",
     review_of_systems_checks: "Review of Systems Checks",
-    speech_dictation: "Speech Dictation Form"
+    speech_dictation: "Speech Dictation Form",
+    gad7: "GAD-7 Form"
 };
 
 const CARD_KEYS = [
     "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling",
-    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks", "SpeechDictation"
+    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks", "SpeechDictation", "Gad7"
 ];
 
 let pendingDeleteSectionType = null;
@@ -13038,6 +13094,13 @@ function setupEncounterSummaryPanel()
 
     document.getElementById("pdEncSummarySpeechDictationSignBtn").addEventListener("click", () => openEsignModal("speech_dictation"));
     document.getElementById("pdEncSummarySpeechDictationDeleteBtn").addEventListener("click", () => openDeleteSectionModal("speech_dictation"));
+
+    const gad7SignBtn = document.getElementById("pdEncSummaryGad7SignBtn");
+    if (gad7SignBtn) gad7SignBtn.addEventListener("click", () => openEsignModal("gad7"));
+    const gad7DeleteBtn = document.getElementById("pdEncSummaryGad7DeleteBtn");
+    if (gad7DeleteBtn) gad7DeleteBtn.addEventListener("click", () => openDeleteSectionModal("gad7"));
+    const gad7EditBtn = document.getElementById("pdEncSummaryGad7EditBtn");
+    if (gad7EditBtn) gad7EditBtn.addEventListener("click", () => openGad7Subtab());
 
     document.getElementById("pdEncSummaryNewEncounterFormLink").addEventListener("click", (event) => {
         event.preventDefault();
@@ -13380,6 +13443,7 @@ async function handleSaveGad7()
         const result = await saveEncounterGad7(currentEncounterSummary.encounter.id, payload);
         if (result && result.success) {
             currentEncounterSummary.gad7 = result.data;
+            renderGad7Section();
             showToast("GAD-7 saved successfully!", "success");
         } else {
             showToast(result?.message || "Failed to save GAD-7.", "error");

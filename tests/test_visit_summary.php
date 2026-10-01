@@ -45,7 +45,7 @@ $requiredKeys = [
     'encounter', 'sections', 'vitals', 'carePlanItems', 'clinicalInstructionItems',
     'clinicalNoteItems', 'miscBillingOptions', 'functionalCognitiveItems',
     'observationItems', 'reviewOfSystems', 'reviewOfSystemsChecks', 'soapNotes',
-    'speechDictationItems'
+    'speechDictationItems', 'gad7'
 ];
 
 $allPresent = true;
@@ -57,7 +57,7 @@ foreach ($requiredKeys as $key) {
 }
 
 if ($allPresent) {
-    echo "  [PASS] All 13 clinical encounter datasets present in payload\n";
+    echo "  [PASS] All 14 clinical encounter datasets present in payload\n";
 }
 
 if (!empty($summary['encounter']['id'])) {

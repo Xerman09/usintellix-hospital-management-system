@@ -246,6 +246,11 @@ class EncounterService
             $speechDictationItems = (new \App\Modules\EncounterSpeechDictationItems\Services\EncounterSpeechDictationItemService())->list($encounterId);
         } catch (\Throwable $e) {}
 
+        $gad7 = null;
+        try {
+            $gad7 = (new \App\Modules\Gad7\Services\Gad7Service())->getByEncounter($encounterId);
+        } catch (\Throwable $e) {}
+
         return [
             'encounter' => $encounter,
             'sections' => $sectionsResult,
@@ -260,6 +265,7 @@ class EncounterService
             'reviewOfSystemsChecks' => $reviewOfSystemsChecks,
             'soapNotes' => $soapNotes,
             'speechDictationItems' => $speechDictationItems,
+            'gad7' => $gad7,
             'eyeExam' => null
         ];
     }
