@@ -66,11 +66,20 @@ function staffNavLinks(role)
             </div>
         </div>
         <div class="nav-dropdown">
-            <span>Inventory</span>
+            <span>Pharmacy</span>
             <div class="dropdown-content">
+                <div class="dropdown-section-label">Medicines</div>
                 <a data-tab="inventory_management">Drug Catalog &amp; Stock</a>
-                <a data-tab="inventory_destroyed">Destroyed</a>
+                ${role === "admin" ? `<a data-tab="medication_management">Medication Management</a>` : ""}
+                <div class="dropdown-section-label">Stock</div>
+                <a data-tab="inventory_destroyed">Destroyed Drugs</a>
                 <a data-tab="inventory_warehouses">Manage Warehouses</a>
+                ${role === "admin" ? `
+                <div class="dropdown-section-label">Setup</div>
+                <a data-tab="dosage_forms">Dosage Forms</a>
+                <a data-tab="drug_categories">Drug Categories</a>
+                <a data-tab="administration_routes">Routes</a>
+                <a data-tab="amount_units">Units</a>` : ""}
             </div>
         </div>
         <div class="nav-dropdown">
@@ -437,9 +446,6 @@ function staffNavLinks(role)
                 <a data-tab="container_group_management">Container Group Name Management</a>
                 <a data-tab="allergies">Allergy Management</a>
                 <a data-tab="medical_problems">Medical Problem Management</a>
-                <a data-tab="medication_management">Medication Management</a>
-                <a data-tab="dosage_forms">Dosage Forms</a>
-                <a data-tab="drug_categories">Drug Categories</a>
                 <a data-tab="prescription_categories">Prescription Categories</a>
                 <a data-tab="payer_types">Payer Type Management</a>
                 <a data-tab="x12_partners">X12 Partner</a>
