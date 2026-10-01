@@ -182,7 +182,15 @@ function setupEditor() {
     $("poSaveDraft").addEventListener("click", () => save(false));
 
     $("poDeleteDraft").addEventListener("click", async () => {
-        if (!editing || !confirm(`Delete draft ${editing.po_number}? This can't be undone.`)) return;
+        if (!editing) return;
+
+        const ok = await confirmDialog({
+            title: `Delete draft ${editing.po_number}?`,
+            body: `<p>This draft and its ${lines.length} item${lines.length === 1 ? "" : "s"} will be removed. This can't be undone.</p>`,
+            confirmLabel: "Delete Draft",
+            danger: true
+        });
+        if (!ok) return;
 
         const result = await deletePurchaseOrder(editing.id);
 
@@ -762,15 +770,13 @@ async function save(submit) {
     clearErrors();
 
     if (submit) {
-        const supplier = $("po_supplier_id").selectedOptions[0]?.textContent || "the supplier";
-
         if (!lines.length) {
             setFieldError("items", "Add at least one item before submitting the order.");
             showEditorAlert("Add at least one item before submitting the order.");
             return;
         }
 
-        if (!confirm(`Submit this order to ${supplier} for ${$("poTotal").textContent}?\n\nA submitted order is locked; you can still print or cancel it.`)) return;
+        if (!(await confirmSubmit())) return;
     }
 
     const payload = {
@@ -838,6 +844,70 @@ async function save(submit) {
 
     if (!submit) return;
     await showList();
+}
+
+/** Order summary shown before submitting. */
+function confirmSubmit() {
+    const supplier = supplierById(selectedSupplierId());
+    const warehouse = $("po_warehouse_id").selectedOptions[0];
+    const expected = $("po_expected_date").value;
+    const rows = [
+        ["Supplier", escapeHtml(supplier?.name || $("po_supplier_id").selectedOptions[0]?.textContent || "—")],
+        ["Deliver to", escapeHtml(warehouse?.value ? warehouse.textContent : "Not set")],
+        ["Expected delivery", expected ? formatDate(expected) : "Not set"],
+        ["Payment terms", escapeHtml($("po_payment_terms").value.trim() || "—")],
+        ["Items", String(lines.length)]
+    ];
+
+    return confirmDialog({
+        title: "Submit purchase order?",
+        body: `
+            <dl class="po-confirm-summary">
+                ${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}
+                <dt class="grand">Total</dt><dd class="grand">${escapeHtml($("poTotal").textContent)}</dd>
+            </dl>
+            <p class="po-confirm-note">Once submitted, the order is locked and can no longer be edited. You can still print it or cancel it.</p>`,
+        confirmLabel: "Submit Order"
+    });
+}
+
+/**
+ * In-page confirmation dialog (instead of the browser's confirm()).
+ * Resolves true when confirmed, false when dismissed.
+ */
+function confirmDialog({ title, body, confirmLabel = "Confirm", danger = false }) {
+    const overlay = $("poConfirmOverlay");
+    const ok = $("poConfirmOk");
+
+    $("poConfirmTitle").textContent = title;
+    $("poConfirmBody").innerHTML = body;
+    ok.textContent = confirmLabel;
+    ok.className = `po-btn ${danger ? "danger" : "primary"}`;
+
+    return new Promise((resolve) => {
+        const finish = (result) => {
+            overlay.classList.remove("open");
+            ok.removeEventListener("click", onOk);
+            $("poConfirmCancel").removeEventListener("click", onCancel);
+            $("poConfirmClose").removeEventListener("click", onCancel);
+            overlay.removeEventListener("click", onBackdrop);
+            document.removeEventListener("keydown", onKey);
+            resolve(result);
+        };
+        const onOk = () => finish(true);
+        const onCancel = () => finish(false);
+        const onBackdrop = (event) => { if (event.target === overlay) finish(false); };
+        const onKey = (event) => { if (event.key === "Escape") finish(false); };
+
+        ok.addEventListener("click", onOk);
+        $("poConfirmCancel").addEventListener("click", onCancel);
+        $("poConfirmClose").addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKey);
+
+        overlay.classList.add("open");
+        ok.focus();
+    });
 }
 
 function clearErrors() {

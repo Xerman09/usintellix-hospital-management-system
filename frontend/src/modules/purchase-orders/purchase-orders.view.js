@@ -134,6 +134,14 @@ export function PurchaseOrdersView() {
 .po-info dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--text-muted); }
 .po-info dd { margin: 2px 0 0; color: var(--text-primary); }
 
+.po-confirm-summary { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface-alt); font-size: 13px; }
+.po-confirm-summary dt { color: var(--text-muted); }
+.po-confirm-summary dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); text-align: right; font-weight: 600; }
+.po-confirm-summary .grand { padding-top: 8px; border-top: 1px solid var(--border-color); font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.po-confirm-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+#poConfirmBody p { margin: 0 0 4px; color: var(--text-primary); font-size: 13.5px; }
+#poConfirmBody p.po-confirm-note { color: var(--text-muted); font-size: 12.5px; }
+
 @media (max-width: 900px) {
     .po-grid { grid-template-columns: 1fr 1fr; }
     .po-bottom { grid-template-columns: 1fr; }
@@ -285,6 +293,22 @@ export function PurchaseOrdersView() {
     <div id="poDetailPanel" hidden>
         <button type="button" class="po-btn small po-back" data-po-back>&larr; Back to purchase orders</button>
         <div id="poDetail"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="poConfirmOverlay">
+    <div class="modal-box" style="max-width: 460px;" role="dialog" aria-modal="true" aria-labelledby="poConfirmTitle">
+        <div class="modal-header">
+            <h2 id="poConfirmTitle">Are you sure?</h2>
+            <button type="button" class="modal-close" id="poConfirmClose" aria-label="Close">&times;</button>
+        </div>
+        <div id="poConfirmBody"></div>
+        <div class="po-footer">
+            <div class="po-footer-right">
+                <button type="button" class="po-btn" id="poConfirmCancel">Go Back</button>
+                <button type="button" class="po-btn primary" id="poConfirmOk">Confirm</button>
+            </div>
+        </div>
     </div>
 </div>
 
