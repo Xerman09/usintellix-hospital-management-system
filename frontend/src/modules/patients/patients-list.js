@@ -153,6 +153,10 @@ import {
 } from "../encounter-sections/encounter-gad7.service.js";
 import { renderGad7Html } from "../encounter-sections/encounter-gad7.view.js";
 import {
+    fetchEncounterPhq9, saveEncounterPhq9
+} from "../encounter-sections/encounter-phq9.service.js";
+import { renderPhq9Html } from "../encounter-sections/encounter-phq9.view.js";
+import {
     fetchSpeechDictationItems, addSpeechDictationItem, updateSpeechDictationItem, removeSpeechDictationItem
 } from "../encounter-sections/encounter-speech-dictation-items.service.js";
 import {
@@ -12926,6 +12930,62 @@ function renderGad7Section()
     document.getElementById("pdEncSummaryGad7DeleteBtn").style.display = locked ? "none" : "";
 }
 
+function renderPhq9Section()
+{
+    const card = document.getElementById("pdEncSummaryPhq9Card");
+    if (!card) return;
+
+    const { phq9 } = currentEncounterSummary;
+    const section = currentEncounterSummary.sections?.phq9 || {};
+    const locked = !!section.locked_at;
+
+    // Show card if there is a PHQ-9 record or if the section has been initialized/signed
+    if (!phq9 && !section.id) {
+        card.style.display = "none";
+        return;
+    }
+
+    card.style.display = "";
+
+    const optMap = {
+        "0": "Not at all",
+        "1": "Several days",
+        "2": "More than half",
+        "3": "Nearly every day"
+    };
+
+    const formatAns = (val) => (val !== undefined && val !== null && optMap[String(val)]) ? optMap[String(val)] : "-";
+
+    // Populate the answers table row
+    const tbody = document.getElementById("pdPhq9SummaryTableBody");
+    if (tbody) {
+        if (phq9) {
+            tbody.innerHTML = `<tr>
+                <td>${formatAns(phq9.q1_little_interest)}</td>
+                <td>${formatAns(phq9.q2_feeling_down)}</td>
+                <td>${formatAns(phq9.q3_sleep_trouble)}</td>
+                <td>${formatAns(phq9.q4_feeling_tired)}</td>
+                <td>${formatAns(phq9.q5_poor_appetite)}</td>
+                <td>${formatAns(phq9.q6_feeling_bad_self)}</td>
+                <td>${formatAns(phq9.q7_trouble_concentrating)}</td>
+                <td>${formatAns(phq9.q8_moving_slowly)}</td>
+                <td>${formatAns(phq9.q9_better_off_dead)}</td>
+                <td><strong>${phq9.formatted_score || "0 - No depressive disorder"}</strong></td>
+            </tr>`;
+        } else {
+            tbody.innerHTML = `<tr><td colspan="10" class="table-empty">No data recorded.</td></tr>`;
+        }
+    }
+
+    renderLockedBadge("pdEncSummaryPhq9LockedBadge", section.locked_at);
+
+    const signatures = section.signatures || [];
+    renderEsignLog("pdEncSummaryPhq9Log", signatures);
+
+    document.getElementById("pdEncSummaryPhq9EditBtn").style.display = locked ? "none" : "";
+    document.getElementById("pdEncSummaryPhq9DeleteBtn").style.display = locked ? "none" : "";
+}
+
 const SECTION_LABELS = {
     visit_summary: "Visit Summary",
     care_plan: "Care Plan Form",
@@ -12938,12 +12998,13 @@ const SECTION_LABELS = {
     review_of_systems: "Review Of Systems Form",
     review_of_systems_checks: "Review of Systems Checks",
     speech_dictation: "Speech Dictation Form",
-    gad7: "GAD-7 Form"
+    gad7: "GAD-7 Form",
+    phq9: "PHQ-9 Form"
 };
 
 const CARD_KEYS = [
     "VisitSummary", "CarePlan", "ClinicalInstructions", "ClinicalNotes", "Vitals", "MiscBilling",
-    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks", "SpeechDictation", "Gad7"
+    "FunctionalCognitive", "Observation", "ReviewOfSystems", "ReviewOfSystemsChecks", "SpeechDictation", "Gad7", "Phq9"
 ];
 
 let pendingDeleteSectionType = null;

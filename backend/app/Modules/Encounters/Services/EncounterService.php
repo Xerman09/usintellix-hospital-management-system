@@ -251,6 +251,11 @@ class EncounterService
             $gad7 = (new \App\Modules\Gad7\Services\Gad7Service())->getByEncounter($encounterId);
         } catch (\Throwable $e) {}
 
+        $phq9 = null;
+        try {
+            $phq9 = (new \App\Modules\Phq9\Services\Phq9Service())->getByEncounter($encounterId);
+        } catch (\Throwable $e) {}
+
         return [
             'encounter' => $encounter,
             'sections' => $sectionsResult,
@@ -265,8 +270,9 @@ class EncounterService
             'reviewOfSystemsChecks' => $reviewOfSystemsChecks,
             'soapNotes' => $soapNotes,
             'speechDictationItems' => $speechDictationItems,
-            'gad7' => $gad7,
-            'eyeExam' => null
+            'gad7'                  => $gad7,
+            'phq9'                  => $phq9,
+            'eyeExam'               => null
         ];
     }
 

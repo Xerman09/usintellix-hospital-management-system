@@ -6965,6 +6965,10 @@ textarea.pd-sdoh-readonly {
                             <span>GAD-7</span>
                             <span class="eye-exam-btn-close" id="pdEncSubnavGad7Close" title="Close GAD-7 tab">&times;</span>
                         </button>
+                        <button type="button" class="eye-exam-subnav-btn" id="pdEncSubnavPhq9Btn" style="display: none;">
+                            <span>PHQ-9</span>
+                            <span class="eye-exam-btn-close" id="pdEncSubnavPhq9Close" title="Close PHQ-9 tab">&times;</span>
+                        </button>
                     </div>
 
                     <div id="pdEncounterCardsWrap">
@@ -7432,11 +7436,60 @@ textarea.pd-sdoh-readonly {
                     </div>
 
 
+                    <div class="pd-report-card" id="pdEncSummaryPhq9Card" style="display: none;">
+                        <div class="pd-report-card-header">
+                            <h3>
+                                <button type="button" class="pd-card-collapse-toggle" id="pdEncSummaryPhq9Toggle" aria-label="Toggle section">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="m6 9 6 6 6-6"></path></svg>
+                                </button>
+                                PHQ-9 Form
+                                <span class="pd-locked-badge" id="pdEncSummaryPhq9LockedBadge" style="display:none;">&#128274; Locked</span>
+                            </h3>
+                            <div class="pd-report-header-actions">
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryPhq9EditBtn">Edit</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryPhq9SignBtn">eSign</button>
+                                <button type="button" class="pd-report-btn pd-report-btn-secondary" id="pdEncSummaryPhq9DeleteBtn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="pd-report-card-body" id="pdEncSummaryPhq9CardBody">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Little Interest</th>
+                                            <th>Feeling Down</th>
+                                            <th>Sleep Trouble</th>
+                                            <th>Tired/Energy</th>
+                                            <th>Appetite</th>
+                                            <th>Feeling Bad</th>
+                                            <th>Concentrating</th>
+                                            <th>Moving Slowly</th>
+                                            <th>Suicidal Thoughts</th>
+                                            <th>PHQ-9 Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pdPhq9SummaryTableBody">
+                                        <tr><td colspan="10" class="table-empty">No data recorded.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pd-esign-log-wrap">
+                                <table class="data-table pd-esign-log-table" id="pdEncSummaryPhq9LogTable">
+                                    <thead><tr><th>Signer</th><th>Role</th><th>Amendment</th><th>Signed At</th></tr></thead>
+                                    <tbody id="pdEncSummaryPhq9Log"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+
                     <div id="pdSoapNotesContainer"></div>
                     </div><!-- /#pdEncounterCardsWrap -->
 
                     <div id="pdEncounterEyeExamPanel" style="display: none;"></div>
                     <div id="pdEncounterGad7Panel" style="display: none;"></div>
+                    <div id="pdEncounterPhq9Panel" style="display: none;"></div>
                 </div>
 
                 <div class="pd-transactions-panel" id="pdFeeSheetPanel" style="display: none;">
