@@ -43,8 +43,10 @@ import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v
 import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=11";
 import { ReceivingView } from "../receiving/receiving.view.js?v=6";
 import { initReceiving } from "../receiving/receiving.js?v=8";
-import { SupplierInvoicesView } from "../supplier-invoices/supplier-invoices.view.js?v=1";
-import { initSupplierInvoices } from "../supplier-invoices/supplier-invoices.js?v=1";
+import { SupplierInvoicesView } from "../supplier-invoices/supplier-invoices.view.js?v=2";
+import { initSupplierInvoices } from "../supplier-invoices/supplier-invoices.js?v=2";
+import { PayablesView } from "../payables/payables.view.js?v=1";
+import { initPayables } from "../payables/payables.js?v=1";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js?v=3";
@@ -629,6 +631,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Receiving', () => {
                 setTimeout(initReceiving, 0);
                 return ReceivingView();
+            }, activate);
+        } else if (tabId === 'pharmacy_payables') {
+            tabManager.openTab(tabId, 'Accounts Payable', () => {
+                setTimeout(initPayables, 0);
+                return PayablesView();
             }, activate);
         } else if (tabId === 'pharmacy_supplier_invoices') {
             tabManager.openTab(tabId, 'Supplier Invoices', () => {

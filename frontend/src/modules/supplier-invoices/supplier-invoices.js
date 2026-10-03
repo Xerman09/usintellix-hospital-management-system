@@ -25,6 +25,8 @@ const STATUS_LABELS = {
     cancelled: "Cancelled"
 };
 
+const PAYMENT_LABELS = { unpaid: "Unpaid", partially_paid: "Partially paid", paid: "Paid" };
+
 const MATCH_LABELS = {
     matched: "Matched",
     under_billed: "Billed less",
@@ -40,7 +42,10 @@ const HISTORY_LABELS = {
     resubmitted: "Resubmitted for approval",
     approved: "Approved for payment",
     rejected: "Rejected",
-    cancelled: "Cancelled"
+    cancelled: "Cancelled",
+    partially_paid: "Partial payment made",
+    paid: "Paid in full",
+    payment_voided: "Payment voided"
 };
 
 const TABS = [
@@ -177,14 +182,26 @@ function renderList() {
                         <td style="white-space:nowrap;">${escapeHtml(i.po_number)}<span class="si-sub">${escapeHtml(i.receipt_numbers || "—")}</span></td>
                         <td>${matchBadge(i)}</td>
                         <td class="num">${formatMoney(i.total)}</td>
-                        <td><span class="si-badge ${i.status}">${STATUS_LABELS[i.status] || i.status}</span>
-                            ${i.status === "pending_approval" && i.can_approve ? `<span class="si-sub">Waiting for you</span>` : ""}</td>
+                        <td>${paymentBadge(i)}
+                            ${i.status === "pending_approval" && i.can_approve ? `<span class="si-sub">Waiting for you</span>` : ""}
+                            ${i.status === "approved" && i.payment_status !== "paid" ? `<span class="si-sub">${formatMoney(i.balance)} owed${i.due_date ? ` · due ${formatDate(i.due_date)}` : ""}</span>` : ""}</td>
                     </tr>`).join("")}
                 </tbody>
             </table>
         </div>`;
 
     $("siList").querySelectorAll("[data-si-open]").forEach((row) => row.addEventListener("click", () => openInvoice(Number(row.dataset.siOpen))));
+}
+
+/** Status, and for approved invoices how much of it is paid. */
+function paymentBadge(invoice) {
+    if (invoice.status !== "approved") {
+        return `<span class="si-badge ${invoice.status}">${STATUS_LABELS[invoice.status] || invoice.status}</span>`;
+    }
+
+    if (invoice.payment_status === "paid") return `<span class="si-badge approved">Paid</span>`;
+    if (invoice.is_overdue) return `<span class="si-badge cancelled">Overdue</span>`;
+    return `<span class="si-badge ${invoice.payment_status === "partially_paid" ? "pending_approval" : "approved"}">${invoice.payment_status === "partially_paid" ? "Partially paid" : "Approved · unpaid"}</span>`;
 }
 
 function matchBadge(invoice) {
@@ -886,7 +903,7 @@ function showDetail(inv) {
         ${statusBanner(inv)}
         <div class="si-card">
             <div class="si-detail-head">
-                <h2>${escapeHtml(inv.ap_number)} <span class="si-badge ${inv.status}">${STATUS_LABELS[inv.status]}</span> ${matchBadge(inv)}</h2>
+                <h2>${escapeHtml(inv.ap_number)} ${paymentBadge(inv)} ${matchBadge(inv)}</h2>
                 <div class="si-actions">
                     <button type="button" class="si-btn" id="siPrintBtn">Print</button>
                     ${inv.can_edit && canRecord() ? `<button type="button" class="si-btn" id="siEditBtn">${inv.status === "rejected" ? "Correct & Resubmit" : "Edit"}</button>` : ""}
@@ -941,6 +958,30 @@ function showDetail(inv) {
             </div>
         </div>
 
+        ${inv.status === "approved" ? `
+        <div class="si-card" style="margin-top:14px;">
+            <div class="si-card-title">
+                <span>Payments</span>
+                <span style="text-transform:none;font-weight:600;color:var(--text-primary);">${PAYMENT_LABELS[inv.payment_status] || "Unpaid"} · balance ${formatMoney(inv.balance)}${inv.due_date ? ` · due ${formatDate(inv.due_date)}` : ""}</span>
+            </div>
+            ${inv.payments?.length ? `
+            <div class="si-lines-wrap">
+                <table class="si-lines" style="min-width:560px;">
+                    <thead><tr><th>PV No.</th><th>Date</th><th>Paid By</th><th class="num">Applied</th><th class="num">Tax Withheld</th><th>Status</th></tr></thead>
+                    <tbody>${inv.payments.map((p) => `
+                        <tr>
+                            <td><strong ${p.status === "voided" ? `style="text-decoration:line-through;"` : ""}>${escapeHtml(p.pv_number)}</strong></td>
+                            <td>${formatDate(p.payment_date)}</td>
+                            <td>${escapeHtml({ check: "Check", bank_transfer: "Bank transfer", cash: "Cash", other: "Other" }[p.method] || p.method)}${p.reference_no ? ` ${escapeHtml(p.reference_no)}` : ""}</td>
+                            <td class="num">${formatMoney(p.amount_applied)}</td>
+                            <td class="num">${p.ewt_amount ? formatMoney(p.ewt_amount) : "—"}</td>
+                            <td>${p.status === "voided" ? `<span class="si-badge cancelled">Voided</span>` : `<span class="si-badge approved">Posted</span>`}</td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>` : `<p class="si-hint" style="margin:0;">No payments yet. Payments are recorded under Pharmacy &gt; Accounts Payable.</p>`}
+        </div>` : ""}
+
         <div class="si-card" style="margin-top:14px;">
             <div class="si-card-title">History</div>
             <ol class="si-timeline">${(inv.history || []).map((h) => `
@@ -983,7 +1024,13 @@ function statusBanner(inv) {
 
     const text = {
         draft: ["Draft", "Not submitted yet. It isn't counted as owed until it's approved."],
-        approved: ["Approved for payment", `${formatDateTime(inv.approved_at)}${inv.approved_by_name ? ` by ${escapeHtml(inv.approved_by_name)}` : ""}.`],
+        approved: [
+            inv.payment_status === "paid" ? "Paid in full" : inv.is_overdue ? "Approved — payment overdue" : "Approved for payment",
+            `${formatDateTime(inv.approved_at)}${inv.approved_by_name ? ` by ${escapeHtml(inv.approved_by_name)}` : ""}.`
+                + (inv.payment_status === "paid"
+                    ? ` Settled ${formatDateTime(inv.paid_at)}.`
+                    : ` ${formatMoney(inv.balance)} owed${inv.due_date ? `, due ${formatDate(inv.due_date)}` : ""}.`)
+        ],
         rejected: ["Rejected", `${escapeHtml(inv.rejected_by_name || "")}: “${escapeHtml(inv.rejection_reason || "")}”. Correct it and submit again, or cancel it.`],
         cancelled: ["Cancelled", `“${escapeHtml(inv.cancel_reason || "")}”. Its deliveries can be billed on another invoice.`]
     }[inv.status];

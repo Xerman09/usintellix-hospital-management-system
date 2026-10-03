@@ -40,6 +40,12 @@ use Throwable;
  * too. An invoice with any variance can still be approved, but only
  * with a written reason. As with purchase orders, the approver can't be
  * the person who recorded or submitted it.
+ *
+ * Approval makes the invoice owed (Accounts Payable): payment_status
+ * becomes unpaid, and a blank due date is filled in from the payment
+ * terms (see dueDateFromTerms). Payments (PayableService) then move it
+ * to partially_paid / paid. An invoice with payments on it can't be
+ * cancelled until they're voided.
  */
 class SupplierInvoiceService
 {
@@ -208,6 +214,27 @@ class SupplierInvoiceService
             'match_status' => $r['match_status'],
             'match_notes' => $r['match_notes'],
             'variance_amount' => (float) $r['variance_amount']
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        $stmt = $db->prepare(
+            "SELECT p.id, p.pv_number, p.payment_date, p.method, p.reference_no, p.status,
+                    a.amount_applied, a.ewt_rate, a.ewt_amount
+             FROM supplier_payment_allocations a
+             JOIN supplier_payments p ON p.id = a.supplier_payment_id
+             WHERE a.supplier_invoice_id = :id
+             ORDER BY p.payment_date, p.id"
+        );
+        $stmt->execute(['id' => $id]);
+        $invoice['payments'] = array_map(fn(array $r) => [
+            'id' => (int) $r['id'],
+            'pv_number' => $r['pv_number'],
+            'payment_date' => $r['payment_date'],
+            'method' => $r['method'],
+            'reference_no' => $r['reference_no'],
+            'status' => $r['status'],
+            'amount_applied' => (float) $r['amount_applied'],
+            'ewt_rate' => (float) $r['ewt_rate'],
+            'ewt_amount' => (float) $r['ewt_amount']
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
 
         $stmt = $db->prepare(
@@ -589,14 +616,18 @@ class SupplierInvoiceService
         $now = date('Y-m-d H:i:s');
         $userId = (int) $user['id'];
 
+        $dueDate = $existing['due_date'] ?: $this->defaultDueDate($existing);
+
         $this->transition($id, [
             'status' => 'approved',
             'approved_at' => $now,
             'approved_by' => $userId,
-            'approval_notes' => $notes !== '' ? $notes : null
+            'approval_notes' => $notes !== '' ? $notes : null,
+            'due_date' => $dueDate,
+            'payment_status' => 'unpaid'
         ], 'approved', $notes, $userId, $now);
 
-        return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} approved for payment."];
+        return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} approved for payment, due " . date('M j, Y', strtotime($dueDate)) . '.'];
     }
 
     public function reject(int $id, string $reason, array $user): array
@@ -647,6 +678,10 @@ class SupplierInvoiceService
                 : 'Drafts are deleted, not cancelled.'];
         }
 
+        if ((float) ($existing['amount_paid'] ?? 0) > 0) {
+            return ['success' => false, 'message' => "{$existing['ap_number']} already has payments on it. Void those payments under Accounts Payable first."];
+        }
+
         if ($existing['status'] === 'approved' && !in_array($user['role'] ?? null, self::APPROVER_ROLES, true)) {
             return ['success' => false, 'message' => 'Only an administrator or accountant can cancel an approved invoice.'];
         }
@@ -666,7 +701,8 @@ class SupplierInvoiceService
             'status' => 'cancelled',
             'cancelled_at' => $now,
             'cancelled_by' => $userId,
-            'cancel_reason' => $reason
+            'cancel_reason' => $reason,
+            'payment_status' => null
         ], 'cancelled', $reason, $userId, $now);
 
         return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} cancelled. Its deliveries can be billed again."];
@@ -1094,6 +1130,50 @@ class SupplierInvoiceService
      * Helpers
      * ------------------------------------------------------------- */
 
+    /**
+     * Due date for an approved invoice left without one: the order's
+     * payment terms, else the supplier's, else the invoice date.
+     */
+    private function defaultDueDate(array $invoice): string
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT po.payment_terms AS po_terms, s.payment_terms AS supplier_terms
+             FROM purchase_orders po JOIN suppliers s ON s.id = po.supplier_id
+             WHERE po.id = :id"
+        );
+        $stmt->execute(['id' => $invoice['purchase_order_id']]);
+        $terms = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        return self::dueDateFromTerms($terms['po_terms'] ?? null, $invoice['invoice_date'])
+            ?? self::dueDateFromTerms($terms['supplier_terms'] ?? null, $invoice['invoice_date'])
+            ?? $invoice['invoice_date'];
+    }
+
+    /**
+     * "Net 30" / "30 days" -> invoice date + 30 days; cash / COD /
+     * consignment terms -> the invoice date. Null when the terms don't
+     * say (so the next source can be tried).
+     */
+    public static function dueDateFromTerms(?string $terms, string $invoiceDate): ?string
+    {
+        $terms = trim((string) $terms);
+
+        if ($terms === '') {
+            return null;
+        }
+
+        if (preg_match('/(?:net\s*(\d+))|(\d+)\s*(?:days?|d\b)/i', $terms, $m)) {
+            $days = (int) ($m[1] !== '' ? $m[1] : $m[2]);
+            return date('Y-m-d', strtotime("{$invoiceDate} +{$days} days"));
+        }
+
+        if (preg_match('/cash|cod|c\.o\.d|advance|consign/i', $terms)) {
+            return $invoiceDate;
+        }
+
+        return null;
+    }
+
     /** Delivery / other charges already on this order's other invoices that aren't cancelled. */
     private function otherChargesBilled(int $orderId, ?int $invoiceId): float
     {
@@ -1175,6 +1255,12 @@ class SupplierInvoiceService
             'total' => (float) $r['total'],
             'variance_amount' => (float) $r['variance_amount'],
             'variance_count' => (int) $r['variance_count'],
+            'amount_paid' => (float) ($r['amount_paid'] ?? 0),
+            'balance' => $r['status'] === 'approved' ? round((float) $r['total'] - (float) ($r['amount_paid'] ?? 0), 2) : null,
+            'payment_status' => $r['payment_status'] ?? null,
+            'paid_at' => $r['paid_at'] ?? null,
+            'is_overdue' => $r['status'] === 'approved' && ($r['payment_status'] ?? null) !== 'paid'
+                && $r['due_date'] !== null && $r['due_date'] < date('Y-m-d'),
             'match_notes' => $r['match_notes'] !== null && $r['match_notes'] !== '' ? explode("\n", $r['match_notes']) : [],
             'notes' => $r['notes'],
             'receipt_numbers' => $r['receipt_numbers'] ?? null,
@@ -1191,6 +1277,7 @@ class SupplierInvoiceService
             'can_approve' => $viewer !== null && $this->approvalBlocker($r, $viewer) === null,
             'approval_blocker' => $r['status'] === 'pending_approval' ? $this->approvalBlocker($r, $viewer) : null,
             'can_cancel' => in_array($r['status'], self::CANCELLABLE_STATUSES, true)
+                && (float) ($r['amount_paid'] ?? 0) <= 0
                 && ($r['status'] !== 'approved' || in_array($viewer['role'] ?? null, self::APPROVER_ROLES, true))
         ];
     }

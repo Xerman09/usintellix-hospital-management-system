@@ -169,7 +169,8 @@ export function SupplierInvoicesView() {
 
 .si-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .si-timeline li { padding-left: 14px; border-left: 3px solid var(--border-color); color: var(--text-primary); font-size: 13px; }
-.si-timeline li.approved { border-left-color: #16a34a; }
+.si-timeline li.approved, .si-timeline li.paid, .si-timeline li.partially_paid { border-left-color: #16a34a; }
+.si-timeline li.payment_voided { border-left-color: #dc2626; }
 .si-timeline li.rejected, .si-timeline li.cancelled { border-left-color: #dc2626; }
 .si-timeline li.submitted, .si-timeline li.resubmitted { border-left-color: #f59e0b; }
 .si-timeline .when { display: block; font-size: 11.5px; color: var(--text-muted); }
