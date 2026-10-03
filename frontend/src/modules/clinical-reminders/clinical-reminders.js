@@ -4,6 +4,7 @@ import { fetchPatients } from "../patients/patients.service.js";
 import { fetchRemindersForPatient } from "./clinical-reminders.service.js";
 import { fetchReminderActions, addReminderAction } from "../patient-reminders/patient-reminders.service.js";
 import { showToast } from "../../core/toast.js";
+import { systemNow, toDateTimeInput } from "../../core/timezone.js";
 
 let currentPatient = null;
 let currentReminders = [];
@@ -180,8 +181,7 @@ async function openAssessmentModal(reminder)
     const detailsInput = document.getElementById("crReminderDetails");
     const saveBtn = document.getElementById("crReminderFormSaveBtn");
 
-    const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
-    dateInput.value = now.toISOString().slice(0, 16);
+    dateInput.value = toDateTimeInput(systemNow());
     completedInput.value = "yes";
     detailsInput.value = "";
 

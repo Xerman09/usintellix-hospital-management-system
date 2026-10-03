@@ -10,6 +10,7 @@ import {
     getDrsRegistryExportCsvUrl
 } from "./drs-requests.service.js?v=1";
 import { fetchPatients } from "../patients/patients.service.js?v=2";
+import { todayISO } from "../../core/timezone.js";
 
 let currentFilters = {
     search: "",
@@ -376,7 +377,7 @@ function attachRowActionListeners(container) {
             const num = btn.dataset.num;
             if (confirm(`Confirm fulfillment of Right of Access request ${num}?\n\nThis will record completion under 45 CFR § 164.524 in the tamper-evident audit trail.`)) {
                 try {
-                    const res = await fulfillDrsRequest(id, { fulfillment_date: new Date().toISOString().split("T")[0] });
+                    const res = await fulfillDrsRequest(id, { fulfillment_date: todayISO() });
                     if (res && res.success) {
                         alert(res.message);
                         await loadPipelineData(container);
@@ -428,7 +429,7 @@ function resetIntakeForm(container) {
     if (form) form.reset();
 
     const dateInput = container.querySelector("#intakeRequestDate");
-    if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+    if (dateInput) dateInput.value = todayISO();
 
     const label = container.querySelector("#intakePatientSelectedLabel");
     if (label) label.style.display = "none";

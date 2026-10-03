@@ -3,6 +3,7 @@ import {
     createDrug, updateDrug, deleteDrug, receiveStock, importDrugs, transferDrugLot, destroyDrugLot
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
+import { systemNow } from "../../core/timezone.js";
 
 const EMPTY_OPTIONS = {
     warehouses: [], facilities: [], dosage_forms: [], routes: [], units: [], categories: [], suppliers: [],
@@ -1396,7 +1397,7 @@ function isoToday() {
 }
 
 function isoDateOffset(days) {
-    const d = new Date();
+    const d = systemNow();
     d.setDate(d.getDate() + days);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

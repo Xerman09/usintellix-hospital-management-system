@@ -1,5 +1,6 @@
 import { fetchMyRecalls } from "../recalls/recalls.service.js";
 import { formatApptDate, statusLabel, escapeHtml, toDateStr } from "../appointments/appointment-format.js";
+import { systemNow } from "../../core/timezone.js";
 
 export async function initPatientRecalls()
 {
@@ -18,7 +19,7 @@ export async function initPatientRecalls()
         }
 
         const recalls = result.data || [];
-        const today = toDateStr(new Date());
+        const today = toDateStr(systemNow());
 
         const upcoming = recalls
             .filter((recall) => !recall.recall_date || recall.recall_date >= today)

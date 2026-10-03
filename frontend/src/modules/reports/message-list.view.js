@@ -1,6 +1,8 @@
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+
 export function MessageListView() {
-    const today = new Date().toISOString().split('T')[0];
-    const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+    const today = todayISO();
+    const firstDayOfYear = toDateInput(new Date(systemNow().getFullYear(), 0, 1));
 
     return `
         <div class="message-list-wrapper" style="padding: 20px;">

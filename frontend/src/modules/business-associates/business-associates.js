@@ -9,6 +9,7 @@ import {
     getVendorExportCsvUrl
 } from "./business-associates.service.js?v=1";
 import { showToast } from "../../core/toast.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 
 const CATEGORY_LABELS = {
     cloud_hosting: "Cloud Hosting & Infrastructure",
@@ -415,14 +416,14 @@ export function initBusinessAssociates() {
             inputContactPhone.value = "";
             inputAddress.value = "";
             checkSignedBaa.checked = true;
-            inputExecDate.value = new Date().toISOString().split("T")[0];
-            const nextYear = new Date();
+            inputExecDate.value = todayISO();
+            const nextYear = systemNow();
             nextYear.setFullYear(nextYear.getFullYear() + 2);
-            inputExpDate.value = nextYear.toISOString().split("T")[0];
-            inputAuditDate.value = new Date().toISOString().split("T")[0];
-            const nextReview = new Date();
+            inputExpDate.value = toDateInput(nextYear);
+            inputAuditDate.value = todayISO();
+            const nextReview = systemNow();
             nextReview.setFullYear(nextReview.getFullYear() + 1);
-            inputReviewDate.value = nextReview.toISOString().split("T")[0];
+            inputReviewDate.value = toDateInput(nextReview);
             inputDoc.value = "";
             inputSla.value = 72;
             checkSub.checked = false;

@@ -16,3 +16,4 @@ $router->get('/receiving/order', [ReceivingController::class, 'order'], [AuthMid
 $router->get('/receiving', [ReceivingController::class, 'index'], [AuthMiddleware::class, [RoleMiddleware::class, $receivingViewRoles]]);
 $router->get('/receiving/detail', [ReceivingController::class, 'show'], [AuthMiddleware::class, [RoleMiddleware::class, $receivingViewRoles]]);
 $router->post('/receiving', [ReceivingController::class, 'store'], [AuthMiddleware::class, [RoleMiddleware::class, $receivingRoles]]);
+$router->post('/receiving/void', [ReceivingController::class, 'void'], [AuthMiddleware::class, [RoleMiddleware::class, $receivingRoles]]);

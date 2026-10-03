@@ -9,6 +9,7 @@ import {
 } from "./disclosures.service.js?v=6";
 import { fetchPatients } from "../patients/patients.service.js?v=6";
 import { showToast } from "../../core/toast.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 
 const LEGAL_BASIS_LABELS = {
     court_order_subpoena: "Court Order / Subpoena (§ 164.512(e))",
@@ -83,8 +84,8 @@ export function initDisclosures() {
     let activeReportData = null;
 
     // Default filter to 6 years back (§ 164.528 standard)
-    const today = new Date();
-    const sixYearsAgo = new Date();
+    const today = systemNow();
+    const sixYearsAgo = systemNow();
     sixYearsAgo.setFullYear(today.getFullYear() - 6);
 
     const fromInput = document.getElementById("discFilterFrom");
@@ -92,8 +93,8 @@ export function initDisclosures() {
     const searchInput = document.getElementById("discFilterSearch");
     const basisSelect = document.getElementById("discFilterBasis");
 
-    if (fromInput) fromInput.value = sixYearsAgo.toISOString().split("T")[0];
-    if (toInput) toInput.value = today.toISOString().split("T")[0];
+    if (fromInput) fromInput.value = toDateInput(sixYearsAgo);
+    if (toInput) toInput.value = toDateInput(today);
 
     // Load Initial Data
     loadPatients();
@@ -106,23 +107,23 @@ export function initDisclosures() {
     root.querySelectorAll(".disc-preset-btn").forEach(btn => {
         btn.addEventListener("click", () => {
             const preset = btn.dataset.preset;
-            const now = new Date();
-            const nowStr = now.toISOString().split("T")[0];
+            const now = systemNow();
+            const nowStr = toDateInput(now);
 
             if (preset === "6years") {
-                const past = new Date();
+                const past = systemNow();
                 past.setFullYear(now.getFullYear() - 6);
-                fromInput.value = past.toISOString().split("T")[0];
+                fromInput.value = toDateInput(past);
                 toInput.value = nowStr;
             } else if (preset === "1year") {
-                const past = new Date();
+                const past = systemNow();
                 past.setFullYear(now.getFullYear() - 1);
-                fromInput.value = past.toISOString().split("T")[0];
+                fromInput.value = toDateInput(past);
                 toInput.value = nowStr;
             } else if (preset === "90days") {
-                const past = new Date();
+                const past = systemNow();
                 past.setDate(now.getDate() - 90);
-                fromInput.value = past.toISOString().split("T")[0];
+                fromInput.value = toDateInput(past);
                 toInput.value = nowStr;
             } else if (preset === "all") {
                 fromInput.value = "";
@@ -484,7 +485,7 @@ export function initDisclosures() {
             recordForm.reset();
             document.getElementById("rec_disclosure_id").value = "";
             document.getElementById("rec_patient_id").disabled = false;
-            document.getElementById("rec_disclosure_date").value = new Date().toISOString().split("T")[0];
+            document.getElementById("rec_disclosure_date").value = todayISO();
             document.getElementById("rec_legal_basis").value = "court_order_subpoena";
             document.getElementById("rec_disclosure_medium").value = "electronic_portal";
         }
@@ -605,16 +606,16 @@ export function initDisclosures() {
         activeReportData = null;
 
         // Set default 6 year dates
-        const now = new Date();
-        const sixYrs = new Date();
+        const now = systemNow();
+        const sixYrs = systemNow();
         sixYrs.setFullYear(now.getFullYear() - 6);
 
         const rptFrom = document.getElementById("rpt_from_date");
         const rptTo = document.getElementById("rpt_to_date");
         const rptPatient = document.getElementById("rpt_patient_id");
 
-        if (rptFrom) rptFrom.value = sixYrs.toISOString().split("T")[0];
-        if (rptTo) rptTo.value = now.toISOString().split("T")[0];
+        if (rptFrom) rptFrom.value = toDateInput(sixYrs);
+        if (rptTo) rptTo.value = toDateInput(now);
 
         if (patientId && rptPatient) {
             rptPatient.value = patientId;
@@ -820,7 +821,7 @@ export function initDisclosures() {
                     <div>
                         <div style="font-weight: 700; color: #0f172a; margin-bottom: 25px;">Certification Date:</div>
                         <div style="border-bottom: 1px solid #0f172a; width: 60%;"></div>
-                        <div style="font-weight: 600; color: #334155; margin-top: 6px;">Date of Official Issuance: ${new Date().toISOString().split("T")[0]}</div>
+                        <div style="font-weight: 600; color: #334155; margin-top: 6px;">Date of Official Issuance: ${todayISO()}</div>
                         <div style="color: #64748b; font-size: 10.5px;">Statutory Citation: 45 CFR § 164.530(a) &bull; § 164.528</div>
                         <div style="color: #64748b; font-size: 10px;">Audit Tracking: ${data.patient.patient_no || data.patient.id}-${Date.now().toString(36).toUpperCase()}</div>
                     </div>
@@ -977,7 +978,7 @@ export function initDisclosures() {
                     <div style="width: 45%;">
                         <div style="font-weight: 700; color: #000; margin-bottom: 30px;">Certification Date:</div>
                         <div style="border-bottom: 1px solid #000;"></div>
-                        <div style="font-weight: 600; margin-top: 5px;">Date of Official Issuance: ${new Date().toISOString().split("T")[0]}</div>
+                        <div style="font-weight: 600; margin-top: 5px;">Date of Official Issuance: ${todayISO()}</div>
                         <div style="color: #64748b; font-size: 10px;">Statutory Authority: 45 CFR § 164.530(a) &bull; § 164.528</div>
                         <div style="color: #64748b; font-size: 10px;">Audit ID: ${data.patient.patient_no || data.patient.id}-${Date.now().toString(36).toUpperCase()}</div>
                     </div>

@@ -1,3 +1,5 @@
+import { todayISO } from "../../core/timezone.js";
+
 export function ProcedureStatisticsReportView() {
     return `
         <div class="procedure-statistics-wrapper" style="padding: 20px; font-family: Arial, sans-serif; background-color: #fff; min-height: 100%; text-align: center;">
@@ -20,7 +22,7 @@ export function ProcedureStatisticsReportView() {
                     
                     <div style="display: flex; flex-direction: column; align-items: center;">
                         <label style="color: #2d3748; font-size: 13px; margin-bottom: 5px;">To</label>
-                        <input type="date" id="statDateTo" value="${new Date().toISOString().split('T')[0]}" style="padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; width: 100%;">
+                        <input type="date" id="statDateTo" value="${todayISO()}" style="padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; width: 100%;">
                     </div>
                 </div>
 

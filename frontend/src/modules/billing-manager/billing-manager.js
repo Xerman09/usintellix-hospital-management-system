@@ -5,6 +5,7 @@ import {
 import { fetchPatients } from "../patients/patients.service.js";
 import { openPatientChartTab, openFeeSheetForEncounter } from "../patients/patients-list.js?v=65";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 const CRITERIA_LABELS = {
     date_of_service: "Date of Service",
@@ -55,7 +56,7 @@ async function loadCriteriaOptions() {
 }
 
 function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+    return todayISO();
 }
 
 function selectCriteriaType(type) {

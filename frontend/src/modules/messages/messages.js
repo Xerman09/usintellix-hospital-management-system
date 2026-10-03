@@ -11,6 +11,7 @@ import { fetchMyRecalls, createRecall } from "../recalls/recalls.service.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
 import { fetchMyReminders, createReminder, completeReminder } from "../reminders/reminders.service.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 
 let messagesCache = [];
 let selectedIds = new Set();
@@ -728,7 +729,7 @@ function calculateAge(birthdate)
     }
 
     const dob = new Date(birthdate);
-    const today = new Date();
+    const today = systemNow();
 
     let age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
@@ -876,11 +877,11 @@ function setupRecallFormModal(isStaff)
     document.querySelectorAll('input[name="recall_date_quickpick"]').forEach((radio) => {
         radio.addEventListener("change", () => {
             const years = Number(radio.value);
-            const target = new Date();
+            const target = systemNow();
 
             target.setFullYear(target.getFullYear() + years);
 
-            document.getElementById("recall_date").value = target.toISOString().slice(0, 10);
+            document.getElementById("recall_date").value = toDateInput(target);
         });
     });
 
@@ -1146,7 +1147,7 @@ function setupReminderFormModal()
 
         const amount = parseInt(span, 10);
         const unit = span.slice(-1);
-        const target = new Date();
+        const target = systemNow();
 
         if (unit === "d") {
             target.setDate(target.getDate() + amount);
@@ -1158,7 +1159,7 @@ function setupReminderFormModal()
             target.setFullYear(target.getFullYear() + amount);
         }
 
-        document.getElementById("reminder_due_date").value = target.toISOString().slice(0, 10);
+        document.getElementById("reminder_due_date").value = toDateInput(target);
     });
 
     form.addEventListener("submit", async (event) => {
@@ -1227,7 +1228,7 @@ function renderReminderSentToday()
 {
     const container = document.getElementById("reminderSentTodayList");
     const user = getUser();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayISO();
 
     const sentToday = remindersCache.filter((reminder) =>
         reminder.sender_id === user?.id && (reminder.created_at || "").slice(0, 10) === today);

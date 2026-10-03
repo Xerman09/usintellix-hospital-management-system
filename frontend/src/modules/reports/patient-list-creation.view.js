@@ -1,6 +1,8 @@
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+
 export function PatientListCreationView() {
-    const today = new Date().toISOString().split('T')[0] + ' 13:00:20';
-    const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0] + ' 13:00:20';
+    const today = todayISO() + ' 13:00:20';
+    const firstDayOfYear = toDateInput(new Date(systemNow().getFullYear(), 0, 1)) + ' 13:00:20';
 
     return `
         <style>

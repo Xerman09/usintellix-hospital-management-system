@@ -1,3 +1,5 @@
+import { todayISO } from "../../core/timezone.js";
+
 export function PendingOrdersReportView() {
     return `
         <div class="pending-orders-wrapper" style="padding: 20px; font-family: Arial, sans-serif; background-color: #fff; min-height: 100%; text-align: center;">
@@ -10,10 +12,10 @@ export function PendingOrdersReportView() {
                     </select>
                     
                     <label style="color: #4a5568; font-size: 13px; margin-left: 10px;">From:</label>
-                    <input type="date" id="pendDateFrom" value="${new Date().toISOString().split('T')[0]}" style="padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; width: 130px;">
+                    <input type="date" id="pendDateFrom" value="${todayISO()}" style="padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; width: 130px;">
                     
                     <label style="color: #4a5568; font-size: 13px;">To:</label>
-                    <input type="date" id="pendDateTo" value="${new Date().toISOString().split('T')[0]}" style="padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; width: 130px;">
+                    <input type="date" id="pendDateTo" value="${todayISO()}" style="padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; width: 130px;">
                 </div>
                 
                 <div style="display: flex; gap: 0; margin-top: 5px;">

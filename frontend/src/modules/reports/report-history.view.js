@@ -1,6 +1,8 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function ReportHistoryView() {
-    const now = new Date();
-    const endDate = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 8);
+    const now = systemNow();
+    const endDate = toDateInput(now) + ' ' + now.toTimeString().slice(0, 8);
     // Default begin date: Year To Date (Jan 1 of current year)
     const beginDate = now.getFullYear() + '-01-01 00:00:00';
 

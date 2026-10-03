@@ -3,6 +3,7 @@ import { formatApptTime, statusLabel, escapeHtml, toDateStr, formatMonthLabel } 
 import { fetchProviders } from "../providers/providers.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import { showToast } from "../../core/toast.js";
+import { systemNow } from "../../core/timezone.js";
 
 const WEEKDAY_FORMAT = { weekday: "short" };
 const MONTH_FORMAT = { month: "short" };
@@ -10,8 +11,8 @@ const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MAX_CHIPS_PER_DAY = 3;
 
 let allAppointments = [];
-let calendarYear = new Date().getFullYear();
-let calendarMonth = new Date().getMonth();
+let calendarYear = systemNow().getFullYear();
+let calendarMonth = systemNow().getMonth();
 let selectedDate = null;
 
 let pickersLoaded = false;
@@ -125,7 +126,7 @@ function setupRequestModal()
             await loadPickers();
         }
 
-        const today = toDateStr(new Date());
+        const today = toDateStr(systemNow());
 
         dateInput.min = today;
 
@@ -348,7 +349,7 @@ function clearRequestErrors()
 
 function renderAppointments(appointments)
 {
-    const today = toDateStr(new Date());
+    const today = toDateStr(systemNow());
 
     const upcoming = appointments
         .filter((appt) => appt.appointment_date >= today)
@@ -382,7 +383,7 @@ function renderCalendar()
 
     label.textContent = formatMonthLabel(calendarYear, calendarMonth);
 
-    const todayStr = toDateStr(new Date());
+    const todayStr = toDateStr(systemNow());
     const appointmentsByDate = {};
 
     allAppointments.forEach((appt) => {
@@ -444,7 +445,7 @@ function renderCalendarDayDetail(dayAppointments)
         return;
     }
 
-    const todayStr = toDateStr(new Date());
+    const todayStr = toDateStr(systemNow());
     const isPast = selectedDate < todayStr;
 
     title.textContent = formatDayHeading(selectedDate);

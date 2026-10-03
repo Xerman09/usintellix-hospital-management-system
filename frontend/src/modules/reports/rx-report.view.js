@@ -1,9 +1,11 @@
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+
 export function RxReportView() {
     // Current date for default "To" value
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayISO();
     
     // First day of current year for default "From" value
-    const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+    const firstDayOfYear = toDateInput(new Date(systemNow().getFullYear(), 0, 1));
 
     return `
 <style>

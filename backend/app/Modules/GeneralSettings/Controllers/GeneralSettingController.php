@@ -26,6 +26,44 @@ class GeneralSettingController extends Controller
     }
 
     /**
+     * The system timezone, for every browser (no login needed -- the
+     * login page shows dates too, and it isn't sensitive).
+     */
+    public function systemTimezone(): void
+    {
+        $this->success($this->generalSettingService->systemTimezone(), 'System timezone retrieved successfully.');
+    }
+
+    /**
+     * Timezones the system can be set to, grouped by region (admin-only).
+     */
+    public function timezones(): void
+    {
+        $this->success($this->generalSettingService->timezones(), 'Timezones retrieved successfully.');
+    }
+
+    /**
+     * Change the system timezone (admin-only).
+     */
+    public function updateTimezone(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->generalSettingService->updateTimezone(
+            $request->only(['timezone']),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
      * Update Two-Factor Authentication settings (admin-only).
      */
     public function update(): void

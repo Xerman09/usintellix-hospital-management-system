@@ -1,3 +1,5 @@
+import { todayISO } from "../../core/timezone.js";
+
 /**
  * Lightweight pure-JavaScript DICOM Parser & Medical Image Processor
  * Parses DICOM (Part 10) headers, tags, and pixel data
@@ -23,7 +25,7 @@ export function parseDicomBuffer(arrayBuffer) {
         patientName: "Anonymous",
         patientId: "N/A",
         modality: "DX",
-        studyDate: new Date().toISOString().split("T")[0],
+        studyDate: todayISO(),
         studyDescription: "Diagnostic Radiography",
         institution: "Intellix Medical Imaging",
         rows: 512,

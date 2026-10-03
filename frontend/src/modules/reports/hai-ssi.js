@@ -1,6 +1,7 @@
 import { api } from '../../core/api.js';
 import { logReportRun } from './report-history.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
+import { todayISO } from "../../core/timezone.js";
 
 let currentRecords = [];
 
@@ -66,7 +67,7 @@ function setupEventListeners() {
     const cancelBtn2 = document.getElementById('haiCancelAddBtn2');
     if (addBtn && addModal) addBtn.addEventListener('click', () => {
         // Set default dates
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayISO();
         const repDate = document.getElementById('haiFReportDate');
         const onsetDate = document.getElementById('haiFOnsetDate');
         if (repDate && !repDate.value) repDate.value = today;

@@ -1,6 +1,7 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { systemNow } from "../../core/timezone.js";
 
 const RESOURCE_SEARCH_URLS = {
     emedicine: (q) => q ? `https://search.medscape.com/search?q=${encodeURIComponent(q)}` : `https://search.medscape.com/`,
@@ -328,7 +329,7 @@ function printHandout(handout) {
 
     const patientName = activePatient ? `${activePatient.first_name} ${activePatient.last_name}` : "Patient Copy";
     const patientNo = activePatient ? activePatient.patient_no : "N/A";
-    const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const today = systemNow().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
     printEl.innerHTML = `
         <div style="padding: 30px; font-family: Arial, sans-serif; color: #000; line-height: 1.6; max-width: 800px; margin: 0 auto;">

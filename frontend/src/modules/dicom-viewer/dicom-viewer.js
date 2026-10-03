@@ -2,6 +2,7 @@ import { parseDicomBuffer } from "./dicom-parser.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api, API_URL } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 // Viewer State
 let currentImage = null;
@@ -586,7 +587,7 @@ function loadImageFromUrl(url, metadata) {
                     { tag: "(0010,0010)", name: "Patient Name", vr: "PN", value: metadata.patientName },
                     { tag: "(0010,0020)", name: "Patient ID", vr: "LO", value: metadata.patientId },
                     { tag: "(0008,0060)", name: "Modality", vr: "CS", value: metadata.modality },
-                    { tag: "(0008,0020)", name: "Study Date", vr: "DA", value: new Date().toISOString().split("T")[0] },
+                    { tag: "(0008,0020)", name: "Study Date", vr: "DA", value: todayISO() },
                     { tag: "(0008,1030)", name: "Study Description", vr: "LO", value: metadata.studyDescription },
                     { tag: "(0008,0080)", name: "Institution Name", vr: "LO", value: metadata.institution || "Intellix Medical" },
                     { tag: "(0028,0010)", name: "Rows", vr: "US", value: img.naturalHeight || 512 },
@@ -789,7 +790,7 @@ function updateHud() {
     if (pName) pName.textContent = meta.patientName || "Anonymous";
     if (pId) pId.textContent = meta.patientId || "N/A";
     if (mod) mod.textContent = `Modality: ${meta.modality || "DX"}`;
-    if (date) date.textContent = meta.studyDate || new Date().toISOString().split("T")[0];
+    if (date) date.textContent = meta.studyDate || todayISO();
     if (z) z.textContent = `Zoom: ${Math.round(zoom * 100)}%`;
     if (wl) wl.textContent = `WL: ${Math.round(windowCenter)} WW: ${Math.round(windowWidth)}`;
     if (mat) mat.textContent = `${meta.columns || 512} x ${meta.rows || 512}`;

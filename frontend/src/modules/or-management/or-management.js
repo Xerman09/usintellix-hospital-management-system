@@ -1,5 +1,6 @@
 import { api } from '../../core/api.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 
 let currentScheduleData = {
     cases: [],
@@ -42,7 +43,7 @@ function getInitials(name) {
 function setDefaultDate() {
     const dateInput = document.getElementById('orFilterDate');
     if (dateInput && !dateInput.value) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayISO();
         dateInput.value = today;
     }
     updateDateDisplay();
@@ -53,7 +54,7 @@ function updateDateDisplay() {
     const dateStrEl = document.getElementById('orLiveDateStr');
     if (!dateStrEl) return;
 
-    let targetDate = new Date();
+    let targetDate = systemNow();
     if (dateInput && dateInput.value) {
         const [y, m, d] = dateInput.value.split('-').map(Number);
         targetDate = new Date(y, m - 1, d);
@@ -68,7 +69,7 @@ function setupLiveClock() {
     function updateClock() {
         const clockEl = document.getElementById('orLiveClock');
         if (!clockEl) return;
-        const now = new Date();
+        const now = systemNow();
         const hrs = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         const sec = String(now.getSeconds()).padStart(2, '0');
@@ -139,9 +140,9 @@ function setupEventListeners() {
 
     if (prevBtn && dateInput) {
         prevBtn.addEventListener('click', () => {
-            const cur = dateInput.value ? new Date(dateInput.value) : new Date();
+            const cur = dateInput.value ? new Date(`${dateInput.value}T00:00:00`) : systemNow();
             cur.setDate(cur.getDate() - 1);
-            dateInput.value = cur.toISOString().split('T')[0];
+            dateInput.value = toDateInput(cur);
             updateDateDisplay();
             fetchSchedule();
         });
@@ -149,7 +150,7 @@ function setupEventListeners() {
 
     if (todayBtn && dateInput) {
         todayBtn.addEventListener('click', () => {
-            dateInput.value = new Date().toISOString().split('T')[0];
+            dateInput.value = todayISO();
             updateDateDisplay();
             fetchSchedule();
         });
@@ -157,9 +158,9 @@ function setupEventListeners() {
 
     if (nextBtn && dateInput) {
         nextBtn.addEventListener('click', () => {
-            const cur = dateInput.value ? new Date(dateInput.value) : new Date();
+            const cur = dateInput.value ? new Date(`${dateInput.value}T00:00:00`) : systemNow();
             cur.setDate(cur.getDate() + 1);
-            dateInput.value = cur.toISOString().split('T')[0];
+            dateInput.value = toDateInput(cur);
             updateDateDisplay();
             fetchSchedule();
         });
@@ -256,7 +257,7 @@ function setupEventListeners() {
     const bookForm = document.getElementById('orBookForm');
 
     const openBookModal = (preselectedSuiteId = null) => {
-        const curDate = document.getElementById('orFilterDate')?.value || new Date().toISOString().split('T')[0];
+        const curDate = document.getElementById('orFilterDate')?.value || todayISO();
         const fDate = document.getElementById('orFDate');
         if (fDate) fDate.value = curDate;
         populateSuiteSelect('orFSuiteId', preselectedSuiteId);
@@ -451,9 +452,9 @@ function renderSuitesGrid(suites) {
             const ac = s.active_case;
             let elapsedMin = 0;
             if (ac.actual_incision_time) {
-                elapsedMin = Math.max(0, Math.floor((new Date() - new Date(ac.actual_incision_time)) / 60000));
+                elapsedMin = Math.max(0, Math.floor((systemNow() - new Date(ac.actual_incision_time)) / 60000));
             } else if (ac.actual_in_room_time) {
-                elapsedMin = Math.max(0, Math.floor((new Date() - new Date(ac.actual_in_room_time)) / 60000));
+                elapsedMin = Math.max(0, Math.floor((systemNow() - new Date(ac.actual_in_room_time)) / 60000));
             }
             const estMin = 120; // default estimated
             const pct = Math.min(100, Math.round((elapsedMin / estMin) * 100));
@@ -498,7 +499,7 @@ function renderSuitesGrid(suites) {
         } else if (isTurnover) {
             let elMin = 0;
             if (s.turnover_started_at) {
-                elMin = Math.max(0, Math.floor((new Date() - new Date(s.turnover_started_at)) / 60000));
+                elMin = Math.max(0, Math.floor((systemNow() - new Date(s.turnover_started_at)) / 60000));
             }
             activeBoxHtml = `
                 <div class="or-suite-active-box turnover">
@@ -750,10 +751,10 @@ function renderWhiteboardKanban(cases) {
             // Elapsed time indicator for active surgery
             let liveTimerChip = '';
             if (c.perioperative_stage === 'Incision / In Progress' && c.actual_incision_time) {
-                const el = Math.max(0, Math.floor((new Date() - new Date(c.actual_incision_time)) / 60000));
+                const el = Math.max(0, Math.floor((systemNow() - new Date(c.actual_incision_time)) / 60000));
                 liveTimerChip = `<span class="or-chip or-chip-red" style="animation: orPulse 1.5s infinite;">⏱ ${el}m incised</span>`;
             } else if (c.perioperative_stage === 'In PACU' && c.actual_out_room_time) {
-                const el = Math.max(0, Math.floor((new Date() - new Date(c.actual_out_room_time)) / 60000));
+                const el = Math.max(0, Math.floor((systemNow() - new Date(c.actual_out_room_time)) / 60000));
                 liveTimerChip = `<span class="or-chip or-chip-purple">⏱ ${el}m PACU</span>`;
             }
 

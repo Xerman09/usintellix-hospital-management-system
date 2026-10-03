@@ -5,6 +5,7 @@ import { showToast } from "../../core/toast.js";
 import { createCsvImport } from "../../core/csv-import.js?v=1";
 import { fetchSupplierPrices, deleteSupplierPrice } from "../supplier-prices/supplier-prices.service.js?v=2";
 import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=3";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 const IMPORT_COLUMNS = [
     "name", "supplier_type", "product_types", "contact_person", "phone", "mobile", "email", "website",
@@ -202,7 +203,7 @@ function normalizeDate(value) {
     const date = new Date(Date.UTC(y, mo - 1, d));
 
     return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d
-        ? date.toISOString().slice(0, 10)
+        ? toDateInput(date)
         : null;
 }
 
@@ -678,7 +679,7 @@ function updateLicenseHint() {
         return;
     }
 
-    const days = Math.round((new Date(`${value}T00:00:00`) - new Date(new Date().toDateString())) / 86400000);
+    const days = Math.round((new Date(`${value}T00:00:00`) - new Date(systemNow().toDateString())) / 86400000);
 
     hint.textContent = days < 0
         ? `Expired ${Math.abs(days)} day(s) ago`

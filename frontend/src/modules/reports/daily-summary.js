@@ -1,5 +1,6 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 async function fetchDailySummary() {
     const facilityId = document.getElementById("dsFacility")?.value || "";
@@ -98,8 +99,8 @@ export function initDailySummary() {
     const resetBtn = document.getElementById("dsResetBtn");
     if (resetBtn) {
         resetBtn.addEventListener("click", () => {
-            const now = new Date();
-            const formattedDate = now.toISOString().slice(0, 10);
+            const now = systemNow();
+            const formattedDate = toDateInput(now);
             
             document.getElementById("dsFacility").value = "";
             document.getElementById("dsProvider").value = "";

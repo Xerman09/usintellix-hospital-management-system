@@ -1,9 +1,10 @@
 import {
-    fetchPendingDeliveries, fetchOrderToReceive, fetchReceipts, fetchReceipt, receiveDelivery, fetchWarehouseOptions
-} from "./receiving.service.js?v=1";
+    fetchPendingDeliveries, fetchOrderToReceive, fetchReceipts, fetchReceipt, receiveDelivery, fetchWarehouseOptions, voidReceipt
+} from "./receiving.service.js?v=2";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
+import { systemNow } from "../../core/timezone.js";
 
 // Keep in step with PurchaseOrderService::CREATOR_ROLES (the receiving
 // roles). Approver-only roles (e.g. accountant) see past deliveries only.
@@ -91,7 +92,7 @@ async function loadLists() {
     $("rvStatAwaiting").textContent = pending.length;
     $("rvStatOverdue").textContent = pending.filter((o) => o.is_overdue).length;
     $("rvStatPartial").textContent = pending.filter((o) => o.status === "partially_received").length;
-    $("rvStatMonth").textContent = receipts.filter((r) => String(r.received_date).slice(0, 7) === month).length;
+    $("rvStatMonth").textContent = receipts.filter((r) => !r.voided_at && String(r.received_date).slice(0, 7) === month).length;
 
     renderList();
 }
@@ -159,8 +160,10 @@ function renderList() {
             <table class="rv-table">
                 <thead><tr><th>RR No.</th><th>Date</th><th>PO No.</th><th>Supplier</th><th>DR / Invoice</th><th>Received Into</th><th class="num">Items</th><th class="num">Cost</th><th>Received By</th></tr></thead>
                 <tbody>${list.map((r) => `
-                    <tr class="rv-row" data-rv-receipt="${r.id}">
-                        <td style="white-space:nowrap;"><strong>${escapeHtml(r.gr_number)}</strong></td>
+                    <tr class="rv-row ${r.voided_at ? "is-voided" : ""}" data-rv-receipt="${r.id}">
+                        <td style="white-space:nowrap;"><strong>${escapeHtml(r.gr_number)}</strong>
+                            ${r.voided_at ? `<span class="rv-badge voided">Voided</span>` : ""}
+                            ${r.invoice ? `<span class="rv-sub"><span class="rv-badge billed" title="Billed on supplier invoice ${escapeHtml(r.invoice.ap_number)}">Billed ${escapeHtml(r.invoice.ap_number)}</span></span>` : ""}</td>
                         <td style="white-space:nowrap;">${formatDate(r.received_date)}</td>
                         <td style="white-space:nowrap;">${escapeHtml(r.po_number)}</td>
                         <td>${escapeHtml(r.supplier_name)}</td>
@@ -785,9 +788,19 @@ async function openReceipt(id) {
         partially_received: "The rest of the order is still open for the next delivery.",
         closed: "The order was closed."
     }[r.po_status] || "";
-    const moreToCome = r.po_status === "partially_received" && canReceive();
+    const moreToCome = r.po_status === "partially_received" && canReceive() && !r.voided_at;
+    // Voiding: not once billed, and only while the order still takes deliveries / is complete.
+    const canVoid = canReceive() && !r.voided_at && !r.invoice && ["approved", "partially_received", "received"].includes(r.po_status);
 
     $("rvDetail").innerHTML = `
+        ${r.voided_at ? `
+        <div class="rv-banner voided">
+            <div>
+                <strong>${escapeHtml(r.gr_number)} was voided</strong>
+                <span>${escapeHtml(formatDate(String(r.voided_at).slice(0, 10)))}${r.voided_by_name ? ` by ${escapeHtml(r.voided_by_name)}` : ""}: &ldquo;${escapeHtml(r.void_reason || "")}&rdquo;. Its stock was taken back out and the order's quantities reversed.</span>
+            </div>
+            <div class="rv-actions"><button type="button" class="rv-btn" id="rvPrintBtn">Print Receiving Report</button></div>
+        </div>` : `
         <div class="rv-banner">
             <div>
                 <strong>${escapeHtml(r.gr_number)} &mdash; received ${formatDate(r.received_date)}</strong>
@@ -795,9 +808,10 @@ async function openReceipt(id) {
             </div>
             <div class="rv-actions">
                 <button type="button" class="rv-btn" id="rvPrintBtn">Print Receiving Report</button>
+                ${canVoid ? `<button type="button" class="rv-btn danger" id="rvVoidBtn" title="Entered by mistake? Take it back out of stock">Void</button>` : ""}
                 ${moreToCome ? `<button type="button" class="rv-btn primary" id="rvNextBtn">Receive Next Delivery</button>` : ""}
             </div>
-        </div>
+        </div>`}
 
         <div class="rv-card">
             <dl class="rv-info">${[
@@ -808,6 +822,9 @@ async function openReceipt(id) {
                 ["Supplier DR No.", escapeHtml(r.delivery_receipt_no || "—")],
                 ["Supplier Invoice No.", escapeHtml(r.invoice_no || "—")],
                 ["Received By", escapeHtml(r.received_by_name || "—")],
+                ["Billed On", r.invoice
+                    ? `<span class="rv-badge billed">${escapeHtml(r.invoice.ap_number)}</span>`
+                    : (r.voided_at ? "—" : `<span class="rv-sub" style="margin:0;">Not billed yet</span>`)],
                 ["Notes", escapeHtml(r.notes || "—")]
             ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
         </div>
@@ -838,7 +855,67 @@ async function openReceipt(id) {
 
     $("rvPrintBtn").addEventListener("click", () => printReceipt(r));
     $("rvNextBtn")?.addEventListener("click", () => openForm(r.purchase_order_id));
+    $("rvVoidBtn")?.addEventListener("click", () => confirmVoid(r));
     showPanel("detail");
+}
+
+/** Ask for a reason, then void the receipt (stock back out, order reversed). */
+function confirmVoid(r) {
+    const overlay = $("rvVoidOverlay");
+    const close = () => {
+        overlay.classList.remove("open");
+        $("rvVoidOk").onclick = null;
+        document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (event) => { if (event.key === "Escape") close(); };
+
+    $("rvVoidTitle").textContent = `Void ${r.gr_number}?`;
+    $("rvVoidBody").innerHTML = `
+        <dl class="rv-confirm-summary">
+            <dt>Purchase order</dt><dd>${escapeHtml(r.po_number)}</dd>
+            <dt>Received</dt><dd>${formatDate(r.received_date)} into ${escapeHtml(r.warehouse_name || "—")}</dd>
+            <dt>Items</dt><dd>${r.item_count}</dd>
+            <dt>Cost</dt><dd>${formatMoney(r.total_cost)}</dd>
+        </dl>
+        <p class="rv-confirm-note">Use this for a receipt entered by mistake. Everything it put into stock is taken back out,
+        and ${escapeHtml(r.po_number)} goes back to waiting for these items. It only works while none of this stock has been
+        dispensed, moved or disposed of. The receipt stays on file, marked voided.</p>`;
+    $("rvVoidAlert").innerHTML = "";
+    $("err-rv_void_reason").textContent = "";
+    $("rvVoidReason").value = "";
+
+    $("rvVoidOk").onclick = async () => {
+        const reason = $("rvVoidReason").value.trim();
+        $("err-rv_void_reason").textContent = "";
+
+        if (!reason) {
+            $("err-rv_void_reason").textContent = "Say why this receipt is being voided.";
+            $("rvVoidReason").focus();
+            return;
+        }
+
+        $("rvVoidOk").disabled = true;
+        const result = await voidReceipt(r.id, reason);
+        $("rvVoidOk").disabled = false;
+
+        if (!result?.success) {
+            if (result?.errors?.reason) $("err-rv_void_reason").textContent = result.errors.reason;
+            $("rvVoidAlert").innerHTML = `<div class="form-alert error">${escapeHtml(result?.message || "Failed to void the receipt.")}</div>`;
+            return;
+        }
+
+        close();
+        showToast(result.message, "success");
+        await openReceipt(r.id);
+    };
+
+    $("rvVoidClose").onclick = close;
+    $("rvVoidCancel").onclick = close;
+    overlay.onclick = (event) => { if (event.target === overlay) close(); };
+    document.addEventListener("keydown", onKey);
+
+    overlay.classList.add("open");
+    $("rvVoidReason").focus();
 }
 
 function itemUnit(item) {
@@ -894,6 +971,7 @@ function printReceipt(r) {
     </div>
     <div class="title">
         <h1>RECEIVING REPORT</h1>
+        ${r.voided_at ? `<div style="color:#b91c1c;font-weight:700;font-size:14px;letter-spacing:1px;">VOIDED ${formatDate(String(r.voided_at).slice(0, 10))}</div><div class="muted">${escapeHtml(r.void_reason || "")}</div>` : ""}
         <table>
             <tr><td class="muted">RR No.</td><td><strong>${escapeHtml(r.gr_number)}</strong></td></tr>
             <tr><td class="muted">Date Received</td><td>${formatDate(r.received_date)}</td></tr>
@@ -964,6 +1042,6 @@ function formatInput(value) {
 }
 
 function isoToday() {
-    const d = new Date();
+    const d = systemNow();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

@@ -1,5 +1,6 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 async function startReport() {
     const startBtn = document.getElementById("rwtStartBtn");
@@ -26,8 +27,8 @@ async function startReport() {
             // Set Date
             const dateSpan = document.getElementById("rwtDate");
             if (dateSpan) {
-                const now = new Date();
-                dateSpan.textContent = now.toISOString().slice(0, 10);
+                const now = systemNow();
+                dateSpan.textContent = toDateInput(now);
             }
 
             // Render Metrics

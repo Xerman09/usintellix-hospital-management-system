@@ -1,7 +1,9 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function InventoryActivityReportView() {
-    const now = new Date();
-    const to = now.toISOString().slice(0, 10);
-    const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const now = systemNow();
+    const to = toDateInput(now);
+    const from = toDateInput(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
 
     return `
 <style>

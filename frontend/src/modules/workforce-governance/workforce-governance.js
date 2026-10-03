@@ -9,6 +9,7 @@ import {
     fetchSanctionDossier
 } from "./workforce-governance.service.js";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 let currentStaffList = [];
 let currentSanctionsList = [];
@@ -374,7 +375,7 @@ function openRecordTrainingModal(container, preselectedEmpId = null) {
 
     const compDate = modal.querySelector("#trainingCompletionDate");
     if (compDate && !compDate.value) {
-        compDate.value = new Date().toISOString().split("T")[0];
+        compDate.value = todayISO();
     }
 
     modal.classList.add("open");
@@ -386,7 +387,7 @@ function openLogSanctionModal(container) {
 
     const vDate = modal.querySelector("#sanctionViolationDate");
     const effDate = modal.querySelector("#sanctionEffectiveDate");
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayISO();
 
     if (vDate && !vDate.value) vDate.value = today;
     if (effDate && !effDate.value) effDate.value = today;
@@ -466,7 +467,7 @@ function setupFormSubmissions(container) {
                 suspension_days: parseInt(formSanction.querySelector("#sanctionSuspensionDays").value || 0, 10),
                 sanctioning_officer_name: formSanction.querySelector("#sanctionOfficerName").value.trim(),
                 sanctioning_officer_role: formSanction.querySelector("#sanctionOfficerRole").value.trim(),
-                signoff_date: new Date().toISOString().split("T")[0]
+                signoff_date: todayISO()
             };
 
             const submitBtn = formSanction.querySelector("#btnSubmitLogSanction");
@@ -510,7 +511,7 @@ async function showCertificateForStaff(container, empId) {
         cert_code: staff.hipaa_cert_ref || 'CERT-PENDING',
         curriculum: staff.hipaa_curriculum_name || 'HIPAA Security Awareness & Privacy Rule Certification',
         score: staff.hipaa_training_score !== null ? staff.hipaa_training_score : 100,
-        completion_date: staff.hipaa_last_refresher_date || staff.hipaa_initial_training_date || new Date().toISOString().split("T")[0],
+        completion_date: staff.hipaa_last_refresher_date || staff.hipaa_initial_training_date || todayISO(),
         expiration_date: staff.hipaa_next_refresher_due || 'One Year After Completion',
         delivery_method: 'Online LMS E-Learning with Proctored Knowledge Assessment',
         facility_name: 'USIntellix Healthcare System'

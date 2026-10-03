@@ -2,6 +2,7 @@ import { openTemplateMaintenance } from "../template-maintenance/template-mainte
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { systemNow } from "../../core/timezone.js";
 
 let currentActivePatient = null;
 let allAudits = [];
@@ -155,7 +156,7 @@ function renderActivePatientBanner(p) {
 function calculateAge(dobStr) {
     if (!dobStr) return 0;
     const dob = new Date(dobStr);
-    const now = new Date();
+    const now = systemNow();
     let age = now.getFullYear() - dob.getFullYear();
     const m = now.getMonth() - dob.getMonth();
     if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) {

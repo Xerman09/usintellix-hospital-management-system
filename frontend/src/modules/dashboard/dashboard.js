@@ -39,10 +39,12 @@ import { SuppliersView } from "../suppliers/suppliers.view.js?v=3";
 import { initSuppliers } from "../suppliers/suppliers.js?v=5";
 import { SupplierPricesView } from "../supplier-prices/supplier-prices.view.js?v=2";
 import { initSupplierPrices } from "../supplier-prices/supplier-prices.js?v=4";
-import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v=5";
-import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=10";
-import { ReceivingView } from "../receiving/receiving.view.js?v=5";
-import { initReceiving } from "../receiving/receiving.js?v=7";
+import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v=6";
+import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=11";
+import { ReceivingView } from "../receiving/receiving.view.js?v=6";
+import { initReceiving } from "../receiving/receiving.js?v=8";
+import { SupplierInvoicesView } from "../supplier-invoices/supplier-invoices.view.js?v=1";
+import { initSupplierInvoices } from "../supplier-invoices/supplier-invoices.js?v=1";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js?v=3";
@@ -627,6 +629,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Receiving', () => {
                 setTimeout(initReceiving, 0);
                 return ReceivingView();
+            }, activate);
+        } else if (tabId === 'pharmacy_supplier_invoices') {
+            tabManager.openTab(tabId, 'Supplier Invoices', () => {
+                setTimeout(initSupplierInvoices, 0);
+                return SupplierInvoicesView();
             }, activate);
         } else if (tabId === 'pharmacy_suppliers') {
             tabManager.openTab(tabId, 'Suppliers', () => {

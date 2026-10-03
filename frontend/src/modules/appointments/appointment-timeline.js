@@ -1,4 +1,5 @@
 import { formatApptTime, statusLabel, escapeHtml } from "./appointment-format.js?v=2";
+import { systemNow } from "../../core/timezone.js";
 
 const SLOT_MINUTES = 15;
 const DEFAULT_START_HOUR = 7;
@@ -159,7 +160,7 @@ function minutesToTimeStr(minutes)
 
 function currentMinutes()
 {
-    const now = new Date();
+    const now = systemNow();
 
     return now.getHours() * 60 + now.getMinutes();
 }

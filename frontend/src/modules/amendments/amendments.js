@@ -14,6 +14,7 @@ import {
 } from "./amendments.service.js?v=2";
 import { fetchPatients } from "../patients/patients.service.js?v=2";
 import { AmendmentsView } from "./amendments.view.js?v=1";
+import { todayISO } from "../../core/timezone.js";
 
 let currentFilters = {
     search: "",
@@ -538,7 +539,7 @@ function resetIntakeForm(container) {
     if (form) form.reset();
 
     const dateInput = container.querySelector("#intakeAmendDate");
-    if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+    if (dateInput) dateInput.value = todayISO();
 
     const label = container.querySelector("#intakeAmendPatientSelectedLabel");
     if (label) label.style.display = "none";

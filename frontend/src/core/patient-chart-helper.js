@@ -1,5 +1,6 @@
 import { fetchPatients } from "../modules/patients/patients.service.js";
 import { openPatientChartTab } from "../modules/patients/patients-list.js?v=65";
+import { systemNow } from "./timezone.js";
 
 /**
  * Calculates age in full years from a YYYY-MM-DD birthdate string
@@ -8,7 +9,7 @@ export function calculateAgeFromDob(dobString) {
     if (!dobString) return '';
     const dob = new Date(dobString);
     if (isNaN(dob.getTime())) return '';
-    const today = new Date();
+    const today = systemNow();
     let age = today.getFullYear() - dob.getFullYear();
     const m = today.getMonth() - dob.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {

@@ -1,6 +1,7 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 
 let currentActivePatientNo = null;
 let isAllPatientsScope = false;
@@ -776,8 +777,8 @@ function openPriorAuthModal(pa = null) {
         payerDatalist.innerHTML = state.insurances.map(i => `<option value="${escapeHtml(i.name)}">`).join('');
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const sixMonthsLater = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = todayISO();
+    const sixMonthsLater = toDateInput(new Date(systemNow().getTime() + 180 * 24 * 60 * 60 * 1000));
 
     if (pa) {
         if (title) title.textContent = `Edit Prior Authorization #${pa.auth_number}`;
@@ -797,7 +798,7 @@ function openPriorAuthModal(pa = null) {
         if (title) title.textContent = "New Prior Authorization";
         document.getElementById("authPriorId").value = '';
         document.getElementById("authPriorPayerName").value = state.insurances[0]?.name || '';
-        document.getElementById("authPriorNumber").value = `PA-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        document.getElementById("authPriorNumber").value = `PA-${systemNow().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
         document.getElementById("authPriorCpt").value = '';
         document.getElementById("authPriorService").value = '';
         document.getElementById("authPriorApprovedUnits").value = '1';
@@ -887,7 +888,7 @@ function openPrintModal(pa) {
         ` : ''}
 
         <div style="display: flex; justify-content: space-between; margin-top: 30px; padding-top: 16px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b;">
-            <div>Printed on: ${new Date().toLocaleString()}</div>
+            <div>Printed on: ${systemNow().toLocaleString()}</div>
             <div>Authorized Signature: _______________________</div>
         </div>
     `;

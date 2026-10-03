@@ -5,6 +5,22 @@ export async function fetchGeneralSettings()
     return await api("/general-settings");
 }
 
+export async function fetchTimezones()
+{
+    return await api("/general-settings/timezones");
+}
+
+export async function updateTimezone(timezone)
+{
+    return await api(
+        "/general-settings/timezone",
+        {
+            method: "PUT",
+            body: JSON.stringify({ timezone })
+        }
+    );
+}
+
 export async function updateGeneralSettings(data)
 {
     return await api(

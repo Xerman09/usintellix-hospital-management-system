@@ -1,6 +1,7 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 let matchedPatients = [];
 let selectedPatientIds = new Set();
@@ -267,7 +268,7 @@ function downloadCsvExport() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `batch_communication_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `batch_communication_export_${todayISO()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -646,7 +647,7 @@ function resolveRecipients(channel) {
                 patient_id: p.id,
                 name: p.full_name,
                 target: target.trim(),
-                date: p.next_appointment || new Date().toISOString().slice(0, 10),
+                date: p.next_appointment || todayISO(),
                 start_time: '09:00 AM',
                 end_time: '09:30 AM'
             });

@@ -1,6 +1,8 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function InsuranceDistributionView() {
-    const now = new Date();
-    const to = now.toISOString().slice(0, 10);
+    const now = systemNow();
+    const to = toDateInput(now);
 
     return `
 <style>

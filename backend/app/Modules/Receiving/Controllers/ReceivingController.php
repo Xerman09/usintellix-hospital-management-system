@@ -66,6 +66,22 @@ class ReceivingController extends Controller
         $this->success($receipt, 'Receipt retrieved successfully.');
     }
 
+    /** Void a receipt entered by mistake. Body: id, reason. */
+    public function void(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $result = $this->service->void((int) $request->input('id'), (string) $request->input('reason', ''), (int) $user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], !empty($result['not_found']) ? 404 : 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
     public function store(): void
     {
         $request = new Request();

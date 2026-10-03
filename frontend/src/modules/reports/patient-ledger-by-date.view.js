@@ -1,7 +1,9 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function PatientLedgerByDateView() {
-    const now = new Date();
-    const to = now.toISOString().slice(0, 10);
-    const from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+    const now = systemNow();
+    const to = toDateInput(now);
+    const from = toDateInput(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
 
     return `
         <style>

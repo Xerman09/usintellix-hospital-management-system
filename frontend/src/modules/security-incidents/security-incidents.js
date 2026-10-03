@@ -15,6 +15,7 @@ import {
 } from "./security-incidents.service.js?v=1";
 import { fetchPatients } from "../patients/patients.service.js?v=6";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 const TYPE_LABELS = {
     unauthorized_access_snooping: "Unauthorized Access / Snooping",
@@ -480,8 +481,8 @@ export function initSecurityIncidents() {
             `;
             editIdInput.value = "";
             titleInput.value = "";
-            discDateInput.value = new Date().toISOString().split("T")[0];
-            occDateInput.value = new Date().toISOString().split("T")[0];
+            discDateInput.value = todayISO();
+            occDateInput.value = todayISO();
             typeInput.value = "unauthorized_access_snooping";
             locInput.value = "EHR Application";
             countInput.value = 1;
@@ -789,7 +790,7 @@ export function initSecurityIncidents() {
                         const res = await updatePatientNotification(incidentId, patId, {
                             notification_status: "delivered",
                             dispatch_method: "first_class_mail",
-                            dispatch_date: new Date().toISOString().split("T")[0]
+                            dispatch_date: todayISO()
                         });
                         if (res && res.success) {
                             showToast("Patient notification recorded as delivered", "success");

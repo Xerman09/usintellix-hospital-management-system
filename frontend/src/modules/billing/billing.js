@@ -1,19 +1,20 @@
 import { fetchPatientLedger } from "./billing.service.js";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 export function initBilling() {
     const form = document.getElementById("billingSummaryForm");
     if (!form) return;
 
     // Set default dates
-    const today = new Date();
-    const lastYear = new Date();
+    const today = systemNow();
+    const lastYear = systemNow();
     lastYear.setFullYear(today.getFullYear() - 1);
 
     const toInput = document.getElementById("billing_to");
     const fromInput = document.getElementById("billing_from");
 
-    if (toInput) toInput.value = today.toISOString().split("T")[0];
-    if (fromInput) fromInput.value = lastYear.toISOString().split("T")[0];
+    if (toInput) toInput.value = toDateInput(today);
+    if (fromInput) fromInput.value = toDateInput(lastYear);
 
     form.addEventListener("submit", (e) => {
         e.preventDefault();

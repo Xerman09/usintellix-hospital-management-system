@@ -8,6 +8,7 @@ import { AppointmentsListView } from "../appointments/appointments-list.view.js?
 import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 const RECALL_STATUS_LABELS = {
     pending: "Pending",
@@ -135,7 +136,7 @@ function calculateAge(birthdate)
     }
 
     const dob = new Date(birthdate);
-    const today = new Date();
+    const today = systemNow();
 
     let age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
@@ -316,11 +317,11 @@ function setupRecallFormModal(isStaff)
     document.querySelectorAll('input[name="recall_date_quickpick"]').forEach((radio) => {
         radio.addEventListener("change", () => {
             const years = Number(radio.value);
-            const target = new Date();
+            const target = systemNow();
 
             target.setFullYear(target.getFullYear() + years);
 
-            document.getElementById("recall_date").value = target.toISOString().slice(0, 10);
+            document.getElementById("recall_date").value = toDateInput(target);
         });
     });
 

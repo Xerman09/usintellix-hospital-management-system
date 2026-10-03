@@ -1,10 +1,12 @@
+import { todayISO } from "../../core/timezone.js";
+
 export function generateCustomPatientReportHtml(patient, data, selections) {
     const safeHtml = (str) => {
         if (!str) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     };
 
-    const dateGenerated = new Date().toISOString().split('T')[0];
+    const dateGenerated = todayISO();
     const name = `${safeHtml(patient.last_name || '')}, ${safeHtml(patient.first_name || '')}`.trim();
     const dob = patient.birthdate ? patient.birthdate.substring(0, 10) : '';
 

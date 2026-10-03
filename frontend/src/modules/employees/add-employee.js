@@ -9,6 +9,7 @@ import {
     unlockEmployee
 } from "./employees.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
+import { systemNow, todayISO } from "../../core/timezone.js";
 
 const FIELDS = [
     "username", "password", "role_id", "department_id",
@@ -35,7 +36,7 @@ export async function initAddEmployee()
 
     enablePasswordToggles();
 
-    document.getElementById("birthdate").max = new Date().toISOString().split("T")[0];
+    document.getElementById("birthdate").max = todayISO();
 
     const modalOverlay = document.getElementById("employeeModalOverlay");
     const modalTitle = document.getElementById("employeeModalTitle");
@@ -256,7 +257,7 @@ function renderRows(openModal)
             .join(" ");
 
         const initial = (employee.first_name || "?").charAt(0).toUpperCase();
-        const isLocked = Number(employee.is_locked) === 1 && (!employee.locked_until || new Date(employee.locked_until) > new Date());
+        const isLocked = Number(employee.is_locked) === 1 && (!employee.locked_until || new Date(employee.locked_until) > systemNow());
         const failedAttempts = Number(employee.failed_login_attempts || 0);
 
         let statusBadge = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#f0fdf4;color:#166534;"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Active</span>`;

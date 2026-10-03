@@ -29,6 +29,13 @@ export async function receiveDelivery(details) {
     });
 }
 
+export async function voidReceipt(id, reason) {
+    return api("/receiving/void", {
+        method: "POST",
+        body: JSON.stringify({ id, reason })
+    });
+}
+
 export async function fetchWarehouseOptions() {
     return api("/warehouses");
 }

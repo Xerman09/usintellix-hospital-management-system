@@ -7,6 +7,7 @@ import { fetchProviders } from "../providers/providers.service.js";
 import { fetchDocumentTemplates } from "../document-templates/document-templates.service.js";
 import { savePatientLetter, updatePatientLetter } from "../patient-letters/patient-letters.service.js";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 let modalReady = false;
 let currentPatient = null;
@@ -62,7 +63,7 @@ export async function openLetterPopup() {
     const patientLabel = `${patient.first_name} ${patient.last_name} (${patient.id})`;
     body.innerHTML = LetterView(patientLabel);
 
-    document.getElementById("pltDate").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("pltDate").value = todayISO();
     populateSpecialtyOptions();
     populateStaffOptions(employeesAll);
     populateTemplateOptions();
@@ -191,7 +192,7 @@ function populateSpecialFieldOptions() {
 }
 
 function specialFieldTokens() {
-    const dateVal = document.getElementById("pltDate")?.value || new Date().toISOString().slice(0, 10);
+    const dateVal = document.getElementById("pltDate")?.value || todayISO();
     const fromLabel = selectedStaffLabel("pltFrom");
     const toLabel = selectedStaffLabel("pltTo");
 

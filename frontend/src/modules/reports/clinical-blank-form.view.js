@@ -1,5 +1,7 @@
+import { todayISO } from "../../core/timezone.js";
+
 export function ClinicalBlankFormView(title) {
-    const revDate = new Date().toISOString().slice(0, 10);
+    const revDate = todayISO();
 
     return `
         <div class="clinical-blank-form-wrapper" style="padding: 20px; font-family: Arial, sans-serif; background-color: #fff; min-height: 100%; color: #000; max-width: 800px; margin: 0 auto;">

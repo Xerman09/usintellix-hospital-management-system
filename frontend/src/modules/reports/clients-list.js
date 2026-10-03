@@ -1,5 +1,6 @@
 import { api } from "../../core/api.js?v=5";
 import { fetchProviders } from "../providers/providers.service.js";
+import { systemNow } from "../../core/timezone.js";
 
 let currentReportData = [];
 
@@ -220,7 +221,7 @@ function printReport() {
         </head>
         <body>
             <h1>Patient List Report</h1>
-            <p>Generated on ${new Date().toLocaleString()}</p>
+            <p>Generated on ${systemNow().toLocaleString()}</p>
             ${tableHtml}
             <script>
                 window.onload = function() { window.print(); }

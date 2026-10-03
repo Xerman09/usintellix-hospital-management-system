@@ -1,5 +1,6 @@
 import { searchInvoices, postEobPayment } from "./eob-posting.service.js";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 const TYPE_LABELS = { unassigned: "Open", cleared: "Closed" };
 
@@ -24,7 +25,7 @@ function switchTab(tab) {
 }
 
 function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+    return todayISO();
 }
 
 function showAlert(containerId, message, type) {

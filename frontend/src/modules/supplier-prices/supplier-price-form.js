@@ -15,6 +15,7 @@ import {
     fetchSupplierPrices, fetchSupplierPriceOptions, createSupplierPrice, updateSupplierPrice, deleteSupplierPrice
 } from "./supplier-prices.service.js?v=2";
 import { showToast } from "../../core/toast.js";
+import { systemNow } from "../../core/timezone.js";
 
 const STYLE_ID = "supplier-price-form-styles";
 
@@ -376,7 +377,7 @@ export function escapeHtml(value) {
 }
 
 function isoToday() {
-    const d = new Date();
+    const d = systemNow();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 

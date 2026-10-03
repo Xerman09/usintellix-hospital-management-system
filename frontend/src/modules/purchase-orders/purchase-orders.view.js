@@ -117,6 +117,17 @@ export function PurchaseOrdersView() {
 .po-lines .col-price { width: 120px; }
 .po-lines .col-disc { width: 110px; }
 .po-lines .col-amt { width: 120px; }
+.po-lines .col-vat { width: 120px; }
+.po-vat-tag { display: inline-block; margin-top: 2px; font-size: 11px; color: var(--text-muted); }
+.po-voided td { color: var(--text-muted) !important; }
+.po-voided td:first-child strong { text-decoration: line-through; }
+.po-status.voided { background: #fee2e2; color: #991b1b; }
+:root[data-theme="dark"] .po-status.voided { background: rgba(239,68,68,.18); color: #fecaca; }
+.po-match { display: inline-flex; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.po-match.matched { background: #dcfce7; color: #166534; }
+.po-match.variance { background: #fef3c7; color: #92400e; }
+:root[data-theme="dark"] .po-match.matched { background: rgba(34,197,94,.18); color: #bbf7d0; }
+:root[data-theme="dark"] .po-match.variance { background: rgba(245,158,11,.18); color: #fde68a; }
 .po-lines input[type="number"] { text-align: right; padding: 0 8px; }
 .po-line-name { font-weight: 600; }
 .po-line-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
@@ -321,6 +332,7 @@ export function PurchaseOrdersView() {
                     <div class="po-totals">
                         <span class="label">Subtotal</span><span class="val" id="poSubtotal">₱0.00</span>
                         <span class="label">Discounts</span><span class="val" id="poDiscountTotal">₱0.00</span>
+                        <span class="label">VAT (12%)</span><span class="val" id="poVatTotal">₱0.00</span>
                         <label class="label" for="po_shipping_fee">Delivery / Other Charges</label>
                         <span class="val"><input type="number" id="po_shipping_fee" min="0" step="0.01" placeholder="0.00"></span>
                         <span class="label grand">Total</span><span class="val grand" id="poTotal">₱0.00</span>

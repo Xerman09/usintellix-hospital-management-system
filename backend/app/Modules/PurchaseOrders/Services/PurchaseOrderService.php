@@ -36,6 +36,10 @@ use Throwable;
  * amounts typed on the order are what's saved -- a negotiated price
  * shouldn't be overwritten by the price list. Totals are always
  * recomputed here from the lines.
+ *
+ * Prices are VAT-exclusive. Each line is vatable, VAT-exempt or
+ * zero-rated, and VAT_RATE is added on top of the vatable lines. Orders
+ * saved before VAT was tracked have vat_rate 0 (no VAT shown).
  */
 class PurchaseOrderService
 {
@@ -58,6 +62,11 @@ class PurchaseOrderService
     public const APPROVER_ROLES = ['admin', 'accountant'];
 
     public const ORDER_UNITS = ['unit', 'package'];
+
+    /** Philippine VAT, applied to vatable lines on top of the (VAT-exclusive) price. */
+    public const VAT_RATE = 12.0;
+
+    public const VAT_TYPES = ['vatable', 'exempt', 'zero_rated'];
 
     public const INPUT_FIELDS = [
         'supplier_id', 'order_date', 'expected_date', 'warehouse_id', 'payment_terms', 'supplier_reference',
@@ -136,6 +145,7 @@ class PurchaseOrderService
         $order['approval_notes'] = $row['approval_notes'];
         $order['history'] = $this->history($id);
         $order['receipts'] = $this->receipts($id);
+        $order['invoices'] = $this->invoices($id);
 
         $order['supplier'] = [
             'contact_person' => $row['supplier_contact'],
@@ -188,6 +198,11 @@ class PurchaseOrderService
     {
         $stmt = Database::connection()->prepare(
             "SELECT gr.id, gr.gr_number, gr.received_date, gr.delivery_receipt_no, gr.invoice_no, gr.total_cost,
+                    gr.voided_at, gr.void_reason,
+                    (SELECT si.ap_number FROM supplier_invoice_receipts sir
+                       JOIN supplier_invoices si ON si.id = sir.supplier_invoice_id
+                      WHERE sir.goods_receipt_id = gr.id AND si.status <> 'cancelled' AND si.deleted_at IS NULL
+                      ORDER BY si.id DESC LIMIT 1) AS billed_on,
                     w.name AS warehouse_name, " . self::userNameSql('gr.created_by') . " AS received_by_name
              FROM goods_receipts gr
              LEFT JOIN warehouses w ON w.id = gr.warehouse_id
@@ -204,7 +219,34 @@ class PurchaseOrderService
             'invoice_no' => $r['invoice_no'],
             'total_cost' => (float) $r['total_cost'],
             'warehouse_name' => $r['warehouse_name'],
-            'received_by_name' => $r['received_by_name']
+            'received_by_name' => $r['received_by_name'],
+            'voided_at' => $r['voided_at'],
+            'void_reason' => $r['void_reason'],
+            // AP number of the supplier invoice (not cancelled) this delivery is billed on.
+            'billed_on' => $r['billed_on']
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** Supplier invoices recorded against this order (Pharmacy > Supplier Invoices). */
+    private function invoices(int $orderId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT id, ap_number, supplier_invoice_no, invoice_date, status, match_status, total, variance_amount
+             FROM supplier_invoices
+             WHERE purchase_order_id = :id AND deleted_at IS NULL
+             ORDER BY id"
+        );
+        $stmt->execute(['id' => $orderId]);
+
+        return array_map(fn(array $r) => [
+            'id' => (int) $r['id'],
+            'ap_number' => $r['ap_number'],
+            'supplier_invoice_no' => $r['supplier_invoice_no'],
+            'invoice_date' => $r['invoice_date'],
+            'status' => $r['status'],
+            'match_status' => $r['match_status'],
+            'total' => (float) $r['total'],
+            'variance_amount' => (float) $r['variance_amount']
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
@@ -252,6 +294,8 @@ class PurchaseOrderService
                 'gross_amount' => round($quantity * $unitPrice, 2),
                 'discount_amount' => (float) $r['discount_amount'],
                 'line_total' => (float) $r['line_total'],
+                'vat_type' => $r['vat_type'] ?: 'vatable',
+                'vat_amount' => (float) $r['vat_amount'],
                 'quantity_received' => (float) $r['quantity_received'],
                 'quantity_remaining' => max(0, round($quantity - (float) $r['quantity_received'], 3)),
                 // What one order unit actually costs after the line discount.
@@ -786,6 +830,7 @@ class PurchaseOrderService
         $seen = [];
         $subtotal = 0.0;
         $discountTotal = 0.0;
+        $vatTotal = 0.0;
 
         $drugStmt = $db->prepare(
             "SELECT id, name, is_active, package_quantity FROM drugs WHERE id = :id AND deleted_at IS NULL"
@@ -864,6 +909,16 @@ class PurchaseOrderService
             $itemCode = trim((string) ($item['supplier_item_code'] ?? ''));
             $notes = trim((string) ($item['notes'] ?? ''));
 
+            $vatType = (string) ($item['vat_type'] ?? '') ?: 'vatable';
+
+            if (!in_array($vatType, self::VAT_TYPES, true)) {
+                $errors["{$key}.vat_type"] = 'Choose VAT, VAT-exempt or zero-rated.';
+                $vatType = 'vatable';
+            }
+
+            $lineTotal = round($gross - max(0, min($discount, $gross)), 2);
+            $lineVat = $vatType === 'vatable' ? round($lineTotal * self::VAT_RATE / 100, 2) : 0.0;
+
             $lines[] = [
                 'drug_id' => $drugId,
                 'supplier_product_id' => $listing ? (int) $listing['id'] : null,
@@ -873,12 +928,15 @@ class PurchaseOrderService
                 'quantity' => $quantity,
                 'unit_price' => max(0, $unitPrice),
                 'discount_amount' => max(0, $discount),
-                'line_total' => round($gross - max(0, min($discount, $gross)), 2),
+                'line_total' => $lineTotal,
+                'vat_type' => $vatType,
+                'vat_amount' => $lineVat,
                 'notes' => $notes !== '' ? mb_substr($notes, 0, 255) : null
             ];
 
             $subtotal += $gross;
             $discountTotal += max(0, min($discount, $gross));
+            $vatTotal += $lineVat;
         }
 
         if ($submit && !$items) {
@@ -887,7 +945,9 @@ class PurchaseOrderService
 
         $header['subtotal'] = round($subtotal, 2);
         $header['discount_total'] = round($discountTotal, 2);
-        $header['total'] = round($subtotal - $discountTotal + $header['shipping_fee'], 2);
+        $header['vat_rate'] = self::VAT_RATE;
+        $header['vat_amount'] = round($vatTotal, 2);
+        $header['total'] = round($subtotal - $discountTotal + $header['vat_amount'] + $header['shipping_fee'], 2);
 
         return [$header, $lines, $errors];
     }
@@ -910,6 +970,8 @@ class PurchaseOrderService
             'notes' => $r['notes'],
             'subtotal' => (float) $r['subtotal'],
             'discount_total' => (float) $r['discount_total'],
+            'vat_rate' => (float) ($r['vat_rate'] ?? 0),
+            'vat_amount' => (float) ($r['vat_amount'] ?? 0),
             'shipping_fee' => (float) $r['shipping_fee'],
             'total' => (float) $r['total'],
             'item_count' => (int) $r['item_count'],

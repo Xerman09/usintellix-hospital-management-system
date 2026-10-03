@@ -2,6 +2,7 @@ import { api } from "../../core/api.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { ChartLabelPopupMarkup } from "./popup-chart-label.view.js";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 let modalReady = false;
 let currentPatient = null;
@@ -68,7 +69,7 @@ function applyZoom(delta) {
 }
 
 function labelHtml() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayISO();
     return `
         <div class="pcl-label">
             ${escapeHtml(`${currentPatient.first_name} ${currentPatient.last_name}`)}<br>

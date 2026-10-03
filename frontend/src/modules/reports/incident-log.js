@@ -1,6 +1,7 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
 import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=1";
+import { systemNow, toDateTimeInput } from "../../core/timezone.js";
 
 let currentIncidents = [];
 let availableDepartments = [];
@@ -345,11 +346,10 @@ function openNewIncidentModal() {
     form.reset();
 
     // Default datetime to now in local ISO string
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const now = systemNow();
     const dateInput = document.getElementById("ilIncidentDate");
     if (dateInput) {
-        dateInput.value = now.toISOString().slice(0, 16);
+        dateInput.value = toDateTimeInput(now);
     }
 
     const anonCheckbox = document.getElementById("ilIsAnonymous");

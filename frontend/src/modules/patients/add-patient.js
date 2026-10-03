@@ -2,6 +2,7 @@ import { getUser } from "../../core/session.js";
 import { createPatient } from "./patients.service.js";
 import { fetchProviders } from "../providers/providers.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
+import { todayISO } from "../../core/timezone.js";
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",
@@ -31,7 +32,7 @@ export async function initAddPatient()
     enablePasswordToggles();
     wireTabs();
 
-    document.getElementById("birthdate").max = new Date().toISOString().split("T")[0];
+    document.getElementById("birthdate").max = todayISO();
 
     await loadProviders();
 

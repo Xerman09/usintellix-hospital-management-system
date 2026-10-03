@@ -9,6 +9,7 @@ import {
     getBackupsExportUrl,
     getDrillsExportUrl
 } from "./backup-recovery.service.js?v=1";
+import { todayISO } from "../../core/timezone.js";
 
 export function initBackupRecovery(container = document) {
     // Top-level elements
@@ -71,7 +72,7 @@ export function initBackupRecovery(container = document) {
 
     // Set today as default date in drill modal
     if (drillInputDate) {
-        drillInputDate.value = new Date().toISOString().split("T")[0];
+        drillInputDate.value = todayISO();
     }
 
     // Modal Close buttons
@@ -543,7 +544,7 @@ export function initBackupRecovery(container = document) {
                 if (res && res.success) {
                     modalLogDrill.style.display = "none";
                     formLogDrill.reset();
-                    if (drillInputDate) drillInputDate.value = new Date().toISOString().split("T")[0];
+                    if (drillInputDate) drillInputDate.value = todayISO();
                     alert(`Disaster Recovery Drill Logged Successfully!\n\nReference: ${res.data.drill_code}\nRestorer: ${res.data.restorer_name}\nOutcome: ${res.data.restoration_success ? 'SUCCESS' : 'FAILED'}\n\nTamper-evident audit trail updated.`);
                     loadStats();
                     loadDrills();

@@ -1,7 +1,9 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function UniqueSeenPatientsView() {
-    const now = new Date();
-    const to = new Date(now.getFullYear(), 11, 31).toISOString().slice(0, 10);
-    const from = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+    const now = systemNow();
+    const to = toDateInput(new Date(now.getFullYear(), 11, 31));
+    const from = toDateInput(new Date(now.getFullYear(), 0, 1));
 
     return `
 <style>

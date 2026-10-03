@@ -1,6 +1,7 @@
 import { getUser } from "../../core/session.js";
 import { fetchLabDocuments } from "../patient-documents/patient-documents.service.js";
 import { API_URL } from "../../core/api.js";
+import { systemNow } from "../../core/timezone.js";
 
 // Real data: every "Lab Result" category document uploaded for any
 // patient, across the whole practice. Note: this app has no
@@ -15,7 +16,7 @@ export async function initLabDocuments()
         return;
     }
 
-    const today = new Date();
+    const today = systemNow();
     const weekAgo = new Date(today);
 
     weekAgo.setDate(today.getDate() - 7);

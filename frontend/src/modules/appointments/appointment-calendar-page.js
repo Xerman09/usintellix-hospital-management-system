@@ -13,6 +13,7 @@ import { renderMiniCalendar } from "./appointment-mini-calendar.js";
 import { renderTimeline } from "./appointment-timeline.js?v=3";
 import { renderWeekView } from "./appointment-week-view.js?v=2";
 import { renderMonthView } from "./appointment-month-view.js?v=2";
+import { systemNow } from "../../core/timezone.js";
 
 let monthCache = {};
 let currentYear;
@@ -50,7 +51,7 @@ export async function initAppointmentCalendarPage({ showProvider: withProvider =
 
     showProvider = withProvider;
 
-    const now = new Date();
+    const now = systemNow();
 
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();

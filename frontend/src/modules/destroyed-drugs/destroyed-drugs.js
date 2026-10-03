@@ -1,4 +1,5 @@
 import { fetchDestroyedDrugs } from "./destroyed-drugs.service.js";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 let allRows = [];
 let filteredRows = [];
@@ -7,7 +8,7 @@ let pageSize = 10;
 let searchTerm = "";
 
 export async function initDestroyedDrugs() {
-    const today = new Date();
+    const today = systemNow();
     const yearStart = new Date(today.getFullYear(), 0, 1);
 
     document.getElementById("ddFrom").value = toDateInput(yearStart);
@@ -119,10 +120,6 @@ function renderPagination(totalPages) {
 
     document.getElementById("ddPrevPage")?.addEventListener("click", () => { currentPage--; render(); });
     document.getElementById("ddNextPage")?.addEventListener("click", () => { currentPage++; render(); });
-}
-
-function toDateInput(date) {
-    return date.toISOString().slice(0, 10);
 }
 
 function formatQuantity(value) {

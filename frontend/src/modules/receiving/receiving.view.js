@@ -111,7 +111,7 @@ export function ReceivingView() {
 .rv-remove:hover { border-color: #fca5a5; color: #b91c1c; background: #fee2e2; }
 .rv-done-note { margin-top: 10px; font-size: 12.5px; color: var(--text-muted); }
 .rv-add-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
-.rv-add-extra select { flex: 0 1 420px; height: 34px; padding: 0 10px; border-radius: 6px; border: 1px dashed var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; font-family: inherit; }
+.rv-add-extra select { flex: 0 1 420px; min-width: 0; max-width: 100%; height: 34px; padding: 0 10px; border-radius: 6px; border: 1px dashed var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; font-family: inherit; }
 .rv-add-extra .rv-hint { margin: 0; }
 .rv-lines tr.is-extra td { background: rgba(245,158,11,.05); }
 .rv-extra-fields { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
@@ -138,14 +138,33 @@ export function ReceivingView() {
 .rv-banner span { font-size: 12.5px; color: var(--text-muted); }
 :root[data-theme="dark"] .rv-banner { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.45); }
 
-.rv-confirm-summary { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface-alt); font-size: 13px; }
+.rv-badge.voided { background: #fee2e2; color: #991b1b; }
+.rv-badge.billed { background: #dcfce7; color: #166534; }
+:root[data-theme="dark"] .rv-badge.voided { background: rgba(239,68,68,.18); color: #fecaca; }
+:root[data-theme="dark"] .rv-badge.billed { background: rgba(34,197,94,.18); color: #bbf7d0; }
+.rv-table tr.is-voided td { color: var(--text-muted); }
+.rv-table tr.is-voided td:first-child strong { text-decoration: line-through; }
+.rv-banner.voided { border-color: #fca5a5; background: #fef2f2; }
+:root[data-theme="dark"] .rv-banner.voided { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.45); }
+.rv-btn.danger { border-color: #fca5a5; color: #b91c1c; }
+.rv-btn.danger:hover { background: #fee2e2; }
+.rv-btn.danger.solid { background: #dc2626; border-color: #dc2626; color: #fff; }
+.rv-btn.danger.solid:hover { background: #b91c1c; }
+:root[data-theme="dark"] .rv-btn.danger { color: #fca5a5; border-color: rgba(239,68,68,.5); }
+:root[data-theme="dark"] .rv-btn.danger:hover { background: rgba(239,68,68,.15); }
+:root[data-theme="dark"] .rv-btn.danger.solid { color: #fff; background: #dc2626; }
+.rv-void-reason { width: 100%; min-height: 70px; padding: 8px 10px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; font-family: inherit; resize: vertical; }
+
+.rv-confirm-summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface-alt); font-size: 13px; }
 .rv-confirm-summary dt { color: var(--text-muted); }
-.rv-confirm-summary dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); text-align: right; font-weight: 600; }
+.rv-confirm-summary dd { margin: 0; min-width: 0; overflow-wrap: break-word; color: var(--text-primary); text-align: right; font-weight: 600; }
 .rv-confirm-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
 
 @media (max-width: 900px) { .rv-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) {
     .rv-grid { grid-template-columns: 1fr; }
+    .rv-confirm-summary { grid-template-columns: 1fr; gap: 2px; }
+    .rv-confirm-summary dd { text-align: left; margin-bottom: 6px; }
     .rv-filters input[type="text"] { min-width: 0; width: 100%; }
     .rv-count { margin-left: 0; }
 }
@@ -261,6 +280,26 @@ export function ReceivingView() {
     <div id="rvDetailPanel" hidden>
         <button type="button" class="rv-btn small rv-back" data-rv-back>&larr; Back to receiving</button>
         <div id="rvDetail"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="rvVoidOverlay">
+    <div class="modal-box" style="max-width: 500px;" role="dialog" aria-modal="true" aria-labelledby="rvVoidTitle">
+        <div class="modal-header">
+            <h2 id="rvVoidTitle">Void receiving report?</h2>
+            <button type="button" class="modal-close" id="rvVoidClose" aria-label="Close">&times;</button>
+        </div>
+        <div id="rvVoidBody"></div>
+        <div id="rvVoidAlert"></div>
+        <label for="rvVoidReason" style="display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:var(--text-primary);">Reason<span style="color:#dc2626;">*</span></label>
+        <textarea id="rvVoidReason" class="rv-void-reason" maxlength="255" placeholder="e.g. Entered twice, received against the wrong order"></textarea>
+        <span class="form-error" id="err-rv_void_reason"></span>
+        <div class="rv-footer">
+            <div class="rv-footer-right">
+                <button type="button" class="rv-btn" id="rvVoidCancel">Keep It</button>
+                <button type="button" class="rv-btn danger solid" id="rvVoidOk">Void Receipt</button>
+            </div>
+        </div>
     </div>
 </div>
 

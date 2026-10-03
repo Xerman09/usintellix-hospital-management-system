@@ -2,6 +2,7 @@ import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 import { fetchDuplicateGroups, dismissDuplicateGroup } from "./patient-duplicates.service.js";
 import { mergePatients } from "../patient-merge/patient-merge.service.js";
+import { todayISO } from "../../core/timezone.js";
 
 let groups = [];
 let pendingMerge = null;
@@ -256,7 +257,7 @@ function exportSpreadsheet()
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `duplicate-patients-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `duplicate-patients-${todayISO()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

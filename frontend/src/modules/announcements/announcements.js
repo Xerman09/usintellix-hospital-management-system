@@ -9,6 +9,7 @@ import {
 } from "./announcements.service.js";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
+import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
 let availableRoles = [];
@@ -419,7 +420,7 @@ async function openCreateModal() {
     title.textContent = "New Announcement";
 
     // Set default start_date to current local time (YYYY-MM-DDTHH:mm)
-    const now = new Date();
+    const now = systemNow();
     const localIso = formatForDateTimeLocal(now);
     const startDateInput = document.getElementById("annStartDateInput");
     if (startDateInput) startDateInput.value = localIso;

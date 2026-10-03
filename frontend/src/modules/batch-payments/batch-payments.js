@@ -5,6 +5,7 @@ import {
 import { fetchPatients } from "../patients/patients.service.js";
 import { fetchPatientEncounters } from "../encounters/encounters.service.js";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 const HEADER_FIELDS = [
     "payment_date", "post_to_date", "payment_method", "check_number", "payment_amount",
@@ -71,7 +72,7 @@ function showAlert(containerId, message, type) {
 }
 
 function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+    return todayISO();
 }
 
 function resetForm() {

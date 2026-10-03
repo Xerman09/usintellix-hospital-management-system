@@ -1,6 +1,8 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function StandardMeasuresView() {
-    const now = new Date();
-    const formattedDate = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 8);
+    const now = systemNow();
+    const formattedDate = toDateInput(now) + ' ' + now.toTimeString().slice(0, 8);
 
     return `
         <div class="standard-measures-wrapper" style="padding: 20px; font-family: Arial, sans-serif;">

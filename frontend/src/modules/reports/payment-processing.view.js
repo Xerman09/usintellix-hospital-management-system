@@ -1,5 +1,7 @@
+import { systemNow } from "../../core/timezone.js";
+
 export function PaymentProcessingView() {
-    const now = new Date();
+    const now = systemNow();
     const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     return `

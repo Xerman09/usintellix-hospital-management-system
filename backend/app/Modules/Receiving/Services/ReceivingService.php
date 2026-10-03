@@ -24,6 +24,11 @@ use Throwable;
  * Quantity rejected on arrival is recorded but not stocked, and doesn't
  * count as received -- the supplier still owes it.
  *
+ * A receipt entered by mistake can be voided (void()) while its stock
+ * is still untouched and it isn't on a supplier invoice: the stock comes
+ * back out, the order's received quantities and status are reversed,
+ * and the receipt stays on file marked voided.
+ *
  * Deliveries don't always match the order, so a receipt may also hold:
  *   * more than was still due on a line -- accepted, with the excess
  *     kept in over_quantity so it shows as an over-delivery;
@@ -76,7 +81,7 @@ class ReceivingService
 
         $stmt = Database::connection()->prepare(
             "SELECT purchase_order_id, COUNT(*) FROM goods_receipts
-             WHERE purchase_order_id IN ({$placeholders})
+             WHERE purchase_order_id IN ({$placeholders}) AND voided_at IS NULL
              GROUP BY purchase_order_id"
         );
         $stmt->execute($ids);
@@ -117,7 +122,12 @@ class ReceivingService
                     (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS item_count,
                     (SELECT COALESCE(SUM(i.rejected_quantity), 0) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS rejected_total,
                     (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.purchase_order_item_id IS NULL) AS extra_count,
-                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.over_quantity > 0) AS over_count
+                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.over_quantity > 0) AS over_count,
+                    " . self::userNameSql('gr.voided_by') . " AS voided_by_name,
+                    (SELECT CONCAT(si.id, '|', si.ap_number, '|', si.status) FROM supplier_invoice_receipts sir
+                     JOIN supplier_invoices si ON si.id = sir.supplier_invoice_id
+                     WHERE sir.goods_receipt_id = gr.id AND si.status <> 'cancelled' AND si.deleted_at IS NULL
+                     ORDER BY si.id DESC LIMIT 1) AS billed_on
              FROM goods_receipts gr
              JOIN purchase_orders po ON po.id = gr.purchase_order_id
              JOIN suppliers s ON s.id = gr.supplier_id
@@ -142,7 +152,12 @@ class ReceivingService
                     (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS item_count,
                     (SELECT COALESCE(SUM(i.rejected_quantity), 0) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id) AS rejected_total,
                     (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.purchase_order_item_id IS NULL) AS extra_count,
-                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.over_quantity > 0) AS over_count
+                    (SELECT COUNT(*) FROM goods_receipt_items i WHERE i.goods_receipt_id = gr.id AND i.over_quantity > 0) AS over_count,
+                    " . self::userNameSql('gr.voided_by') . " AS voided_by_name,
+                    (SELECT CONCAT(si.id, '|', si.ap_number, '|', si.status) FROM supplier_invoice_receipts sir
+                     JOIN supplier_invoices si ON si.id = sir.supplier_invoice_id
+                     WHERE sir.goods_receipt_id = gr.id AND si.status <> 'cancelled' AND si.deleted_at IS NULL
+                     ORDER BY si.id DESC LIMIT 1) AS billed_on
              FROM goods_receipts gr
              JOIN purchase_orders po ON po.id = gr.purchase_order_id
              JOIN suppliers s ON s.id = gr.supplier_id
@@ -640,6 +655,189 @@ class ReceivingService
         ];
     }
 
+    /**
+     * Takes a receipt back out: stock leaves the lots it went into, the
+     * order's received quantities (and status) are reversed, and the
+     * receipt is kept, marked voided. Refused once any of its stock has
+     * been used or moved, or once it's billed on a supplier invoice.
+     */
+    public function void(int $id, string $reason, int $userId): array
+    {
+        $db = Database::connection();
+        $receipt = $this->get($id);
+
+        if (!$receipt) {
+            return ['success' => false, 'message' => 'Receipt not found.', 'not_found' => true];
+        }
+
+        if ($receipt['voided_at']) {
+            return ['success' => false, 'message' => "{$receipt['gr_number']} is already voided."];
+        }
+
+        if ($receipt['invoice']) {
+            return ['success' => false, 'message' => "{$receipt['gr_number']} is billed on supplier invoice {$receipt['invoice']['ap_number']}. Cancel that invoice, or take this delivery off it, first."];
+        }
+
+        if (!in_array($receipt['po_status'], ['approved', 'partially_received', 'received'], true)) {
+            return ['success' => false, 'message' => "{$receipt['po_number']} is {$receipt['po_status']}, so its deliveries can't be voided."];
+        }
+
+        $reason = mb_substr(trim($reason), 0, 255);
+
+        if ($reason === '') {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
+                'reason' => 'Say why this receipt is being voided (e.g. entered twice, wrong order).'
+            ]];
+        }
+
+        $stmt = $db->prepare(
+            "SELECT purchase_order_item_id, lot_id, quantity, base_quantity FROM goods_receipt_items WHERE goods_receipt_id = :id"
+        );
+        $stmt->execute(['id' => $id]);
+
+        $byLot = [];    // lot_id => dispensing units to take back out
+        $byLine = [];   // purchase_order_item_id => order units to un-receive
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if ($row['lot_id'] !== null && (float) $row['base_quantity'] > 0) {
+                $byLot[(int) $row['lot_id']] = ($byLot[(int) $row['lot_id']] ?? 0) + (float) $row['base_quantity'];
+            }
+
+            if ($row['purchase_order_item_id'] !== null && (float) $row['quantity'] > 0) {
+                $line = (int) $row['purchase_order_item_id'];
+                $byLine[$line] = ($byLine[$line] ?? 0) + (float) $row['quantity'];
+            }
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $ownsTransaction = !$db->inTransaction();
+
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        } else {
+            $db->exec('SAVEPOINT goods_receipt_void');
+        }
+
+        $undo = function () use ($db, $ownsTransaction) {
+            if ($ownsTransaction) {
+                $db->rollBack();
+            } else {
+                $db->exec('ROLLBACK TO SAVEPOINT goods_receipt_void');
+            }
+        };
+
+        try {
+            if ($byLot) {
+                $placeholders = implode(', ', array_fill(0, count($byLot), '?'));
+                $stmt = $db->prepare(
+                    "SELECT l.id, l.lot_number, l.quantity_on_hand, d.name AS drug_name, w.name AS warehouse_name
+                     FROM drug_inventory_lots l
+                     JOIN drugs d ON d.id = l.drug_id
+                     LEFT JOIN warehouses w ON w.id = l.warehouse_id
+                     WHERE l.id IN ({$placeholders})
+                     FOR UPDATE"
+                );
+                $stmt->execute(array_keys($byLot));
+
+                $lots = [];
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $lot) {
+                    $lots[(int) $lot['id']] = $lot;
+                }
+
+                $short = [];
+                foreach ($byLot as $lotId => $qty) {
+                    $onHand = isset($lots[$lotId]) ? (float) $lots[$lotId]['quantity_on_hand'] : 0.0;
+
+                    if ($onHand + self::EPSILON < $qty) {
+                        $lot = $lots[$lotId] ?? ['drug_name' => 'An item', 'lot_number' => '?', 'warehouse_name' => null];
+                        $short[] = "{$lot['drug_name']} lot {$lot['lot_number']}"
+                            . ($lot['warehouse_name'] ? " in {$lot['warehouse_name']}" : '')
+                            . ": {$this->formatNumber($qty)} received, only {$this->formatNumber($onHand)} left";
+                    }
+                }
+
+                if ($short) {
+                    $undo();
+                    return [
+                        'success' => false,
+                        'message' => "Some of this stock has already been dispensed, moved or disposed of, so {$receipt['gr_number']} can't be voided. "
+                            . implode('; ', $short) . '.'
+                    ];
+                }
+
+                $take = $db->prepare(
+                    "UPDATE drug_inventory_lots SET quantity_on_hand = quantity_on_hand - :qty, updated_at = :now, updated_by = :user WHERE id = :id"
+                );
+                foreach ($byLot as $lotId => $qty) {
+                    $take->execute(['qty' => round($qty, 3), 'now' => $now, 'user' => $userId, 'id' => $lotId]);
+                }
+            }
+
+            $db->prepare("UPDATE drug_inventory_receipts SET voided_at = :now WHERE goods_receipt_id = :id")
+                ->execute(['now' => $now, 'id' => $id]);
+
+            $reverse = $db->prepare(
+                "UPDATE purchase_order_items SET quantity_received = GREATEST(0, quantity_received - :qty) WHERE id = :id"
+            );
+            foreach ($byLine as $lineId => $qty) {
+                $reverse->execute(['qty' => round($qty, 3), 'id' => $lineId]);
+            }
+
+            $stmt = $db->prepare(
+                "SELECT SUM(CASE WHEN quantity_received > " . self::EPSILON . " THEN 1 ELSE 0 END) AS started,
+                        SUM(CASE WHEN quantity_received + " . self::EPSILON . " < quantity THEN 1 ELSE 0 END) AS open_lines
+                 FROM purchase_order_items WHERE purchase_order_id = :id"
+            );
+            $stmt->execute(['id' => $receipt['purchase_order_id']]);
+            $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $newStatus = (int) $progress['open_lines'] === 0 ? 'received'
+                : ((int) $progress['started'] > 0 ? 'partially_received' : 'approved');
+
+            $values = ['status' => $newStatus, 'updated_at' => $now, 'updated_by' => $userId];
+            if ($newStatus !== 'received') {
+                $values['received_at'] = null;
+            }
+            (new PurchaseOrder())->update($values, $receipt['purchase_order_id']);
+
+            (new GoodsReceipt())->update([
+                'voided_at' => $now,
+                'voided_by' => $userId,
+                'void_reason' => $reason
+            ], $id);
+
+            (new PurchaseOrderService())->log(
+                $receipt['purchase_order_id'],
+                'receipt_voided',
+                "{$receipt['gr_number']}: {$reason}",
+                $userId,
+                $now
+            );
+
+            if ($ownsTransaction) {
+                $db->commit();
+            } else {
+                $db->exec('RELEASE SAVEPOINT goods_receipt_void');
+            }
+        } catch (Throwable $e) {
+            $undo();
+            error_log('goods receipt void failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to void the receipt. Nothing was changed.'];
+        }
+
+        $after = [
+            'approved' => "{$receipt['po_number']} is back to ready for receiving.",
+            'partially_received' => "{$receipt['po_number']} is now partially received.",
+            'received' => "{$receipt['po_number']} is still fully received."
+        ][$newStatus];
+
+        return [
+            'success' => true,
+            'message' => "{$receipt['gr_number']} voided and its stock taken back out. {$after}",
+            'data' => ['id' => $id, 'po_status' => $newStatus]
+        ];
+    }
+
     private function formatHeader(array $r): array
     {
         return [
@@ -662,8 +860,20 @@ class ReceivingService
             'extra_count' => (int) ($r['extra_count'] ?? 0),
             'over_count' => (int) ($r['over_count'] ?? 0),
             'received_by_name' => $r['received_by_name'],
-            'created_at' => $r['created_at']
+            'created_at' => $r['created_at'],
+            'voided_at' => $r['voided_at'] ?? null,
+            'voided_by_name' => $r['voided_by_name'] ?? null,
+            'void_reason' => $r['void_reason'] ?? null,
+            // The supplier invoice (not cancelled) this delivery is billed on.
+            'invoice' => !empty($r['billed_on']) ? self::parseBilledOn($r['billed_on']) : null
         ];
+    }
+
+    private static function parseBilledOn(string $value): array
+    {
+        [$id, $number, $status] = explode('|', $value, 3);
+
+        return ['id' => (int) $id, 'ap_number' => $number, 'status' => $status];
     }
 
     private static function userNameSql(string $column): string

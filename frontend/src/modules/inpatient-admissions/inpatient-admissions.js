@@ -13,6 +13,7 @@ import {
 } from './inpatient-admissions.service.js?v=2';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
+import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
 let currentCensusData = {
@@ -51,7 +52,7 @@ function setupLiveClock() {
     if (clockIntervalId) clearInterval(clockIntervalId);
 
     function update() {
-        const now = new Date();
+        const now = systemNow();
         const clockEl = document.getElementById('inpatientLiveClock');
         const dateEl = document.getElementById('inpatientLiveDate');
 
@@ -81,7 +82,7 @@ function setupAutoRefresh() {
 }
 
 function setupDefaultDates() {
-    const now = new Date();
+    const now = systemNow();
     const pad = (n) => String(n).padStart(2, '0');
     const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 

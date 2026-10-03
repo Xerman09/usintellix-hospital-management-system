@@ -1,6 +1,8 @@
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+
 export function ClinicalReportView() {
-    const today = new Date().toISOString().split('T')[0] + ' 13:32:15';
-    const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0] + ' 13:32:15';
+    const today = todayISO() + ' 13:32:15';
+    const firstDayOfYear = toDateInput(new Date(systemNow().getFullYear(), 0, 1)) + ' 13:32:15';
 
     return `
         <div class="clinical-report-wrapper" style="padding: 20px;">

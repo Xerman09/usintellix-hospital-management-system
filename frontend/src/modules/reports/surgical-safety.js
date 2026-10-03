@@ -1,6 +1,7 @@
 import { api } from '../../core/api.js';
 import { logReportRun } from './report-history.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
+import { todayISO } from "../../core/timezone.js";
 
 let currentRecords = [];
 
@@ -70,7 +71,7 @@ function setupEventListeners() {
     const cancelBtn = document.getElementById('sscCancelAddBtn');
     const cancelBtn2 = document.getElementById('sscCancelAddBtn2');
     if (addBtn && addModal) addBtn.addEventListener('click', () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayISO();
         const dateEl = document.getElementById('sscFDate');
         if (dateEl && !dateEl.value) dateEl.value = today;
         addModal.style.display = 'flex';

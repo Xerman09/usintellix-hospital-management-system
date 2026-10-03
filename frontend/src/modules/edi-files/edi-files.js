@@ -3,6 +3,7 @@ import {
     fetchCsvTable, fetchOlderThanReport, bulkArchiveOlderThan
 } from "./edi-files.service.js";
 import { showToast } from "../../core/toast.js";
+import { systemNow, toDateInput } from "../../core/timezone.js";
 
 let allFiles = [];
 let selectedPreviewFileId = null;
@@ -200,12 +201,12 @@ function setupCsvTablesTab() {
 function applyPeriod(days) {
     if (!days) return;
 
-    const to = new Date();
-    const from = new Date();
+    const to = systemNow();
+    const from = systemNow();
     from.setDate(from.getDate() - Number(days));
 
-    document.getElementById("ediCsvEndDate").value = to.toISOString().slice(0, 10);
-    document.getElementById("ediCsvStartDate").value = from.toISOString().slice(0, 10);
+    document.getElementById("ediCsvEndDate").value = toDateInput(to);
+    document.getElementById("ediCsvStartDate").value = toDateInput(from);
 }
 
 async function runCsvTable(encounterId) {

@@ -2,6 +2,7 @@ import { api } from "../../core/api.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { PaymentPopupMarkup, PaymentView } from "./payment.view.js";
 import { showToast } from "../../core/toast.js";
+import { todayISO } from "../../core/timezone.js";
 
 let modalReady = false;
 
@@ -123,7 +124,7 @@ async function loadPaymentData(patientId) {
         }
     });
 
-    const today = new Date().toISOString().substring(0, 10);
+    const today = todayISO();
 
     let html = `
         <tr>
@@ -180,7 +181,7 @@ async function loadPaymentData(patientId) {
 }
 
 async function submitPayment(patientId, payInputs) {
-    const todayStr = new Date().toISOString().substring(0, 10);
+    const todayStr = todayISO();
     const paymentsToProcess = [];
 
     payInputs.forEach((inp) => {

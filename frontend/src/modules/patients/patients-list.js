@@ -173,6 +173,7 @@ import {
 } from "../patient-insurances/patient-insurances.service.js";
 import { openCodePicker } from "./code-picker.js";
 import { showToast } from "../../core/toast.js";
+import { systemNow, todayISO, toDateInput, toDateTimeInput, nowDateTime } from "../../core/timezone.js";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -918,7 +919,7 @@ function generateCcrReportHtml(patient, data, startDate, endDate) {
     <h1>Continuity of Care Record</h1>
     <div class="header-box">
         <table>
-            <tr><td>Date Created:</td><td>${new Date().toUTCString()}</td></tr>
+            <tr><td>Date Created:</td><td>${systemNow().toUTCString()}</td></tr>
             <tr><td>From:</td><td>Motol University Hospital - II (Facility) (author)</td></tr>
             <tr><td>To:</td><td>${escapeHtml(fullName)} (patient)</td></tr>
             <tr><td>Purpose:</td><td>Summary of patient information</td></tr>
@@ -1138,7 +1139,7 @@ function generateCcdReportHtml(patient, data) {
 
     <table class="ccd-info ccd-doc">
         <tr><td class="ccd-label">Document Id</td><td>${escapeHtml(documentId)}</td></tr>
-        <tr><td class="ccd-label">Document Created</td><td>${new Date().toUTCString()}</td></tr>
+        <tr><td class="ccd-label">Document Created</td><td>${systemNow().toUTCString()}</td></tr>
     </table>
 
     <table class="ccd-info ccd-author">
@@ -1359,7 +1360,7 @@ export function generateCcdDetailedReportHtml(patient, data) {
             <h2 id="ccdd-authoring">Authoring Details</h2>
             <p>
                 <strong>Author:</strong> ${escapeHtml(getUser()?.first_name || '')} ${escapeHtml(getUser()?.last_name || '')}<br/>
-                <strong>Document Created:</strong> ${new Date().toUTCString()}
+                <strong>Document Created:</strong> ${systemNow().toUTCString()}
             </p>
 
             <h2 id="ccdd-careteams">Patient Care Teams</h2>
@@ -1503,7 +1504,7 @@ export function generateCcdDetailedReportHtml(patient, data) {
             <h2 id="ccdd-doc-info">Document Information</h2>
             <p>
                 <strong>Document Identifier:</strong> ${escapeHtml(documentId)}<br/>
-                <strong>Document Created:</strong> ${new Date().toUTCString()}
+                <strong>Document Created:</strong> ${systemNow().toUTCString()}
             </p>
         </div>
     </div>
@@ -1969,8 +1970,8 @@ let currentLedgerData = null;
 
 function defaultLedgerDateRange()
 {
-    const to = new Date();
-    const from = new Date();
+    const to = systemNow();
+    const from = systemNow();
     from.setFullYear(from.getFullYear() - 1);
 
     const pad = (n) => String(n).padStart(2, "0");
@@ -2113,7 +2114,7 @@ function openLedgerPaymentModal(encounterId = null)
     document.getElementById("ledgerPaymentFormAlert").innerHTML = "";
     document.getElementById("ledgerPaymentForm").reset();
     document.getElementById("ledgerPayment_payment_type").value = "COPAY";
-    document.getElementById("ledgerPayment_payment_date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("ledgerPayment_payment_date").value = todayISO();
     document.getElementById("ledgerPaymentModalOverlay").classList.add("open");
 }
 
@@ -2299,7 +2300,7 @@ function openTransactionForm(record)
     document.getElementById("pdTxnSentSummaryElectronically").disabled = !record?.sent_summary_of_care;
     document.getElementById("pdTxnConfirmedReceived").disabled = !record?.sent_summary_of_care;
 
-    set("pdTxnReferralDate", record?.referral_date ? record.referral_date.substring(0, 10) : new Date().toISOString().substring(0, 10));
+    set("pdTxnReferralDate", record?.referral_date ? record.referral_date.substring(0, 10) : todayISO());
     set("pdTxnExternalReferral", record?.external_referral || "unassigned");
     set("pdTxnReason", record?.reason);
     set("pdTxnRiskLevel", record?.risk_level || "unassigned");
@@ -6489,7 +6490,7 @@ async function loadDashboardAppointments(patient)
     }
 
     try {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayISO();
         const result = await fetchAppointments({ patient_id: patient.id, from: today });
 
         const appointments = (result.success ? result.data : [])
@@ -6993,7 +6994,7 @@ function setupPatientBraceletModal(patient)
             document.getElementById("pbSex").textContent = patient.sex ? patient.sex.charAt(0).toUpperCase() : "-";
             document.getElementById("pbBloodType").textContent = patient.blood_type || "-";
             document.getElementById("pbProvider").textContent = patient.provider_last_name ? patient.provider_last_name.toUpperCase() : "-";
-            document.getElementById("pbAdmDate").textContent = patient.admission_date ? String(patient.admission_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
+            document.getElementById("pbAdmDate").textContent = patient.admission_date ? String(patient.admission_date).slice(0, 10) : todayISO();
             
             if (typeof window.JsBarcode !== "undefined") {
                 window.JsBarcode("#pbBarcodeSvg", patient.patient_no || "000000", {
@@ -7017,7 +7018,7 @@ function setupPatientBraceletModal(patient)
             const sex = patient.sex ? patient.sex.charAt(0).toUpperCase() : "-";
             const bloodType = patient.blood_type || "-";
             const provider = patient.provider_last_name ? patient.provider_last_name.toUpperCase() : "-";
-            const admDate = patient.admission_date ? String(patient.admission_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
+            const admDate = patient.admission_date ? String(patient.admission_date).slice(0, 10) : todayISO();
             const patNo = patient.patient_no || "000000";
 
             const printWindow = window.open("", "_blank", "width=850,height=600");
@@ -7200,8 +7201,7 @@ function createPreferencePanelController(config)
 
         document.getElementById(categoryId).value = "";
 
-        const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
-        document.getElementById(dateId).value = now.toISOString().slice(0, 16);
+        document.getElementById(dateId).value = toDateTimeInput(systemNow());
         document.getElementById(statusId).value = "final";
 
         const codedRadio = document.querySelector(`input[name="${responseRadioName}"][value="coded"]`);
@@ -8515,7 +8515,7 @@ function openClinicalInstructionsFormModal(existingRecord)
     document.getElementById("clinicalInstructions_content").value = existingRecord ? (existingRecord.instructions || "") : "";
     document.getElementById("clinical_instruction_item_date").value = existingRecord
         ? existingRecord.item_date
-        : formatMysqlDateTime(new Date());
+        : formatMysqlDateTime(systemNow());
     document.getElementById("clinicalInstructionsFormModalOverlay").classList.add("open");
 }
 
@@ -9238,7 +9238,7 @@ function openObservationFormModal(existingRecord)
     } else {
         rowEl.querySelector(".obs-status").value = "Preliminary";
 
-        const now = new Date();
+        const now = systemNow();
         const pad = (n) => String(n).padStart(2, "0");
 
         rowEl.querySelector(".obs-item-date").value =
@@ -10482,7 +10482,7 @@ function openDisclosureFormModal(existingRecord)
     } else {
         title.textContent = "Record Statutory Disclosure";
         recordIdInput.value = "";
-        document.getElementById("disclosure_disclosure_date").value = new Date().toISOString().split("T")[0];
+        document.getElementById("disclosure_disclosure_date").value = todayISO();
         document.getElementById("disclosure_legal_basis").value = "court_order_subpoena";
         document.getElementById("disclosure_disclosure_medium").value = "electronic_portal";
     }
@@ -10824,7 +10824,7 @@ function openAmendmentFormModal(existingRecord)
     } else {
         title.textContent = "Add Amendment";
         recordIdInput.value = "";
-        document.getElementById("amendment_requested_date").value = new Date().toISOString().slice(0, 10);
+        document.getElementById("amendment_requested_date").value = todayISO();
         document.getElementById("amendment_requested_by").value = "Patient";
         document.getElementById("amendment_status").value = "";
     }
@@ -11258,7 +11258,7 @@ async function openEncounterFormModal(existingRecord)
         const notesEl = document.getElementById("encounter_hitech_restriction_notes");
         if (notesEl) notesEl.value = "";
 
-        const now = new Date();
+        const now = systemNow();
         const pad = (n) => String(n).padStart(2, "0");
 
         document.getElementById("encounter_date_of_service").value =
@@ -11787,8 +11787,8 @@ function setupEncounterTransferModal()
             document.querySelectorAll("#pdTransferDatePresets button").forEach((b) => b.classList.remove("active"));
             btn.classList.add("active");
             const preset = btn.getAttribute("data-preset");
-            const today = new Date();
-            const formatDateYMD = (d) => d.toISOString().slice(0, 10);
+            const today = systemNow();
+            const formatDateYMD = (d) => toDateInput(d);
 
             if (preset === "all") {
                 if (visitHistoryEncounters && visitHistoryEncounters.length > 0) {
@@ -11803,17 +11803,17 @@ function setupEncounterTransferModal()
                     endInput.value = "";
                 }
             } else if (preset === "30d") {
-                const past = new Date();
+                const past = systemNow();
                 past.setDate(today.getDate() - 30);
                 startInput.value = formatDateYMD(past);
                 endInput.value = formatDateYMD(today);
             } else if (preset === "90d") {
-                const past = new Date();
+                const past = systemNow();
                 past.setDate(today.getDate() - 90);
                 startInput.value = formatDateYMD(past);
                 endInput.value = formatDateYMD(today);
             } else if (preset === "1y") {
-                const past = new Date();
+                const past = systemNow();
                 past.setFullYear(today.getFullYear() - 1);
                 startInput.value = formatDateYMD(past);
                 endInput.value = formatDateYMD(today);
@@ -11968,7 +11968,7 @@ function generateEncounterTransferSummaryHtml(patient, data, options = {})
         ? `${data.date_from ? formatDate(data.date_from) : "Earliest"} to ${data.date_to ? formatDate(data.date_to) : "Latest"}`
         : "All Recorded Visits";
     const documentId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `TR-${Date.now()}`;
-    const generatedAt = data.generated_at ? formatDateTime(data.generated_at) : formatDateTime(new Date().toISOString());
+    const generatedAt = data.generated_at ? formatDateTime(data.generated_at) : formatDateTime(nowDateTime());
 
     // Insurance
     const insurances = data.insurances || [];
@@ -16558,7 +16558,7 @@ function resetModalTabs(modalBox)
 async function setupAddPatientModal(user)
 {
     enablePasswordToggles();
-    document.getElementById("birthdate").max = new Date().toISOString().split("T")[0];
+    document.getElementById("birthdate").max = todayISO();
     await loadProviderOptions("provider_id");
 
     const modalOverlay = document.getElementById("addPatientModalOverlay");
@@ -16687,7 +16687,7 @@ async function setupEditPatientModal(user)
         return;
     }
 
-    editBirthdate.max = new Date().toISOString().split("T")[0];
+    editBirthdate.max = todayISO();
     await loadProviderOptions("edit_provider_id");
 
     const modalBox = modalOverlay.querySelector(".modal-box");
@@ -17779,7 +17779,7 @@ function calculateAge(birthdate)
         return null;
     }
 
-    const today = new Date();
+    const today = systemNow();
 
     let age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
@@ -17802,7 +17802,7 @@ function formatClinicalAge(birthdate)
         return "-";
     }
 
-    const today = new Date();
+    const today = systemNow();
     if (dob > today) {
         return "Newborn";
     }
@@ -17915,7 +17915,7 @@ function generateAiReportHtml(patient, aiData) {
     
     <div class="patient-info">
         <strong>Patient:</strong> ${escapeHtml(fullName)}<br>
-        <strong>Generated At:</strong> ${escapeHtml(data.generated_at || new Date().toLocaleString())}
+        <strong>Generated At:</strong> ${escapeHtml(data.generated_at || systemNow().toLocaleString())}
     </div>
 
     <div class="summary">
@@ -18033,7 +18033,7 @@ export function generateQrdaReportHtml(patient, data) {
     const patientDob = patient.birthdate ? new Date(patient.birthdate).toLocaleString() : "";
     const address = [patient.address_line, patient.city, patient.province, patient.zip_code].filter(Boolean).join(", ");
     const documentId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const now = new Date().toLocaleString();
+    const now = systemNow().toLocaleString();
 
     return `
 <!DOCTYPE html>

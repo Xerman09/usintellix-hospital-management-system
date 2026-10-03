@@ -5,6 +5,7 @@ import { fetchProfile } from "../profile/profile.service.js";
 import { generateCcdDetailedReportHtml } from "../patients/patients-list.js";
 import { generateCustomPatientReportHtml } from "./custom-report-template.js";
 import { fetchPatientDocuments } from "../patient-documents/patient-documents.service.js";
+import { todayISO } from "../../core/timezone.js";
 
 export function initReports() {
     const btnDownloadSummary = document.getElementById("btnDownloadSummary");
@@ -275,7 +276,7 @@ async function generateSummary(action) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             
-            const dateStr = new Date().toISOString().split('T')[0];
+            const dateStr = todayISO();
             const safeName = (user.first_name || 'Patient') + '_' + (user.last_name || '');
             
             a.href = url;
@@ -510,7 +511,7 @@ async function generateDocsZip() {
         const a = document.createElement('a');
         a.href = url;
         const user = getUser();
-        const dateStr = new Date().toISOString().split('T')[0];
+        const dateStr = todayISO();
         const safeName = (user.first_name || 'Patient') + '_' + (user.last_name || '');
         
         a.download = `Medical_Records_${safeName}_${dateStr}.zip`;

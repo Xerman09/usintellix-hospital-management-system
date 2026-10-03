@@ -1,4 +1,5 @@
 import { fetchDrugInventory, fetchDrugInventoryOptions } from "../drug-inventory/drug-inventory.service.js";
+import { todayISO } from "../../core/timezone.js";
 
 let allRows = [];
 
@@ -121,7 +122,7 @@ function renderDetail() {
         return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayISO();
 
     tbody.innerHTML = allRows.map((row) => {
         const expired = row.expires_date && row.expires_date.slice(0, 10) < today;

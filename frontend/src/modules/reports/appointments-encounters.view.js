@@ -1,6 +1,8 @@
+import { systemNow, toDateInput } from "../../core/timezone.js";
+
 export function AppointmentsEncountersReportView() {
-    const now = new Date();
-    const formattedDate = now.toISOString().slice(0, 10);
+    const now = systemNow();
+    const formattedDate = toDateInput(now);
 
     return `
         <div class="appt-encounters-report-wrapper" style="padding: 20px; font-family: Arial, sans-serif; background-color: #fff; min-height: 100%;">

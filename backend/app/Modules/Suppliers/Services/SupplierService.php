@@ -58,13 +58,13 @@ class SupplierService
              LEFT JOIN (
                  SELECT supplier_id, COUNT(*) AS receipt_count, MAX(received_date) AS last_received
                  FROM drug_inventory_receipts
-                 WHERE supplier_id IS NOT NULL
+                 WHERE supplier_id IS NOT NULL AND voided_at IS NULL
                  GROUP BY supplier_id
              ) r ON r.supplier_id = s.id
              LEFT JOIN (
                  SELECT supplier_id, COUNT(DISTINCT drug_id) AS item_count
                  FROM (
-                     SELECT supplier_id, drug_id FROM drug_inventory_receipts WHERE supplier_id IS NOT NULL
+                     SELECT supplier_id, drug_id FROM drug_inventory_receipts WHERE supplier_id IS NOT NULL AND voided_at IS NULL
                      UNION
                      SELECT preferred_supplier_id, id FROM drugs WHERE preferred_supplier_id IS NOT NULL AND deleted_at IS NULL
                  ) links
@@ -108,14 +108,14 @@ class SupplierService
                     du.name AS unit_name,
                     r.receipt_count, r.total_quantity, r.last_received,
                     (SELECT r2.unit_cost FROM drug_inventory_receipts r2
-                      WHERE r2.drug_id = d.id AND r2.supplier_id = :id2
+                      WHERE r2.drug_id = d.id AND r2.supplier_id = :id2 AND r2.voided_at IS NULL
                       ORDER BY r2.received_date DESC, r2.id DESC LIMIT 1) AS last_unit_cost
              FROM drugs d
              LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
              LEFT JOIN (
                  SELECT drug_id, COUNT(*) AS receipt_count, SUM(quantity) AS total_quantity, MAX(received_date) AS last_received
                  FROM drug_inventory_receipts
-                 WHERE supplier_id = :id3
+                 WHERE supplier_id = :id3 AND voided_at IS NULL
                  GROUP BY drug_id
              ) r ON r.drug_id = d.id
              WHERE d.deleted_at IS NULL AND (d.preferred_supplier_id = :id4 OR r.drug_id IS NOT NULL)

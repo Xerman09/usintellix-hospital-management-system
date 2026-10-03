@@ -6,6 +6,7 @@ import {
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
+import { systemNow } from "../../core/timezone.js";
 
 // Keep in step with PurchaseOrderService::CREATOR_ROLES. Approver-only
 // roles (e.g. accountant) can view, approve, reject and cancel, but not
@@ -35,9 +36,17 @@ const HISTORY_LABELS = {
     cancelled: "Cancelled",
     partially_received: "Delivery received (partial)",
     received: "Delivery received — order complete",
+    receipt_voided: "Delivery voided",
     closed: "Closed"
 };
 const LICENSE_WARNING_DAYS = 60;
+
+// Keep in step with PurchaseOrderService::VAT_RATE / VAT_TYPES. Prices are VAT-exclusive.
+const VAT_PERCENT = 12;
+const VAT_LABELS = { vatable: "VAT", exempt: "VAT-exempt", zero_rated: "Zero-rated" };
+
+// Keep in step with SupplierInvoiceService::RECORDER_ROLES.
+const INVOICE_RECORDER_ROLES = ["admin", "receptionist", "doctor", "accountant"];
 
 let orders = [];
 let options = { suppliers: [], warehouses: [], drugs: [], listings: [] };
@@ -283,6 +292,15 @@ function setupEditor() {
 
     $("poLines").addEventListener("change", (event) => {
         const row = event.target.closest("[data-line]");
+
+        if (row && event.target.dataset.field === "vat_type") {
+            const line = lines.find((l) => l.key === Number(row.dataset.line));
+            line.vat_type = event.target.value;
+            refreshLine(line);
+            renderTotals();
+            return;
+        }
+
         if (!row || event.target.dataset.field !== "order_unit") return;
 
         const line = lines.find((l) => l.key === Number(row.dataset.line));
@@ -368,6 +386,7 @@ async function openEditor(order = null, copy = false) {
             discount_amount: item.discount_amount ? String(item.discount_amount) : "",
             notes: item.notes || "",
             supplier_item_code: item.supplier_item_code || "",
+            vat_type: item.vat_type || "vatable",
             priceManual: true,
             discountManual: true
         }));
@@ -553,6 +572,7 @@ function addLine(drugId, { render = true } = {}) {
         discount_amount: "",
         notes: "",
         supplier_item_code: "",
+        vat_type: "vatable",
         priceManual: false,
         discountManual: false
     };
@@ -674,7 +694,10 @@ function lineAmounts(line) {
     const gross = round(qty * price, 2);
     const discount = Math.min(Number(line.discount_amount) || 0, gross);
 
-    return { gross, discount, total: round(gross - discount, 2) };
+    const total = round(gross - discount, 2);
+    const vat = (line.vat_type || "vatable") === "vatable" ? round(total * VAT_PERCENT / 100, 2) : 0;
+
+    return { gross, discount, total, vat };
 }
 
 function renderLines() {
@@ -689,7 +712,7 @@ function renderLines() {
                     <thead><tr>
                         <th style="width:28px;">#</th><th>Item</th><th class="col-qty">Qty</th><th class="col-unit">Unit</th>
                         <th class="col-price">Price / Unit (&#8369;)</th><th class="col-disc">Discount (&#8369;)</th>
-                        <th class="col-amt num">Amount</th><th style="width:34px;"></th>
+                        <th class="col-vat">VAT</th><th class="col-amt num">Amount</th><th style="width:34px;"></th>
                     </tr></thead>
                     <tbody>${lines.map(renderLine).join("")}</tbody>
                 </table>
@@ -734,7 +757,13 @@ function renderLine(line, index) {
                 <input type="number" min="0" step="0.01" data-field="discount_amount" value="${escapeHtml(line.discount_amount)}" placeholder="0.00" aria-label="Discount">
                 <span class="form-error" id="err-po_item_${index}_discount_amount"></span>
             </td>
-            <td class="col-amt num"><strong data-cell="amount"></strong><span class="po-sub" data-cell="gross"></span></td>
+            <td class="col-vat">
+                <select data-field="vat_type" aria-label="VAT">
+                    ${Object.entries(VAT_LABELS).map(([value, label]) => `<option value="${value}" ${(line.vat_type || "vatable") === value ? "selected" : ""}>${label}</option>`).join("")}
+                </select>
+                <span class="form-error" id="err-po_item_${index}_vat_type"></span>
+            </td>
+            <td class="col-amt num"><strong data-cell="amount"></strong><span class="po-sub" data-cell="gross"></span><span class="po-sub" data-cell="vat"></span></td>
             <td><button type="button" class="po-remove" data-remove-line="${line.key}" title="Remove item" aria-label="Remove item">&times;</button></td>
         </tr>`;
 }
@@ -746,7 +775,7 @@ function refreshLine(line) {
 
     const drug = drugById(line.drug_id);
     const listing = listingFor(line.drug_id);
-    const { gross, discount, total } = lineAmounts(line);
+    const { gross, discount, total, vat } = lineAmounts(line);
     const unit = drug?.unit_name || "unit";
     const qty = Number(line.quantity) || 0;
 
@@ -758,6 +787,7 @@ function refreshLine(line) {
 
     row.querySelector('[data-cell="amount"]').textContent = formatMoney(total);
     row.querySelector('[data-cell="gross"]').textContent = discount > 0 ? `${formatMoney(gross)} less ${formatMoney(discount)}` : "";
+    row.querySelector('[data-cell="vat"]').textContent = vat > 0 ? `+ ${formatMoney(vat)} VAT` : "";
 
     const meta = [];
     if (line.supplier_item_code) meta.push(`Item ${line.supplier_item_code}`);
@@ -807,18 +837,21 @@ function refreshLine(line) {
 function renderTotals() {
     let subtotal = 0;
     let discounts = 0;
+    let vatTotal = 0;
 
     lines.forEach((line) => {
-        const { gross, discount } = lineAmounts(line);
+        const { gross, discount, vat } = lineAmounts(line);
         subtotal += gross;
         discounts += discount;
+        vatTotal += vat;
     });
 
     const shipping = Math.max(0, Number($("po_shipping_fee").value) || 0);
 
     $("poSubtotal").textContent = formatMoney(subtotal);
     $("poDiscountTotal").textContent = discounts > 0 ? `− ${formatMoney(discounts)}` : formatMoney(0);
-    $("poTotal").textContent = formatMoney(round(subtotal - discounts + shipping, 2));
+    $("poVatTotal").textContent = formatMoney(round(vatTotal, 2));
+    $("poTotal").textContent = formatMoney(round(subtotal - discounts + vatTotal + shipping, 2));
 }
 
 async function save(submit) {
@@ -851,6 +884,7 @@ async function save(submit) {
             unit_price: l.unit_price,
             discount_amount: l.discount_amount,
             supplier_item_code: l.supplier_item_code,
+            vat_type: l.vat_type || "vatable",
             notes: l.notes
         }))
     };
@@ -1030,6 +1064,8 @@ function showDetail(order) {
     }
 
     const showReceived = order.can_receive || RECEIVED_STATUSES.includes(order.status);
+    // Orders saved before VAT was tracked have vat_rate 0: show them as they were.
+    const hasVat = order.vat_rate > 0;
 
     $("poDetail").innerHTML = `
         ${approvalBanner(order)}
@@ -1044,6 +1080,7 @@ function showDetail(order) {
                     ${canCreate() ? `<button type="button" class="po-btn" id="poCopyBtn" title="Start a new draft with the same supplier and items">Reorder</button>` : ""}
                     ${order.can_receive && canCreate() ? `<button type="button" class="po-btn primary" id="poReceiveBtn">Receive Delivery</button>` : ""}
                     ${order.status === "partially_received" && canCreate() ? `<button type="button" class="po-btn" id="poCloseBtn" title="Stop waiting for the items not yet delivered">Close Order</button>` : ""}
+                    ${unbilledReceipts(order).length && canRecordInvoice() ? `<button type="button" class="po-btn" id="poInvoiceBtn" title="Record the supplier's bill for the deliveries received">Record Supplier Invoice</button>` : ""}
                     ${["pending_approval", "approved"].includes(order.status) ? `<button type="button" class="po-btn danger" id="poCancelBtn">Cancel Order</button>` : ""}
                 </div>
             </div>
@@ -1054,7 +1091,7 @@ function showDetail(order) {
             <div class="po-card-title">Items</div>
             <div class="po-lines-wrap">
                 <table class="po-lines" style="min-width:640px;">
-                    <thead><tr><th>#</th><th>Item</th><th class="num">Qty</th>${showReceived ? `<th class="num">Received</th>` : ""}<th class="num">Price / Unit</th><th class="num">Discount</th><th class="num">Amount</th></tr></thead>
+                    <thead><tr><th>#</th><th>Item</th><th class="num">Qty</th>${showReceived ? `<th class="num">Received</th>` : ""}<th class="num">Price / Unit</th><th class="num">Discount</th>${hasVat ? `<th>VAT</th>` : ""}<th class="num">Amount</th></tr></thead>
                     <tbody>${order.items.map((item) => `
                         <tr>
                             <td>${item.line_no}</td>
@@ -1068,6 +1105,7 @@ function showDetail(order) {
                                     : item.quantity_remaining <= 0 ? "Complete" : `${formatQty(item.quantity_remaining)} to go`}</span></td>` : ""}
                             <td class="num">${formatMoney(item.unit_price, 4)}</td>
                             <td class="num">${item.discount_amount ? `− ${formatMoney(item.discount_amount)}` : "—"}</td>
+                            ${hasVat ? `<td>${VAT_LABELS[item.vat_type] || "VAT"}${item.vat_amount ? `<span class="po-sub">${formatMoney(item.vat_amount)}</span>` : ""}</td>` : ""}
                             <td class="num"><strong>${formatMoney(item.line_total)}</strong></td>
                         </tr>`).join("")}
                     </tbody>
@@ -1084,6 +1122,7 @@ function showDetail(order) {
                 <div class="po-totals">
                     <span class="label">Subtotal</span><span class="val">${formatMoney(order.subtotal)}</span>
                     <span class="label">Discounts</span><span class="val">${order.discount_total ? `− ${formatMoney(order.discount_total)}` : formatMoney(0)}</span>
+                    ${hasVat ? `<span class="label">VAT (${formatQty(order.vat_rate)}%)</span><span class="val">${formatMoney(order.vat_amount)}</span>` : ""}
                     <span class="label">Delivery / Other Charges</span><span class="val">${formatMoney(order.shipping_fee)}</span>
                     <span class="label grand">Total</span><span class="val grand">${formatMoney(order.total)}</span>
                 </div>
@@ -1097,13 +1136,33 @@ function showDetail(order) {
                 <table class="po-lines" style="min-width:560px;">
                     <thead><tr><th>RR No.</th><th>Date</th><th>DR / Invoice</th><th>Received Into</th><th>Received By</th><th class="num">Cost</th></tr></thead>
                     <tbody>${order.receipts.map((r) => `
-                        <tr>
-                            <td><strong>${escapeHtml(r.gr_number)}</strong></td>
+                        <tr class="${r.voided_at ? "po-voided" : ""}" ${r.voided_at ? `title="Voided: ${escapeHtml(r.void_reason || "")}"` : ""}>
+                            <td><strong>${escapeHtml(r.gr_number)}</strong>${r.voided_at ? ` <span class="po-status voided">Voided</span>` : ""}</td>
                             <td>${formatDate(r.received_date)}</td>
                             <td>${escapeHtml([r.delivery_receipt_no ? `DR ${r.delivery_receipt_no}` : null, r.invoice_no ? `SI ${r.invoice_no}` : null].filter(Boolean).join(" · ") || "—")}</td>
                             <td>${escapeHtml(r.warehouse_name || "—")}</td>
                             <td>${escapeHtml(r.received_by_name || "—")}</td>
                             <td class="num">${formatMoney(r.total_cost)}</td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>` : ""}
+
+        ${order.invoices?.length ? `
+        <div class="po-card">
+            <div class="po-card-title">Supplier Invoices</div>
+            <div class="po-lines-wrap">
+                <table class="po-lines" style="min-width:560px;">
+                    <thead><tr><th>AP No.</th><th>Supplier Invoice</th><th>Date</th><th>Status</th><th>Match</th><th class="num">Total</th></tr></thead>
+                    <tbody>${order.invoices.map((i) => `
+                        <tr class="${i.status === "cancelled" ? "po-voided" : ""}">
+                            <td><strong>${escapeHtml(i.ap_number)}</strong></td>
+                            <td>${escapeHtml(i.supplier_invoice_no)}</td>
+                            <td>${formatDate(i.invoice_date)}</td>
+                            <td>${escapeHtml(INVOICE_STATUS_LABELS[i.status] || i.status)}</td>
+                            <td>${i.match_status ? `<span class="po-match ${i.match_status}">${i.match_status === "matched" ? "Matched" : `Difference ${formatMoney(i.variance_amount)}`}</span>` : "—"}</td>
+                            <td class="num">${formatMoney(i.total)}</td>
                         </tr>`).join("")}
                     </tbody>
                 </table>
@@ -1133,11 +1192,30 @@ function showDetail(order) {
         window.dispatchEvent(new CustomEvent("po:receive", { detail: { id: order.id } }));
     };
     $("poReceiveBtn")?.addEventListener("click", receiveNow);
+    $("poInvoiceBtn")?.addEventListener("click", () => {
+        // Hand the order to the Supplier Invoices tab (open, or already open).
+        window.__pendingInvoicePoId = order.id;
+        window.__openDashboardTab?.("pharmacy_supplier_invoices", "Supplier Invoices");
+        window.dispatchEvent(new CustomEvent("po:invoice", { detail: { id: order.id } }));
+    });
     document.querySelector("[data-po-receive-now]")?.addEventListener("click", receiveNow);
     $("poApproveBtn")?.addEventListener("click", () => openAction("approve"));
     $("poRejectBtn")?.addEventListener("click", () => openAction("reject"));
 
     showPanel("detail");
+}
+
+const INVOICE_STATUS_LABELS = {
+    draft: "Draft", pending_approval: "For approval", approved: "Approved for payment", rejected: "Rejected", cancelled: "Cancelled"
+};
+
+function canRecordInvoice() {
+    return INVOICE_RECORDER_ROLES.includes(getUser()?.role);
+}
+
+/** Deliveries on this order that aren't voided or on a supplier invoice yet. */
+function unbilledReceipts(order) {
+    return (order.receipts || []).filter((r) => !r.voided_at && !r.billed_on);
 }
 
 /** The coloured strip at the top of an order saying where it stands in approval. */
@@ -1457,7 +1535,7 @@ ${stamp ? `<div class="stamp">${stamp}</div>` : ""}
 </div>
 
 <table class="items">
-    <thead><tr><th style="width:30px;">#</th><th>Item Code</th><th>Description</th><th class="num">Qty</th><th>Unit</th><th class="num">Unit Price</th><th class="num">Discount</th><th class="num">Amount</th></tr></thead>
+    <thead><tr><th style="width:30px;">#</th><th>Item Code</th><th>Description</th><th class="num">Qty</th><th>Unit</th><th class="num">Unit Price</th><th class="num">Discount</th>${order.vat_rate > 0 ? `<th>VAT</th>` : ""}<th class="num">Amount</th></tr></thead>
     <tbody>${order.items.map((item) => `
         <tr>
             <td>${item.line_no}</td>
@@ -1467,6 +1545,7 @@ ${stamp ? `<div class="stamp">${stamp}</div>` : ""}
             <td>${escapeHtml(itemUnit(item))}</td>
             <td class="num">${formatMoney(item.unit_price, 4)}</td>
             <td class="num">${item.discount_amount ? formatMoney(item.discount_amount) : ""}</td>
+            ${order.vat_rate > 0 ? `<td>${VAT_LABELS[item.vat_type] || "VAT"}</td>` : ""}
             <td class="num">${formatMoney(item.line_total)}</td>
         </tr>`).join("")}
     </tbody>
@@ -1475,6 +1554,7 @@ ${stamp ? `<div class="stamp">${stamp}</div>` : ""}
 <table class="totals">
     <tr><td>Subtotal</td><td class="num">${formatMoney(order.subtotal)}</td></tr>
     ${order.discount_total ? `<tr><td>Less: Discounts</td><td class="num">(${formatMoney(order.discount_total)})</td></tr>` : ""}
+    ${order.vat_rate > 0 ? `<tr><td>VAT (${formatQty(order.vat_rate)}%)</td><td class="num">${formatMoney(order.vat_amount)}</td></tr>` : ""}
     ${order.shipping_fee ? `<tr><td>Delivery / Other Charges</td><td class="num">${formatMoney(order.shipping_fee)}</td></tr>` : ""}
     <tr class="grand"><td>TOTAL</td><td class="num">${formatMoney(order.total)}</td></tr>
 </table>
@@ -1531,5 +1611,5 @@ function toIso(date) {
 }
 
 function isoToday() {
-    return toIso(new Date());
+    return toIso(systemNow());
 }

@@ -146,6 +146,69 @@ export function GeneralSettingsView()
     accent-color: var(--accent);
 }
 
+.gs-card + .gs-card {
+    margin-top: 32px;
+}
+
+.gs-tz-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #14181f;
+}
+
+.gs-tz-offset {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eef1f7;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.gs-tz-clock {
+    font-variant-numeric: tabular-nums;
+}
+
+.gs-tz-search,
+.gs-tz-select {
+    width: 100%;
+}
+
+.gs-tz-search {
+    margin-bottom: 8px;
+}
+
+.gs-tz-browser {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: #5a6478;
+}
+
+.gs-tz-browser button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.gs-tz-note {
+    margin: 14px 0 0;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 12.5px;
+}
+
+:root[data-theme="dark"] .gs-tz-name { color: var(--text-primary); }
+:root[data-theme="dark"] .gs-tz-offset { background: var(--bg-surface-alt); color: var(--text-primary); }
+:root[data-theme="dark"] .gs-tz-browser { color: var(--text-muted); }
+:root[data-theme="dark"] .gs-tz-note { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.5); }
 :root[data-theme="dark"] .gs-role-chip { background: var(--bg-surface-alt); color: var(--text-primary); }
 :root[data-theme="dark"] .gs-2fa-toggle label,
 :root[data-theme="dark"] .gs-role-checklist label { color: var(--text-primary); }
@@ -154,6 +217,33 @@ export function GeneralSettingsView()
 </style>
 
 <div class="gs-page">
+    <div class="gs-card">
+        <div class="gs-header">
+            <div>
+                <h1>System Timezone</h1>
+                <p class="form-subtitle">The local time the hospital runs on. Every screen uses it for "today" and "now" (default dates, clocks, ages, due and overdue), whatever timezone each computer is set to.</p>
+            </div>
+            <button type="button" class="gs-add-btn" id="openEditTimezoneModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Edit
+            </button>
+        </div>
+
+        <div id="gsTimezoneAlert"></div>
+
+        <div class="form-grid" style="margin-top: 20px;">
+            <div class="form-group">
+                <label>Timezone</label>
+                <p><span class="gs-tz-name" id="ro_tz_name">-</span><span class="gs-tz-offset" id="ro_tz_offset" hidden></span></p>
+            </div>
+
+            <div class="form-group">
+                <label>Current System Time</label>
+                <p class="gs-tz-clock" id="ro_tz_clock">-</p>
+            </div>
+        </div>
+    </div>
+
     <div class="gs-card">
         <div class="gs-header">
             <div>
@@ -184,6 +274,35 @@ export function GeneralSettingsView()
                 <div class="gs-role-list" id="ro_tfa_roles"><p>-</p></div>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="editTimezoneModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Edit System Timezone</h2>
+            <button type="button" class="modal-close" id="closeEditTimezoneModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Choose the timezone where the hospital operates.</p>
+
+        <div id="editTimezoneFormAlert"></div>
+
+        <form id="editTimezoneForm">
+            <div class="form-group full">
+                <label for="tz_select">Timezone</label>
+                <input type="search" class="gs-tz-search" id="tz_search" placeholder="Search a city, region or offset, e.g. Manila or UTC+08" autocomplete="off">
+                <select class="gs-tz-select" id="tz_select" size="8"></select>
+                <span class="form-error" id="err-timezone"></span>
+                <div class="gs-tz-browser" id="tzBrowserHint" hidden></div>
+            </div>
+
+            <p class="gs-tz-note">Applies on this computer right away, and on other computers the next time they open or reload the system. Dates and times already saved are not changed.</p>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelEditTimezone">Cancel</button>
+                <button class="login-btn" type="submit">Save Changes</button>
+            </div>
+        </form>
     </div>
 </div>
 

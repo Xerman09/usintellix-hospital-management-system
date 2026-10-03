@@ -13,6 +13,7 @@ import {
     fetchPatientProcedureResults,
     savePatientProcedureResults
 } from "./patient-results.service.js";
+import { todayISO } from "../../core/timezone.js";
 
 const STATUS_OPTIONS = [
     { value: "pending", label: "Pending" },
@@ -165,7 +166,7 @@ function openOrderModal()
     document.getElementById("ptResProcedureId").value = "";
     clearOrderFormErrors();
     document.getElementById("ptResOrderFormAlert").innerHTML = "";
-    document.getElementById("ptResOrderDate").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("ptResOrderDate").value = todayISO();
     document.getElementById("ptResOrderModalOverlay").classList.add("open");
 }
 
