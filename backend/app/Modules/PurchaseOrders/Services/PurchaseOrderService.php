@@ -162,6 +162,7 @@ class PurchaseOrderService
         ];
 
         $order['items'] = $this->items($id);
+        $this->attachRequests($order['items']);
 
         $business = (new BusinessSettingService())->get();
         $order['buyer'] = [
@@ -482,8 +483,11 @@ class PurchaseOrderService
 
             (new PurchaseOrder())->update($header, $id);
 
+            // Lines are rebuilt, so carry their links to purchase requisitions over by item.
+            $sources = $this->lineSources($id);
             $db->prepare("DELETE FROM purchase_order_items WHERE purchase_order_id = :id")->execute(['id' => $id]);
             $this->saveLines($id, $lines, $userId);
+            $this->restoreLineSources($id, $sources);
 
             if ($submit) {
                 $this->log($id, $existing['status'] === 'rejected' ? 'resubmitted' : 'submitted', null, $userId, $now);
@@ -732,6 +736,102 @@ class PurchaseOrderService
         $order = $id ? (new PurchaseOrder())->where('id', $id)->first() : null;
 
         return $order && $order['deleted_at'] === null ? $order : null;
+    }
+
+    /** Requisition links of an order's lines, by item: drug_id => [[requisition_item_id, base_quantity], ...]. */
+    private function lineSources(int $orderId): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT poi.drug_id, s.requisition_item_id, s.base_quantity
+             FROM purchase_order_item_sources s
+             JOIN purchase_order_items poi ON poi.id = s.purchase_order_item_id
+             WHERE poi.purchase_order_id = :id
+             ORDER BY s.id"
+        );
+        $stmt->execute(['id' => $orderId]);
+
+        $sources = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $sources[(int) $r['drug_id']][] = [(int) $r['requisition_item_id'], (float) $r['base_quantity']];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Re-links rebuilt lines to their requisitions. A line that now orders
+     * less keeps its links oldest first up to the new quantity; an item
+     * taken off the order frees its requests to be ordered again.
+     */
+    private function restoreLineSources(int $orderId, array $sources): void
+    {
+        if (!$sources) {
+            return;
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare(
+            "SELECT id, drug_id, quantity, order_unit, units_per_package FROM purchase_order_items WHERE purchase_order_id = :id"
+        );
+        $stmt->execute(['id' => $orderId]);
+
+        $insert = $db->prepare(
+            "INSERT INTO purchase_order_item_sources (purchase_order_item_id, requisition_item_id, base_quantity, created_at)
+             VALUES (:line, :req, :qty, :now)"
+        );
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $line) {
+            $links = $sources[(int) $line['drug_id']] ?? [];
+            $per = $line['order_unit'] === 'package' && $line['units_per_package'] ? (float) $line['units_per_package'] : 1.0;
+            $left = round((float) $line['quantity'] * $per, 3);
+
+            foreach ($links as [$requisitionItemId, $qty]) {
+                $take = min($qty, $left);
+
+                if ($take <= 0) {
+                    break;
+                }
+
+                $insert->execute(['line' => $line['id'], 'req' => $requisitionItemId, 'qty' => round($take, 3), 'now' => $now]);
+                $left -= $take;
+            }
+        }
+    }
+
+    /** Adds to each line the purchase requisitions it covers ('requests'). */
+    private function attachRequests(array &$items): void
+    {
+        if (!$items) {
+            return;
+        }
+
+        $ids = array_column($items, 'id');
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+        $stmt = Database::connection()->prepare(
+            "SELECT s.purchase_order_item_id, s.base_quantity, pr.id AS requisition_id, pr.pr_number, d.name AS department_name
+             FROM purchase_order_item_sources s
+             JOIN purchase_requisition_items ri ON ri.id = s.requisition_item_id
+             JOIN purchase_requisitions pr ON pr.id = ri.purchase_requisition_id
+             JOIN departments d ON d.id = pr.department_id
+             WHERE s.purchase_order_item_id IN ({$placeholders})
+             ORDER BY s.id"
+        );
+        $stmt->execute($ids);
+
+        $byLine = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $byLine[(int) $r['purchase_order_item_id']][] = [
+                'requisition_id' => (int) $r['requisition_id'],
+                'pr_number' => $r['pr_number'],
+                'department_name' => $r['department_name'],
+                'base_quantity' => (float) $r['base_quantity']
+            ];
+        }
+
+        foreach ($items as &$item) {
+            $item['requests'] = $byLine[$item['id']] ?? [];
+        }
     }
 
     private function saveLines(int $orderId, array $lines, int $userId): void

@@ -1097,7 +1097,8 @@ function showDetail(order) {
                             <td>${item.line_no}</td>
                             <td><span class="po-line-name">${escapeHtml(item.drug_name)}</span>
                                 <span class="po-sub">${escapeHtml([item.supplier_item_code ? `Item ${item.supplier_item_code}` : null,
-                                    item.order_unit === "package" && item.units_per_package ? `${formatQty(item.base_quantity)} ${item.unit_name || "units"}` : null].filter(Boolean).join(" · "))}</span></td>
+                                    item.order_unit === "package" && item.units_per_package ? `${formatQty(item.base_quantity)} ${item.unit_name || "units"}` : null].filter(Boolean).join(" · "))}</span>
+                                ${item.requests?.length ? `<span class="po-sub">For ${item.requests.map((q) => `<strong>${escapeHtml(q.pr_number)}</strong> (${escapeHtml(q.department_name)}, ${formatQty(q.base_quantity)})`).join(", ")}</span>` : ""}</td>
                             <td class="num">${formatQty(item.quantity)} ${escapeHtml(itemUnit(item))}</td>
                             ${showReceived ? `<td class="num">${formatQty(item.quantity_received)}
                                 <span class="po-recv ${item.quantity_remaining <= 0 ? "done" : ""}">${item.quantity_received > item.quantity + 0.0005
