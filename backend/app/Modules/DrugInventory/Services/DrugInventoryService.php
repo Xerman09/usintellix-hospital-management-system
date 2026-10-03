@@ -558,6 +558,15 @@ class DrugInventoryService
                 throw new \RuntimeException('receipt insert failed');
             }
 
+            StockLedgerService::record($lotId, 'received', $quantity, 'drug_inventory_receipts', (int) $receiptId, $userId, [
+                'date' => $receivedDate,
+                'unit_cost' => isset($data['unit_cost']) && $data['unit_cost'] !== '' ? (float) $data['unit_cost'] : null,
+                // Receiving passes its RR number; Receive Stock uses the invoice number.
+                'reference_no' => $data['reference_no'] ?? ($data['invoice_number'] ?? null),
+                'counterparty' => $supplierName,
+                'notes' => $data['notes'] ?? null
+            ]);
+
             if ($ownsTransaction) {
                 $db->commit();
             }
@@ -764,56 +773,82 @@ class DrugInventoryService
             return ['success' => false, 'message' => 'Choose a different storage location, facility, or lot number to transfer into.'];
         }
 
-        $destLot = (new DrugInventoryLot())
-            ->where('drug_id', $sourceLot['drug_id'])
-            ->where('lot_number', $lotNumber)
-            ->where('warehouse_id', $warehouseId)
-            ->first();
+        $db = Database::connection();
+        // Join a caller's transaction (a savepoint undoes just this step).
+        $ownsTransaction = !$db->inTransaction();
+        $ownsTransaction ? $db->beginTransaction() : $db->exec('SAVEPOINT drug_stock_step');
+        $undo = fn() => $ownsTransaction ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT drug_stock_step');
 
-        $destLotId = null;
+        try {
+            // Re-read the source lot locked: it may have changed since the form was opened.
+            $stmt = $db->prepare("SELECT quantity_on_hand FROM drug_inventory_lots WHERE id = :id AND deleted_at IS NULL FOR UPDATE");
+            $stmt->execute(['id' => $lotId]);
+            $onHand = $stmt->fetchColumn();
 
-        if ($destLot && $destLot['deleted_at'] === null
-            && ($destLot['facility_id'] !== null ? (int) $destLot['facility_id'] : null) === $facilityId) {
-            $destLotId = (int) $destLot['id'];
+            if ($onHand === false || $quantity > (float) $onHand + 0.0005) {
+                $undo();
+                return ['success' => false, 'message' => 'Only ' . $this->formatNumber((float) $onHand) . ' available in this lot.'];
+            }
 
-            (new DrugInventoryLot())->update([
-                'quantity_on_hand' => (float) $destLot['quantity_on_hand'] + $quantity,
-                'updated_at' => date('Y-m-d H:i:s'),
-                'updated_by' => $userId
-            ], $destLotId);
-        } else {
-            $destLotId = (new DrugInventoryLot())->create([
+            $destLot = (new DrugInventoryLot())
+                ->where('drug_id', $sourceLot['drug_id'])
+                ->where('lot_number', $lotNumber)
+                ->where('warehouse_id', $warehouseId)
+                ->first();
+
+            if ($destLot && $destLot['deleted_at'] === null
+                && ($destLot['facility_id'] !== null ? (int) $destLot['facility_id'] : null) === $facilityId) {
+                $destLotId = (int) $destLot['id'];
+
+                $db->prepare("UPDATE drug_inventory_lots SET quantity_on_hand = quantity_on_hand + :qty, updated_at = :now, updated_by = :user WHERE id = :id")
+                    ->execute(['qty' => $quantity, 'now' => date('Y-m-d H:i:s'), 'user' => $userId, 'id' => $destLotId]);
+            } else {
+                $destLotId = (new DrugInventoryLot())->create([
+                    'drug_id' => $sourceLot['drug_id'],
+                    'lot_number' => $lotNumber,
+                    'facility_id' => $facilityId,
+                    'warehouse_id' => $warehouseId,
+                    'quantity_on_hand' => $quantity,
+                    'expires_date' => $sourceLot['expires_date'],
+                    'is_active' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_by' => $userId
+                ]);
+
+                if (!$destLotId) {
+                    throw new \RuntimeException('destination lot insert failed');
+                }
+            }
+
+            $db->prepare("UPDATE drug_inventory_lots SET quantity_on_hand = quantity_on_hand - :qty, updated_at = :now, updated_by = :user WHERE id = :id")
+                ->execute(['qty' => $quantity, 'now' => date('Y-m-d H:i:s'), 'user' => $userId, 'id' => $lotId]);
+
+            $transferId = (new DrugInventoryTransfer())->create([
                 'drug_id' => $sourceLot['drug_id'],
-                'lot_number' => $lotNumber,
-                'facility_id' => $facilityId,
-                'warehouse_id' => $warehouseId,
-                'quantity_on_hand' => $quantity,
-                'expires_date' => $sourceLot['expires_date'],
-                'is_active' => 1,
+                'from_lot_id' => $lotId,
+                'to_lot_id' => $destLotId,
+                'quantity' => $quantity,
+                'notes' => $data['notes'] ?? null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'created_by' => $userId
             ]);
 
-            if (!$destLotId) {
-                return ['success' => false, 'message' => 'Failed to create the destination lot.'];
-            }
+            $notes = trim((string) ($data['notes'] ?? '')) ?: null;
+            // Both sides at what the stock cost where it came from.
+            $cost = StockLedgerService::lotCost($lotId, (int) $sourceLot['drug_id']);
+            StockLedgerService::record($lotId, 'transfer_out', -$quantity, 'drug_inventory_transfers', (int) $transferId, $userId, [
+                'unit_cost' => $cost, 'counterparty' => 'To ' . StockLedgerService::warehouseName($warehouseId), 'notes' => $notes
+            ]);
+            StockLedgerService::record((int) $destLotId, 'transfer_in', $quantity, 'drug_inventory_transfers', (int) $transferId, $userId, [
+                'unit_cost' => $cost, 'counterparty' => 'From ' . StockLedgerService::warehouseName((int) $sourceLot['warehouse_id']), 'notes' => $notes
+            ]);
+
+            $ownsTransaction ? $db->commit() : $db->exec('RELEASE SAVEPOINT drug_stock_step');
+        } catch (Throwable $e) {
+            $undo();
+            error_log('drug transfer failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to transfer. Nothing was changed.'];
         }
-
-        (new DrugInventoryLot())->update([
-            'quantity_on_hand' => (float) $sourceLot['quantity_on_hand'] - $quantity,
-            'updated_at' => date('Y-m-d H:i:s'),
-            'updated_by' => $userId
-        ], $lotId);
-
-        (new DrugInventoryTransfer())->create([
-            'drug_id' => $sourceLot['drug_id'],
-            'from_lot_id' => $lotId,
-            'to_lot_id' => $destLotId,
-            'quantity' => $quantity,
-            'notes' => $data['notes'] ?? null,
-            'created_at' => date('Y-m-d H:i:s'),
-            'created_by' => $userId
-        ]);
 
         return ['success' => true, 'message' => 'Transferred successfully.'];
     }
@@ -842,25 +877,53 @@ class DrugInventoryService
             return ['success' => false, 'message' => 'Only ' . $lot['quantity_on_hand'] . ' available in this lot.'];
         }
 
-        $destroyedDate = $data['destroyed_date'] ?: date('Y-m-d');
+        $destroyedDate = ($data['destroyed_date'] ?? '') ?: date('Y-m-d');
+        $method = ($data['method'] ?? '') ?: null;
+        $witness = trim((string) ($data['witness'] ?? '')) ?: null;
+        $notes = trim((string) ($data['notes'] ?? '')) ?: null;
+        $db = Database::connection();
+        // Join a caller's transaction (a savepoint undoes just this step).
+        $ownsTransaction = !$db->inTransaction();
+        $ownsTransaction ? $db->beginTransaction() : $db->exec('SAVEPOINT drug_stock_step');
+        $undo = fn() => $ownsTransaction ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT drug_stock_step');
 
-        (new DrugInventoryLot())->update([
-            'quantity_on_hand' => (float) $lot['quantity_on_hand'] - $quantity,
-            'updated_at' => date('Y-m-d H:i:s'),
-            'updated_by' => $userId
-        ], $lotId);
+        try {
+            $stmt = $db->prepare("SELECT quantity_on_hand FROM drug_inventory_lots WHERE id = :id AND deleted_at IS NULL FOR UPDATE");
+            $stmt->execute(['id' => $lotId]);
+            $onHand = $stmt->fetchColumn();
 
-        (new DrugInventoryDestruction())->create([
-            'drug_id' => $lot['drug_id'],
-            'lot_id' => $lotId,
-            'quantity' => $quantity,
-            'destroyed_date' => $destroyedDate,
-            'method' => $data['method'] ?: null,
-            'witness' => trim((string) ($data['witness'] ?? '')) ?: null,
-            'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
-            'created_at' => date('Y-m-d H:i:s'),
-            'created_by' => $userId
-        ]);
+            if ($onHand === false || $quantity > (float) $onHand + 0.0005) {
+                $undo();
+                return ['success' => false, 'message' => 'Only ' . $this->formatNumber((float) $onHand) . ' available in this lot.'];
+            }
+
+            $db->prepare("UPDATE drug_inventory_lots SET quantity_on_hand = quantity_on_hand - :qty, updated_at = :now, updated_by = :user WHERE id = :id")
+                ->execute(['qty' => $quantity, 'now' => date('Y-m-d H:i:s'), 'user' => $userId, 'id' => $lotId]);
+
+            $destructionId = (new DrugInventoryDestruction())->create([
+                'drug_id' => $lot['drug_id'],
+                'lot_id' => $lotId,
+                'quantity' => $quantity,
+                'destroyed_date' => $destroyedDate,
+                'method' => $method,
+                'witness' => $witness,
+                'notes' => $notes,
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => $userId
+            ]);
+
+            StockLedgerService::record($lotId, 'destroyed', -$quantity, 'drug_inventory_destructions', (int) $destructionId, $userId, [
+                'date' => $destroyedDate,
+                'reason' => $method,
+                'notes' => implode(' · ', array_filter([$witness ? "Witness: {$witness}" : null, $notes]))
+            ]);
+
+            $ownsTransaction ? $db->commit() : $db->exec('RELEASE SAVEPOINT drug_stock_step');
+        } catch (Throwable $e) {
+            $undo();
+            error_log('drug destroy failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to record the destruction. Nothing was changed.'];
+        }
 
         return ['success' => true, 'message' => 'Drug destroyed and recorded successfully.'];
     }

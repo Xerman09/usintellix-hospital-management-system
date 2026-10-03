@@ -3,6 +3,7 @@
 namespace App\Modules\StockTransfers\Services;
 
 use App\Core\Database;
+use App\Modules\DrugInventory\Services\StockLedgerService;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
@@ -591,6 +592,10 @@ class StockTransferService
                 'transfer' => $id, 'item' => $itemId, 'drug' => $itemDrug[$itemId], 'lot' => $lotId, 'lot_number' => $lot['lot_number'],
                 'expires' => $lot['expires_date'], 'qty' => $qty, 'cost' => $cost, 'now' => $now
             ]);
+            StockLedgerService::record($lotId, 'transfer_out', -$qty, 'stock_transfer_lots', (int) $db->lastInsertId(), $userId, [
+                'date' => $sentDate, 'unit_cost' => $cost, 'reference_no' => $transfer['st_number'],
+                'counterparty' => "To {$destination['name']}", 'notes' => $sentVia !== '' ? $sentVia : null
+            ]);
             $value += $qty * $cost;
         }
 
@@ -746,6 +751,11 @@ class StockTransferService
 
                     $logMove->execute(['d' => $lot['drug_id'], 'from' => $lot['from_lot_id'], 'to' => $toLotId, 'qty' => $c['received'],
                         'notes' => $existing['st_number'], 'now' => $now, 'user' => $userId]);
+                    StockLedgerService::record($toLotId, 'transfer_in', $c['received'], 'stock_transfer_lots', (int) $lot['id'], $userId, [
+                        'date' => $receivedDate, 'unit_cost' => $lot['unit_cost'], 'reference_no' => $existing['st_number'],
+                        'counterparty' => 'From ' . StockLedgerService::warehouseName((int) $existing['from_warehouse_id']),
+                        'notes' => $c['short'] > self::EPSILON ? $this->fmt($c['short']) . ' short in transit' : null
+                    ]);
                 }
 
                 if ($c['short'] > self::EPSILON) {
@@ -827,7 +837,7 @@ class StockTransferService
 
             $returned = 0;
             if ($existing['status'] === 'in_transit') {
-                $stmt = $db->prepare("SELECT from_lot_id, SUM(quantity_sent) AS qty FROM stock_transfer_lots WHERE stock_transfer_id = :id GROUP BY from_lot_id");
+                $stmt = $db->prepare("SELECT id, from_lot_id, quantity_sent AS qty, unit_cost FROM stock_transfer_lots WHERE stock_transfer_id = :id ORDER BY id");
                 $stmt->execute(['id' => $id]);
                 $back = $db->prepare(
                     "UPDATE drug_inventory_lots SET quantity_on_hand = quantity_on_hand + :qty, is_active = 1, deleted_at = NULL, deleted_by = NULL,
@@ -835,6 +845,9 @@ class StockTransferService
                 );
                 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $lot) {
                     $back->execute(['qty' => $lot['qty'], 'now' => $now, 'user' => $userId, 'id' => $lot['from_lot_id']]);
+                    StockLedgerService::record((int) $lot['from_lot_id'], 'transfer_cancelled', (float) $lot['qty'], 'stock_transfer_lots', (int) $lot['id'], $userId, [
+                        'unit_cost' => $lot['unit_cost'], 'reference_no' => $existing['st_number'], 'reason' => $reason
+                    ]);
                     $returned++;
                 }
             }

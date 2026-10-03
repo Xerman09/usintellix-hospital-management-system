@@ -5,6 +5,7 @@ namespace App\Modules\Receiving\Services;
 use App\Core\Database;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\DrugInventory\Services\DrugInventoryService;
+use App\Modules\DrugInventory\Services\StockLedgerService;
 use App\Modules\PurchaseOrders\Models\PurchaseOrder;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
 use App\Modules\Receiving\Models\GoodsReceipt;
@@ -554,7 +555,8 @@ class ReceivingService
                         'invoice_number' => $header['invoice_no'] ?? $header['delivery_receipt_no'],
                         'unit_cost' => $unitCost,
                         'notes' => "{$grNumber} for {$order['po_number']}" . ($entry['line'] ? '' : ' (not on the order)'),
-                        'goods_receipt_id' => $receiptId
+                        'goods_receipt_id' => $receiptId,
+                        'reference_no' => $grNumber
                     ], $userId);
 
                     if (!$result['success']) {
@@ -807,6 +809,17 @@ class ReceivingService
 
             $db->prepare("UPDATE drug_inventory_receipts SET voided_at = :now WHERE goods_receipt_id = :id")
                 ->execute(['now' => $now, 'id' => $id]);
+
+            // The medicine ledger: each stock receipt of this delivery comes back out.
+            $stmt = $db->prepare("SELECT id, lot_id, quantity, unit_cost FROM drug_inventory_receipts WHERE goods_receipt_id = :id");
+            $stmt->execute(['id' => $id]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $stockReceipt) {
+                StockLedgerService::record((int) $stockReceipt['lot_id'], 'receipt_voided', -(float) $stockReceipt['quantity'], 'drug_inventory_receipts',
+                    (int) $stockReceipt['id'], $userId, [
+                        'unit_cost' => $stockReceipt['unit_cost'], 'reference_no' => $receipt['gr_number'],
+                        'counterparty' => $receipt['supplier_name'], 'reason' => $reason
+                    ]);
+            }
 
             $reverse = $db->prepare(
                 "UPDATE purchase_order_items SET quantity_received = GREATEST(0, quantity_received - :qty) WHERE id = :id"

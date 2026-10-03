@@ -3,6 +3,7 @@
 namespace App\Modules\SupplierReturns\Services;
 
 use App\Core\Database;
+use App\Modules\DrugInventory\Services\StockLedgerService;
 use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
@@ -634,6 +635,20 @@ class SupplierReturnService
                 'sent_date' => $sentDate,
                 'sent_via' => $sentVia !== '' ? $sentVia : null
             ], 'sent', $sentVia !== '' ? "Via {$sentVia}" : null, $userId, $now);
+
+            // The medicine ledger: each stock line leaves its lot.
+            $stmt = $db->prepare(
+                "SELECT i.id, i.lot_id, i.base_quantity, i.unit_cost, i.reason, i.remarks, s.name AS supplier_name
+                 FROM supplier_return_items i JOIN supplier_returns r ON r.id = i.supplier_return_id JOIN suppliers s ON s.id = r.supplier_id
+                 WHERE i.supplier_return_id = :id AND i.source = 'stock' AND i.lot_id IS NOT NULL"
+            );
+            $stmt->execute(['id' => $id]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $line) {
+                StockLedgerService::record((int) $line['lot_id'], 'returned', -(float) $line['base_quantity'], 'supplier_return_items', (int) $line['id'], $userId, [
+                    'date' => $sentDate, 'unit_cost' => $line['unit_cost'], 'reference_no' => $existing['rts_number'],
+                    'counterparty' => $line['supplier_name'], 'reason' => self::REASONS[$line['reason']] ?? $line['reason'], 'notes' => $line['remarks']
+                ]);
+            }
 
             if ($ownsTransaction) {
                 $db->commit();

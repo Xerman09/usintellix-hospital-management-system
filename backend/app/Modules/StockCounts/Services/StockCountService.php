@@ -3,6 +3,7 @@
 namespace App\Modules\StockCounts\Services;
 
 use App\Core\Database;
+use App\Modules\DrugInventory\Services\StockLedgerService;
 use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
@@ -905,6 +906,10 @@ class StockCountService
                         'before' => $current, 'after' => $after, 'reason' => $item['reason'] ?: 'counting_error',
                         'cost' => $item['unit_cost'], 'value' => $value, 'count' => $id, 'item' => $item['id'],
                         'notes' => $item['notes'], 'date' => $today, 'now' => $now, 'user' => $userId
+                    ]);
+                    StockLedgerService::record($lotId, 'adjusted', $difference, 'drug_inventory_adjustments', (int) $db->lastInsertId(), $userId, [
+                        'date' => $today, 'unit_cost' => $item['unit_cost'], 'reference_no' => $count['sc_number'],
+                        'reason' => self::REASONS[$item['reason'] ?: 'counting_error'][0] ?? $item['reason'], 'notes' => $item['notes']
                     ]);
                     $adjusted++;
                 }
