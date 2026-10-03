@@ -52,6 +52,8 @@ import { RequisitionsView } from "../requisitions/requisitions.view.js?v=1";
 import { initRequisitions } from "../requisitions/requisitions.js?v=1";
 import { StockCountsView } from "../stock-counts/stock-counts.view.js?v=1";
 import { initStockCounts } from "../stock-counts/stock-counts.js?v=1";
+import { StockTransfersView } from "../stock-transfers/stock-transfers.view.js?v=1";
+import { initStockTransfers } from "../stock-transfers/stock-transfers.js?v=1";
 import { ProcurementReportsView } from "../procurement-reports/procurement-reports.view.js?v=1";
 import { initProcurementReports } from "../procurement-reports/procurement-reports.js?v=2";
 import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
@@ -649,6 +651,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Stock Count', () => {
                 setTimeout(initStockCounts, 0);
                 return StockCountsView();
+            }, activate);
+        } else if (tabId === 'pharmacy_stock_transfers') {
+            tabManager.openTab(tabId, 'Stock Transfers', () => {
+                setTimeout(initStockTransfers, 0);
+                return StockTransfersView();
             }, activate);
         } else if (tabId === 'pharmacy_procurement_reports') {
             tabManager.openTab(tabId, 'Procurement Reports', () => {
