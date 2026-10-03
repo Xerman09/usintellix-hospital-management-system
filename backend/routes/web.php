@@ -154,6 +154,7 @@ require_once __DIR__ . '/../app/Modules/SupplierInvoices/routes.php';
 require_once __DIR__ . '/../app/Modules/Payables/routes.php';
 require_once __DIR__ . '/../app/Modules/SupplierReturns/routes.php';
 require_once __DIR__ . '/../app/Modules/Requisitions/routes.php';
+require_once __DIR__ . '/../app/Modules/StockCounts/routes.php';
 require_once __DIR__ . '/../app/Modules/Announcements/routes.php';
 require_once __DIR__ . '/../app/Modules/Portal/routes.php';
 require_once __DIR__ . '/../app/Modules/Authorizations/routes.php';

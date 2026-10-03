@@ -145,6 +145,16 @@ export function InventoryTransactionsReportView() {
     color: #fca5a5;
 }
 
+.it-type-badge.adjusted {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+:root[data-theme="dark"] .it-type-badge.adjusted {
+    background: rgba(245, 158, 11, .18);
+    color: #fde68a;
+}
+
 .it-empty-state {
     padding: 26px 16px;
     text-align: center;
@@ -163,6 +173,7 @@ export function InventoryTransactionsReportView() {
                 <option value="">All</option>
                 <option value="transfer">Transfer</option>
                 <option value="destroyed">Destroyed</option>
+                <option value="adjusted">Adjusted (stock count)</option>
             </select>
         </div>
         <div class="it-filter-group">

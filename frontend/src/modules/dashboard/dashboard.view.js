@@ -81,6 +81,7 @@ function staffNavLinks(role)
                 <a data-tab="pharmacy_supplier_returns">Supplier Returns</a>
                 ${["admin", "accountant"].includes(role) ? `<a data-tab="pharmacy_payables">Accounts Payable</a>` : ""}
                 <a data-tab="inventory_destroyed">Destroyed Drugs</a>
+                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_stock_counts">Stock Count</a>` : ""}
                 <a data-tab="inventory_warehouses">Storage Locations</a>
                 ${role === "admin" ? `
                 <div class="dropdown-section-label">Setup</div>

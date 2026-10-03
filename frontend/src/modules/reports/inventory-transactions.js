@@ -31,7 +31,7 @@ function renderTable(rows) {
     }
 
     tbody.innerHTML = rows.map((row) => {
-        const badgeClass = row.type === "Destroyed" ? "destroyed" : "transfer";
+        const badgeClass = row.type === "Destroyed" ? "destroyed" : row.type === "Adjusted" ? "adjusted" : "transfer";
 
         return `
             <tr>
@@ -39,7 +39,7 @@ function renderTable(rows) {
                 <td><span class="it-type-badge ${badgeClass}">${escapeHtml(row.type)}</span></td>
                 <td>${escapeHtml(row.drug_name)}</td>
                 <td>${escapeHtml(row.ndc || "-")}</td>
-                <td style="text-align: right;">${formatQuantity(row.quantity)}</td>
+                <td style="text-align: right;">${row.type === "Adjusted" && Number(row.quantity) > 0 ? "+" : ""}${formatQuantity(row.quantity)}</td>
                 <td>${escapeHtml(row.detail)}</td>
                 <td>${escapeHtml(row.recorded_by || "-")}</td>
             </tr>

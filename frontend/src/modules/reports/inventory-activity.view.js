@@ -165,6 +165,16 @@ export function InventoryActivityReportView() {
     color: #fca5a5;
 }
 
+.ia-type-badge.adjusted {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+:root[data-theme="dark"] .ia-type-badge.adjusted {
+    background: rgba(245, 158, 11, .18);
+    color: #fde68a;
+}
+
 .ia-empty-state {
     padding: 26px 16px;
     text-align: center;

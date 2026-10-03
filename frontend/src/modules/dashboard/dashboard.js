@@ -50,6 +50,8 @@ import { initPayables } from "../payables/payables.js?v=2";
 import { SupplierReturnsView } from "../supplier-returns/supplier-returns.view.js?v=1";
 import { RequisitionsView } from "../requisitions/requisitions.view.js?v=1";
 import { initRequisitions } from "../requisitions/requisitions.js?v=1";
+import { StockCountsView } from "../stock-counts/stock-counts.view.js?v=1";
+import { initStockCounts } from "../stock-counts/stock-counts.js?v=1";
 import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
@@ -323,10 +325,10 @@ import { initPrepaymentBalancesReport } from "../reports/prepayment-balances.js"
 import { PrepaymentBalancesView } from "../reports/prepayment-balances.view.js";
 import { initInventoryListReport } from "../reports/inventory-list.js?v=2";
 import { InventoryListReportView } from "../reports/inventory-list.view.js?v=2";
-import { initInventoryActivityReport } from "../reports/inventory-activity.js?v=2";
-import { InventoryActivityReportView } from "../reports/inventory-activity.view.js?v=2";
-import { initInventoryTransactionsReport } from "../reports/inventory-transactions.js";
-import { InventoryTransactionsReportView } from "../reports/inventory-transactions.view.js";
+import { initInventoryActivityReport } from "../reports/inventory-activity.js?v=3";
+import { InventoryActivityReportView } from "../reports/inventory-activity.view.js?v=3";
+import { initInventoryTransactionsReport } from "../reports/inventory-transactions.js?v=2";
+import { InventoryTransactionsReportView } from "../reports/inventory-transactions.view.js?v=2";
 import { initInsuranceDistributionReport } from "../reports/insurance-distribution.js";
 import { InsuranceDistributionView } from "../reports/insurance-distribution.view.js";
 import { initIndigentPatientsReport } from "../reports/indigent-patients.js";
@@ -640,6 +642,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Purchase Requests', () => {
                 setTimeout(initRequisitions, 0);
                 return RequisitionsView();
+            }, activate);
+        } else if (tabId === 'pharmacy_stock_counts') {
+            tabManager.openTab(tabId, 'Stock Count', () => {
+                setTimeout(initStockCounts, 0);
+                return StockCountsView();
             }, activate);
         } else if (tabId === 'pharmacy_supplier_returns') {
             tabManager.openTab(tabId, 'Supplier Returns', () => {

@@ -3,6 +3,7 @@
 namespace App\Modules\Reports\Services;
 
 use App\Core\Database;
+use App\Modules\StockCounts\Services\StockCountService;
 use PDO;
 
 class ReportService
@@ -1792,8 +1793,9 @@ class ReportService
     /**
      * Reports > Inventory > Activity: a combined, chronological audit
      * trail of everything that has actually happened to drug inventory
-     * -- Transfers and Destructions, the two real event types this app
-     * tracks (`drug_inventory_transfers` / `drug_inventory_destructions`).
+     * -- Transfers, Destructions and stock-count Adjustments
+     * (`drug_inventory_transfers` / `drug_inventory_destructions` /
+     * `drug_inventory_adjustments`; an adjustment's quantity is signed).
      * Deliberately does NOT include "lot created" as a third event type:
      * a lot's `quantity_on_hand` is a live running balance that mutates
      * on every later transfer/destruction, so by the time this report
@@ -1825,8 +1827,10 @@ class ReportService
 
         $transferWhere = ['1 = 1'];
         $destroyWhere = ['1 = 1'];
+        $adjustWhere = ['1 = 1'];
         $transferParams = [];
         $destroyParams = [];
+        $adjustParams = [];
 
         // Each half of the UNION filters its own date column
         // (transfers use created_at, destructions use their own
@@ -1838,6 +1842,9 @@ class ReportService
 
             $destroyWhere[] = 'did.destroyed_date >= ?';
             $destroyParams[] = $filters['date_from'];
+
+            $adjustWhere[] = 'dia.adjusted_date >= ?';
+            $adjustParams[] = $filters['date_from'];
         }
 
         if (!empty($filters['date_to'])) {
@@ -1846,6 +1853,9 @@ class ReportService
 
             $destroyWhere[] = 'did.destroyed_date <= ?';
             $destroyParams[] = $filters['date_to'];
+
+            $adjustWhere[] = 'dia.adjusted_date <= ?';
+            $adjustParams[] = $filters['date_to'];
         }
 
         if ($forId !== null) {
@@ -1857,6 +1867,9 @@ class ReportService
 
             $destroyWhere[] = $destroyCol . ' = ?';
             $destroyParams[] = $forId;
+
+            $adjustWhere[] = ($by === 'warehouse' ? 'dia.warehouse_id' : ($by === 'facility' ? 'adl.facility_id' : 'dia.drug_id')) . ' = ?';
+            $adjustParams[] = $forId;
         }
 
         $eventsSql = "
@@ -1891,9 +1904,12 @@ class ReportService
             LEFT JOIN users u2 ON u2.id = did.created_by
             LEFT JOIN employees e2 ON e2.user_id = u2.id
             WHERE " . implode(' AND ', $destroyWhere) . "
+            UNION ALL
+            " . self::adjustmentEventsSql(true) . "
+            WHERE " . implode(' AND ', $adjustWhere) . "
         ";
 
-        $params = array_merge($transferParams, $destroyParams);
+        $params = array_merge($transferParams, $destroyParams, $adjustParams);
 
         if ($details) {
             $stmt = Database::connection()->prepare(
@@ -1914,6 +1930,7 @@ class ReportService
             "SELECT {$groupCol} AS group_id, COALESCE({$labelCol}, 'Unassigned') AS group_label,
                     SUM(CASE WHEN type = 'Transfer' THEN quantity ELSE 0 END) AS transferred_qty,
                     SUM(CASE WHEN type = 'Destroyed' THEN quantity ELSE 0 END) AS destroyed_qty,
+                    SUM(CASE WHEN type = 'Adjusted' THEN quantity ELSE 0 END) AS adjusted_qty,
                     COUNT(*) AS event_count
              FROM ({$eventsSql}) events
              GROUP BY {$groupCol}, {$labelCol}
@@ -1937,12 +1954,12 @@ class ReportService
      */
     public function getInventoryTransactionsReport(array $filters = []): array
     {
-        $type = in_array($filters['type'] ?? '', ['transfer', 'destroyed'], true) ? $filters['type'] : '';
+        $type = in_array($filters['type'] ?? '', ['transfer', 'destroyed', 'adjusted'], true) ? $filters['type'] : '';
 
         $selects = [];
         $params = [];
 
-        if ($type !== 'destroyed') {
+        if ($type === '' || $type === 'transfer') {
             $transferWhere = ['1 = 1'];
             $transferParams = [];
 
@@ -1972,7 +1989,7 @@ class ReportService
             $params = array_merge($params, $transferParams);
         }
 
-        if ($type !== 'transfer') {
+        if ($type === '' || $type === 'destroyed') {
             $destroyWhere = ['1 = 1'];
             $destroyParams = [];
 
@@ -1999,12 +2016,58 @@ class ReportService
             $params = array_merge($params, $destroyParams);
         }
 
+        if ($type === '' || $type === 'adjusted') {
+            $adjustWhere = ['1 = 1'];
+
+            if (!empty($filters['date_from'])) {
+                $adjustWhere[] = 'dia.adjusted_date >= ?';
+                $params[] = $filters['date_from'];
+            }
+
+            if (!empty($filters['date_to'])) {
+                $adjustWhere[] = 'dia.adjusted_date <= ?';
+                $params[] = $filters['date_to'];
+            }
+
+            $selects[] = self::adjustmentEventsSql(false) . " WHERE " . implode(' AND ', $adjustWhere);
+        }
+
         $stmt = Database::connection()->prepare(
             implode(' UNION ALL ', $selects) . " ORDER BY event_date DESC LIMIT 500"
         );
         $stmt->execute($params);
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Stock corrections from approved stock counts (Pharmacy > Stock
+     * Count) as "Adjusted" events. quantity is signed: + found, - lost.
+     * $grouping adds the warehouse/facility columns Activity groups by.
+     */
+    private static function adjustmentEventsSql(bool $grouping): string
+    {
+        $reasons = "CASE dia.reason " . implode(' ', array_map(
+            fn($key, $r) => "WHEN '{$key}' THEN '" . str_replace("'", "''", $r[0]) . "'",
+            array_keys(StockCountService::REASONS),
+            StockCountService::REASONS
+        )) . " ELSE dia.reason END";
+
+        return "
+            SELECT 'Adjusted' AS type, dia.created_at AS event_date, " . ($grouping ? 'dia.quantity_change AS quantity, d.id AS drug_id, d.name AS drug_name, d.ndc,' : 'd.name AS drug_name, d.ndc, dia.quantity_change AS quantity,') . "
+                   " . ($grouping ? 'adw.id AS warehouse_id, adw.name AS warehouse_name, adl.facility_id AS facility_id, adf.name AS facility_name,' : '') . "
+                   CONCAT('Lot ', adl.lot_number, ' at ', adw.name, ': ', TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM dia.quantity_before)), ' -> ',
+                          TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM dia.quantity_after)), ' (', {$reasons}, ')', COALESCE(CONCAT(' - ', sc.sc_number), '')) AS detail,
+                   COALESCE(CONCAT(ade.first_name, ' ', ade.last_name), adu.username) AS recorded_by
+            FROM drug_inventory_adjustments dia
+            JOIN drugs d ON d.id = dia.drug_id
+            JOIN drug_inventory_lots adl ON adl.id = dia.lot_id
+            JOIN warehouses adw ON adw.id = dia.warehouse_id
+            LEFT JOIN facilities adf ON adf.id = adl.facility_id
+            LEFT JOIN stock_counts sc ON sc.id = dia.stock_count_id
+            LEFT JOIN users adu ON adu.id = dia.created_by
+            LEFT JOIN employees ade ON ade.user_id = adu.id
+        ";
     }
 
     /**
