@@ -84,6 +84,7 @@ function staffNavLinks(role)
                 ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_stock_transfers">Stock Transfers</a>` : ""}
                 ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_medicine_ledger">Medicine Ledger</a>` : ""}
                 ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_lot_trace">Lot Tracing</a>` : ""}
+                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_stock_levels">Stock Levels</a>` : ""}
                 ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_stock_counts">Stock Count</a>` : ""}
                 ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_procurement_reports">Procurement Reports</a>` : ""}
                 <a data-tab="inventory_warehouses">Storage Locations</a>

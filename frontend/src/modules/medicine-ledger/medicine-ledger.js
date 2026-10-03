@@ -20,6 +20,10 @@ let summary = null;
 const $ = (id) => document.getElementById(id);
 
 export async function initMedicineLedger() {
+    // The page is rebuilt each time the tab opens; start clean.
+    options = null;
+    card = null;
+    summary = null;
     $("mlTabs").querySelectorAll("[data-ml-tab]").forEach((btn) => btn.addEventListener("click", () => showTab(btn.dataset.mlTab)));
     $("mlItemSearch").addEventListener("input", renderDrugOptions);
     $("mlDrug").addEventListener("change", () => { renderLotOptions(); loadCard(); });

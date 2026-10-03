@@ -159,6 +159,7 @@ require_once __DIR__ . '/../app/Modules/Procurement/routes.php';
 require_once __DIR__ . '/../app/Modules/StockTransfers/routes.php';
 require_once __DIR__ . '/../app/Modules/MedicineLedger/routes.php';
 require_once __DIR__ . '/../app/Modules/LotTrace/routes.php';
+require_once __DIR__ . '/../app/Modules/StockLevels/routes.php';
 require_once __DIR__ . '/../app/Modules/Announcements/routes.php';
 require_once __DIR__ . '/../app/Modules/Portal/routes.php';
 require_once __DIR__ . '/../app/Modules/Authorizations/routes.php';
