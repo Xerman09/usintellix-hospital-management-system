@@ -3,6 +3,7 @@
 namespace App\Modules\PurchaseOrders\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\ApprovalLimitService;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Models\PurchaseOrder;
 use App\Modules\PurchaseOrders\Models\PurchaseOrderItem;
@@ -123,6 +124,7 @@ class PurchaseOrderService
                     " . self::userNameSql('po.created_by') . " AS created_by_name,
                     " . self::userNameSql('po.submitted_by') . " AS submitted_by_name,
                     " . self::userNameSql('po.approved_by') . " AS approved_by_name,
+                    " . self::userNameSql('po.first_approved_by') . " AS first_approved_by_name,
                     " . self::userNameSql('po.rejected_by') . " AS rejected_by_name
              FROM purchase_orders po
              JOIN suppliers s ON s.id = po.supplier_id
@@ -138,7 +140,7 @@ class PurchaseOrderService
 
         $order = $this->formatHeader($row, $viewer);
 
-        foreach (['created_by', 'submitted_by', 'approved_by', 'rejected_by'] as $field) {
+        foreach (['created_by', 'submitted_by', 'first_approved_by', 'approved_by', 'rejected_by'] as $field) {
             $order["{$field}_name"] = $row["{$field}_name"];
         }
 
@@ -533,6 +535,12 @@ class PurchaseOrderService
             return 'You prepared or submitted this order, so someone else has to approve it.';
         }
 
+        // Above the approval limit: after an accountant's first approval only an administrator can finish it.
+        if (!empty($order['first_approved_by']) && ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE
+            && (new ApprovalLimitService())->needsAdmin('purchase_order', (float) $order['total'])) {
+            return 'Already approved at the first level. It is ' . (new ApprovalLimitService())->describe('purchase_order') . ', so an administrator gives the final approval.';
+        }
+
         return null;
     }
 
@@ -558,6 +566,18 @@ class PurchaseOrderService
         $notes = mb_substr(trim($notes), 0, 255);
         $now = date('Y-m-d H:i:s');
         $userId = (int) $user['id'];
+        $limits = new ApprovalLimitService();
+
+        if ($limits->needsAdmin('purchase_order', (float) $existing['total']) && ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE) {
+            $this->transition($id, [
+                'first_approved_at' => $now,
+                'first_approved_by' => $userId,
+                'first_approval_notes' => $notes !== '' ? $notes : null
+            ], 'first_approved', $notes, $userId, $now);
+
+            return ['success' => true, 'message' => "Purchase order {$existing['po_number']} approved at your level. It is "
+                . $limits->describe('purchase_order') . ', so an administrator must also approve it.'];
+        }
 
         $this->transition($id, [
             'status' => 'approved',
@@ -596,7 +616,11 @@ class PurchaseOrderService
             'status' => 'rejected',
             'rejected_at' => $now,
             'rejected_by' => $userId,
-            'rejection_reason' => $reason
+            'rejection_reason' => $reason,
+            // A resubmitted document starts its approvals over.
+            'first_approved_at' => null,
+            'first_approved_by' => null,
+            'first_approval_notes' => null
         ], 'rejected', $reason, $userId, $now);
 
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} rejected and sent back for changes."];
@@ -1081,6 +1105,12 @@ class PurchaseOrderService
             'can_edit' => in_array($r['status'], self::EDITABLE_STATUSES, true),
             'can_approve' => $viewer !== null && $this->approvalBlocker($r, $viewer) === null,
             'approval_blocker' => $r['status'] === 'pending_approval' ? $this->approvalBlocker($r, $viewer) : null,
+            // Approval limit: above it an administrator must also approve.
+            'approval_limit' => (new ApprovalLimitService())->limitFor('purchase_order'),
+            'needs_admin_approval' => (new ApprovalLimitService())->needsAdmin('purchase_order', (float) $r['total']),
+            'first_approved_at' => $r['first_approved_at'] ?? null,
+            'first_approved_by' => !empty($r['first_approved_by']) ? (int) $r['first_approved_by'] : null,
+            'first_approval_notes' => $r['first_approval_notes'] ?? null,
             'submitted_at' => $r['submitted_at'],
             'approved_at' => $r['approved_at'],
             'rejected_at' => $r['rejected_at'],

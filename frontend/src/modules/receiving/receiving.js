@@ -5,6 +5,7 @@ import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-pric
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
 import { systemNow } from "../../core/timezone.js";
+import { custodianHint } from "../../core/custodian.js";
 
 // Keep in step with PurchaseOrderService::CREATOR_ROLES (the receiving
 // roles). Approver-only roles (e.g. accountant) see past deliveries only.
@@ -337,13 +338,11 @@ async function openForm(orderId) {
         warehouses.map((w) => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join("");
     $("rv_warehouse_id").value = order.warehouse_id || "";
 
-    // Receiving into a location is its custodian's job -- say who that is.
+    // Receiving into a location is its custodian's job -- say who that is, and whether it's you.
     const showCustodian = () => {
-        const location = warehouses.find((w) => Number(w.id) === Number($("rv_warehouse_id").value));
-        $("rvCustodian").textContent = !location ? ""
-            : location.custodian_name
-                ? `Custodian: ${location.custodian_name}${location.alternate_custodian_name ? ` (alternate: ${location.alternate_custodian_name})` : ""}`
-                : "No custodian assigned to this location yet.";
+        const hint = custodianHint(warehouses.find((w) => Number(w.id) === Number($("rv_warehouse_id").value)), "Receiving into");
+        $("rvCustodian").textContent = hint.text;
+        $("rvCustodian").classList.toggle("warn", hint.warn);
     };
     $("rv_warehouse_id").onchange = showCustodian;
     showCustodian();

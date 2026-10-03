@@ -72,11 +72,13 @@ export function PayablesView() {
 .ap-badge.partially_paid { background: #e0f2fe; color: #075985; }
 .ap-badge.paid, .ap-badge.posted { background: #dcfce7; color: #166534; }
 .ap-badge.overdue, .ap-badge.voided { background: #fee2e2; color: #991b1b; }
-.ap-badge.soon { background: #fef3c7; color: #92400e; }
+.ap-badge.soon, .ap-badge.pending_approval { background: #fef3c7; color: #92400e; }
+.ap-badge.rejected { background: #fee2e2; color: #991b1b; }
 :root[data-theme="dark"] .ap-badge.partially_paid { background: rgba(14,165,233,.18); color: #bae6fd; }
 :root[data-theme="dark"] .ap-badge.paid, :root[data-theme="dark"] .ap-badge.posted { background: rgba(34,197,94,.18); color: #bbf7d0; }
 :root[data-theme="dark"] .ap-badge.overdue, :root[data-theme="dark"] .ap-badge.voided { background: rgba(239,68,68,.18); color: #fecaca; }
-:root[data-theme="dark"] .ap-badge.soon { background: rgba(245,158,11,.18); color: #fde68a; }
+:root[data-theme="dark"] .ap-badge.soon, :root[data-theme="dark"] .ap-badge.pending_approval { background: rgba(245,158,11,.18); color: #fde68a; }
+:root[data-theme="dark"] .ap-badge.rejected { background: rgba(239,68,68,.18); color: #fecaca; }
 
 .ap-selbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 10px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent-light); }
 .ap-selbar span { font-size: 13px; color: var(--text-primary); }
@@ -106,11 +108,17 @@ export function PayablesView() {
 .ap-totals .grand { font-size: 17px; font-weight: 800; color: var(--text-primary); padding-top: 8px; border-top: 1px solid var(--border-color); }
 
 .ap-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 14px; border-radius: 10px; border: 1px solid #86efac; background: #f0fdf4; }
-.ap-banner.voided { border-color: #fca5a5; background: #fef2f2; }
+.ap-banner.voided, .ap-banner.rejected { border-color: #fca5a5; background: #fef2f2; }
+.ap-banner.pending_approval { border-color: #f59e0b; background: #fffbeb; }
+:root[data-theme="dark"] .ap-banner.pending_approval { background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.5); }
+.ap-limit-hint { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; font-size: 12.5px; }
+:root[data-theme="dark"] .ap-limit-hint { background: rgba(245,158,11,.10); color: #fde68a; border-color: rgba(245,158,11,.5); }
+.ap-held { display: block; font-size: 11.5px; color: #b45309; margin-top: 2px; font-weight: 400; }
+:root[data-theme="dark"] .ap-held { color: #fcd34d; }
 .ap-banner strong { display: block; font-size: 14px; color: var(--text-primary); margin-bottom: 2px; }
 .ap-banner span { font-size: 12.5px; color: var(--text-muted); }
 :root[data-theme="dark"] .ap-banner { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.45); }
-:root[data-theme="dark"] .ap-banner.voided { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.45); }
+:root[data-theme="dark"] .ap-banner.voided, :root[data-theme="dark"] .ap-banner.rejected { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.45); }
 
 .ap-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 0 4px; }
 .ap-footer-right { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
@@ -151,6 +159,7 @@ export function PayablesView() {
             <div class="ap-stat warn"><strong id="apStatWeek">₱0.00</strong><span id="apStatWeekSub">Due in the next 7 days</span></div>
             <div class="ap-stat"><strong id="apStatPaid">₱0.00</strong><span>Paid this month</span></div>
             <div class="ap-stat"><strong id="apStatCredits">₱0.00</strong><span>Supplier credits to apply</span></div>
+            <div class="ap-stat warn" id="apStatPendingBox" hidden><strong id="apStatPending">0</strong><span id="apStatPendingSub">Payments waiting for approval</span></div>
         </div>
 
         <div class="ap-tabs" role="tablist">
@@ -246,6 +255,7 @@ export function PayablesView() {
                     <span class="label">Less: tax withheld (EWT)</span><span class="val" id="apTotEwt">₱0.00</span>
                     <span class="label grand">Amount to Pay</span><span class="val grand" id="apTotCash">₱0.00</span>
                 </div>
+                <p class="ap-limit-hint" id="apLimitHint" hidden></p>
             </div>
 
             <div class="ap-footer">

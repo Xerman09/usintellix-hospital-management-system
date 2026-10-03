@@ -3,6 +3,7 @@
 namespace App\Modules\SupplierInvoices\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\ApprovalLimitService;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
 use App\Modules\SupplierInvoices\Models\SupplierInvoice;
@@ -129,6 +130,7 @@ class SupplierInvoiceService
                     " . self::userNameSql('si.created_by') . " AS created_by_name,
                     " . self::userNameSql('si.submitted_by') . " AS submitted_by_name,
                     " . self::userNameSql('si.approved_by') . " AS approved_by_name,
+                    " . self::userNameSql('si.first_approved_by') . " AS first_approved_by_name,
                     " . self::userNameSql('si.rejected_by') . " AS rejected_by_name,
                     " . self::userNameSql('si.cancelled_by') . " AS cancelled_by_name,
                     (SELECT GROUP_CONCAT(gr.gr_number ORDER BY gr.id SEPARATOR ', ')
@@ -148,7 +150,7 @@ class SupplierInvoiceService
 
         $invoice = $this->formatHeader($row, $viewer);
 
-        foreach (['created_by', 'submitted_by', 'approved_by', 'rejected_by', 'cancelled_by'] as $field) {
+        foreach (['created_by', 'submitted_by', 'first_approved_by', 'approved_by', 'rejected_by', 'cancelled_by'] as $field) {
             $invoice["{$field}_name"] = $row["{$field}_name"];
         }
 
@@ -590,6 +592,12 @@ class SupplierInvoiceService
             return 'You recorded or submitted this invoice, so someone else has to approve it.';
         }
 
+        // Above the approval limit: after an accountant's first approval only an administrator can finish it.
+        if (!empty($invoice['first_approved_by']) && ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE
+            && (new ApprovalLimitService())->needsAdmin('supplier_invoice', (float) $invoice['total'])) {
+            return 'Already approved at the first level. It is ' . (new ApprovalLimitService())->describe('supplier_invoice') . ', so an administrator gives the final approval.';
+        }
+
         return null;
     }
 
@@ -615,6 +623,18 @@ class SupplierInvoiceService
 
         $now = date('Y-m-d H:i:s');
         $userId = (int) $user['id'];
+        $limits = new ApprovalLimitService();
+
+        if ($limits->needsAdmin('supplier_invoice', (float) $existing['total']) && ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE) {
+            $this->transition($id, [
+                'first_approved_at' => $now,
+                'first_approved_by' => $userId,
+                'first_approval_notes' => $notes !== '' ? $notes : null
+            ], 'first_approved', $notes, $userId, $now);
+
+            return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} approved at your level. It is "
+                . $limits->describe('supplier_invoice') . ', so an administrator must also approve it.'];
+        }
 
         $dueDate = $existing['due_date'] ?: $this->defaultDueDate($existing);
 
@@ -657,7 +677,11 @@ class SupplierInvoiceService
             'status' => 'rejected',
             'rejected_at' => $now,
             'rejected_by' => $userId,
-            'rejection_reason' => $reason
+            'rejection_reason' => $reason,
+            // A resubmitted document starts its approvals over.
+            'first_approved_at' => null,
+            'first_approved_by' => null,
+            'first_approval_notes' => null
         ], 'rejected', $reason, $userId, $now);
 
         return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} rejected and sent back for correction."];
@@ -1276,6 +1300,12 @@ class SupplierInvoiceService
             'can_edit' => in_array($r['status'], self::EDITABLE_STATUSES, true),
             'can_approve' => $viewer !== null && $this->approvalBlocker($r, $viewer) === null,
             'approval_blocker' => $r['status'] === 'pending_approval' ? $this->approvalBlocker($r, $viewer) : null,
+            // Approval limit: above it an administrator must also approve.
+            'approval_limit' => (new ApprovalLimitService())->limitFor('supplier_invoice'),
+            'needs_admin_approval' => (new ApprovalLimitService())->needsAdmin('supplier_invoice', (float) $r['total']),
+            'first_approved_at' => $r['first_approved_at'] ?? null,
+            'first_approved_by' => !empty($r['first_approved_by']) ? (int) $r['first_approved_by'] : null,
+            'first_approval_notes' => $r['first_approval_notes'] ?? null,
             'can_cancel' => in_array($r['status'], self::CANCELLABLE_STATUSES, true)
                 && (float) ($r['amount_paid'] ?? 0) <= 0
                 && ($r['status'] !== 'approved' || in_array($viewer['role'] ?? null, self::APPROVER_ROLES, true))

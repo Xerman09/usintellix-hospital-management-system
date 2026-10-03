@@ -172,6 +172,8 @@ export function DrugInventoryView() {
 
 .di-destroy-btn:hover { background: #fee2e2; border-color: #b91c1c; color: #b91c1c; }
 .di-custodian { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.di-custodian.warn { color: #b45309; }
+:root[data-theme="dark"] .di-custodian.warn { color: #fcd34d; }
 .di-custodian-note { margin: 0 0 12px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
 .di-custodian-note strong { color: var(--text-primary); }
 .di-custodian-note.warn { border-color: #f59e0b; background: #fffbeb; color: #92400e; }

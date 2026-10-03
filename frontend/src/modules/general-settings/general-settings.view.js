@@ -214,6 +214,19 @@ export function GeneralSettingsView()
 :root[data-theme="dark"] .gs-role-checklist label { color: var(--text-primary); }
 :root[data-theme="dark"] .gs-2fa-detail { border-top-color: var(--border-color); }
 :root[data-theme="dark"] .gs-status-badge.off { background: var(--bg-surface-alt); color: var(--text-muted); }
+
+.gs-limits { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13.5px; }
+.gs-limits th { text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.gs-limits td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
+.gs-limits tr:last-child td { border-bottom: none; }
+.gs-limits input[type="number"] { width: 160px; max-width: 100%; height: 34px; padding: 0 10px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; text-align: right; }
+.gs-limits input[type="number"]:disabled { opacity: .5; }
+.gs-limits label.gs-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 400; margin: 0; }
+.gs-limits input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+.gs-limits .form-error { display: block; }
+.gs-limits-sub { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.gs-limits-wrap { overflow-x: auto; }
+.gs-limits-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
 </style>
 
 <div class="gs-page">
@@ -242,6 +255,18 @@ export function GeneralSettingsView()
                 <p class="gs-tz-clock" id="ro_tz_clock">-</p>
             </div>
         </div>
+    </div>
+
+    <div class="gs-card">
+        <div class="gs-header">
+            <div>
+                <h1>Approval Limits</h1>
+                <p class="form-subtitle">Purchase orders, supplier invoices and supplier payments above these amounts also need an administrator. An accountant's approval then counts as the first one, and an administrator gives the final approval. Payments an accountant records above the limit wait for an administrator before the invoices are paid off.</p>
+            </div>
+        </div>
+
+        <div id="gsLimitsAlert"></div>
+        <div id="gsLimits"><p class="form-subtitle" style="margin-top:16px;">Loading...</p></div>
     </div>
 
     <div class="gs-card">

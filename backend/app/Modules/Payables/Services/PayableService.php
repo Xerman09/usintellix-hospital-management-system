@@ -4,6 +4,7 @@ namespace App\Modules\Payables\Services;
 
 use App\Core\Database;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
+use App\Modules\Procurement\Services\ApprovalLimitService;
 use App\Modules\SupplierReturns\Services\SupplierReturnService;
 use App\Modules\SupplierInvoices\Models\SupplierInvoice;
 use PDO;
@@ -50,6 +51,17 @@ class PayableService
 
     private const EPSILON = 0.005;
 
+    public const PAYMENT_STATUSES = ['pending_approval', 'posted', 'rejected', 'voided'];
+
+    /** What payments waiting for approval hold against an invoice. */
+    private static function heldSql(string $invoiceColumn, ?int $exceptPayment = null): string
+    {
+        return "COALESCE((SELECT SUM(ha.amount_applied) FROM supplier_payment_allocations ha
+                            JOIN supplier_payments hp ON hp.id = ha.supplier_payment_id
+                           WHERE ha.supplier_invoice_id = {$invoiceColumn} AND hp.status = 'pending_approval'"
+            . ($exceptPayment !== null ? " AND hp.id <> {$exceptPayment}" : '') . "), 0)";
+    }
+
     /* ---------------------------------------------------------------
      * Owed
      * ------------------------------------------------------------- */
@@ -84,7 +96,14 @@ class PayableService
              WHERE status = 'credited' AND deleted_at IS NULL"
         )->fetchColumn();
 
+        $pending = Database::connection()->query(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(amount_paid), 0) AS amount FROM supplier_payments WHERE status = 'pending_approval'"
+        )->fetch(PDO::FETCH_ASSOC);
+
         return [
+            'pending_count' => (int) $pending['n'],
+            'pending_amount' => round((float) $pending['amount'], 2),
+            'payment_limit' => (new ApprovalLimitService())->limitFor('supplier_payment'),
             'credits_available' => round($credits, 2),
             'open_count' => (int) $owed['open_count'],
             'total_payable' => round((float) $owed['total_payable'], 2),
@@ -110,6 +129,7 @@ class PayableService
         $stmt = Database::connection()->prepare(
             "SELECT si.id, si.ap_number, si.supplier_invoice_no, si.invoice_date, si.due_date, si.total, si.vat_amount,
                     si.amount_paid, si.payment_status, si.match_status, si.supplier_id, si.purchase_order_id,
+                    " . self::heldSql('si.id') . " AS held,
                     s.name AS supplier_name, s.code AS supplier_code, s.tin AS supplier_tin, s.payment_terms, po.po_number
              FROM supplier_invoices si
              JOIN suppliers s ON s.id = si.supplier_id
@@ -127,7 +147,7 @@ class PayableService
      * ------------------------------------------------------------- */
 
     /** Filters: supplier_id?, status? */
-    public function payments(array $filters = []): array
+    public function payments(array $filters = [], ?array $viewer = null): array
     {
         $where = ['1 = 1'];
         $params = [];
@@ -137,7 +157,7 @@ class PayableService
             $params['supplier'] = (int) $filters['supplier_id'];
         }
 
-        if (!empty($filters['status']) && in_array($filters['status'], ['posted', 'voided'], true)) {
+        if (!empty($filters['status']) && in_array($filters['status'], self::PAYMENT_STATUSES, true)) {
             $where[] = 'p.status = :status';
             $params['status'] = $filters['status'];
         }
@@ -157,10 +177,10 @@ class PayableService
         );
         $stmt->execute($params);
 
-        return array_map(fn(array $r) => $this->formatPayment($r), $stmt->fetchAll(PDO::FETCH_ASSOC));
+        return array_map(fn(array $r) => $this->formatPayment($r, $viewer), $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    public function payment(int $id): ?array
+    public function payment(int $id, ?array $viewer = null): ?array
     {
         $db = Database::connection();
         $stmt = $db->prepare(
@@ -168,6 +188,8 @@ class PayableService
                     s.address_line, s.city, s.province,
                     " . self::userNameSql('p.created_by') . " AS created_by_name,
                     " . self::userNameSql('p.voided_by') . " AS voided_by_name,
+                    " . self::userNameSql('p.approved_by') . " AS approved_by_name,
+                    " . self::userNameSql('p.rejected_by') . " AS rejected_by_name,
                     (SELECT GROUP_CONCAT(si.ap_number ORDER BY si.id SEPARATOR ', ')
                        FROM supplier_payment_allocations a JOIN supplier_invoices si ON si.id = a.supplier_invoice_id
                       WHERE a.supplier_payment_id = p.id) AS invoice_numbers
@@ -183,7 +205,9 @@ class PayableService
             return null;
         }
 
-        $payment = $this->formatPayment($row);
+        $payment = $this->formatPayment($row, $viewer);
+        $payment['approved_by_name'] = $row['approved_by_name'];
+        $payment['rejected_by_name'] = $row['rejected_by_name'];
         $payment['supplier_tin'] = $row['supplier_tin'];
         $payment['supplier_address'] = implode(', ', array_filter([$row['address_line'], $row['city'], $row['province']]));
         $payment['voided_by_name'] = $row['voided_by_name'];
@@ -230,7 +254,7 @@ class PayableService
      * reference_no (check / transfer no.), check_date?, paid_from?,
      * ewt_rate?, notes?, allocations: [{ supplier_invoice_id, amount }].
      */
-    public function record(array $data, int $userId, ?array $credit = null): array
+    public function record(array $data, int $userId, ?array $credit = null, ?string $role = null): array
     {
         $db = Database::connection();
         $errors = [];
@@ -346,7 +370,8 @@ class PayableService
             // Lock the invoices so two payments can't both take the same balance.
             $placeholders = implode(', ', array_fill(0, count($wanted), '?'));
             $stmt = $db->prepare(
-                "SELECT id, ap_number, supplier_id, status, total, vat_amount, amount_paid, invoice_date
+                "SELECT id, ap_number, supplier_id, status, total, vat_amount, amount_paid, invoice_date,
+                        " . self::heldSql('supplier_invoices.id') . " AS held
                  FROM supplier_invoices WHERE id IN ({$placeholders}) AND deleted_at IS NULL FOR UPDATE"
             );
             $stmt->execute(array_keys($wanted));
@@ -371,9 +396,12 @@ class PayableService
                 }
 
                 $balance = round((float) $invoice['total'] - (float) $invoice['amount_paid'], 2);
+                $held = round((float) $invoice['held'], 2);
 
-                if ($want['amount'] > $balance + self::EPSILON) {
-                    $errors[$key] = 'More than the balance of ' . number_format($balance, 2) . '.';
+                if ($want['amount'] > $balance - $held + self::EPSILON) {
+                    $errors[$key] = $held > self::EPSILON
+                        ? 'More than the ' . number_format($balance - $held, 2) . ' left to pay (' . number_format($held, 2) . ' is held by a payment waiting for approval).'
+                        : 'More than the balance of ' . number_format($balance, 2) . '.';
                     continue;
                 }
 
@@ -403,6 +431,11 @@ class PayableService
             $totalApplied = round(array_sum(array_column($lines, 'amount')), 2);
             $totalEwt = round(array_sum(array_column($lines, 'ewt')), 2);
 
+            // Above the payment limit, an accountant's payment waits for an administrator.
+            $limits = new ApprovalLimitService();
+            $pending = $credit === null && $role !== null && $role !== ApprovalLimitService::FINAL_ROLE
+                && $limits->needsAdmin('supplier_payment', round($totalApplied - $totalEwt, 2));
+
             if ($credit !== null && $totalApplied > $credit['available'] + self::EPSILON) {
                 $undo();
                 return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
@@ -414,7 +447,7 @@ class PayableService
                 "INSERT INTO supplier_payments (supplier_id, payment_date, method, reference_no, check_date, paid_from, ewt_rate,
                                                 total_applied, ewt_amount, amount_paid, notes, status, created_at, created_by)
                  VALUES (:supplier, :date, :method, :reference, :check_date, :paid_from, :rate,
-                         :applied, :ewt, :paid, :notes, 'posted', :now, :user)"
+                         :applied, :ewt, :paid, :notes, :status, :now, :user)"
             )->execute([
                 'supplier' => $supplierId,
                 'date' => $paymentDate,
@@ -428,6 +461,7 @@ class PayableService
                 // A credit memo settles invoices without any cash going out.
                 'paid' => $credit !== null ? 0.0 : round($totalApplied - $totalEwt, 2),
                 'notes' => $notes !== '' ? mb_substr($notes, 0, 2000) : null,
+                'status' => $pending ? 'pending_approval' : 'posted',
                 'now' => $now,
                 'user' => $userId
             ]);
@@ -446,10 +480,9 @@ class PayableService
             );
 
             foreach ($lines as $line) {
-                $invoice = $line['invoice'];
                 $allocate->execute([
                     'payment' => $paymentId,
-                    'invoice' => $invoice['id'],
+                    'invoice' => $line['invoice']['id'],
                     'amount' => $line['amount'],
                     'rate' => $ewtRate,
                     'base' => $line['base'],
@@ -457,24 +490,14 @@ class PayableService
                     'now' => $now
                 ]);
 
-                $paid = round((float) $invoice['amount_paid'] + $line['amount'], 2);
-                (new SupplierInvoice())->update([
-                    'amount_paid' => $line['settles'] ? (float) $invoice['total'] : $paid,
-                    'payment_status' => $line['settles'] ? 'paid' : 'partially_paid',
-                    'paid_at' => $line['settles'] ? $now : null,
-                    'updated_at' => $now,
-                    'updated_by' => $userId
-                ], (int) $invoice['id']);
+                if ($pending) {
+                    $this->logInvoice((int) $line['invoice']['id'], 'payment_pending',
+                        "{$pvNumber}: " . number_format($line['amount'], 2) . " waiting for an administrator's approval", $userId, $now);
+                }
+            }
 
-                $this->logInvoice(
-                    (int) $invoice['id'],
-                    $line['settles'] ? 'paid' : 'partially_paid',
-                    "{$pvNumber}: " . number_format($line['amount'], 2)
-                        . ($credit !== null ? " from {$credit['rts_number']}'s credit memo {$credit['credit_memo_no']}" : '')
-                        . ($line['ewt'] > 0 ? ' (incl. ' . number_format($line['ewt'], 2) . ' EWT withheld)' : ''),
-                    $userId,
-                    $now
-                );
+            if (!$pending) {
+                $this->applyLines($lines, $pvNumber, $userId, $now, $credit);
             }
 
             if ($ownsTransaction) {
@@ -493,6 +516,15 @@ class PayableService
                 'success' => true,
                 'message' => number_format($totalApplied, 2) . " of {$credit['rts_number']}'s credit applied ({$pvNumber}).",
                 'data' => ['id' => $paymentId, 'pv_number' => $pvNumber]
+            ];
+        }
+
+        if ($pending) {
+            return [
+                'success' => true,
+                'message' => "{$pvNumber} recorded for " . number_format($totalApplied - $totalEwt, 2) . " to {$supplier['name']}. It is "
+                    . $limits->describe('supplier_payment') . ", so it waits for an administrator's approval before the invoices are paid off.",
+                'data' => ['id' => $paymentId, 'pv_number' => $pvNumber, 'status' => 'pending_approval']
             ];
         }
 
@@ -534,6 +566,181 @@ class PayableService
         return (new SupplierReturnService())->availableCredits($supplierId);
     }
 
+    /** Pays off the invoices for a payment's lines (each: invoice row, amount, ewt, settles). */
+    private function applyLines(array $lines, string $pvNumber, int $userId, string $now, ?array $credit): void
+    {
+        foreach ($lines as $line) {
+            $invoice = $line['invoice'];
+            $paid = round((float) $invoice['amount_paid'] + $line['amount'], 2);
+            (new SupplierInvoice())->update([
+                'amount_paid' => $line['settles'] ? (float) $invoice['total'] : $paid,
+                'payment_status' => $line['settles'] ? 'paid' : 'partially_paid',
+                'paid_at' => $line['settles'] ? $now : null,
+                'updated_at' => $now,
+                'updated_by' => $userId
+            ], (int) $invoice['id']);
+
+            $this->logInvoice(
+                (int) $invoice['id'],
+                $line['settles'] ? 'paid' : 'partially_paid',
+                "{$pvNumber}: " . number_format($line['amount'], 2)
+                    . ($credit !== null ? " from {$credit['rts_number']}'s credit memo {$credit['credit_memo_no']}" : '')
+                    . ($line['ewt'] > 0 ? ' (incl. ' . number_format($line['ewt'], 2) . ' EWT withheld)' : ''),
+                $userId,
+                $now
+            );
+        }
+    }
+
+    public function paymentApprovalBlocker(array $payment, ?array $user): ?string
+    {
+        if (!$user || ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE) {
+            return 'Waiting for an administrator to approve it (' . ((new ApprovalLimitService())->describe('supplier_payment') ?: 'above the payment limit') . ').';
+        }
+
+        if (($payment['status'] ?? null) !== 'pending_approval') {
+            return 'This payment is not waiting for approval.';
+        }
+
+        if ((int) ($user['id'] ?? 0) === (int) $payment['created_by']) {
+            return 'You recorded this payment, so another administrator has to approve it.';
+        }
+
+        return null;
+    }
+
+    /** An administrator releases a payment held above the limit: the invoices are paid off now. */
+    public function approvePayment(int $id, string $notes, array $user): array
+    {
+        $db = Database::connection();
+        $payment = $this->payment($id);
+
+        if (!$payment) {
+            return ['success' => false, 'message' => 'Payment not found.', 'not_found' => true];
+        }
+
+        if ($blocker = $this->paymentApprovalBlocker($payment, $user)) {
+            return ['success' => false, 'message' => $blocker];
+        }
+
+        $notes = mb_substr(trim($notes), 0, 500);
+        $now = date('Y-m-d H:i:s');
+        $userId = (int) $user['id'];
+        $ownsTransaction = !$db->inTransaction();
+
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
+
+        try {
+            $lock = $db->prepare(
+                "SELECT id, ap_number, status, total, amount_paid, " . self::heldSql('supplier_invoices.id', $id) . " AS held_by_others
+                 FROM supplier_invoices WHERE id = :id FOR UPDATE"
+            );
+            $lines = [];
+            $problems = [];
+
+            foreach ($payment['allocations'] as $allocation) {
+                $lock->execute(['id' => $allocation['supplier_invoice_id']]);
+                $invoice = $lock->fetch(PDO::FETCH_ASSOC);
+                $balance = round((float) $invoice['total'] - (float) $invoice['amount_paid'], 2);
+
+                if ($invoice['status'] !== 'approved') {
+                    $problems[] = "{$invoice['ap_number']} is no longer approved for payment";
+                    continue;
+                }
+
+                if ($allocation['amount_applied'] > $balance - (float) $invoice['held_by_others'] + self::EPSILON) {
+                    $problems[] = "{$invoice['ap_number']} has only " . number_format(max(0, $balance - (float) $invoice['held_by_others']), 2) . ' left to pay';
+                    continue;
+                }
+
+                $lines[] = [
+                    'invoice' => $invoice,
+                    'amount' => $allocation['amount_applied'],
+                    'ewt' => $allocation['ewt_amount'],
+                    'settles' => $allocation['amount_applied'] >= $balance - self::EPSILON
+                ];
+            }
+
+            if ($problems) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return ['success' => false, 'message' => "It can't be approved: " . implode('; ', $problems) . '. Reject it and record a new payment.'];
+            }
+
+            $this->applyLines($lines, $payment['pv_number'], $userId, $now, null);
+            $db->prepare(
+                "UPDATE supplier_payments SET status = 'posted', approved_at = :now, approved_by = :user, approval_notes = :notes WHERE id = :id"
+            )->execute(['now' => $now, 'user' => $userId, 'notes' => $notes !== '' ? $notes : null, 'id' => $id]);
+
+            if ($ownsTransaction) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownsTransaction) {
+                $db->rollBack();
+            }
+            error_log('supplier payment approve failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to approve the payment. Nothing was changed.'];
+        }
+
+        return ['success' => true, 'message' => "{$payment['pv_number']} approved. " . number_format($payment['amount_paid'], 2) . " paid to {$payment['supplier_name']}."];
+    }
+
+    /** Nothing is paid; the held amounts go back to the invoices' balances. */
+    public function rejectPayment(int $id, string $reason, array $user): array
+    {
+        $db = Database::connection();
+        $payment = $this->payment($id);
+
+        if (!$payment) {
+            return ['success' => false, 'message' => 'Payment not found.', 'not_found' => true];
+        }
+
+        if ($blocker = $this->paymentApprovalBlocker($payment, $user)) {
+            return ['success' => false, 'message' => $blocker];
+        }
+
+        $reason = mb_substr(trim($reason), 0, 255);
+
+        if ($reason === '') {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => ['reason' => 'Say why the payment is rejected.']];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $userId = (int) $user['id'];
+        $ownsTransaction = !$db->inTransaction();
+
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
+
+        try {
+            $db->prepare(
+                "UPDATE supplier_payments SET status = 'rejected', rejected_at = :now, rejected_by = :user, rejection_reason = :reason WHERE id = :id"
+            )->execute(['now' => $now, 'user' => $userId, 'reason' => $reason, 'id' => $id]);
+
+            foreach ($payment['allocations'] as $allocation) {
+                $this->logInvoice($allocation['supplier_invoice_id'], 'payment_rejected',
+                    "{$payment['pv_number']}: " . number_format($allocation['amount_applied'], 2) . " not paid. {$reason}", $userId, $now);
+            }
+
+            if ($ownsTransaction) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownsTransaction) {
+                $db->rollBack();
+            }
+            error_log('supplier payment reject failed: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Failed to reject the payment. Nothing was changed.'];
+        }
+
+        return ['success' => true, 'message' => "{$payment['pv_number']} rejected. Nothing was paid."];
+    }
+
     /** Reverses a payment entered by mistake; its amounts go back on the invoices. */
     public function void(int $id, string $reason, int $userId): array
     {
@@ -546,6 +753,12 @@ class PayableService
 
         if ($payment['status'] === 'voided') {
             return ['success' => false, 'message' => "{$payment['pv_number']} is already voided."];
+        }
+
+        if ($payment['status'] !== 'posted') {
+            return ['success' => false, 'message' => $payment['status'] === 'pending_approval'
+                ? "{$payment['pv_number']} is waiting for approval. An administrator can reject it instead."
+                : "{$payment['pv_number']} was rejected; nothing was paid."];
         }
 
         $reason = mb_substr(trim($reason), 0, 255);
@@ -901,12 +1114,15 @@ class PayableService
             'vat_amount' => (float) $r['vat_amount'],
             'amount_paid' => (float) $r['amount_paid'],
             'balance' => $balance,
+            // Held by payments waiting for an administrator's approval.
+            'held' => round((float) ($r['held'] ?? 0), 2),
+            'available' => round($balance - (float) ($r['held'] ?? 0), 2),
             'payment_status' => $r['payment_status'] ?: 'unpaid',
             'match_status' => $r['match_status']
         ];
     }
 
-    private function formatPayment(array $r): array
+    private function formatPayment(array $r, ?array $viewer = null): array
     {
         return [
             'id' => (int) $r['id'],
@@ -930,6 +1146,14 @@ class PayableService
             'status' => $r['status'],
             'voided_at' => $r['voided_at'],
             'void_reason' => $r['void_reason'],
+            'approved_at' => $r['approved_at'] ?? null,
+            'approval_notes' => $r['approval_notes'] ?? null,
+            'rejected_at' => $r['rejected_at'] ?? null,
+            'rejection_reason' => $r['rejection_reason'] ?? null,
+            'created_by' => $r['created_by'] !== null ? (int) $r['created_by'] : null,
+            'can_approve' => $viewer !== null && $r['status'] === 'pending_approval' && $this->paymentApprovalBlocker($r, $viewer) === null,
+            'approval_blocker' => $r['status'] === 'pending_approval' ? $this->paymentApprovalBlocker($r, $viewer) : null,
+            'can_void' => $r['status'] === 'posted',
             'invoice_numbers' => $r['invoice_numbers'] ?? null,
             'created_by_name' => $r['created_by_name'] ?? null,
             'created_at' => $r['created_at']

@@ -21,6 +21,22 @@ export async function updateTimezone(timezone)
     );
 }
 
+export async function fetchApprovalLimits()
+{
+    return await api("/approval-limits");
+}
+
+export async function updateApprovalLimits(limits)
+{
+    return await api(
+        "/approval-limits",
+        {
+            method: "PUT",
+            body: JSON.stringify({ limits })
+        }
+    );
+}
+
 export async function updateGeneralSettings(data)
 {
     return await api(

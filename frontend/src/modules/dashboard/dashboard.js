@@ -33,25 +33,27 @@ import { EobPostingView } from "../eob-posting/eob-posting.view.js";
 import { initEobPosting } from "../eob-posting/eob-posting.js";
 import { EdiFilesView } from "../edi-files/edi-files.view.js";
 import { initEdiFiles } from "../edi-files/edi-files.js";
-import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js?v=7";
-import { initDrugInventory } from "../drug-inventory/drug-inventory.js?v=7";
+import { DrugInventoryView } from "../drug-inventory/drug-inventory.view.js?v=8";
+import { initDrugInventory } from "../drug-inventory/drug-inventory.js?v=8";
 import { SuppliersView } from "../suppliers/suppliers.view.js?v=3";
 import { initSuppliers } from "../suppliers/suppliers.js?v=5";
 import { SupplierPricesView } from "../supplier-prices/supplier-prices.view.js?v=2";
 import { initSupplierPrices } from "../supplier-prices/supplier-prices.js?v=4";
-import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v=6";
-import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=12";
-import { ReceivingView } from "../receiving/receiving.view.js?v=6";
-import { initReceiving } from "../receiving/receiving.js?v=8";
-import { SupplierInvoicesView } from "../supplier-invoices/supplier-invoices.view.js?v=2";
-import { initSupplierInvoices } from "../supplier-invoices/supplier-invoices.js?v=2";
-import { PayablesView } from "../payables/payables.view.js?v=2";
-import { initPayables } from "../payables/payables.js?v=2";
+import { PurchaseOrdersView } from "../purchase-orders/purchase-orders.view.js?v=7";
+import { initPurchaseOrders } from "../purchase-orders/purchase-orders.js?v=13";
+import { ReceivingView } from "../receiving/receiving.view.js?v=7";
+import { initReceiving } from "../receiving/receiving.js?v=9";
+import { SupplierInvoicesView } from "../supplier-invoices/supplier-invoices.view.js?v=3";
+import { initSupplierInvoices } from "../supplier-invoices/supplier-invoices.js?v=3";
+import { PayablesView } from "../payables/payables.view.js?v=3";
+import { initPayables } from "../payables/payables.js?v=3";
 import { SupplierReturnsView } from "../supplier-returns/supplier-returns.view.js?v=1";
 import { RequisitionsView } from "../requisitions/requisitions.view.js?v=1";
 import { initRequisitions } from "../requisitions/requisitions.js?v=1";
 import { StockCountsView } from "../stock-counts/stock-counts.view.js?v=1";
 import { initStockCounts } from "../stock-counts/stock-counts.js?v=1";
+import { ProcurementReportsView } from "../procurement-reports/procurement-reports.view.js?v=1";
+import { initProcurementReports } from "../procurement-reports/procurement-reports.js?v=1";
 import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
@@ -176,8 +178,8 @@ import { ProfileView } from "../profile/profile.view.js";
 import { initProfile } from "../profile/profile.js";
 import { BusinessSettingsView } from "../business-settings/business-settings.view.js?v=2";
 import { initBusinessSettings } from "../business-settings/business-settings.js?v=2";
-import { GeneralSettingsView } from "../general-settings/general-settings.view.js";
-import { initGeneralSettings } from "../general-settings/general-settings.js";
+import { GeneralSettingsView } from "../general-settings/general-settings.view.js?v=2";
+import { initGeneralSettings } from "../general-settings/general-settings.js?v=2";
 import { PharmaciesView } from "../pharmacies/pharmacies.view.js";
 import { initPharmacies } from "../pharmacies/pharmacies.js";
 import { RecallsView } from "../recalls/recalls.view.js";
@@ -647,6 +649,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Stock Count', () => {
                 setTimeout(initStockCounts, 0);
                 return StockCountsView();
+            }, activate);
+        } else if (tabId === 'pharmacy_procurement_reports') {
+            tabManager.openTab(tabId, 'Procurement Reports', () => {
+                setTimeout(initProcurementReports, 0);
+                return ProcurementReportsView();
             }, activate);
         } else if (tabId === 'pharmacy_supplier_returns') {
             tabManager.openTab(tabId, 'Supplier Returns', () => {

@@ -4,6 +4,7 @@ import {
 } from "./supplier-invoices.service.js?v=1";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
+import { limitNote, isFirstLevelOnly } from "../../core/approval-limits.js";
 import { getUser } from "../../core/session.js";
 import { todayISO } from "../../core/timezone.js";
 
@@ -40,12 +41,15 @@ const HISTORY_LABELS = {
     created: "Recorded",
     submitted: "Submitted for approval",
     resubmitted: "Resubmitted for approval",
+    first_approved: "First approval (above the approval limit)",
     approved: "Approved for payment",
     rejected: "Rejected",
     cancelled: "Cancelled",
     partially_paid: "Partial payment made",
     paid: "Paid in full",
-    payment_voided: "Payment voided"
+    payment_voided: "Payment voided",
+    payment_pending: "Payment waiting for approval",
+    payment_rejected: "Payment rejected"
 };
 
 const TABS = [
@@ -970,12 +974,13 @@ function showDetail(inv) {
                     <thead><tr><th>PV No.</th><th>Date</th><th>Paid By</th><th class="num">Applied</th><th class="num">Tax Withheld</th><th>Status</th></tr></thead>
                     <tbody>${inv.payments.map((p) => `
                         <tr>
-                            <td><strong ${p.status === "voided" ? `style="text-decoration:line-through;"` : ""}>${escapeHtml(p.pv_number)}</strong></td>
+                            <td><strong ${["voided", "rejected"].includes(p.status) ? `style="text-decoration:line-through;"` : ""}>${escapeHtml(p.pv_number)}</strong></td>
                             <td>${formatDate(p.payment_date)}</td>
                             <td>${escapeHtml({ check: "Check", bank_transfer: "Bank transfer", cash: "Cash", other: "Other" }[p.method] || p.method)}${p.reference_no ? ` ${escapeHtml(p.reference_no)}` : ""}</td>
                             <td class="num">${formatMoney(p.amount_applied)}</td>
                             <td class="num">${p.ewt_amount ? formatMoney(p.ewt_amount) : "—"}</td>
-                            <td>${p.status === "voided" ? `<span class="si-badge cancelled">Voided</span>` : `<span class="si-badge approved">Posted</span>`}</td>
+                            <td>${{ voided: `<span class="si-badge cancelled">Voided</span>`, rejected: `<span class="si-badge cancelled">Rejected</span>`,
+                                pending_approval: `<span class="si-badge pending_approval">Waiting for approval</span>` }[p.status] || `<span class="si-badge approved">Posted</span>`}</td>
                         </tr>`).join("")}
                     </tbody>
                 </table>
@@ -1013,11 +1018,12 @@ function statusBanner(inv) {
                             ? "Check the flagged lines. Approve with a reason if the difference is acceptable, or reject so the supplier can correct the invoice."
                             : "The invoice matches the order and what was received.")
                         : escapeHtml(inv.approval_blocker || "An administrator or accountant approves it.")}</span>
+                    ${limitNote(inv)}
                 </div>
                 ${inv.can_approve ? `
                 <div class="si-actions">
                     <button type="button" class="si-btn" id="siRejectBtn">Reject</button>
-                    <button type="button" class="si-btn success" id="siApproveBtn">Approve for Payment</button>
+                    <button type="button" class="si-btn success" id="siApproveBtn">${isFirstLevelOnly(inv) ? "Approve (First Level)" : "Approve for Payment"}</button>
                 </div>` : ""}
             </div>`;
     }
@@ -1043,12 +1049,12 @@ async function runAction(inv, action) {
     const variance = inv.match_status === "variance";
     const config = {
         approve: {
-            title: `Approve ${inv.ap_number} for payment?`,
+            title: isFirstLevelOnly(inv) ? `First approval of ${inv.ap_number}?` : `Approve ${inv.ap_number} for payment?`,
             label: variance ? "Reason for accepting the difference" : "Notes (optional)",
             placeholder: variance ? "e.g. Price increase confirmed by supplier letter dated ..." : "",
             required: variance,
             requiredMessage: "Explain why the difference is accepted.",
-            okLabel: "Approve for Payment",
+            okLabel: isFirstLevelOnly(inv) ? "Give First Approval" : "Approve for Payment",
             okClass: "success"
         },
         reject: {

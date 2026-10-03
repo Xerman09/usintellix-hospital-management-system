@@ -14,6 +14,9 @@ $router->get('/payables/payments', [PayableController::class, 'payments'], $paya
 $router->get('/payables/payments/detail', [PayableController::class, 'payment'], $payableRoles);
 $router->post('/payables/payments', [PayableController::class, 'store'], $payableRoles);
 $router->post('/payables/payments/void', [PayableController::class, 'void'], $payableRoles);
+// Payments above the approval limit: only an administrator releases or rejects them.
+$router->post('/payables/payments/approve', [PayableController::class, 'approve'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
+$router->post('/payables/payments/reject', [PayableController::class, 'reject'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
 $router->get('/payables/aging', [PayableController::class, 'aging'], $payableRoles);
 $router->get('/payables/credits', [PayableController::class, 'credits'], $payableRoles);
 $router->post('/payables/credits/apply', [PayableController::class, 'applyCredit'], $payableRoles);

@@ -1,12 +1,16 @@
 import {
-    fetchPayablesSummary, fetchOpenBills, fetchPayableSuppliers, fetchPayments, fetchPayment, recordPayment, voidPayment,
+    fetchPayablesSummary, fetchOpenBills, fetchPayableSuppliers, fetchPayments, fetchPayment, recordPayment, voidPayment, decidePayment,
     fetchAging, fetchLedger, fetchCredits, applyCredit
-} from "./payables.service.js?v=2";
+} from "./payables.service.js?v=3";
 import { formatMoney, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 import { todayISO, systemNow, toDateInput } from "../../core/timezone.js";
+import { getUser } from "../../core/session.js";
 
 const METHOD_LABELS = { check: "Check", bank_transfer: "Bank transfer", cash: "Cash", other: "Other" };
+const PAYMENT_STATUS_LABELS = { posted: "Posted", voided: "Voided", pending_approval: "Waiting for approval", rejected: "Rejected" };
+// Payments above this (cash out) wait for an administrator (General Settings > Approval Limits); null = no limit.
+let paymentLimit = null;
 const BUCKETS = [
     ["current", "Current"],
     ["d1_30", "1–30 days"],
@@ -76,6 +80,10 @@ async function loadAll() {
     $("apStatWeekSub").textContent = `Due in the next 7 days · ${s.due_week_count}`;
     $("apStatPaid").textContent = formatMoney(s.paid_this_month);
     $("apStatCredits").textContent = formatMoney(s.credits_available || 0);
+    paymentLimit = s.payment_limit ?? null;
+    $("apStatPendingBox").hidden = !s.pending_count;
+    $("apStatPending").textContent = formatMoney(s.pending_amount || 0);
+    $("apStatPendingSub").textContent = `${s.pending_count} payment${s.pending_count === 1 ? "" : "s"} waiting for an administrator's approval`;
 
     bills = billResult.data || [];
     payments = paymentResult?.success ? paymentResult.data || [] : [];
@@ -149,8 +157,8 @@ function renderBills() {
                         <td style="white-space:nowrap;">${b.due_date ? formatDate(b.due_date) : "—"}<span class="ap-sub">${dueBadge(b)}</span></td>
                         <td class="num">${formatMoney(b.total)}</td>
                         <td class="num">${b.amount_paid ? formatMoney(b.amount_paid) : "—"}${b.payment_status === "partially_paid" ? `<span class="ap-sub"><span class="ap-badge partially_paid">Partial</span></span>` : ""}</td>
-                        <td class="num"><strong>${formatMoney(b.balance)}</strong></td>
-                        <td><button type="button" class="ap-btn small" data-ap-pay-one="${b.id}">Pay</button></td>
+                        <td class="num"><strong>${formatMoney(b.balance)}</strong>${b.held ? `<span class="ap-held">${formatMoney(b.held)} held by a payment waiting for approval</span>` : ""}</td>
+                        <td>${b.available > 0.005 ? `<button type="button" class="ap-btn small" data-ap-pay-one="${b.id}">Pay</button>` : ""}</td>
                     </tr>`).join("")}
                 </tbody>
             </table>
@@ -199,7 +207,7 @@ function renderPayments() {
                 <table class="ap-table">
                     <thead><tr><th>PV No.</th><th>Date</th><th>Supplier</th><th>Paid By</th><th>Invoices</th><th class="num">Applied</th><th class="num">EWT</th><th class="num">Paid</th><th>Status</th></tr></thead>
                     <tbody>${list.map((p) => `
-                        <tr class="ap-row ${p.status === "voided" ? "is-voided" : ""}" data-ap-payment="${p.id}">
+                        <tr class="ap-row ${["voided", "rejected"].includes(p.status) ? "is-voided" : ""}" data-ap-payment="${p.id}">
                             <td style="white-space:nowrap;"><strong>${escapeHtml(p.pv_number)}</strong></td>
                             <td style="white-space:nowrap;">${formatDate(p.payment_date)}</td>
                             <td>${escapeHtml(p.supplier_name)}</td>
@@ -208,7 +216,7 @@ function renderPayments() {
                             <td class="num">${formatMoney(p.total_applied)}</td>
                             <td class="num">${p.ewt_amount ? formatMoney(p.ewt_amount) : "—"}</td>
                             <td class="num"><strong>${formatMoney(p.amount_paid)}</strong></td>
-                            <td><span class="ap-badge ${p.status}">${p.status === "voided" ? "Voided" : "Posted"}</span></td>
+                            <td><span class="ap-badge ${p.status}">${PAYMENT_STATUS_LABELS[p.status] || p.status}</span>${p.can_approve ? `<span class="ap-sub">Waiting for you</span>` : ""}</td>
                         </tr>`).join("")}
                     </tbody>
                 </table>
@@ -462,7 +470,10 @@ async function loadSupplierBills(supplierId, invoiceIds) {
 
     if (supplierId) {
         const result = await fetchOpenBills(supplierId);
-        payBills = result?.success ? result.data || [] : [];
+        // What a payment waiting for approval holds can't be paid again.
+        payBills = (result?.success ? result.data || [] : [])
+            .map((b) => ({ ...b, full_balance: b.balance, balance: b.available ?? b.balance }))
+            .filter((b) => b.balance > 0.005);
         // Bills picked on the list start at their full balance.
         payBills.filter((b) => invoiceIds.includes(b.id)).forEach((b) => { amounts[b.id] = b.balance.toFixed(2); });
     }
@@ -506,7 +517,7 @@ function renderAllocations() {
                     <tr>
                         <td><strong>${escapeHtml(b.ap_number)}</strong><span class="ap-sub">Inv. ${escapeHtml(b.supplier_invoice_no)} · ${escapeHtml(b.po_number)} · ${formatMoney(b.total)}</span></td>
                         <td style="white-space:nowrap;">${b.due_date ? formatDate(b.due_date) : "—"}<span class="ap-sub">${dueBadge(b)}</span></td>
-                        <td class="num">${formatMoney(b.balance)}</td>
+                        <td class="num">${formatMoney(b.balance)}${b.held ? `<span class="ap-held">${formatMoney(b.held)} held for approval</span>` : ""}</td>
                         <td class="num">
                             <input type="number" min="0" step="0.01" data-ap-amount="${b.id}" value="${escapeHtml(amounts[b.id] || "")}" placeholder="0.00" aria-label="Amount applied to ${escapeHtml(b.ap_number)}">
                             <button type="button" class="ap-btn link" data-ap-full="${b.id}" style="display:block;margin:3px 0 0 auto;">Full</button>
@@ -519,6 +530,11 @@ function renderAllocations() {
         </div>`;
 
     refreshAllocationTotals();
+}
+
+/** Whether a payment of this much cash would be held for an administrator (credits never are). */
+function willWait(cash) {
+    return !creditMode && paymentLimit != null && cash > paymentLimit + 0.005 && getUser()?.role !== "admin";
 }
 
 function refreshAllocationTotals() {
@@ -537,6 +553,13 @@ function refreshAllocationTotals() {
     $("apTotApplied").textContent = formatMoney(round(applied, 2));
     $("apTotEwt").textContent = ewt ? `− ${formatMoney(round(ewt, 2))}` : formatMoney(0);
     $("apTotCash").textContent = formatMoney(creditMode ? 0 : round(applied - ewt, 2));
+
+    const cash = round(applied - ewt, 2);
+    const held = willWait(cash);
+    $("apLimitHint").hidden = !held;
+    $("apLimitHint").textContent = held
+        ? `This payment is above the ${formatMoney(paymentLimit)} approval limit. It will wait for an administrator's approval; the invoices are paid off when it's approved.`
+        : "";
 
     if (creditMode) {
         const left = round(creditMode.available - applied, 2);
@@ -637,8 +660,10 @@ async function savePayment() {
                 ${ewt ? `<dt>Tax withheld</dt><dd>${formatMoney(round(ewt, 2))}</dd>` : ""}
                 <dt>Amount paid</dt><dd>${formatMoney(round(applied - ewt, 2))}</dd>
             </dl>
-            <p>The invoices' balances go down right away. A payment can't be edited afterwards, only voided.</p>`,
-        okLabel: "Record Payment",
+            ${willWait(round(applied - ewt, 2))
+                ? `<p><strong>Above the ${formatMoney(paymentLimit)} approval limit:</strong> it's saved as waiting for an administrator's approval. The amounts are held on the invoices and paid off once it's approved.</p>`
+                : `<p>The invoices' balances go down right away. A payment can't be edited afterwards, only voided.</p>`}`,
+        okLabel: willWait(round(applied - ewt, 2)) ? "Submit for Approval" : "Record Payment",
         onConfirm: async () => ({ success: true })
     });
 
@@ -703,18 +728,29 @@ async function openPayment(id) {
 
     const p = result.data;
     const voided = p.status === "voided";
+    const paidBy = `${formatDate(p.payment_date)} · ${escapeHtml(p.method_label)}${p.reference_no ? ` ${escapeHtml(p.reference_no)}` : ""}`;
+    const banner = {
+        voided: [`${escapeHtml(p.pv_number)} &mdash; voided`,
+            `${formatDate(String(p.voided_at).slice(0, 10))}${p.voided_by_name ? ` by ${escapeHtml(p.voided_by_name)}` : ""}: &ldquo;${escapeHtml(p.void_reason || "")}&rdquo;. Its amounts are back on the invoices.`],
+        pending_approval: [`${escapeHtml(p.pv_number)} &mdash; ${formatMoney(p.amount_paid)} to ${escapeHtml(p.supplier_name)}, waiting for approval`,
+            `${paidBy}. ${p.can_approve
+                ? "It's above the payment approval limit. Approving pays off the invoices below; rejecting releases the held amounts."
+                : escapeHtml(p.approval_blocker || "Waiting for an administrator's approval.")} Recorded by ${escapeHtml(p.created_by_name || "—")}.`],
+        rejected: [`${escapeHtml(p.pv_number)} &mdash; rejected, nothing paid`,
+            `${formatDate(String(p.rejected_at).slice(0, 10))}${p.rejected_by_name ? ` by ${escapeHtml(p.rejected_by_name)}` : ""}: &ldquo;${escapeHtml(p.rejection_reason || "")}&rdquo;.`]
+    }[p.status] || [`${escapeHtml(p.pv_number)} &mdash; ${formatMoney(p.amount_paid)} paid to ${escapeHtml(p.supplier_name)}`,
+        `${paidBy}${p.approved_by_name ? ` · approved by ${escapeHtml(p.approved_by_name)} (above the approval limit)` : ""}`];
 
     $("apDetail").innerHTML = `
-        <div class="ap-banner ${voided ? "voided" : ""}">
+        <div class="ap-banner ${p.status === "posted" ? "" : p.status}">
             <div>
-                <strong>${escapeHtml(p.pv_number)} &mdash; ${voided ? "voided" : `${formatMoney(p.amount_paid)} paid to ${escapeHtml(p.supplier_name)}`}</strong>
-                <span>${voided
-                    ? `${formatDate(String(p.voided_at).slice(0, 10))}${p.voided_by_name ? ` by ${escapeHtml(p.voided_by_name)}` : ""}: &ldquo;${escapeHtml(p.void_reason || "")}&rdquo;. Its amounts are back on the invoices.`
-                    : `${formatDate(p.payment_date)} · ${escapeHtml(p.method_label)}${p.reference_no ? ` ${escapeHtml(p.reference_no)}` : ""}`}</span>
+                <strong>${banner[0]}</strong>
+                <span>${banner[1]}</span>
             </div>
             <div class="ap-actions">
                 <button type="button" class="ap-btn" id="apPrintPv">Print Voucher</button>
-                ${voided ? "" : `<button type="button" class="ap-btn danger" id="apVoidPv">Void</button>`}
+                ${p.can_approve ? `<button type="button" class="ap-btn danger" id="apRejectPv">Reject</button><button type="button" class="ap-btn primary" id="apApprovePv">Approve Payment</button>` : ""}
+                ${p.can_void ? `<button type="button" class="ap-btn danger" id="apVoidPv">Void</button>` : ""}
             </div>
         </div>
 
@@ -733,7 +769,7 @@ async function openPayment(id) {
         </div>
 
         <div class="ap-card">
-            <div class="ap-card-title">Invoices Paid</div>
+            <div class="ap-card-title">${p.status === "pending_approval" ? "Invoices to Pay (held until approved)" : p.status === "rejected" ? "Invoices (not paid)" : "Invoices Paid"}</div>
             <div class="ap-table-wrap">
                 <table class="ap-table">
                     <thead><tr><th>Invoice</th><th>Due</th><th class="num">Invoice Total</th><th class="num">Applied</th><th class="num">EWT</th><th class="num">Paid</th><th class="num">Balance Now</th></tr></thead>
@@ -758,6 +794,33 @@ async function openPayment(id) {
         </div>`;
 
     $("apPrintPv").addEventListener("click", () => printVoucher(p));
+    const summaryHtml = `
+        <dl class="ap-dialog-summary">
+            <dt>Supplier</dt><dd>${escapeHtml(p.supplier_name)}</dd>
+            <dt>Amount</dt><dd>${formatMoney(p.amount_paid)}${p.ewt_amount ? ` (+ ${formatMoney(p.ewt_amount)} withheld)` : ""}</dd>
+            <dt>Paid by</dt><dd>${escapeHtml(p.method_label)}${p.reference_no ? ` ${escapeHtml(p.reference_no)}` : ""}</dd>
+            <dt>Invoices</dt><dd>${escapeHtml(p.invoice_numbers || "")}</dd>
+            <dt>Recorded by</dt><dd>${escapeHtml(p.created_by_name || "—")}</dd>
+        </dl>`;
+    $("apApprovePv")?.addEventListener("click", async () => {
+        const done = await openDialog({
+            title: `Approve ${p.pv_number}?`,
+            body: `${summaryHtml}<p>The invoices are paid off now.</p>`,
+            withText: true, label: "Notes (optional)", okLabel: "Approve Payment",
+            onConfirm: (text) => decidePayment("approve", p.id, { notes: text })
+        });
+        if (done) { await loadAll(); await openPayment(p.id); }
+    });
+    $("apRejectPv")?.addEventListener("click", async () => {
+        const done = await openDialog({
+            title: `Reject ${p.pv_number}?`,
+            body: `${summaryHtml}<p>Nothing is paid and the held amounts go back to the invoices' balances. The voucher stays on file, marked rejected.</p>`,
+            withText: true, label: "Reason", placeholder: "e.g. Wrong amount; pay in two releases", required: true,
+            requiredMessage: "Say why the payment is rejected.", okLabel: "Reject Payment", okClass: "danger solid",
+            onConfirm: (text) => decidePayment("reject", p.id, { reason: text })
+        });
+        if (done) { await loadAll(); await openPayment(p.id); }
+    });
     $("apVoidPv")?.addEventListener("click", async () => {
         const done = await openDialog({
             title: `Void ${p.pv_number}?`,
@@ -896,7 +959,9 @@ function printHead(buyer, title, rows) {
 function printVoucher(p) {
     openPrint(`${p.pv_number} - Payment Voucher`, `
 ${printHead(p.buyer, "PAYMENT VOUCHER", `<div><strong>${escapeHtml(p.pv_number)}</strong></div><div class="muted">${formatDate(p.payment_date)}</div>
-    ${p.status === "voided" ? `<div class="void">VOIDED</div><div class="muted">${escapeHtml(p.void_reason || "")}</div>` : ""}`)}
+    ${p.status === "voided" ? `<div class="void">VOIDED</div><div class="muted">${escapeHtml(p.void_reason || "")}</div>` : ""}
+    ${p.status === "rejected" ? `<div class="void">REJECTED &mdash; NOT PAID</div><div class="muted">${escapeHtml(p.rejection_reason || "")}</div>` : ""}
+    ${p.status === "pending_approval" ? `<div class="void">FOR APPROVAL &mdash; DO NOT RELEASE</div><div class="muted">Above the payment approval limit; waiting for an administrator.</div>` : ""}`)}
 <div class="meta">
     <div><span>Payee</span>${escapeHtml(p.supplier_name)}${p.supplier_tin ? `<br>TIN ${escapeHtml(p.supplier_tin)}` : ""}</div>
     <div><span>Paid By</span>${escapeHtml(p.method_label)}${p.reference_no ? `<br>${escapeHtml(p.reference_no)}` : ""}${p.check_date ? `<br>dated ${formatDate(p.check_date)}` : ""}</div>

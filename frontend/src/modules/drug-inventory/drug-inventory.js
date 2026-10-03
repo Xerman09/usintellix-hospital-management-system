@@ -4,6 +4,7 @@ import {
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js";
+import { custodianHint } from "../../core/custodian.js";
 
 const EMPTY_OPTIONS = {
     warehouses: [], facilities: [], dosage_forms: [], routes: [], units: [], categories: [], suppliers: [],
@@ -614,7 +615,11 @@ function openReceiveModal(drugId) {
     document.getElementById("di_rcv_expires_date").min = isoDateOffset(1);
 
     const rcvLocation = document.getElementById("di_rcv_warehouse_id");
-    const showRcvCustodian = () => { document.getElementById("diRcvCustodian").textContent = custodianText(rcvLocation.value); };
+    const showRcvCustodian = () => {
+        const hint = custodianText(rcvLocation.value);
+        document.getElementById("diRcvCustodian").textContent = hint.text;
+        document.getElementById("diRcvCustodian").classList.toggle("warn", hint.warn);
+    };
     rcvLocation.onchange = showRcvCustodian;
     setTimeout(showRcvCustodian, 0);
 
@@ -1313,11 +1318,8 @@ function setupDestroyModal() {
 }
 
 /** "Custodian: X (alternate: Y)" for a storage location, or a prompt to assign one. */
-function custodianText(warehouseId) {
-    const location = options.warehouses.find((w) => Number(w.id) === Number(warehouseId));
-    if (!location) return "";
-    if (!location.custodian_name) return `No custodian assigned to ${location.name} yet (set one under Pharmacy > Storage Locations).`;
-    return `Custodian: ${location.custodian_name}${location.alternate_custodian_name ? ` (alternate: ${location.alternate_custodian_name})` : ""}`;
+function custodianText(warehouseId, action = "Receiving into") {
+    return custodianHint(options.warehouses.find((w) => Number(w.id) === Number(warehouseId)), action);
 }
 
 function openDestroyModal(lotId) {
@@ -1327,14 +1329,10 @@ function openDestroyModal(lotId) {
 
     // Disposal is the custodian's responsibility -- say who that is.
     const custodianNote = document.getElementById("diDestroyCustodian");
-    const location = options.warehouses.find((w) => Number(w.id) === Number(activeDestroyLot.warehouse_id));
-    custodianNote.className = `di-custodian-note ${location && !location.custodian_name ? "warn" : ""}`;
-    custodianNote.innerHTML = location?.custodian_name
-        ? `Disposal from <strong>${escapeHtml(location.name)}</strong> is the responsibility of its custodian,
-           <strong>${escapeHtml(location.custodian_name)}</strong>${location.alternate_custodian_name
-                ? ` (alternate: ${escapeHtml(location.alternate_custodian_name)})` : ""}. Record a witness below.`
-        : escapeHtml(custodianText(activeDestroyLot.warehouse_id) || "");
-    custodianNote.hidden = !custodianNote.innerHTML;
+    const hint = custodianText(activeDestroyLot.warehouse_id, "Disposal from");
+    custodianNote.className = `di-custodian-note ${hint.warn ? "warn" : ""}`;
+    custodianNote.textContent = hint.text ? `${hint.text} Record a witness below.` : "";
+    custodianNote.hidden = !hint.text;
 
     document.getElementById("diDestroySource").innerHTML = `
         <strong>${escapeHtml(activeDestroyLot.name)}</strong> &middot; Lot ${escapeHtml(activeDestroyLot.lot_number)}

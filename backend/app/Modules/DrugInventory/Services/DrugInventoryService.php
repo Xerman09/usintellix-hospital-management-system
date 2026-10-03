@@ -179,7 +179,7 @@ class DrugInventoryService
     public function listWarehouses(): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT w.id, w.name, w.facility_id,
+            "SELECT w.id, w.name, w.facility_id, w.custodian_user_id, w.alternate_custodian_user_id,
                     (SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))), ''), u.username) FROM users u LEFT JOIN employees e ON e.user_id = u.id AND e.deleted_at IS NULL WHERE u.id = w.custodian_user_id LIMIT 1) AS custodian_name,
                     (SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))), ''), u.username) FROM users u LEFT JOIN employees e ON e.user_id = u.id AND e.deleted_at IS NULL WHERE u.id = w.alternate_custodian_user_id LIMIT 1) AS alternate_custodian_name
              FROM warehouses w WHERE w.deleted_at IS NULL AND w.is_active = 1 ORDER BY w.name"

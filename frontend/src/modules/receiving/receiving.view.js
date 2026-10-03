@@ -83,6 +83,8 @@ export function ReceivingView() {
 .rv-field textarea { height: auto; min-height: 56px; padding: 8px 10px; resize: vertical; }
 .rv-field .form-error, .rv-lines .form-error { display: block; }
 .rv-hint { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.rv-hint.warn { color: #b45309; }
+:root[data-theme="dark"] .rv-hint.warn { color: #fcd34d; }
 
 .rv-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 20px; }
 .rv-info dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--text-muted); }

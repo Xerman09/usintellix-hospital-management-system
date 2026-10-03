@@ -5942,3 +5942,8 @@ select.form-input {
     background: var(--accent-hover);
     color: #ffffff;
 }
+
+/* Approval limits (core/approval-limits.js): note on documents above the limit. Doubled class beats the modules' banner span rules. */
+.approval-limit-note.approval-limit-note { display: block; margin-top: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12.5px;
+    background: rgba(245, 158, 11, .10); border: 1px dashed rgba(217, 119, 6, .55); color: var(--text-primary); }
+.approval-limit-note strong { display: inline; font-size: inherit; margin: 0; }

@@ -42,13 +42,13 @@ class PayableController extends Controller
         $this->success($this->service->payments([
             'supplier_id' => $request->input('supplier_id'),
             'status' => $request->input('status')
-        ]), 'Payments retrieved successfully.');
+        ], Session::get('user')), 'Payments retrieved successfully.');
     }
 
     public function payment(): void
     {
         $request = new Request();
-        $payment = $this->service->payment((int) $request->input('id'));
+        $payment = $this->service->payment((int) $request->input('id'), Session::get('user'));
 
         if (!$payment) {
             $this->error('Payment not found.', 404);
@@ -65,7 +65,21 @@ class PayableController extends Controller
 
         $this->respond($this->service->record($request->only([
             'supplier_id', 'payment_date', 'method', 'reference_no', 'check_date', 'paid_from', 'ewt_rate', 'notes', 'allocations'
-        ]), (int) $user['id']), 201);
+        ]), (int) $user['id'], null, $user['role'] ?? null), 201);
+    }
+
+    /** Body: id, notes? -- an administrator releases a payment held above the limit. */
+    public function approve(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->approvePayment((int) $request->input('id'), (string) $request->input('notes', ''), Session::get('user')));
+    }
+
+    /** Body: id, reason */
+    public function reject(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->rejectPayment((int) $request->input('id'), (string) $request->input('reason', ''), Session::get('user')));
     }
 
     /** Body: id, reason */

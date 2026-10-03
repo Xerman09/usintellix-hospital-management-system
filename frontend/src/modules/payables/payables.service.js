@@ -34,6 +34,14 @@ export async function recordPayment(details) {
     });
 }
 
+/** action: approve | reject -- an administrator decides on a payment held above the limit. */
+export async function decidePayment(action, id, body = {}) {
+    return api(`/payables/payments/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ id, ...body })
+    });
+}
+
 export async function voidPayment(id, reason) {
     return api("/payables/payments/void", {
         method: "POST",

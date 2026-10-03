@@ -7,6 +7,7 @@ import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-pric
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
 import { systemNow } from "../../core/timezone.js";
+import { limitNote, isFirstLevelOnly } from "../../core/approval-limits.js";
 
 // Keep in step with PurchaseOrderService::CREATOR_ROLES. Approver-only
 // roles (e.g. accountant) can view, approve, reject and cancel, but not
@@ -31,6 +32,7 @@ const HISTORY_LABELS = {
     created: "Created",
     submitted: "Submitted for approval",
     resubmitted: "Resubmitted for approval",
+    first_approved: "First approval (above the approval limit)",
     approved: "Approved",
     rejected: "Rejected",
     cancelled: "Cancelled",
@@ -1230,10 +1232,11 @@ function approvalBanner(order) {
                     <div>
                         <strong>Waiting for your approval</strong>
                         <span>Submitted by ${by(order.submitted_by_name)} on ${escapeHtml(formatDateTime(order.submitted_at))}. Check the supplier, items and total, then approve or send it back.</span>
+                        ${limitNote(order)}
                     </div>
                     <div class="po-approval-actions">
                         <button type="button" class="po-btn danger" id="poRejectBtn">Reject</button>
-                        <button type="button" class="po-btn primary" id="poApproveBtn">Approve</button>
+                        <button type="button" class="po-btn primary" id="poApproveBtn">${isFirstLevelOnly(order) ? "Approve (First Level)" : "Approve"}</button>
                     </div>
                 </div>`;
         }
@@ -1243,6 +1246,7 @@ function approvalBanner(order) {
                 <div>
                     <strong>Pending approval</strong>
                     <span>Submitted by ${by(order.submitted_by_name)} on ${escapeHtml(formatDateTime(order.submitted_at))}. ${escapeHtml(order.approval_blocker || "Waiting for an administrator or accountant to approve it.")}</span>
+                    ${limitNote(order)}
                 </div>
             </div>`;
     }
@@ -1327,7 +1331,8 @@ const ACTIONS = {
                 <dt>Items</dt><dd>${o.item_count}</dd>
                 <dt class="grand">Total</dt><dd class="grand">${formatMoney(o.total)}</dd>
             </dl>
-            ${licenseWarning(o)}`,
+            ${licenseWarning(o)}
+            ${isFirstLevelOnly(o) ? `<p>This order is above the ${formatMoney(o.approval_limit)} approval limit. Yours is the first approval; an administrator must also approve it before it can be received.</p>` : ""}`,
         label: "Approval notes (optional)",
         placeholder: "e.g. Within this month's budget",
         required: false,

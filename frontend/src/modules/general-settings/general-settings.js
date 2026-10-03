@@ -1,4 +1,4 @@
-import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone } from "./general-settings.service.js";
+import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits } from "./general-settings.service.js?v=2";
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
 import { setSystemTimezone, systemParts } from "../../core/timezone.js";
@@ -35,6 +35,93 @@ export async function initGeneralSettings()
     renderTimezone(currentSettings);
     setupEditGeneralSettingsModal();
     setupEditTimezoneModal();
+    await loadApprovalLimits();
+}
+
+/* ---------------------------------------------------------------
+ * Approval limits (purchase orders, supplier invoices, payments)
+ * ------------------------------------------------------------- */
+
+const LIMIT_HELP = {
+    purchase_order: "Order total, VAT included",
+    supplier_invoice: "Invoice total, VAT included",
+    supplier_payment: "Amount paid out (after tax withheld); credit memos are never held"
+};
+
+async function loadApprovalLimits()
+{
+    const result = await fetchApprovalLimits();
+    const box = document.getElementById("gsLimits");
+
+    if (!result.success) {
+        box.innerHTML = "";
+        showAlert("gsLimitsAlert", result.message || "Failed to load the approval limits.", "error");
+        return;
+    }
+
+    box.innerHTML = `
+        <div class="gs-limits-wrap">
+            <table class="gs-limits">
+                <thead><tr><th>Document</th><th>Limit On</th><th>Above (₱)</th><th>Last Changed</th></tr></thead>
+                <tbody>${result.data.map((l) => `
+                    <tr data-limit="${l.document_type}">
+                        <td><strong>${escapeHtml(l.label)}</strong><span class="gs-limits-sub">${escapeHtml(LIMIT_HELP[l.document_type] || "")}</span></td>
+                        <td><label class="gs-switch"><input type="checkbox" data-field="is_enabled" ${l.is_enabled ? "checked" : ""}> <span>${l.is_enabled ? "On" : "Off"}</span></label></td>
+                        <td><input type="number" min="0.01" step="0.01" data-field="limit_amount" value="${l.limit_amount != null ? Number(l.limit_amount).toFixed(2) : ""}" ${l.is_enabled ? "" : "disabled"} aria-label="${escapeHtml(l.label)} limit">
+                            <span class="form-error" id="err-limit_${l.document_type}"></span></td>
+                        <td>${l.updated_at ? `${escapeHtml(String(l.updated_at).slice(0, 10))}<span class="gs-limits-sub">${escapeHtml(l.updated_by_name || "")}</span>` : "—"}</td>
+                    </tr>`).join("")}
+                </tbody>
+            </table>
+        </div>
+        <div class="gs-limits-footer"><button type="button" class="gs-add-btn" id="gsSaveLimits">Save Limits</button></div>`;
+
+    box.querySelectorAll('[data-field="is_enabled"]').forEach((toggle) => toggle.addEventListener("change", () => {
+        toggle.closest("tr").querySelector('[data-field="limit_amount"]').disabled = !toggle.checked;
+        toggle.nextElementSibling.textContent = toggle.checked ? "On" : "Off";
+    }));
+
+    document.getElementById("gsSaveLimits").addEventListener("click", saveApprovalLimits);
+}
+
+async function saveApprovalLimits()
+{
+    document.getElementById("gsLimitsAlert").innerHTML = "";
+    document.querySelectorAll("#gsLimits .form-error").forEach((el) => { el.textContent = ""; });
+
+    const limits = [...document.querySelectorAll("#gsLimits [data-limit]")].map((row) => ({
+        document_type: row.dataset.limit,
+        is_enabled: row.querySelector('[data-field="is_enabled"]').checked,
+        limit_amount: row.querySelector('[data-field="limit_amount"]').value
+    }));
+
+    let problems = 0;
+    limits.forEach((l) => {
+        if (l.is_enabled && !(Number(l.limit_amount) > 0)) {
+            document.getElementById(`err-limit_${l.document_type}`).textContent = "Enter an amount greater than zero.";
+            problems++;
+        }
+    });
+
+    if (problems) return;
+
+    const button = document.getElementById("gsSaveLimits");
+    button.disabled = true;
+    const result = await updateApprovalLimits(limits);
+    button.disabled = false;
+
+    if (!result.success) {
+        Object.entries(result.errors || {}).forEach(([name, message]) => {
+            const m = name.match(/^limits\.(\w+)\.limit_amount$/);
+            const el = m && document.getElementById(`err-limit_${m[1]}`);
+            if (el) el.textContent = message;
+        });
+        showAlert("gsLimitsAlert", result.message || "Failed to save the approval limits.", "error");
+        return;
+    }
+
+    showToast(result.message || "Approval limits saved.", "success");
+    await loadApprovalLimits();
 }
 
 /**
