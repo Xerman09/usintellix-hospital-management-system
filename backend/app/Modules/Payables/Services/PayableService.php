@@ -5,6 +5,7 @@ namespace App\Modules\Payables\Services;
 use App\Core\Database;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\Procurement\Services\ApprovalLimitService;
+use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\SupplierReturns\Services\SupplierReturnService;
 use App\Modules\SupplierInvoices\Models\SupplierInvoice;
 use PDO;
@@ -436,6 +437,13 @@ class PayableService
             $pending = $credit === null && $role !== null && $role !== ApprovalLimitService::FINAL_ROLE
                 && $limits->needsAdmin('supplier_payment', round($totalApplied - $totalEwt, 2));
 
+            if ($credit !== null) {
+                // What's left on the credit now, locked so two applications can't both use it.
+                $stmt = $db->prepare("SELECT credit_amount - credit_applied FROM supplier_returns WHERE id = :id AND status = 'credited' FOR UPDATE");
+                $stmt->execute(['id' => $credit['id']]);
+                $credit['available'] = round(max(0, (float) $stmt->fetchColumn()), 2);
+            }
+
             if ($credit !== null && $totalApplied > $credit['available'] + self::EPSILON) {
                 $undo();
                 return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
@@ -530,7 +538,7 @@ class PayableService
 
         return [
             'success' => true,
-            'message' => "{$pvNumber} recorded: " . number_format($totalApplied - $totalEwt, 2) . " paid to {$supplier['name']}"
+            'message' => "{$pvNumber} recorded: " . number_format($totalApplied - $totalEwt, 2) . " paid to " . rtrim($supplier['name'], '.')
                 . ($totalEwt > 0 ? ', ' . number_format($totalEwt, 2) . ' withheld' : '') . '.',
             'data' => ['id' => $paymentId, 'pv_number' => $pvNumber]
         ];
@@ -633,6 +641,14 @@ class PayableService
         }
 
         try {
+            // Approved twice (double click, two administrators): pay the invoices off only once.
+            if (RecordLock::changed('supplier_payments', $id, $payment, ['status'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return $this->stalePayment($payment);
+            }
+
             $lock = $db->prepare(
                 "SELECT id, ap_number, status, total, amount_paid, " . self::heldSql('supplier_invoices.id', $id) . " AS held_by_others
                  FROM supplier_invoices WHERE id = :id FOR UPDATE"
@@ -686,7 +702,7 @@ class PayableService
             return ['success' => false, 'message' => 'Failed to approve the payment. Nothing was changed.'];
         }
 
-        return ['success' => true, 'message' => "{$payment['pv_number']} approved. " . number_format($payment['amount_paid'], 2) . " paid to {$payment['supplier_name']}."];
+        return ['success' => true, 'message' => "{$payment['pv_number']} approved. " . number_format($payment['amount_paid'], 2) . " paid to " . rtrim($payment['supplier_name'], '.') . '.'];
     }
 
     /** Nothing is paid; the held amounts go back to the invoices' balances. */
@@ -718,6 +734,13 @@ class PayableService
         }
 
         try {
+            if (RecordLock::changed('supplier_payments', $id, $payment, ['status'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return $this->stalePayment($payment);
+            }
+
             $db->prepare(
                 "UPDATE supplier_payments SET status = 'rejected', rejected_at = :now, rejected_by = :user, rejection_reason = :reason WHERE id = :id"
             )->execute(['now' => $now, 'user' => $userId, 'reason' => $reason, 'id' => $id]);
@@ -777,6 +800,14 @@ class PayableService
         }
 
         try {
+            // Voided twice: the amounts must go back on the invoices only once.
+            if (RecordLock::changed('supplier_payments', $id, $payment, ['status'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return $this->stalePayment($payment);
+            }
+
             foreach ($payment['allocations'] as $allocation) {
                 $stmt = $db->prepare("SELECT total, amount_paid FROM supplier_invoices WHERE id = :id FOR UPDATE");
                 $stmt->execute(['id' => $allocation['supplier_invoice_id']]);
@@ -1158,6 +1189,11 @@ class PayableService
             'created_by_name' => $r['created_by_name'] ?? null,
             'created_at' => $r['created_at']
         ];
+    }
+
+    private function stalePayment(array $payment): array
+    {
+        return ['success' => false, 'message' => "{$payment['pv_number']} " . RecordLock::STALE_MESSAGE, 'stale' => true];
     }
 
     private function methodLabel(string $method): string

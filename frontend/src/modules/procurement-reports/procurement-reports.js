@@ -407,7 +407,7 @@ function renderDifferences(d) {
                             ${r.invoice_status === "approved" && r.approval_notes ? `<span class="pq-sub">&ldquo;${escapeHtml(r.approval_notes)}&rdquo;</span>` : ""}</td>
                     </tr>`).join("")}</tbody>
             </table></div>` : `<div class="pq-empty">Every invoice in this period was billed at the purchase order price.</div>`}
-            <p class="pq-note">Prices are per order unit, before VAT. Impact = difference × quantity billed. Cancelled invoices are left out.</p>
+            <p class="pq-note">Net prices per order unit: after line discounts, before VAT. Impact = difference × quantity billed. Cancelled invoices are left out.</p>
         </div>`;
 }
 

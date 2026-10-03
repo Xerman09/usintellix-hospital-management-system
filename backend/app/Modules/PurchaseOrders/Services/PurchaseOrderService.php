@@ -3,6 +3,7 @@
 namespace App\Modules\PurchaseOrders\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\Procurement\Services\ApprovalLimitService;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Models\PurchaseOrder;
@@ -569,22 +570,26 @@ class PurchaseOrderService
         $limits = new ApprovalLimitService();
 
         if ($limits->needsAdmin('purchase_order', (float) $existing['total']) && ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE) {
-            $this->transition($id, [
+            if (!$this->transition($id, [
                 'first_approved_at' => $now,
                 'first_approved_by' => $userId,
                 'first_approval_notes' => $notes !== '' ? $notes : null
-            ], 'first_approved', $notes, $userId, $now);
+            ], 'first_approved', $notes, $userId, $now, $existing)) {
+                return $this->stale($existing);
+            }
 
             return ['success' => true, 'message' => "Purchase order {$existing['po_number']} approved at your level. It is "
                 . $limits->describe('purchase_order') . ', so an administrator must also approve it.'];
         }
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'approved',
             'approved_at' => $now,
             'approved_by' => $userId,
             'approval_notes' => $notes !== '' ? $notes : null
-        ], 'approved', $notes, $userId, $now);
+        ], 'approved', $notes, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} approved."];
     }
@@ -612,7 +617,7 @@ class PurchaseOrderService
         $now = date('Y-m-d H:i:s');
         $userId = (int) $user['id'];
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'rejected',
             'rejected_at' => $now,
             'rejected_by' => $userId,
@@ -621,7 +626,9 @@ class PurchaseOrderService
             'first_approved_at' => null,
             'first_approved_by' => null,
             'first_approval_notes' => null
-        ], 'rejected', $reason, $userId, $now);
+        ], 'rejected', $reason, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} rejected and sent back for changes."];
     }
@@ -650,12 +657,14 @@ class PurchaseOrderService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'cancelled',
             'cancelled_at' => $now,
             'cancelled_by' => $userId,
             'cancel_reason' => $reason
-        ], 'cancelled', $reason, $userId, $now);
+        ], 'cancelled', $reason, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} cancelled."];
     }
@@ -688,12 +697,14 @@ class PurchaseOrderService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'closed',
             'closed_at' => $now,
             'closed_by' => $userId,
             'close_reason' => $reason
-        ], 'closed', $reason, $userId, $now);
+        ], 'closed', $reason, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} closed; the remaining items are no longer expected."];
     }
@@ -716,8 +727,14 @@ class PurchaseOrderService
         return ['success' => true, 'message' => "Purchase order {$existing['po_number']} deleted."];
     }
 
-    /** Status change + its history entry, together. */
-    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now): void
+    /** Refusal for a step whose record changed after it was read. */
+    private function stale(array $record): array
+    {
+        return ['success' => false, 'message' => "Purchase order {$record['po_number']} " . RecordLock::STALE_MESSAGE, 'stale' => true];
+    }
+
+    /** Status change + its history entry, together. False (nothing saved) when $seen is stale. */
+    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now, ?array $seen = null): bool
     {
         $db = Database::connection();
         $ownsTransaction = !$db->inTransaction();
@@ -727,12 +744,21 @@ class PurchaseOrderService
         }
 
         try {
+            if ($seen !== null && RecordLock::changed('purchase_orders', $id, $seen, ['status', 'updated_at', 'first_approved_by'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return false;
+            }
+
             (new PurchaseOrder())->update($values + ['updated_at' => $now, 'updated_by' => $userId], $id);
             $this->log($id, $action, $notes, $userId, $now);
 
             if ($ownsTransaction) {
                 $db->commit();
             }
+
+            return true;
         } catch (Throwable $e) {
             if ($ownsTransaction) {
                 $db->rollBack();

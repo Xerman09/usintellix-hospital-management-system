@@ -3,6 +3,7 @@
 namespace App\Modules\SupplierReturns\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
 use PDO;
@@ -497,12 +498,14 @@ class SupplierReturnService
         $notes = mb_substr(trim($notes), 0, 500);
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'approved',
             'approved_at' => $now,
             'approved_by' => (int) $user['id'],
             'approval_notes' => $notes !== '' ? $notes : null
-        ], 'approved', $notes, (int) $user['id'], $now);
+        ], 'approved', $notes, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Return {$existing['rts_number']} approved. It can be sent to the supplier."];
     }
@@ -527,12 +530,14 @@ class SupplierReturnService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'rejected',
             'rejected_at' => $now,
             'rejected_by' => (int) $user['id'],
             'rejection_reason' => $reason
-        ], 'rejected', $reason, (int) $user['id'], $now);
+        ], 'rejected', $reason, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Return {$existing['rts_number']} sent back for changes."];
     }
@@ -581,6 +586,12 @@ class SupplierReturnService
         };
 
         try {
+            // Sent twice (double click, two people): the second waits here, then stops.
+            if (RecordLock::changed('supplier_returns', $id, $existing)) {
+                $undo();
+                return $this->stale($existing);
+            }
+
             $stmt = $db->prepare(
                 "SELECT i.lot_id, SUM(i.base_quantity) AS qty, MAX(d.name) AS drug_name, MAX(i.lot_number) AS lot_number
                  FROM supplier_return_items i JOIN drugs d ON d.id = i.drug_id
@@ -695,7 +706,7 @@ class SupplierReturnService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'credited',
             'credit_memo_no' => $number,
             'credit_memo_date' => $date,
@@ -704,7 +715,9 @@ class SupplierReturnService
             'credited_by' => (int) $user['id']
         ], 'credited', "Credit memo {$number}: " . number_format($amount, 2)
             . ($amount < (float) $existing['total'] - 0.005 ? ' (return value ' . number_format((float) $existing['total'], 2) . ')' : ''),
-            (int) $user['id'], $now);
+            (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Credit of " . number_format($amount, 2) . " recorded for {$existing['rts_number']}. Apply it to the supplier's invoices under Accounts Payable."];
     }
@@ -731,12 +744,14 @@ class SupplierReturnService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'cancelled',
             'cancelled_at' => $now,
             'cancelled_by' => (int) $user['id'],
             'cancel_reason' => $reason
-        ], 'cancelled', $reason, (int) $user['id'], $now);
+        ], 'cancelled', $reason, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Return {$existing['rts_number']} cancelled."];
     }
@@ -965,7 +980,14 @@ class SupplierReturnService
         Database::connection()->prepare("UPDATE supplier_returns SET {$sets} WHERE id = :__id")->execute($values + ['__id' => $id]);
     }
 
-    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now): void
+    /** Refusal for a step whose record changed after it was read. */
+    private function stale(array $record): array
+    {
+        return ['success' => false, 'message' => "Return {$record['rts_number']} " . RecordLock::STALE_MESSAGE, 'stale' => true];
+    }
+
+    /** Status change + its history entry, together. False (nothing saved) when $seen is stale. */
+    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now, ?array $seen = null): bool
     {
         $db = Database::connection();
         $ownsTransaction = !$db->inTransaction();
@@ -975,12 +997,21 @@ class SupplierReturnService
         }
 
         try {
+            if ($seen !== null && RecordLock::changed('supplier_returns', $id, $seen, ['status', 'updated_at'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return false;
+            }
+
             $this->updateRow($id, $values + ['updated_at' => $now, 'updated_by' => $userId]);
             $this->log($id, $action, $notes, $userId, $now);
 
             if ($ownsTransaction) {
                 $db->commit();
             }
+
+            return true;
         } catch (Throwable $e) {
             if ($ownsTransaction) {
                 $db->rollBack();

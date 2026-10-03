@@ -3,6 +3,7 @@
 namespace App\Modules\SupplierInvoices\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\Procurement\Services\ApprovalLimitService;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
@@ -106,7 +107,9 @@ class SupplierInvoiceService
                     " . self::userNameSql('si.created_by') . " AS created_by_name,
                     (SELECT GROUP_CONCAT(gr.gr_number ORDER BY gr.id SEPARATOR ', ')
                        FROM supplier_invoice_receipts sir JOIN goods_receipts gr ON gr.id = sir.goods_receipt_id
-                      WHERE sir.supplier_invoice_id = si.id) AS receipt_numbers
+                      WHERE sir.supplier_invoice_id = si.id) AS receipt_numbers,
+                    (SELECT COUNT(*) FROM supplier_payment_allocations pa JOIN supplier_payments pp ON pp.id = pa.supplier_payment_id
+                      WHERE pa.supplier_invoice_id = si.id AND pp.status = 'pending_approval') AS pending_payment_count
              FROM supplier_invoices si
              JOIN purchase_orders po ON po.id = si.purchase_order_id
              JOIN suppliers s ON s.id = si.supplier_id
@@ -135,7 +138,9 @@ class SupplierInvoiceService
                     " . self::userNameSql('si.cancelled_by') . " AS cancelled_by_name,
                     (SELECT GROUP_CONCAT(gr.gr_number ORDER BY gr.id SEPARATOR ', ')
                        FROM supplier_invoice_receipts sir JOIN goods_receipts gr ON gr.id = sir.goods_receipt_id
-                      WHERE sir.supplier_invoice_id = si.id) AS receipt_numbers
+                      WHERE sir.supplier_invoice_id = si.id) AS receipt_numbers,
+                    (SELECT COUNT(*) FROM supplier_payment_allocations pa JOIN supplier_payments pp ON pp.id = pa.supplier_payment_id
+                      WHERE pa.supplier_invoice_id = si.id AND pp.status = 'pending_approval') AS pending_payment_count
              FROM supplier_invoices si
              JOIN purchase_orders po ON po.id = si.purchase_order_id
              JOIN suppliers s ON s.id = si.supplier_id
@@ -626,11 +631,13 @@ class SupplierInvoiceService
         $limits = new ApprovalLimitService();
 
         if ($limits->needsAdmin('supplier_invoice', (float) $existing['total']) && ($user['role'] ?? null) !== ApprovalLimitService::FINAL_ROLE) {
-            $this->transition($id, [
+            if (!$this->transition($id, [
                 'first_approved_at' => $now,
                 'first_approved_by' => $userId,
                 'first_approval_notes' => $notes !== '' ? $notes : null
-            ], 'first_approved', $notes, $userId, $now);
+            ], 'first_approved', $notes, $userId, $now, $existing)) {
+                return $this->stale($existing);
+            }
 
             return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} approved at your level. It is "
                 . $limits->describe('supplier_invoice') . ', so an administrator must also approve it.'];
@@ -638,14 +645,16 @@ class SupplierInvoiceService
 
         $dueDate = $existing['due_date'] ?: $this->defaultDueDate($existing);
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'approved',
             'approved_at' => $now,
             'approved_by' => $userId,
             'approval_notes' => $notes !== '' ? $notes : null,
             'due_date' => $dueDate,
             'payment_status' => 'unpaid'
-        ], 'approved', $notes, $userId, $now);
+        ], 'approved', $notes, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} approved for payment, due " . date('M j, Y', strtotime($dueDate)) . '.'];
     }
@@ -673,7 +682,7 @@ class SupplierInvoiceService
         $now = date('Y-m-d H:i:s');
         $userId = (int) $user['id'];
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'rejected',
             'rejected_at' => $now,
             'rejected_by' => $userId,
@@ -682,7 +691,9 @@ class SupplierInvoiceService
             'first_approved_at' => null,
             'first_approved_by' => null,
             'first_approval_notes' => null
-        ], 'rejected', $reason, $userId, $now);
+        ], 'rejected', $reason, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} rejected and sent back for correction."];
     }
@@ -706,6 +717,10 @@ class SupplierInvoiceService
             return ['success' => false, 'message' => "{$existing['ap_number']} already has payments on it. Void those payments under Accounts Payable first."];
         }
 
+        if ($pending = $this->pendingPayments($id)) {
+            return ['success' => false, 'message' => "{$existing['ap_number']} has payment {$pending} waiting for an administrator's approval. Have it rejected under Accounts Payable first."];
+        }
+
         if ($existing['status'] === 'approved' && !in_array($user['role'] ?? null, self::APPROVER_ROLES, true)) {
             return ['success' => false, 'message' => 'Only an administrator or accountant can cancel an approved invoice.'];
         }
@@ -721,13 +736,15 @@ class SupplierInvoiceService
         $now = date('Y-m-d H:i:s');
         $userId = (int) $user['id'];
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'cancelled',
             'cancelled_at' => $now,
             'cancelled_by' => $userId,
             'cancel_reason' => $reason,
             'payment_status' => null
-        ], 'cancelled', $reason, $userId, $now);
+        ], 'cancelled', $reason, $userId, $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Supplier invoice {$existing['ap_number']} cancelled. Its deliveries can be billed again."];
     }
@@ -1210,6 +1227,19 @@ class SupplierInvoiceService
         return round((float) $stmt->fetchColumn(), 2);
     }
 
+    /** PV numbers of payments waiting for approval on this invoice ('' when none). */
+    private function pendingPayments(int $invoiceId): string
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT GROUP_CONCAT(DISTINCT p.pv_number ORDER BY p.id SEPARATOR ', ')
+             FROM supplier_payment_allocations a JOIN supplier_payments p ON p.id = a.supplier_payment_id
+             WHERE a.supplier_invoice_id = :id AND p.status = 'pending_approval'"
+        );
+        $stmt->execute(['id' => $invoiceId]);
+
+        return (string) $stmt->fetchColumn();
+    }
+
     private function find(int $id): ?array
     {
         $invoice = $id ? (new SupplierInvoice())->where('id', $id)->first() : null;
@@ -1217,8 +1247,14 @@ class SupplierInvoiceService
         return $invoice && $invoice['deleted_at'] === null ? $invoice : null;
     }
 
-    /** Status change + its history entry, together. */
-    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now): void
+    /** Refusal for a step whose record changed after it was read. */
+    private function stale(array $record): array
+    {
+        return ['success' => false, 'message' => "Supplier invoice {$record['ap_number']} " . RecordLock::STALE_MESSAGE, 'stale' => true];
+    }
+
+    /** Status change + its history entry, together. False (nothing saved) when $seen is stale. */
+    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now, ?array $seen = null): bool
     {
         $db = Database::connection();
         $ownsTransaction = !$db->inTransaction();
@@ -1228,12 +1264,21 @@ class SupplierInvoiceService
         }
 
         try {
+            if ($seen !== null && RecordLock::changed('supplier_invoices', $id, $seen, ['status', 'updated_at', 'first_approved_by'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return false;
+            }
+
             (new SupplierInvoice())->update($values + ['updated_at' => $now, 'updated_by' => $userId], $id);
             $this->log($id, $action, $notes, $userId, $now);
 
             if ($ownsTransaction) {
                 $db->commit();
             }
+
+            return true;
         } catch (Throwable $e) {
             if ($ownsTransaction) {
                 $db->rollBack();
@@ -1308,6 +1353,7 @@ class SupplierInvoiceService
             'first_approval_notes' => $r['first_approval_notes'] ?? null,
             'can_cancel' => in_array($r['status'], self::CANCELLABLE_STATUSES, true)
                 && (float) ($r['amount_paid'] ?? 0) <= 0
+                && empty($r['pending_payment_count'])
                 && ($r['status'] !== 'approved' || in_array($viewer['role'] ?? null, self::APPROVER_ROLES, true))
         ];
     }

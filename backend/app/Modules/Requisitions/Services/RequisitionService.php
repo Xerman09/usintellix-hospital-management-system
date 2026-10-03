@@ -3,6 +3,7 @@
 namespace App\Modules\Requisitions\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\DrugInventory\Services\WarehouseService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
 use PDO;
@@ -517,10 +518,12 @@ class RequisitionService
         $notes = mb_substr(trim($notes), 0, 500);
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'approved', 'approved_at' => $now, 'approved_by' => (int) $user['id'],
             'approval_notes' => $notes !== '' ? $notes : null
-        ], 'approved', $notes, (int) $user['id'], $now);
+        ], 'approved', $notes, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Request {$existing['pr_number']} approved. Purchasing can now order it."];
     }
@@ -545,9 +548,11 @@ class RequisitionService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'rejected', 'rejected_at' => $now, 'rejected_by' => (int) $user['id'], 'rejection_reason' => $reason
-        ], 'rejected', $reason, (int) $user['id'], $now);
+        ], 'rejected', $reason, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Request {$existing['pr_number']} rejected."];
     }
@@ -581,9 +586,11 @@ class RequisitionService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'cancelled', 'cancelled_at' => $now, 'cancelled_by' => (int) $user['id'], 'cancel_reason' => $reason
-        ], 'cancelled', $reason, (int) $user['id'], $now);
+        ], 'cancelled', $reason, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Request {$existing['pr_number']} cancelled."];
     }
@@ -613,9 +620,11 @@ class RequisitionService
 
         $now = date('Y-m-d H:i:s');
 
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'closed', 'closed_at' => $now, 'closed_by' => (int) $user['id'], 'close_reason' => $reason
-        ], 'closed', $reason, (int) $user['id'], $now);
+        ], 'closed', $reason, (int) $user['id'], $now, $existing)) {
+            return $this->stale($existing);
+        }
 
         return ['success' => true, 'message' => "Request {$existing['pr_number']} closed; nothing more will be ordered for it."];
     }
@@ -733,6 +742,20 @@ class RequisitionService
         }
 
         try {
+            // Two people ordering the same requests at once (or a double click): the second
+            // waits for the first, then finds the lines already ordered.
+            $requisitionIds = array_values(array_unique(array_map(fn($p) => (int) $p['line']['requisition_id'], $picked)));
+            $db->prepare(
+                "SELECT id FROM purchase_requisitions WHERE id IN (" . implode(', ', array_fill(0, count($requisitionIds), '?')) . ") FOR UPDATE"
+            )->execute($requisitionIds);
+
+            $stillOutstanding = array_column($this->outstanding()['lines'], 'outstanding', 'requisition_item_id');
+            foreach ($picked as $itemId => $p) {
+                if ($p['quantity'] > ($stillOutstanding[$itemId] ?? 0) + self::EPSILON) {
+                    throw new RequisitionConvertException("some of these request lines were just ordered by someone else. Reload and try again.");
+                }
+            }
+
             $poService = new PurchaseOrderService();
             $linkStmt = $db->prepare(
                 "INSERT INTO purchase_order_item_sources (purchase_order_item_id, requisition_item_id, base_quantity, created_at)
@@ -879,9 +902,10 @@ class RequisitionService
             $per = $r['order_unit'] === 'package' && $r['units_per_package'] ? (float) $r['units_per_package'] : 1.0;
             $receivedLeft[$poLine] ??= (float) $r['quantity_received'] * $per;
 
-            $qty = (float) $r['base_quantity'];
-            $got = min($qty, $receivedLeft[$poLine]);
+            $got = min((float) $r['base_quantity'], $receivedLeft[$poLine]);
             $receivedLeft[$poLine] -= $got;
+            // A PO closed short won't bring the rest, so only what came counts as ordered.
+            $qty = $r['po_status'] === 'closed' ? $got : (float) $r['base_quantity'];
 
             $itemId = (int) $r['requisition_item_id'];
             if (!isset($wanted[$itemId])) {
@@ -1042,7 +1066,14 @@ class RequisitionService
         Database::connection()->prepare("UPDATE purchase_requisitions SET {$sets} WHERE id = :__id")->execute($values + ['__id' => $id]);
     }
 
-    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now): void
+    /** Refusal for a step whose record changed after it was read. */
+    private function stale(array $record): array
+    {
+        return ['success' => false, 'message' => "Request {$record['pr_number']} " . RecordLock::STALE_MESSAGE, 'stale' => true];
+    }
+
+    /** Status change + its history entry, together. False (nothing saved) when $seen is stale. */
+    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now, ?array $seen = null): bool
     {
         $db = Database::connection();
         $ownsTransaction = !$db->inTransaction();
@@ -1052,12 +1083,21 @@ class RequisitionService
         }
 
         try {
+            if ($seen !== null && RecordLock::changed('purchase_requisitions', $id, $seen, ['status', 'updated_at'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return false;
+            }
+
             $this->updateRow($id, $values + ['updated_at' => $now, 'updated_by' => $userId]);
             $this->log($id, $action, $notes, $userId, $now);
 
             if ($ownsTransaction) {
                 $db->commit();
             }
+
+            return true;
         } catch (Throwable $e) {
             if ($ownsTransaction) {
                 $db->rollBack();

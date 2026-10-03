@@ -500,6 +500,15 @@ class ReceivingService
         };
 
         try {
+            // Cancelled, closed or fully received meanwhile: don't take the delivery.
+            $stmt = $db->prepare("SELECT status FROM purchase_orders WHERE id = :id FOR UPDATE");
+            $stmt->execute(['id' => $orderId]);
+
+            if (!in_array($stmt->fetchColumn(), PurchaseOrderService::RECEIVABLE_STATUSES, true)) {
+                $undo();
+                return ['success' => false, 'message' => "{$order['po_number']} was just changed by someone else and can't take this delivery. Reload it and try again."];
+            }
+
             $receiptId = (new GoodsReceipt())->create([
                 'purchase_order_id' => $orderId,
                 'supplier_id' => $order['supplier_id'],
@@ -682,6 +691,20 @@ class ReceivingService
             return ['success' => false, 'message' => "{$receipt['po_number']} is {$receipt['po_status']}, so its deliveries can't be voided."];
         }
 
+        // Items rejected on this delivery that are on a return to the supplier.
+        $stmt = $db->prepare(
+            "SELECT GROUP_CONCAT(DISTINCT r.rts_number ORDER BY r.id SEPARATOR ', ')
+             FROM supplier_return_items ri
+             JOIN supplier_returns r ON r.id = ri.supplier_return_id
+             JOIN goods_receipt_items gri ON gri.id = ri.goods_receipt_item_id
+             WHERE gri.goods_receipt_id = :id AND r.status <> 'cancelled' AND r.deleted_at IS NULL"
+        );
+        $stmt->execute(['id' => $id]);
+
+        if ($returns = $stmt->fetchColumn()) {
+            return ['success' => false, 'message' => "Items rejected on {$receipt['gr_number']} are on return {$returns}. Cancel the return first, or keep this receipt."];
+        }
+
         $reason = mb_substr(trim($reason), 0, 255);
 
         if ($reason === '') {
@@ -727,6 +750,15 @@ class ReceivingService
         };
 
         try {
+            // Voided twice (double click): take the stock out only once.
+            $stmt = $db->prepare("SELECT voided_at FROM goods_receipts WHERE id = :id FOR UPDATE");
+            $stmt->execute(['id' => $id]);
+
+            if ($stmt->fetchColumn() !== null) {
+                $undo();
+                return ['success' => false, 'message' => "{$receipt['gr_number']} is already voided."];
+            }
+
             if ($byLot) {
                 $placeholders = implode(', ', array_fill(0, count($byLot), '?'));
                 $stmt = $db->prepare(

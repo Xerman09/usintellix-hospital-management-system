@@ -3,6 +3,7 @@
 namespace App\Modules\StockCounts\Services;
 
 use App\Core\Database;
+use App\Modules\Procurement\Services\RecordLock;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
 use App\Modules\PurchaseOrders\Services\PurchaseOrderService;
 use PDO;
@@ -451,6 +452,18 @@ class StockCountService
         }
 
         try {
+            // One open count per location, also when two people start one at the same moment.
+            $db->prepare("SELECT id FROM warehouses WHERE id = :id FOR UPDATE")->execute(['id' => $warehouseId]);
+
+            if ($open = $this->openCount($warehouseId)) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
+                    'warehouse_id' => "{$open['sc_number']} is still open for this location. Finish or cancel it first."
+                ]];
+            }
+
             $stmt->execute($params);
             $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -661,6 +674,14 @@ class StockCountService
         }
 
         try {
+            // Submitted, approved or cancelled meanwhile (another tab, the approver): don't change it.
+            if (RecordLock::changed('stock_counts', $id, $count, ['status'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return $this->stale($count);
+            }
+
             $update = $db->prepare(
                 "UPDATE stock_count_items SET counted_quantity = :counted, reason = :reason, notes = :notes,
                         counted_at = :at, counted_by = :by WHERE id = :id"
@@ -795,6 +816,12 @@ class StockCountService
         };
 
         try {
+            // Approved twice (double click, two approvers): the stock must be corrected only once.
+            if (RecordLock::changed('stock_counts', $id, $count)) {
+                $undo();
+                return $this->stale($count);
+            }
+
             $stmt = $db->prepare(
                 "SELECT i.*, d.name AS drug_name FROM stock_count_items i JOIN drugs d ON d.id = i.drug_id
                  WHERE i.stock_count_id = :id ORDER BY i.line_no, i.id"
@@ -941,12 +968,14 @@ class StockCountService
         }
 
         $now = date('Y-m-d H:i:s');
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'rejected',
             'rejected_at' => $now,
             'rejected_by' => (int) $user['id'],
             'rejection_reason' => $reason
-        ], 'rejected', $reason, (int) $user['id'], $now);
+        ], 'rejected', $reason, (int) $user['id'], $now, $count)) {
+            return $this->stale($count);
+        }
 
         return ['success' => true, 'message' => "{$count['sc_number']} sent back for a recount."];
     }
@@ -974,12 +1003,14 @@ class StockCountService
         }
 
         $now = date('Y-m-d H:i:s');
-        $this->transition($id, [
+        if (!$this->transition($id, [
             'status' => 'cancelled',
             'cancelled_at' => $now,
             'cancelled_by' => (int) $user['id'],
             'cancel_reason' => $reason
-        ], 'cancelled', $reason, (int) $user['id'], $now);
+        ], 'cancelled', $reason, (int) $user['id'], $now, $count)) {
+            return $this->stale($count);
+        }
 
         return ['success' => true, 'message' => "{$count['sc_number']} cancelled. No stock was changed."];
     }
@@ -1065,7 +1096,14 @@ class StockCountService
         Database::connection()->prepare("UPDATE stock_counts SET {$sets} WHERE id = :__id")->execute($values + ['__id' => $id]);
     }
 
-    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now): void
+    /** Refusal for a step whose record changed after it was read. */
+    private function stale(array $record): array
+    {
+        return ['success' => false, 'message' => "{$record['sc_number']} " . RecordLock::STALE_MESSAGE, 'stale' => true];
+    }
+
+    /** Status change + its history entry, together. False (nothing saved) when $seen is stale. */
+    private function transition(int $id, array $values, string $action, ?string $notes, int $userId, string $now, ?array $seen = null): bool
     {
         $db = Database::connection();
         $ownsTransaction = !$db->inTransaction();
@@ -1075,12 +1113,21 @@ class StockCountService
         }
 
         try {
+            if ($seen !== null && RecordLock::changed('stock_counts', $id, $seen, ['status', 'updated_at'])) {
+                if ($ownsTransaction) {
+                    $db->rollBack();
+                }
+                return false;
+            }
+
             $this->updateRow($id, $values + ['updated_at' => $now, 'updated_by' => $userId]);
             $this->log($id, $action, $notes, $userId, $now);
 
             if ($ownsTransaction) {
                 $db->commit();
             }
+
+            return true;
         } catch (Throwable $e) {
             if ($ownsTransaction) {
                 $db->rollBack();

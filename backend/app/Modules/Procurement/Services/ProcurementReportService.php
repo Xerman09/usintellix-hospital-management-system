@@ -508,12 +508,14 @@ class ProcurementReportService
 
     /**
      * Supplier invoice lines billed at a price other than the purchase
-     * order's. Filters: date_from?, date_to? (invoice date), supplier_id?, direction? (higher|lower)
+     * order's. Both are net prices (after line discounts, before VAT) per
+     * the invoice line's unit, as the 3-way match compares them. Filters: date_from?, date_to? (invoice date), supplier_id?, direction? (higher|lower)
      */
     public function priceDifferences(array $filters = []): array
     {
-        $where = ["si.status <> 'cancelled'", 'si.deleted_at IS NULL', 'sii.expected_unit_price IS NOT NULL',
-                  'ABS(sii.unit_price - sii.expected_unit_price) > 0.005'];
+        $net = 'sii.line_total / sii.quantity';
+        $where = ["si.status <> 'cancelled'", 'si.deleted_at IS NULL', 'sii.expected_unit_price IS NOT NULL', 'sii.quantity > 0',
+                  "ABS({$net} - sii.expected_unit_price) > 0.005"];
         $params = [];
 
         if (!empty($filters['supplier_id'])) {
@@ -522,9 +524,9 @@ class ProcurementReportService
         }
 
         if (($filters['direction'] ?? '') === 'higher') {
-            $where[] = 'sii.unit_price > sii.expected_unit_price';
+            $where[] = "{$net} > sii.expected_unit_price";
         } elseif (($filters['direction'] ?? '') === 'lower') {
-            $where[] = 'sii.unit_price < sii.expected_unit_price';
+            $where[] = "{$net} < sii.expected_unit_price";
         }
 
         $this->period($filters, $where, $params, 'si.invoice_date');
@@ -532,7 +534,7 @@ class ProcurementReportService
         $stmt = Database::connection()->prepare(
             "SELECT si.id AS supplier_invoice_id, si.ap_number, si.supplier_invoice_no, si.invoice_date, si.status, si.approval_notes,
                     po.id AS purchase_order_id, po.po_number, s.name AS supplier_name, d.name AS drug_name,
-                    sii.order_unit, sii.units_per_package, sii.quantity, sii.unit_price, sii.expected_unit_price, sii.match_status
+                    sii.order_unit, sii.units_per_package, sii.quantity, sii.unit_price, sii.line_total, sii.expected_unit_price, sii.match_status
              FROM supplier_invoice_items sii
              JOIN supplier_invoices si ON si.id = sii.supplier_invoice_id
              JOIN purchase_orders po ON po.id = si.purchase_order_id
@@ -545,7 +547,8 @@ class ProcurementReportService
         $stmt->execute($params);
 
         $rows = array_map(function (array $r) {
-            $diff = round((float) $r['unit_price'] - (float) $r['expected_unit_price'], 4);
+            $invoicePrice = round((float) $r['line_total'] / (float) $r['quantity'], 4);
+            $diff = round($invoicePrice - (float) $r['expected_unit_price'], 4);
             return [
                 'supplier_invoice_id' => (int) $r['supplier_invoice_id'],
                 'ap_number' => $r['ap_number'],
@@ -561,10 +564,10 @@ class ProcurementReportService
                 'units_per_package' => $r['units_per_package'] !== null ? (float) $r['units_per_package'] : null,
                 'quantity' => (float) $r['quantity'],
                 'po_price' => (float) $r['expected_unit_price'],
-                'invoice_price' => (float) $r['unit_price'],
+                'invoice_price' => $invoicePrice,
                 'difference' => $diff,
                 'difference_pct' => (float) $r['expected_unit_price'] > 0 ? round($diff / (float) $r['expected_unit_price'] * 100, 1) : null,
-                'impact' => round($diff * (float) $r['quantity'], 2)
+                'impact' => round((float) $r['line_total'] - (float) $r['expected_unit_price'] * (float) $r['quantity'], 2)
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
