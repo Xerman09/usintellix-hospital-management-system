@@ -60,6 +60,8 @@ import { LotTraceView } from "../lot-trace/lot-trace.view.js?v=1";
 import { initLotTrace } from "../lot-trace/lot-trace.js?v=1";
 import { StockLevelsView } from "../stock-levels/stock-levels.view.js?v=1";
 import { initStockLevels } from "../stock-levels/stock-levels.js?v=1";
+import { PharmacyDashboardView } from "../pharmacy-dashboard/pharmacy-dashboard.view.js?v=1";
+import { initPharmacyDashboard } from "../pharmacy-dashboard/pharmacy-dashboard.js?v=1";
 import { ProcurementReportsView } from "../procurement-reports/procurement-reports.view.js?v=1";
 import { initProcurementReports } from "../procurement-reports/procurement-reports.js?v=2";
 import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
@@ -667,6 +669,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Medicine Ledger', () => {
                 setTimeout(initMedicineLedger, 0);
                 return MedicineLedgerView();
+            }, activate);
+        } else if (tabId === 'pharmacy_dashboard') {
+            tabManager.openTab(tabId, 'Pharmacy Dashboard', () => {
+                setTimeout(initPharmacyDashboard, 0);
+                return PharmacyDashboardView();
             }, activate);
         } else if (tabId === 'pharmacy_stock_levels') {
             tabManager.openTab(tabId, 'Stock Levels', () => {

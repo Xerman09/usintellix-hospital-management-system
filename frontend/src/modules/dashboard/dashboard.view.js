@@ -68,6 +68,7 @@ function staffNavLinks(role)
         <div class="nav-dropdown">
             <span>Pharmacy</span>
             <div class="dropdown-content">
+                ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_dashboard">Pharmacy Dashboard</a>` : ""}
                 <div class="dropdown-section-label">Medicines</div>
                 <a data-tab="inventory_management">Drug Catalog &amp; Stock</a>
                 ${role === "admin" ? `<a data-tab="medication_management">Medication Management</a>` : ""}
