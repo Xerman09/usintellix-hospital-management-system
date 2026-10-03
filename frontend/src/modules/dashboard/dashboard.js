@@ -45,8 +45,10 @@ import { ReceivingView } from "../receiving/receiving.view.js?v=6";
 import { initReceiving } from "../receiving/receiving.js?v=8";
 import { SupplierInvoicesView } from "../supplier-invoices/supplier-invoices.view.js?v=2";
 import { initSupplierInvoices } from "../supplier-invoices/supplier-invoices.js?v=2";
-import { PayablesView } from "../payables/payables.view.js?v=1";
-import { initPayables } from "../payables/payables.js?v=1";
+import { PayablesView } from "../payables/payables.view.js?v=2";
+import { initPayables } from "../payables/payables.js?v=2";
+import { SupplierReturnsView } from "../supplier-returns/supplier-returns.view.js?v=1";
+import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
 import { DrugLookupView } from "../drug-lookups/drug-lookups.view.js?v=1";
 import { initDrugLookup } from "../drug-lookups/drug-lookups.js?v=1";
 import { WarehousesView } from "../warehouses/warehouses.view.js?v=3";
@@ -631,6 +633,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Receiving', () => {
                 setTimeout(initReceiving, 0);
                 return ReceivingView();
+            }, activate);
+        } else if (tabId === 'pharmacy_supplier_returns') {
+            tabManager.openTab(tabId, 'Supplier Returns', () => {
+                setTimeout(initSupplierReturns, 0);
+                return SupplierReturnsView();
             }, activate);
         } else if (tabId === 'pharmacy_payables') {
             tabManager.openTab(tabId, 'Accounts Payable', () => {

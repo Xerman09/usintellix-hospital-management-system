@@ -4,6 +4,7 @@ namespace App\Modules\Payables\Services;
 
 use App\Core\Database;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
+use App\Modules\SupplierReturns\Services\SupplierReturnService;
 use App\Modules\SupplierInvoices\Models\SupplierInvoice;
 use PDO;
 use Throwable;
@@ -27,6 +28,13 @@ use Throwable;
  *
  * Aging buckets a balance by how far past its due date it is, as of a
  * date: Current (not due yet), 1-30, 31-60, 61-90 and over 90 days.
+ *
+ * Supplier credits (Pharmacy > Supplier Returns, once credited) lower
+ * what's owed the day the credit memo is issued -- the ledger shows the
+ * credit memo, and aging nets unapplied credit per supplier. Applying a
+ * credit to particular invoices (applyCredit) is recorded like a
+ * payment with method 'credit' and no cash; it only settles invoices,
+ * so the ledger leaves it out rather than count the credit twice.
  */
 class PayableService
 {
@@ -71,7 +79,13 @@ class PayableService
         );
         $stmt->execute(['start' => date('Y-m-01')]);
 
+        $credits = (float) Database::connection()->query(
+            "SELECT COALESCE(SUM(credit_amount - credit_applied), 0) FROM supplier_returns
+             WHERE status = 'credited' AND deleted_at IS NULL"
+        )->fetchColumn();
+
         return [
+            'credits_available' => round($credits, 2),
             'open_count' => (int) $owed['open_count'],
             'total_payable' => round((float) $owed['total_payable'], 2),
             'overdue_amount' => round((float) $owed['overdue_amount'], 2),
@@ -129,13 +143,14 @@ class PayableService
         }
 
         $stmt = Database::connection()->prepare(
-            "SELECT p.*, s.name AS supplier_name, s.code AS supplier_code,
+            "SELECT p.*, s.name AS supplier_name, s.code AS supplier_code, sr.rts_number,
                     " . self::userNameSql('p.created_by') . " AS created_by_name,
                     (SELECT GROUP_CONCAT(si.ap_number ORDER BY si.id SEPARATOR ', ')
                        FROM supplier_payment_allocations a JOIN supplier_invoices si ON si.id = a.supplier_invoice_id
                       WHERE a.supplier_payment_id = p.id) AS invoice_numbers
              FROM supplier_payments p
              JOIN suppliers s ON s.id = p.supplier_id
+             LEFT JOIN supplier_returns sr ON sr.id = p.supplier_return_id
              WHERE " . implode(' AND ', $where) . "
              ORDER BY p.payment_date DESC, p.id DESC
              LIMIT 2000"
@@ -149,7 +164,7 @@ class PayableService
     {
         $db = Database::connection();
         $stmt = $db->prepare(
-            "SELECT p.*, s.name AS supplier_name, s.code AS supplier_code, s.tin AS supplier_tin,
+            "SELECT p.*, s.name AS supplier_name, s.code AS supplier_code, s.tin AS supplier_tin, sr.rts_number,
                     s.address_line, s.city, s.province,
                     " . self::userNameSql('p.created_by') . " AS created_by_name,
                     " . self::userNameSql('p.voided_by') . " AS voided_by_name,
@@ -158,6 +173,7 @@ class PayableService
                       WHERE a.supplier_payment_id = p.id) AS invoice_numbers
              FROM supplier_payments p
              JOIN suppliers s ON s.id = p.supplier_id
+             LEFT JOIN supplier_returns sr ON sr.id = p.supplier_return_id
              WHERE p.id = :id"
         );
         $stmt->execute(['id' => $id]);
@@ -195,7 +211,7 @@ class PayableService
             'ewt_rate' => (float) $r['ewt_rate'],
             'ewt_base' => (float) $r['ewt_base'],
             'ewt_amount' => (float) $r['ewt_amount'],
-            'cash' => round((float) $r['amount_applied'] - (float) $r['ewt_amount'], 2)
+            'cash' => $row['method'] === 'credit' ? 0.0 : round((float) $r['amount_applied'] - (float) $r['ewt_amount'], 2)
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
 
         $business = (new BusinessSettingService())->get();
@@ -214,10 +230,21 @@ class PayableService
      * reference_no (check / transfer no.), check_date?, paid_from?,
      * ewt_rate?, notes?, allocations: [{ supplier_invoice_id, amount }].
      */
-    public function record(array $data, int $userId): array
+    public function record(array $data, int $userId, ?array $credit = null): array
     {
         $db = Database::connection();
         $errors = [];
+
+        if ($credit !== null) {
+            // Applying a supplier credit: no cash, no tax withheld.
+            $data['supplier_id'] = $credit['supplier_id'];
+            $data['method'] = 'credit';
+            $data['reference_no'] = $credit['credit_memo_no'];
+            $data['ewt_rate'] = 0;
+            $data['check_date'] = null;
+            $data['paid_from'] = null;
+            $data['payment_date'] = $data['payment_date'] ?? date('Y-m-d');
+        }
 
         $supplierId = (int) ($data['supplier_id'] ?? 0);
         $stmt = $db->prepare("SELECT id, name FROM suppliers WHERE id = :id AND deleted_at IS NULL");
@@ -238,7 +265,7 @@ class PayableService
 
         $method = (string) ($data['method'] ?? '');
 
-        if (!in_array($method, self::METHODS, true)) {
+        if (!in_array($method, self::METHODS, true) && !($credit !== null && $method === 'credit')) {
             $errors['method'] = 'Choose how it was paid.';
         }
 
@@ -376,6 +403,13 @@ class PayableService
             $totalApplied = round(array_sum(array_column($lines, 'amount')), 2);
             $totalEwt = round(array_sum(array_column($lines, 'ewt')), 2);
 
+            if ($credit !== null && $totalApplied > $credit['available'] + self::EPSILON) {
+                $undo();
+                return ['success' => false, 'message' => 'Validation failed.', 'errors' => [
+                    'allocations' => 'More than the ' . number_format($credit['available'], 2) . " left on {$credit['rts_number']}'s credit."
+                ]];
+            }
+
             $db->prepare(
                 "INSERT INTO supplier_payments (supplier_id, payment_date, method, reference_no, check_date, paid_from, ewt_rate,
                                                 total_applied, ewt_amount, amount_paid, notes, status, created_at, created_by)
@@ -391,14 +425,20 @@ class PayableService
                 'rate' => $ewtRate,
                 'applied' => $totalApplied,
                 'ewt' => $totalEwt,
-                'paid' => round($totalApplied - $totalEwt, 2),
+                // A credit memo settles invoices without any cash going out.
+                'paid' => $credit !== null ? 0.0 : round($totalApplied - $totalEwt, 2),
                 'notes' => $notes !== '' ? mb_substr($notes, 0, 2000) : null,
                 'now' => $now,
                 'user' => $userId
             ]);
             $paymentId = (int) $db->lastInsertId();
             $pvNumber = 'PV-' . date('Y') . '-' . str_pad((string) $paymentId, 5, '0', STR_PAD_LEFT);
-            $db->prepare("UPDATE supplier_payments SET pv_number = :pv WHERE id = :id")->execute(['pv' => $pvNumber, 'id' => $paymentId]);
+            $db->prepare("UPDATE supplier_payments SET pv_number = :pv, supplier_return_id = :return_id WHERE id = :id")
+                ->execute(['pv' => $pvNumber, 'return_id' => $credit['id'] ?? null, 'id' => $paymentId]);
+
+            if ($credit !== null) {
+                (new SupplierReturnService())->addApplied($credit['id'], $totalApplied);
+            }
 
             $allocate = $db->prepare(
                 "INSERT INTO supplier_payment_allocations (supplier_payment_id, supplier_invoice_id, amount_applied, ewt_rate, ewt_base, ewt_amount, created_at)
@@ -430,6 +470,7 @@ class PayableService
                     (int) $invoice['id'],
                     $line['settles'] ? 'paid' : 'partially_paid',
                     "{$pvNumber}: " . number_format($line['amount'], 2)
+                        . ($credit !== null ? " from {$credit['rts_number']}'s credit memo {$credit['credit_memo_no']}" : '')
                         . ($line['ewt'] > 0 ? ' (incl. ' . number_format($line['ewt'], 2) . ' EWT withheld)' : ''),
                     $userId,
                     $now
@@ -447,12 +488,50 @@ class PayableService
             return ['success' => false, 'message' => 'Failed to record the payment. Nothing was saved.'];
         }
 
+        if ($credit !== null) {
+            return [
+                'success' => true,
+                'message' => number_format($totalApplied, 2) . " of {$credit['rts_number']}'s credit applied ({$pvNumber}).",
+                'data' => ['id' => $paymentId, 'pv_number' => $pvNumber]
+            ];
+        }
+
         return [
             'success' => true,
             'message' => "{$pvNumber} recorded: " . number_format($totalApplied - $totalEwt, 2) . " paid to {$supplier['name']}"
                 . ($totalEwt > 0 ? ', ' . number_format($totalEwt, 2) . ' withheld' : '') . '.',
             'data' => ['id' => $paymentId, 'pv_number' => $pvNumber]
         ];
+    }
+
+    /**
+     * Uses a credited return's credit to settle open invoices of the same
+     * supplier. Body: payment_date?, notes?, allocations: [{ supplier_invoice_id, amount }].
+     */
+    public function applyCredit(int $returnId, array $data, int $userId): array
+    {
+        $credit = null;
+        foreach ((new SupplierReturnService())->availableCredits() as $candidate) {
+            if ($candidate['id'] === $returnId) {
+                $credit = $candidate;
+                break;
+            }
+        }
+
+        if (!$credit) {
+            return ['success' => false, 'message' => 'This return has no credit left to apply.'];
+        }
+
+        return $this->record([
+            'payment_date' => $data['payment_date'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'allocations' => $data['allocations'] ?? []
+        ], $userId, $credit);
+    }
+
+    public function credits(?int $supplierId = null): array
+    {
+        return (new SupplierReturnService())->availableCredits($supplierId);
     }
 
     /** Reverses a payment entered by mistake; its amounts go back on the invoices. */
@@ -512,6 +591,11 @@ class PayableService
             $db->prepare(
                 "UPDATE supplier_payments SET status = 'voided', voided_at = :now, voided_by = :user, void_reason = :reason WHERE id = :id"
             )->execute(['now' => $now, 'user' => $userId, 'reason' => $reason, 'id' => $id]);
+
+            if ($payment['supplier_return_id']) {
+                // The credit is free to use again.
+                (new SupplierReturnService())->addApplied($payment['supplier_return_id'], -$payment['total_applied']);
+            }
 
             if ($ownsTransaction) {
                 $db->commit();
@@ -592,6 +676,42 @@ class PayableService
             ];
         }
 
+        // Credit memos issued by then and not yet applied (as of then), netted per supplier.
+        $stmt = Database::connection()->prepare(
+            "SELECT r.supplier_id, s.name AS supplier_name, s.code AS supplier_code,
+                    SUM(r.credit_amount - COALESCE((SELECT SUM(p.total_applied) FROM supplier_payments p
+                         WHERE p.supplier_return_id = r.id AND p.status = 'posted' AND p.payment_date <= :as1), 0)) AS unapplied
+             FROM supplier_returns r JOIN suppliers s ON s.id = r.supplier_id
+             WHERE r.status = 'credited' AND r.deleted_at IS NULL AND r.credit_memo_date <= :as2
+             GROUP BY r.supplier_id, s.name, s.code"
+        );
+        $stmt->execute(['as1' => $asOf, 'as2' => $asOf]);
+        $totals['unapplied_credit'] = 0.0;
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $credit = round((float) $r['unapplied'], 2);
+
+            if ($credit <= self::EPSILON) {
+                continue;
+            }
+
+            $sid = (int) $r['supplier_id'];
+            $suppliers[$sid] ??= ['supplier_id' => $sid, 'supplier_name' => $r['supplier_name'], 'supplier_code' => $r['supplier_code'], 'invoices' => []]
+                + array_fill_keys(array_merge(self::AGING_BUCKETS, ['total']), 0.0);
+            $suppliers[$sid]['unapplied_credit'] = $credit;
+            $totals['unapplied_credit'] = round($totals['unapplied_credit'] + $credit, 2);
+        }
+
+        foreach ($suppliers as &$supplier) {
+            $supplier['unapplied_credit'] ??= 0.0;
+            $supplier['net'] = round($supplier['total'] - $supplier['unapplied_credit'], 2);
+        }
+        unset($supplier);
+
+        $totals['net'] = round($totals['total'] - $totals['unapplied_credit'], 2);
+
+        uasort($suppliers, fn($a, $b) => strcmp($a['supplier_name'], $b['supplier_name']));
+
         return ['as_of' => $asOf, 'suppliers' => array_values($suppliers), 'totals' => $totals];
     }
 
@@ -639,7 +759,7 @@ class PayableService
                        FROM supplier_payment_allocations a JOIN supplier_invoices si ON si.id = a.supplier_invoice_id
                       WHERE a.supplier_payment_id = p.id) AS invoice_numbers
              FROM supplier_payments p
-             WHERE p.supplier_id = :id AND p.status = 'posted'"
+             WHERE p.supplier_id = :id AND p.status = 'posted' AND p.method <> 'credit'"
         );
         $stmt->execute(['id' => $supplierId]);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -657,8 +777,29 @@ class PayableService
             ];
         }
 
+        // Supplier credit memos lower the balance the day they're issued.
+        $stmt = $db->prepare(
+            "SELECT id, rts_number, credit_memo_no, credit_memo_date, credit_amount, credit_applied
+             FROM supplier_returns WHERE supplier_id = :id AND status = 'credited' AND deleted_at IS NULL"
+        );
+        $stmt->execute(['id' => $supplierId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $left = round((float) $r['credit_amount'] - (float) $r['credit_applied'], 2);
+            $entries[] = [
+                'type' => 'credit',
+                'id' => (int) $r['id'],
+                'date' => $r['credit_memo_date'],
+                'reference' => $r['rts_number'],
+                'description' => "Credit memo {$r['credit_memo_no']} for returned items" . ($left > 0 ? ' · ₱' . number_format($left, 2) . ' not yet applied' : ''),
+                'due_date' => null,
+                'charge' => 0.0,
+                'payment' => (float) $r['credit_amount'],
+                'ewt' => 0.0
+            ];
+        }
+
         // Same day: bills before the payments that settle them.
-        usort($entries, fn($a, $b) => [$a['date'], $a['type'] === 'payment', $a['id']] <=> [$b['date'], $b['type'] === 'payment', $b['id']]);
+        usort($entries, fn($a, $b) => [$a['date'], $a['type'] !== 'invoice', $a['id']] <=> [$b['date'], $b['type'] !== 'invoice', $b['id']]);
 
         $opening = 0.0;
         $rows = [];
@@ -710,11 +851,14 @@ class PayableService
         $stmt = Database::connection()->query(
             "SELECT s.id, s.name, s.code, s.payment_terms,
                     COALESCE((SELECT SUM(si.total - si.amount_paid) FROM supplier_invoices si
-                              WHERE si.supplier_id = s.id AND si.status = 'approved' AND si.deleted_at IS NULL), 0) AS balance
+                              WHERE si.supplier_id = s.id AND si.status = 'approved' AND si.deleted_at IS NULL), 0) AS balance,
+                    COALESCE((SELECT SUM(r.credit_amount - r.credit_applied) FROM supplier_returns r
+                              WHERE r.supplier_id = s.id AND r.status = 'credited' AND r.deleted_at IS NULL), 0) AS credit_available
              FROM suppliers s
              WHERE s.deleted_at IS NULL
                AND (EXISTS (SELECT 1 FROM supplier_invoices si WHERE si.supplier_id = s.id AND si.status = 'approved' AND si.deleted_at IS NULL)
-                    OR EXISTS (SELECT 1 FROM supplier_payments p WHERE p.supplier_id = s.id))
+                    OR EXISTS (SELECT 1 FROM supplier_payments p WHERE p.supplier_id = s.id)
+                    OR EXISTS (SELECT 1 FROM supplier_returns r WHERE r.supplier_id = s.id AND r.status = 'credited' AND r.deleted_at IS NULL))
              ORDER BY s.name"
         );
 
@@ -723,7 +867,8 @@ class PayableService
             'name' => $r['name'],
             'code' => $r['code'],
             'payment_terms' => $r['payment_terms'],
-            'balance' => round((float) $r['balance'], 2)
+            'balance' => round((float) $r['balance'], 2),
+            'credit_available' => round((float) $r['credit_available'], 2)
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
@@ -766,6 +911,8 @@ class PayableService
         return [
             'id' => (int) $r['id'],
             'pv_number' => $r['pv_number'],
+            'supplier_return_id' => isset($r['supplier_return_id']) && $r['supplier_return_id'] !== null ? (int) $r['supplier_return_id'] : null,
+            'rts_number' => $r['rts_number'] ?? null,
             'supplier_id' => (int) $r['supplier_id'],
             'supplier_name' => $r['supplier_name'],
             'supplier_code' => $r['supplier_code'],
@@ -791,7 +938,7 @@ class PayableService
 
     private function methodLabel(string $method): string
     {
-        return ['check' => 'Check', 'bank_transfer' => 'Bank transfer', 'cash' => 'Cash', 'other' => 'Other'][$method] ?? $method;
+        return ['check' => 'Check', 'bank_transfer' => 'Bank transfer', 'cash' => 'Cash', 'other' => 'Other', 'credit' => 'Credit memo'][$method] ?? $method;
     }
 
     private function logInvoice(int $invoiceId, string $action, ?string $notes, int $userId, string $now): void

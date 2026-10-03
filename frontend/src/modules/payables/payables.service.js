@@ -41,6 +41,18 @@ export async function voidPayment(id, reason) {
     });
 }
 
+export async function fetchCredits(supplierId = null) {
+    return api(`/payables/credits${query({ supplier_id: supplierId })}`);
+}
+
+/** Use a returned-goods credit to settle invoices. details: { allocations, payment_date?, notes? } */
+export async function applyCredit(returnId, details) {
+    return api("/payables/credits/apply", {
+        method: "POST",
+        body: JSON.stringify({ supplier_return_id: returnId, ...details })
+    });
+}
+
 export async function fetchAging(asOf) {
     return api(`/payables/aging${query({ as_of: asOf })}`);
 }

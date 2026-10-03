@@ -1,7 +1,7 @@
 import {
     fetchPayablesSummary, fetchOpenBills, fetchPayableSuppliers, fetchPayments, fetchPayment, recordPayment, voidPayment,
-    fetchAging, fetchLedger
-} from "./payables.service.js?v=1";
+    fetchAging, fetchLedger, fetchCredits, applyCredit
+} from "./payables.service.js?v=2";
 import { formatMoney, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 import { todayISO, systemNow, toDateInput } from "../../core/timezone.js";
@@ -28,6 +28,8 @@ let ledgerState = { supplierId: "", from: "", to: "" };
 // Payment form
 let payBills = [];   // open bills of the chosen supplier
 let amounts = {};    // invoice id -> amount typed
+let creditMode = null; // applying a supplier credit instead of paying: { id, rts_number, credit_memo_no, available, supplier_id }
+let credits = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -38,7 +40,7 @@ export async function initPayables() {
         renderTab();
     }));
     document.querySelectorAll("[data-ap-back]").forEach((btn) => btn.addEventListener("click", showMain));
-    $("apPayBtn").addEventListener("click", () => openPaymentForm());
+    $("apPayBtn").addEventListener("click", () => { creditMode = null; openPaymentForm(); });
 
     setupPaymentForm();
     await loadAll();
@@ -73,6 +75,7 @@ async function loadAll() {
     $("apStatWeek").textContent = formatMoney(s.due_week_amount);
     $("apStatWeekSub").textContent = `Due in the next 7 days · ${s.due_week_count}`;
     $("apStatPaid").textContent = formatMoney(s.paid_this_month);
+    $("apStatCredits").textContent = formatMoney(s.credits_available || 0);
 
     bills = billResult.data || [];
     payments = paymentResult?.success ? paymentResult.data || [] : [];
@@ -83,7 +86,7 @@ async function loadAll() {
 }
 
 function renderTab() {
-    ({ bills: renderBills, payments: renderPayments, aging: renderAging, ledger: renderLedger })[activeTab]();
+    ({ bills: renderBills, payments: renderPayments, credits: renderCredits, aging: renderAging, ledger: renderLedger })[activeTab]();
 }
 
 function showPanel(name) {
@@ -100,7 +103,7 @@ async function showMain() {
 
 function supplierOptions(selected, placeholder, list = suppliers) {
     return `<option value="">${placeholder}</option>` + list.map((s) =>
-        `<option value="${s.id}" ${String(selected) === String(s.id) ? "selected" : ""}>${escapeHtml(s.name)}${s.balance > 0 ? ` — owes ${formatMoney(s.balance)}` : ""}</option>`).join("");
+        `<option value="${s.id}" ${String(selected) === String(s.id) ? "selected" : ""}>${escapeHtml(s.name)}${s.balance > 0 ? ` — owes ${formatMoney(s.balance)}` : ""}${s.credit_available > 0 ? ` (credit ${formatMoney(s.credit_available)})` : ""}</option>`).join("");
 }
 
 function dueBadge(bill) {
@@ -166,11 +169,12 @@ function renderBills() {
 
     $("apTabBody").querySelectorAll("[data-ap-pay-one]").forEach((btn) => btn.addEventListener("click", () => {
         const bill = bills.find((b) => b.id === Number(btn.dataset.apPayOne));
+        creditMode = null;
         openPaymentForm(bill.supplier_id, [bill.id]);
     }));
 
     $("apClearSel")?.addEventListener("click", () => { selectedBills.clear(); renderBills(); });
-    $("apPaySel")?.addEventListener("click", () => openPaymentForm(chosenSupplier, [...selectedBills]));
+    $("apPaySel")?.addEventListener("click", () => { creditMode = null; openPaymentForm(chosenSupplier, [...selectedBills]); });
 }
 
 /* ---- Payments ---- */
@@ -217,6 +221,46 @@ function renderPayments() {
     draw();
 }
 
+/* ---- Supplier credits ---- */
+
+async function renderCredits() {
+    $("apTabBody").innerHTML = `<div class="ap-empty">Loading...</div>`;
+    const result = await fetchCredits();
+    credits = result?.success ? result.data || [] : [];
+
+    if (!credits.length) {
+        $("apTabBody").innerHTML = `<div class="ap-empty">No unused supplier credits. Credits come from returns to suppliers (Pharmacy &gt; Supplier Returns) once the supplier's credit memo is recorded.</div>`;
+        return;
+    }
+
+    $("apTabBody").innerHTML = `
+        <p class="ap-sub" style="margin:0 0 10px;">Credits already lower what's owed to the supplier (see the ledger). Apply each one to the supplier's invoices so those invoices show as paid.</p>
+        <div class="ap-table-wrap">
+            <table class="ap-table">
+                <thead><tr><th>Return</th><th>Supplier</th><th>Credit Memo</th><th class="num">Credit</th><th class="num">Applied</th><th class="num">Left to Apply</th><th></th></tr></thead>
+                <tbody>${credits.map((c) => {
+                    const owed = suppliers.find((s) => s.id === c.supplier_id)?.balance || 0;
+                    return `
+                    <tr>
+                        <td><strong>${escapeHtml(c.rts_number)}</strong></td>
+                        <td>${escapeHtml(c.supplier_name)}<span class="ap-sub">${owed > 0 ? `owes ${formatMoney(owed)}` : "nothing owed right now"}</span></td>
+                        <td>${escapeHtml(c.credit_memo_no)}<span class="ap-sub">${formatDate(c.credit_memo_date)}</span></td>
+                        <td class="num">${formatMoney(c.credit_amount)}</td>
+                        <td class="num">${c.credit_applied ? formatMoney(c.credit_applied) : "—"}</td>
+                        <td class="num"><strong>${formatMoney(c.available)}</strong></td>
+                        <td><button type="button" class="ap-btn small primary" data-ap-apply="${c.id}" ${owed > 0 ? "" : "disabled title=\"No open invoices for this supplier\""}>Apply</button></td>
+                    </tr>`;
+                }).join("")}
+                </tbody>
+            </table>
+        </div>`;
+
+    $("apTabBody").querySelectorAll("[data-ap-apply]").forEach((btn) => btn.addEventListener("click", () => {
+        creditMode = credits.find((c) => c.id === Number(btn.dataset.apApply));
+        openPaymentForm(creditMode.supplier_id, []);
+    }));
+}
+
 /* ---- Aging ---- */
 
 async function renderAging() {
@@ -242,6 +286,7 @@ async function renderAging() {
     }
 
     const aging = result.data;
+    const hasCredit = (aging.totals.unapplied_credit || 0) > 0;
     $("apAgingPrint").addEventListener("click", () => printAging(aging));
 
     if (!aging.suppliers.length) {
@@ -252,21 +297,24 @@ async function renderAging() {
     $("apAgingBody").innerHTML = `
         <div class="ap-table-wrap">
             <table class="ap-table">
-                <thead><tr><th>Supplier</th>${BUCKETS.map(([, label]) => `<th class="num">${label}</th>`).join("")}<th class="num">Total</th></tr></thead>
+                <thead><tr><th>Supplier</th>${BUCKETS.map(([, label]) => `<th class="num">${label}</th>`).join("")}<th class="num">Total</th>${hasCredit ? `<th class="num">Unapplied Credit</th><th class="num">Net Owed</th>` : ""}</tr></thead>
                 <tbody>${aging.suppliers.map((s) => `
                     <tr class="ap-row" data-ap-aging="${s.supplier_id}">
                         <td><strong>${agingOpen.has(s.supplier_id) ? "&#9662;" : "&#9656;"} ${escapeHtml(s.supplier_name)}</strong><span class="ap-sub">${s.invoices.length} invoice${s.invoices.length === 1 ? "" : "s"}</span></td>
                         ${BUCKETS.map(([key]) => `<td class="num">${s[key] ? formatMoney(s[key]) : "—"}</td>`).join("")}
                         <td class="num"><strong>${formatMoney(s.total)}</strong></td>
+                        ${hasCredit ? `<td class="num">${s.unapplied_credit ? `− ${formatMoney(s.unapplied_credit)}` : "—"}</td><td class="num"><strong>${formatMoney(s.net)}</strong></td>` : ""}
                     </tr>
                     ${agingOpen.has(s.supplier_id) ? s.invoices.map((i) => `
                     <tr class="ap-sub">
                         <td style="padding-left:28px;">${escapeHtml(i.ap_number)} · Inv. ${escapeHtml(i.supplier_invoice_no)}<span class="ap-sub">due ${formatDate(i.due_date)}${i.days_past_due ? ` · ${i.days_past_due} days past due` : ""}</span></td>
                         ${BUCKETS.map(([key]) => `<td class="num">${i.bucket === key ? formatMoney(i.balance) : ""}</td>`).join("")}
                         <td class="num">${formatMoney(i.balance)}</td>
+                        ${hasCredit ? "<td></td><td></td>" : ""}
                     </tr>`).join("") : ""}`).join("")}
                 </tbody>
-                <tfoot><tr><td>Total</td>${BUCKETS.map(([key]) => `<td class="num">${formatMoney(aging.totals[key])}</td>`).join("")}<td class="num">${formatMoney(aging.totals.total)}</td></tr></tfoot>
+                <tfoot><tr><td>Total</td>${BUCKETS.map(([key]) => `<td class="num">${formatMoney(aging.totals[key])}</td>`).join("")}<td class="num">${formatMoney(aging.totals.total)}</td>
+                    ${hasCredit ? `<td class="num">− ${formatMoney(aging.totals.unapplied_credit)}</td><td class="num">${formatMoney(aging.totals.net)}</td>` : ""}</tr></tfoot>
             </table>
         </div>
         <p class="ap-sub" style="margin-top:8px;">Click a supplier to see its invoices. Payments dated after ${formatDate(aging.as_of)} aren't counted.</p>`;
@@ -347,7 +395,14 @@ function setupPaymentForm() {
     $("ap_ewt_rate").addEventListener("change", renderAllocations);
 
     $("apPayAll").addEventListener("click", () => {
-        payBills.forEach((b) => { amounts[b.id] = b.balance.toFixed(2); });
+        // A credit fills the soonest-due invoices until it runs out.
+        let left = creditMode ? creditMode.available : Infinity;
+        amounts = {};
+        payBills.forEach((b) => {
+            const amount = Math.min(b.balance, left);
+            if (amount > 0) amounts[b.id] = amount.toFixed(2);
+            left = round(left - amount, 2);
+        });
         renderAllocations();
     });
 
@@ -376,6 +431,17 @@ function setupPaymentForm() {
 async function openPaymentForm(supplierId = null, invoiceIds = []) {
     clearPayErrors();
     $("apPayForm").reset();
+
+    // Applying a supplier credit: no cash, so the payment details don't apply.
+    $("apPayDetailsCard").hidden = Boolean(creditMode);
+    $("apCreditNote").hidden = !creditMode;
+    document.querySelector("#apPayPanel .ap-header h1").textContent = creditMode ? "Apply Supplier Credit" : "Record Payment";
+    $("apPaySave").textContent = creditMode ? "Apply Credit" : "Record Payment";
+    $("apPayAll").textContent = creditMode ? "Fill from the oldest" : "Pay all in full";
+    if (creditMode) {
+        $("apCreditNote").innerHTML = `<div><strong>${escapeHtml(creditMode.rts_number)} · credit memo ${escapeHtml(creditMode.credit_memo_no)}</strong>
+            <span>${formatMoney(creditMode.available)} to apply against ${escapeHtml(creditMode.supplier_name)}'s invoices. No cash is paid.</span></div>`;
+    }
     $("ap_payment_date").value = todayISO();
     $("ap_payment_date").max = todayISO();
     $("ap_method").value = "check";
@@ -383,6 +449,8 @@ async function openPaymentForm(supplierId = null, invoiceIds = []) {
 
     const withBalance = suppliers.filter((s) => s.balance > 0);
     $("ap_supplier_id").innerHTML = supplierOptions(supplierId || "", "-- Choose the supplier --", withBalance);
+    // A credit belongs to one supplier.
+    $("ap_supplier_id").disabled = Boolean(creditMode);
 
     await loadSupplierBills(supplierId, invoiceIds);
     showPanel("pay");
@@ -411,7 +479,7 @@ function applyMethod() {
 
 /** EWT on the VAT-exclusive share of what's applied (same rule as the server). */
 function ewtFor(bill, amount) {
-    const rate = Number($("ap_ewt_rate").value) || 0;
+    const rate = creditMode ? 0 : Number($("ap_ewt_rate").value) || 0;
     if (!rate || !(amount > 0) || !(bill.total > 0)) return 0;
     const base = round(amount * (bill.total - bill.vat_amount) / bill.total, 2);
     return round(base * rate / 100, 2);
@@ -468,7 +536,12 @@ function refreshAllocationTotals() {
 
     $("apTotApplied").textContent = formatMoney(round(applied, 2));
     $("apTotEwt").textContent = ewt ? `− ${formatMoney(round(ewt, 2))}` : formatMoney(0);
-    $("apTotCash").textContent = formatMoney(round(applied - ewt, 2));
+    $("apTotCash").textContent = formatMoney(creditMode ? 0 : round(applied - ewt, 2));
+
+    if (creditMode) {
+        const left = round(creditMode.available - applied, 2);
+        $("err-ap_allocations").textContent = left < 0 ? `That's ${formatMoney(-left)} more than the credit.` : "";
+    }
 }
 
 async function savePayment() {
@@ -494,7 +567,12 @@ async function savePayment() {
         problems++;
     }
 
-    if (["check", "bank_transfer"].includes($("ap_method").value) && !$("ap_reference_no").value.trim()) {
+    if (creditMode && allocations.reduce((sum, a) => sum + (Number(a.amount) || 0), 0) > creditMode.available + 0.005) {
+        $("err-ap_allocations").textContent = `More than the ${formatMoney(creditMode.available)} credit.`;
+        problems++;
+    }
+
+    if (!creditMode && ["check", "bank_transfer"].includes($("ap_method").value) && !$("ap_reference_no").value.trim()) {
         $("err-ap_reference_no").textContent = $("ap_method").value === "check" ? "Enter the check number." : "Enter the transfer reference number.";
         problems++;
     }
@@ -508,6 +586,44 @@ async function savePayment() {
     const paidBills = allocations.filter((a) => Number(a.amount) > 0);
     const applied = paidBills.reduce((sum, a) => sum + Number(a.amount), 0);
     const ewt = paidBills.reduce((sum, a) => sum + ewtFor(payBills.find((b) => b.id === a.supplier_invoice_id), Number(a.amount)), 0);
+
+    if (creditMode) {
+        const confirmedCredit = await openDialog({
+            title: "Apply this credit?",
+            body: `
+                <dl class="ap-dialog-summary">
+                    <dt>Supplier</dt><dd>${escapeHtml(supplier?.name || creditMode.supplier_name)}</dd>
+                    <dt>Credit</dt><dd>${escapeHtml(creditMode.rts_number)} · ${escapeHtml(creditMode.credit_memo_no)}</dd>
+                    <dt>Invoices</dt><dd>${paidBills.length}</dd>
+                    <dt>Applied</dt><dd>${formatMoney(round(applied, 2))}</dd>
+                    <dt>Credit left after</dt><dd>${formatMoney(round(creditMode.available - applied, 2))}</dd>
+                </dl>
+                <p>The invoices' balances go down; no money is paid out.</p>`,
+            okLabel: "Apply Credit",
+            onConfirm: async () => ({ success: true })
+        });
+
+        if (!confirmedCredit) return;
+
+        $("apPaySave").disabled = true;
+        const applyResult = await applyCredit(creditMode.id, { allocations: paidBills });
+        $("apPaySave").disabled = false;
+
+        if (!applyResult?.success) {
+            Object.entries(applyResult?.errors || {}).forEach(([name, message]) => {
+                const m = name.match(/^allocations\.(\d+)\.amount$/);
+                const el = m ? $(`err-ap_alloc_${paidBills[Number(m[1])]?.supplier_invoice_id}`) : $(`err-ap_${name}`);
+                if (el) el.textContent = message;
+            });
+            showPayAlert(applyResult?.message === "Validation failed." ? "Nothing was applied. Please fix the highlighted fields." : (applyResult?.message || "Failed to apply the credit."));
+            return;
+        }
+
+        showToast(applyResult.message, "success");
+        creditMode = null;
+        await openPayment(applyResult.data.id);
+        return;
+    }
 
     const confirmed = await openDialog({
         title: "Record this payment?",
@@ -819,7 +935,9 @@ ${printHead({}, "ACCOUNTS PAYABLE AGING", `<div class="muted">As of ${formatDate
         ${s.invoices.map((i) => `<tr><td class="muted" style="padding-left:18px;">${escapeHtml(i.ap_number)} · ${escapeHtml(i.supplier_invoice_no)} · due ${formatDate(i.due_date)}</td>
             ${BUCKETS.map(([key]) => `<td class="num muted">${i.bucket === key ? formatMoney(i.balance) : ""}</td>`).join("")}<td></td></tr>`).join("")}`).join("")}
     </tbody>
-    <tfoot><tr><td>TOTAL</td>${BUCKETS.map(([key]) => `<td class="num">${formatMoney(aging.totals[key])}</td>`).join("")}<td class="num">${formatMoney(aging.totals.total)}</td></tr></tfoot>
+    <tfoot><tr><td>TOTAL</td>${BUCKETS.map(([key]) => `<td class="num">${formatMoney(aging.totals[key])}</td>`).join("")}<td class="num">${formatMoney(aging.totals.total)}</td></tr>
+    ${aging.totals.unapplied_credit > 0 ? `<tr><td colspan="${BUCKETS.length + 1}">Less: supplier credits not yet applied</td><td class="num">(${formatMoney(aging.totals.unapplied_credit)})</td></tr>
+    <tr><td colspan="${BUCKETS.length + 1}">NET OWED</td><td class="num">${formatMoney(aging.totals.net)}</td></tr>` : ""}</tfoot>
 </table>`);
 }
 

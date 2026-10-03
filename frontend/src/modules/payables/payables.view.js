@@ -150,11 +150,13 @@ export function PayablesView() {
             <div class="ap-stat bad"><strong id="apStatOverdue">₱0.00</strong><span id="apStatOverdueSub">Overdue</span></div>
             <div class="ap-stat warn"><strong id="apStatWeek">₱0.00</strong><span id="apStatWeekSub">Due in the next 7 days</span></div>
             <div class="ap-stat"><strong id="apStatPaid">₱0.00</strong><span>Paid this month</span></div>
+            <div class="ap-stat"><strong id="apStatCredits">₱0.00</strong><span>Supplier credits to apply</span></div>
         </div>
 
         <div class="ap-tabs" role="tablist">
             <button type="button" class="active" data-ap-tab="bills" role="tab">Open Bills</button>
             <button type="button" data-ap-tab="payments" role="tab">Payments</button>
+            <button type="button" data-ap-tab="credits" role="tab">Credits</button>
             <button type="button" data-ap-tab="aging" role="tab">Aging</button>
             <button type="button" data-ap-tab="ledger" role="tab">Supplier Ledger</button>
         </div>
@@ -171,10 +173,11 @@ export function PayablesView() {
                 <p>Pay one supplier: choose the invoices and how much goes to each. Partial payments are fine; the rest stays owed.</p>
             </div>
         </div>
+        <div id="apCreditNote" class="ap-banner" hidden></div>
         <div id="apPayAlert"></div>
 
         <form id="apPayForm" novalidate>
-            <div class="ap-card">
+            <div class="ap-card" id="apPayDetailsCard">
                 <div class="ap-card-title">Payment</div>
                 <div class="ap-grid">
                     <div class="ap-field">

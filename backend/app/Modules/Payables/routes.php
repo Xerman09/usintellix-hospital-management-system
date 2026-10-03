@@ -15,4 +15,6 @@ $router->get('/payables/payments/detail', [PayableController::class, 'payment'],
 $router->post('/payables/payments', [PayableController::class, 'store'], $payableRoles);
 $router->post('/payables/payments/void', [PayableController::class, 'void'], $payableRoles);
 $router->get('/payables/aging', [PayableController::class, 'aging'], $payableRoles);
+$router->get('/payables/credits', [PayableController::class, 'credits'], $payableRoles);
+$router->post('/payables/credits/apply', [PayableController::class, 'applyCredit'], $payableRoles);
 $router->get('/payables/ledger', [PayableController::class, 'ledger'], $payableRoles);

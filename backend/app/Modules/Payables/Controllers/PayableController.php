@@ -77,6 +77,28 @@ class PayableController extends Controller
         $this->respond($this->service->void((int) $request->input('id'), (string) $request->input('reason', ''), (int) $user['id']));
     }
 
+    /** Supplier credits not yet used. Query: supplier_id? */
+    public function credits(): void
+    {
+        $request = new Request();
+        $supplierId = (int) $request->input('supplier_id');
+
+        $this->success($this->service->credits($supplierId ?: null), 'Supplier credits retrieved successfully.');
+    }
+
+    /** Body: supplier_return_id, payment_date?, notes?, allocations */
+    public function applyCredit(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond($this->service->applyCredit(
+            (int) $request->input('supplier_return_id'),
+            $request->only(['payment_date', 'notes', 'allocations']),
+            (int) $user['id']
+        ), 201);
+    }
+
     /** Query: as_of? (YYYY-MM-DD, default today) */
     public function aging(): void
     {
