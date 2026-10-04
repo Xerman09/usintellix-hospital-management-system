@@ -14,6 +14,11 @@ $router->post('/providers', [ProviderController::class, 'register'], [
     [RoleMiddleware::class, ['admin']]
 ]);
 
+$router->put('/providers', [ProviderController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
 $router->delete('/providers', [ProviderController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]

@@ -57,7 +57,11 @@ class ProviderController extends Controller
             'specialty',
             'npi_number',
             'license_number',
-            'dea_number'
+            'dea_number',
+            'ptr_number',
+            'ptr_date',
+            's2_number',
+            's2_expiry_date'
         ]);
 
         $result = $this->providerService->register(
@@ -71,6 +75,28 @@ class ProviderController extends Controller
         }
 
         $this->success($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * Change a provider's specialty and license details (admin-only).
+     */
+    public function update(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $result = $this->providerService->update(
+            (int) $request->input('id'),
+            $request->only(ProviderService::EDITABLE_FIELDS),
+            (int) $admin['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], !empty($result['not_found']) ? 404 : 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success(null, $result['message']);
     }
 
     /**

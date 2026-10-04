@@ -1,9 +1,11 @@
 import { getUser } from "../../core/session.js";
-import { fetchProviders, createProvider, deleteProvider } from "./providers.service.js";
+import { fetchProviders, createProvider, updateProvider, deleteProvider } from "./providers.service.js?v=2";
+import { todayISO } from "../../core/timezone.js";
 import { fetchEmployeesByRole } from "../employees/employees.service.js";
 import { escapeHtml } from "../appointments/appointment-format.js";
 
-const FIELDS = ["employee_id", "specialty", "npi_number", "license_number", "dea_number"];
+const FIELDS = ["employee_id", "specialty", "license_number", "ptr_number", "ptr_date", "s2_number", "s2_expiry_date", "npi_number", "dea_number"];
+const EDIT_FIELDS = FIELDS.filter((field) => field !== "employee_id");
 
 let providersCache = [];
 
@@ -23,6 +25,7 @@ export async function initProviders()
     const form = document.getElementById("addProviderForm");
 
     const openModal = async () => {
+        setProviderModalMode(null);
         await loadDoctorEmployees();
         modalOverlay.classList.add("open");
     };
@@ -48,19 +51,21 @@ export async function initProviders()
         clearErrors();
 
         const data = {};
+        const editingId = document.getElementById("provider_id").value;
 
-        FIELDS.forEach((field) => {
+        // Editing sends every field, so a cleared one is cleared.
+        (editingId ? EDIT_FIELDS : FIELDS).forEach((field) => {
             const value = document.getElementById(field).value.trim();
 
-            if (value !== "") {
+            if (value !== "" || editingId) {
                 data[field] = value;
             }
         });
 
-        const result = await createProvider(data);
+        const result = editingId ? await updateProvider(Number(editingId), data) : await createProvider(data);
 
         if (!result.success) {
-            showAlert(result.message || "Failed to create provider.", "error");
+            showAlert(result.message || (editingId ? "Failed to update provider." : "Failed to create provider."), "error");
 
             if (result.errors) {
                 Object.entries(result.errors).forEach(([field, message]) => {
@@ -76,9 +81,42 @@ export async function initProviders()
         }
 
         closeModal();
-        showListAlert("Provider added successfully.", "success");
+        showListAlert(editingId ? "Provider updated successfully." : "Provider added successfully.", "success");
         await loadProviders();
     });
+
+    document.getElementById("providersTableBody").addEventListener("click", async (event) => {
+        const edit = event.target.closest("[data-edit-provider]");
+        if (!edit) return;
+        const provider = providersCache.find((p) => String(p.id) === edit.dataset.editProvider);
+        if (!provider) return;
+        setProviderModalMode(provider);
+        modalOverlay.classList.add("open");
+        document.getElementById("specialty").focus();
+    });
+}
+
+/** null = adding a provider; a provider = editing their specialty and licenses. */
+function setProviderModalMode(provider)
+{
+    const employeeSelect = document.getElementById("employee_id");
+    const name = provider ? [provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" ") : "";
+
+    document.getElementById("provider_id").value = provider ? provider.id : "";
+    document.getElementById("providerModalTitle").textContent = provider ? `Edit Provider — ${name}` : "Add Provider";
+    document.getElementById("providerModalSubtitle").textContent = provider
+        ? "Update the specialty and the licenses printed on prescriptions. PTR is renewed every year; the S2 license has an expiry."
+        : "Mark an existing employee (doctor role) as a provider and record their credentials.";
+    document.getElementById("providerSubmitBtn").textContent = provider ? "Save Changes" : "Add Provider";
+
+    employeeSelect.closest(".form-group").hidden = !!provider;
+    employeeSelect.disabled = !!provider;
+
+    if (provider) {
+        EDIT_FIELDS.forEach((field) => {
+            document.getElementById(field).value = provider[field] ?? "";
+        });
+    }
 }
 
 async function loadDoctorEmployees()
@@ -195,10 +233,10 @@ function renderProvidersTable(providers)
             <td class="prov-name">${escapeHtml([provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" "))}</td>
             <td class="prov-muted">${escapeHtml(provider.department_name ?? "-")}</td>
             <td>${escapeHtml(provider.specialty)}</td>
-            <td class="prov-muted">${escapeHtml(provider.npi_number ?? "-")}</td>
+            <td class="prov-muted">${licensesCell(provider)}</td>
             <td class="prov-muted">${escapeHtml(provider.email)}</td>
             <td class="prov-muted">${escapeHtml(provider.phone)}</td>
-            <td><div class="prov-actions"><button class="btn-danger" data-id="${provider.id}">Delete</button></div></td>
+            <td><div class="prov-actions"><button class="btn-edit" data-edit-provider="${provider.id}">Edit</button><button class="btn-danger" data-id="${provider.id}">Delete</button></div></td>
         </tr>
     `).join("");
 
@@ -212,6 +250,21 @@ function renderProvidersTable(providers)
             await loadProviders();
         });
     });
+}
+
+function licensesCell(provider)
+{
+    const parts = [
+        provider.license_number ? `PRC ${escapeHtml(provider.license_number)}` : null,
+        provider.ptr_number ? `PTR ${escapeHtml(provider.ptr_number)}` : null
+    ].filter(Boolean);
+
+    if (provider.s2_number) {
+        const expired = provider.s2_expiry_date && provider.s2_expiry_date < todayISO();
+        parts.push(`S2 ${escapeHtml(provider.s2_number)}${expired ? ` <span style="color:#b91c1c;font-weight:700;">(expired)</span>` : ""}`);
+    }
+
+    return parts.length ? parts.join("<br>") : "-";
 }
 
 function clearErrors()

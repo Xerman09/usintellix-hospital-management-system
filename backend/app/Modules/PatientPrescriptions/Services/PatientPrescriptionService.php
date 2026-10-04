@@ -3,6 +3,7 @@
 namespace App\Modules\PatientPrescriptions\Services;
 
 use App\Core\Database;
+use App\Modules\GeneralSettings\Services\GeneralSettingService;
 use App\Modules\Medications\Models\Medication;
 use App\Modules\PatientPrescriptions\Models\PatientPrescription;
 use PDO;
@@ -64,6 +65,14 @@ class PatientPrescriptionService
                     'message' => 'The selected medicine is no longer in the Drug Catalog.'
                 ];
             }
+
+            // Dangerous drugs need the prescription checks (own slip, prescriber's S2).
+            if ($drug['controlled_class'] === PrescriptionService::DANGEROUS_CLASS) {
+                return [
+                    'success' => false,
+                    'message' => 'Dangerous drugs must be written as a New Prescription, which checks the S2 license.'
+                ];
+            }
         }
 
         $title = trim((string) ($details['title'] ?? ''));
@@ -107,11 +116,12 @@ class PatientPrescriptionService
         try {
             $date = !empty($data['begin_date']) ? substr((string) $data['begin_date'], 0, 10) : date('Y-m-d');
             $db->prepare(
-                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, prescribed_date, status, created_at, created_by)
-                 VALUES (:tmp, :patient, :prescriber, :date, 'active', :now, :user)"
+                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, prescribed_date, valid_until, status, created_at, created_by)
+                 VALUES (:tmp, :patient, :prescriber, :date, :valid_until, 'active', :now, :user)"
             )->execute([
-                'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'patient' => $patientId, 'prescriber' => $createdBy,
-                'date' => $date, 'now' => $data['created_at'], 'user' => $createdBy
+                'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'patient' => $patientId, 'prescriber' => $createdBy, 'date' => $date,
+                'valid_until' => date('Y-m-d', strtotime($date . ' +' . GeneralSettingService::prescriptionValidityDays() . ' days')),
+                'now' => $data['created_at'], 'user' => $createdBy
             ]);
             $slipId = (int) $db->lastInsertId();
             $db->prepare("UPDATE prescriptions SET rx_number = :n WHERE id = :id")
@@ -314,7 +324,7 @@ class PatientPrescriptionService
     /** An active, not-deleted Drug Catalog item. */
     private function findDrug(int $id): ?array
     {
-        $stmt = Database::connection()->prepare("SELECT id, name FROM drugs WHERE id = :id AND deleted_at IS NULL AND is_active = 1");
+        $stmt = Database::connection()->prepare("SELECT id, name, controlled_class FROM drugs WHERE id = :id AND deleted_at IS NULL AND is_active = 1");
         $stmt->execute(['id' => $id]);
 
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;

@@ -92,6 +92,22 @@ class PrescriptionController extends Controller
         ));
     }
 
+    /** Query: id -- what the printed prescription shows. */
+    public function printData(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+        $id = (int) $request->input('id');
+        $patientId = $this->service->patientIdOf($id);
+
+        if (!$patientId || !$this->ownsPatient($user, $patientId)) {
+            $this->error('Prescription not found.', 404);
+            return;
+        }
+
+        $this->success($this->service->printData($id), 'Prescription retrieved successfully.');
+    }
+
     /** Body: id, reason, version? */
     public function cancel(): void
     {

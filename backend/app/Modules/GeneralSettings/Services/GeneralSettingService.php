@@ -19,6 +19,9 @@ class GeneralSettingService
      */
     public const DEFAULT_TIMEZONE = 'Asia/Manila';
 
+    /** How long a new prescription can be filled, until an admin changes it. */
+    public const DEFAULT_PRESCRIPTION_VALIDITY_DAYS = 30;
+
     /**
      * Get the single general settings row (creating a default one if it
      * somehow doesn't exist yet), plus which roles Two-Factor
@@ -40,6 +43,7 @@ class GeneralSettingService
         $settings['two_factor_role_ids'] = $this->getTwoFactorRoleIds();
         $settings['timezone'] = $settings['timezone'] ?? self::DEFAULT_TIMEZONE;
         $settings['timezone_offset'] = (new DateTime('now', new DateTimeZone($settings['timezone'])))->format('P');
+        $settings['prescription_validity_days'] = (int) ($settings['prescription_validity_days'] ?? self::DEFAULT_PRESCRIPTION_VALIDITY_DAYS);
 
         return $settings;
     }
@@ -108,6 +112,45 @@ class GeneralSettingService
         return [
             'success' => true,
             'message' => 'System timezone updated successfully.',
+            'data' => $this->get()
+        ];
+    }
+
+    /** Days a new prescription stays valid for filling (read by prescriptions). */
+    public static function prescriptionValidityDays(): int
+    {
+        $days = Database::connection()->query("SELECT prescription_validity_days FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+
+        return $days !== false && (int) $days > 0 ? (int) $days : self::DEFAULT_PRESCRIPTION_VALIDITY_DAYS;
+    }
+
+    /**
+     * Change how long new prescriptions stay valid (admin-only).
+     * Prescriptions already written keep the date they were given.
+     */
+    public function updatePrescriptionSettings(array $data, int $userId): array
+    {
+        $raw = trim((string) ($data['prescription_validity_days'] ?? ''));
+
+        if (!ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 365) {
+            return [
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => ['prescription_validity_days' => 'Enter a number of days from 1 to 365.']
+            ];
+        }
+
+        $settings = $this->get();
+
+        (new GeneralSetting())->update([
+            'prescription_validity_days' => (int) $raw,
+            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_by' => $userId
+        ], $settings['id']);
+
+        return [
+            'success' => true,
+            'message' => 'Prescription settings updated successfully.',
             'data' => $this->get()
         ];
     }

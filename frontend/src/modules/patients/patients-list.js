@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=67";
+import { PatientChartView } from "./patients-list.view.js?v=68";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -92,10 +92,11 @@ import {
     fetchPrescribableDrugs,
     fetchPrescriptionSlips,
     fetchPrescriptionFormOptions,
+    fetchPrescriptionPrint,
     createPrescriptionSlip,
     updatePrescriptionSlip,
     cancelPrescriptionSlip
-} from "../patient-prescriptions/patient-prescriptions.service.js?v=3";
+} from "../patient-prescriptions/patient-prescriptions.service.js?v=4";
 import {
     fetchPatientImmunizations,
     addPatientImmunization,
@@ -10186,8 +10187,16 @@ function setupPrescriptionModals()
 
     document.getElementById("rxAddLine").addEventListener("click", () => {
         const line = addPrescriptionLine();
+        updatePrescriptionRules();
         line.querySelector("[data-rx-search]").focus();
     });
+
+    document.getElementById("rxPrintBtn").addEventListener("click", () => {
+        const slipId = document.getElementById("rxSlipId").value;
+        if (slipId) printPrescriptionSlip(Number(slipId));
+    });
+    document.getElementById("rxPrescriber").addEventListener("change", updatePrescriptionRules);
+    document.getElementById("rxPrescribedDate").addEventListener("change", updatePrescriptionValidityHint);
 
     document.getElementById("rxEncounter").addEventListener("change", () => {
         const visit = rxFormOptions?.encounters.find((e) => String(e.id) === document.getElementById("rxEncounter").value);
@@ -10277,7 +10286,9 @@ function renderPrescriptionDetailTable()
     tbody.innerHTML = rxSlips.map((slip) => `
         <tr>
             <td style="white-space:nowrap;"><strong>${escapeHtml(slip.rx_number)}</strong>
-                <span class="rx-slip-sub">${escapeHtml(formatDate(slip.prescribed_date))}${slip.encounter_date ? ` · Visit ${escapeHtml(formatDate(slip.encounter_date))}` : ""}</span></td>
+                <span class="rx-slip-sub">${escapeHtml(formatDate(slip.prescribed_date))}${slip.encounter_date ? ` · Visit ${escapeHtml(formatDate(slip.encounter_date))}` : ""}</span>
+                ${slip.valid_until && slip.display_status !== "cancelled" ? `<span class="rx-slip-sub">Valid until ${escapeHtml(formatDate(slip.valid_until))}</span>` : ""}
+                ${slip.is_expired ? `<span class="rx-tag exp">Expired for filling</span> ` : ""}${slip.has_dangerous_drug ? `<span class="rx-tag dd">Dangerous drug</span>` : ""}</td>
             <td>
                 <ul class="rx-slip-meds">${slip.items.map((item) => `<li>${escapeHtml(item.title)}${[item.dosage, item.frequency].filter(Boolean).length
                     ? `<span class="rx-slip-sub">${escapeHtml([item.dosage, item.frequency, item.quantity ? `#${item.quantity}` : null].filter(Boolean).join(" · "))}</span>` : ""}</li>`).join("")}</ul>
@@ -10286,9 +10297,10 @@ function renderPrescriptionDetailTable()
             <td>${escapeHtml(slip.prescriber_name || "-")}</td>
             <td>${badge(slip)}${slip.display_status === "cancelled" && slip.cancel_reason ? `<span class="rx-slip-sub">${escapeHtml(slip.cancel_reason)}</span>` : ""}</td>
             <td class="table-actions">
-                ${canManage && slip.can_edit ? `<button class="btn-edit" data-rx-open="${slip.id}">Open</button>
-                    <button class="btn-danger" data-rx-cancel="${slip.id}">Cancel</button>`
+                ${canManage && slip.can_edit ? `<button class="btn-edit" data-rx-open="${slip.id}">Open</button>`
                     : `<button class="btn-edit" data-rx-open="${slip.id}">View</button>`}
+                ${slip.display_status !== "cancelled" && canManage ? `<button class="btn-secondary" data-rx-print="${slip.id}">Print</button>` : ""}
+                ${canManage && slip.can_edit ? `<button class="btn-danger" data-rx-cancel="${slip.id}">Cancel</button>` : ""}
             </td>
         </tr>`).join("");
 
@@ -10296,6 +10308,7 @@ function renderPrescriptionDetailTable()
         const slip = rxSlips.find((s) => String(s.id) === btn.dataset.rxOpen);
         if (slip) openPrescriptionFormModal(slip);
     }));
+    tbody.querySelectorAll("[data-rx-print]").forEach((btn) => btn.addEventListener("click", () => printPrescriptionSlip(Number(btn.dataset.rxPrint))));
     tbody.querySelectorAll("[data-rx-cancel]").forEach((btn) => btn.addEventListener("click", () => {
         const slip = rxSlips.find((s) => String(s.id) === btn.dataset.rxCancel);
         if (slip) openPrescriptionCancelDialog(slip);
@@ -10360,6 +10373,10 @@ async function openPrescriptionFormModal(slip)
         addPrescriptionLine();
     }
 
+    rxOpenSlip = slip;
+    document.getElementById("rxPrintBtn").hidden = !slip || slip.display_status === "cancelled";
+    updatePrescriptionValidityHint();
+    updatePrescriptionRules();
     setPrescriptionFormReadOnly(readOnly);
     if (!readOnly && !slip) {
         document.querySelector("#rxLines [data-rx-search]")?.focus();
@@ -10451,7 +10468,8 @@ function addPrescriptionLine(item = null)
     if (item?.drug_id) {
         choosePrescriptionDrug(wrap, {
             id: item.drug_id, name: item.drug_name || item.title, strength: item.drug_strength, unit_name: item.drug_unit_name,
-            generic_name: item.drug_generic_name, templates: [], usable: null
+            generic_name: item.drug_generic_name, templates: [], usable: null,
+            controlled_class: item.is_dangerous_drug ? RX_DANGEROUS_CLASS : null
         }, { keepFields: true });
         refreshPrescriptionLineDrug(wrap, item.drug_id, item.drug_name || "");
     }
@@ -10488,6 +10506,7 @@ function onPrescriptionLineClick(event)
         rxPickers.delete(line.dataset.uid);
         line.remove();
         renumberPrescriptionLines();
+        updatePrescriptionRules();
         return;
     }
     if (event.target.closest("[data-rx-more]")) {
@@ -10502,6 +10521,7 @@ function onPrescriptionLineClick(event)
     const action = event.target.closest("[data-rx-action]")?.dataset.rxAction;
     if (action === "change" || action === "remove") {
         clearPrescriptionDrug(line, action === "remove");
+        updatePrescriptionRules();
         if (action === "change") line.querySelector("[data-rx-search]").focus();
         return;
     }
@@ -10520,6 +10540,8 @@ function onPrescriptionLineInput(event)
         queuePrescriptionDrugSearch(line, 250);
         return;
     }
+    if (event.target.dataset.f === "title") updatePrescriptionRules();
+
     // Typing clears that field's error.
     const field = event.target.dataset.f;
     if (field) {
@@ -10680,6 +10702,7 @@ function choosePrescriptionDrug(line, drug, opts = {})
     }
 
     line.querySelector('[data-f="drug_id"]').value = drug.id;
+    line.dataset.dangerous = drug.controlled_class === RX_DANGEROUS_CLASS ? "1" : "";
     line.querySelector("[data-rx-picker]").hidden = true;
     line.querySelector("[data-rx-hint]").hidden = true;
     line.querySelector('[data-rx-err="drug_id"]').textContent = "";
@@ -10694,6 +10717,7 @@ function choosePrescriptionDrug(line, drug, opts = {})
     state.autoTitle = drug.name;
 
     renderPrescriptionLineDrug(line, drug);
+    if (!opts.keepFields) updatePrescriptionRules();
 }
 
 function renderPrescriptionLineDrug(line, drug)
@@ -10748,6 +10772,7 @@ function clearPrescriptionDrug(line, clearAutoTitle)
     if (clearAutoTitle && state.autoTitle && title.value === state.autoTitle) title.value = "";
 
     line.querySelector('[data-f="drug_id"]').value = "";
+    line.dataset.dangerous = "";
     line.querySelector("[data-rx-search]").value = "";
     line.querySelector("[data-rx-picker]").hidden = false;
     line.querySelector("[data-rx-hint]").hidden = false;
@@ -10771,6 +10796,164 @@ function applyPrescriptionTemplate(line, t)
     if (t.schedule) line.querySelector('[data-f="dosage"]').value = t.schedule;
     if (t.interval_type) line.querySelector('[data-f="frequency"]').value = RX_INTERVALS[t.interval_type] || t.interval_type;
     line.querySelector('[data-f="refills"]').value = t.refills ?? 0;
+}
+
+/* ---------- Philippine rules: dangerous drugs, validity ---------- */
+
+const RX_DANGEROUS_CLASS = "Dangerous Drug (RA 9165)";
+let rxOpenSlip = null;
+
+/** The live warnings: dangerous drugs on their own slip, by a doctor with a current S2. */
+function updatePrescriptionRules()
+{
+    const banner = document.getElementById("rxDangerousBanner");
+    const s2Warning = document.getElementById("rxS2Warning");
+    const lines = [...document.querySelectorAll("#rxLines .rx-line")];
+    const dangerous = lines.filter((l) => l.dataset.dangerous === "1");
+    const others = lines.filter((l) => l.dataset.dangerous !== "1" && !isBlankPrescriptionLine(collectPrescriptionLine(l)));
+
+    if (!dangerous.length) {
+        banner.hidden = true;
+        s2Warning.hidden = true;
+        return;
+    }
+
+    banner.hidden = false;
+    banner.classList.toggle("bad", others.length > 0);
+    banner.textContent = others.length
+        ? "Dangerous drugs (RA 9165) must be on their own prescription. Remove the other medicines here and put them on a separate prescription, or move the dangerous drug to its own."
+        : "Dangerous drug prescription: print it and transcribe it onto the DOH special prescription form. The doctor needs a current S2 license.";
+
+    const prescriberId = Number(document.getElementById("rxPrescriber").value);
+    const doctor = rxFormOptions?.prescribers.find((p) => p.user_id === prescriberId);
+    s2Warning.hidden = !prescriberId || !!doctor?.s2_valid;
+    s2Warning.textContent = doctor && doctor.s2_number
+        ? `${doctor.name}'s S2 license expired${doctor.s2_expiry_date ? ` on ${formatDate(doctor.s2_expiry_date)}` : ""} — they can't prescribe dangerous drugs.`
+        : `${doctor ? doctor.name : "This doctor"} has no S2 license on file, which is needed for dangerous drugs. An administrator can add it under Providers.`;
+}
+
+function updatePrescriptionValidityHint()
+{
+    const hint = document.getElementById("rxValidity");
+    const date = document.getElementById("rxPrescribedDate").value;
+
+    if (rxOpenSlip?.display_status === "cancelled" || !date) {
+        hint.textContent = "";
+        return;
+    }
+
+    // A saved prescription keeps the length it was given; a new one gets today's setting.
+    const days = rxOpenSlip?.valid_until
+        ? Math.round((new Date(`${rxOpenSlip.valid_until}T00:00:00`) - new Date(`${rxOpenSlip.prescribed_date}T00:00:00`)) / 86400000)
+        : (rxFormOptions?.validity_days || 30);
+    const until = new Date(`${date}T00:00:00`);
+    until.setDate(until.getDate() + days);
+    const untilIso = `${until.getFullYear()}-${String(until.getMonth() + 1).padStart(2, "0")}-${String(until.getDate()).padStart(2, "0")}`;
+
+    hint.textContent = `Valid for filling until ${formatDate(untilIso)} (${days} days)${untilIso < todayISO() ? " — already expired" : ""}`;
+}
+
+/* ---------- printing ---------- */
+
+async function printPrescriptionSlip(slipId)
+{
+    // Open the window first, while the click still counts, so pop-up blockers allow it.
+    const win = window.open("", "_blank", "width=820,height=900");
+    if (!win) {
+        showToast("Pop-up blocked. Allow pop-ups for this site to print.", "error");
+        return;
+    }
+    win.document.write("<p style=\"font-family:Arial;padding:20px;\">Preparing the prescription...</p>");
+
+    const result = await fetchPrescriptionPrint(slipId);
+    if (!result?.success) {
+        win.close();
+        showToast(result?.message || "Couldn't load the prescription to print.", "error");
+        return;
+    }
+
+    win.document.open();
+    win.document.write(prescriptionPrintHtml(result.data));
+    win.document.close();
+}
+
+/** The medicine as written on a Philippine prescription: generic name first (Generics Act), brand in brackets. */
+function prescriptionPrintName(item)
+{
+    if (!item.drug_id || !item.drug_generic_name) {
+        return escapeHtml(item.title);
+    }
+    const brand = item.drug_brand_name ? ` (${escapeHtml(item.drug_brand_name)})` : "";
+    const rest = [item.drug_strength, item.drug_dosage_form].filter(Boolean).map(escapeHtml).join(" ");
+    return `<strong>${escapeHtml(item.drug_generic_name.toUpperCase())}</strong>${brand}${rest ? ` ${rest}` : ""}`;
+}
+
+function prescriptionPrintHtml(data)
+{
+    const rx = data.prescription;
+    const patient = data.patient || {};
+    const doctor = data.prescriber || {};
+    const facility = data.facility || {};
+    const sex = patient.sex ? String(patient.sex).charAt(0).toUpperCase() : "";
+    const sig = (item) => [item.dosage, item.frequency, item.route && item.route !== "Oral" ? item.route : null].filter(Boolean).join(", ");
+
+    const lines = rx.items.map((item, index) => `
+        <li>
+            <div class="med"><span>${prescriptionPrintName(item)}</span><span class="qty">${item.quantity ? `#${escapeHtml(item.quantity)}` : ""}</span></div>
+            ${sig(item) || item.directions ? `<div class="sig">Sig: ${escapeHtml([sig(item), item.directions].filter(Boolean).join(" — "))}</div>` : ""}
+            ${item.refills ? `<div class="note">Refills: ${escapeHtml(String(item.refills))}</div>` : ""}
+            ${Number(item.substitution_allowed) === 0 ? `<div class="note">Do not substitute</div>` : ""}
+        </li>`).join("");
+
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${escapeHtml(rx.rx_number)} - ${escapeHtml(patient.name || "")}</title>
+<style>
+    @page { size: A5 portrait; margin: 10mm; } * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 12px; margin: 0 auto; padding: 18px; max-width: 148mm; }
+    .head { text-align: center; border-bottom: 2px solid #111827; padding-bottom: 8px; margin-bottom: 10px; }
+    .head h1 { margin: 0; font-size: 16px; letter-spacing: .4px; text-transform: uppercase; }
+    .head .doc { font-size: 14px; font-weight: 700; margin-top: 6px; }
+    .muted { color: #4b5563; font-size: 11px; }
+    .dd { border: 2px solid #b45309; color: #92400e; padding: 6px 8px; font-weight: 700; font-size: 11px; margin-bottom: 10px; text-align: center; }
+    table.pt { width: 100%; border-collapse: collapse; margin-bottom: 6px; } table.pt td { padding: 2px 0; vertical-align: top; }
+    .lbl { color: #4b5563; font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px; }
+    .fill { border-bottom: 1px solid #9ca3af; display: inline-block; min-width: 40px; padding: 0 2px; }
+    .rx { font-family: Georgia, 'Times New Roman', serif; font-size: 34px; font-weight: 700; margin: 6px 0 2px; }
+    ol { margin: 0; padding-left: 20px; } li { margin: 0 0 10px; }
+    .med { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; } .qty { font-weight: 700; white-space: nowrap; }
+    .sig { margin-top: 2px; } .note { font-size: 11px; color: #4b5563; }
+    .notes { margin-top: 8px; font-size: 11.5px; }
+    .sign { margin-top: 34px; margin-left: auto; width: 62%; text-align: left; font-size: 11.5px; }
+    .sign .line { border-top: 1px solid #111827; padding-top: 3px; font-weight: 700; font-size: 12.5px; }
+    .foot { margin-top: 18px; border-top: 1px dashed #9ca3af; padding-top: 6px; display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; color: #4b5563; }
+</style></head><body>
+    <div class="head">
+        <h1>${escapeHtml(facility.name || "")}</h1>
+        ${facility.address || facility.phone ? `<div class="muted">${escapeHtml([facility.address, facility.phone ? `Tel. ${facility.phone}` : null, facility.email].filter(Boolean).join(" · "))}</div>` : ""}
+        ${doctor.name ? `<div class="doc">${escapeHtml(doctor.name)}</div>${doctor.specialty ? `<div class="muted">${escapeHtml(doctor.specialty)}</div>` : ""}` : ""}
+    </div>
+    ${rx.has_dangerous_drug ? `<div class="dd">DANGEROUS DRUG (RA 9165) — transcribe onto the DOH special prescription form. This copy is for the record.</div>` : ""}
+    <table class="pt">
+        <tr><td><span class="lbl">Patient</span> <span class="fill" style="min-width:60%;">${escapeHtml(patient.name || "")}</span></td>
+            <td style="text-align:right;"><span class="lbl">Date</span> <span class="fill">${escapeHtml(formatDate(rx.prescribed_date))}</span></td></tr>
+        <tr><td><span class="lbl">Address</span> <span class="fill" style="min-width:60%;">${escapeHtml(patient.address || "")}</span></td>
+            <td style="text-align:right;"><span class="lbl">Age / Sex</span> <span class="fill">${patient.age != null ? escapeHtml(String(patient.age)) : ""}${sex ? ` / ${escapeHtml(sex)}` : ""}</span></td></tr>
+        ${rx.diagnosis ? `<tr><td colspan="2"><span class="lbl">Diagnosis</span> ${escapeHtml(rx.diagnosis)}</td></tr>` : ""}
+    </table>
+    <div class="rx">&#8478;</div>
+    <ol>${lines}</ol>
+    ${rx.notes ? `<div class="notes"><span class="lbl">Notes</span> ${escapeHtml(rx.notes)}</div>` : ""}
+    <div class="sign">
+        <div class="line">${escapeHtml(doctor.name || "")}</div>
+        ${doctor.license_number ? `<div>PRC License No. ${escapeHtml(doctor.license_number)}</div>` : ""}
+        ${doctor.ptr_number ? `<div>PTR No. ${escapeHtml(doctor.ptr_number)}${doctor.ptr_date ? ` · ${escapeHtml(formatDate(doctor.ptr_date))}` : ""}</div>` : ""}
+        ${rx.has_dangerous_drug && doctor.s2_number ? `<div>S2 License No. ${escapeHtml(doctor.s2_number)}</div>` : ""}
+    </div>
+    <div class="foot">
+        <span>${escapeHtml(rx.rx_number)}${patient.patient_no ? ` · Patient No. ${escapeHtml(patient.patient_no)}` : ""}</span>
+        <span>${rx.valid_until ? `Valid until ${escapeHtml(formatDate(rx.valid_until))}` : ""}</span>
+    </div>
+<script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script>
+</body></html>`;
 }
 
 /* ---------- saving ---------- */

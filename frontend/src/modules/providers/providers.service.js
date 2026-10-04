@@ -16,6 +16,17 @@ export async function createProvider(data)
     );
 }
 
+export async function updateProvider(id, data)
+{
+    return await api(
+        "/providers",
+        {
+            method:"PUT",
+            body:JSON.stringify({ id, ...data })
+        }
+    );
+}
+
 export async function deleteProvider(id)
 {
     return await api(

@@ -323,7 +323,7 @@ export function ProvidersView()
                         <th>Name</th>
                         <th>Department</th>
                         <th>Specialty</th>
-                        <th>NPI</th>
+                        <th>Licenses</th>
                         <th>Email</th>
                         <th>Phone</th>
                         <th></th>
@@ -342,14 +342,15 @@ export function ProvidersView()
 <div class="modal-overlay" id="addProviderModalOverlay">
     <div class="modal-box">
         <div class="modal-header">
-            <h2>Add Provider</h2>
+            <h2 id="providerModalTitle">Add Provider</h2>
             <button type="button" class="modal-close" id="closeAddProviderModal">&times;</button>
         </div>
-        <p class="form-subtitle">Mark an existing employee (doctor role) as a provider and record their credentials.</p>
+        <p class="form-subtitle" id="providerModalSubtitle">Mark an existing employee (doctor role) as a provider and record their credentials.</p>
 
         <div id="formAlert"></div>
 
         <form id="addProviderForm">
+            <input type="hidden" id="provider_id">
             <div class="form-grid">
                 <div class="form-group full">
                     <label>Employee (Doctor)</label>
@@ -365,28 +366,52 @@ export function ProvidersView()
                     <span class="form-error" id="err-specialty"></span>
                 </div>
 
+                <div class="form-group full">
+                    <label>PRC License No.</label>
+                    <input id="license_number" class="form-input" maxlength="50" placeholder="Printed on prescriptions">
+                    <span class="form-error" id="err-license_number"></span>
+                </div>
+
                 <div class="form-group">
-                    <label>NPI Number</label>
-                    <input id="npi_number" class="form-input" placeholder="National Provider Identifier">
+                    <label>PTR No.</label>
+                    <input id="ptr_number" class="form-input" maxlength="50" placeholder="Professional Tax Receipt">
+                    <span class="form-error" id="err-ptr_number"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>PTR Date Issued</label>
+                    <input id="ptr_date" type="date" class="form-input">
+                    <span class="form-error" id="err-ptr_date"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>S2 License No. <span style="font-weight:400;color:var(--text-muted);">(to prescribe dangerous drugs)</span></label>
+                    <input id="s2_number" class="form-input" maxlength="50" placeholder="PDEA S2 license">
+                    <span class="form-error" id="err-s2_number"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>S2 Expiry</label>
+                    <input id="s2_expiry_date" type="date" class="form-input">
+                    <span class="form-error" id="err-s2_expiry_date"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>NPI Number <span style="font-weight:400;color:var(--text-muted);">(international, optional)</span></label>
+                    <input id="npi_number" class="form-input" maxlength="50" placeholder="National Provider Identifier">
                     <span class="form-error" id="err-npi_number"></span>
                 </div>
 
                 <div class="form-group">
-                    <label>State License Number</label>
-                    <input id="license_number" class="form-input" placeholder="License number">
-                    <span class="form-error"></span>
-                </div>
-
-                <div class="form-group">
-                    <label>DEA Number</label>
-                    <input id="dea_number" class="form-input" placeholder="DEA number (optional)">
-                    <span class="form-error"></span>
+                    <label>DEA Number <span style="font-weight:400;color:var(--text-muted);">(international, optional)</span></label>
+                    <input id="dea_number" class="form-input" maxlength="50" placeholder="DEA number">
+                    <span class="form-error" id="err-dea_number"></span>
                 </div>
             </div>
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelAddProvider">Cancel</button>
-                <button class="login-btn" type="submit">Add Provider</button>
+                <button class="login-btn" type="submit" id="providerSubmitBtn">Add Provider</button>
             </div>
         </form>
     </div>

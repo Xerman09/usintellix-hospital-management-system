@@ -51,6 +51,11 @@ $router->get('/prescriptions/form-options', [PrescriptionController::class, 'for
     [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
 ]);
 
+$router->get('/prescriptions/print', [PrescriptionController::class, 'printData'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
+]);
+
 $router->post('/prescriptions', [PrescriptionController::class, 'store'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]

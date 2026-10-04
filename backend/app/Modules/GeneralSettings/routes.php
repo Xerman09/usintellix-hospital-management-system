@@ -25,3 +25,8 @@ $router->put('/general-settings/timezone', [GeneralSettingController::class, 'up
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->put('/general-settings/prescriptions', [GeneralSettingController::class, 'updatePrescriptions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

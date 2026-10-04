@@ -1,4 +1,4 @@
-import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits } from "./general-settings.service.js?v=2";
+import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings } from "./general-settings.service.js?v=3";
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
 import { setSystemTimezone, systemParts } from "../../core/timezone.js";
@@ -35,7 +35,48 @@ export async function initGeneralSettings()
     renderTimezone(currentSettings);
     setupEditGeneralSettingsModal();
     setupEditTimezoneModal();
+    setupPrescriptionSettings();
     await loadApprovalLimits();
+}
+
+/* ---------------------------------------------------------------
+ * Prescriptions: how long a new prescription stays valid
+ * ------------------------------------------------------------- */
+
+function setupPrescriptionSettings()
+{
+    const input = document.getElementById("gs_rx_validity");
+    const error = document.getElementById("err-prescription_validity_days");
+
+    input.value = currentSettings.prescription_validity_days ?? 30;
+
+    document.getElementById("gsRxForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        error.textContent = "";
+        document.getElementById("gsRxAlert").innerHTML = "";
+
+        const days = input.value.trim();
+        if (!/^\d+$/.test(days) || Number(days) < 1 || Number(days) > 365) {
+            error.textContent = "Enter a number of days from 1 to 365.";
+            input.focus();
+            return;
+        }
+
+        const button = document.getElementById("gsRxSave");
+        button.disabled = true;
+        const result = await updatePrescriptionSettings(Number(days));
+        button.disabled = false;
+
+        if (!result.success) {
+            error.textContent = result.errors?.prescription_validity_days || "";
+            showAlert("gsRxAlert", result.message || "Failed to update the prescription settings.", "error");
+            return;
+        }
+
+        currentSettings = { ...currentSettings, prescription_validity_days: result.data.prescription_validity_days };
+        input.value = result.data.prescription_validity_days;
+        showToast(`New prescriptions are now valid for ${result.data.prescription_validity_days} days.`, "success");
+    });
 }
 
 /* ---------------------------------------------------------------

@@ -260,6 +260,28 @@ export function GeneralSettingsView()
     <div class="gs-card">
         <div class="gs-header">
             <div>
+                <h1>Prescriptions</h1>
+                <p class="form-subtitle">How long a new prescription can be filled by the pharmacy, counted from the day it's written. Prescriptions already written keep the validity they were given.</p>
+            </div>
+        </div>
+
+        <div id="gsRxAlert"></div>
+
+        <form id="gsRxForm" class="form-grid" style="margin-top: 16px; align-items: end;" novalidate>
+            <div class="form-group">
+                <label for="gs_rx_validity">Valid for (days)</label>
+                <input id="gs_rx_validity" type="number" min="1" max="365" step="1" class="form-input" inputmode="numeric">
+                <span class="form-error" id="err-prescription_validity_days"></span>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="login-btn" id="gsRxSave" style="width:auto;padding:0 18px;">Save</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="gs-card">
+        <div class="gs-header">
+            <div>
                 <h1>Approval Limits</h1>
                 <p class="form-subtitle">Purchase orders, supplier invoices and supplier payments above these amounts also need an administrator. An accountant's approval then counts as the first one, and an administrator gives the final approval. Payments an accountant records above the limit wait for an administrator before the invoices are paid off.</p>
             </div>

@@ -19,6 +19,7 @@ class ProviderService
     {
         $stmt = Database::connection()->prepare(
             "SELECT p.id, p.employee_id, p.specialty, p.npi_number, p.license_number, p.dea_number,
+                    p.ptr_number, p.ptr_date, p.s2_number, p.s2_expiry_date,
                     p.created_at, p.deleted_at,
                     e.first_name, e.middle_name, e.last_name, e.suffix, e.email, e.phone,
                     d.name AS department_name
@@ -97,6 +98,10 @@ class ProviderService
                 'npi_number'     => $data['npi_number'] ?? null,
                 'license_number' => $data['license_number'] ?? null,
                 'dea_number'     => $data['dea_number'] ?? null,
+                'ptr_number'     => $this->blank($data['ptr_number'] ?? null),
+                'ptr_date'       => $this->blank($data['ptr_date'] ?? null),
+                's2_number'      => $this->blank($data['s2_number'] ?? null),
+                's2_expiry_date' => $this->blank($data['s2_expiry_date'] ?? null),
                 'created_at'     => date('Y-m-d H:i:s'),
                 'created_by'     => $createdBy
             ]);
@@ -118,6 +123,89 @@ class ProviderService
                 'message' => 'Failed to create provider.'
             ];
         }
+    }
+
+    /** Fields an admin can change on an existing provider. */
+    public const EDITABLE_FIELDS = ['specialty', 'npi_number', 'license_number', 'dea_number', 'ptr_number', 'ptr_date', 's2_number', 's2_expiry_date'];
+
+    /**
+     * Change a provider's specialty and license details (admin-only) --
+     * PTR numbers are renewed every year and S2 licenses expire.
+     */
+    public function update(int $id, array $data, int $updatedBy): array
+    {
+        $provider = (new Provider())->where('id', $id)->first();
+
+        if (!$provider || $provider['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Provider not found.', 'not_found' => true];
+        }
+
+        $errors = [];
+
+        if (trim((string) ($data['specialty'] ?? '')) === '') {
+            $errors['specialty'] = 'Specialty is required.';
+        }
+
+        $errors += $this->validateCredentials($data);
+
+        $npi = $this->blank($data['npi_number'] ?? null);
+        if ($npi !== null) {
+            $stmt = Database::connection()->prepare("SELECT id FROM providers WHERE npi_number = :npi AND id <> :id LIMIT 1");
+            $stmt->execute(['npi' => $npi, 'id' => $id]);
+            if ($stmt->fetchColumn()) {
+                $errors['npi_number'] = 'NPI number is already registered.';
+            }
+        }
+
+        if ($errors) {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => $errors];
+        }
+
+        $values = [];
+        foreach (self::EDITABLE_FIELDS as $field) {
+            $values[$field] = $this->blank($data[$field] ?? null);
+        }
+        $values['updated_at'] = date('Y-m-d H:i:s');
+        $values['updated_by'] = $updatedBy;
+
+        (new Provider())->update($values, $id);
+
+        return ['success' => true, 'message' => 'Provider updated successfully.'];
+    }
+
+    /** PTR date / S2 expiry must be real dates; an S2 expiry needs an S2 number. */
+    private function validateCredentials(array $data): array
+    {
+        $errors = [];
+
+        foreach (['ptr_date' => 'PTR date', 's2_expiry_date' => 'S2 expiry'] as $field => $label) {
+            $value = $this->blank($data[$field] ?? null);
+            if ($value !== null) {
+                $date = \DateTime::createFromFormat('Y-m-d', $value);
+                if (!$date || $date->format('Y-m-d') !== $value) {
+                    $errors[$field] = "Enter a valid {$label}.";
+                }
+            }
+        }
+
+        if ($this->blank($data['s2_expiry_date'] ?? null) !== null && $this->blank($data['s2_number'] ?? null) === null) {
+            $errors['s2_number'] = 'Enter the S2 license number for this expiry date.';
+        }
+
+        foreach (['license_number', 'ptr_number', 's2_number', 'npi_number', 'dea_number'] as $field) {
+            if (mb_strlen((string) ($data[$field] ?? '')) > 50) {
+                $errors[$field] = 'Keep this to 50 characters or fewer.';
+            }
+        }
+
+        return $errors;
+    }
+
+    private function blank($value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        return $value === '' ? null : $value;
     }
 
     /**
@@ -198,6 +286,6 @@ class ProviderService
             $errors['npi_number'] = 'NPI number is already registered.';
         }
 
-        return $errors;
+        return $errors + $this->validateCredentials($data);
     }
 }

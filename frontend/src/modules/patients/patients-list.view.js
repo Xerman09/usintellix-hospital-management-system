@@ -10101,6 +10101,15 @@ textarea.pd-sdoh-readonly {
 .rx-warning { display: block; font-size: 12px; margin-top: 6px; color: #b45309; }
 :root[data-theme="dark"] .rx-warning { color: #fcd34d; }
 
+.rx-dd-banner { padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 12.5px; border: 1px solid #fcd34d; background: #fffbeb; color: #92400e; }
+.rx-dd-banner.bad { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+:root[data-theme="dark"] .rx-dd-banner { background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.45); color: #fde68a; }
+:root[data-theme="dark"] .rx-dd-banner.bad { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.45); color: #fecaca; }
+.rx-tag { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; margin-top: 3px; }
+.rx-tag.dd { background: #fef3c7; color: #92400e; }
+.rx-tag.exp { background: #fee2e2; color: #991b1b; }
+:root[data-theme="dark"] .rx-tag.dd { background: rgba(245,158,11,.18); color: #fde68a; }
+:root[data-theme="dark"] .rx-tag.exp { background: rgba(239,68,68,.18); color: #fecaca; }
 .rx-slip-meds { margin: 0; padding-left: 18px; }
 .rx-slip-meds li { margin: 1px 0; }
 .rx-slip-sub { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
@@ -10168,11 +10177,13 @@ textarea.pd-sdoh-readonly {
                 <div>
                     <label for="rxPrescribedDate">Date</label>
                     <input type="date" id="rxPrescribedDate" class="form-input">
+                    <span class="rx-hint" id="rxValidity"></span>
                     <span class="rx-err" data-rx-err="prescribed_date"></span>
                 </div>
                 <div class="two">
                     <label for="rxPrescriber">Prescribed by</label>
                     <select id="rxPrescriber" class="form-input"></select>
+                    <span class="rx-warning" id="rxS2Warning" hidden></span>
                     <span class="rx-err" data-rx-err="prescriber_user_id"></span>
                 </div>
                 <div>
@@ -10191,12 +10202,14 @@ textarea.pd-sdoh-readonly {
             </div>
 
             <div class="rx-section-title"><span>Medicines</span><span id="rxLineCount" style="text-transform:none;font-weight:400;"></span></div>
+            <div class="rx-dd-banner" id="rxDangerousBanner" hidden></div>
             <span class="rx-err" data-rx-err="items" style="margin-bottom:8px;"></span>
             <div class="rx-lines" id="rxLines"></div>
             <button type="button" class="rx-add-line" id="rxAddLine" style="margin-top: 12px;">+ Add medicine</button>
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelPrescriptionForm">Close</button>
+                <button type="button" class="btn-secondary" id="rxPrintBtn" hidden>Print</button>
                 <button class="login-btn" type="submit" id="rxSave">Save Prescription</button>
             </div>
         </form>

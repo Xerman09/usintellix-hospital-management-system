@@ -83,6 +83,11 @@ export async function updatePrescriptionSlip(details)
     return await api("/prescriptions", { method: "PUT", body: JSON.stringify(details) });
 }
 
+export async function fetchPrescriptionPrint(id)
+{
+    return await api(`/prescriptions/print?${new URLSearchParams({ id }).toString()}`);
+}
+
 export async function cancelPrescriptionSlip(id, reason, version)
 {
     return await api("/prescriptions/cancel", { method: "POST", body: JSON.stringify({ id, reason, version }) });

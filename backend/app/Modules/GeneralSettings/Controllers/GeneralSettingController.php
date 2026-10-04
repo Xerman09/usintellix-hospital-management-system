@@ -64,6 +64,27 @@ class GeneralSettingController extends Controller
     }
 
     /**
+     * Change how long new prescriptions stay valid (admin-only).
+     */
+    public function updatePrescriptions(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->generalSettingService->updatePrescriptionSettings(
+            $request->only(['prescription_validity_days']),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
      * Update Two-Factor Authentication settings (admin-only).
      */
     public function update(): void

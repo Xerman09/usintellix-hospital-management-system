@@ -21,6 +21,17 @@ export async function updateTimezone(timezone)
     );
 }
 
+export async function updatePrescriptionSettings(prescriptionValidityDays)
+{
+    return await api(
+        "/general-settings/prescriptions",
+        {
+            method: "PUT",
+            body: JSON.stringify({ prescription_validity_days: prescriptionValidityDays })
+        }
+    );
+}
+
 export async function fetchApprovalLimits()
 {
     return await api("/approval-limits");
