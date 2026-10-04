@@ -6,7 +6,7 @@ import { todayISO } from "../../core/timezone.js";
 /** Movement type -> badge style. */
 const TYPE_STYLE = {
     opening: "neutral", received: "in", receipt_voided: "out", transfer_in: "move", transfer_out: "move",
-    transfer_cancelled: "move", returned: "out", destroyed: "out", adjusted: "adjust", dispensed: "out"
+    transfer_cancelled: "move", returned: "out", destroyed: "out", adjusted: "adjust", dispensed: "out", dispense_voided: "in"
 };
 const SUMMARY_COLUMNS = [
     ["opening", "Opening"], ["received", "Received"], ["transfer_in", "Transfers In"], ["transfer_out", "Transfers Out"],
@@ -249,7 +249,7 @@ function renderSummary() {
                         ${columns.map(([key]) => `<td class="num">${cell(key, r[key])}</td>`).join("")}
                     </tr>`).join("")}</tbody>
             </table></div>
-            <p class="ml-note">Quantities in each item's dispensing unit. Received is net of voided receipts; Transfers Out is net of cancelled transfers. ${$("mlSumWarehouse").value ? "" : "For all locations, transfers in and out mostly cancel out — what's left was lost in transit or is still on the way."} Click an item for its stock card.</p>
+            <p class="ml-note">Quantities in each item's dispensing unit. Received is net of voided receipts; Transfers Out is net of cancelled transfers; Dispensed is net of undone dispensings. ${$("mlSumWarehouse").value ? "" : "For all locations, transfers in and out mostly cancel out — what's left was lost in transit or is still on the way."} Click an item for its stock card.</p>
         </div>`
         : `<div class="ml-empty">No stock movements${$("mlSumMoved").checked ? " in this period" : ""}.</div>`;
 

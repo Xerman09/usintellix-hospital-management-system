@@ -4,6 +4,7 @@ namespace App\Modules\PatientPrescriptions\Services;
 
 use App\Core\Database;
 use App\Core\PhiAccessGuard;
+use App\Modules\Dispensing\Services\DispensingService;
 use App\Modules\Encounters\Services\EncounterService;
 use App\Modules\GeneralSettings\Services\GeneralSettingService;
 use PDO;
@@ -174,6 +175,8 @@ class PrescriptionService
                 $this->insertLine($id, $patientId, $i + 1, $line, $header['prescribed_date'], $userId, $now);
             }
 
+            DispensingService::refreshStatus($id);
+
             $this->commit($db, $owns);
         } catch (\Throwable $e) {
             $this->rollBack($db, $owns);
@@ -208,6 +211,12 @@ class PrescriptionService
             if ($slip['status'] !== 'active') {
                 $this->rollBack($db, $owns);
                 return ['success' => false, 'message' => 'A cancelled prescription can\'t be changed.'];
+            }
+
+            // Once the pharmacy has given anything (or closed it), the prescription is a record of what was given.
+            if (!in_array($slip['dispense_status'] ?? 'pending', ['pending', 'none'], true)) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'The pharmacy has already dispensed from this prescription, so it can\'t be changed. Cancel it and write a new one if needed.'];
             }
 
             $existing = [];
@@ -257,6 +266,8 @@ class PrescriptionService
                      WHERE prescription_id = :id AND id IN (" . implode(',', array_map('intval', $remove)) . ")"
                 )->execute(['now' => $now, 'user' => $userId, 'id' => $id]);
             }
+
+            DispensingService::refreshStatus($id);
 
             $this->commit($db, $owns);
         } catch (\Throwable $e) {
@@ -711,7 +722,9 @@ class PrescriptionService
             'cancelled_at' => $s['cancelled_at'],
             'cancelled_by_name' => $s['cancelled_by_name'],
             'cancel_reason' => $s['cancel_reason'],
-            'can_edit' => $s['status'] === 'active',
+            'dispense_status' => $s['dispense_status'] ?? 'pending',
+            'dispense_status_label' => DispensingService::STATUS_LABELS[$s['dispense_status'] ?? 'pending'] ?? null,
+            'can_edit' => $s['status'] === 'active' && in_array($s['dispense_status'] ?? 'pending', ['pending', 'none'], true),
             'created_at' => $s['created_at'],
             'updated_at' => $s['updated_at'],
             // Sent back on edit / cancel so a change by someone else in between is caught.

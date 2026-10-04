@@ -8,6 +8,7 @@ const ITEMS_PER_LOCATION = 5;
 /** Which tabs each role can open from here (matches the Pharmacy menu). */
 const TAB_ROLES = {
     pharmacy_stock_levels: ["admin", "receptionist", "doctor"],
+    pharmacy_dispensing: ["admin", "receptionist", "doctor"],
     pharmacy_stock_transfers: ["admin", "receptionist", "doctor", "accountant"],
     pharmacy_medicine_ledger: ["admin", "receptionist", "doctor", "accountant"],
     pharmacy_lot_trace: ["admin", "receptionist", "doctor", "accountant"],

@@ -245,7 +245,7 @@ class LotTraceService
                 'returned' => -$sum(['returned']),
                 'destroyed' => -$sum(['destroyed']),
                 'adjusted' => $sum(['adjusted']),
-                'dispensed' => -$sum(['dispensed']),
+                'dispensed' => -$sum(['dispensed', 'dispense_voided']),
                 // Sent but not (yet) received at the other end: in transit, or lost on the way.
                 'transfer_gap' => -$sum(['transfer_in', 'transfer_out', 'transfer_cancelled']),
                 'in_transit' => $inTransit,
@@ -477,14 +477,19 @@ class LotTraceService
         $stmt = $db->query(
             "SELECT m.movement_type, m.movement_date, m.reference_no, m.quantity, m.counterparty, m.reason, m.notes, w.name AS warehouse_name
              FROM drug_stock_movements m JOIN warehouses w ON w.id = m.warehouse_id
-             WHERE m.lot_id IN ({$in}) AND m.movement_type IN ('adjusted', 'dispensed')
+             WHERE m.lot_id IN ({$in}) AND m.movement_type IN ('adjusted', 'dispensed', 'dispense_voided')
              ORDER BY m.movement_date, m.id"
         );
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
             $qty = (float) $m['quantity'];
             $rows[] = [
                 'type' => $m['movement_type'],
-                'label' => $m['movement_type'] === 'dispensed' ? 'Dispensed' : ($qty < 0 ? 'Count shortage' : 'Count surplus'),
+                'label' => match (true) {
+                    $m['movement_type'] === 'dispensed' => 'Dispensed to patient',
+                    $m['movement_type'] === 'dispense_voided' => 'Dispense undone',
+                    $qty < 0 => 'Count shortage',
+                    default => 'Count surplus'
+                },
                 'date' => $m['movement_date'], 'reference_no' => $m['reference_no'],
                 'warehouse_name' => $m['warehouse_name'], 'quantity' => abs($qty), 'is_gain' => $qty > 0,
                 'party' => $m['counterparty'], 'reason' => $m['reason'], 'notes' => $m['notes'],

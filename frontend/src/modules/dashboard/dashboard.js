@@ -23,8 +23,8 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=73";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=73";
+import { PatientsListView } from "../patients/patients-list.view.js?v=74";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=74";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js?v=2";
 import { initBillingManager } from "../billing-manager/billing-manager.js?v=2";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
@@ -55,13 +55,15 @@ import { initStockCounts } from "../stock-counts/stock-counts.js?v=1";
 import { StockTransfersView } from "../stock-transfers/stock-transfers.view.js?v=1";
 import { initStockTransfers } from "../stock-transfers/stock-transfers.js?v=1";
 import { MedicineLedgerView } from "../medicine-ledger/medicine-ledger.view.js?v=1";
-import { initMedicineLedger } from "../medicine-ledger/medicine-ledger.js?v=2";
+import { initMedicineLedger } from "../medicine-ledger/medicine-ledger.js?v=3";
 import { LotTraceView } from "../lot-trace/lot-trace.view.js?v=1";
-import { initLotTrace } from "../lot-trace/lot-trace.js?v=1";
+import { initLotTrace } from "../lot-trace/lot-trace.js?v=2";
 import { StockLevelsView } from "../stock-levels/stock-levels.view.js?v=1";
 import { initStockLevels } from "../stock-levels/stock-levels.js?v=1";
 import { PharmacyDashboardView } from "../pharmacy-dashboard/pharmacy-dashboard.view.js?v=1";
-import { initPharmacyDashboard } from "../pharmacy-dashboard/pharmacy-dashboard.js?v=1";
+import { initPharmacyDashboard } from "../pharmacy-dashboard/pharmacy-dashboard.js?v=2";
+import { DispensingView } from "../dispensing/dispensing.view.js?v=1";
+import { initDispensing } from "../dispensing/dispensing.js?v=1";
 import { ProcurementReportsView } from "../procurement-reports/procurement-reports.view.js?v=1";
 import { initProcurementReports } from "../procurement-reports/procurement-reports.js?v=2";
 import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
@@ -72,7 +74,7 @@ import { initWarehouses } from "../warehouses/warehouses.js?v=3";
 import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
 import { initDestroyedDrugs } from "../destroyed-drugs/destroyed-drugs.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
-import { initPatientFinder } from "../patients/patient-finder.js?v=4";
+import { initPatientFinder } from "../patients/patient-finder.js?v=5";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
 import { initManageModules } from "../manage-modules/manage-modules.js?v=103";
 import { CareCoordinationView } from "../care-coordination/care-coordination.view.js?v=105";
@@ -669,6 +671,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Medicine Ledger', () => {
                 setTimeout(initMedicineLedger, 0);
                 return MedicineLedgerView();
+            }, activate);
+        } else if (tabId === 'pharmacy_dispensing') {
+            tabManager.openTab(tabId, 'Dispensing', () => {
+                setTimeout(initDispensing, 0);
+                return DispensingView();
             }, activate);
         } else if (tabId === 'pharmacy_dashboard') {
             tabManager.openTab(tabId, 'Pharmacy Dashboard', () => {

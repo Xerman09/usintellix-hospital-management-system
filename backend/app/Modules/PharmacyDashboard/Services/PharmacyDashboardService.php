@@ -220,7 +220,7 @@ class PharmacyDashboardService
         };
         $loc = fn(string $column) => $warehouseId !== null ? " AND {$column} = " . (int) $warehouseId : '';
 
-        return [
+        $items = [
             ['key' => 'requisitions', 'label' => 'Purchase requests to approve', 'tab' => 'pharmacy_requisitions', 'title' => 'Purchase Requests',
              'count' => $count("SELECT COUNT(*) FROM purchase_requisitions WHERE deleted_at IS NULL AND status = 'submitted'" . $loc('warehouse_id'))],
             ['key' => 'po_approval', 'label' => 'Purchase orders to approve', 'tab' => 'pharmacy_purchase_orders', 'title' => 'Purchase Orders',
@@ -236,6 +236,13 @@ class PharmacyDashboardService
             ['key' => 'counts', 'label' => 'Stock counts in progress or to approve', 'tab' => 'pharmacy_stock_counts', 'title' => 'Stock Count',
              'count' => $count("SELECT COUNT(*) FROM stock_counts WHERE deleted_at IS NULL AND status IN ('counting', 'submitted')" . $loc('warehouse_id'))]
         ];
+
+        // Prescriptions aren't tied to a location until they're dispensed.
+        array_unshift($items, ['key' => 'dispensing', 'label' => 'Prescriptions to dispense', 'tab' => 'pharmacy_dispensing', 'title' => 'Dispensing', 'all_locations' => true,
+            'count' => $count("SELECT COUNT(*) FROM prescriptions WHERE deleted_at IS NULL AND status = 'active' AND dispense_status IN ('pending', 'partial')
+                               AND (valid_until IS NULL OR valid_until >= :today)", ['today' => $today])]);
+
+        return $items;
     }
 
     /** The latest movements from the Medicine Ledger. */

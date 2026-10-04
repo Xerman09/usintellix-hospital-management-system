@@ -27,7 +27,8 @@ class StockLedgerService
         'returned' => 'Returned to supplier',
         'destroyed' => 'Destroyed / disposed',
         'adjusted' => 'Stock count adjustment',
-        'dispensed' => 'Dispensed'
+        'dispensed' => 'Dispensed',
+        'dispense_voided' => 'Dispense undone (stock back)'
     ];
 
     /**

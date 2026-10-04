@@ -6,7 +6,7 @@ import { todayISO } from "../../core/timezone.js";
 /** Movement type -> badge style (same as the Medicine Ledger). */
 const TYPE_STYLE = {
     opening: "neutral", received: "in", receipt_voided: "out", transfer_in: "move", transfer_out: "move",
-    transfer_cancelled: "move", returned: "out", destroyed: "out", adjusted: "adjust", dispensed: "out"
+    transfer_cancelled: "move", returned: "out", destroyed: "out", adjusted: "adjust", dispensed: "out", dispense_voided: "in"
 };
 const TRANSFER_STATUS = { in_transit: ["In transit", "adjust"], received: ["Received", "in"], cancelled: ["Cancelled", "neutral"] };
 const NEAR_EXPIRY_DAYS = 90;
@@ -155,7 +155,7 @@ function renderTrace() {
         ${outflowsCard(t)}
         ${documentsCard(t)}
         ${movementsCard(t)}
-        <p class="lt-note">Medicine given to patients isn't deducted from stock yet, so this trace stops at the pharmacy shelf — it can't list which patients received this batch.</p>`;
+        ${t.outflows.some((o) => o.type === "dispensed") ? `<p class="lt-note">Patients who received this batch are listed under “Returned, Destroyed &amp; Corrected” as “Dispensed to patient”. Only medicine dispensed through Pharmacy &rarr; Dispensing is traced.</p>` : ""}`;
 }
 
 /** The batch's path in date order: supplier → location, location → location, location → out. */
@@ -172,7 +172,8 @@ function flowSteps(t) {
     }));
     t.outflows.filter((o) => (o.type === "returned" && !o.is_pending) || o.type === "destroyed" || o.type === "dispensed").forEach((o) => steps.push({
         date: o.date, from: o.warehouse_name, fromCls: "place",
-        to: o.type === "returned" ? `Returned to ${o.party}` : o.label, toCls: "gone", qty: o.quantity, label: o.reference_no || o.reason || o.label
+        to: o.type === "returned" ? `Returned to ${o.party}` : o.type === "dispensed" && o.party ? `Dispensed to ${o.party}` : o.label,
+        toCls: "gone", qty: o.quantity, label: o.reference_no || o.reason || o.label
     }));
 
     return steps.sort((a, b) => String(a.date).localeCompare(String(b.date)));

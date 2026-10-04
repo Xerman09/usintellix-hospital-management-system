@@ -130,6 +130,7 @@ class PatientPrescriptionService
             $data['prescription_id'] = $slipId;
             $data['line_no'] = 1;
             $id = (new PatientPrescription())->create($data);
+            \App\Modules\Dispensing\Services\DispensingService::refreshStatus($slipId);
 
             $ownsTransaction ? $db->commit() : $db->exec('RELEASE SAVEPOINT single_prescription');
         } catch (\Throwable $e) {
@@ -169,10 +170,18 @@ class PatientPrescriptionService
             ];
         }
 
+        if ($blocked = $this->lockedForDispensing($record)) {
+            return ['success' => false, 'message' => $blocked];
+        }
+
         $drug = null;
 
         if ($drugId) {
             $drug = $this->findDrug($drugId);
+
+            if ($drug && $drug['controlled_class'] === PrescriptionService::DANGEROUS_CLASS && (int) ($record['drug_id'] ?? 0) !== $drugId) {
+                return ['success' => false, 'message' => 'Dangerous drugs must be written as a New Prescription, which checks the S2 license.'];
+            }
 
             // Keeping an existing link to an item since made inactive is fine; choosing it anew is not.
             if (!$drug && (int) ($record['drug_id'] ?? 0) !== $drugId) {
@@ -205,6 +214,10 @@ class PatientPrescriptionService
         $data['updated_by'] = $updatedBy;
 
         (new PatientPrescription())->update($data, $id);
+
+        if (!empty($record['prescription_id'])) {
+            \App\Modules\Dispensing\Services\DispensingService::refreshStatus((int) $record['prescription_id']);
+        }
 
         return [
             'success' => true,
@@ -330,6 +343,22 @@ class PatientPrescriptionService
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
+    /** A medicine on a prescription the pharmacy has dispensed from can't be changed. */
+    private function lockedForDispensing(array $record): ?string
+    {
+        if (empty($record['prescription_id'])) {
+            return null;
+        }
+
+        $stmt = Database::connection()->prepare("SELECT dispense_status FROM prescriptions WHERE id = :id");
+        $stmt->execute(['id' => (int) $record['prescription_id']]);
+        $status = $stmt->fetchColumn();
+
+        return in_array($status, ['pending', 'none', false], true)
+            ? null
+            : 'The pharmacy has already dispensed from this prescription, so it can\'t be changed.';
+    }
+
     public function find(int $id): ?array
     {
         return (new PatientPrescription())->where('id', $id)->first();
@@ -349,6 +378,10 @@ class PatientPrescriptionService
             ];
         }
 
+        if ($blocked = $this->lockedForDispensing($record)) {
+            return ['success' => false, 'message' => $blocked];
+        }
+
         $now = date('Y-m-d H:i:s');
 
         (new PatientPrescription())->update([
@@ -363,6 +396,7 @@ class PatientPrescriptionService
                  WHERE id = :id AND deleted_at IS NULL
                    AND NOT EXISTS (SELECT 1 FROM patient_prescriptions WHERE prescription_id = :id2 AND deleted_at IS NULL)"
             )->execute(['now' => $now, 'user' => $deletedBy, 'id' => (int) $record['prescription_id'], 'id2' => (int) $record['prescription_id']]);
+            \App\Modules\Dispensing\Services\DispensingService::refreshStatus((int) $record['prescription_id']);
         }
 
         return [

@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=68";
+import { PatientChartView } from "./patients-list.view.js?v=69";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -10295,7 +10295,8 @@ function renderPrescriptionDetailTable()
                 ${slip.diagnosis ? `<span class="rx-slip-sub">Dx: ${escapeHtml(slip.diagnosis)}</span>` : ""}
             </td>
             <td>${escapeHtml(slip.prescriber_name || "-")}</td>
-            <td>${badge(slip)}${slip.display_status === "cancelled" && slip.cancel_reason ? `<span class="rx-slip-sub">${escapeHtml(slip.cancel_reason)}</span>` : ""}</td>
+            <td>${badge(slip)}${slip.display_status === "cancelled" && slip.cancel_reason ? `<span class="rx-slip-sub">${escapeHtml(slip.cancel_reason)}</span>` : ""}
+                ${slip.dispense_status && !["pending", "none"].includes(slip.dispense_status) ? `<span class="rx-slip-sub">Pharmacy: ${escapeHtml(slip.dispense_status_label || slip.dispense_status)}</span>` : ""}</td>
             <td class="table-actions">
                 ${canManage && slip.can_edit ? `<button class="btn-edit" data-rx-open="${slip.id}">Open</button>`
                     : `<button class="btn-edit" data-rx-open="${slip.id}">View</button>`}
@@ -10333,7 +10334,9 @@ async function openPrescriptionFormModal(slip)
         : "New Prescription";
     document.getElementById("prescriptionFormSubtitle").textContent = slip && slip.display_status === "cancelled"
         ? `Cancelled${slip.cancelled_by_name ? ` by ${slip.cancelled_by_name}` : ""}${slip.cancel_reason ? ` — ${slip.cancel_reason}` : ""}.`
-        : "One prescription, with every medicine the doctor is giving.";
+        : slip && !slip.can_edit && slip.dispense_status && !["pending", "none"].includes(slip.dispense_status)
+            ? `The pharmacy has started dispensing this prescription (${slip.dispense_status_label || slip.dispense_status}), so it can no longer be changed.`
+            : "One prescription, with every medicine the doctor is giving.";
 
     overlay.classList.add("open");
 

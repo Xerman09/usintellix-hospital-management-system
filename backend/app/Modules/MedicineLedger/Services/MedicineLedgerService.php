@@ -268,7 +268,7 @@ class MedicineLedgerService
                 'returned' => $t('returned'),
                 'destroyed' => $t('destroyed'),
                 'adjusted' => $t('adjusted'),
-                'dispensed' => $t('dispensed'),
+                'dispensed' => round($t('dispensed') + $t('dispense_voided'), 3),
                 'closing' => round((float) $r['closing'], 3),
                 'movements' => (int) $r['moves']
             ];
