@@ -20,7 +20,7 @@ class PatientLedgerService
      */
     public function getLedger(int $patientId, string $from, string $to): array
     {
-        $charges = $this->listCharges($patientId, $from, $to);
+        $charges = array_merge($this->listCharges($patientId, $from, $to), $this->listPharmacyCharges($patientId, $from, $to));
         $payments = $this->listPayments($patientId, $from, $to);
 
         $rows = array_merge($charges, $payments);
@@ -89,6 +89,39 @@ class PatientLedgerService
                 'encounter_id' => (int) $row['encounter_id']
             ];
         }, $rows);
+    }
+
+    /** Medicine dispensed by the pharmacy (not undone), one row per medicine per dispensing. */
+    private function listPharmacyCharges(int $patientId, string $from, string $to): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT c.id, c.description, c.quantity, c.net_amount, c.discount_amount, c.encounter_id, c.charge_date, c.created_at,
+                    d.dispense_number, d.discount_type
+             FROM pharmacy_charges c
+             JOIN prescription_dispenses d ON d.id = c.dispense_id
+             WHERE c.patient_id = :patient_id AND c.status = 'charged'
+               AND c.charge_date >= :from AND c.charge_date <= :to
+             ORDER BY c.charge_date ASC, c.id ASC"
+        );
+        $stmt->execute(['patient_id' => $patientId, 'from' => $from, 'to' => $to]);
+
+        return array_map(fn(array $row) => [
+            'row_type' => 'charge',
+            'id' => 'm' . $row['id'],
+            'code' => $row['dispense_number'],
+            'description' => $row['description'] . ((float) $row['discount_amount'] > 0
+                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+            'billed_date' => $row['charge_date'],
+            'payor' => null,
+            'type' => 'Pharmacy',
+            'units' => 1,
+            'charge' => round((float) $row['net_amount'], 2),
+            'payment' => 0.0,
+            'adjustment' => 0.0,
+            // Same-day ordering with visit charges: when it was dispensed.
+            'entry_date' => $row['created_at'] ?: $row['charge_date'],
+            'encounter_id' => $row['encounter_id'] !== null ? (int) $row['encounter_id'] : null
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
     private function listPayments(int $patientId, string $from, string $to): array

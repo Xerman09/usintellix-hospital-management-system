@@ -35,6 +35,14 @@ export async function declineRefillRequest(requestId, reason) {
     return api("/dispensing/refill-decline", { method: "POST", body: JSON.stringify({ id: requestId, reason }) });
 }
 
+export async function recordDispensePayment(dispenseId, payment) {
+    return api("/dispensing/payment", { method: "POST", body: JSON.stringify({ id: dispenseId, ...payment }) });
+}
+
+export async function fetchChargeSlip(dispenseId) {
+    return api(`/dispensing/charge-slip${query({ id: dispenseId })}`);
+}
+
 export async function fetchDispenseLabels(dispenseId) {
     return api(`/dispensing/labels${query({ id: dispenseId })}`);
 }

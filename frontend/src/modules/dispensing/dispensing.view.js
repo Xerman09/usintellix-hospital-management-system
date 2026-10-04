@@ -76,6 +76,15 @@ export function DispensingView() {
 .dp-form-row select, .dp-form-row input { height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; font-family: inherit; text-transform: none; letter-spacing: 0; font-weight: 400; min-width: 0; }
 .dp-form-row .dp-grow { flex: 1 1 260px; }
 .dp-history { display: flex; flex-direction: column; gap: 10px; }
+.dp-charge { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.dp-charge .dp-form-row { margin-bottom: 0; }
+.dp-totals { display: grid; grid-template-columns: auto auto; gap: 2px 18px; font-size: 13px; margin-left: auto; }
+.dp-totals span:nth-child(odd) { color: var(--text-muted); }
+.dp-totals span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+.dp-totals .dp-due { font-size: 16px; font-weight: 700; color: var(--text-primary) !important; }
+.dp-money { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-top: 6px; }
+.dp-money strong { font-variant-numeric: tabular-nums; }
+.dp-dialog select, .dp-dialog input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; font-family: inherit; margin-bottom: 10px; }
 .dp-hist { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; }
 .dp-hist.voided { opacity: .75; }
 .dp-hist-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }

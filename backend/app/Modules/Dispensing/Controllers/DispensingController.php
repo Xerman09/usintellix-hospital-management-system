@@ -50,7 +50,9 @@ class DispensingController extends Controller
     public function store(): void
     {
         $request = new Request();
-        $this->respond($this->service->dispense($request->only(['prescription_id', 'warehouse_id', 'items', 'notes']), Session::get('user')), 201);
+        $this->respond($this->service->dispense($request->only([
+            'prescription_id', 'warehouse_id', 'items', 'notes', 'discount_type', 'discount_rate', 'discount_id_no', 'discount_reason'
+        ]), Session::get('user')), 201);
     }
 
     /** Body: id (dispensing), reason */
@@ -83,6 +85,27 @@ class DispensingController extends Controller
     {
         $request = new Request();
         $this->respond($this->service->declineRefill((int) $request->input('id'), (string) $request->input('reason'), Session::get('user')));
+    }
+
+    /** Body: id (dispensing), amount, method, reference? */
+    public function payment(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->recordPayment((int) $request->input('id'), $request->only(['amount', 'method', 'reference']), Session::get('user')), 201);
+    }
+
+    /** Query: id (dispensing) */
+    public function chargeSlip(): void
+    {
+        $request = new Request();
+        $slip = $this->service->chargeSlip((int) $request->input('id'));
+
+        if (!$slip) {
+            $this->error('Dispensing not found.', 404);
+            return;
+        }
+
+        $this->success($slip, 'Charge slip retrieved successfully.');
     }
 
     /** Query: id (dispensing) */

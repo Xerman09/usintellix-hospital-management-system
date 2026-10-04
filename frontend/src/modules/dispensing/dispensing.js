@@ -1,8 +1,8 @@
 import {
     fetchDispensingQueue, fetchDispensingDetail, fetchDispensingOptions, dispensePrescription,
-    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest
-} from "./dispensing.service.js?v=2";
-import { formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip
+} from "./dispensing.service.js?v=3";
+import { formatQty, formatDate, formatMoney, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 
 const LOCATION_KEY = "dp_location";
@@ -12,8 +12,10 @@ let view = "to_fill";
 let queue = null;
 let detail = null;
 let warehouses = [];
+let discounts = [];
+let paymentMethods = [];
 let searchTimer = null;
-let lastDispensed = null; // {id, number} -- offered for label printing
+let lastDispensed = null; // {id, number, net} -- offered for payment and printing
 
 const $ = (id) => document.getElementById(id);
 
@@ -40,6 +42,8 @@ export async function initDispensing() {
 
     const options = await fetchDispensingOptions();
     warehouses = options?.success ? options.data.warehouses : [];
+    discounts = options?.success ? options.data.discounts : [];
+    paymentMethods = options?.success ? options.data.payment_methods : [];
     await loadQueue();
 }
 
@@ -154,8 +158,11 @@ function renderDetail() {
 
     const banners = [];
     if (lastDispensed) {
-        banners.push(`<div class="dp-banner ok"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>.</span>
-            <button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">Print labels</button></div>`);
+        const h = d.history.find((x) => x.id === lastDispensed.id);
+        banners.push(`<div class="dp-banner ok"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>${h ? ` — ${h.balance > 0.004 ? `<strong>${formatMoney(h.balance)}</strong> to pay` : h.net_amount > 0 ? "paid" : "no charge"}` : ""}.</span>
+            <span class="dp-actions">${h && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
+            <button type="button" class="dp-btn small" data-dp-slip="${lastDispensed.id}">Print charge slip</button>
+            <button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">Print labels</button></span></div>`);
     }
     if (d.blocked_reason) {
         const reason = d.blocked_reason.replace(/(\d{4}-\d{2}-\d{2})/g, (iso) => formatDate(iso));
@@ -171,7 +178,7 @@ function renderDetail() {
     const rows = rx.items.map((item) => {
         if (!item.can_dispense) {
             return `<tr class="done"><td><strong>${escapeHtml(item.title)}</strong><span class="dp-sub">Not in the Drug Catalog — can't be dispensed from stock.</span></td>
-                <td class="num">${escapeHtml(item.quantity || "—")}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td colspan="2"></td></tr>`;
+                <td class="num">${escapeHtml(item.quantity || "—")}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td></td><td colspan="2"></td></tr>`;
         }
 
         const lots = lotsAt(item, location);
@@ -201,6 +208,7 @@ function renderDetail() {
                 <td class="num">${refill ? "—" : item.dispensed_quantity ? formatQty(item.dispensed_quantity) : "—"}${item.dispensed_total > item.dispensed_quantity + EPSILON ? `<span class="dp-sub">${formatQty(item.dispensed_total)} in all</span>` : ""}</td>
                 <td class="num">${done ? `<span class="dp-badge dispensed">Done</span>` : remaining != null ? `<strong>${formatQty(remaining)}</strong>${refill ? `<span class="dp-sub">per refill</span>` : ""}` : "—"}</td>
                 <td class="num">${available > EPSILON ? formatQty(available) : `<span class="dp-badge expired">None</span>`}</td>
+                <td class="num">${item.unit_price != null ? formatMoney(item.unit_price) : `<span class="dp-sub" style="margin:0;">No price</span>`}</td>
                 <td>${giveable ? `<input type="number" class="dp-qty" min="0" step="any" inputmode="decimal" data-dp-qty="${item.id}" value="${suggested === "" ? "" : formatPlain(suggested)}" aria-label="Quantity to give of ${escapeHtml(item.title)}${refill ? " as a refill" : ""}" placeholder="${refill ? "Refill" : ""}">` : ""}</td>
                 <td>${giveable ? `<select class="dp-lot" data-dp-lot="${item.id}" aria-label="Lot for ${escapeHtml(item.title)}">
                         <option value="">Earliest expiry first</option>
@@ -231,14 +239,28 @@ function renderDetail() {
             </div>
             <span class="dp-err" data-dp-err="general" style="margin-bottom:8px;"></span>` : ""}
             <div class="dp-table-wrap"><table class="dp-table wide">
-                <thead><tr><th>Medicine</th><th class="num">Prescribed</th><th class="num">Given</th><th class="num">Remaining</th><th class="num">Usable here</th><th>Give now</th><th>Lot</th></tr></thead>
+                <thead><tr><th>Medicine</th><th class="num">Prescribed</th><th class="num">Given</th><th class="num">Remaining</th><th class="num">Usable here</th><th class="num">Price</th><th>Give now</th><th>Lot</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table></div>
-            ${open ? `<div class="dp-actions" style="margin-top:14px;justify-content:flex-end;">
+            ${open ? `<div class="dp-charge">
+                <div class="dp-form-row">
+                    <label>Discount<select id="dpDiscount">
+                        <option value="">None</option>
+                        ${discounts.map((x) => `<option value="${escapeHtml(x.value)}">${escapeHtml(x.label)}${x.rate ? ` — ${x.rate}%` : ""}</option>`).join("")}
+                    </select></label>
+                    <label id="dpDiscountIdWrap" hidden>ID number<input id="dpDiscountId" maxlength="50" placeholder="e.g. SC / PWD ID no."></label>
+                    <label id="dpDiscountRateWrap" hidden>Discount %<input id="dpDiscountRate" type="number" min="0" max="100" step="0.01" style="width:90px;"></label>
+                    <label id="dpDiscountReasonWrap" hidden class="dp-grow">Reason<input id="dpDiscountReason" maxlength="255" placeholder="Why the discount is given"></label>
+                </div>
+                <div class="dp-totals" id="dpTotals"></div>
+            </div>
+            ${d.patient.age != null && d.patient.age >= 60 ? `<p class="dp-note">The patient is ${d.patient.age} — the Senior Citizen discount (20%) applies with their ID.</p>` : ""}
+            <span class="dp-err" data-dp-err="discount"></span>
+            <div class="dp-actions" style="margin-top:14px;justify-content:flex-end;">
                 ${d.can_close ? `<button type="button" class="dp-btn" id="dpClose">Close prescription…</button>` : ""}
                 <button type="button" class="dp-btn primary" id="dpDispense">Dispense</button>
             </div>
-            <p class="dp-note">Expired lots are never used. "Earliest expiry first" may take from several lots.</p>`
+            <p class="dp-note">Expired lots are never used. "Earliest expiry first" may take from several lots. Prices are the Drug Catalog selling price; the charge goes to the patient's ledger. Senior Citizen / PWD VAT exemption isn't worked out automatically.</p>`
             : d.can_close ? `<div class="dp-actions" style="margin-top:14px;justify-content:flex-end;"><button type="button" class="dp-btn" id="dpClose">Close prescription…</button></div>` : ""}
         </div>
         <div class="dp-card">
@@ -249,19 +271,33 @@ function renderDetail() {
                         <div><strong>${escapeHtml(h.dispense_number)}</strong> <span class="dp-sub" style="display:inline;">${escapeHtml(formatDate(h.dispensed_date))} · ${escapeHtml(h.warehouse_name)} · ${escapeHtml(h.dispensed_by_name || "")}</span>
                             ${h.status === "voided" ? ` <span class="dp-badge voided">Undone</span>` : ""}</div>
                         <div class="dp-actions">
+                            ${h.status === "completed" && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
+                            <button type="button" class="dp-btn small" data-dp-slip="${h.id}">Charge slip</button>
                             ${h.status === "completed" ? `<button type="button" class="dp-btn small" data-dp-labels="${h.id}">Print labels</button>
                                 <button type="button" class="dp-btn small" data-dp-void="${h.id}">Undo…</button>` : ""}
                         </div>
                     </div>
                     <ul>${h.items.map((i) => `<li>${escapeHtml(i.title)} — ${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}${i.fill_label ? ` <span class="dp-badge partial">${escapeHtml(i.fill_label)}</span>` : ""} <span class="dp-sub" style="display:inline;">lot ${escapeHtml(i.lot_number)}${i.expires_date ? `, exp ${escapeHtml(formatDate(i.expires_date))}` : ""}</span></li>`).join("")}</ul>
+                    <div class="dp-money"><span>Total <strong>${formatMoney(h.net_amount)}</strong>${h.discount_amount > 0 ? ` <span class="dp-sub" style="display:inline;">(${escapeHtml(h.discount_label || "discount")} −${formatMoney(h.discount_amount)}${h.discount_id_no ? `, ID ${escapeHtml(h.discount_id_no)}` : ""})</span>` : ""}</span>
+                        <span>Paid <strong>${formatMoney(h.paid_amount)}</strong></span>
+                        <span>${h.balance < -0.004 ? `<strong style="color:#b91c1c;">Refund due ${formatMoney(-h.balance)}</strong>` : h.balance > 0.004 ? `Balance <strong>${formatMoney(h.balance)}</strong>` : `<span class="dp-badge dispensed">Settled</span>`}</span></div>
                     ${h.notes ? `<span class="dp-sub">${escapeHtml(h.notes)}</span>` : ""}
                     ${h.status === "voided" ? `<span class="dp-sub">Undone${h.voided_by_name ? ` by ${escapeHtml(h.voided_by_name)}` : ""}: ${escapeHtml(h.void_reason || "")}</span>` : ""}
                 </div>`).join("")}</div>`
             : `<div class="dp-empty">Nothing dispensed from this prescription yet.</div>`}
         </div>`;
+    updateTotals();
 }
 
 function onDetailChange(event) {
+    if (event.target.id === "dpDiscount") {
+        const type = event.target.value;
+        $("dpDiscountIdWrap").hidden = !["senior", "pwd"].includes(type);
+        $("dpDiscountRateWrap").hidden = type !== "other";
+        $("dpDiscountReasonWrap").hidden = type !== "other";
+        updateTotals();
+        return;
+    }
     if (event.target.id === "dpLocation") {
         try { localStorage.setItem(LOCATION_KEY, event.target.value); } catch (e) { /* storage unavailable */ }
         // Keep the notes; quantities follow the new location's stock.
@@ -272,6 +308,7 @@ function onDetailChange(event) {
 }
 
 function onDetailInput(event) {
+    if (event.target.matches("[data-dp-qty], #dpDiscountRate")) updateTotals();
     const line = event.target.closest("[data-line]");
     if (line) {
         line.classList.remove("has-error");
@@ -285,6 +322,10 @@ function onDetailClick(event) {
     if (labels) return printLabels(Number(labels.dataset.dpLabels));
     const undo = event.target.closest("[data-dp-void]");
     if (undo) return confirmVoid(Number(undo.dataset.dpVoid));
+    const pay = event.target.closest("[data-dp-pay]");
+    if (pay) return confirmPayment(Number(pay.dataset.dpPay));
+    const slip = event.target.closest("[data-dp-slip]");
+    if (slip) return printChargeSlip(Number(slip.dataset.dpSlip));
     const decline = event.target.closest("[data-dp-decline]");
     if (decline) return confirmDecline(Number(decline.dataset.dpDecline));
     if (event.target.closest("#dpDispense")) return confirmDispense();
@@ -323,7 +364,7 @@ function collectDispense() {
             errors[item.id] = `Only ${formatQty(available)} usable ${lotId ? "in that lot" : "here"}.`;
             return;
         }
-        items.push({ prescription_item_id: item.id, quantity: qty, lot_id: lotId, refill, title: item.title, unit: item.drug_unit_name || "units",
+        items.push({ prescription_item_id: item.id, quantity: qty, lot_id: lotId, refill, title: item.title, unit: item.drug_unit_name || "units", unit_price: item.unit_price,
             fill: refill ? `refill ${item.refills_used + 1} of ${item.refills_allowed}` : item.current_fill > 1 ? item.fill_label.toLowerCase() : "" });
     });
 
@@ -363,16 +404,26 @@ function confirmDispense() {
 
     const where = warehouses.find((w) => Number(w.id) === location)?.name || "";
     const notes = $("dpNotes")?.value.trim() || "";
+    const discount = readDiscount();
+    if (discount.error) {
+        document.querySelector('[data-dp-err="discount"]').textContent = discount.error;
+        return;
+    }
+    const money = totalsFor(items, discount.rate);
+    const unpriced = items.filter((i) => i.unit_price == null);
 
     openDialog({
         title: `Dispense ${detail.prescription.rx_number}`,
         body: `<p>Give these to <strong>${escapeHtml(detail.patient.name)}</strong> from <strong>${escapeHtml(where)}</strong>:</p>
-            <ul>${items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.fill ? ` <span class="dp-badge partial">${escapeHtml(i.fill)}</span>` : ""}</li>`).join("")}</ul>
+            <ul>${items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.fill ? ` <span class="dp-badge partial">${escapeHtml(i.fill)}</span>` : ""}${i.unit_price != null ? ` · ${formatMoney(i.quantity * i.unit_price)}` : ""}</li>`).join("")}</ul>
+            <p>Charge: <strong>${formatMoney(money.net)}</strong>${money.discount > 0 ? ` (${formatMoney(money.gross)} less ${escapeHtml(discount.label)} ${formatMoney(money.discount)})` : ""}, added to the patient's ledger.</p>
+            ${unpriced.length ? `<p style="color:#b45309;">No selling price is set for ${unpriced.map((i) => escapeHtml(i.title)).join(", ")} in the Drug Catalog, so ${unpriced.length === 1 ? "it is" : "they are"} charged ₱0.00.</p>` : ""}
             <p>Stock is deducted now. If it's a mistake, you can undo it afterwards.</p>`,
         okLabel: "Dispense",
         run: async () => {
             const result = await dispensePrescription({
                 prescription_id: detail.prescription.id, warehouse_id: location, notes,
+                discount_type: discount.type, discount_id_no: discount.id_no, discount_rate: discount.type === "other" ? discount.rate : "", discount_reason: discount.reason,
                 items: items.map(({ prescription_item_id, quantity, lot_id, refill }) => ({ prescription_item_id, quantity, lot_id, refill }))
             });
             if (!result?.success && result?.errors) {
@@ -380,13 +431,17 @@ function confirmDispense() {
                 const lineErrors = {};
                 Object.entries(result.errors).forEach(([key, message]) => {
                     const m = key.match(/^items\.(\d+)$/);
+                    if (key.startsWith("discount")) {
+                        setTimeout(() => { document.querySelector('[data-dp-err="discount"]').textContent = message; }, 0);
+                        return;
+                    }
                     lineErrors[m ? m[1] : "general"] = message;
                 });
                 setTimeout(() => showLineErrors(lineErrors), 0);
                 return { success: true, quiet: true, failed: result.message };
             }
             if (result?.success) {
-                lastDispensed = { id: result.data.dispense_id, number: result.data.dispense_number };
+                lastDispensed = { id: result.data.dispense_id, number: result.data.dispense_number, net: result.data.net_amount };
             }
             return result;
         },
@@ -399,6 +454,124 @@ function confirmDispense() {
             loadQueue();
         }
     });
+}
+
+/** The discount chosen on screen: {type, rate, id_no, reason, label} or {error}. */
+function readDiscount() {
+    const type = $("dpDiscount")?.value || "";
+    if (!type) return { type: "", rate: 0, id_no: "", reason: "", label: "" };
+    const option = discounts.find((x) => x.value === type);
+    const idNo = $("dpDiscountId").value.trim();
+    const reason = $("dpDiscountReason").value.trim();
+    if (type === "other") {
+        const rate = Number($("dpDiscountRate").value);
+        if (!(rate > 0 && rate <= 100)) return { error: "Enter a discount between 0 and 100%." };
+        if (!reason) return { error: "Enter why the discount is given." };
+        return { type, rate, id_no: idNo, reason, label: `${rate}% discount` };
+    }
+    if (!idNo) return { error: `Enter the ${type === "senior" ? "Senior Citizen" : "PWD"} ID number.` };
+    return { type, rate: option?.rate || 0, id_no: idNo, reason, label: option?.label || "discount" };
+}
+
+/** Same rounding as the server: per medicine, to the centavo. */
+function totalsFor(items, rate) {
+    let gross = 0;
+    let discount = 0;
+    items.forEach((i) => {
+        const g = Math.round(i.quantity * (i.unit_price || 0) * 100) / 100;
+        gross += g;
+        discount += Math.round(g * rate) / 100;
+    });
+    return { gross, discount, net: Math.round((gross - discount) * 100) / 100 };
+}
+
+function updateTotals() {
+    const box = $("dpTotals");
+    if (!box) return;
+    const { items } = collectDispense();
+    const discount = readDiscount();
+    const rate = discount.error ? (discounts.find((x) => x.value === $("dpDiscount").value)?.rate || Number($("dpDiscountRate").value) || 0) : discount.rate;
+    const money = totalsFor(items, rate || 0);
+    box.innerHTML = `<span>Subtotal</span><span>${formatMoney(money.gross)}</span>
+        ${money.discount > 0 ? `<span>Discount</span><span>−${formatMoney(money.discount)}</span>` : ""}
+        <span class="dp-due">To charge</span><span class="dp-due">${formatMoney(money.net)}</span>`;
+}
+
+function confirmPayment(dispenseId) {
+    const h = detail.history.find((x) => x.id === dispenseId);
+    if (!h) return;
+    openDialog({
+        title: `Payment for ${h.dispense_number}`,
+        body: `<p>${escapeHtml(detail.patient.name)} owes <strong>${formatMoney(h.balance)}</strong> for this dispensing. The payment is recorded in the patient's ledger.</p>
+            <label for="dpPayAmount">Amount received</label><input id="dpPayAmount" type="number" min="0" step="0.01" value="${h.balance.toFixed(2)}">
+            <label for="dpPayMethod">Paid by</label><select id="dpPayMethod">${paymentMethods.map((m) => `<option>${escapeHtml(m)}</option>`).join("")}</select>
+            <label for="dpPayRef">Reference (optional)</label><input id="dpPayRef" maxlength="100" placeholder="e.g. GCash ref, OR number">`,
+        okLabel: "Record Payment",
+        check: () => {
+            const amount = Number($("dpPayAmount").value);
+            if (!(amount > 0)) return "Enter the amount received.";
+            if (amount > h.balance + 0.004) return `At most ${formatMoney(h.balance)} is owed.`;
+            return null;
+        },
+        run: () => recordDispensePayment(dispenseId, { amount: Number($("dpPayAmount").value), method: $("dpPayMethod").value, reference: $("dpPayRef").value.trim() }),
+        after: async () => {
+            await openDetail(detail.prescription.id, true);
+        }
+    });
+}
+
+async function printChargeSlip(dispenseId) {
+    const win = window.open("", "_blank", "width=700,height=900");
+    if (!win) {
+        showToast("Pop-up blocked. Allow pop-ups for this site to print.", "error");
+        return;
+    }
+    win.document.write(`<p style="font-family:Arial;padding:20px;">Preparing the charge slip...</p>`);
+
+    const result = await fetchChargeSlip(dispenseId);
+    if (!result?.success) {
+        win.close();
+        showToast(result?.message || "Couldn't load the charge slip.", "error");
+        return;
+    }
+
+    const s = result.data;
+    win.document.open();
+    win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Charge slip ${escapeHtml(s.dispense_number)}</title>
+<style>
+    @page { size: A5 portrait; margin: 10mm; } * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 12px; margin: 0 auto; padding: 16px; max-width: 148mm; }
+    h1 { margin: 0; font-size: 15px; text-align: center; text-transform: uppercase; } .c { text-align: center; } .muted { color: #4b5563; font-size: 11px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; } th, td { padding: 4px 3px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
+    th { font-size: 10px; text-transform: uppercase; color: #4b5563; } .n { text-align: right; white-space: nowrap; } .b { font-weight: 700; }
+    .tot td { border: none; padding: 2px 3px; } .void { color: #b91c1c; font-weight: 700; text-align: center; border: 2px solid #b91c1c; padding: 4px; margin: 8px 0; }
+    .note { margin-top: 14px; border-top: 1px dashed #9ca3af; padding-top: 6px; font-size: 10.5px; color: #374151; text-align: center; }
+</style></head><body>
+    <h1>${escapeHtml(s.facility?.name || "Pharmacy")}</h1>
+    ${s.facility?.address || s.facility?.phone ? `<div class="c muted">${escapeHtml([s.facility.address, s.facility.phone].filter(Boolean).join(" · "))}</div>` : ""}
+    <div class="c b" style="margin-top:6px;">PHARMACY CHARGE SLIP</div>
+    ${s.status !== "completed" ? `<div class="void">UNDONE — CHARGES CANCELLED</div>` : ""}
+    <table class="tot" style="margin-top:6px;">
+        <tr><td>Patient</td><td class="b">${escapeHtml(s.patient_name)}${s.patient_no ? ` (${escapeHtml(s.patient_no)})` : ""}</td></tr>
+        <tr><td>Date</td><td>${escapeHtml(formatDate(s.dispensed_date))}</td></tr>
+        <tr><td>Reference</td><td>${escapeHtml(s.dispense_number)} · ${escapeHtml(s.rx_number)}</td></tr>
+        ${s.prescriber_name ? `<tr><td>Doctor</td><td>${escapeHtml(s.prescriber_name)}</td></tr>` : ""}
+    </table>
+    <table>
+        <thead><tr><th>Medicine</th><th class="n">Qty</th><th class="n">Price</th><th class="n">Amount</th></tr></thead>
+        <tbody>${s.charges.map((c) => `<tr><td>${escapeHtml(c.description)}</td><td class="n">${formatQty(c.quantity)}</td><td class="n">${formatMoney(c.unit_price)}</td><td class="n">${formatMoney(c.gross_amount)}</td></tr>`).join("")}</tbody>
+    </table>
+    <table class="tot" style="margin-top:6px;">
+        <tr><td>Subtotal</td><td class="n">${formatMoney(s.gross_amount)}</td></tr>
+        ${s.discount_amount > 0 ? `<tr><td>Less ${escapeHtml(s.discount_label || "discount")} (${s.discount_rate}%)${s.discount_id_no ? `<br><span class="muted">ID ${escapeHtml(s.discount_id_no)}</span>` : ""}${s.discount_reason ? `<br><span class="muted">${escapeHtml(s.discount_reason)}</span>` : ""}</td><td class="n">−${formatMoney(s.discount_amount)}</td></tr>` : ""}
+        <tr><td class="b">Total</td><td class="n b">${formatMoney(s.net_amount)}</td></tr>
+        ${s.payments.map((p) => `<tr><td>Paid ${escapeHtml(formatDate(p.date))} · ${escapeHtml(p.method)}</td><td class="n">−${formatMoney(p.amount)}</td></tr>`).join("")}
+        <tr><td class="b">${s.balance < 0 ? "Refund due" : "Balance"}</td><td class="n b">${formatMoney(Math.abs(s.balance))}</td></tr>
+    </table>
+    ${s.discount_id_no ? `<div style="margin-top:22px;width:60%;border-top:1px solid #111827;padding-top:3px;font-size:11px;">Signature of ${s.discount_label && s.discount_label.startsWith("PWD") ? "PWD" : "Senior Citizen"} / representative</div>` : ""}
+    <div class="note">This is not an official receipt.</div>
+<script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script></body></html>`);
+    win.document.close();
 }
 
 function confirmVoid(dispenseId) {

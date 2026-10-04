@@ -25,6 +25,13 @@ use PDO;
  * refills within refill_until. Patients ask from the portal
  * (requestRefill); the pharmacy dispenses the refill or declines it.
  *
+ * Charging: each dispensing charges the patient the Drug Catalog selling
+ * price x quantity per medicine (pharmacy_charges, shown in the patient
+ * ledger), less a Senior Citizen / PWD 20% discount (ID number recorded)
+ * or another discount with a reason. Payment can be taken at the
+ * pharmacy (recordPayment -> patient_ledger_payments). Undoing a
+ * dispensing voids its charges.
+ *
  * Only Drug Catalog medicines can be dispensed from stock. A prescription
  * past its validity, or cancelled, can't be dispensed. Expired lots are
  * never used. Quantities are in each medicine's dispensing unit.
@@ -39,6 +46,15 @@ class DispensingService
     ];
 
     private const EPSILON = 0.0005;
+
+    /** Discounts on medicine. Senior Citizens (RA 9994) and PWDs (RA 10754): 20%, with their ID number. */
+    public const DISCOUNTS = [
+        'senior' => ['label' => 'Senior Citizen (RA 9994)', 'rate' => 20.0],
+        'pwd' => ['label' => 'PWD (RA 10754)', 'rate' => 20.0],
+        'other' => ['label' => 'Other discount', 'rate' => null]
+    ];
+
+    public const PAYMENT_METHODS = ['Cash', 'GCash / e-wallet', 'Card (terminal)', 'Bank transfer', 'Check', 'Other'];
 
     private const QUEUE_LIMIT = 300;
 
@@ -202,7 +218,15 @@ class DispensingService
             }
         }
 
-        $items = array_map(function ($item) use ($fills, $lots, $requests, $active, $firstFillOpen, $refillOpen) {
+        // What each medicine is charged at (catalog selling price, per dispensing unit).
+        $prices = [];
+        if ($drugIds) {
+            foreach ($db->query("SELECT id, selling_price FROM drugs WHERE id IN (" . implode(',', array_map('intval', $drugIds)) . ")")->fetchAll(PDO::FETCH_ASSOC) as $p) {
+                $prices[(int) $p['id']] = $p['selling_price'] !== null ? (float) $p['selling_price'] : null;
+            }
+        }
+
+        $items = array_map(function ($item) use ($fills, $lots, $requests, $active, $firstFillOpen, $refillOpen, $prices) {
             $prescribed = self::parseQuantity($item['quantity'], $item['drug_unit_name']);
             $state = self::lineState($prescribed, (int) ($item['refills'] ?? 0), $fills[$item['id']] ?? []);
             $catalog = $item['drug_id'] !== null;
@@ -224,7 +248,8 @@ class DispensingService
                 'can_give_now' => $catalog && $active && !$state['current_complete'] && $fillOpen,
                 'can_refill' => $catalog && $active && $state['current_complete'] && $state['refills_remaining'] > 0 && $refillOpen,
                 'refill_request' => $requests[$item['id']] ?? null,
-                'lots' => $catalog ? ($lots[$item['drug_id']] ?? []) : []
+                'lots' => $catalog ? ($lots[$item['drug_id']] ?? []) : [],
+                'unit_price' => $catalog && isset($prices[$item['drug_id']]) ? $prices[$item['drug_id']] : null
             ];
         }, $slip['items']);
 
@@ -261,7 +286,9 @@ class DispensingService
         return [
             'warehouses' => Database::connection()->query(
                 "SELECT id, name, code, location_type FROM warehouses WHERE deleted_at IS NULL AND is_active = 1 ORDER BY name"
-            )->fetchAll(PDO::FETCH_ASSOC)
+            )->fetchAll(PDO::FETCH_ASSOC),
+            'discounts' => array_map(fn($k, $v) => ['value' => $k] + $v, array_keys(self::DISCOUNTS), self::DISCOUNTS),
+            'payment_methods' => self::PAYMENT_METHODS
         ];
     }
 
@@ -275,6 +302,8 @@ class DispensingService
      * lot_id picks one lot; without it, earliest expiry first at the location.
      * refill: true starts the medicine's next refill (its current fill must
      * be complete and a refill left); otherwise the fill under way is given.
+     * discount_type (senior | pwd | other)?, discount_id_no (senior/pwd),
+     * discount_rate + discount_reason (other).
      */
     public function dispense(array $data, array $user): array
     {
@@ -316,7 +345,7 @@ class DispensingService
             }
 
             $stmt = $db->prepare(
-                "SELECT pp.id, pp.drug_id, pp.title, pp.quantity, pp.refills, d.name AS drug_name, du.name AS unit_name
+                "SELECT pp.id, pp.drug_id, pp.title, pp.quantity, pp.refills, d.name AS drug_name, d.selling_price, du.name AS unit_name
                  FROM patient_prescriptions pp
                  LEFT JOIN drugs d ON d.id = pp.drug_id
                  LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
@@ -325,6 +354,11 @@ class DispensingService
             $stmt->execute(['id' => $prescriptionId]);
             $lines = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), null, 'id');
             $fills = self::fillsByLine($prescriptionId);
+
+            $discount = $this->validateDiscount($data, (int) $rx['patient_id']);
+            if (isset($discount['error'])) {
+                return $fail($discount['error'], [$discount['field'] => $discount['error']]);
+            }
 
             $requested = is_array($data['items'] ?? null) ? array_values(array_filter($data['items'], 'is_array')) : [];
             $requested = array_values(array_filter($requested, fn($i) => (float) ($i['quantity'] ?? 0) > 0));
@@ -441,11 +475,14 @@ class DispensingService
             $patientName = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
 
             $db->prepare(
-                "INSERT INTO prescription_dispenses (dispense_number, prescription_id, patient_id, warehouse_id, dispensed_date, notes, status, created_at, created_by)
-                 VALUES (:tmp, :rx, :patient, :wh, :date, :notes, 'completed', :now, :user)"
+                "INSERT INTO prescription_dispenses (dispense_number, prescription_id, patient_id, warehouse_id, dispensed_date, notes,
+                        discount_type, discount_rate, discount_id_no, discount_reason, status, created_at, created_by)
+                 VALUES (:tmp, :rx, :patient, :wh, :date, :notes, :dtype, :drate, :did, :dreason, 'completed', :now, :user)"
             )->execute([
                 'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'rx' => $prescriptionId, 'patient' => $rx['patient_id'], 'wh' => $warehouseId,
-                'date' => $today, 'notes' => self::text($data['notes'] ?? null, 500), 'now' => $now, 'user' => $userId
+                'date' => $today, 'notes' => self::text($data['notes'] ?? null, 500),
+                'dtype' => $discount['type'], 'drate' => $discount['rate'], 'did' => $discount['id_no'], 'dreason' => $discount['reason'],
+                'now' => $now, 'user' => $userId
             ]);
             $dispenseId = (int) $db->lastInsertId();
             $number = 'DSP-' . date('Y') . '-' . str_pad((string) $dispenseId, 5, '0', STR_PAD_LEFT);
@@ -469,6 +506,37 @@ class DispensingService
                 ]);
             }
 
+            // Charge the patient: per medicine, quantity x catalog selling price, less the discount.
+            $byLine = [];
+            foreach ($plan as $p) {
+                $lineId = (int) $p['line']['id'];
+                $byLine[$lineId] ??= ['line' => $p['line'], 'quantity' => 0.0, 'fill' => $p['fill']];
+                $byLine[$lineId]['quantity'] = round($byLine[$lineId]['quantity'] + $p['quantity'], 3);
+            }
+            $insertCharge = $db->prepare(
+                "INSERT INTO pharmacy_charges (dispense_id, patient_id, prescription_id, prescription_item_id, encounter_id, drug_id, description,
+                        quantity, unit_price, gross_amount, discount_amount, net_amount, charge_date, status, created_at, created_by)
+                 VALUES (:d, :patient, :rx, :item, :enc, :drug, :descr, :qty, :price, :gross, :disc, :net, :date, 'charged', :now, :user)"
+            );
+            $totals = ['gross' => 0.0, 'discount' => 0.0, 'net' => 0.0];
+            foreach ($byLine as $lineId => $c) {
+                $price = round((float) ($c['line']['selling_price'] ?? 0), 2);
+                $gross = round($c['quantity'] * $price, 2);
+                $off = round($gross * $discount['rate'] / 100, 2);
+                $insertCharge->execute([
+                    'd' => $dispenseId, 'patient' => $rx['patient_id'], 'rx' => $prescriptionId, 'item' => $lineId, 'enc' => $rx['encounter_id'],
+                    'drug' => $c['line']['drug_id'],
+                    'descr' => mb_substr($c['line']['drug_name'] . ' x ' . self::qty($c['quantity']) . ($c['fill'] > 1 ? ' (refill ' . ($c['fill'] - 1) . ')' : ''), 0, 255),
+                    'qty' => $c['quantity'], 'price' => $price, 'gross' => $gross, 'disc' => $off, 'net' => round($gross - $off, 2),
+                    'date' => $today, 'now' => $now, 'user' => $userId
+                ]);
+                $totals['gross'] += $gross;
+                $totals['discount'] += $off;
+            }
+            $totals['net'] = round($totals['gross'] - $totals['discount'], 2);
+            $db->prepare("UPDATE prescription_dispenses SET gross_amount = :g, discount_amount = :dc, net_amount = :n WHERE id = :id")
+                ->execute(['g' => round($totals['gross'], 2), 'dc' => round($totals['discount'], 2), 'n' => $totals['net'], 'id' => $dispenseId]);
+
             // A refill given answers that medicine's pending refill request.
             $refilled = array_values(array_unique(array_map(fn($p) => (int) $p['line']['id'], array_filter($plan, fn($p) => $p['fill'] > 1))));
             if ($refilled) {
@@ -490,7 +558,7 @@ class DispensingService
         return [
             'success' => true,
             'message' => "Dispensed under {$number}." . ($status === 'partial' ? ' Some medicines are still to be given.' : ''),
-            'data' => ['dispense_id' => $dispenseId, 'dispense_number' => $number, 'dispense_status' => $status]
+            'data' => ['dispense_id' => $dispenseId, 'dispense_number' => $number, 'dispense_status' => $status, 'net_amount' => $totals['net']]
         ];
     }
 
@@ -551,6 +619,10 @@ class DispensingService
             $db->prepare("UPDATE prescription_dispenses SET status = 'voided', voided_at = :now, voided_by = :user, void_reason = :reason WHERE id = :id")
                 ->execute(['now' => $now, 'user' => $userId, 'reason' => mb_substr($reason, 0, 500), 'id' => $dispenseId]);
 
+            $db->prepare("UPDATE pharmacy_charges SET status = 'voided', voided_at = :now, voided_by = :user WHERE dispense_id = :id AND status = 'charged'")
+                ->execute(['now' => $now, 'user' => $userId, 'id' => $dispenseId]);
+            $paid = $this->paidFor($dispenseId);
+
             // A refill request this answered is waiting again.
             $db->prepare("UPDATE prescription_refill_requests SET status = 'pending', dispense_id = NULL, decided_at = NULL, decided_by = NULL WHERE dispense_id = :id")
                 ->execute(['id' => $dispenseId]);
@@ -565,7 +637,8 @@ class DispensingService
             throw $e;
         }
 
-        return ['success' => true, 'message' => "{$dispense['dispense_number']} undone; the stock is back."];
+        return ['success' => true, 'message' => "{$dispense['dispense_number']} undone; the stock is back and its charges are cancelled."
+            . ($paid > 0.004 ? ' ₱' . number_format($paid, 2) . ' was paid for it — refund the patient and record it in the patient ledger.' : '')];
     }
 
     /** The pharmacy won't give the rest. What was given stays given. */
@@ -828,6 +901,176 @@ class DispensingService
     }
 
     /* ---------------------------------------------------------------
+     * Charges & payment
+     * ------------------------------------------------------------- */
+
+    /**
+     * The discount asked for: type (null = none), rate, ID number, reason --
+     * or ['error', 'field'] when it can't be given.
+     */
+    private function validateDiscount(array $data, int $patientId): array
+    {
+        $type = trim((string) ($data['discount_type'] ?? ''));
+        if ($type === '' || $type === 'none') {
+            return ['type' => null, 'rate' => 0.0, 'id_no' => null, 'reason' => null];
+        }
+        if (!isset(self::DISCOUNTS[$type])) {
+            return ['error' => 'Choose a discount from the list.', 'field' => 'discount_type'];
+        }
+
+        $idNo = self::text($data['discount_id_no'] ?? null, 50);
+        $reason = self::text($data['discount_reason'] ?? null, 255);
+
+        if ($type === 'other') {
+            $raw = trim((string) ($data['discount_rate'] ?? ''));
+            if (!is_numeric($raw) || (float) $raw <= 0 || (float) $raw > 100) {
+                return ['error' => 'Enter a discount between 0 and 100%.', 'field' => 'discount_rate'];
+            }
+            if (!$reason) {
+                return ['error' => 'Enter why the discount is given.', 'field' => 'discount_reason'];
+            }
+            return ['type' => 'other', 'rate' => round((float) $raw, 2), 'id_no' => $idNo, 'reason' => $reason];
+        }
+
+        if (!$idNo) {
+            return ['error' => 'Enter the ' . ($type === 'senior' ? 'Senior Citizen' : 'PWD') . ' ID number.', 'field' => 'discount_id_no'];
+        }
+
+        if ($type === 'senior') {
+            $stmt = Database::connection()->prepare("SELECT birthdate FROM patients WHERE id = :id");
+            $stmt->execute(['id' => $patientId]);
+            $birthdate = $stmt->fetchColumn();
+            if ($birthdate && (new \DateTime($birthdate))->diff(new \DateTime())->y < 60) {
+                return ['error' => 'The Senior Citizen discount is for patients 60 or older. This patient\'s birthdate says otherwise.', 'field' => 'discount_type'];
+            }
+        }
+
+        return ['type' => $type, 'rate' => self::DISCOUNTS[$type]['rate'], 'id_no' => $idNo, 'reason' => $reason];
+    }
+
+    /** Paid at the pharmacy (or later in the ledger) for a dispensing. */
+    private function paidFor(int $dispenseId): float
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT COALESCE(SUM(payment_amount), 0) FROM patient_ledger_payments WHERE dispense_id = :id AND deleted_at IS NULL"
+        );
+        $stmt->execute(['id' => $dispenseId]);
+
+        return round((float) $stmt->fetchColumn(), 2);
+    }
+
+    /**
+     * Take payment for a dispensing. data: amount, method, reference?
+     * Recorded in the patient ledger against the prescription's visit (if
+     * any). No more than what's still owed.
+     */
+    public function recordPayment(int $dispenseId, array $data, array $user): array
+    {
+        $amount = round((float) ($data['amount'] ?? 0), 2);
+        $method = trim((string) ($data['method'] ?? ''));
+        $reference = self::text($data['reference'] ?? null, 100);
+
+        if ($amount <= 0) {
+            return ['success' => false, 'message' => 'Enter the amount paid.', 'errors' => ['amount' => 'Enter the amount paid.']];
+        }
+        if (!in_array($method, self::PAYMENT_METHODS, true)) {
+            return ['success' => false, 'message' => 'Choose how it was paid.', 'errors' => ['method' => 'Choose how it was paid.']];
+        }
+
+        $db = Database::connection();
+        $owns = $this->begin($db);
+
+        try {
+            $stmt = $db->prepare(
+                "SELECT d.*, p.encounter_id, p.rx_number FROM prescription_dispenses d JOIN prescriptions p ON p.id = d.prescription_id WHERE d.id = :id FOR UPDATE"
+            );
+            $stmt->execute(['id' => $dispenseId]);
+            $dispense = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$dispense) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'Dispensing not found.', 'not_found' => true];
+            }
+            if ($dispense['status'] !== 'completed') {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'This dispensing was undone, so there\'s nothing to pay.'];
+            }
+
+            $due = round((float) $dispense['net_amount'] - $this->paidFor($dispenseId), 2);
+            if ($due <= 0) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'This dispensing is already paid in full.'];
+            }
+            if ($amount > $due + 0.004) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'Only ₱' . number_format($due, 2) . ' is still owed.', 'errors' => ['amount' => 'At most ₱' . number_format($due, 2) . '.']];
+            }
+
+            $db->prepare(
+                "INSERT INTO patient_ledger_payments (patient_id, encounter_id, dispense_id, payer_type, payment_type, payment_date, payment_amount, adjustment_amount, notes, created_at, created_by)
+                 VALUES (:patient, :enc, :d, 'patient', :method, :date, :amount, 0, :notes, :now, :user)"
+            )->execute([
+                'patient' => $dispense['patient_id'], 'enc' => $dispense['encounter_id'], 'd' => $dispenseId, 'method' => $method,
+                'date' => date('Y-m-d'), 'amount' => $amount,
+                'notes' => mb_substr("Pharmacy {$dispense['dispense_number']} ({$dispense['rx_number']})" . ($reference ? " ref {$reference}" : ''), 0, 255),
+                'now' => date('Y-m-d H:i:s'), 'user' => (int) $user['id']
+            ]);
+
+            $this->commit($db, $owns);
+        } catch (\Throwable $e) {
+            $this->rollBack($db, $owns);
+            throw $e;
+        }
+
+        $left = round($due - $amount, 2);
+
+        return ['success' => true, 'message' => 'Payment of ₱' . number_format($amount, 2) . ' recorded.' . ($left > 0 ? ' ₱' . number_format($left, 2) . ' is still owed.' : ' Paid in full.'),
+            'data' => ['balance' => $left]];
+    }
+
+    /** What the pharmacy charge slip / receipt shows. */
+    public function chargeSlip(int $dispenseId): ?array
+    {
+        $labels = $this->labels($dispenseId);
+        if (!$labels) {
+            return null;
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare("SELECT * FROM prescription_dispenses WHERE id = :id");
+        $stmt->execute(['id' => $dispenseId]);
+        $d = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $stmt = $db->prepare("SELECT description, quantity, unit_price, gross_amount, discount_amount, net_amount, status FROM pharmacy_charges WHERE dispense_id = :id ORDER BY id");
+        $stmt->execute(['id' => $dispenseId]);
+        $charges = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmt = $db->prepare(
+            "SELECT payment_date, payment_type, payment_amount, notes FROM patient_ledger_payments WHERE dispense_id = :id AND deleted_at IS NULL ORDER BY id"
+        );
+        $stmt->execute(['id' => $dispenseId]);
+        $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $paid = round(array_sum(array_column($payments, 'payment_amount')), 2);
+
+        return [
+            'dispense_number' => $labels['dispense_number'], 'dispensed_date' => $labels['dispensed_date'], 'status' => $d['status'],
+            'rx_number' => $labels['rx_number'], 'patient_name' => $labels['patient_name'], 'patient_no' => $labels['patient_no'],
+            'prescriber_name' => $labels['prescriber_name'], 'facility' => $labels['facility'], 'warehouse_name' => $labels['warehouse_name'],
+            'discount_label' => $d['discount_type'] ? (self::DISCOUNTS[$d['discount_type']]['label'] ?? $d['discount_type']) : null,
+            'discount_rate' => (float) $d['discount_rate'], 'discount_id_no' => $d['discount_id_no'], 'discount_reason' => $d['discount_reason'],
+            'charges' => array_map(fn($c) => [
+                'description' => $c['description'], 'quantity' => (float) $c['quantity'], 'unit_price' => (float) $c['unit_price'],
+                'gross_amount' => (float) $c['gross_amount'], 'discount_amount' => (float) $c['discount_amount'], 'net_amount' => (float) $c['net_amount'],
+                'status' => $c['status']
+            ], $charges),
+            'gross_amount' => (float) $d['gross_amount'], 'discount_amount' => (float) $d['discount_amount'], 'net_amount' => (float) $d['net_amount'],
+            'payments' => array_map(fn($p) => ['date' => $p['payment_date'], 'method' => $p['payment_type'], 'amount' => (float) $p['payment_amount']], $payments),
+            'paid_amount' => $paid,
+            'balance' => $d['status'] === 'completed' ? round((float) $d['net_amount'] - $paid, 2) : round(-$paid, 2)
+        ];
+    }
+
+    /* ---------------------------------------------------------------
      * Refill requests
      * ------------------------------------------------------------- */
 
@@ -1045,7 +1288,12 @@ class DispensingService
             'id' => (int) $d['id'], 'dispense_number' => $d['dispense_number'], 'dispensed_date' => $d['dispensed_date'],
             'warehouse_name' => $d['warehouse_name'], 'dispensed_by_name' => $d['dispensed_by_name'], 'created_at' => $d['created_at'],
             'notes' => $d['notes'], 'status' => $d['status'], 'voided_at' => $d['voided_at'], 'voided_by_name' => $d['voided_by_name'],
-            'void_reason' => $d['void_reason'], 'items' => $items[(int) $d['id']] ?? []
+            'void_reason' => $d['void_reason'], 'items' => $items[(int) $d['id']] ?? [],
+            'discount_type' => $d['discount_type'], 'discount_label' => $d['discount_type'] ? (self::DISCOUNTS[$d['discount_type']]['label'] ?? $d['discount_type']) : null,
+            'discount_rate' => (float) $d['discount_rate'], 'discount_id_no' => $d['discount_id_no'], 'discount_reason' => $d['discount_reason'],
+            'gross_amount' => (float) $d['gross_amount'], 'discount_amount' => (float) $d['discount_amount'], 'net_amount' => (float) $d['net_amount'],
+            'paid_amount' => $paid = $this->paidFor((int) $d['id']),
+            'balance' => $d['status'] === 'completed' ? round((float) $d['net_amount'] - $paid, 2) : round(-$paid, 2)
         ], $dispenses);
     }
 

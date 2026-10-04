@@ -16,3 +16,5 @@ $router->post('/dispensing/void', [DispensingController::class, 'void'], $dispen
 $router->post('/dispensing/close', [DispensingController::class, 'close'], $dispensingRoles);
 $router->post('/dispensing/refill-request', [DispensingController::class, 'requestRefill'], $dispensingRoles);
 $router->post('/dispensing/refill-decline', [DispensingController::class, 'declineRefill'], $dispensingRoles);
+$router->post('/dispensing/payment', [DispensingController::class, 'payment'], $dispensingRoles);
+$router->get('/dispensing/charge-slip', [DispensingController::class, 'chargeSlip'], $dispensingRoles);
