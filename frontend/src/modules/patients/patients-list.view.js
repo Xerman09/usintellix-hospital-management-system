@@ -1284,6 +1284,76 @@ export function PatientsListView(user)
     color: #8b98ac;
 }
 
+/* Visit card: calendar tile (month / day), title, details, chevron. */
+.pd-visit-tile {
+    flex-shrink: 0;
+    width: 42px;
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid var(--accent-border);
+    background: var(--bg-surface, #fff);
+    text-align: center;
+    line-height: 1;
+}
+
+.pd-visit-tile .m {
+    display: block;
+    background: var(--accent);
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    padding: 3px 0;
+}
+
+.pd-visit-tile .d {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-primary, #29323f);
+    padding: 4px 0 2px;
+}
+
+.pd-visit-tile .y {
+    display: block;
+    font-size: 9px;
+    color: var(--text-muted, #8b98ac);
+    padding-bottom: 3px;
+}
+
+.pd-visit-item .pd-visit-info { flex: 1; }
+
+.pd-visit-meta {
+    font-size: 11.5px;
+    color: #8b98ac;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-visit-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    background: var(--accent-lighter);
+    color: var(--accent-text, var(--accent));
+    vertical-align: 1px;
+}
+
+.pd-visit-chevron {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    color: #8b98ac;
+}
+
+:root[data-theme="dark"] .pd-visit-tile { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-visit-meta { color: var(--text-muted); }
+
 .pd-allergy-remove {
     flex-shrink: 0;
     border: none;
@@ -5739,6 +5809,76 @@ textarea.pd-sdoh-readonly {
     font-size: 11.5px;
     color: #8b98ac;
 }
+
+/* Visit card: calendar tile (month / day), title, details, chevron. */
+.pd-visit-tile {
+    flex-shrink: 0;
+    width: 42px;
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid var(--accent-border);
+    background: var(--bg-surface, #fff);
+    text-align: center;
+    line-height: 1;
+}
+
+.pd-visit-tile .m {
+    display: block;
+    background: var(--accent);
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    padding: 3px 0;
+}
+
+.pd-visit-tile .d {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-primary, #29323f);
+    padding: 4px 0 2px;
+}
+
+.pd-visit-tile .y {
+    display: block;
+    font-size: 9px;
+    color: var(--text-muted, #8b98ac);
+    padding-bottom: 3px;
+}
+
+.pd-visit-item .pd-visit-info { flex: 1; }
+
+.pd-visit-meta {
+    font-size: 11.5px;
+    color: #8b98ac;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-visit-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    background: var(--accent-lighter);
+    color: var(--accent-text, var(--accent));
+    vertical-align: 1px;
+}
+
+.pd-visit-chevron {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    color: #8b98ac;
+}
+
+:root[data-theme="dark"] .pd-visit-tile { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-visit-meta { color: var(--text-muted); }
 
 .pd-allergy-remove {
     flex-shrink: 0;

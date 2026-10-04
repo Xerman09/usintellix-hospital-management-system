@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=70";
+import { PatientChartView } from "./patients-list.view.js?v=71";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -3313,17 +3313,28 @@ function renderDashboardEncounters(encounters)
 
     body.innerHTML = encounters.length
         ? `<div class="pd-visit-list">
-            ${recentEncounters.map((encounter) => `
+            ${recentEncounters.map((encounter) => {
+                const when = new Date(String(encounter.date_of_service || "").replace(" ", "T"));
+                const valid = !Number.isNaN(when.getTime());
+                const time = valid ? when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
+                // Most telling first: why they came, else the visit type, else the category.
+                const title = (encounter.reason_for_visit || "").trim() || encounter.visit_type_name || encounter.visit_category_name || "Visit";
+                const tag = encounter.visit_category_name && encounter.visit_category_name !== title ? encounter.visit_category_name : "";
+                const meta = [time, encounter.encounter_provider_name ? `Dr. ${encounter.encounter_provider_name}` : "", encounter.facility_name || ""].filter(Boolean).join(" · ");
+                return `
                 <div class="pd-visit-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-encounter-id="${encounter.id}" tabindex="0" role="button"` : ""}>
-                    <div class="pd-visit-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
+                    <div class="pd-visit-tile" aria-hidden="true">
+                        <span class="m">${valid ? when.toLocaleDateString("en-US", { month: "short" }) : "—"}</span>
+                        <span class="d">${valid ? when.getDate() : ""}</span>
+                        <span class="y">${valid ? when.getFullYear() : ""}</span>
                     </div>
                     <div class="pd-visit-info">
-                        <span class="pd-visit-category">${escapeHtml(encounter.visit_category_name || "Visit")}</span>
-                        <span class="pd-visit-date">${escapeHtml(formatDateTime(encounter.date_of_service))}</span>
+                        <span class="pd-visit-category" title="${escapeHtml(title)}">${escapeHtml(title)}${tag ? `<span class="pd-visit-tag">${escapeHtml(tag)}</span>` : ""}</span>
+                        <span class="pd-visit-meta">${escapeHtml(meta || formatDateTime(encounter.date_of_service))}</span>
                     </div>
-                </div>
-            `).join("")}
+                    ${canManage ? `<svg class="pd-visit-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>` : ""}
+                </div>`;
+            }).join("")}
            </div>`
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M12 10v6M9 13h6"></path></svg>
