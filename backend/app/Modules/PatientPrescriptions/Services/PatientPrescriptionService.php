@@ -43,8 +43,11 @@ class PatientPrescriptionService
         );
 
         $stmt->execute(['patient_id' => $patientId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $refills = \App\Modules\Dispensing\Services\DispensingService::refillInfo(array_column($rows, 'id'));
+
+        return array_map(fn($r) => $r + ($refills[(int) $r['id']] ?? []), $rows);
     }
 
     /**
@@ -116,11 +119,12 @@ class PatientPrescriptionService
         try {
             $date = !empty($data['begin_date']) ? substr((string) $data['begin_date'], 0, 10) : date('Y-m-d');
             $db->prepare(
-                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, prescribed_date, valid_until, status, created_at, created_by)
-                 VALUES (:tmp, :patient, :prescriber, :date, :valid_until, 'active', :now, :user)"
+                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, prescribed_date, valid_until, refill_until, status, created_at, created_by)
+                 VALUES (:tmp, :patient, :prescriber, :date, :valid_until, :refill_until, 'active', :now, :user)"
             )->execute([
                 'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'patient' => $patientId, 'prescriber' => $createdBy, 'date' => $date,
                 'valid_until' => date('Y-m-d', strtotime($date . ' +' . GeneralSettingService::prescriptionValidityDays() . ' days')),
+                'refill_until' => (int) ($data['refills'] ?? 0) > 0 ? date('Y-m-d', strtotime($date . ' +' . GeneralSettingService::refillValidityDays() . ' days')) : null,
                 'now' => $data['created_at'], 'user' => $createdBy
             ]);
             $slipId = (int) $db->lastInsertId();

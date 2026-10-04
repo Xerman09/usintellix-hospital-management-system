@@ -67,6 +67,24 @@ class DispensingController extends Controller
         $this->respond($this->service->close((int) $request->input('id'), (string) $request->input('reason'), Session::get('user')));
     }
 
+    /** Body: prescription_item_id, notes? -- staff asking for a refill on the patient's behalf. */
+    public function requestRefill(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+
+        $this->respond($this->service->requestRefill(
+            (int) $request->input('prescription_item_id'), 'staff', $request->input('notes'), (int) $user['id']
+        ), 201);
+    }
+
+    /** Body: id (refill request), reason */
+    public function declineRefill(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->declineRefill((int) $request->input('id'), (string) $request->input('reason'), Session::get('user')));
+    }
+
     /** Query: id (dispensing) */
     public function labels(): void
     {

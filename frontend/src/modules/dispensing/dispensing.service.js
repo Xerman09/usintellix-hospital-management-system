@@ -31,6 +31,10 @@ export async function closePrescription(prescriptionId, reason) {
     return api("/dispensing/close", { method: "POST", body: JSON.stringify({ id: prescriptionId, reason }) });
 }
 
+export async function declineRefillRequest(requestId, reason) {
+    return api("/dispensing/refill-decline", { method: "POST", body: JSON.stringify({ id: requestId, reason }) });
+}
+
 export async function fetchDispenseLabels(dispenseId) {
     return api(`/dispensing/labels${query({ id: dispenseId })}`);
 }

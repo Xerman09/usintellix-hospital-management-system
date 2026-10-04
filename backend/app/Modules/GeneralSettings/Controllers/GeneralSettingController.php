@@ -72,7 +72,7 @@ class GeneralSettingController extends Controller
         $request = new Request();
 
         $result = $this->generalSettingService->updatePrescriptionSettings(
-            $request->only(['prescription_validity_days']),
+            $request->only(['prescription_validity_days', 'refill_validity_days']),
             (int) $user['id']
         );
 

@@ -2,7 +2,7 @@ import { fetchHealthSummary } from "./health-records.service.js";
 import { HRS_SECTIONS } from "./health-summary.view.js?v=2";
 import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js";
 import { todayISO } from "../../core/timezone.js";
-import { requestPrescriptionRefill } from "../patient-prescriptions/patient-prescriptions.service.js";
+import { requestPrescriptionRefill, cancelRefillRequest } from "../patient-prescriptions/patient-prescriptions.service.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 // Sections with their own detailed-table renderer, as opposed to the
@@ -192,7 +192,7 @@ function renderPrescriptionsTable(records)
         <div class="table-wrap">
             <table class="data-table">
                 <thead>
-                    <tr><th>Drug</th><th>Dosage</th><th>Start Date</th><th>End Date</th><th></th></tr>
+                    <tr><th>Drug</th><th>Dosage</th><th>Start Date</th><th>End Date</th><th>Refills</th><th></th></tr>
                 </thead>
                 <tbody>
                     ${records.map((rx) => `
@@ -201,7 +201,8 @@ function renderPrescriptionsTable(records)
                             <td>${escapeHtml(rx.dosage || "-")}</td>
                             <td>${formatDate(rx.begin_date)}</td>
                             <td>${formatDate(rx.end_date)}</td>
-                            <td>${rx.end_date && String(rx.end_date).slice(0, 10) < todayISO() ? "" : `<button type="button" class="hrs-refill-btn" data-rx-id="${rx.id}">Request Refill</button>`}</td>
+                            <td>${refillCell(rx)}</td>
+                            <td data-refill-cell="${rx.id}">${refillAction(rx)}</td>
                         </tr>
                     `).join("")}
                 </tbody>
@@ -212,6 +213,59 @@ function renderPrescriptionsTable(records)
     el.querySelectorAll(".hrs-refill-btn").forEach((btn) => {
         btn.addEventListener("click", () => handleRefillRequest(btn));
     });
+    el.querySelectorAll("[data-refill-cancel]").forEach((btn) => {
+        btn.addEventListener("click", () => handleRefillCancel(btn));
+    });
+}
+
+/** "1 of 2 left", with when refills end. */
+function refillCell(rx)
+{
+    if (!rx.refills_allowed) return "-";
+    if (rx.is_closed) return `<span class="hrs-muted" style="font-size:12px;">Closed by the pharmacy</span>`;
+    const left = rx.refills_remaining ?? rx.refills_allowed;
+    return `${left} of ${rx.refills_allowed} left${rx.refill_until ? `<br><span class="hrs-muted" style="font-size:11.5px;">until ${formatDate(rx.refill_until)}</span>` : ""}`;
+}
+
+/**
+ * What the patient can do: cancel a waiting request, see a decline, or ask
+ * -- the server sends it to the pharmacy when refills are left, otherwise
+ * to the doctor for a new prescription.
+ */
+function refillAction(rx)
+{
+    if (rx.prescription_status === "cancelled") return "";
+    const request = rx.refill_request;
+
+    if (request?.status === "pending") {
+        return `<span style="font-size:12px;">Refill requested ${formatDate(String(request.created_at).slice(0, 10))}</span><br>
+            <button type="button" class="hrs-refill-btn" style="margin-top:4px;" data-refill-cancel="${request.id}">Cancel request</button>`;
+    }
+
+    const ended = rx.end_date && String(rx.end_date).slice(0, 10) < todayISO();
+    const declined = request?.status === "declined"
+        ? `<span style="font-size:12px;color:#b91c1c;">Last refill request declined${request.decline_reason ? `: ${escapeHtml(request.decline_reason)}` : ""}</span><br>`
+        : request?.status === "dispensed" ? `<span style="font-size:12px;">Last refill given ${formatDate(String(request.decided_at || "").slice(0, 10))}</span><br>` : "";
+
+    if (ended && !rx.can_request_refill) return declined;
+    return `${declined}<button type="button" class="hrs-refill-btn" data-rx-id="${rx.id}">Request Refill</button>`;
+}
+
+async function handleRefillCancel(btn)
+{
+    btn.disabled = true;
+    const result = await cancelRefillRequest(btn.getAttribute("data-refill-cancel"));
+
+    if (!result?.success) {
+        showToast(result?.message || "Couldn't cancel the request.", "error");
+        btn.disabled = false;
+        return;
+    }
+
+    showToast("Refill request cancelled.", "success");
+    const cell = btn.closest("[data-refill-cell]");
+    cell.innerHTML = `<button type="button" class="hrs-refill-btn" data-rx-id="${cell.getAttribute("data-refill-cell")}">Request Refill</button>`;
+    cell.querySelector(".hrs-refill-btn").addEventListener("click", (event) => handleRefillRequest(event.currentTarget));
 }
 
 async function handleRefillRequest(btn)
@@ -232,8 +286,8 @@ async function handleRefillRequest(btn)
             return;
         }
 
-        showToast("Refill request sent to your provider.", "success");
-        btn.textContent = "Requested";
+        showToast(result.message || "Refill request sent.", "success");
+        btn.textContent = result.data?.sent_to === "pharmacy" ? "Sent to the pharmacy" : "Sent to your doctor";
     } catch (error) {
         console.error("Failed to request refill", error);
         showToast("Unable to reach the server. Please try again.", "error");

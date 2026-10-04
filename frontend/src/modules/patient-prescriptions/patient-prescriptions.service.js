@@ -7,6 +7,17 @@ export async function fetchPatientPrescriptions(patientId)
     return await api(`/patient-prescriptions${query}`);
 }
 
+export async function cancelRefillRequest(requestId)
+{
+    return await api(
+        "/patient-prescriptions/refill-request/cancel",
+        {
+            method: "POST",
+            body: JSON.stringify({ request_id: requestId })
+        }
+    );
+}
+
 export async function requestPrescriptionRefill(prescriptionId)
 {
     return await api(

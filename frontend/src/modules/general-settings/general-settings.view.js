@@ -261,7 +261,7 @@ export function GeneralSettingsView()
         <div class="gs-header">
             <div>
                 <h1>Prescriptions</h1>
-                <p class="form-subtitle">How long a new prescription can be filled by the pharmacy, counted from the day it's written. Prescriptions already written keep the validity they were given.</p>
+                <p class="form-subtitle">How long a new prescription can be filled by the pharmacy, and how long its refills can be given, counted from the day it's written. Prescriptions already written keep the dates they were given.</p>
             </div>
         </div>
 
@@ -272,6 +272,11 @@ export function GeneralSettingsView()
                 <label for="gs_rx_validity">Valid for (days)</label>
                 <input id="gs_rx_validity" type="number" min="1" max="365" step="1" class="form-input" inputmode="numeric">
                 <span class="form-error" id="err-prescription_validity_days"></span>
+            </div>
+            <div class="form-group">
+                <label for="gs_rx_refill_validity">Refills can be given for (days)</label>
+                <input id="gs_rx_refill_validity" type="number" min="1" max="730" step="1" class="form-input" inputmode="numeric">
+                <span class="form-error" id="err-refill_validity_days"></span>
             </div>
             <div class="form-group">
                 <button type="submit" class="login-btn" id="gsRxSave" style="width:auto;padding:0 18px;">Save</button>

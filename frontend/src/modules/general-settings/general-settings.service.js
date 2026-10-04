@@ -21,13 +21,13 @@ export async function updateTimezone(timezone)
     );
 }
 
-export async function updatePrescriptionSettings(prescriptionValidityDays)
+export async function updatePrescriptionSettings(prescriptionValidityDays, refillValidityDays)
 {
     return await api(
         "/general-settings/prescriptions",
         {
             method: "PUT",
-            body: JSON.stringify({ prescription_validity_days: prescriptionValidityDays })
+            body: JSON.stringify({ prescription_validity_days: prescriptionValidityDays, refill_validity_days: refillValidityDays })
         }
     );
 }

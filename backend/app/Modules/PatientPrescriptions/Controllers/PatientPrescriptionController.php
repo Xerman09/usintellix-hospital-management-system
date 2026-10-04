@@ -5,6 +5,7 @@ namespace App\Modules\PatientPrescriptions\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Dispensing\Services\DispensingService;
 use App\Modules\PatientPrescriptions\Services\PatientPrescriptionService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Services\PatientAccessService;
@@ -98,7 +99,24 @@ class PatientPrescriptionController extends Controller
                 $this->error('This prescription was cancelled, so it can\'t be refilled.', 422);
                 return;
             }
+
+            // Refills the doctor already allowed go straight to the pharmacy.
+            $info = DispensingService::refillInfo([$prescriptionId])[$prescriptionId] ?? null;
+            if ($info && !$info['is_closed'] && $info['refills_remaining'] > 0 && !empty($prescription['drug_id'])) {
+                $request = new Request();
+                $result = (new DispensingService())->requestRefill($prescriptionId, 'portal', $request->input('notes'), (int) $user['id']);
+
+                if (!$result['success']) {
+                    $this->error($result['message'], 422);
+                    return;
+                }
+
+                $this->success(['sent_to' => 'pharmacy', 'request_id' => $result['data']['id']], 'Refill requested. The pharmacy will prepare it.');
+                return;
+            }
         }
+
+        // No refills left (or not dispensable here): ask the doctor for a new prescription.
 
         if (empty($patient['provider_id'])) {
             $this->error('You do not have an assigned provider to send this request to.', 422);
@@ -141,9 +159,31 @@ class PatientPrescriptionController extends Controller
         }
 
         $this->success(
-            ['conversation_id' => $conversationResult['data']['conversation_id']],
+            ['sent_to' => 'provider', 'conversation_id' => $conversationResult['data']['conversation_id']],
             'Refill request sent to your provider.'
         );
+    }
+
+    /** A patient withdraws their own pending refill request. Body: request_id */
+    public function cancelRefillRequest(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+        $patient = $this->patientAccessService->resolveEffectivePatient($user);
+
+        if (!$patient) {
+            $this->error('Patient record not found.', 404);
+            return;
+        }
+
+        $result = (new DispensingService())->cancelRefillRequest((int) $request->input('request_id'), (int) $patient['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], !empty($result['not_found']) ? 404 : 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
     }
 
     /**

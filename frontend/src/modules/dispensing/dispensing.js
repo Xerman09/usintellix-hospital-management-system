@@ -1,7 +1,7 @@
 import {
     fetchDispensingQueue, fetchDispensingDetail, fetchDispensingOptions, dispensePrescription,
-    voidDispense, closePrescription, fetchDispenseLabels
-} from "./dispensing.service.js?v=1";
+    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest
+} from "./dispensing.service.js?v=2";
 import { formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 
@@ -59,6 +59,7 @@ async function loadQueue() {
     queue = result.data;
     const setCount = (el, n) => { el.hidden = !n; el.textContent = n; };
     setCount($("dpCountToFill"), queue.counts.to_fill);
+    setCount($("dpCountRefills"), queue.counts.refills);
     setCount($("dpCountExpired"), queue.counts.expired);
     renderQueue();
 }
@@ -71,7 +72,7 @@ function statusBadge(row) {
 function renderQueue() {
     const rows = queue.rows;
     const empty = {
-        to_fill: "No prescriptions are waiting to be dispensed.", partial: "No prescriptions are partly dispensed.",
+        to_fill: "No prescriptions are waiting to be dispensed.", refills: "No refill requests are waiting.", partial: "No prescriptions are partly dispensed.",
         expired: "No unfilled prescriptions have expired.", dispensed: "Nothing dispensed yet.", closed: "No closed prescriptions.", all: "No prescriptions."
     }[view];
 
@@ -89,7 +90,7 @@ function renderQueue() {
                             ${r.medicines.length > 4 ? `<span class="dp-sub">+ ${r.medicines.length - 4} more</span>` : ""}
                             ${r.catalog_count < r.line_count ? `<span class="dp-sub">${r.line_count - r.catalog_count} not from the catalog</span>` : ""}</td>
                         <td>${escapeHtml(r.prescriber_name || "—")}</td>
-                        <td>${statusBadge(r)}${r.has_dangerous_drug ? ` <span class="dp-badge dd">Dangerous drug</span>` : ""}</td>
+                        <td>${statusBadge(r)}${r.refill_requests ? ` <span class="dp-badge partial">Refill requested</span>` : ""}${r.has_dangerous_drug ? ` <span class="dp-badge dd">Dangerous drug</span>` : ""}</td>
                     </tr>`).join("")}</tbody>
             </table></div>
             ${queue.truncated ? `<p class="dp-note">Showing the first 300. Search to narrow it down.</p>` : ""}
@@ -149,7 +150,7 @@ function renderDetail() {
     const rx = d.prescription;
     const location = chosenLocation();
     const unit = (item) => escapeHtml(item.drug_unit_name || "units");
-    const open = d.can_dispense;
+    const open = d.can_dispense; // something can be given now: a fill under way or a refill
 
     const banners = [];
     if (lastDispensed) {
@@ -175,24 +176,33 @@ function renderDetail() {
 
         const lots = lotsAt(item, location);
         const available = lots.reduce((sum, l) => sum + l.quantity, 0);
-        const remaining = item.remaining_quantity;
-        const done = item.is_complete;
-        const suggested = !open || done ? "" : remaining != null ? Math.min(remaining, available) : "";
+        // A medicine is either giving its current fill, or (fill done) ready for its next refill.
+        const refill = !item.can_give_now && item.can_refill;
+        const giveable = item.can_give_now || refill;
+        const remaining = refill ? item.prescribed_quantity : item.remaining_quantity;
+        const done = item.is_complete && !refill;
+        // A refill is only filled in when the patient asked for it; otherwise the pharmacist enters it.
+        const fits = remaining != null ? Math.min(remaining, available) : 0;
+        const suggested = !giveable || (refill && !item.refill_request) || fits <= EPSILON ? "" : fits;
         const sig = [item.dosage, item.frequency, item.directions].filter(Boolean).join(" · ");
+        const req = item.refill_request;
 
         return `
-            <tr data-line="${item.id}" class="${done ? "done" : ""}">
+            <tr data-line="${item.id}" data-refill="${refill ? "1" : ""}" class="${done ? "done" : ""}">
                 <td><strong>${escapeHtml(item.title)}</strong>
+                    ${item.refills_allowed ? `<span class="dp-sub">${escapeHtml(refill ? `Next: refill ${item.refills_used + 1} of ${item.refills_allowed}` : item.fill_label)} · ${item.refills_remaining} refill${item.refills_remaining === 1 ? "" : "s"} left</span>` : ""}
+                    ${req ? `<span class="dp-sub" style="color:var(--text-primary);"><span class="dp-badge partial">Refill requested</span> ${escapeHtml(formatDate(String(req.created_at).slice(0, 10)))}${req.source === "portal" ? " via the patient portal" : req.requested_by_name ? ` by ${escapeHtml(req.requested_by_name)}` : ""}${req.notes ? ` — “${escapeHtml(req.notes)}”` : ""}
+                        <button type="button" class="dp-btn small" data-dp-decline="${req.id}" style="margin-left:4px;">Decline…</button></span>` : ""}
                     ${item.drug_generic_name || item.drug_strength ? `<span class="dp-sub">${escapeHtml([item.drug_generic_name, item.drug_strength, item.drug_dosage_form].filter(Boolean).join(" · "))}</span>` : ""}
                     ${sig ? `<span class="dp-sub">Sig: ${escapeHtml(sig)}</span>` : ""}
                     ${item.is_dangerous_drug ? `<span class="dp-badge dd" style="margin-top:3px;">Dangerous drug</span>` : ""}
                     <span class="dp-err" data-dp-err="${item.id}"></span></td>
                 <td class="num">${item.prescribed_quantity != null ? `${formatQty(item.prescribed_quantity)} <span class="dp-sub" style="display:inline;">${unit(item)}</span>` : `${escapeHtml(item.quantity || "—")}<span class="dp-sub">you decide</span>`}</td>
-                <td class="num">${item.dispensed_quantity ? formatQty(item.dispensed_quantity) : "—"}</td>
-                <td class="num">${done ? `<span class="dp-badge dispensed">Done</span>` : remaining != null ? `<strong>${formatQty(remaining)}</strong>` : "—"}</td>
+                <td class="num">${refill ? "—" : item.dispensed_quantity ? formatQty(item.dispensed_quantity) : "—"}${item.dispensed_total > item.dispensed_quantity + EPSILON ? `<span class="dp-sub">${formatQty(item.dispensed_total)} in all</span>` : ""}</td>
+                <td class="num">${done ? `<span class="dp-badge dispensed">Done</span>` : remaining != null ? `<strong>${formatQty(remaining)}</strong>${refill ? `<span class="dp-sub">per refill</span>` : ""}` : "—"}</td>
                 <td class="num">${available > EPSILON ? formatQty(available) : `<span class="dp-badge expired">None</span>`}</td>
-                <td>${open && !done ? `<input type="number" class="dp-qty" min="0" step="any" inputmode="decimal" data-dp-qty="${item.id}" value="${suggested === "" ? "" : formatPlain(suggested)}" aria-label="Quantity to give of ${escapeHtml(item.title)}">` : ""}</td>
-                <td>${open && !done ? `<select class="dp-lot" data-dp-lot="${item.id}" aria-label="Lot for ${escapeHtml(item.title)}">
+                <td>${giveable ? `<input type="number" class="dp-qty" min="0" step="any" inputmode="decimal" data-dp-qty="${item.id}" value="${suggested === "" ? "" : formatPlain(suggested)}" aria-label="Quantity to give of ${escapeHtml(item.title)}${refill ? " as a refill" : ""}" placeholder="${refill ? "Refill" : ""}">` : ""}</td>
+                <td>${giveable ? `<select class="dp-lot" data-dp-lot="${item.id}" aria-label="Lot for ${escapeHtml(item.title)}">
                         <option value="">Earliest expiry first</option>
                         ${lots.map((l) => `<option value="${l.id}">${escapeHtml(l.lot_number)}${l.expires_date ? ` · exp ${escapeHtml(formatDate(l.expires_date))}` : ""} · ${formatQty(l.quantity)} left</option>`).join("")}
                     </select>` : ""}</td>
@@ -243,7 +253,7 @@ function renderDetail() {
                                 <button type="button" class="dp-btn small" data-dp-void="${h.id}">Undo…</button>` : ""}
                         </div>
                     </div>
-                    <ul>${h.items.map((i) => `<li>${escapeHtml(i.title)} — ${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")} <span class="dp-sub" style="display:inline;">lot ${escapeHtml(i.lot_number)}${i.expires_date ? `, exp ${escapeHtml(formatDate(i.expires_date))}` : ""}</span></li>`).join("")}</ul>
+                    <ul>${h.items.map((i) => `<li>${escapeHtml(i.title)} — ${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}${i.fill_label ? ` <span class="dp-badge partial">${escapeHtml(i.fill_label)}</span>` : ""} <span class="dp-sub" style="display:inline;">lot ${escapeHtml(i.lot_number)}${i.expires_date ? `, exp ${escapeHtml(formatDate(i.expires_date))}` : ""}</span></li>`).join("")}</ul>
                     ${h.notes ? `<span class="dp-sub">${escapeHtml(h.notes)}</span>` : ""}
                     ${h.status === "voided" ? `<span class="dp-sub">Undone${h.voided_by_name ? ` by ${escapeHtml(h.voided_by_name)}` : ""}: ${escapeHtml(h.void_reason || "")}</span>` : ""}
                 </div>`).join("")}</div>`
@@ -275,6 +285,8 @@ function onDetailClick(event) {
     if (labels) return printLabels(Number(labels.dataset.dpLabels));
     const undo = event.target.closest("[data-dp-void]");
     if (undo) return confirmVoid(Number(undo.dataset.dpVoid));
+    const decline = event.target.closest("[data-dp-decline]");
+    if (decline) return confirmDecline(Number(decline.dataset.dpDecline));
     if (event.target.closest("#dpDispense")) return confirmDispense();
     if (event.target.closest("#dpClose")) return confirmClose();
 }
@@ -288,9 +300,11 @@ function collectDispense() {
     const errors = {};
     const items = [];
 
-    detail.prescription.items.filter((i) => i.can_dispense && !i.is_complete).forEach((item) => {
+    detail.prescription.items.filter((i) => i.can_give_now || i.can_refill).forEach((item) => {
         const input = document.querySelector(`[data-dp-qty="${item.id}"]`);
         if (!input || input.value.trim() === "") return;
+        const refill = !item.can_give_now && item.can_refill;
+        const remaining = refill ? item.prescribed_quantity : item.remaining_quantity;
         const qty = Number(input.value);
         const lotId = Number(document.querySelector(`[data-dp-lot="${item.id}"]`)?.value || 0) || null;
 
@@ -299,8 +313,8 @@ function collectDispense() {
             return;
         }
         if (qty === 0) return;
-        if (item.remaining_quantity != null && qty > item.remaining_quantity + EPSILON) {
-            errors[item.id] = `Only ${formatQty(item.remaining_quantity)} left to give.`;
+        if (remaining != null && qty > remaining + EPSILON) {
+            errors[item.id] = refill ? `A refill is up to ${formatQty(remaining)}.` : `Only ${formatQty(remaining)} left to give.`;
             return;
         }
         const lots = lotsAt(item, location).filter((l) => !lotId || l.id === lotId);
@@ -309,7 +323,8 @@ function collectDispense() {
             errors[item.id] = `Only ${formatQty(available)} usable ${lotId ? "in that lot" : "here"}.`;
             return;
         }
-        items.push({ prescription_item_id: item.id, quantity: qty, lot_id: lotId, title: item.title, unit: item.drug_unit_name || "units" });
+        items.push({ prescription_item_id: item.id, quantity: qty, lot_id: lotId, refill, title: item.title, unit: item.drug_unit_name || "units",
+            fill: refill ? `refill ${item.refills_used + 1} of ${item.refills_allowed}` : item.current_fill > 1 ? item.fill_label.toLowerCase() : "" });
     });
 
     return { location, items, errors };
@@ -352,13 +367,13 @@ function confirmDispense() {
     openDialog({
         title: `Dispense ${detail.prescription.rx_number}`,
         body: `<p>Give these to <strong>${escapeHtml(detail.patient.name)}</strong> from <strong>${escapeHtml(where)}</strong>:</p>
-            <ul>${items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit)}</strong></li>`).join("")}</ul>
+            <ul>${items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.fill ? ` <span class="dp-badge partial">${escapeHtml(i.fill)}</span>` : ""}</li>`).join("")}</ul>
             <p>Stock is deducted now. If it's a mistake, you can undo it afterwards.</p>`,
         okLabel: "Dispense",
         run: async () => {
             const result = await dispensePrescription({
                 prescription_id: detail.prescription.id, warehouse_id: location, notes,
-                items: items.map(({ prescription_item_id, quantity, lot_id }) => ({ prescription_item_id, quantity, lot_id }))
+                items: items.map(({ prescription_item_id, quantity, lot_id, refill }) => ({ prescription_item_id, quantity, lot_id, refill }))
             });
             if (!result?.success && result?.errors) {
                 // Line problems go on the lines; the dialog closes so they can be seen.
@@ -403,10 +418,26 @@ function confirmVoid(dispenseId) {
     });
 }
 
+function confirmDecline(requestId) {
+    const item = detail.prescription.items.find((i) => i.refill_request?.id === requestId);
+    openDialog({
+        title: "Decline refill request",
+        body: `<p>${escapeHtml(detail.patient.name)} asked for a refill of <strong>${escapeHtml(item?.title || "a medicine")}</strong>. The patient will see your reason in the portal.</p>
+            <label for="dpReason">Reason</label><textarea id="dpReason" maxlength="500" placeholder="e.g. Please see your doctor before the next refill"></textarea>`,
+        okLabel: "Decline Refill", okClass: "danger",
+        check: () => $("dpReason").value.trim() ? null : "Enter a reason.",
+        run: () => declineRefillRequest(requestId, $("dpReason").value.trim()),
+        after: async () => {
+            await openDetail(detail.prescription.id, true);
+            loadQueue();
+        }
+    });
+}
+
 function confirmClose() {
     openDialog({
         title: `Close ${detail.prescription.rx_number}`,
-        body: `<p>Stop dispensing this prescription. What was already given stays recorded; nothing more can be given from it.</p>
+        body: `<p>Stop dispensing this prescription. What was already given stays recorded; nothing more — including refills — can be given from it, and any waiting refill request is declined.</p>
             <label for="dpReason">Reason</label><textarea id="dpReason" maxlength="500" placeholder="e.g. Patient bought the rest elsewhere"></textarea>`,
         okLabel: "Close Prescription", okClass: "danger",
         check: () => $("dpReason").value.trim() ? null : "Enter a reason.",
@@ -506,7 +537,7 @@ ${l.items.map((i) => `
         <div class="pt">${escapeHtml(l.patient_name)}</div>
         <div class="med">${name(i)} — <span class="qty">${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}</span></div>
         <div class="sig">${escapeHtml([i.dosage, i.frequency, i.route && i.route !== "Oral" ? i.route : null].filter(Boolean).join(", ") || "As directed")}${i.directions ? ` — ${escapeHtml(i.directions)}` : ""}</div>
-        <div class="meta"><span>Lot ${escapeHtml(i.lots || "")}</span></div>
+        <div class="meta"><span>Lot ${escapeHtml(i.lots || "")}</span>${i.fill_label ? `<span><strong>${escapeHtml(i.fill_label)}</strong></span>` : ""}</div>
         <div class="meta"><span>${escapeHtml(l.rx_number)} · ${escapeHtml(l.dispense_number)}</span><span>${escapeHtml(formatDate(l.dispensed_date))}</span></div>
         <div class="meta"><span>Dr. ${escapeHtml(l.prescriber_name || "")}</span></div>
         <div class="warn">Keep out of reach of children. Store as directed.</div>

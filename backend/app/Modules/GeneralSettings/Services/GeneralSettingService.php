@@ -22,6 +22,9 @@ class GeneralSettingService
     /** How long a new prescription can be filled, until an admin changes it. */
     public const DEFAULT_PRESCRIPTION_VALIDITY_DAYS = 30;
 
+    /** How long refills can be dispensed after a prescription is written. */
+    public const DEFAULT_REFILL_VALIDITY_DAYS = 180;
+
     /**
      * Get the single general settings row (creating a default one if it
      * somehow doesn't exist yet), plus which roles Two-Factor
@@ -44,6 +47,7 @@ class GeneralSettingService
         $settings['timezone'] = $settings['timezone'] ?? self::DEFAULT_TIMEZONE;
         $settings['timezone_offset'] = (new DateTime('now', new DateTimeZone($settings['timezone'])))->format('P');
         $settings['prescription_validity_days'] = (int) ($settings['prescription_validity_days'] ?? self::DEFAULT_PRESCRIPTION_VALIDITY_DAYS);
+        $settings['refill_validity_days'] = (int) ($settings['refill_validity_days'] ?? self::DEFAULT_REFILL_VALIDITY_DAYS);
 
         return $settings;
     }
@@ -124,26 +128,63 @@ class GeneralSettingService
         return $days !== false && (int) $days > 0 ? (int) $days : self::DEFAULT_PRESCRIPTION_VALIDITY_DAYS;
     }
 
+    /** Days refills can be dispensed after a prescription is written. */
+    public static function refillValidityDays(): int
+    {
+        $days = Database::connection()->query("SELECT refill_validity_days FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+
+        return $days !== false && (int) $days > 0 ? (int) $days : self::DEFAULT_REFILL_VALIDITY_DAYS;
+    }
+
     /**
-     * Change how long new prescriptions stay valid (admin-only).
-     * Prescriptions already written keep the date they were given.
+     * Change how long new prescriptions stay valid, and how long their
+     * refills can be dispensed (admin-only). Either can be sent alone.
+     * Prescriptions already written keep the dates they were given.
      */
     public function updatePrescriptionSettings(array $data, int $userId): array
     {
-        $raw = trim((string) ($data['prescription_validity_days'] ?? ''));
+        $errors = [];
+        $values = [];
 
-        if (!ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 365) {
+        if (array_key_exists('prescription_validity_days', $data)) {
+            $raw = trim((string) $data['prescription_validity_days']);
+            if (!ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 365) {
+                $errors['prescription_validity_days'] = 'Enter a number of days from 1 to 365.';
+            } else {
+                $values['prescription_validity_days'] = (int) $raw;
+            }
+        }
+
+        if (array_key_exists('refill_validity_days', $data)) {
+            $raw = trim((string) $data['refill_validity_days']);
+            if (!ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 730) {
+                $errors['refill_validity_days'] = 'Enter a number of days from 1 to 730.';
+            } else {
+                $values['refill_validity_days'] = (int) $raw;
+            }
+        }
+
+        $first = $values['prescription_validity_days'] ?? self::prescriptionValidityDays();
+        $refill = $values['refill_validity_days'] ?? self::refillValidityDays();
+        if (!$errors && $refill < $first) {
+            $errors['refill_validity_days'] = 'Refills can\'t end before the prescription itself does (' . $first . ' days).';
+        }
+
+        if (!$values && !$errors) {
+            $errors['prescription_validity_days'] = 'Enter a number of days.';
+        }
+
+        if ($errors) {
             return [
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors' => ['prescription_validity_days' => 'Enter a number of days from 1 to 365.']
+                'errors' => $errors
             ];
         }
 
         $settings = $this->get();
 
-        (new GeneralSetting())->update([
-            'prescription_validity_days' => (int) $raw,
+        (new GeneralSetting())->update($values + [
             'updated_at' => date('Y-m-d H:i:s'),
             'updated_by' => $userId
         ], $settings['id']);

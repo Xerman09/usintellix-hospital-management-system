@@ -25,6 +25,11 @@ $router->get('/patient-prescriptions/drug-options', [PatientPrescriptionControll
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->post('/patient-prescriptions/refill-request/cancel', [PatientPrescriptionController::class, 'cancelRefillRequest'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
 $router->post('/patient-prescriptions', [PatientPrescriptionController::class, 'store'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

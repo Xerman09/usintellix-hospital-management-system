@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=69";
+import { PatientChartView } from "./patients-list.view.js?v=70";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -96,7 +96,7 @@ import {
     createPrescriptionSlip,
     updatePrescriptionSlip,
     cancelPrescriptionSlip
-} from "../patient-prescriptions/patient-prescriptions.service.js?v=4";
+} from "../patient-prescriptions/patient-prescriptions.service.js?v=5";
 import {
     fetchPatientImmunizations,
     addPatientImmunization,
@@ -10953,7 +10953,7 @@ function prescriptionPrintHtml(data)
     </div>
     <div class="foot">
         <span>${escapeHtml(rx.rx_number)}${patient.patient_no ? ` · Patient No. ${escapeHtml(patient.patient_no)}` : ""}</span>
-        <span>${rx.valid_until ? `Valid until ${escapeHtml(formatDate(rx.valid_until))}` : ""}</span>
+        <span>${rx.valid_until ? `Valid until ${escapeHtml(formatDate(rx.valid_until))}` : ""}${rx.refill_until ? ` · Refills until ${escapeHtml(formatDate(rx.refill_until))}` : ""}</span>
     </div>
 <script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script>
 </body></html>`;

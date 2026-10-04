@@ -158,12 +158,14 @@ class PrescriptionService
 
         try {
             $db->prepare(
-                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, encounter_id, prescribed_date, valid_until, diagnosis, notes, status, created_at, created_by)
-                 VALUES (:tmp, :patient, :prescriber, :encounter, :date, :valid_until, :diagnosis, :notes, 'active', :now, :user)"
+                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, encounter_id, prescribed_date, valid_until, refill_until, diagnosis, notes, status, created_at, created_by)
+                 VALUES (:tmp, :patient, :prescriber, :encounter, :date, :valid_until, :refill_until, :diagnosis, :notes, 'active', :now, :user)"
             )->execute([
                 'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'patient' => $patientId, 'prescriber' => $header['prescriber_user_id'],
                 'encounter' => $header['encounter_id'], 'date' => $header['prescribed_date'],
                 'valid_until' => self::addDays($header['prescribed_date'], GeneralSettingService::prescriptionValidityDays()),
+                // Refills, when any medicine has them, can be dispensed for longer than the first fill.
+                'refill_until' => self::hasRefills($lines) ? self::addDays($header['prescribed_date'], GeneralSettingService::refillValidityDays()) : null,
                 'diagnosis' => $header['diagnosis'],
                 'notes' => $header['notes'], 'now' => $now, 'user' => $userId
             ]);
@@ -237,7 +239,7 @@ class PrescriptionService
             $userId = (int) $user['id'];
 
             $db->prepare(
-                "UPDATE prescriptions SET prescriber_user_id = :prescriber, encounter_id = :encounter, prescribed_date = :date, valid_until = :valid_until,
+                "UPDATE prescriptions SET prescriber_user_id = :prescriber, encounter_id = :encounter, prescribed_date = :date, valid_until = :valid_until, refill_until = :refill_until,
                         diagnosis = :diagnosis, notes = :notes, revision = revision + 1, updated_at = :now, updated_by = :user
                  WHERE id = :id"
             )->execute([
@@ -246,6 +248,9 @@ class PrescriptionService
                 'valid_until' => self::addDays($header['prescribed_date'], $slip['valid_until']
                     ? (int) ((strtotime($slip['valid_until']) - strtotime($slip['prescribed_date'])) / 86400)
                     : GeneralSettingService::prescriptionValidityDays()),
+                'refill_until' => self::hasRefills($lines) ? self::addDays($header['prescribed_date'], $slip['refill_until']
+                    ? (int) ((strtotime($slip['refill_until']) - strtotime($slip['prescribed_date'])) / 86400)
+                    : GeneralSettingService::refillValidityDays()) : null,
                 'diagnosis' => $header['diagnosis'], 'notes' => $header['notes'], 'now' => $now, 'user' => $userId, 'id' => $id
             ]);
 
@@ -706,6 +711,7 @@ class PrescriptionService
             'patient_id' => (int) $s['patient_id'],
             'prescribed_date' => $s['prescribed_date'],
             'valid_until' => $s['valid_until'] ?? null,
+            'refill_until' => $s['refill_until'] ?? null,
             // Past its validity, the pharmacy can no longer fill it.
             'is_expired' => !empty($s['valid_until']) && $s['valid_until'] < $today && $s['status'] !== 'cancelled',
             'has_dangerous_drug' => (bool) array_filter($lines, fn($l) => $l['is_dangerous_drug']),
@@ -792,6 +798,11 @@ class PrescriptionService
     private function rollBack(PDO $db, bool $owns): void
     {
         $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT prescription_step');
+    }
+
+    private static function hasRefills(array $lines): bool
+    {
+        return (bool) array_filter($lines, fn($l) => (int) ($l['refills'] ?? 0) > 0);
     }
 
     private static function addDays(string $date, int $days): string
