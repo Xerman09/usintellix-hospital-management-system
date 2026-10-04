@@ -1354,6 +1354,53 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-visit-tile { background: var(--bg-surface); border-color: var(--border-color); }
 :root[data-theme="dark"] .pd-visit-meta { color: var(--text-muted); }
 
+/* Message card: sender initials, sender + type, status, one-line preview, date. */
+.pd-msg-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.pd-msg-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    transition: border-color .12s, background-color .12s;
+}
+.pd-msg-item:hover { border-color: var(--accent-border); background: var(--accent-light); }
+.pd-msg-avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: .3px;
+}
+.pd-msg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pd-msg-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pd-msg-from { font-size: 12.5px; font-weight: 700; color: #29323f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-msg-when { margin-left: auto; flex-shrink: 0; font-size: 11px; color: #8b98ac; white-space: nowrap; }
+.pd-msg-preview { font-size: 12px; color: #5b677a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-msg-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.pd-msg-tag { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--accent-lighter); color: var(--accent-text, var(--accent)); }
+.pd-msg-status { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #eef2f7; color: #475569; }
+.pd-msg-status.new { background: #dbeafe; color: #1d4ed8; }
+.pd-msg-status.progress { background: #fef3c7; color: #92400e; }
+.pd-msg-status.done { background: #dcfce7; color: #166534; }
+.pd-msg-item.unread .pd-msg-from::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; }
+:root[data-theme="dark"] .pd-msg-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-msg-from { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-msg-preview, :root[data-theme="dark"] .pd-msg-when { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-msg-status { background: rgba(148,163,184,.16); color: #cbd5e1; }
+:root[data-theme="dark"] .pd-msg-status.new { background: rgba(59,130,246,.2); color: #bfdbfe; }
+:root[data-theme="dark"] .pd-msg-status.progress { background: rgba(245,158,11,.18); color: #fde68a; }
+:root[data-theme="dark"] .pd-msg-status.done { background: rgba(34,197,94,.18); color: #bbf7d0; }
+
 .pd-allergy-remove {
     flex-shrink: 0;
     border: none;
@@ -5879,6 +5926,53 @@ textarea.pd-sdoh-readonly {
 
 :root[data-theme="dark"] .pd-visit-tile { background: var(--bg-surface); border-color: var(--border-color); }
 :root[data-theme="dark"] .pd-visit-meta { color: var(--text-muted); }
+
+/* Message card: sender initials, sender + type, status, one-line preview, date. */
+.pd-msg-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.pd-msg-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    background: #fbfcfe;
+    transition: border-color .12s, background-color .12s;
+}
+.pd-msg-item:hover { border-color: var(--accent-border); background: var(--accent-light); }
+.pd-msg-avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: .3px;
+}
+.pd-msg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pd-msg-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pd-msg-from { font-size: 12.5px; font-weight: 700; color: #29323f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-msg-when { margin-left: auto; flex-shrink: 0; font-size: 11px; color: #8b98ac; white-space: nowrap; }
+.pd-msg-preview { font-size: 12px; color: #5b677a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-msg-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.pd-msg-tag { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--accent-lighter); color: var(--accent-text, var(--accent)); }
+.pd-msg-status { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #eef2f7; color: #475569; }
+.pd-msg-status.new { background: #dbeafe; color: #1d4ed8; }
+.pd-msg-status.progress { background: #fef3c7; color: #92400e; }
+.pd-msg-status.done { background: #dcfce7; color: #166534; }
+.pd-msg-item.unread .pd-msg-from::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; }
+:root[data-theme="dark"] .pd-msg-item { background: var(--bg-surface-alt); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-msg-from { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-msg-preview, :root[data-theme="dark"] .pd-msg-when { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-msg-status { background: rgba(148,163,184,.16); color: #cbd5e1; }
+:root[data-theme="dark"] .pd-msg-status.new { background: rgba(59,130,246,.2); color: #bfdbfe; }
+:root[data-theme="dark"] .pd-msg-status.progress { background: rgba(245,158,11,.18); color: #fde68a; }
+:root[data-theme="dark"] .pd-msg-status.done { background: rgba(34,197,94,.18); color: #bbf7d0; }
 
 .pd-allergy-remove {
     flex-shrink: 0;

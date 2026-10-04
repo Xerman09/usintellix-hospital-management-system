@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=71";
+import { PatientChartView } from "./patients-list.view.js?v=72";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -3379,11 +3379,31 @@ function renderDashboardMessages(messages)
         return;
     }
 
+    const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("") || "?";
+    const statusClass = (s) => ({ new: "new", "in progress": "progress", done: "done" }[String(s || "").toLowerCase()] || "");
+    const when = (value) => {
+        const d = new Date(String(value || "").replace(" ", "T"));
+        if (Number.isNaN(d.getTime())) return "";
+        const sameYear = d.getFullYear() === new Date().getFullYear();
+        return d.toLocaleDateString("en-US", sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+    };
+
     body.innerHTML = messages.length
-        ? `<div class="pd-allergy-list">
+        ? `<div class="pd-msg-list">
             ${messages.slice(0, 5).map((message) => `
-                <div class="pd-allergy-item pd-item-clickable" tabindex="0" role="button">
-                    <span class="pd-allergy-name">${escapeHtml(message.sender_name || "Unknown")}${message.type_name ? ` &middot; ${escapeHtml(message.type_name)}` : ""}</span>
+                <div class="pd-msg-item pd-item-clickable${String(message.status_name || "").toLowerCase() === "new" ? " unread" : ""}" tabindex="0" role="button">
+                    <div class="pd-msg-avatar" aria-hidden="true">${escapeHtml(initials(message.sender_name))}</div>
+                    <div class="pd-msg-main">
+                        <div class="pd-msg-top">
+                            <span class="pd-msg-from">${escapeHtml(message.sender_name || "Unknown")}</span>
+                            <span class="pd-msg-when" title="${escapeHtml(message.created_at || "")}">${escapeHtml(when(message.created_at))}</span>
+                        </div>
+                        ${message.body ? `<span class="pd-msg-preview">${escapeHtml(String(message.body).replace(/\s+/g, " ").trim())}</span>` : ""}
+                        ${message.type_name || message.status_name ? `<div class="pd-msg-tags">
+                            ${message.type_name ? `<span class="pd-msg-tag">${escapeHtml(message.type_name)}</span>` : ""}
+                            ${message.status_name ? `<span class="pd-msg-status ${statusClass(message.status_name)}">${escapeHtml(message.status_name)}</span>` : ""}
+                        </div>` : ""}
+                    </div>
                 </div>
             `).join("")}
            </div>`
@@ -3395,7 +3415,7 @@ function renderDashboardMessages(messages)
     // No per-message edit view exists, so every row opens the same full
     // message history (the widget's "Edit" link opens the identical modal).
     if (messages.length && currentDashboardPatient) {
-        wireDashboardPanelClicks(body, ".pd-allergy-item", () => openMessageDetailModal(currentDashboardPatient));
+        wireDashboardPanelClicks(body, ".pd-msg-item", () => openMessageDetailModal(currentDashboardPatient));
     }
 }
 
