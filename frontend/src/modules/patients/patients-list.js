@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=66";
+import { PatientChartView } from "./patients-list.view.js?v=67";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -90,10 +90,12 @@ import {
 import {
     fetchPatientPrescriptions,
     fetchPrescribableDrugs,
-    addPatientPrescription,
-    updatePatientPrescription,
-    removePatientPrescription
-} from "../patient-prescriptions/patient-prescriptions.service.js?v=2";
+    fetchPrescriptionSlips,
+    fetchPrescriptionFormOptions,
+    createPrescriptionSlip,
+    updatePrescriptionSlip,
+    cancelPrescriptionSlip
+} from "../patient-prescriptions/patient-prescriptions.service.js?v=3";
 import {
     fetchPatientImmunizations,
     addPatientImmunization,
@@ -209,14 +211,6 @@ const SURGERY_DETAIL_FIELDS = [
 
 const DENTAL_ISSUE_DETAIL_FIELDS = [
     "title", "begin_date", "end_date", "comments", "coding",
-    "occurrence", "outcome", "classification_type", "verification_status",
-    "referred_by", "destination"
-];
-
-const PRESCRIPTION_DETAIL_FIELDS = [
-    "title", "begin_date", "end_date", "quantity", "dosage", "route",
-    "frequency", "refills", "directions", "substitution_allowed", "pharmacy",
-    "comments", "coding",
     "occurrence", "outcome", "classification_type", "verification_status",
     "referred_by", "destination"
 ];
@@ -4210,34 +4204,6 @@ async function loadDashboardPrescriptions(patient)
     }
 }
 
-function renderDashboardPrescriptions(prescriptions)
-{
-    const body = document.getElementById("pdPrescriptionsBody");
-
-    if (!body) {
-        return;
-    }
-
-    const active = prescriptions.filter(isCurrentCourse);
-    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
-
-    body.innerHTML = active.length
-        ? `<div class="pd-allergy-list">
-            ${active.map((prescription) => `
-                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-prescription-id="${prescription.id}" tabindex="0" role="button"` : ""}>
-                    <span class="pd-allergy-name">${escapeHtml(prescription.title)}</span>
-                </div>
-            `).join("")}
-           </div>`
-        : `<div class="pd-widget-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path></svg>
-            <p>No prescriptions recorded.</p>
-           </div>`;
-
-    if (canManage) {
-        wireDashboardItemClicks(body, "data-prescription-id", active, openPrescriptionFormModal);
-    }
-}
 
 function setupAllergyModals()
 {
@@ -10081,6 +10047,115 @@ function openClinicalNoteResultPicker()
     document.getElementById("clinicalNoteResultPickerModalOverlay").classList.add("open");
 }
 
+/* ---------------------------------------------------------------
+ * Prescriptions: one prescription (slip), many medicines
+ * ------------------------------------------------------------- */
+
+const RX_WRITER_ROLES = ["admin", "receptionist", "doctor"];
+
+const RX_INTERVALS = {
+    QD: "Once daily", BID: "Twice daily", TID: "Three times daily", QID: "Four times daily", QHS: "At bedtime",
+    Q4H: "Every 4 hours", Q6H: "Every 6 hours", Q8H: "Every 8 hours", PRN: "As needed"
+};
+
+const RX_ROUTES = ["Oral", "Topical", "Intravenous", "Intramuscular", "Subcutaneous", "Inhalation", "Other"];
+const RX_SELECTS = {
+    occurrence: [["", "Unknown or N/A"], ["First Time", "First Time"], ["Recurrence", "Recurrence"]],
+    outcome: [["", "Unassigned"], ["Recovered", "Recovered"], ["Recovering", "Recovering"], ["Not Recovered", "Not Recovered"],
+        ["Recovered with Sequelae", "Recovered with Sequelae"], ["Fatal", "Fatal"]],
+    classification_type: [["", "NA"], ["Encounter Diagnosis", "Encounter Diagnosis"], ["Problem List", "Problem List"], ["Chronic", "Chronic"], ["Other", "Other"]],
+    verification_status: [["Unconfirmed", "Unconfirmed"], ["Confirmed", "Confirmed"], ["Refuted", "Refuted"], ["Entered in Error", "Entered in Error"]]
+};
+const RX_LINE_FIELDS = [
+    "title", "begin_date", "end_date", "quantity", "dosage", "route", "frequency", "refills", "directions",
+    "pharmacy", "comments", "coding", "occurrence", "outcome", "classification_type", "verification_status", "referred_by", "destination"
+];
+
+let rxSlips = [];          // the patient's prescriptions, as last loaded
+let rxFormOptions = null;  // visits and prescribers for the open form
+let rxLineSeq = 0;
+const rxPickers = new Map(); // line uid -> picker state
+
+/**
+ * A medicine is current until its end date has passed (no end date =
+ * ongoing; still active on the end date itself). A medicine on a
+ * cancelled prescription is never current.
+ */
+function isCurrentCourse(record)
+{
+    if (record?.prescription_status === "cancelled") return false;
+    const end = record?.end_date ? String(record.end_date).slice(0, 10) : "";
+    return !end || end >= todayISO();
+}
+
+function canWritePrescriptions()
+{
+    return RX_WRITER_ROLES.includes(getUser()?.role);
+}
+
+/* ---------- patient dashboard widget ---------- */
+
+function renderDashboardPrescriptions(prescriptions)
+{
+    const body = document.getElementById("pdPrescriptionsBody");
+
+    if (!body) {
+        return;
+    }
+
+    // Group the current medicines by their prescription.
+    const groups = new Map();
+    prescriptions.filter(isCurrentCourse).forEach((item) => {
+        const key = item.prescription_id || `item-${item.id}`;
+        if (!groups.has(key)) {
+            groups.set(key, { id: item.prescription_id, rx_number: item.rx_number, date: item.prescribed_date, items: [] });
+        }
+        groups.get(key).items.push(item);
+    });
+    const slips = [...groups.values()];
+    const canManage = canWritePrescriptions();
+
+    body.innerHTML = slips.length
+        ? `<div>${slips.map((slip) => `
+            <div class="rx-dash-slip${canManage && slip.id ? " pd-item-clickable" : ""}"${canManage && slip.id ? ` data-rx-slip="${slip.id}" tabindex="0" role="button"` : ""}>
+                <div class="rx-dash-slip-head"><strong>${escapeHtml(slip.rx_number || "Prescription")}</strong><span>${slip.date ? escapeHtml(formatDate(slip.date)) : ""}</span></div>
+                <ul>${slip.items.map((item) => `<li>${escapeHtml(item.title)}</li>`).join("")}</ul>
+            </div>`).join("")}</div>`
+        : `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path></svg>
+            <p>No prescriptions recorded.</p>
+           </div>`;
+
+    if (canManage) {
+        body.querySelectorAll("[data-rx-slip]").forEach((el) => {
+            const open = () => openPrescriptionSlip(Number(el.dataset.rxSlip));
+            el.addEventListener("click", open);
+            el.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    open();
+                }
+            });
+        });
+    }
+}
+
+async function openPrescriptionSlip(slipId)
+{
+    const result = await fetchPrescriptionSlips(currentDashboardPatient.id);
+    if (!result?.success) {
+        showToast(result?.message || "Couldn't load the prescription.", "error");
+        return;
+    }
+    rxSlips = result.data;
+    const slip = rxSlips.find((s) => s.id === slipId);
+    if (slip) {
+        openPrescriptionFormModal(slip);
+    }
+}
+
+/* ---------- setup ---------- */
+
 function setupPrescriptionModals()
 {
     const detailOverlay = document.getElementById("prescriptionDetailModalOverlay");
@@ -10103,218 +10178,459 @@ function setupPrescriptionModals()
         }
     });
 
-    document.getElementById("prescriptionMoreToggle").addEventListener("click", (event) => {
-        const toggle = event.currentTarget;
-        const moreFields = document.getElementById("prescriptionMoreFields");
-        const isHidden = moreFields.hidden;
+    document.getElementById("openAddPrescriptionBtn").addEventListener("click", () => openPrescriptionFormModal(null));
 
-        moreFields.hidden = !isHidden;
-        toggle.classList.toggle("expanded", isHidden);
-        toggle.querySelector("span").textContent = isHidden ? "Hide More Fields" : "Show More Fields";
-    });
-
-    document.getElementById("openAddPrescriptionBtn").addEventListener("click", () => {
-        openPrescriptionFormModal(null);
-    });
-
-    document.getElementById("openSelectCodesBtnPrescription").addEventListener("click", () => {
-        openSelectCodesModal("prescription_coding");
-    });
-
-    setupPrescriptionDrugPicker();
-
+    // A prescription can be long; only the Close buttons close it, never a stray click outside.
     document.getElementById("closePrescriptionFormModal").addEventListener("click", closeForm);
     document.getElementById("cancelPrescriptionForm").addEventListener("click", closeForm);
-    formOverlay.addEventListener("click", (event) => {
-        if (event.target === formOverlay) {
-            closeForm();
+
+    document.getElementById("rxAddLine").addEventListener("click", () => {
+        const line = addPrescriptionLine();
+        line.querySelector("[data-rx-search]").focus();
+    });
+
+    document.getElementById("rxEncounter").addEventListener("change", () => {
+        const visit = rxFormOptions?.encounters.find((e) => String(e.id) === document.getElementById("rxEncounter").value);
+        const diagnosis = document.getElementById("rxDiagnosis");
+        if (visit && visit.diagnoses.length && !diagnosis.value.trim()) {
+            diagnosis.value = visit.diagnoses.join("; ").slice(0, 500);
         }
+    });
+
+    const lines = document.getElementById("rxLines");
+    lines.addEventListener("click", onPrescriptionLineClick);
+    lines.addEventListener("input", onPrescriptionLineInput);
+    lines.addEventListener("keydown", onPrescriptionLineKeydown);
+    lines.addEventListener("focusin", (event) => {
+        if (event.target.matches("[data-rx-search]")) queuePrescriptionDrugSearch(event.target.closest(".rx-line"), 0);
+    });
+    lines.addEventListener("focusout", (event) => {
+        if (event.target.matches("[data-rx-search]")) {
+            const line = event.target.closest(".rx-line");
+            setTimeout(() => closePrescriptionDrugResults(line), 150);
+        }
+    });
+    // mousedown, so the choice lands before the search box's blur closes the list.
+    lines.addEventListener("mousedown", (event) => {
+        const option = event.target.closest("[data-rx-index]");
+        if (!option) return;
+        event.preventDefault();
+        const line = option.closest(".rx-line");
+        choosePrescriptionDrug(line, rxPickerState(line).results[Number(option.dataset.rxIndex)]);
     });
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        await savePrescriptionSlip();
+    });
 
-        const recordId = document.getElementById("prescription_record_id").value;
-        const drugId = document.getElementById("prescription_drug_id").value;
-        const errEl = document.getElementById("err-prescription_title");
+    setupPrescriptionCancelDialog();
+}
 
-        errEl.textContent = "";
+/* ---------- list of prescriptions ---------- */
 
-        const details = {};
+async function openPrescriptionDetailModal(patient)
+{
+    document.getElementById("prescriptionDetailAlert").innerHTML = "";
+    document.getElementById("prescriptionDetailModalOverlay").classList.add("open");
+    document.getElementById("openAddPrescriptionBtn").style.display = canWritePrescriptions() ? "" : "none";
 
-        PRESCRIPTION_DETAIL_FIELDS.forEach((field) => {
-            if (field === "substitution_allowed") {
-                return;
-            }
+    await loadPrescriptionDetailTable(patient);
+}
 
-            details[field] = document.getElementById(`prescription_${field}`).value.trim();
-        });
+async function loadPrescriptionDetailTable(patient)
+{
+    const tbody = document.getElementById("prescriptionDetailTableBody");
 
-        details.substitution_allowed = document.querySelector('input[name="prescription_substitution_allowed"]:checked').value;
-
-        if (!details.title && !drugId) {
-            errEl.textContent = "Choose a medicine from the catalog, or type a title.";
-            return;
-        }
-
-        details.drug_id = drugId ? Number(drugId) : null;
-
-        const result = recordId
-            ? await updatePatientPrescription(recordId, details)
-            : await addPatientPrescription(currentDashboardPatient.id, null, details);
+    try {
+        const result = await fetchPrescriptionSlips(patient.id);
 
         if (!result.success) {
-            showAlert("prescriptionFormAlert", result.message || "Failed to save prescription.", "error");
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load prescriptions.")}</td></tr>`;
             return;
         }
 
-        closeForm();
-        await loadPrescriptionDetailTable(currentDashboardPatient);
-        await loadDashboardPrescriptions(currentDashboardPatient);
-    });
+        rxSlips = result.data;
+        renderPrescriptionDetailTable();
+    } catch (error) {
+        console.error("Failed to load patient prescriptions", error);
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load prescriptions right now. Please try again.</td></tr>`;
+    }
 }
 
-/**
- * A medication or prescription is current until its end date has passed
- * (no end date = ongoing). An end date is the last day of the course, so
- * it's still active on that day.
- */
-function isCurrentCourse(record)
+function renderPrescriptionDetailTable()
 {
-    const end = record?.end_date ? String(record.end_date).slice(0, 10) : "";
-    return !end || end >= todayISO();
+    const tbody = document.getElementById("prescriptionDetailTableBody");
+    const canManage = canWritePrescriptions();
+
+    if (!rxSlips.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No prescriptions recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    const badge = (slip) => slip.display_status === "cancelled"
+        ? `<span class="status-badge cancelled" title="${escapeHtml(slip.cancel_reason || "")}">Cancelled</span>`
+        : slip.display_status === "active"
+            ? `<span class="status-badge completed">Active</span>`
+            : `<span class="status-badge">Ended</span>`;
+
+    tbody.innerHTML = rxSlips.map((slip) => `
+        <tr>
+            <td style="white-space:nowrap;"><strong>${escapeHtml(slip.rx_number)}</strong>
+                <span class="rx-slip-sub">${escapeHtml(formatDate(slip.prescribed_date))}${slip.encounter_date ? ` · Visit ${escapeHtml(formatDate(slip.encounter_date))}` : ""}</span></td>
+            <td>
+                <ul class="rx-slip-meds">${slip.items.map((item) => `<li>${escapeHtml(item.title)}${[item.dosage, item.frequency].filter(Boolean).length
+                    ? `<span class="rx-slip-sub">${escapeHtml([item.dosage, item.frequency, item.quantity ? `#${item.quantity}` : null].filter(Boolean).join(" · "))}</span>` : ""}</li>`).join("")}</ul>
+                ${slip.diagnosis ? `<span class="rx-slip-sub">Dx: ${escapeHtml(slip.diagnosis)}</span>` : ""}
+            </td>
+            <td>${escapeHtml(slip.prescriber_name || "-")}</td>
+            <td>${badge(slip)}${slip.display_status === "cancelled" && slip.cancel_reason ? `<span class="rx-slip-sub">${escapeHtml(slip.cancel_reason)}</span>` : ""}</td>
+            <td class="table-actions">
+                ${canManage && slip.can_edit ? `<button class="btn-edit" data-rx-open="${slip.id}">Open</button>
+                    <button class="btn-danger" data-rx-cancel="${slip.id}">Cancel</button>`
+                    : `<button class="btn-edit" data-rx-open="${slip.id}">View</button>`}
+            </td>
+        </tr>`).join("");
+
+    tbody.querySelectorAll("[data-rx-open]").forEach((btn) => btn.addEventListener("click", () => {
+        const slip = rxSlips.find((s) => String(s.id) === btn.dataset.rxOpen);
+        if (slip) openPrescriptionFormModal(slip);
+    }));
+    tbody.querySelectorAll("[data-rx-cancel]").forEach((btn) => btn.addEventListener("click", () => {
+        const slip = rxSlips.find((s) => String(s.id) === btn.dataset.rxCancel);
+        if (slip) openPrescriptionCancelDialog(slip);
+    }));
 }
 
-/* ---------------------------------------------------------------
- * Prescription medicine picker (Drug Catalog)
- * ------------------------------------------------------------- */
+/* ---------- the prescription form ---------- */
 
-const RX_INTERVALS = {
-    QD: "Once daily", BID: "Twice daily", TID: "Three times daily", QID: "Four times daily", QHS: "At bedtime",
-    Q4H: "Every 4 hours", Q6H: "Every 6 hours", Q8H: "Every 8 hours", PRN: "As needed"
-};
-
-let rxDrugResults = [];
-let rxDrugActive = -1;
-let rxDrugSearchTimer = null;
-let rxDrugSearchSeq = 0;
-let rxAutoTitle = "";
-
-function setupPrescriptionDrugPicker()
+async function openPrescriptionFormModal(slip)
 {
-    const search = document.getElementById("prescription_drug_search");
-    const results = document.getElementById("rxDrugResults");
+    const overlay = document.getElementById("prescriptionFormModalOverlay");
+    const readOnly = !!slip && (!slip.can_edit || !canWritePrescriptions());
 
-    search.addEventListener("focus", () => queuePrescriptionDrugSearch(0));
-    search.addEventListener("input", () => queuePrescriptionDrugSearch(250));
-    search.addEventListener("keydown", (event) => {
-        if (results.hidden && event.key === "ArrowDown") {
-            queuePrescriptionDrugSearch(0);
-            return;
-        }
-        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            if (!rxDrugResults.length) return;
-            rxDrugActive = (rxDrugActive + (event.key === "ArrowDown" ? 1 : -1) + rxDrugResults.length) % rxDrugResults.length;
-            highlightPrescriptionDrug();
-        } else if (event.key === "Enter") {
-            // Never submit the whole form from the search box.
-            event.preventDefault();
-            if (!results.hidden && rxDrugResults[rxDrugActive >= 0 ? rxDrugActive : 0]) {
-                choosePrescriptionDrug(rxDrugResults[rxDrugActive >= 0 ? rxDrugActive : 0]);
-            }
-        } else if (event.key === "Escape" && !results.hidden) {
-            event.stopPropagation();
-            closePrescriptionDrugResults();
+    document.getElementById("prescriptionFormAlert").innerHTML = "";
+    clearPrescriptionErrors();
+    document.getElementById("rxLines").innerHTML = "";
+    rxPickers.clear();
+    document.getElementById("rxSlipId").value = slip ? slip.id : "";
+    document.getElementById("rxSlipVersion").value = slip ? slip.version : "";
+    document.getElementById("prescriptionFormTitle").textContent = slip
+        ? `${readOnly ? "" : "Edit "}Prescription ${slip.rx_number}`
+        : "New Prescription";
+    document.getElementById("prescriptionFormSubtitle").textContent = slip && slip.display_status === "cancelled"
+        ? `Cancelled${slip.cancelled_by_name ? ` by ${slip.cancelled_by_name}` : ""}${slip.cancel_reason ? ` — ${slip.cancel_reason}` : ""}.`
+        : "One prescription, with every medicine the doctor is giving.";
+
+    overlay.classList.add("open");
+
+    const optionsResult = await fetchPrescriptionFormOptions(currentDashboardPatient.id);
+    rxFormOptions = optionsResult?.success ? optionsResult.data : { encounters: [], prescribers: [], default_prescriber_user_id: null, today: todayISO() };
+
+    const prescriber = document.getElementById("rxPrescriber");
+    const chosenPrescriber = slip ? slip.prescriber_user_id : rxFormOptions.default_prescriber_user_id;
+    const prescribers = [...rxFormOptions.prescribers];
+    // Older prescriptions may name someone who isn't set up as a doctor; keep showing them.
+    if (slip && slip.prescriber_user_id && !prescribers.some((p) => p.user_id === slip.prescriber_user_id)) {
+        prescribers.unshift({ user_id: slip.prescriber_user_id, name: slip.prescriber_name || "Unknown", license_number: null });
+    }
+    prescriber.innerHTML = `<option value="">-- Choose the doctor --</option>` + prescribers.map((p) =>
+        `<option value="${p.user_id}">${escapeHtml(p.name)}${p.license_number ? ` (Lic. ${escapeHtml(p.license_number)})` : ""}</option>`).join("");
+    prescriber.value = chosenPrescriber ? String(chosenPrescriber) : "";
+    // A doctor writes under their own name.
+    prescriber.disabled = getUser()?.role === "doctor" && !!rxFormOptions.default_prescriber_user_id;
+
+    const encounters = [...rxFormOptions.encounters];
+    if (slip && slip.encounter_id && !encounters.some((e) => e.id === slip.encounter_id)) {
+        encounters.unshift({ id: slip.encounter_id, date: slip.encounter_date, reason: slip.encounter_reason, diagnoses: [] });
+    }
+    const encounterSelect = document.getElementById("rxEncounter");
+    encounterSelect.innerHTML = `<option value="">Not linked to a visit</option>` + encounters.map((e) =>
+        `<option value="${e.id}">${escapeHtml([e.date ? formatDate(e.date) : null, e.reason].filter(Boolean).join(" — ") || `Visit #${e.id}`)}</option>`).join("");
+    encounterSelect.value = slip?.encounter_id ? String(slip.encounter_id) : "";
+
+    document.getElementById("rxPrescribedDate").value = slip ? slip.prescribed_date : rxFormOptions.today || todayISO();
+    document.getElementById("rxPrescribedDate").max = rxFormOptions.today || todayISO();
+    document.getElementById("rxDiagnosis").value = slip?.diagnosis || "";
+    document.getElementById("rxNotes").value = slip?.notes || "";
+
+    if (slip) {
+        slip.items.forEach((item) => addPrescriptionLine(item));
+    } else {
+        addPrescriptionLine();
+    }
+
+    setPrescriptionFormReadOnly(readOnly);
+    if (!readOnly && !slip) {
+        document.querySelector("#rxLines [data-rx-search]")?.focus();
+    }
+}
+
+function setPrescriptionFormReadOnly(readOnly)
+{
+    const form = document.getElementById("prescriptionForm");
+    form.querySelectorAll("input, select, textarea, button").forEach((el) => {
+        if (el.id === "cancelPrescriptionForm" || el.matches("[data-rx-more]")) return;
+        if (readOnly) {
+            el.dataset.rxWasDisabled = el.disabled ? "1" : "";
+            el.disabled = true;
+        } else if (el.dataset.rxWasDisabled !== undefined) {
+            el.disabled = el.dataset.rxWasDisabled === "1";
+            delete el.dataset.rxWasDisabled;
         }
     });
-    search.addEventListener("blur", () => setTimeout(closePrescriptionDrugResults, 150));
+    document.getElementById("rxAddLine").hidden = readOnly;
+    document.getElementById("rxSave").hidden = readOnly;
+    form.querySelectorAll("[data-rx-remove-line], .rx-chosen-actions, .rx-templates").forEach((el) => { el.hidden = readOnly || el.hidden; });
+}
 
-    // mousedown, so the choice lands before the search box's blur closes the list.
-    results.addEventListener("mousedown", (event) => {
-        const option = event.target.closest("[data-rx-index]");
-        if (!option) return;
+function addPrescriptionLine(item = null)
+{
+    const uid = `l${++rxLineSeq}`;
+    const lines = document.getElementById("rxLines");
+    const wrap = document.createElement("div");
+    const value = (field) => escapeHtml(item?.[field] ?? "");
+    const select = (field, options, current) => `<select class="form-input" data-f="${field}">${options.map(([v, label]) =>
+        `<option value="${escapeHtml(v)}"${String(current ?? options[0][0]) === v ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select>`;
+    const routeOptions = [["", "Unassigned"], ...RX_ROUTES.map((r) => [r, r])];
+    if (item?.route && !RX_ROUTES.includes(item.route)) routeOptions.push([item.route, item.route]);
+
+    wrap.className = "rx-line";
+    wrap.dataset.uid = uid;
+    wrap.dataset.lineId = item?.id ?? "";
+    wrap.innerHTML = `
+        <div class="rx-line-head">
+            <span class="rx-line-no"></span>
+            <button type="button" class="rx-icon-btn danger" data-rx-remove-line>Remove medicine</button>
+        </div>
+        <input type="hidden" data-f="drug_id" value="${item?.drug_id ?? ""}">
+        <div class="rx-picker" data-rx-picker>
+            <input class="form-input" data-rx-search placeholder="Search the Drug Catalog by name, generic or brand..." autocomplete="off"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rxRes_${uid}" aria-label="Find a medicine in the Drug Catalog">
+            <div class="rx-results" id="rxRes_${uid}" role="listbox" hidden></div>
+        </div>
+        <div class="rx-chosen" data-rx-chosen hidden></div>
+        <div class="rx-templates" data-rx-templates hidden></div>
+        <span class="rx-hint" data-rx-hint>Not in the catalog? Type the medicine in Name below — it's recorded, but the pharmacy can't dispense it from stock.</span>
+        <span class="rx-err" data-rx-err="drug_id"></span>
+        <div class="rx-line-grid">
+            <div class="two"><label>Name on the prescription</label><input class="form-input" data-f="title" value="${value("title")}" maxlength="255" placeholder="e.g. Amoxicillin 500 mg capsule"><span class="rx-err" data-rx-err="title"></span></div>
+            <div><label>Quantity <span data-rx-unit style="font-weight:400;color:var(--text-muted);"></span></label><input class="form-input" data-f="quantity" value="${value("quantity")}" maxlength="50" placeholder="e.g. 21"></div>
+            <div><label>Refills</label><input class="form-input" data-f="refills" type="number" min="0" max="99" value="${item?.refills ?? ""}" placeholder="0"><span class="rx-err" data-rx-err="refills"></span></div>
+            <div><label>Dose</label><input class="form-input" data-f="dosage" value="${value("dosage")}" maxlength="100" placeholder="e.g. 1 capsule"></div>
+            <div><label>Frequency</label><input class="form-input" data-f="frequency" value="${value("frequency")}" maxlength="100" placeholder="e.g. 3 times a day"></div>
+            <div><label>Route</label>${select("route", routeOptions, item?.route ?? "")}</div>
+            <div><label>&nbsp;</label><label class="rx-check"><input type="checkbox" data-f="substitution_allowed"${!item || Number(item.substitution_allowed) ? " checked" : ""}> Substitution allowed</label></div>
+            <div><label>Start</label><input class="form-input" type="date" data-f="begin_date" value="${value("begin_date")}"><span class="rx-err" data-rx-err="begin_date"></span></div>
+            <div><label>End</label><input class="form-input" type="date" data-f="end_date" value="${value("end_date")}"><span class="rx-err" data-rx-err="end_date"></span></div>
+            <div class="two"><label>Directions (sig)</label><input class="form-input" data-f="directions" value="${value("directions")}" placeholder="e.g. Take after meals for 7 days"></div>
+        </div>
+        <button type="button" class="rx-more-toggle" data-rx-more aria-expanded="false">Show more fields</button>
+        <div class="rx-line-grid" data-rx-more-fields hidden>
+            <div class="two"><label>Pharmacy</label><input class="form-input" data-f="pharmacy" value="${value("pharmacy")}" maxlength="255"></div>
+            <div><label>Occurrence</label>${select("occurrence", RX_SELECTS.occurrence, item?.occurrence ?? "")}</div>
+            <div><label>Outcome</label>${select("outcome", RX_SELECTS.outcome, item?.outcome ?? "")}</div>
+            <div><label>Classification</label>${select("classification_type", RX_SELECTS.classification_type, item?.classification_type ?? "")}</div>
+            <div><label>Verification</label>${select("verification_status", RX_SELECTS.verification_status, item?.verification_status ?? "Unconfirmed")}</div>
+            <div><label>Referred By</label><input class="form-input" data-f="referred_by" value="${value("referred_by")}" maxlength="255"></div>
+            <div><label>Destination</label><input class="form-input" data-f="destination" value="${value("destination")}" maxlength="255"></div>
+            <div class="full"><label>Coding</label>
+                <div class="scm-trigger-row" style="align-items:flex-start;">
+                    <textarea class="form-input" id="rxCoding_${uid}" data-f="coding" rows="2" placeholder="No code selected">${value("coding")}</textarea>
+                    <button type="button" class="btn-secondary scm-trigger-btn" data-rx-codes="rxCoding_${uid}" style="margin-top:0;">Select Codes</button>
+                </div></div>
+            <div class="full"><label>Comments</label><textarea class="form-input" data-f="comments" rows="2">${value("comments")}</textarea></div>
+        </div>`;
+
+    lines.appendChild(wrap);
+    rxPickers.set(uid, { results: [], active: -1, seq: 0, timer: null, autoTitle: "" });
+
+    const secondary = ["pharmacy", "coding", "occurrence", "outcome", "classification_type", "referred_by", "destination", "comments"];
+    if (item && secondary.some((f) => item[f])) togglePrescriptionMore(wrap, true);
+
+    if (item?.drug_id) {
+        choosePrescriptionDrug(wrap, {
+            id: item.drug_id, name: item.drug_name || item.title, strength: item.drug_strength, unit_name: item.drug_unit_name,
+            generic_name: item.drug_generic_name, templates: [], usable: null
+        }, { keepFields: true });
+        refreshPrescriptionLineDrug(wrap, item.drug_id, item.drug_name || "");
+    }
+
+    renumberPrescriptionLines();
+    return wrap;
+}
+
+function renumberPrescriptionLines()
+{
+    const lines = [...document.querySelectorAll("#rxLines .rx-line")];
+    lines.forEach((line, index) => {
+        line.querySelector(".rx-line-no").textContent = index + 1;
+        line.querySelector("[data-rx-remove-line]").hidden = lines.length === 1;
+    });
+    document.getElementById("rxLineCount").textContent = `${lines.length} medicine${lines.length === 1 ? "" : "s"}`;
+}
+
+function togglePrescriptionMore(line, show)
+{
+    const fields = line.querySelector("[data-rx-more-fields]");
+    const toggle = line.querySelector("[data-rx-more]");
+    fields.hidden = !show;
+    toggle.textContent = show ? "Hide more fields" : "Show more fields";
+    toggle.setAttribute("aria-expanded", show ? "true" : "false");
+}
+
+function onPrescriptionLineClick(event)
+{
+    const line = event.target.closest(".rx-line");
+    if (!line) return;
+
+    if (event.target.closest("[data-rx-remove-line]")) {
+        rxPickers.delete(line.dataset.uid);
+        line.remove();
+        renumberPrescriptionLines();
+        return;
+    }
+    if (event.target.closest("[data-rx-more]")) {
+        togglePrescriptionMore(line, line.querySelector("[data-rx-more-fields]").hidden);
+        return;
+    }
+    const codes = event.target.closest("[data-rx-codes]");
+    if (codes) {
+        openSelectCodesModal(codes.dataset.rxCodes);
+        return;
+    }
+    const action = event.target.closest("[data-rx-action]")?.dataset.rxAction;
+    if (action === "change" || action === "remove") {
+        clearPrescriptionDrug(line, action === "remove");
+        if (action === "change") line.querySelector("[data-rx-search]").focus();
+        return;
+    }
+    const template = event.target.closest("[data-rx-template]");
+    if (template) {
+        applyPrescriptionTemplate(line, JSON.parse(template.dataset.rxTemplate));
+    }
+}
+
+function onPrescriptionLineInput(event)
+{
+    const line = event.target.closest(".rx-line");
+    if (!line) return;
+
+    if (event.target.matches("[data-rx-search]")) {
+        queuePrescriptionDrugSearch(line, 250);
+        return;
+    }
+    // Typing clears that field's error.
+    const field = event.target.dataset.f;
+    if (field) {
+        const err = line.querySelector(`[data-rx-err="${field}"]`);
+        if (err) err.textContent = "";
+        if (!line.querySelector(".rx-err:not(:empty)")) line.classList.remove("has-error");
+    }
+}
+
+function onPrescriptionLineKeydown(event)
+{
+    if (!event.target.matches("[data-rx-search]")) return;
+    const line = event.target.closest(".rx-line");
+    const state = rxPickerState(line);
+    const results = line.querySelector(".rx-results");
+
+    if (results.hidden && event.key === "ArrowDown") {
+        queuePrescriptionDrugSearch(line, 0);
+        return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        choosePrescriptionDrug(rxDrugResults[Number(option.dataset.rxIndex)]);
-    });
-
-    document.getElementById("rxDrugChosen").addEventListener("click", (event) => {
-        const action = event.target.closest("[data-rx-action]")?.dataset.rxAction;
-        if (action === "change" || action === "remove") {
-            const keepTitle = action === "change";
-            clearPrescriptionDrug(!keepTitle);
-            if (keepTitle) document.getElementById("prescription_drug_search").focus();
+        if (!state.results.length) return;
+        state.active = (state.active + (event.key === "ArrowDown" ? 1 : -1) + state.results.length) % state.results.length;
+        highlightPrescriptionDrug(line);
+    } else if (event.key === "Enter") {
+        // Never submit the whole prescription from a search box.
+        event.preventDefault();
+        if (!results.hidden && state.results[Math.max(state.active, 0)]) {
+            choosePrescriptionDrug(line, state.results[Math.max(state.active, 0)]);
         }
-    });
-
-    document.getElementById("rxDrugTemplates").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-rx-template]");
-        if (button) applyPrescriptionTemplate(JSON.parse(button.dataset.rxTemplate));
-    });
+    } else if (event.key === "Escape" && !results.hidden) {
+        event.stopPropagation();
+        closePrescriptionDrugResults(line);
+    }
 }
 
-function queuePrescriptionDrugSearch(delay)
+/* ---------- catalog picker (per medicine line) ---------- */
+
+function rxPickerState(line)
 {
-    clearTimeout(rxDrugSearchTimer);
-    rxDrugSearchTimer = setTimeout(runPrescriptionDrugSearch, delay);
+    if (!rxPickers.has(line.dataset.uid)) {
+        rxPickers.set(line.dataset.uid, { results: [], active: -1, seq: 0, timer: null, autoTitle: "" });
+    }
+    return rxPickers.get(line.dataset.uid);
 }
 
-async function runPrescriptionDrugSearch()
+function queuePrescriptionDrugSearch(line, delay)
 {
-    const search = document.getElementById("prescription_drug_search");
-    const results = document.getElementById("rxDrugResults");
-    const seq = ++rxDrugSearchSeq;
+    const state = rxPickerState(line);
+    clearTimeout(state.timer);
+    state.timer = setTimeout(() => runPrescriptionDrugSearch(line), delay);
+}
+
+async function runPrescriptionDrugSearch(line)
+{
+    const search = line.querySelector("[data-rx-search]");
+    const results = line.querySelector(".rx-results");
+    const state = rxPickerState(line);
+    const seq = ++state.seq;
 
     results.hidden = false;
     search.setAttribute("aria-expanded", "true");
     results.innerHTML = `<div class="rx-empty">Searching...</div>`;
 
     const result = await fetchPrescribableDrugs(search.value.trim());
-    if (seq !== rxDrugSearchSeq || document.activeElement !== search) return;
+    if (seq !== state.seq || document.activeElement !== search) return;
 
-    rxDrugResults = result?.success ? result.data : [];
-    rxDrugActive = rxDrugResults.length ? 0 : -1;
+    state.results = result?.success ? result.data : [];
+    state.active = state.results.length ? 0 : -1;
 
     if (!result?.success) {
         results.innerHTML = `<div class="rx-empty">${escapeHtml(result?.message || "Couldn't search the catalog.")}</div>`;
         return;
     }
 
-    results.innerHTML = rxDrugResults.length
-        ? rxDrugResults.map((drug, index) => `
-            <div class="rx-option" role="option" id="rxOpt${index}" data-rx-index="${index}">
+    results.innerHTML = state.results.length
+        ? state.results.map((drug, index) => `
+            <div class="rx-option" role="option" id="rxOpt_${line.dataset.uid}_${index}" data-rx-index="${index}">
                 <div style="min-width:0;">
                     <span class="rx-option-name">${escapeHtml(drug.name)}</span>
                     <span class="rx-option-sub">${escapeHtml(prescriptionDrugDetails(drug))}</span>
                 </div>
                 <div class="rx-option-side">${prescriptionStockBadge(drug)}${prescriptionFlagBadges(drug)}</div>
             </div>`).join("")
-        : `<div class="rx-empty">No catalog item matches “${escapeHtml(search.value.trim())}”. You can still type the medicine in Title.</div>`;
+        : `<div class="rx-empty">No catalog item matches “${escapeHtml(search.value.trim())}”. You can still type the medicine in Name.</div>`;
 
-    highlightPrescriptionDrug();
+    highlightPrescriptionDrug(line);
 }
 
-function highlightPrescriptionDrug()
+function highlightPrescriptionDrug(line)
 {
-    const results = document.getElementById("rxDrugResults");
-    results.querySelectorAll(".rx-option").forEach((el, index) => el.classList.toggle("active", index === rxDrugActive));
+    const state = rxPickerState(line);
+    const results = line.querySelector(".rx-results");
+    results.querySelectorAll(".rx-option").forEach((el, index) => el.classList.toggle("active", index === state.active));
     const active = results.querySelector(".rx-option.active");
-    document.getElementById("prescription_drug_search").setAttribute("aria-activedescendant", active ? active.id : "");
+    line.querySelector("[data-rx-search]").setAttribute("aria-activedescendant", active ? active.id : "");
     active?.scrollIntoView({ block: "nearest" });
 }
 
-function closePrescriptionDrugResults()
+function closePrescriptionDrugResults(line)
 {
-    rxDrugSearchSeq++;
-    const results = document.getElementById("rxDrugResults");
-    if (!results) return;
-    results.hidden = true;
-    document.getElementById("prescription_drug_search").setAttribute("aria-expanded", "false");
+    if (!line || !line.isConnected) return;
+    rxPickerState(line).seq++;
+    line.querySelector(".rx-results").hidden = true;
+    line.querySelector("[data-rx-search]").setAttribute("aria-expanded", "false");
 }
 
 function prescriptionDrugDetails(drug)
 {
-    const generic = drug.generic_name && !drug.name.toLowerCase().includes(drug.generic_name.toLowerCase()) ? drug.generic_name : null;
+    const generic = drug.generic_name && !String(drug.name).toLowerCase().includes(drug.generic_name.toLowerCase()) ? drug.generic_name : null;
     return [generic, drug.strength, drug.dosage_form, drug.route_name, drug.product_type && drug.product_type !== "Drug" ? drug.product_type : null]
         .filter(Boolean).join(" · ");
 }
@@ -10343,38 +10659,47 @@ function formatRxQty(value)
     return Number(value).toLocaleString("en-US", { maximumFractionDigits: 3 });
 }
 
-/** opts.keepFields: opening an existing prescription -- don't touch what's typed. */
-function choosePrescriptionDrug(drug, opts = {})
+/** opts.keepFields: opening a saved line -- don't touch what's on it. */
+function choosePrescriptionDrug(line, drug, opts = {})
 {
-    if (!drug) return;
+    if (!line || !drug) return;
 
-    const titleInput = document.getElementById("prescription_title");
-    const routeSelect = document.getElementById("prescription_route");
+    const state = rxPickerState(line);
+    const title = line.querySelector('[data-f="title"]');
+    const route = line.querySelector('[data-f="route"]');
 
-    document.getElementById("prescription_drug_id").value = drug.id;
-    document.getElementById("rxPicker").hidden = true;
-    document.getElementById("rxDrugHint").hidden = true;
-    closePrescriptionDrugResults();
+    // Same medicine twice on one prescription: point at the other line instead.
+    const twin = [...document.querySelectorAll("#rxLines .rx-line")].find((other) =>
+        other !== line && String(other.querySelector('[data-f="drug_id"]').value) === String(drug.id));
+    if (twin && !opts.keepFields) {
+        line.querySelector('[data-rx-err="drug_id"]').textContent =
+            `${drug.name} is already on this prescription (medicine ${twin.querySelector(".rx-line-no").textContent}).`;
+        line.classList.add("has-error");
+        closePrescriptionDrugResults(line);
+        return;
+    }
+
+    line.querySelector('[data-f="drug_id"]').value = drug.id;
+    line.querySelector("[data-rx-picker]").hidden = true;
+    line.querySelector("[data-rx-hint]").hidden = true;
+    line.querySelector('[data-rx-err="drug_id"]').textContent = "";
+    closePrescriptionDrugResults(line);
 
     if (!opts.keepFields) {
-        // Fill the title unless the prescriber typed their own.
-        if (!titleInput.value.trim() || titleInput.value === rxAutoTitle) {
-            titleInput.value = drug.name;
-        }
-        if (!routeSelect.value && drug.route_name && [...routeSelect.options].some((o) => o.value === drug.route_name)) {
-            routeSelect.value = drug.route_name;
-        }
-        document.getElementById("err-prescription_title").textContent = "";
+        if (!title.value.trim() || title.value === state.autoTitle) title.value = drug.name;
+        if (!route.value && drug.route_name && [...route.options].some((o) => o.value === drug.route_name)) route.value = drug.route_name;
+        line.querySelector('[data-rx-err="title"]').textContent = "";
+        if (!line.querySelector(".rx-err:not(:empty)")) line.classList.remove("has-error");
     }
-    rxAutoTitle = drug.name;
+    state.autoTitle = drug.name;
 
-    renderChosenPrescriptionDrug(drug);
+    renderPrescriptionLineDrug(line, drug);
 }
 
-function renderChosenPrescriptionDrug(drug)
+function renderPrescriptionLineDrug(line, drug)
 {
-    const chosen = document.getElementById("rxDrugChosen");
-    const templates = document.getElementById("rxDrugTemplates");
+    const chosen = line.querySelector("[data-rx-chosen]");
+    const templates = line.querySelector("[data-rx-templates]");
     const out = drug.usable != null && drug.is_stocked !== false && drug.usable <= 0;
 
     chosen.hidden = false;
@@ -10386,47 +10711,52 @@ function renderChosenPrescriptionDrug(drug)
             ${out ? `<span class="rx-warning">None in stock right now — the pharmacy can't fill this until stock arrives.</span>` : ""}
         </div>
         <div class="rx-chosen-actions">
-            <button type="button" data-rx-action="change">Change</button>
-            <button type="button" data-rx-action="remove" aria-label="Remove the catalog medicine">Remove</button>
+            <button type="button" class="rx-icon-btn" data-rx-action="change">Change</button>
+            <button type="button" class="rx-icon-btn" data-rx-action="remove" aria-label="Unlink the catalog medicine">Unlink</button>
         </div>`;
 
-    document.getElementById("rxQtyUnit").textContent = drug.unit_name ? `(${drug.unit_name})` : "";
+    line.querySelector("[data-rx-unit]").textContent = drug.unit_name ? `(${drug.unit_name})` : "";
 
     const list = drug.templates || [];
     templates.hidden = !list.length;
     templates.innerHTML = list.length
         ? `<span>Standard dose:</span>` + list.map((t) => `<button type="button" data-rx-template='${escapeHtml(JSON.stringify(t))}'>${escapeHtml(prescriptionTemplateLabel(t))}</button>`).join("")
         : "";
+
+    // In a read-only prescription the line's buttons stay hidden.
+    if (document.getElementById("rxSave").hidden) {
+        chosen.querySelector(".rx-chosen-actions").hidden = true;
+        templates.hidden = true;
+    }
 }
 
-/** Loads stock and flags for an already-linked prescription. */
-async function refreshChosenPrescriptionDrug(drugId, name)
+/** Fills in stock, flags and doses for a saved line's catalog item. */
+async function refreshPrescriptionLineDrug(line, drugId, name)
 {
     const result = await fetchPrescribableDrugs(name);
     const drug = result?.success ? result.data.find((d) => d.id === drugId) : null;
 
-    if (drug && String(document.getElementById("prescription_drug_id").value) === String(drugId)) {
-        renderChosenPrescriptionDrug(drug);
+    if (drug && line.isConnected && String(line.querySelector('[data-f="drug_id"]').value) === String(drugId)) {
+        renderPrescriptionLineDrug(line, drug);
     }
 }
 
-function clearPrescriptionDrug(clearAutoTitle = false)
+function clearPrescriptionDrug(line, clearAutoTitle)
 {
-    const titleInput = document.getElementById("prescription_title");
-    if (clearAutoTitle && rxAutoTitle && titleInput.value === rxAutoTitle) {
-        titleInput.value = "";
-    }
+    const state = rxPickerState(line);
+    const title = line.querySelector('[data-f="title"]');
+    if (clearAutoTitle && state.autoTitle && title.value === state.autoTitle) title.value = "";
 
-    document.getElementById("prescription_drug_id").value = "";
-    document.getElementById("prescription_drug_search").value = "";
-    document.getElementById("rxPicker").hidden = false;
-    document.getElementById("rxDrugHint").hidden = false;
-    document.getElementById("rxDrugChosen").hidden = true;
-    document.getElementById("rxDrugChosen").innerHTML = "";
-    document.getElementById("rxDrugTemplates").hidden = true;
-    document.getElementById("rxDrugTemplates").innerHTML = "";
-    document.getElementById("rxQtyUnit").textContent = "";
-    closePrescriptionDrugResults();
+    line.querySelector('[data-f="drug_id"]').value = "";
+    line.querySelector("[data-rx-search]").value = "";
+    line.querySelector("[data-rx-picker]").hidden = false;
+    line.querySelector("[data-rx-hint]").hidden = false;
+    line.querySelector("[data-rx-chosen]").hidden = true;
+    line.querySelector("[data-rx-chosen]").innerHTML = "";
+    line.querySelector("[data-rx-templates]").hidden = true;
+    line.querySelector("[data-rx-templates]").innerHTML = "";
+    line.querySelector("[data-rx-unit]").textContent = "";
+    closePrescriptionDrugResults(line);
 }
 
 function prescriptionTemplateLabel(t)
@@ -10436,169 +10766,163 @@ function prescriptionTemplateLabel(t)
     return t.refills ? `${label} · ${t.refills} refill${t.refills === 1 ? "" : "s"}` : label;
 }
 
-function applyPrescriptionTemplate(t)
+function applyPrescriptionTemplate(line, t)
 {
-    if (t.schedule) document.getElementById("prescription_dosage").value = t.schedule;
-    if (t.interval_type) document.getElementById("prescription_frequency").value = RX_INTERVALS[t.interval_type] || t.interval_type;
-    document.getElementById("prescription_refills").value = t.refills ?? 0;
+    if (t.schedule) line.querySelector('[data-f="dosage"]').value = t.schedule;
+    if (t.interval_type) line.querySelector('[data-f="frequency"]').value = RX_INTERVALS[t.interval_type] || t.interval_type;
+    line.querySelector('[data-f="refills"]').value = t.refills ?? 0;
 }
 
-async function openPrescriptionDetailModal(patient)
+/* ---------- saving ---------- */
+
+function collectPrescriptionLine(line)
 {
-    document.getElementById("prescriptionDetailAlert").innerHTML = "";
-    document.getElementById("prescriptionDetailModalOverlay").classList.add("open");
-
-    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
-    const addBtn = document.getElementById("openAddPrescriptionBtn");
-
-    addBtn.style.display = canManage ? "" : "none";
-
-    await loadPrescriptionDetailTable(patient);
+    const item = { id: line.dataset.lineId ? Number(line.dataset.lineId) : null };
+    const drugId = line.querySelector('[data-f="drug_id"]').value;
+    item.drug_id = drugId ? Number(drugId) : null;
+    RX_LINE_FIELDS.forEach((field) => {
+        const el = line.querySelector(`[data-f="${field}"]`);
+        item[field] = el ? el.value.trim() : "";
+    });
+    item.substitution_allowed = line.querySelector('[data-f="substitution_allowed"]').checked ? 1 : 0;
+    return item;
 }
 
-async function loadPrescriptionDetailTable(patient)
+/** Same rule as the server: a new line with nothing typed is ignored. */
+function isBlankPrescriptionLine(item)
 {
-    const tbody = document.getElementById("prescriptionDetailTableBody");
+    return !item.id && !item.drug_id && ["title", "dosage", "frequency", "quantity", "directions"].every((f) => !item[f]);
+}
 
-    try {
-        const result = await fetchPatientPrescriptions(patient.id);
+function clearPrescriptionErrors()
+{
+    document.querySelectorAll("#prescriptionForm [data-rx-err]").forEach((el) => { el.textContent = ""; });
+    document.querySelectorAll("#rxLines .rx-line.has-error").forEach((el) => el.classList.remove("has-error"));
+}
 
-        if (!result.success) {
-            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">${escapeHtml(result.message || "Unable to load prescriptions.")}</td></tr>`;
+async function savePrescriptionSlip()
+{
+    clearPrescriptionErrors();
+    document.getElementById("prescriptionFormAlert").innerHTML = "";
+
+    const lineEls = [...document.querySelectorAll("#rxLines .rx-line")];
+    const sent = lineEls.map((el) => ({ el, item: collectPrescriptionLine(el) })).filter(({ item }) => !isBlankPrescriptionLine(item));
+
+    if (!sent.length) {
+        document.querySelector('#prescriptionForm [data-rx-err="items"]').textContent = "Add at least one medicine.";
+        return;
+    }
+
+    const slipId = document.getElementById("rxSlipId").value;
+    const payload = {
+        patient_id: currentDashboardPatient.id,
+        prescribed_date: document.getElementById("rxPrescribedDate").value,
+        prescriber_user_id: document.getElementById("rxPrescriber").value || null,
+        encounter_id: document.getElementById("rxEncounter").value || null,
+        diagnosis: document.getElementById("rxDiagnosis").value.trim(),
+        notes: document.getElementById("rxNotes").value.trim(),
+        items: sent.map(({ item }) => item)
+    };
+
+    const saveBtn = document.getElementById("rxSave");
+    saveBtn.disabled = true;
+    const result = slipId
+        ? await updatePrescriptionSlip({ ...payload, id: Number(slipId), version: document.getElementById("rxSlipVersion").value })
+        : await createPrescriptionSlip(payload);
+    saveBtn.disabled = false;
+
+    if (!result?.success) {
+        const errors = result?.errors && typeof result.errors === "object" ? result.errors : {};
+        let placed = 0;
+        Object.entries(errors).forEach(([key, message]) => {
+            const lineMatch = key.match(/^items\.(\d+)\.(\w+)$/);
+            if (lineMatch) {
+                const target = sent[Number(lineMatch[1])]?.el;
+                const slot = target?.querySelector(`[data-rx-err="${lineMatch[2]}"]`) || target?.querySelector('[data-rx-err="title"]');
+                if (slot) {
+                    slot.textContent = message;
+                    target.classList.add("has-error");
+                    placed++;
+                }
+                return;
+            }
+            const slot = document.querySelector(`#prescriptionForm [data-rx-err="${key}"]`);
+            if (slot) {
+                slot.textContent = message;
+                placed++;
+            }
+        });
+        showAlert("prescriptionFormAlert", placed ? (result?.message || "Some details need fixing.") : (result?.message || "Failed to save the prescription."), "error");
+        document.querySelector("#rxLines .rx-line.has-error, #prescriptionForm .rx-err:not(:empty)")?.scrollIntoView({ block: "center", behavior: "smooth" });
+        return;
+    }
+
+    document.getElementById("prescriptionFormModalOverlay").classList.remove("open");
+    showToast(result.message || "Prescription saved.", "success");
+    await refreshPrescriptionViews();
+}
+
+async function refreshPrescriptionViews()
+{
+    if (document.getElementById("prescriptionDetailModalOverlay").classList.contains("open")) {
+        await loadPrescriptionDetailTable(currentDashboardPatient);
+    }
+    await loadDashboardPrescriptions(currentDashboardPatient);
+}
+
+/* ---------- cancelling ---------- */
+
+let rxCancelSlip = null;
+
+function setupPrescriptionCancelDialog()
+{
+    const overlay = document.getElementById("rxCancelOverlay");
+    const close = () => {
+        overlay.classList.remove("open");
+        rxCancelSlip = null;
+    };
+
+    document.getElementById("rxCancelClose").addEventListener("click", close);
+    document.getElementById("rxCancelBack").addEventListener("click", close);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+    overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+
+    document.getElementById("rxCancelConfirm").addEventListener("click", async () => {
+        if (!rxCancelSlip) return;
+        const reason = document.getElementById("rxCancelReason").value.trim();
+        if (!reason) {
+            showAlert("rxCancelAlert", "Enter why the prescription is being cancelled.", "error");
+            document.getElementById("rxCancelReason").focus();
             return;
         }
 
-        renderPrescriptionDetailTable(patient, result.data);
-    } catch (error) {
-        console.error("Failed to load patient prescriptions", error);
-        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">Unable to load prescriptions right now. Please try again.</td></tr>`;
-    }
-}
+        const button = document.getElementById("rxCancelConfirm");
+        button.disabled = true;
+        const result = await cancelPrescriptionSlip(rxCancelSlip.id, reason, rxCancelSlip.version);
+        button.disabled = false;
 
-function renderPrescriptionDetailTable(patient, prescriptions)
-{
-    const tbody = document.getElementById("prescriptionDetailTableBody");
-    const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
+        if (!result?.success) {
+            showAlert("rxCancelAlert", result?.message || "Couldn't cancel the prescription.", "error");
+            return;
+        }
 
-    if (!prescriptions.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No prescriptions recorded for this patient.</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = prescriptions.map((prescription) => {
-        const isActive = isCurrentCourse(prescription);
-
-        return `
-        <tr>
-            <td>${escapeHtml(prescription.title)}<span class="rx-link-note">${prescription.drug_id
-                ? `Catalog: ${escapeHtml([prescription.drug_name, prescription.drug_strength].filter(Boolean).join(" · "))}`
-                : "Not linked to the Drug Catalog"}</span></td>
-            <td>${escapeHtml(prescription.dosage || "-")}</td>
-            <td><span class="status-badge ${isActive ? "completed" : "cancelled"}">${isActive ? "Active" : "Inactive"}</span></td>
-            <td>${escapeHtml(formatDate(prescription.updated_at || prescription.created_at))}</td>
-            <td class="table-actions">
-                ${canManage
-                    ? `<button class="btn-edit" data-edit-prescription="${prescription.id}">Edit</button>
-                       <button class="btn-danger" data-remove-prescription="${prescription.id}">Delete</button>`
-                    : ""}
-            </td>
-        </tr>
-    `;
-    }).join("");
-
-    if (!canManage) {
-        return;
-    }
-
-    tbody.querySelectorAll("[data-edit-prescription]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            const prescription = prescriptions.find((p) => String(p.id) === btn.getAttribute("data-edit-prescription"));
-
-            if (prescription) {
-                openPrescriptionFormModal(prescription);
-            }
-        });
-    });
-
-    tbody.querySelectorAll("[data-remove-prescription]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-            if (!confirm("Remove this prescription record?")) {
-                return;
-            }
-
-            const result = await removePatientPrescription(btn.getAttribute("data-remove-prescription"));
-
-            if (!result.success) {
-                showAlert("prescriptionDetailAlert", result.message || "Failed to remove prescription.", "error");
-                return;
-            }
-
-            await loadPrescriptionDetailTable(currentDashboardPatient);
-            await loadDashboardPrescriptions(currentDashboardPatient);
-        });
+        close();
+        showToast(result.message || "Prescription cancelled.", "success");
+        await refreshPrescriptionViews();
     });
 }
 
-async function openPrescriptionFormModal(existingRecord)
+function openPrescriptionCancelDialog(slip)
 {
-    const formOverlay = document.getElementById("prescriptionFormModalOverlay");
-    const title = document.getElementById("prescriptionFormTitle");
-    const recordIdInput = document.getElementById("prescription_record_id");
-
-    document.getElementById("prescriptionFormAlert").innerHTML = "";
-    document.getElementById("prescriptionForm").reset();
-    document.getElementById("err-prescription_title").textContent = "";
-
-    const moreToggle = document.getElementById("prescriptionMoreToggle");
-    const moreFields = document.getElementById("prescriptionMoreFields");
-
-    moreFields.hidden = true;
-    moreToggle.classList.remove("expanded");
-    moreToggle.querySelector("span").textContent = "Show More Fields";
-
-    clearPrescriptionDrug();
-
-    if (existingRecord) {
-        title.textContent = "Edit Prescription";
-        recordIdInput.value = existingRecord.id;
-
-        PRESCRIPTION_DETAIL_FIELDS.forEach((field) => {
-            if (field === "substitution_allowed") {
-                return;
-            }
-
-            document.getElementById(`prescription_${field}`).value = existingRecord[field] ?? "";
-        });
-
-        document.getElementById(
-            Number(existingRecord.substitution_allowed) ? "prescription_substitution_allowed_yes" : "prescription_substitution_allowed_no"
-        ).checked = true;
-
-        const secondaryFields = ["coding", "occurrence", "outcome", "classification_type", "referred_by", "destination"];
-
-        if (secondaryFields.some((field) => existingRecord[field])) {
-            moreFields.hidden = false;
-            moreToggle.classList.add("expanded");
-            moreToggle.querySelector("span").textContent = "Hide More Fields";
-        }
-
-        if (existingRecord.drug_id) {
-            // Show the link straight away, then fill in stock and flags.
-            choosePrescriptionDrug({
-                id: Number(existingRecord.drug_id), name: existingRecord.drug_name || existingRecord.title,
-                strength: existingRecord.drug_strength, unit_name: existingRecord.drug_unit_name, templates: []
-            }, { keepFields: true });
-            refreshChosenPrescriptionDrug(Number(existingRecord.drug_id), existingRecord.drug_name || "");
-        }
-    } else {
-        title.textContent = "Add Prescription";
-        recordIdInput.value = "";
-        document.getElementById("prescription_verification_status").value = "Unconfirmed";
-        document.getElementById("prescription_substitution_allowed_yes").checked = true;
-    }
-
-    formOverlay.classList.add("open");
+    rxCancelSlip = slip;
+    document.getElementById("rxCancelAlert").innerHTML = "";
+    document.getElementById("rxCancelReason").value = "";
+    document.getElementById("rxCancelText").textContent =
+        `${slip.rx_number} (${slip.items.length} medicine${slip.items.length === 1 ? "" : "s"}) will be cancelled. It stays on the patient's record, marked as cancelled.`;
+    document.getElementById("rxCancelOverlay").classList.add("open");
+    document.getElementById("rxCancelReason").focus();
 }
+
 
 const DISCLOSURE_DETAIL_FIELDS = [
     "disclosure_date",

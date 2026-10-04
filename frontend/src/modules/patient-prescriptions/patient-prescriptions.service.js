@@ -58,3 +58,32 @@ export async function removePatientPrescription(id)
         }
     );
 }
+
+/* Prescription slips: one prescription, many medicines. */
+
+export async function fetchPrescriptionSlips(patientId)
+{
+    const query = patientId ? `?${new URLSearchParams({ patient_id: patientId }).toString()}` : "";
+
+    return await api(`/prescriptions${query}`);
+}
+
+export async function fetchPrescriptionFormOptions(patientId)
+{
+    return await api(`/prescriptions/form-options?${new URLSearchParams({ patient_id: patientId }).toString()}`);
+}
+
+export async function createPrescriptionSlip(details)
+{
+    return await api("/prescriptions", { method: "POST", body: JSON.stringify(details) });
+}
+
+export async function updatePrescriptionSlip(details)
+{
+    return await api("/prescriptions", { method: "PUT", body: JSON.stringify(details) });
+}
+
+export async function cancelPrescriptionSlip(id, reason, version)
+{
+    return await api("/prescriptions/cancel", { method: "POST", body: JSON.stringify({ id, reason, version }) });
+}

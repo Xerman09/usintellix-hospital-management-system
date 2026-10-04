@@ -31,12 +31,14 @@ class PatientPrescriptionService
                     pp.substitution_allowed, pp.pharmacy, pp.comments, pp.coding,
                     pp.occurrence, pp.outcome, pp.classification_type, pp.verification_status,
                     pp.referred_by, pp.destination, pp.created_at, pp.updated_at,
-                    d.name AS drug_name, d.strength AS drug_strength, du.name AS drug_unit_name
+                    d.name AS drug_name, d.strength AS drug_strength, du.name AS drug_unit_name,
+                    pp.prescription_id, pp.line_no, rx.rx_number, rx.prescribed_date, rx.status AS prescription_status
              FROM patient_prescriptions pp
+             LEFT JOIN prescriptions rx ON rx.id = pp.prescription_id
              LEFT JOIN drugs d ON d.id = pp.drug_id
              LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
              WHERE pp.patient_id = :patient_id AND pp.deleted_at IS NULL
-             ORDER BY pp.title"
+             ORDER BY rx.prescribed_date DESC, pp.prescription_id DESC, pp.line_no, pp.title"
         );
 
         $stmt->execute(['patient_id' => $patientId]);
@@ -97,7 +99,33 @@ class PatientPrescriptionService
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $createdBy;
 
-        $id = (new PatientPrescription())->create($data);
+        // A single medicine recorded this way gets a slip of its own.
+        $db = Database::connection();
+        $ownsTransaction = !$db->inTransaction();
+        $ownsTransaction ? $db->beginTransaction() : $db->exec('SAVEPOINT single_prescription');
+
+        try {
+            $date = !empty($data['begin_date']) ? substr((string) $data['begin_date'], 0, 10) : date('Y-m-d');
+            $db->prepare(
+                "INSERT INTO prescriptions (rx_number, patient_id, prescriber_user_id, prescribed_date, status, created_at, created_by)
+                 VALUES (:tmp, :patient, :prescriber, :date, 'active', :now, :user)"
+            )->execute([
+                'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'patient' => $patientId, 'prescriber' => $createdBy,
+                'date' => $date, 'now' => $data['created_at'], 'user' => $createdBy
+            ]);
+            $slipId = (int) $db->lastInsertId();
+            $db->prepare("UPDATE prescriptions SET rx_number = :n WHERE id = :id")
+               ->execute(['n' => 'RX-' . substr($date, 0, 4) . '-' . str_pad((string) $slipId, 5, '0', STR_PAD_LEFT), 'id' => $slipId]);
+
+            $data['prescription_id'] = $slipId;
+            $data['line_no'] = 1;
+            $id = (new PatientPrescription())->create($data);
+
+            $ownsTransaction ? $db->commit() : $db->exec('RELEASE SAVEPOINT single_prescription');
+        } catch (\Throwable $e) {
+            $ownsTransaction ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT single_prescription');
+            throw $e;
+        }
 
         if (!$id) {
             return [
@@ -311,10 +339,21 @@ class PatientPrescriptionService
             ];
         }
 
+        $now = date('Y-m-d H:i:s');
+
         (new PatientPrescription())->update([
-            'deleted_at' => date('Y-m-d H:i:s'),
+            'deleted_at' => $now,
             'deleted_by' => $deletedBy
         ], $id);
+
+        // Removing a slip's last medicine removes the slip.
+        if (!empty($record['prescription_id'])) {
+            Database::connection()->prepare(
+                "UPDATE prescriptions SET deleted_at = :now, deleted_by = :user
+                 WHERE id = :id AND deleted_at IS NULL
+                   AND NOT EXISTS (SELECT 1 FROM patient_prescriptions WHERE prescription_id = :id2 AND deleted_at IS NULL)"
+            )->execute(['now' => $now, 'user' => $deletedBy, 'id' => (int) $record['prescription_id'], 'id2' => (int) $record['prescription_id']]);
+        }
 
         return [
             'success' => true,

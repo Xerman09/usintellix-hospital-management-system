@@ -91,6 +91,15 @@ class PatientPrescriptionController extends Controller
             return;
         }
 
+        if (!empty($prescription['prescription_id'])) {
+            $slipStatus = \App\Core\Database::connection()->prepare("SELECT status FROM prescriptions WHERE id = :id");
+            $slipStatus->execute(['id' => (int) $prescription['prescription_id']]);
+            if ($slipStatus->fetchColumn() === 'cancelled') {
+                $this->error('This prescription was cancelled, so it can\'t be refilled.', 422);
+                return;
+            }
+        }
+
         if (empty($patient['provider_id'])) {
             $this->error('You do not have an assigned provider to send this request to.', 422);
             return;

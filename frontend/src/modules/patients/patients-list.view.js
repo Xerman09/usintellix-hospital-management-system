@@ -10044,39 +10044,34 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
-<div class="modal-overlay" id="prescriptionDetailModalOverlay">
-    <div class="modal-box" style="max-width: 800px;">
-        <div class="modal-header">
-            <h2>Prescriptions</h2>
-            <div class="modal-header-actions">
-                <button type="button" class="btn-primary-inline" id="openAddPrescriptionBtn">+ Add Prescription</button>
-                <button type="button" class="modal-close" id="closePrescriptionDetailModal">&times;</button>
-            </div>
-        </div>
-        <p class="form-subtitle">Full prescription history for this patient.</p>
-
-        <div id="prescriptionDetailAlert"></div>
-
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Drug</th>
-                        <th>Dosage</th>
-                        <th>Status</th>
-                        <th>Last Modified</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="prescriptionDetailTableBody">
-                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
 <style>
+.rx-modal { max-width: 980px; }
+.rx-modal .form-subtitle { margin-bottom: 12px; }
+.rx-head-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.rx-head-grid .full { grid-column: 1 / -1; }
+.rx-head-grid .two { grid-column: span 2; }
+.rx-section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0 10px; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--text-muted); }
+.rx-lines { display: flex; flex-direction: column; gap: 12px; }
+.rx-line { border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; background: var(--bg-surface); min-width: 0; }
+.rx-line.has-error { border-color: #dc2626; }
+.rx-line-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rx-line-no { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 0 6px; }
+.rx-line-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.rx-line-grid .full { grid-column: 1 / -1; }
+.rx-line-grid .two { grid-column: span 2; }
+.rx-line label, .rx-head-grid label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-primary); }
+.rx-line .form-input, .rx-head-grid .form-input { width: 100%; box-sizing: border-box; }
+.rx-check { display: flex !important; align-items: center; gap: 6px; font-weight: 400 !important; height: 38px; cursor: pointer; }
+.rx-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.rx-err { display: block; color: #b91c1c; font-size: 11.5px; margin-top: 3px; }
+:root[data-theme="dark"] .rx-err { color: #fca5a5; }
+.rx-more-toggle { background: none; border: none; padding: 0; margin-top: 10px; color: var(--accent-text, var(--accent)); font-weight: 600; font-size: 12px; cursor: pointer; font-family: inherit; }
+.rx-icon-btn { height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.rx-icon-btn.danger { color: #b91c1c; }
+:root[data-theme="dark"] .rx-icon-btn.danger { color: #fca5a5; }
+.rx-add-line { width: 100%; height: 40px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--bg-surface); color: var(--accent-text, var(--accent)); font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+.rx-add-line:hover { background: var(--accent-light); }
+
 .rx-picker { position: relative; }
 .rx-results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; max-height: 300px; overflow-y: auto;
     background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 10px 24px rgba(0,0,0,.14); }
@@ -10091,7 +10086,6 @@ textarea.pd-sdoh-readonly {
     border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-light); }
 .rx-chosen-name { font-weight: 700; color: var(--text-primary); font-size: 13.5px; }
 .rx-chosen-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.rx-chosen-actions button { height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .rx-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .rx-badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .rx-badge.ok { background: #dcfce7; color: #166534; }
@@ -10106,187 +10100,123 @@ textarea.pd-sdoh-readonly {
 .rx-hint { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
 .rx-warning { display: block; font-size: 12px; margin-top: 6px; color: #b45309; }
 :root[data-theme="dark"] .rx-warning { color: #fcd34d; }
-.rx-link-note { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+.rx-slip-meds { margin: 0; padding-left: 18px; }
+.rx-slip-meds li { margin: 1px 0; }
+.rx-slip-sub { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.rx-dash-slip { padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+.rx-dash-slip:last-child { border-bottom: none; }
+.rx-dash-slip-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-muted); }
+.rx-dash-slip ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-primary); font-size: 13px; }
+
+@media (max-width: 760px) {
+    .rx-head-grid, .rx-line-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .rx-head-grid .two, .rx-line-grid .two { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+    .rx-head-grid, .rx-line-grid { grid-template-columns: minmax(0, 1fr); }
+}
 </style>
-<div class="modal-overlay" id="prescriptionFormModalOverlay">
-    <div class="modal-box">
+
+<div class="modal-overlay" id="prescriptionDetailModalOverlay">
+    <div class="modal-box rx-modal">
         <div class="modal-header">
-            <h2 id="prescriptionFormTitle">Add Prescription</h2>
-            <button type="button" class="modal-close" id="closePrescriptionFormModal">&times;</button>
+            <h2>Prescriptions</h2>
+            <div class="modal-header-actions">
+                <button type="button" class="btn-primary-inline" id="openAddPrescriptionBtn">+ New Prescription</button>
+                <button type="button" class="modal-close" id="closePrescriptionDetailModal" aria-label="Close">&times;</button>
+            </div>
         </div>
-        <p class="form-subtitle">Record a prescription for this patient.</p>
+        <p class="form-subtitle">Each prescription can hold several medicines, as written by the doctor.</p>
+
+        <div id="prescriptionDetailAlert"></div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Prescription</th>
+                        <th>Medicines</th>
+                        <th>Prescribed By</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="prescriptionDetailTableBody">
+                    <tr><td colspan="5" class="table-empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="prescriptionFormModalOverlay">
+    <div class="modal-box rx-modal" role="dialog" aria-modal="true" aria-labelledby="prescriptionFormTitle">
+        <div class="modal-header">
+            <h2 id="prescriptionFormTitle">New Prescription</h2>
+            <button type="button" class="modal-close" id="closePrescriptionFormModal" aria-label="Close">&times;</button>
+        </div>
+        <p class="form-subtitle" id="prescriptionFormSubtitle">One prescription, with every medicine the doctor is giving.</p>
 
         <div id="prescriptionFormAlert"></div>
 
-        <form id="prescriptionForm">
-            <input type="hidden" id="prescription_record_id">
+        <form id="prescriptionForm" novalidate>
+            <input type="hidden" id="rxSlipId">
+            <input type="hidden" id="rxSlipVersion">
 
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label for="prescription_drug_search">Medicine <span style="font-weight: 400; color: var(--text-muted);">(from the Drug Catalog, so the pharmacy can dispense it)</span></label>
-                    <input type="hidden" id="prescription_drug_id">
-                    <div class="rx-picker" id="rxPicker">
-                        <input id="prescription_drug_search" class="form-input" placeholder="Search by name, generic or brand..." autocomplete="off"
-                               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rxDrugResults">
-                        <div class="rx-results" id="rxDrugResults" role="listbox" hidden></div>
-                    </div>
-                    <div class="rx-chosen" id="rxDrugChosen" hidden></div>
-                    <div class="rx-templates" id="rxDrugTemplates" hidden></div>
-                    <span class="rx-hint" id="rxDrugHint">Not in the catalog? Leave this blank and type the medicine in Title — it will be recorded, but the pharmacy can't dispense it from stock.</span>
+            <div class="rx-head-grid">
+                <div>
+                    <label for="rxPrescribedDate">Date</label>
+                    <input type="date" id="rxPrescribedDate" class="form-input">
+                    <span class="rx-err" data-rx-err="prescribed_date"></span>
                 </div>
-
-                <div class="form-group full">
-                    <label>Title</label>
-                    <input id="prescription_title" class="form-input" placeholder="e.g. Amoxicillin 500mg">
-                    <span class="form-error" id="err-prescription_title"></span>
+                <div class="two">
+                    <label for="rxPrescriber">Prescribed by</label>
+                    <select id="rxPrescriber" class="form-input"></select>
+                    <span class="rx-err" data-rx-err="prescriber_user_id"></span>
                 </div>
-
-                <div class="form-group">
-                    <label>Begin Date</label>
-                    <input id="prescription_begin_date" type="date" class="form-input">
+                <div>
+                    <label for="rxEncounter">Visit <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+                    <select id="rxEncounter" class="form-input"></select>
+                    <span class="rx-err" data-rx-err="encounter_id"></span>
                 </div>
-
-                <div class="form-group">
-                    <label>End Date</label>
-                    <input id="prescription_end_date" type="date" class="form-input" placeholder="Leave blank if still active">
+                <div class="two">
+                    <label for="rxDiagnosis">Diagnosis</label>
+                    <input id="rxDiagnosis" class="form-input" maxlength="500" placeholder="e.g. Acute pharyngitis">
                 </div>
-
-                <div class="form-group">
-                    <label>Quantity <span id="rxQtyUnit" style="font-weight: 400; color: var(--text-muted);"></span></label>
-                    <input id="prescription_quantity" class="form-input" placeholder="e.g. 30">
-                </div>
-
-                <div class="form-group">
-                    <label>Dosage</label>
-                    <input id="prescription_dosage" class="form-input" placeholder="e.g. 500mg">
-                </div>
-
-                <div class="form-group">
-                    <label>Route</label>
-                    <select id="prescription_route" class="form-input">
-                        <option value="">Unassigned</option>
-                        <option value="Oral">Oral</option>
-                        <option value="Topical">Topical</option>
-                        <option value="Intravenous">Intravenous</option>
-                        <option value="Intramuscular">Intramuscular</option>
-                        <option value="Subcutaneous">Subcutaneous</option>
-                        <option value="Inhalation">Inhalation</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Frequency</label>
-                    <input id="prescription_frequency" class="form-input" placeholder="e.g. Twice daily">
-                </div>
-
-                <div class="form-group">
-                    <label>Refills</label>
-                    <input id="prescription_refills" type="number" min="0" class="form-input" placeholder="e.g. 2">
-                </div>
-
-                <div class="form-group">
-                    <label>Pharmacy</label>
-                    <input id="prescription_pharmacy" class="form-input" placeholder="Pharmacy name (optional)">
-                </div>
-
-                <div class="form-group full">
-                    <label>Is Substitution Allowed</label>
-                    <div class="scm-radio-row">
-                        <label class="scm-radio-option">
-                            <input type="radio" name="prescription_substitution_allowed" id="prescription_substitution_allowed_yes" value="1" checked>
-                            Yes
-                        </label>
-                        <label class="scm-radio-option">
-                            <input type="radio" name="prescription_substitution_allowed" id="prescription_substitution_allowed_no" value="0">
-                            No
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group full">
-                    <label>Directions</label>
-                    <textarea id="prescription_directions" class="form-input" style="min-height: 60px;" placeholder="Directions to the patient (sig)"></textarea>
-                </div>
-
-                <div class="form-group full">
-                    <label>Comments</label>
-                    <textarea id="prescription_comments" class="form-input" style="min-height: 70px;"></textarea>
+                <div class="full">
+                    <label for="rxNotes">Notes</label>
+                    <textarea id="rxNotes" class="form-input" style="min-height: 52px;" placeholder="Advice or notes for this prescription (optional)"></textarea>
                 </div>
             </div>
 
-            <button type="button" class="allergy-more-toggle" id="prescriptionMoreToggle">
-                <span>Show More Fields</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
-            </button>
-
-            <div class="form-grid allergy-more-fields" id="prescriptionMoreFields" hidden>
-                <div class="form-group full">
-                    <label>Coding</label>
-                    <div class="scm-trigger-row" style="align-items: flex-start;">
-                        <textarea id="prescription_coding" class="form-input" placeholder="No code selected" rows="4" style="resize: vertical;"></textarea>
-                        <button type="button" class="btn-secondary scm-trigger-btn" id="openSelectCodesBtnPrescription" style="margin-top: 0;">Select Codes</button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Occurrence</label>
-                    <select id="prescription_occurrence" class="form-input">
-                        <option value="">Unknown or N/A</option>
-                        <option value="First Time">First Time</option>
-                        <option value="Recurrence">Recurrence</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Outcome</label>
-                    <select id="prescription_outcome" class="form-input">
-                        <option value="">Unassigned</option>
-                        <option value="Recovered">Recovered</option>
-                        <option value="Recovering">Recovering</option>
-                        <option value="Not Recovered">Not Recovered</option>
-                        <option value="Recovered with Sequelae">Recovered with Sequelae</option>
-                        <option value="Fatal">Fatal</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Classification Type</label>
-                    <select id="prescription_classification_type" class="form-input">
-                        <option value="">NA</option>
-                        <option value="Encounter Diagnosis">Encounter Diagnosis</option>
-                        <option value="Problem List">Problem List</option>
-                        <option value="Chronic">Chronic</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Verification Status</label>
-                    <select id="prescription_verification_status" class="form-input">
-                        <option value="Unconfirmed">Unconfirmed</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Refuted">Refuted</option>
-                        <option value="Entered in Error">Entered in Error</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Referred By</label>
-                    <input id="prescription_referred_by" class="form-input">
-                </div>
-
-                <div class="form-group">
-                    <label>Destination</label>
-                    <input id="prescription_destination" class="form-input">
-                </div>
-            </div>
+            <div class="rx-section-title"><span>Medicines</span><span id="rxLineCount" style="text-transform:none;font-weight:400;"></span></div>
+            <span class="rx-err" data-rx-err="items" style="margin-bottom:8px;"></span>
+            <div class="rx-lines" id="rxLines"></div>
+            <button type="button" class="rx-add-line" id="rxAddLine" style="margin-top: 12px;">+ Add medicine</button>
 
             <div class="form-actions">
-                <button type="button" class="btn-secondary" id="cancelPrescriptionForm">Cancel</button>
-                <button class="login-btn" type="submit">Save</button>
+                <button type="button" class="btn-secondary" id="cancelPrescriptionForm">Close</button>
+                <button class="login-btn" type="submit" id="rxSave">Save Prescription</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="rxCancelOverlay">
+    <div class="modal-box" style="max-width: 480px;" role="dialog" aria-modal="true" aria-labelledby="rxCancelTitle">
+        <div class="modal-header">
+            <h2 id="rxCancelTitle">Cancel prescription</h2>
+            <button type="button" class="modal-close" id="rxCancelClose" aria-label="Close">&times;</button>
+        </div>
+        <p class="form-subtitle" id="rxCancelText"></p>
+        <div id="rxCancelAlert"></div>
+        <label for="rxCancelReason" style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;">Reason</label>
+        <textarea id="rxCancelReason" class="form-input" style="width:100%;box-sizing:border-box;min-height:70px;" maxlength="500" placeholder="e.g. Entered for the wrong patient"></textarea>
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" id="rxCancelBack">Go Back</button>
+            <button type="button" class="btn-danger" id="rxCancelConfirm">Cancel Prescription</button>
+        </div>
     </div>
 </div>
 

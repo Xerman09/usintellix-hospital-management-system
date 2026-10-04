@@ -1,6 +1,8 @@
 <?php
 
 use App\Modules\PatientPrescriptions\Controllers\PatientPrescriptionController;
+use App\Modules\PatientPrescriptions\Controllers\PrescriptionController;
+use App\Modules\PatientPrescriptions\Services\PrescriptionService;
 
 /** @var \App\Core\Router $router */
 
@@ -36,4 +38,30 @@ $router->put('/patient-prescriptions', [PatientPrescriptionController::class, 'u
 $router->delete('/patient-prescriptions', [PatientPrescriptionController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Prescription slips: one prescription, many medicines.
+$router->get('/prescriptions', [PrescriptionController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
+]);
+
+$router->get('/prescriptions/form-options', [PrescriptionController::class, 'formOptions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
+]);
+
+$router->post('/prescriptions', [PrescriptionController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
+]);
+
+$router->put('/prescriptions', [PrescriptionController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
+]);
+
+$router->post('/prescriptions/cancel', [PrescriptionController::class, 'cancel'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
 ]);
