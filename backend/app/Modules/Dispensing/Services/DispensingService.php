@@ -32,6 +32,11 @@ use PDO;
  * pharmacy (recordPayment -> patient_ledger_payments). Undoing a
  * dispensing voids its charges.
  *
+ * High-alert medicines (drugs.is_high_alert): a dispensing that includes
+ * one waits for a second person -- not the one who prepared it -- to check
+ * it (check()) before it's handed over and paid for. One that fails the
+ * check is undone.
+ *
  * Only Drug Catalog medicines can be dispensed from stock. A prescription
  * past its validity, or cancelled, can't be dispensed. Expired lots are
  * never used. Quantities are in each medicine's dispensing unit.
@@ -72,6 +77,11 @@ class DispensingService
         $params = [];
 
         switch ($view) {
+            case 'to_check':
+                // High-alert dispensings waiting for their second check, oldest first.
+                $where[] = "EXISTS (SELECT 1 FROM prescription_dispenses d WHERE d.prescription_id = p.id AND d.status = 'completed' AND d.check_status = 'awaiting')";
+                $order = '(SELECT MIN(d.created_at) FROM prescription_dispenses d WHERE d.prescription_id = p.id AND d.status = \'completed\' AND d.check_status = \'awaiting\'), p.id';
+                break;
             case 'refills':
                 // Refills patients (or staff) asked for, oldest request first.
                 $where[] = "EXISTS (SELECT 1 FROM prescription_refill_requests r WHERE r.prescription_id = p.id AND r.status = 'pending')";
@@ -116,6 +126,7 @@ class DispensingService
         $stmt = $db->prepare(
             "SELECT p.id, p.rx_number, p.patient_id, p.prescribed_date, p.valid_until, p.fillable_until, p.dispense_status, p.last_dispensed_at, p.closed_at,
                     (SELECT COUNT(*) FROM prescription_refill_requests r WHERE r.prescription_id = p.id AND r.status = 'pending') AS refill_requests,
+                    (SELECT COUNT(*) FROM prescription_dispenses d WHERE d.prescription_id = p.id AND d.status = 'completed' AND d.check_status = 'awaiting') AS awaiting_check,
                     pt.patient_no, pt.first_name, pt.middle_name, pt.last_name, pt.suffix,
                     " . self::userNameSql('p.prescriber_user_id') . " AS prescriber_name,
                     (SELECT COUNT(*) FROM patient_prescriptions pp WHERE pp.prescription_id = p.id AND pp.deleted_at IS NULL) AS line_count,
@@ -139,7 +150,9 @@ class DispensingService
                 SUM(CASE WHEN dispense_status = 'partial' AND (fillable_until IS NULL OR fillable_until >= :t2) THEN 1 ELSE 0 END) AS partial,
                 SUM(CASE WHEN dispense_status IN ('pending', 'partial') AND fillable_until < :t3 THEN 1 ELSE 0 END) AS expired,
                 (SELECT COUNT(DISTINCT r.prescription_id) FROM prescription_refill_requests r JOIN prescriptions p2 ON p2.id = r.prescription_id
-                 WHERE r.status = 'pending' AND p2.deleted_at IS NULL AND p2.status = 'active') AS refills
+                 WHERE r.status = 'pending' AND p2.deleted_at IS NULL AND p2.status = 'active') AS refills,
+                (SELECT COUNT(DISTINCT d.prescription_id) FROM prescription_dispenses d JOIN prescriptions p3 ON p3.id = d.prescription_id
+                 WHERE d.status = 'completed' AND d.check_status = 'awaiting' AND p3.deleted_at IS NULL AND p3.status = 'active') AS to_check
              FROM prescriptions WHERE deleted_at IS NULL AND status = 'active'"
         );
         $counts->execute(['t1' => $today, 't2' => $today, 't3' => $today]);
@@ -147,7 +160,7 @@ class DispensingService
 
         return [
             'view' => $view,
-            'counts' => ['to_fill' => (int) $c['to_fill'], 'partial' => (int) $c['partial'], 'expired' => (int) $c['expired'], 'refills' => (int) $c['refills']],
+            'counts' => ['to_fill' => (int) $c['to_fill'], 'partial' => (int) $c['partial'], 'expired' => (int) $c['expired'], 'refills' => (int) $c['refills'], 'to_check' => (int) $c['to_check']],
             'truncated' => count($rows) > self::QUEUE_LIMIT,
             'rows' => array_map(fn($r) => [
                 'id' => (int) $r['id'],
@@ -160,6 +173,7 @@ class DispensingService
                 'valid_until' => $r['valid_until'],
                 'is_expired' => $r['fillable_until'] !== null && $r['fillable_until'] < $today,
                 'refill_requests' => (int) $r['refill_requests'],
+                'awaiting_check' => (int) $r['awaiting_check'],
                 'dispense_status' => $r['dispense_status'],
                 'status_label' => self::STATUS_LABELS[$r['dispense_status']] ?? $r['dispense_status'],
                 'last_dispensed_at' => $r['last_dispensed_at'],
@@ -171,8 +185,8 @@ class DispensingService
         ];
     }
 
-    /** One prescription, ready to dispense. */
-    public function detail(int $prescriptionId): ?array
+    /** One prescription, ready to dispense. $viewerId: who's looking (a second check can't be your own). */
+    public function detail(int $prescriptionId, ?int $viewerId = null): ?array
     {
         $slip = (new PrescriptionService())->get($prescriptionId);
         if (!$slip) {
@@ -220,13 +234,15 @@ class DispensingService
 
         // What each medicine is charged at (catalog selling price, per dispensing unit).
         $prices = [];
+        $highAlert = [];
         if ($drugIds) {
-            foreach ($db->query("SELECT id, selling_price FROM drugs WHERE id IN (" . implode(',', array_map('intval', $drugIds)) . ")")->fetchAll(PDO::FETCH_ASSOC) as $p) {
+            foreach ($db->query("SELECT id, selling_price, is_high_alert FROM drugs WHERE id IN (" . implode(',', array_map('intval', $drugIds)) . ")")->fetchAll(PDO::FETCH_ASSOC) as $p) {
                 $prices[(int) $p['id']] = $p['selling_price'] !== null ? (float) $p['selling_price'] : null;
+                $highAlert[(int) $p['id']] = (bool) $p['is_high_alert'];
             }
         }
 
-        $items = array_map(function ($item) use ($fills, $lots, $requests, $active, $firstFillOpen, $refillOpen, $prices) {
+        $items = array_map(function ($item) use ($fills, $lots, $requests, $active, $firstFillOpen, $refillOpen, $prices, $highAlert) {
             $prescribed = self::parseQuantity($item['quantity'], $item['drug_unit_name']);
             $state = self::lineState($prescribed, (int) ($item['refills'] ?? 0), $fills[$item['id']] ?? []);
             $catalog = $item['drug_id'] !== null;
@@ -249,13 +265,15 @@ class DispensingService
                 'can_refill' => $catalog && $active && $state['current_complete'] && $state['refills_remaining'] > 0 && $refillOpen,
                 'refill_request' => $requests[$item['id']] ?? null,
                 'lots' => $catalog ? ($lots[$item['drug_id']] ?? []) : [],
-                'unit_price' => $catalog && isset($prices[$item['drug_id']]) ? $prices[$item['drug_id']] : null
+                'unit_price' => $catalog && isset($prices[$item['drug_id']]) ? $prices[$item['drug_id']] : null,
+                'is_high_alert' => $catalog && !empty($highAlert[$item['drug_id']])
             ];
         }, $slip['items']);
 
         $statusOpen = $slip['status'] === 'active' && in_array($head['dispense_status'], ['pending', 'partial'], true);
         $giveable = (bool) array_filter($items, fn($i) => $i['can_give_now'] || $i['can_refill']);
         $stuck = array_filter($items, fn($i) => $i['can_dispense'] && !$i['is_complete'] && !$i['can_give_now']);
+        $history = $this->history($prescriptionId, $viewerId);
 
         return [
             'prescription' => array_merge($slip, ['items' => $items]),
@@ -277,7 +295,8 @@ class DispensingService
             'can_dispense' => $giveable,
             'can_close' => $active && ($statusOpen || (bool) array_filter($items, fn($i) => $i['can_dispense'] && $i['refills_remaining'] > 0)),
             'refill_requests' => array_values($requests),
-            'history' => $this->history($prescriptionId)
+            'awaiting_check' => count(array_filter($history, fn($h) => $h['check_status'] === 'awaiting' && $h['status'] === 'completed')),
+            'history' => $history
         ];
     }
 
@@ -345,7 +364,7 @@ class DispensingService
             }
 
             $stmt = $db->prepare(
-                "SELECT pp.id, pp.drug_id, pp.title, pp.quantity, pp.refills, d.name AS drug_name, d.selling_price, du.name AS unit_name
+                "SELECT pp.id, pp.drug_id, pp.title, pp.quantity, pp.refills, d.name AS drug_name, d.selling_price, d.is_high_alert, du.name AS unit_name
                  FROM patient_prescriptions pp
                  LEFT JOIN drugs d ON d.id = pp.drug_id
                  LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
@@ -469,6 +488,8 @@ class DispensingService
             }
 
             $now = date('Y-m-d H:i:s');
+            // A high-alert medicine in it: a second person checks it before it's handed over.
+            $needsCheck = (bool) array_filter($plan, fn($p) => !empty($p['line']['is_high_alert']));
             $stmt = $db->prepare("SELECT first_name, last_name FROM patients WHERE id = :id");
             $stmt->execute(['id' => $rx['patient_id']]);
             $patient = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -476,13 +497,13 @@ class DispensingService
 
             $db->prepare(
                 "INSERT INTO prescription_dispenses (dispense_number, prescription_id, patient_id, warehouse_id, dispensed_date, notes,
-                        discount_type, discount_rate, discount_id_no, discount_reason, status, created_at, created_by)
-                 VALUES (:tmp, :rx, :patient, :wh, :date, :notes, :dtype, :drate, :did, :dreason, 'completed', :now, :user)"
+                        discount_type, discount_rate, discount_id_no, discount_reason, status, check_status, created_at, created_by)
+                 VALUES (:tmp, :rx, :patient, :wh, :date, :notes, :dtype, :drate, :did, :dreason, 'completed', :check, :now, :user)"
             )->execute([
                 'tmp' => 'NEW-' . bin2hex(random_bytes(8)), 'rx' => $prescriptionId, 'patient' => $rx['patient_id'], 'wh' => $warehouseId,
                 'date' => $today, 'notes' => self::text($data['notes'] ?? null, 500),
                 'dtype' => $discount['type'], 'drate' => $discount['rate'], 'did' => $discount['id_no'], 'dreason' => $discount['reason'],
-                'now' => $now, 'user' => $userId
+                'check' => $needsCheck ? 'awaiting' : null, 'now' => $now, 'user' => $userId
             ]);
             $dispenseId = (int) $db->lastInsertId();
             $number = 'DSP-' . date('Y') . '-' . str_pad((string) $dispenseId, 5, '0', STR_PAD_LEFT);
@@ -557,8 +578,10 @@ class DispensingService
 
         return [
             'success' => true,
-            'message' => "Dispensed under {$number}." . ($status === 'partial' ? ' Some medicines are still to be given.' : ''),
-            'data' => ['dispense_id' => $dispenseId, 'dispense_number' => $number, 'dispense_status' => $status, 'net_amount' => $totals['net']]
+            'message' => "Dispensed under {$number}." . ($status === 'partial' ? ' Some medicines are still to be given.' : '')
+                . ($needsCheck ? ' It includes a high-alert medicine: a second person must check it before it\'s handed over.' : ''),
+            'data' => ['dispense_id' => $dispenseId, 'dispense_number' => $number, 'dispense_status' => $status, 'net_amount' => $totals['net'],
+                'needs_check' => $needsCheck]
         ];
     }
 
@@ -639,6 +662,58 @@ class DispensingService
 
         return ['success' => true, 'message' => "{$dispense['dispense_number']} undone; the stock is back and its charges are cancelled."
             . ($paid > 0.004 ? ' ₱' . number_format($paid, 2) . ' was paid for it — refund the patient and record it in the patient ledger.' : '')];
+    }
+
+    /**
+     * The second check of a high-alert dispensing, by someone other than
+     * who prepared it: right patient, medicine, strength, quantity, lot and
+     * expiry, and directions. data: confirmed (all points checked), notes?
+     * One that doesn't pass is undone instead (void()).
+     */
+    public function check(int $dispenseId, array $data, array $user): array
+    {
+        $confirmed = !empty($data['confirmed']) && $data['confirmed'] !== 'false';
+        $db = Database::connection();
+        $owns = $this->begin($db);
+
+        try {
+            $stmt = $db->prepare("SELECT d.*, " . self::userNameSql('d.checked_by') . " AS checked_by_name FROM prescription_dispenses d WHERE d.id = :id FOR UPDATE");
+            $stmt->execute(['id' => $dispenseId]);
+            $dispense = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $message = null;
+            if (!$dispense) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'Dispensing not found.', 'not_found' => true];
+            }
+            if ($dispense['status'] !== 'completed') {
+                $message = 'This dispensing was undone, so there\'s nothing to check.';
+            } elseif ($dispense['check_status'] === 'checked') {
+                $message = 'This dispensing was already checked' . ($dispense['checked_by_name'] ? " by {$dispense['checked_by_name']}" : '') . '.';
+            } elseif ($dispense['check_status'] !== 'awaiting') {
+                $message = 'This dispensing has no high-alert medicine, so it doesn\'t need a second check.';
+            } elseif ((int) $dispense['created_by'] === (int) $user['id']) {
+                $message = 'You prepared this dispensing, so someone else has to check it.';
+            } elseif (!$confirmed) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'Tick every point once you have checked it.', 'errors' => ['confirmed' => 'Tick every point.']];
+            }
+
+            if ($message) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => $message];
+            }
+
+            $db->prepare("UPDATE prescription_dispenses SET check_status = 'checked', checked_at = :now, checked_by = :user, check_notes = :notes WHERE id = :id")
+                ->execute(['now' => date('Y-m-d H:i:s'), 'user' => (int) $user['id'], 'notes' => self::text($data['notes'] ?? null, 500), 'id' => $dispenseId]);
+
+            $this->commit($db, $owns);
+        } catch (\Throwable $e) {
+            $this->rollBack($db, $owns);
+            throw $e;
+        }
+
+        return ['success' => true, 'message' => "{$dispense['dispense_number']} checked. It can be handed over to the patient."];
     }
 
     /** The pharmacy won't give the rest. What was given stays given. */
@@ -723,10 +798,7 @@ class DispensingService
         );
         $stmt->execute(['id' => $dispenseId]);
 
-        $facility = $db->query(
-            "SELECT name, physical_address_line1, physical_city, phone FROM facilities WHERE deleted_at IS NULL AND COALESCE(is_inactive, 0) = 0
-             ORDER BY is_primary_business_entity DESC, is_service_location DESC, id LIMIT 1"
-        )->fetch(PDO::FETCH_ASSOC) ?: null;
+        $business = PrescriptionService::business();
 
         return [
             'dispense_number' => $d['dispense_number'],
@@ -737,8 +809,8 @@ class DispensingService
             'patient_no' => $d['patient_no'],
             'prescriber_name' => $d['prescriber_name'],
             'warehouse_name' => $d['warehouse_name'],
-            'facility' => $facility ? ['name' => $facility['name'], 'phone' => $facility['phone'],
-                'address' => implode(', ', array_filter([$facility['physical_address_line1'], $facility['physical_city']]))] : null,
+            // The hospital as set up under Business Settings.
+            'facility' => ['name' => $business['name'], 'phone' => $business['phone'], 'address' => $business['address'], 'email' => $business['email'], 'logo' => $business['logo']],
             'items' => array_map(fn($r) => [
                 'title' => $r['title'], 'drug_name' => $r['drug_name'], 'generic_name' => $r['generic_name'], 'brand_name' => $r['brand_name'],
                 'strength' => $r['strength'], 'dosage_form' => $r['dosage_form'], 'unit_name' => $r['unit_name'],
@@ -841,7 +913,7 @@ class DispensingService
     }
 
     /** prescription item id => [fill number => quantity given] (completed dispensings). */
-    private static function fillsByLine(int $prescriptionId): array
+    public static function fillsByLine(int $prescriptionId): array
     {
         $stmt = Database::connection()->prepare(
             "SELECT i.prescription_item_id, i.fill_number, SUM(i.quantity) AS qty
@@ -864,7 +936,7 @@ class DispensingService
      * started; 1 = the original), what's been given in it, whether it's
      * complete, and the refills used / left.
      */
-    private static function lineState(?float $prescribed, int $refills, array $fills): array
+    public static function lineState(?float $prescribed, int $refills, array $fills): array
     {
         $current = $fills ? max(array_keys($fills)) : 1;
         $givenCurrent = round($fills[$current] ?? 0.0, 3);
@@ -995,6 +1067,10 @@ class DispensingService
                 $this->rollBack($db, $owns);
                 return ['success' => false, 'message' => 'This dispensing was undone, so there\'s nothing to pay.'];
             }
+            if ($dispense['check_status'] === 'awaiting') {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'This dispensing has a high-alert medicine that hasn\'t had its second check yet. Take payment once it\'s checked and handed over.'];
+            }
 
             $due = round((float) $dispense['net_amount'] - $this->paidFor($dispenseId), 2);
             if ($due <= 0) {
@@ -1054,6 +1130,7 @@ class DispensingService
 
         return [
             'dispense_number' => $labels['dispense_number'], 'dispensed_date' => $labels['dispensed_date'], 'status' => $d['status'],
+            'check_status' => $d['check_status'],
             'rx_number' => $labels['rx_number'], 'patient_name' => $labels['patient_name'], 'patient_no' => $labels['patient_no'],
             'prescriber_name' => $labels['prescriber_name'], 'facility' => $labels['facility'], 'warehouse_name' => $labels['warehouse_name'],
             'discount_label' => $d['discount_type'] ? (self::DISCOUNTS[$d['discount_type']]['label'] ?? $d['discount_type']) : null,
@@ -1251,12 +1328,13 @@ class DispensingService
         return (bool) $stmt->fetchColumn();
     }
 
-    private function history(int $prescriptionId): array
+    private function history(int $prescriptionId, ?int $viewerId = null): array
     {
         $db = Database::connection();
         $stmt = $db->prepare(
             "SELECT d.*, w.name AS warehouse_name, " . self::userNameSql('d.created_by') . " AS dispensed_by_name,
-                    " . self::userNameSql('d.voided_by') . " AS voided_by_name
+                    " . self::userNameSql('d.voided_by') . " AS voided_by_name,
+                    " . self::userNameSql('d.checked_by') . " AS checked_by_name
              FROM prescription_dispenses d JOIN warehouses w ON w.id = d.warehouse_id
              WHERE d.prescription_id = :id ORDER BY d.created_at DESC, d.id DESC"
         );
@@ -1268,7 +1346,7 @@ class DispensingService
 
         $items = [];
         foreach ($db->query(
-            "SELECT i.dispense_id, i.quantity, i.fill_number, pp.title, pp.refills, du.name AS unit_name, l.lot_number, l.expires_date
+            "SELECT i.dispense_id, i.quantity, i.fill_number, pp.title, pp.refills, du.name AS unit_name, l.lot_number, l.expires_date, dr.is_high_alert
              FROM prescription_dispense_items i
              JOIN patient_prescriptions pp ON pp.id = i.prescription_item_id
              JOIN drug_inventory_lots l ON l.id = i.lot_id
@@ -1279,7 +1357,7 @@ class DispensingService
         )->fetchAll(PDO::FETCH_ASSOC) as $i) {
             $items[(int) $i['dispense_id']][] = [
                 'title' => $i['title'], 'quantity' => (float) $i['quantity'], 'unit_name' => $i['unit_name'],
-                'lot_number' => $i['lot_number'], 'expires_date' => $i['expires_date'],
+                'lot_number' => $i['lot_number'], 'expires_date' => $i['expires_date'], 'is_high_alert' => (bool) $i['is_high_alert'],
                 'fill_label' => (int) $i['fill_number'] > 1 ? 'Refill ' . ((int) $i['fill_number'] - 1) . ' of ' . (int) $i['refills'] : null
             ];
         }
@@ -1289,6 +1367,9 @@ class DispensingService
             'warehouse_name' => $d['warehouse_name'], 'dispensed_by_name' => $d['dispensed_by_name'], 'created_at' => $d['created_at'],
             'notes' => $d['notes'], 'status' => $d['status'], 'voided_at' => $d['voided_at'], 'voided_by_name' => $d['voided_by_name'],
             'void_reason' => $d['void_reason'], 'items' => $items[(int) $d['id']] ?? [],
+            'check_status' => $d['check_status'], 'checked_at' => $d['checked_at'], 'checked_by_name' => $d['checked_by_name'], 'check_notes' => $d['check_notes'],
+            'prepared_by_viewer' => $viewerId !== null && (int) $d['created_by'] === $viewerId,
+            'can_check' => $d['status'] === 'completed' && $d['check_status'] === 'awaiting' && $viewerId !== null && (int) $d['created_by'] !== $viewerId,
             'discount_type' => $d['discount_type'], 'discount_label' => $d['discount_type'] ? (self::DISCOUNTS[$d['discount_type']]['label'] ?? $d['discount_type']) : null,
             'discount_rate' => (float) $d['discount_rate'], 'discount_id_no' => $d['discount_id_no'], 'discount_reason' => $d['discount_reason'],
             'gross_amount' => (float) $d['gross_amount'], 'discount_amount' => (float) $d['discount_amount'], 'net_amount' => (float) $d['net_amount'],

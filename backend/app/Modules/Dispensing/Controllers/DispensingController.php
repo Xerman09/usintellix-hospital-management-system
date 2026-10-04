@@ -31,7 +31,7 @@ class DispensingController extends Controller
     public function show(): void
     {
         $request = new Request();
-        $detail = $this->service->detail((int) $request->input('id'));
+        $detail = $this->service->detail((int) $request->input('id'), (int) (Session::get('user')['id'] ?? 0) ?: null);
 
         if (!$detail) {
             $this->error('Prescription not found.', 404);
@@ -60,6 +60,13 @@ class DispensingController extends Controller
     {
         $request = new Request();
         $this->respond($this->service->void((int) $request->input('id'), (string) $request->input('reason'), Session::get('user')));
+    }
+
+    /** Body: id (dispensing), confirmed, notes? -- the second check of a high-alert dispensing. */
+    public function check(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->check((int) $request->input('id'), $request->only(['confirmed', 'notes']), Session::get('user')));
     }
 
     /** Body: id (prescription), reason */

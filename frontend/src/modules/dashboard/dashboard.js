@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=134";
+import { getNavLinks } from "./dashboard.view.js?v=135";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -24,9 +24,9 @@ import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=75";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=75";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=79";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js?v=2";
-import { initBillingManager } from "../billing-manager/billing-manager.js?v=2";
+import { initBillingManager } from "../billing-manager/billing-manager.js?v=6";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
 import { initBatchPayments } from "../batch-payments/batch-payments.js";
 import { EobPostingView } from "../eob-posting/eob-posting.view.js";
@@ -62,8 +62,10 @@ import { StockLevelsView } from "../stock-levels/stock-levels.view.js?v=1";
 import { initStockLevels } from "../stock-levels/stock-levels.js?v=1";
 import { PharmacyDashboardView } from "../pharmacy-dashboard/pharmacy-dashboard.view.js?v=1";
 import { initPharmacyDashboard } from "../pharmacy-dashboard/pharmacy-dashboard.js?v=2";
-import { DispensingView } from "../dispensing/dispensing.view.js?v=3";
-import { initDispensing } from "../dispensing/dispensing.js?v=3";
+import { DispensingView } from "../dispensing/dispensing.view.js?v=4";
+import { initDispensing } from "../dispensing/dispensing.js?v=4";
+import { PharmacyReportsView } from "../pharmacy-reports/pharmacy-reports.view.js?v=1";
+import { initPharmacyReports } from "../pharmacy-reports/pharmacy-reports.js?v=1";
 import { ProcurementReportsView } from "../procurement-reports/procurement-reports.view.js?v=1";
 import { initProcurementReports } from "../procurement-reports/procurement-reports.js?v=2";
 import { initSupplierReturns } from "../supplier-returns/supplier-returns.js?v=1";
@@ -74,7 +76,7 @@ import { initWarehouses } from "../warehouses/warehouses.js?v=3";
 import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
 import { initDestroyedDrugs } from "../destroyed-drugs/destroyed-drugs.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
-import { initPatientFinder } from "../patients/patient-finder.js?v=6";
+import { initPatientFinder } from "../patients/patient-finder.js?v=10";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
 import { initManageModules } from "../manage-modules/manage-modules.js?v=103";
 import { CareCoordinationView } from "../care-coordination/care-coordination.view.js?v=105";
@@ -197,7 +199,7 @@ import { initPharmacies } from "../pharmacies/pharmacies.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
 import { PatientFlowView } from "../patient-flow/patient-flow.view.js";
-import { initPatientFlow } from "../patient-flow/patient-flow.js";
+import { initPatientFlow } from "../patient-flow/patient-flow.js?v=5";
 import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
@@ -676,6 +678,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Dispensing', () => {
                 setTimeout(initDispensing, 0);
                 return DispensingView();
+            }, activate);
+        } else if (tabId === 'pharmacy_reports') {
+            tabManager.openTab(tabId, 'Pharmacy Reports', () => {
+                setTimeout(initPharmacyReports, 0);
+                return PharmacyReportsView();
             }, activate);
         } else if (tabId === 'pharmacy_dashboard') {
             tabManager.openTab(tabId, 'Pharmacy Dashboard', () => {

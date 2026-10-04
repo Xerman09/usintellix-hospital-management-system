@@ -241,6 +241,9 @@ class PharmacyDashboardService
         array_unshift($items, ['key' => 'dispensing', 'label' => 'Prescriptions to dispense', 'tab' => 'pharmacy_dispensing', 'title' => 'Dispensing', 'all_locations' => true,
             'count' => $count("SELECT COUNT(*) FROM prescriptions WHERE deleted_at IS NULL AND status = 'active' AND dispense_status IN ('pending', 'partial')
                                AND (valid_until IS NULL OR valid_until >= :today)", ['today' => $today])]);
+        array_splice($items, 1, 0, [['key' => 'high_alert_check', 'label' => 'High-alert dispensings to double-check', 'tab' => 'pharmacy_dispensing',
+            'title' => 'Dispensing', 'all_locations' => false,
+            'count' => $count("SELECT COUNT(*) FROM prescription_dispenses WHERE status = 'completed' AND check_status = 'awaiting'" . $loc('warehouse_id'))]]);
 
         return $items;
     }

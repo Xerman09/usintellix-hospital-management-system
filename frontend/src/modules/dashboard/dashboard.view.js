@@ -70,6 +70,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 ${["admin", "receptionist", "doctor", "accountant"].includes(role) ? `<a data-tab="pharmacy_dashboard">Pharmacy Dashboard</a>` : ""}
                 ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_dispensing">Dispensing</a>` : ""}
+                ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_reports">Pharmacy Reports</a>` : ""}
                 <div class="dropdown-section-label">Medicines</div>
                 <a data-tab="inventory_management">Drug Catalog &amp; Stock</a>
                 ${role === "admin" ? `<a data-tab="medication_management">Medication Management</a>` : ""}

@@ -13,6 +13,7 @@ $router->get('/dispensing/options', [DispensingController::class, 'options'], $d
 $router->get('/dispensing/labels', [DispensingController::class, 'labels'], $dispensingRoles);
 $router->post('/dispensing', [DispensingController::class, 'store'], $dispensingRoles);
 $router->post('/dispensing/void', [DispensingController::class, 'void'], $dispensingRoles);
+$router->post('/dispensing/check', [DispensingController::class, 'check'], $dispensingRoles);
 $router->post('/dispensing/close', [DispensingController::class, 'close'], $dispensingRoles);
 $router->post('/dispensing/refill-request', [DispensingController::class, 'requestRefill'], $dispensingRoles);
 $router->post('/dispensing/refill-decline', [DispensingController::class, 'declineRefill'], $dispensingRoles);

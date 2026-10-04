@@ -35,6 +35,11 @@ export async function declineRefillRequest(requestId, reason) {
     return api("/dispensing/refill-decline", { method: "POST", body: JSON.stringify({ id: requestId, reason }) });
 }
 
+/** The second check of a high-alert dispensing: {confirmed, notes?} */
+export async function checkDispense(dispenseId, data) {
+    return api("/dispensing/check", { method: "POST", body: JSON.stringify({ id: dispenseId, ...data }) });
+}
+
 export async function recordDispensePayment(dispenseId, payment) {
     return api("/dispensing/payment", { method: "POST", body: JSON.stringify({ id: dispenseId, ...payment }) });
 }

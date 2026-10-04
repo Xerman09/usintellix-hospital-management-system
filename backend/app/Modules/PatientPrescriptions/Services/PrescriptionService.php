@@ -398,6 +398,7 @@ class PrescriptionService
                 ])))),
                 'sex' => $patient['sex'] ?? null,
                 'age' => $age,
+                'birthdate' => $patient['birthdate'] ?? null,
                 'address' => implode(', ', array_filter([$patient['address_line'] ?? null, $patient['city'] ?? null, $patient['province'] ?? null]))
             ],
             'facility' => $facility ? [
@@ -406,8 +407,19 @@ class PrescriptionService
                 'phone' => $facility['phone'] ?? null,
                 'email' => $facility['email'] ?? null
             ] : null,
+            // The hospital as set up under Business Settings: the printed header.
+            'business' => self::business(),
             'prescriber' => $prescriber
         ];
+    }
+
+    /** Name, logo, address and contacts from Business Settings, for printouts. */
+    public static function business(): array
+    {
+        $b = (new \App\Modules\BusinessSettings\Services\BusinessSettingService())->get();
+
+        return ['name' => $b['name'] ?? null, 'logo' => $b['logo'] ?? null, 'address' => $b['address'] ?? null,
+            'phone' => $b['phone'] ?? null, 'email' => $b['email'] ?? null];
     }
 
     /** The patient a slip belongs to (for access checks). */

@@ -55,6 +55,13 @@ export function DispensingView() {
 .dp-badge.dispensed { background: #dcfce7; color: #166534; }
 .dp-badge.closed, .dp-badge.none, .dp-badge.voided { background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
 .dp-badge.expired, .dp-badge.dd { background: #fee2e2; color: #991b1b; }
+.dp-badge.ha { background: #ffedd5; color: #9a3412; }
+:root[data-theme="dark"] .dp-badge.ha { background: rgba(249,115,22,.18); color: #fed7aa; }
+.dp-checklist { list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.dp-checklist label { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-primary); margin: 0; }
+.dp-checklist input { width: 16px; height: 16px; margin-top: 1px; flex: none; accent-color: var(--accent); }
+.dp-link-btn { background: none; border: none; padding: 0; color: #b91c1c; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 12.5px; text-decoration: underline; }
+:root[data-theme="dark"] .dp-link-btn { color: #fca5a5; }
 :root[data-theme="dark"] .dp-badge.pending { background: rgba(14,165,233,.18); color: #bae6fd; }
 :root[data-theme="dark"] .dp-badge.partial { background: rgba(245,158,11,.18); color: #fde68a; }
 :root[data-theme="dark"] .dp-badge.dispensed { background: rgba(34,197,94,.18); color: #bbf7d0; }
@@ -115,6 +122,7 @@ export function DispensingView() {
             <div class="dp-tabs" id="dpViews" role="tablist">
                 <button type="button" data-dp-view="to_fill" class="active">To dispense <span class="dp-count" id="dpCountToFill" hidden></span></button>
                 <button type="button" data-dp-view="refills">Refill requests <span class="dp-count" id="dpCountRefills" hidden></span></button>
+                <button type="button" data-dp-view="to_check">To check <span class="dp-count warn" id="dpCountToCheck" hidden></span></button>
                 <button type="button" data-dp-view="partial">Partly dispensed</button>
                 <button type="button" data-dp-view="expired">Expired <span class="dp-count warn" id="dpCountExpired" hidden></span></button>
                 <button type="button" data-dp-view="dispensed">Dispensed</button>

@@ -1,7 +1,7 @@
 import {
     fetchDispensingQueue, fetchDispensingDetail, fetchDispensingOptions, dispensePrescription,
-    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip
-} from "./dispensing.service.js?v=3";
+    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip, checkDispense
+} from "./dispensing.service.js?v=4";
 import { formatQty, formatDate, formatMoney, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
 import { showToast } from "../../core/toast.js";
 
@@ -65,6 +65,7 @@ async function loadQueue() {
     setCount($("dpCountToFill"), queue.counts.to_fill);
     setCount($("dpCountRefills"), queue.counts.refills);
     setCount($("dpCountExpired"), queue.counts.expired);
+    setCount($("dpCountToCheck"), queue.counts.to_check);
     renderQueue();
 }
 
@@ -77,6 +78,7 @@ function renderQueue() {
     const rows = queue.rows;
     const empty = {
         to_fill: "No prescriptions are waiting to be dispensed.", refills: "No refill requests are waiting.", partial: "No prescriptions are partly dispensed.",
+        to_check: "No high-alert dispensings are waiting for a second check.",
         expired: "No unfilled prescriptions have expired.", dispensed: "Nothing dispensed yet.", closed: "No closed prescriptions.", all: "No prescriptions."
     }[view];
 
@@ -94,11 +96,12 @@ function renderQueue() {
                             ${r.medicines.length > 4 ? `<span class="dp-sub">+ ${r.medicines.length - 4} more</span>` : ""}
                             ${r.catalog_count < r.line_count ? `<span class="dp-sub">${r.line_count - r.catalog_count} not from the catalog</span>` : ""}</td>
                         <td>${escapeHtml(r.prescriber_name || "—")}</td>
-                        <td>${statusBadge(r)}${r.refill_requests ? ` <span class="dp-badge partial">Refill requested</span>` : ""}${r.has_dangerous_drug ? ` <span class="dp-badge dd">Dangerous drug</span>` : ""}</td>
+                        <td>${statusBadge(r)}${r.refill_requests ? ` <span class="dp-badge partial">Refill requested</span>` : ""}${r.has_dangerous_drug ? ` <span class="dp-badge dd">Dangerous drug</span>` : ""}${r.awaiting_check ? ` <span class="dp-badge ha">Awaiting 2nd check</span>` : ""}</td>
                     </tr>`).join("")}</tbody>
             </table></div>
             ${queue.truncated ? `<p class="dp-note">Showing the first 300. Search to narrow it down.</p>` : ""}
             ${view === "to_fill" ? `<p class="dp-note">Oldest first. Expired prescriptions are under Expired — they can't be filled.</p>` : ""}
+            ${view === "to_check" ? `<p class="dp-note">Dispensings with a high-alert medicine. Someone other than the person who prepared it checks it before it's handed over.</p>` : ""}
         </div>` : `<div class="dp-empty">${escapeHtml(empty)}</div>`;
 
     $("dpQueue").querySelectorAll("[data-dp-open]").forEach((row) => {
@@ -159,10 +162,16 @@ function renderDetail() {
     const banners = [];
     if (lastDispensed) {
         const h = d.history.find((x) => x.id === lastDispensed.id);
-        banners.push(`<div class="dp-banner ok"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>${h ? ` — ${h.balance > 0.004 ? `<strong>${formatMoney(h.balance)}</strong> to pay` : h.net_amount > 0 ? "paid" : "no charge"}` : ""}.</span>
+        const held = h && h.status === "completed" && h.check_status === "awaiting";
+        banners.push(held
+            ? `<div class="dp-banner warn" style="justify-content:space-between;flex-wrap:wrap;"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>. It has a <strong>high-alert medicine</strong>: label it, then have someone else do the second check before handing it over and taking payment.</span>
+                <span class="dp-actions"><button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">Print labels</button></span></div>`
+            : `<div class="dp-banner ok"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>${h ? ` — ${h.balance > 0.004 ? `<strong>${formatMoney(h.balance)}</strong> to pay` : h.net_amount > 0 ? "paid" : "no charge"}` : ""}.</span>
             <span class="dp-actions">${h && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
             <button type="button" class="dp-btn small" data-dp-slip="${lastDispensed.id}">Print charge slip</button>
             <button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">Print labels</button></span></div>`);
+    } else if (d.awaiting_check) {
+        banners.push(`<div class="dp-banner warn">&#9888; ${d.awaiting_check === 1 ? "A dispensing" : `${d.awaiting_check} dispensings`} below ${d.awaiting_check === 1 ? "has" : "have"} a high-alert medicine waiting for its second check. Don't hand ${d.awaiting_check === 1 ? "it" : "them"} over until checked.</div>`);
     }
     if (d.blocked_reason) {
         const reason = d.blocked_reason.replace(/(\d{4}-\d{2}-\d{2})/g, (iso) => formatDate(iso));
@@ -203,6 +212,7 @@ function renderDetail() {
                     ${item.drug_generic_name || item.drug_strength ? `<span class="dp-sub">${escapeHtml([item.drug_generic_name, item.drug_strength, item.drug_dosage_form].filter(Boolean).join(" · "))}</span>` : ""}
                     ${sig ? `<span class="dp-sub">Sig: ${escapeHtml(sig)}</span>` : ""}
                     ${item.is_dangerous_drug ? `<span class="dp-badge dd" style="margin-top:3px;">Dangerous drug</span>` : ""}
+                    ${item.is_high_alert ? `<span class="dp-badge ha" style="margin-top:3px;">High-alert</span>` : ""}
                     <span class="dp-err" data-dp-err="${item.id}"></span></td>
                 <td class="num">${item.prescribed_quantity != null ? `${formatQty(item.prescribed_quantity)} <span class="dp-sub" style="display:inline;">${unit(item)}</span>` : `${escapeHtml(item.quantity || "—")}<span class="dp-sub">you decide</span>`}</td>
                 <td class="num">${refill ? "—" : item.dispensed_quantity ? formatQty(item.dispensed_quantity) : "—"}${item.dispensed_total > item.dispensed_quantity + EPSILON ? `<span class="dp-sub">${formatQty(item.dispensed_total)} in all</span>` : ""}</td>
@@ -269,19 +279,24 @@ function renderDetail() {
                 <div class="dp-hist ${h.status}">
                     <div class="dp-hist-head">
                         <div><strong>${escapeHtml(h.dispense_number)}</strong> <span class="dp-sub" style="display:inline;">${escapeHtml(formatDate(h.dispensed_date))} · ${escapeHtml(h.warehouse_name)} · ${escapeHtml(h.dispensed_by_name || "")}</span>
-                            ${h.status === "voided" ? ` <span class="dp-badge voided">Undone</span>` : ""}</div>
+                            ${h.status === "voided" ? ` <span class="dp-badge voided">Undone</span>` : ""}
+                            ${h.status === "completed" && h.check_status === "awaiting" ? ` <span class="dp-badge ha">Awaiting 2nd check</span>` : ""}
+                            ${h.check_status === "checked" ? ` <span class="dp-badge dispensed">Checked</span>` : ""}</div>
                         <div class="dp-actions">
-                            ${h.status === "completed" && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
-                            <button type="button" class="dp-btn small" data-dp-slip="${h.id}">Charge slip</button>
+                            ${h.can_check ? `<button type="button" class="dp-btn small primary" data-dp-check="${h.id}">Second check…</button>` : ""}
+                            ${h.status === "completed" && h.check_status !== "awaiting" && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
+                            ${h.status === "completed" && h.check_status === "awaiting" ? "" : `<button type="button" class="dp-btn small" data-dp-slip="${h.id}">Charge slip</button>`}
                             ${h.status === "completed" ? `<button type="button" class="dp-btn small" data-dp-labels="${h.id}">Print labels</button>
                                 <button type="button" class="dp-btn small" data-dp-void="${h.id}">Undo…</button>` : ""}
                         </div>
                     </div>
-                    <ul>${h.items.map((i) => `<li>${escapeHtml(i.title)} — ${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}${i.fill_label ? ` <span class="dp-badge partial">${escapeHtml(i.fill_label)}</span>` : ""} <span class="dp-sub" style="display:inline;">lot ${escapeHtml(i.lot_number)}${i.expires_date ? `, exp ${escapeHtml(formatDate(i.expires_date))}` : ""}</span></li>`).join("")}</ul>
+                    <ul>${h.items.map((i) => `<li>${escapeHtml(i.title)} — ${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}${i.is_high_alert ? ` <span class="dp-badge ha">High-alert</span>` : ""}${i.fill_label ? ` <span class="dp-badge partial">${escapeHtml(i.fill_label)}</span>` : ""} <span class="dp-sub" style="display:inline;">lot ${escapeHtml(i.lot_number)}${i.expires_date ? `, exp ${escapeHtml(formatDate(i.expires_date))}` : ""}</span></li>`).join("")}</ul>
                     <div class="dp-money"><span>Total <strong>${formatMoney(h.net_amount)}</strong>${h.discount_amount > 0 ? ` <span class="dp-sub" style="display:inline;">(${escapeHtml(h.discount_label || "discount")} −${formatMoney(h.discount_amount)}${h.discount_id_no ? `, ID ${escapeHtml(h.discount_id_no)}` : ""})</span>` : ""}</span>
                         <span>Paid <strong>${formatMoney(h.paid_amount)}</strong></span>
                         <span>${h.balance < -0.004 ? `<strong style="color:#b91c1c;">Refund due ${formatMoney(-h.balance)}</strong>` : h.balance > 0.004 ? `Balance <strong>${formatMoney(h.balance)}</strong>` : `<span class="dp-badge dispensed">Settled</span>`}</span></div>
                     ${h.notes ? `<span class="dp-sub">${escapeHtml(h.notes)}</span>` : ""}
+                    ${h.status === "completed" && h.check_status === "awaiting" && h.prepared_by_viewer ? `<span class="dp-sub">You prepared this, so someone else has to do the second check.</span>` : ""}
+                    ${h.check_status === "checked" ? `<span class="dp-sub">Second check by ${escapeHtml(h.checked_by_name || "—")}${h.checked_at ? ` on ${escapeHtml(formatDate(String(h.checked_at).slice(0, 10)))} ${escapeHtml(String(h.checked_at).slice(11, 16))}` : ""}${h.check_notes ? ` — “${escapeHtml(h.check_notes)}”` : ""}</span>` : ""}
                     ${h.status === "voided" ? `<span class="dp-sub">Undone${h.voided_by_name ? ` by ${escapeHtml(h.voided_by_name)}` : ""}: ${escapeHtml(h.void_reason || "")}</span>` : ""}
                 </div>`).join("")}</div>`
             : `<div class="dp-empty">Nothing dispensed from this prescription yet.</div>`}
@@ -322,6 +337,8 @@ function onDetailClick(event) {
     if (labels) return printLabels(Number(labels.dataset.dpLabels));
     const undo = event.target.closest("[data-dp-void]");
     if (undo) return confirmVoid(Number(undo.dataset.dpVoid));
+    const second = event.target.closest("[data-dp-check]");
+    if (second) return confirmCheck(Number(second.dataset.dpCheck));
     const pay = event.target.closest("[data-dp-pay]");
     if (pay) return confirmPayment(Number(pay.dataset.dpPay));
     const slip = event.target.closest("[data-dp-slip]");
@@ -364,7 +381,7 @@ function collectDispense() {
             errors[item.id] = `Only ${formatQty(available)} usable ${lotId ? "in that lot" : "here"}.`;
             return;
         }
-        items.push({ prescription_item_id: item.id, quantity: qty, lot_id: lotId, refill, title: item.title, unit: item.drug_unit_name || "units", unit_price: item.unit_price,
+        items.push({ prescription_item_id: item.id, quantity: qty, lot_id: lotId, refill, title: item.title, unit: item.drug_unit_name || "units", unit_price: item.unit_price, high_alert: item.is_high_alert,
             fill: refill ? `refill ${item.refills_used + 1} of ${item.refills_allowed}` : item.current_fill > 1 ? item.fill_label.toLowerCase() : "" });
     });
 
@@ -415,9 +432,10 @@ function confirmDispense() {
     openDialog({
         title: `Dispense ${detail.prescription.rx_number}`,
         body: `<p>Give these to <strong>${escapeHtml(detail.patient.name)}</strong> from <strong>${escapeHtml(where)}</strong>:</p>
-            <ul>${items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.fill ? ` <span class="dp-badge partial">${escapeHtml(i.fill)}</span>` : ""}${i.unit_price != null ? ` · ${formatMoney(i.quantity * i.unit_price)}` : ""}</li>`).join("")}</ul>
+            <ul>${items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.high_alert ? ` <span class="dp-badge ha">High-alert</span>` : ""}${i.fill ? ` <span class="dp-badge partial">${escapeHtml(i.fill)}</span>` : ""}${i.unit_price != null ? ` · ${formatMoney(i.quantity * i.unit_price)}` : ""}</li>`).join("")}</ul>
             <p>Charge: <strong>${formatMoney(money.net)}</strong>${money.discount > 0 ? ` (${formatMoney(money.gross)} less ${escapeHtml(discount.label)} ${formatMoney(money.discount)})` : ""}, added to the patient's ledger.</p>
             ${unpriced.length ? `<p style="color:#b45309;">No selling price is set for ${unpriced.map((i) => escapeHtml(i.title)).join(", ")} in the Drug Catalog, so ${unpriced.length === 1 ? "it is" : "they are"} charged ₱0.00.</p>` : ""}
+            ${items.some((i) => i.high_alert) ? `<p style="color:#9a3412;"><strong>High-alert medicine:</strong> after dispensing, someone else must do a second check before it's handed over and paid for.</p>` : ""}
             <p>Stock is deducted now. If it's a mistake, you can undo it afterwards.</p>`,
         okLabel: "Dispense",
         run: async () => {
@@ -574,12 +592,47 @@ async function printChargeSlip(dispenseId) {
     win.document.close();
 }
 
-function confirmVoid(dispenseId) {
+const CHECK_POINTS = [
+    "Right patient — name and patient number match the prescription",
+    "Right medicine and strength, against the prescription (generic name)",
+    "Right quantity, counted again",
+    "Lot and expiry date — not expired, matches the label",
+    "Right dose, frequency and route on the label",
+    "Directions and warnings explained or ready to explain to the patient"
+];
+
+function confirmCheck(dispenseId) {
+    const h = detail.history.find((x) => x.id === dispenseId);
+    if (!h) return;
+    const finish = openDialog({
+        title: `Second check — ${h.dispense_number}`,
+        body: `<p>Prepared by <strong>${escapeHtml(h.dispensed_by_name || "—")}</strong> for <strong>${escapeHtml(detail.patient.name)}</strong>${detail.patient.patient_no ? ` (${escapeHtml(detail.patient.patient_no)})` : ""}, prescription ${escapeHtml(detail.prescription.rx_number)}:</p>
+            <ul>${h.items.map((i) => `<li>${escapeHtml(i.title)} — <strong>${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}</strong>${i.is_high_alert ? ` <span class="dp-badge ha">High-alert</span>` : ""} <span class="dp-sub" style="display:inline;">lot ${escapeHtml(i.lot_number)}${i.expires_date ? `, exp ${escapeHtml(formatDate(i.expires_date))}` : ""}</span></li>`).join("")}</ul>
+            <p style="margin-bottom:0;">Check the medicines themselves, not just the screen. Tick each point:</p>
+            <ul class="dp-checklist">${CHECK_POINTS.map((p, n) => `<li><label><input type="checkbox" data-dp-point="${n}"> ${escapeHtml(p)}</label></li>`).join("")}</ul>
+            <label for="dpCheckNotes">Notes (optional)</label><input id="dpCheckNotes" maxlength="500" placeholder="e.g. Insulin units confirmed with the doctor">
+            <p style="margin:12px 0 0;">Something wrong? <button type="button" class="dp-link-btn" id="dpCheckFail">It didn't pass — undo the dispensing…</button></p>`,
+        okLabel: "Checked — OK to Hand Over",
+        check: () => [...document.querySelectorAll("[data-dp-point]")].every((c) => c.checked) ? null : "Tick every point once you have checked it.",
+        run: () => checkDispense(dispenseId, { confirmed: true, notes: $("dpCheckNotes").value.trim() }),
+        after: async () => {
+            lastDispensed = null;
+            await openDetail(detail.prescription.id, true);
+            loadQueue();
+        }
+    });
+    $("dpCheckFail").onclick = () => {
+        finish();
+        confirmVoid(dispenseId, "Failed the second check: ");
+    };
+}
+
+function confirmVoid(dispenseId, presetReason = "") {
     const h = detail.history.find((x) => x.id === dispenseId);
     openDialog({
         title: `Undo ${h?.dispense_number || "dispensing"}`,
         body: `<p>The medicines go back into stock, in the lots they came from, and the prescription shows them as not given. Only do this if the patient didn't get them or returned them unopened.</p>
-            <label for="dpReason">Reason</label><textarea id="dpReason" maxlength="500" placeholder="e.g. Given to the wrong patient"></textarea>`,
+            <label for="dpReason">Reason</label><textarea id="dpReason" maxlength="500" placeholder="e.g. Given to the wrong patient">${escapeHtml(presetReason)}</textarea>`,
         okLabel: "Undo Dispensing", okClass: "danger",
         check: () => $("dpReason").value.trim() ? null : "Enter a reason.",
         run: () => voidDispense(dispenseId, $("dpReason").value.trim()),
@@ -662,7 +715,10 @@ function openDialog({ title, body, okLabel, okClass = "primary", check = null, r
     overlay.onclick = (event) => { if (event.target === overlay) finish(); };
     document.addEventListener("keydown", onKey);
     overlay.classList.add("open");
-    ($("dpDialogBody").querySelector("textarea") || $("dpDialogOk")).focus();
+    const field = $("dpDialogBody").querySelector("textarea") || $("dpDialogOk");
+    field.focus();
+    if (field.tagName === "TEXTAREA") field.setSelectionRange(field.value.length, field.value.length);
+    return finish;
 }
 
 /* ---------------------------------------------------------------

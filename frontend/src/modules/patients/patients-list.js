@@ -2927,7 +2927,7 @@ async function loadPatientDashboardWidgets(patient)
         }
 
         if (data._hipaa_minimum_necessary?.applied) {
-            const clinicalBodyIds = ["pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody", "pdEncountersBody", "pdVitalsHistoryBody"];
+            const clinicalBodyIds = ["pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody", "pdEncountersBody", "pdVitalsHistoryBody", "pdImmunizationsBody"];
             clinicalBodyIds.forEach(id => {
                 const body = document.getElementById(id);
                 if (body) {
@@ -2942,7 +2942,16 @@ async function loadPatientDashboardWidgets(patient)
             renderDashboardPrescriptions(data.prescriptions || []);
             renderDashboardEncounters(data.encounters || []);
             renderDashboardVitalsHistory(data.vitals_history || []);
+            renderDashboardImmunizations(data.immunizations || []);
         }
+
+        // Not clinical: shown for every role (the server leaves out what a role may not see).
+        renderDashboardDisclosures(data.disclosures || []);
+        renderDashboardMessages(data.messages || []);
+        renderDashboardAmendments(data.amendments || []);
+        renderDashboardCareTeam(data.care_team || null);
+        renderDashboardInsurance(data.insurance || []);
+        renderDashboardDocuments(data.documents || []);
 
         dashboardRelatedPersons = data.related_persons || [];
         renderDashboardRelatedPersons(dashboardRelatedPersons);
@@ -10297,11 +10306,13 @@ function renderPrescriptionDetailTable()
             <td>${escapeHtml(slip.prescriber_name || "-")}</td>
             <td>${badge(slip)}${slip.display_status === "cancelled" && slip.cancel_reason ? `<span class="rx-slip-sub">${escapeHtml(slip.cancel_reason)}</span>` : ""}
                 ${slip.dispense_status && !["pending", "none"].includes(slip.dispense_status) ? `<span class="rx-slip-sub">Pharmacy: ${escapeHtml(slip.dispense_status_label || slip.dispense_status)}</span>` : ""}</td>
-            <td class="table-actions">
+            <td style="vertical-align:middle;white-space:nowrap;">
+                <div class="table-actions" style="align-items:center;">
                 ${canManage && slip.can_edit ? `<button class="btn-edit" data-rx-open="${slip.id}">Open</button>`
                     : `<button class="btn-edit" data-rx-open="${slip.id}">View</button>`}
-                ${slip.display_status !== "cancelled" && canManage ? `<button class="btn-secondary" data-rx-print="${slip.id}">Print</button>` : ""}
+                ${slip.display_status !== "cancelled" && canManage ? `<button class="btn-neutral" data-rx-print="${slip.id}">Print</button>` : ""}
                 ${canManage && slip.can_edit ? `<button class="btn-danger" data-rx-cancel="${slip.id}">Cancel</button>` : ""}
+                </div>
             </td>
         </tr>`).join("");
 
@@ -10891,70 +10902,117 @@ function prescriptionPrintName(item)
     return `<strong>${escapeHtml(item.drug_generic_name.toUpperCase())}</strong>${brand}${rest ? ` ${rest}` : ""}`;
 }
 
+/** Age as written on a prescription: years, or months / days for infants. */
+function prescriptionPrintAge(patient, onDate)
+{
+    if (!patient.birthdate) return patient.age != null ? String(patient.age) : "";
+    const born = new Date(`${patient.birthdate}T00:00:00`);
+    const on = new Date(`${onDate}T00:00:00`);
+    let months = (on.getFullYear() - born.getFullYear()) * 12 + (on.getMonth() - born.getMonth());
+    if (on.getDate() < born.getDate()) months--;
+    if (months >= 24) return `${Math.floor(months / 12)} yrs`;
+    if (months >= 1) return `${months} mo${months === 1 ? "" : "s"}`;
+    const days = Math.max(0, Math.round((on - born) / 86400000));
+    return `${days} day${days === 1 ? "" : "s"}`;
+}
+
 function prescriptionPrintHtml(data)
 {
     const rx = data.prescription;
     const patient = data.patient || {};
     const doctor = data.prescriber || {};
-    const facility = data.facility || {};
-    const sex = patient.sex ? String(patient.sex).charAt(0).toUpperCase() : "";
+    // Header: the hospital as set up under Business Settings (the visit's facility only if that's missing).
+    const business = data.business?.name ? data.business : (data.facility || {});
+    const sex = patient.sex ? String(patient.sex).charAt(0).toUpperCase() + String(patient.sex).slice(1).toLowerCase() : "";
     const sig = (item) => [item.dosage, item.frequency, item.route && item.route !== "Oral" ? item.route : null].filter(Boolean).join(", ");
+    const field = (label, value, cls = "") => `<div class="f ${cls}"><span class="lbl">${label}</span><span class="val">${value ? escapeHtml(value) : "&nbsp;"}</span></div>`;
+    const contacts = [business.phone ? `Tel. ${business.phone}` : null, business.email].filter(Boolean).join("  ·  ");
+    const extras = (item) => [item.refills ? `Refills: ${escapeHtml(String(item.refills))}` : "", Number(item.substitution_allowed) === 0 ? "Do not substitute" : ""].filter(Boolean).join(" · ");
 
-    const lines = rx.items.map((item, index) => `
+    const lines = rx.items.map((item) => `
         <li>
-            <div class="med"><span>${prescriptionPrintName(item)}</span><span class="qty">${item.quantity ? `#${escapeHtml(item.quantity)}` : ""}</span></div>
-            ${sig(item) || item.directions ? `<div class="sig">Sig: ${escapeHtml([sig(item), item.directions].filter(Boolean).join(" — "))}</div>` : ""}
-            ${item.refills ? `<div class="note">Refills: ${escapeHtml(String(item.refills))}</div>` : ""}
-            ${Number(item.substitution_allowed) === 0 ? `<div class="note">Do not substitute</div>` : ""}
+            <div class="med"><span class="name">${prescriptionPrintName(item)}</span><span class="qty">${item.quantity ? `#${escapeHtml(item.quantity)}` : ""}</span></div>
+            ${sig(item) || item.directions ? `<div class="sig"><span>Sig.</span> ${escapeHtml([sig(item), item.directions].filter(Boolean).join(" — "))}</div>` : ""}
+            ${extras(item) ? `<div class="note">${extras(item)}</div>` : ""}
         </li>`).join("");
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${escapeHtml(rx.rx_number)} - ${escapeHtml(patient.name || "")}</title>
 <style>
-    @page { size: A5 portrait; margin: 10mm; } * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 12px; margin: 0 auto; padding: 18px; max-width: 148mm; }
-    .head { text-align: center; border-bottom: 2px solid #111827; padding-bottom: 8px; margin-bottom: 10px; }
-    .head h1 { margin: 0; font-size: 16px; letter-spacing: .4px; text-transform: uppercase; }
-    .head .doc { font-size: 14px; font-weight: 700; margin-top: 6px; }
-    .muted { color: #4b5563; font-size: 11px; }
-    .dd { border: 2px solid #b45309; color: #92400e; padding: 6px 8px; font-weight: 700; font-size: 11px; margin-bottom: 10px; text-align: center; }
-    table.pt { width: 100%; border-collapse: collapse; margin-bottom: 6px; } table.pt td { padding: 2px 0; vertical-align: top; }
-    .lbl { color: #4b5563; font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px; }
-    .fill { border-bottom: 1px solid #9ca3af; display: inline-block; min-width: 40px; padding: 0 2px; }
-    .rx { font-family: Georgia, 'Times New Roman', serif; font-size: 34px; font-weight: 700; margin: 6px 0 2px; }
-    ol { margin: 0; padding-left: 20px; } li { margin: 0 0 10px; }
-    .med { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; } .qty { font-weight: 700; white-space: nowrap; }
-    .sig { margin-top: 2px; } .note { font-size: 11px; color: #4b5563; }
-    .notes { margin-top: 8px; font-size: 11.5px; }
-    .sign { margin-top: 34px; margin-left: auto; width: 62%; text-align: left; font-size: 11.5px; }
-    .sign .line { border-top: 1px solid #111827; padding-top: 3px; font-weight: 700; font-size: 12.5px; }
-    .foot { margin-top: 18px; border-top: 1px dashed #9ca3af; padding-top: 6px; display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; color: #4b5563; }
-</style></head><body>
+    /* No page margin: the browser leaves out its own date / title / URL lines. The slip fills the paper chosen. */
+    @page { size: A5 portrait; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 12.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .slip { min-height: 100vh; padding: 11mm 12mm 9mm; display: flex; flex-direction: column; }
+    .head { display: flex; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+    .head img { height: 58px; width: auto; max-width: 90px; object-fit: contain; }
+    .head h1 { margin: 0; font-size: 19px; letter-spacing: .5px; text-transform: uppercase; line-height: 1.2; }
+    .head .sub { font-size: 11px; color: #374151; margin-top: 2px; }
+    .rule { border: 0; border-top: 2.5px solid #111827; margin: 9px 0 0; }
+    .rule.thin { border-top: 1px solid #111827; margin: 2px 0 10px; }
+    .doc { text-align: center; margin: 8px 0 4px; }
+    .doc .name { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+    .doc .spec { font-size: 11px; color: #374151; }
+    .dd { border: 2px solid #b45309; color: #92400e; padding: 5px 8px; font-weight: 700; font-size: 10.5px; margin: 0 0 10px; text-align: center; }
+    .pt { display: grid; grid-template-columns: 1fr 34%; gap: 7px 16px; margin-bottom: 4px; }
+    .pt .wide { grid-column: 1 / -1; }
+    .f { display: flex; align-items: flex-end; gap: 6px; min-width: 0; }
+    .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #4b5563; white-space: nowrap; }
+    .val { flex: 1; min-width: 0; border-bottom: 1px solid #6b7280; padding: 0 3px 1px; font-size: 12.5px; line-height: 1.35; }
+    .pair { display: flex; gap: 12px; }
+    .pair .f:first-child { flex: 0 0 52%; }
+    .pair .f:last-child { flex: 1; }
+    .rx { font-family: Georgia, 'Times New Roman', serif; font-size: 44px; font-weight: 700; line-height: 1; margin: 12px 0 8px; }
+    ol { margin: 0; padding-left: 24px; }
+    li { margin: 0 0 13px; padding-left: 2px; }
+    .med { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; font-size: 14px; }
+    .qty { font-weight: 700; white-space: nowrap; font-size: 14px; }
+    .sig { margin-top: 3px; font-size: 13px; }
+    .sig span { font-style: italic; font-weight: 700; }
+    .note { font-size: 11px; color: #4b5563; margin-top: 2px; }
+    .notes { margin-top: 6px; font-size: 12px; }
+    .grow { flex: 1; min-height: 16px; }
+    .sign { margin-left: auto; width: 58%; font-size: 11.5px; margin-top: 18px; }
+    .sign .line { border-top: 1px solid #111827; padding-top: 3px; font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center; margin-bottom: 4px; }
+    .sign .row { display: flex; align-items: flex-end; gap: 5px; margin-top: 3px; }
+    .sign .row .lbl { width: 62px; }
+    .sign .row .val { font-size: 11.5px; }
+    .foot { margin-top: 12px; border-top: 1px dashed #9ca3af; padding-top: 5px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; color: #4b5563; }
+    @media screen { body { background: #e5e7eb; } .slip { background: #fff; max-width: 148mm; min-height: 210mm; margin: 16px auto; box-shadow: 0 2px 10px rgba(0,0,0,.15); } }
+</style></head><body><div class="slip">
     <div class="head">
-        <h1>${escapeHtml(facility.name || "")}</h1>
-        ${facility.address || facility.phone ? `<div class="muted">${escapeHtml([facility.address, facility.phone ? `Tel. ${facility.phone}` : null, facility.email].filter(Boolean).join(" · "))}</div>` : ""}
-        ${doctor.name ? `<div class="doc">${escapeHtml(doctor.name)}</div>${doctor.specialty ? `<div class="muted">${escapeHtml(doctor.specialty)}</div>` : ""}` : ""}
+        ${business.logo ? `<img src="${escapeHtml(API_URL + business.logo)}" alt="">` : ""}
+        <div>
+            <h1>${escapeHtml(business.name || "")}</h1>
+            ${business.address ? `<div class="sub">${escapeHtml(business.address)}</div>` : ""}
+            ${contacts ? `<div class="sub">${escapeHtml(contacts)}</div>` : ""}
+        </div>
     </div>
+    <hr class="rule">
+    ${doctor.name ? `<div class="doc"><div class="name">${escapeHtml(doctor.name)}</div>${doctor.specialty ? `<div class="spec">${escapeHtml(doctor.specialty)}</div>` : ""}</div><hr class="rule thin">` : `<div style="height:10px"></div>`}
     ${rx.has_dangerous_drug ? `<div class="dd">DANGEROUS DRUG (RA 9165) — transcribe onto the DOH special prescription form. This copy is for the record.</div>` : ""}
-    <table class="pt">
-        <tr><td><span class="lbl">Patient</span> <span class="fill" style="min-width:60%;">${escapeHtml(patient.name || "")}</span></td>
-            <td style="text-align:right;"><span class="lbl">Date</span> <span class="fill">${escapeHtml(formatDate(rx.prescribed_date))}</span></td></tr>
-        <tr><td><span class="lbl">Address</span> <span class="fill" style="min-width:60%;">${escapeHtml(patient.address || "")}</span></td>
-            <td style="text-align:right;"><span class="lbl">Age / Sex</span> <span class="fill">${patient.age != null ? escapeHtml(String(patient.age)) : ""}${sex ? ` / ${escapeHtml(sex)}` : ""}</span></td></tr>
-        ${rx.diagnosis ? `<tr><td colspan="2"><span class="lbl">Diagnosis</span> ${escapeHtml(rx.diagnosis)}</td></tr>` : ""}
-    </table>
+    <div class="pt">
+        ${field("Name", patient.name)}
+        ${field("Date", formatDate(rx.prescribed_date))}
+        ${field("Address", patient.address)}
+        <div class="pair">${field("Age", prescriptionPrintAge(patient, rx.prescribed_date))}${field("Sex", sex)}</div>
+        ${rx.diagnosis ? field("Diagnosis", rx.diagnosis, "wide") : ""}
+    </div>
     <div class="rx">&#8478;</div>
     <ol>${lines}</ol>
     ${rx.notes ? `<div class="notes"><span class="lbl">Notes</span> ${escapeHtml(rx.notes)}</div>` : ""}
+    <div class="grow"></div>
     <div class="sign">
-        <div class="line">${escapeHtml(doctor.name || "")}</div>
-        ${doctor.license_number ? `<div>PRC License No. ${escapeHtml(doctor.license_number)}</div>` : ""}
-        ${doctor.ptr_number ? `<div>PTR No. ${escapeHtml(doctor.ptr_number)}${doctor.ptr_date ? ` · ${escapeHtml(formatDate(doctor.ptr_date))}` : ""}</div>` : ""}
-        ${rx.has_dangerous_drug && doctor.s2_number ? `<div>S2 License No. ${escapeHtml(doctor.s2_number)}</div>` : ""}
+        <div class="line">${escapeHtml(doctor.name || "")}${doctor.name ? ", M.D." : ""}</div>
+        <div class="row"><span class="lbl">Lic. No.</span><span class="val">${escapeHtml(doctor.license_number || "")}&nbsp;</span></div>
+        <div class="row"><span class="lbl">PTR No.</span><span class="val">${escapeHtml(doctor.ptr_number || "")}${doctor.ptr_date ? ` · ${escapeHtml(formatDate(doctor.ptr_date))}` : ""}&nbsp;</span></div>
+        ${rx.has_dangerous_drug ? `<div class="row"><span class="lbl">S2 No.</span><span class="val">${escapeHtml(doctor.s2_number || "")}&nbsp;</span></div>` : ""}
     </div>
     <div class="foot">
         <span>${escapeHtml(rx.rx_number)}${patient.patient_no ? ` · Patient No. ${escapeHtml(patient.patient_no)}` : ""}</span>
         <span>${rx.valid_until ? `Valid until ${escapeHtml(formatDate(rx.valid_until))}` : ""}${rx.refill_until ? ` · Refills until ${escapeHtml(formatDate(rx.refill_until))}` : ""}</span>
     </div>
+</div>
 <script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script>
 </body></html>`;
 }
