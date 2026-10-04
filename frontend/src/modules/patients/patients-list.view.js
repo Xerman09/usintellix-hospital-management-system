@@ -1387,8 +1387,8 @@ export function PatientsListView(user)
 .pd-msg-when { margin-left: auto; flex-shrink: 0; font-size: 11px; color: #8b98ac; white-space: nowrap; }
 .pd-msg-preview { font-size: 12px; color: #5b677a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pd-msg-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.pd-msg-tag { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--accent-lighter); color: var(--accent-text, var(--accent)); }
-.pd-msg-status { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #eef2f7; color: #475569; }
+.pd-msg-tag { white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--accent-lighter); color: var(--accent-text, var(--accent)); }
+.pd-msg-status { white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #eef2f7; color: #475569; }
 .pd-msg-status.new { background: #dbeafe; color: #1d4ed8; }
 .pd-msg-status.progress { background: #fef3c7; color: #92400e; }
 .pd-msg-status.done { background: #dcfce7; color: #166534; }
@@ -1400,6 +1400,23 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-msg-status.new { background: rgba(59,130,246,.2); color: #bfdbfe; }
 :root[data-theme="dark"] .pd-msg-status.progress { background: rgba(245,158,11,.18); color: #fde68a; }
 :root[data-theme="dark"] .pd-msg-status.done { background: rgba(34,197,94,.18); color: #bbf7d0; }
+
+/* Disclosure card: icon, recipient + date, what was released, basis / medium tags. */
+.pd-disc-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-lighter);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pd-disc-icon svg { width: 16px; height: 16px; }
+.pd-disc-more { font-size: 11.5px; color: #8b98ac; text-align: center; padding: 2px 0 0; }
+:root[data-theme="dark"] .pd-disc-icon { background: rgba(59,130,246,.18); color: #93c5fd; }
+:root[data-theme="dark"] .pd-disc-more { color: var(--text-muted); }
 
 .pd-allergy-remove {
     flex-shrink: 0;
@@ -5960,8 +5977,8 @@ textarea.pd-sdoh-readonly {
 .pd-msg-when { margin-left: auto; flex-shrink: 0; font-size: 11px; color: #8b98ac; white-space: nowrap; }
 .pd-msg-preview { font-size: 12px; color: #5b677a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pd-msg-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.pd-msg-tag { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--accent-lighter); color: var(--accent-text, var(--accent)); }
-.pd-msg-status { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #eef2f7; color: #475569; }
+.pd-msg-tag { white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--accent-lighter); color: var(--accent-text, var(--accent)); }
+.pd-msg-status { white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: #eef2f7; color: #475569; }
 .pd-msg-status.new { background: #dbeafe; color: #1d4ed8; }
 .pd-msg-status.progress { background: #fef3c7; color: #92400e; }
 .pd-msg-status.done { background: #dcfce7; color: #166534; }
@@ -5973,6 +5990,23 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-msg-status.new { background: rgba(59,130,246,.2); color: #bfdbfe; }
 :root[data-theme="dark"] .pd-msg-status.progress { background: rgba(245,158,11,.18); color: #fde68a; }
 :root[data-theme="dark"] .pd-msg-status.done { background: rgba(34,197,94,.18); color: #bbf7d0; }
+
+/* Disclosure card: icon, recipient + date, what was released, basis / medium tags. */
+.pd-disc-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-lighter);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pd-disc-icon svg { width: 16px; height: 16px; }
+.pd-disc-more { font-size: 11.5px; color: #8b98ac; text-align: center; padding: 2px 0 0; }
+:root[data-theme="dark"] .pd-disc-icon { background: rgba(59,130,246,.18); color: #93c5fd; }
+:root[data-theme="dark"] .pd-disc-more { color: var(--text-muted); }
 
 .pd-allergy-remove {
     flex-shrink: 0;

@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=72";
+import { PatientChartView } from "./patients-list.view.js?v=73";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -3447,13 +3447,38 @@ function renderDashboardDisclosures(disclosures)
 
     const canManage = ["admin", "receptionist", "doctor"].includes(getUser()?.role);
 
+    const when = (value) => {
+        const d = new Date(String(value || "").replace(" ", "T"));
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleDateString("en-US", d.getFullYear() === new Date().getFullYear() ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+    };
+    // "Public Health Reporting (§ 164.512(b))" -> "Public Health Reporting": the section number stays in the full record.
+    const basis = (d) => d.legal_basis ? String(DISCLOSURE_LEGAL_BASIS_MAP[d.legal_basis] || d.legal_basis).replace(/\s*\(§.*\)\s*$/, "") : (d.disclosure_type || "");
+    const medium = (m) => m ? String(m).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()) : "";
+    const shown = disclosures.slice(0, 5);
+
     body.innerHTML = disclosures.length
-        ? `<div class="pd-allergy-list">
-            ${disclosures.map((disclosure) => `
-                <div class="pd-allergy-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-disclosure-id="${disclosure.id}" tabindex="0" role="button"` : ""}>
-                    <span class="pd-allergy-name">${escapeHtml(disclosure.recipient)}${disclosure.legal_basis ? ` &middot; ${escapeHtml(DISCLOSURE_LEGAL_BASIS_MAP[disclosure.legal_basis] || disclosure.legal_basis)}` : (disclosure.disclosure_type ? ` &middot; ${escapeHtml(disclosure.disclosure_type)}` : "")}</span>
-                </div>
-            `).join("")}
+        ? `<div class="pd-msg-list">
+            ${shown.map((disclosure) => {
+                const detail = [disclosure.records_disclosed, disclosure.purpose].filter(Boolean).join(" — ");
+                return `
+                <div class="pd-msg-item${canManage ? " pd-item-clickable" : ""}"${canManage ? ` data-disclosure-id="${disclosure.id}" tabindex="0" role="button"` : ""}>
+                    <div class="pd-disc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path><path d="m16 6-4-4-4 4"></path><path d="M12 2v13"></path></svg></div>
+                    <div class="pd-msg-main">
+                        <div class="pd-msg-top">
+                            <span class="pd-msg-from" title="${escapeHtml(disclosure.recipient || "")}">${escapeHtml(disclosure.recipient || "Recipient not recorded")}</span>
+                            <span class="pd-msg-when">${escapeHtml(when(disclosure.disclosure_date))}</span>
+                        </div>
+                        ${detail ? `<span class="pd-msg-preview" title="${escapeHtml(detail)}">${escapeHtml(detail)}</span>` : ""}
+                        <div class="pd-msg-tags">
+                            ${basis(disclosure) ? `<span class="pd-msg-tag">${escapeHtml(basis(disclosure))}</span>` : ""}
+                            ${disclosure.disclosure_medium ? `<span class="pd-msg-status">${escapeHtml(medium(disclosure.disclosure_medium))}</span>` : ""}
+                            ${Number(disclosure.is_tpo_exempt) ? `<span class="pd-msg-status done">TPO — not in accounting</span>` : ""}
+                        </div>
+                    </div>
+                </div>`;
+            }).join("")}
+            ${disclosures.length > shown.length ? `<div class="pd-disc-more">+ ${disclosures.length - shown.length} more — open Edit to see all</div>` : ""}
            </div>`
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"></path><path d="m8 15 4-6 3 3 5-7"></path></svg>
