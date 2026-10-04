@@ -165,6 +165,19 @@ class PatientPrescriptionController extends Controller
     }
 
     /**
+     * Drug Catalog items to prescribe from. Query: q?
+     */
+    public function drugOptions(): void
+    {
+        $request = new Request();
+
+        $this->success(
+            $this->patientPrescriptionService->drugOptions((string) $request->input('q')),
+            'Medicines retrieved successfully.'
+        );
+    }
+
+    /**
      * Record a prescription for a patient (admin, receptionist, or the assigned doctor).
      */
     public function store(): void
@@ -186,11 +199,14 @@ class PatientPrescriptionController extends Controller
             return;
         }
 
+        $drugIdRaw = $request->input('drug_id');
+
         $result = $this->patientPrescriptionService->store(
             $patientId,
             $medicationId,
             (int) $user['id'],
-            $request->only(self::DETAIL_FIELDS)
+            $request->only(self::DETAIL_FIELDS),
+            ($drugIdRaw !== null && $drugIdRaw !== '') ? (int) $drugIdRaw : null
         );
 
         if (!$result['success']) {
@@ -217,10 +233,17 @@ class PatientPrescriptionController extends Controller
             return;
         }
 
+        // drug_id left out of the request keeps the current catalog link.
+        $body = $request->all();
+        $drugId = array_key_exists('drug_id', $body)
+            ? (($body['drug_id'] === null || $body['drug_id'] === '') ? null : (int) $body['drug_id'])
+            : false;
+
         $result = $this->patientPrescriptionService->update(
             $id,
             $request->only(self::DETAIL_FIELDS),
-            (int) $user['id']
+            (int) $user['id'],
+            $drugId
         );
 
         if (!$result['success']) {

@@ -17,6 +17,12 @@ $router->post('/patient-prescriptions/refill-request', [PatientPrescriptionContr
     [RoleMiddleware::class, ['patient']]
 ]);
 
+// Drug Catalog items to prescribe from, with usable stock.
+$router->get('/patient-prescriptions/drug-options', [PatientPrescriptionController::class, 'drugOptions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/patient-prescriptions', [PatientPrescriptionController::class, 'store'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

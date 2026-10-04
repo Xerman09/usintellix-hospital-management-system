@@ -18,6 +18,14 @@ export async function requestPrescriptionRefill(prescriptionId)
     );
 }
 
+/** Drug Catalog items to prescribe from, with usable stock. */
+export async function fetchPrescribableDrugs(q = "")
+{
+    const query = q ? `?${new URLSearchParams({ q }).toString()}` : "";
+
+    return await api(`/patient-prescriptions/drug-options${query}`);
+}
+
 export async function addPatientPrescription(patientId, medicationId, details = {})
 {
     return await api(

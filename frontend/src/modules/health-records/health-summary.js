@@ -1,6 +1,7 @@
 import { fetchHealthSummary } from "./health-records.service.js";
 import { HRS_SECTIONS } from "./health-summary.view.js?v=2";
 import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js";
+import { todayISO } from "../../core/timezone.js";
 import { requestPrescriptionRefill } from "../patient-prescriptions/patient-prescriptions.service.js";
 import { showToast } from "../../core/toast.js";
 
@@ -200,7 +201,7 @@ function renderPrescriptionsTable(records)
                             <td>${escapeHtml(rx.dosage || "-")}</td>
                             <td>${formatDate(rx.begin_date)}</td>
                             <td>${formatDate(rx.end_date)}</td>
-                            <td>${rx.end_date ? "" : `<button type="button" class="hrs-refill-btn" data-rx-id="${rx.id}">Request Refill</button>`}</td>
+                            <td>${rx.end_date && String(rx.end_date).slice(0, 10) < todayISO() ? "" : `<button type="button" class="hrs-refill-btn" data-rx-id="${rx.id}">Request Refill</button>`}</td>
                         </tr>
                     `).join("")}
                 </tbody>

@@ -26,14 +26,17 @@ class PatientPrescriptionService
     public function list(int $patientId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, patient_id, medication_id, title, begin_date, end_date,
-                    quantity, dosage, route, frequency, refills, directions,
-                    substitution_allowed, pharmacy, comments, coding,
-                    occurrence, outcome, classification_type, verification_status,
-                    referred_by, destination, created_at
-             FROM patient_prescriptions
-             WHERE patient_id = :patient_id AND deleted_at IS NULL
-             ORDER BY title"
+            "SELECT pp.id, pp.patient_id, pp.medication_id, pp.drug_id, pp.title, pp.begin_date, pp.end_date,
+                    pp.quantity, pp.dosage, pp.route, pp.frequency, pp.refills, pp.directions,
+                    pp.substitution_allowed, pp.pharmacy, pp.comments, pp.coding,
+                    pp.occurrence, pp.outcome, pp.classification_type, pp.verification_status,
+                    pp.referred_by, pp.destination, pp.created_at, pp.updated_at,
+                    d.name AS drug_name, d.strength AS drug_strength, du.name AS drug_unit_name
+             FROM patient_prescriptions pp
+             LEFT JOIN drugs d ON d.id = pp.drug_id
+             LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
+             WHERE pp.patient_id = :patient_id AND pp.deleted_at IS NULL
+             ORDER BY pp.title"
         );
 
         $stmt->execute(['patient_id' => $patientId]);
@@ -46,9 +49,27 @@ class PatientPrescriptionService
      * the medications catalog; the title is always stored directly since it
      * may be freely typed instead of catalog-selected.
      */
-    public function store(int $patientId, ?int $medicationId, int $createdBy, array $details = []): array
+    public function store(int $patientId, ?int $medicationId, int $createdBy, array $details = [], ?int $drugId = null): array
     {
+        $drug = null;
+
+        if ($drugId) {
+            $drug = $this->findDrug($drugId);
+
+            if (!$drug) {
+                return [
+                    'success' => false,
+                    'message' => 'The selected medicine is no longer in the Drug Catalog.'
+                ];
+            }
+        }
+
         $title = trim((string) ($details['title'] ?? ''));
+
+        // Picked from the catalog with no title typed: use the catalog name.
+        if ($title === '' && $drug) {
+            $title = $drug['name'];
+        }
 
         if ($title === '') {
             return [
@@ -72,6 +93,7 @@ class PatientPrescriptionService
         $data['title'] = $title;
         $data['patient_id'] = $patientId;
         $data['medication_id'] = $medicationId ?: null;
+        $data['drug_id'] = $drug ? (int) $drug['id'] : null;
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $createdBy;
 
@@ -94,7 +116,11 @@ class PatientPrescriptionService
     /**
      * Update the detail fields on an existing patient prescription record.
      */
-    public function update(int $id, array $details, int $updatedBy): array
+    /**
+     * $drugId: false = leave the catalog link as is; null = unlink;
+     * an id = link to that Drug Catalog item.
+     */
+    public function update(int $id, array $details, int $updatedBy, int|null|false $drugId = false): array
     {
         $record = $this->find($id);
 
@@ -105,7 +131,25 @@ class PatientPrescriptionService
             ];
         }
 
+        $drug = null;
+
+        if ($drugId) {
+            $drug = $this->findDrug($drugId);
+
+            // Keeping an existing link to an item since made inactive is fine; choosing it anew is not.
+            if (!$drug && (int) ($record['drug_id'] ?? 0) !== $drugId) {
+                return [
+                    'success' => false,
+                    'message' => 'The selected medicine is no longer in the Drug Catalog.'
+                ];
+            }
+        }
+
         $title = trim((string) ($details['title'] ?? ''));
+
+        if ($title === '' && $drug) {
+            $title = $drug['name'];
+        }
 
         if ($title === '') {
             return [
@@ -116,6 +160,9 @@ class PatientPrescriptionService
 
         $data = $this->filterDetails($details);
         $data['title'] = $title;
+        if ($drugId !== false) {
+            $data['drug_id'] = $drugId ?: null;
+        }
         $data['updated_at'] = date('Y-m-d H:i:s');
         $data['updated_by'] = $updatedBy;
 
@@ -154,6 +201,95 @@ class PatientPrescriptionService
         }
 
         return $result;
+    }
+
+    /**
+     * Drug Catalog items a prescriber can choose, with what's usable in
+     * stock (on hand at active locations, less expired lots) and the
+     * item's prescription templates. q matches name, generic or brand
+     * name; without q, the first items alphabetically.
+     */
+    public function drugOptions(string $q, int $limit = 30): array
+    {
+        $db = Database::connection();
+        $params = ['today' => date('Y-m-d')];
+        $where = 'd.deleted_at IS NULL AND d.is_active = 1';
+
+        $q = trim($q);
+        if ($q !== '') {
+            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $where .= ' AND (d.name LIKE :q1 OR d.generic_name LIKE :q2 OR d.brand_name LIKE :q3)';
+            $params += ['q1' => $like, 'q2' => $like, 'q3' => $like];
+        }
+
+        $stmt = $db->prepare(
+            "SELECT d.id, d.name, d.generic_name, d.brand_name, d.strength, d.product_type,
+                    d.requires_prescription, d.controlled_class, d.is_high_alert, d.is_lasa, d.allow_inventory,
+                    df.name AS dosage_form, ar.name AS route_name, du.name AS unit_name,
+                    COALESCE(stock.usable, 0) AS usable, COALESCE(stock.locations, 0) AS locations
+             FROM drugs d
+             LEFT JOIN dosage_forms df ON df.id = d.dosage_form_id
+             LEFT JOIN administration_routes ar ON ar.id = d.route_id
+             LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
+             LEFT JOIN (
+                 SELECT l.drug_id, SUM(l.quantity_on_hand) AS usable, COUNT(DISTINCT l.warehouse_id) AS locations
+                 FROM drug_inventory_lots l
+                 JOIN warehouses w ON w.id = l.warehouse_id AND w.deleted_at IS NULL AND w.is_active = 1
+                 WHERE l.deleted_at IS NULL AND l.is_active = 1 AND l.quantity_on_hand > 0
+                   AND (l.expires_date IS NULL OR l.expires_date >= :today)
+                 GROUP BY l.drug_id
+             ) stock ON stock.drug_id = d.id
+             WHERE {$where}
+             ORDER BY d.product_type <> 'Drug', d.name
+             LIMIT " . max(1, min(100, $limit))
+        );
+        $stmt->execute($params);
+        $drugs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $templates = [];
+        if ($drugs) {
+            $ids = implode(',', array_map(fn($d) => (int) $d['id'], $drugs));
+            foreach ($db->query(
+                "SELECT id, drug_id, name, schedule, interval_type, basic_units, refills, is_standard
+                 FROM drug_prescription_templates
+                 WHERE deleted_at IS NULL AND drug_id IN ({$ids})
+                 ORDER BY is_standard DESC, id"
+            )->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                $templates[(int) $t['drug_id']][] = [
+                    'id' => (int) $t['id'], 'name' => $t['name'], 'schedule' => $t['schedule'], 'interval_type' => $t['interval_type'],
+                    'basic_units' => $t['basic_units'], 'refills' => (int) $t['refills'], 'is_standard' => (bool) $t['is_standard']
+                ];
+            }
+        }
+
+        return array_map(fn($d) => [
+            'id' => (int) $d['id'],
+            'name' => $d['name'],
+            'generic_name' => $d['generic_name'],
+            'brand_name' => $d['brand_name'],
+            'strength' => $d['strength'],
+            'dosage_form' => $d['dosage_form'],
+            'route_name' => $d['route_name'],
+            'unit_name' => $d['unit_name'],
+            'product_type' => $d['product_type'],
+            'requires_prescription' => (bool) $d['requires_prescription'],
+            'controlled_class' => $d['controlled_class'] !== 'None' ? $d['controlled_class'] : null,
+            'is_high_alert' => (bool) $d['is_high_alert'],
+            'is_lasa' => (bool) $d['is_lasa'],
+            'is_stocked' => (bool) $d['allow_inventory'],
+            'usable' => round((float) $d['usable'], 3),
+            'locations' => (int) $d['locations'],
+            'templates' => $templates[(int) $d['id']] ?? []
+        ], $drugs);
+    }
+
+    /** An active, not-deleted Drug Catalog item. */
+    private function findDrug(int $id): ?array
+    {
+        $stmt = Database::connection()->prepare("SELECT id, name FROM drugs WHERE id = :id AND deleted_at IS NULL AND is_active = 1");
+        $stmt->execute(['id' => $id]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     public function find(int $id): ?array

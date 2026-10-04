@@ -10076,6 +10076,38 @@ textarea.pd-sdoh-readonly {
     </div>
 </div>
 
+<style>
+.rx-picker { position: relative; }
+.rx-results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; max-height: 300px; overflow-y: auto;
+    background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 10px 24px rgba(0,0,0,.14); }
+.rx-option { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+.rx-option:last-child { border-bottom: none; }
+.rx-option.active, .rx-option:hover { background: var(--accent-light); }
+.rx-option-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
+.rx-option-sub { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.rx-option-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+.rx-empty { padding: 12px; color: var(--text-muted); font-size: 12.5px; }
+.rx-chosen { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; padding: 10px 12px;
+    border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-light); }
+.rx-chosen-name { font-weight: 700; color: var(--text-primary); font-size: 13.5px; }
+.rx-chosen-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rx-chosen-actions button { height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.rx-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.rx-badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.rx-badge.ok { background: #dcfce7; color: #166534; }
+.rx-badge.out { background: #fee2e2; color: #991b1b; }
+.rx-badge.warn { background: #fef3c7; color: #92400e; }
+.rx-badge.muted { background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
+:root[data-theme="dark"] .rx-badge.ok { background: rgba(34,197,94,.18); color: #bbf7d0; }
+:root[data-theme="dark"] .rx-badge.out { background: rgba(239,68,68,.18); color: #fecaca; }
+:root[data-theme="dark"] .rx-badge.warn { background: rgba(245,158,11,.18); color: #fde68a; }
+.rx-templates { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+.rx-templates button { height: 28px; padding: 0 10px; border-radius: 999px; border: 1px dashed var(--accent); background: var(--bg-surface); color: var(--accent-text, var(--accent)); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.rx-hint { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+.rx-warning { display: block; font-size: 12px; margin-top: 6px; color: #b45309; }
+:root[data-theme="dark"] .rx-warning { color: #fcd34d; }
+.rx-link-note { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+</style>
 <div class="modal-overlay" id="prescriptionFormModalOverlay">
     <div class="modal-box">
         <div class="modal-header">
@@ -10091,10 +10123,16 @@ textarea.pd-sdoh-readonly {
 
             <div class="form-grid">
                 <div class="form-group full">
-                    <label>Select from list <span style="font-weight: 400; color: #a2aec4;">(or type your own in Title)</span></label>
-                    <select id="prescription_catalog_id" class="form-input">
-                        <option value="">Custom / type your own...</option>
-                    </select>
+                    <label for="prescription_drug_search">Medicine <span style="font-weight: 400; color: var(--text-muted);">(from the Drug Catalog, so the pharmacy can dispense it)</span></label>
+                    <input type="hidden" id="prescription_drug_id">
+                    <div class="rx-picker" id="rxPicker">
+                        <input id="prescription_drug_search" class="form-input" placeholder="Search by name, generic or brand..." autocomplete="off"
+                               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rxDrugResults">
+                        <div class="rx-results" id="rxDrugResults" role="listbox" hidden></div>
+                    </div>
+                    <div class="rx-chosen" id="rxDrugChosen" hidden></div>
+                    <div class="rx-templates" id="rxDrugTemplates" hidden></div>
+                    <span class="rx-hint" id="rxDrugHint">Not in the catalog? Leave this blank and type the medicine in Title — it will be recorded, but the pharmacy can't dispense it from stock.</span>
                 </div>
 
                 <div class="form-group full">
@@ -10114,7 +10152,7 @@ textarea.pd-sdoh-readonly {
                 </div>
 
                 <div class="form-group">
-                    <label>Quantity</label>
+                    <label>Quantity <span id="rxQtyUnit" style="font-weight: 400; color: var(--text-muted);"></span></label>
                     <input id="prescription_quantity" class="form-input" placeholder="e.g. 30">
                 </div>
 
