@@ -2925,6 +2925,11 @@ async function loadPatientDashboardWidgets(patient)
         carePreferencesController.renderDashboard(data.care_preferences || []);
         treatmentPreferencesController.renderDashboard(data.care_preferences || []);
 
+        const dueReminders = (data.reminders || []).filter((r) => r.due_status === "due" || r.due_status === "past_due");
+        if (dueReminders.length > 0) {
+            showClinicalRemindersPopup(dueReminders);
+        }
+
         if (data._hipaa_minimum_necessary?.applied) {
             const clinicalBodyIds = ["pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody", "pdEncountersBody", "pdVitalsHistoryBody"];
             clinicalBodyIds.forEach(id => {
@@ -2958,6 +2963,90 @@ async function loadPatientDashboardWidgets(patient)
             if (body) body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load this section right now.</p></div>`;
         });
     }
+}
+
+/**
+ * Shows the "New Due Clinical Reminders" popup the first time the patient
+ * dashboard loads -- mirrors the OpenEMR-style alert that appears on chart
+ * open.  Dismissed via the OK button or a click on the backdrop.
+ */
+function showClinicalRemindersPopup(reminders)
+{
+    // Remove any pre-existing popup to avoid stacking on re-open
+    const existingOverlay = document.getElementById("crDashboardPopupOverlay");
+    if (existingOverlay) existingOverlay.remove();
+
+    const typeColors = {
+        "Assessment"  : "#c0392b",
+        "Measurement" : "#c0392b",
+        "Treatment"   : "#e67e22",
+        "Education"   : "#2980b9",
+        "Referral"    : "#2980b9",
+    };
+
+    const listHtml = reminders.map((r) => {
+        const type = r.action_type || "";
+        const color = typeColors[type] || "#2980b9";
+        const typePrefix = type ? `<span style="color:${color};font-weight:600;">${escapeHtml(type)}:</span> ` : "";
+        return `<p style="margin:0 0 6px 0;font-size:13px;color:#333;">${typePrefix}${escapeHtml(r.item_label)}</p>`;
+    }).join("");
+
+    const overlay = document.createElement("div");
+    overlay.id = "crDashboardPopupOverlay";
+    overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 99999;
+        background: rgba(0,0,0,0.35);
+        display: flex; align-items: center; justify-content: center;
+    `;
+
+    overlay.innerHTML = `
+        <div id="crDashboardPopupBox" style="
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+            min-width: 320px;
+            max-width: 460px;
+            width: 90%;
+            padding: 24px 28px 20px;
+            position: relative;
+        ">
+            <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:14px;">
+                New Due Clinical Reminders
+            </div>
+            <div style="margin-bottom:16px;">
+                ${listHtml}
+            </div>
+            <div style="margin-bottom:18px;">
+                <a href="javascript:void(0)" id="crDashboardPopupWidgetLink"
+                   style="font-size:12.5px;color:#5b7faf;text-decoration:underline;cursor:pointer;">
+                    See the Clinical Reminders widget for more details
+                </a>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+                <button id="crDashboardPopupOkBtn" style="
+                    background: #3c5a7a; color: #fff; border: none;
+                    border-radius: 20px; padding: 7px 28px;
+                    font-size: 13px; font-weight: 600; cursor: pointer;
+                    letter-spacing: 0.3px;
+                ">OK</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+
+    document.getElementById("crDashboardPopupOkBtn").addEventListener("click", close);
+    document.getElementById("crDashboardPopupWidgetLink").addEventListener("click", () => {
+        close();
+        openClinicalRemindersTab();
+    });
+
+    // Clicking the backdrop dismisses the popup
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) close();
+    });
 }
 
 async function loadDashboardQualitySafety(patient)

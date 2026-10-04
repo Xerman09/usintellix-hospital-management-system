@@ -64,19 +64,29 @@ class PatientReminderService
     /**
      * The current patient's own health maintenance reminders (no
      * cross-patient data, no consent/contact columns) -- due/past-due
-     * preventive care items only.
+     * preventive care items only. Also resolves the first action's
+     * category_type from the linked practice_rule so the caller can
+     * display it as a prefix (Assessment, Measurement, Treatment, …).
      */
     public function listForPatient(int $patientId): array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT id, item_label, due_status, date_created, date_sent
-             FROM patient_reminders
-             WHERE deleted_at IS NULL AND patient_id = ?
-             ORDER BY (due_status = 'past_due') DESC, date_created DESC"
+            "SELECT r.id, r.item_label, r.due_status, r.date_created, r.date_sent,
+                    pr.actions_list
+             FROM patient_reminders r
+             LEFT JOIN practice_rules pr ON pr.id = r.practice_rule_id AND pr.deleted_at IS NULL
+             WHERE r.deleted_at IS NULL AND r.patient_id = ?
+             ORDER BY (r.due_status = 'past_due') DESC, r.date_created DESC"
         );
         $stmt->execute([$patientId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(function (array $row) {
+            $actions = json_decode($row['actions_list'] ?? '[]', true) ?: [];
+            $row['action_type'] = $actions[0]['category_type'] ?? null;
+            unset($row['actions_list']);
+            return $row;
+        }, $rows);
     }
 
     /**
