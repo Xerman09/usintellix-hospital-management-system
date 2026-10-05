@@ -244,6 +244,8 @@ class OrIntraopService
             'items' => $items,
             'specimens' => $specimens,
             'preference_items' => $preference,
+            // Recovery, release and the operative report (Phase 5).
+            'postop' => (new OrPostopService())->summary($case),
             'history' => $history,
             'options' => [
                 'item_kinds' => self::ITEM_KINDS,

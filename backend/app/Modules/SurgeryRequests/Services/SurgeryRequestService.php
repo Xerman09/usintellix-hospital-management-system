@@ -224,7 +224,7 @@ class SurgeryRequestService
         $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $stmt = $db->prepare(
-            "SELECT id, title, begin_date, outcome, comments FROM patient_surgeries
+            "SELECT id, title, begin_date, outcome, comments, or_case_id FROM patient_surgeries
              WHERE patient_id = :p AND deleted_at IS NULL ORDER BY begin_date IS NULL, begin_date DESC, id DESC LIMIT 50"
         );
         $stmt->execute(['p' => $patientId]);

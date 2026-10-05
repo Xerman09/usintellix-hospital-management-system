@@ -84,6 +84,13 @@ export function OrBoardView() {
     background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
 .orb-mini i.ok { background: #16a34a; border-color: #16a34a; color: #fff; }
 
+.orb-pacu { margin-bottom: 14px; }
+.orb-pacu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; padding: 10px; }
+.orb-prow { border: 1px solid var(--border-color); border-radius: 10px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.orb-prow.ready { border-color: #86efac; box-shadow: inset 4px 0 0 #16a34a; }
+.orb-scores { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); }
+.orb-scores b { font-size: 17px; color: var(--text-primary); }
+
 /* Theater mode: the board alone, large, for a wall screen. */
 .orb-page.orb-theater { position: fixed; inset: 0; z-index: 1900; background: var(--bg-page, var(--bg-surface-alt)); padding: 16px 20px; overflow-y: auto; font-size: 15px; }
 .orb-theater .orb-header p, .orb-theater .orb-list, .orb-theater [data-orb-hide-theater] { display: none !important; }
@@ -100,6 +107,7 @@ export function OrBoardView() {
 :root[data-theme="dark"] .orb-pill.bad { background: rgba(239,68,68,.18); color: #fecaca; border-color: rgba(239,68,68,.45); }
 :root[data-theme="dark"] .orb-pill.warn, :root[data-theme="dark"] .orb-check.due, :root[data-theme="dark"] .orb-btn.need { background: rgba(245,158,11,.16); color: #fde68a; border-color: rgba(245,158,11,.45); }
 :root[data-theme="dark"] .orb-pill.info { background: rgba(59,130,246,.18); color: #bfdbfe; border-color: rgba(59,130,246,.45); }
+:root[data-theme="dark"] .orb-prow.ready { border-color: rgba(34,197,94,.5); }
 :root[data-theme="dark"] .orb-stage strong { color: #4ade80; }
 :root[data-theme="dark"] .orb-suite.surgery { border-color: rgba(34,197,94,.5); }
 :root[data-theme="dark"] .orb-suite.cleaning { border-color: rgba(245,158,11,.5); }
@@ -132,6 +140,10 @@ export function OrBoardView() {
     </div>
     <div class="orb-kpis" id="orbKpis"></div>
     <div class="orb-grid" id="orbSuites"><div class="orb-empty">Loading...</div></div>
+    <div class="orb-card orb-pacu" id="orbPacuWrap" hidden>
+        <div class="orb-card-head"><span>In recovery (PACU)</span><span class="orb-pill" id="orbPacuCount">0</span></div>
+        <div class="orb-pacu-list" id="orbPacu"></div>
+    </div>
     <div class="orb-card orb-list">
         <div class="orb-card-head"><span>All cases</span><span class="orb-sub" id="orbListNote" style="margin:0;font-weight:500;"></span></div>
         <div class="orb-table-wrap" id="orbList"></div>

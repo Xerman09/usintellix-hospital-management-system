@@ -6654,10 +6654,11 @@ function renderDashboardSurgeries(data, patient)
     const fmt = (iso) => (iso ? formatDate(iso) : "");
     const requests = data.requests.filter((r) => r.status !== "cancelled" && r.status !== "scheduled").slice(0, 5);
     const upcoming = data.cases.filter((c) => c.scheduled_date >= today && !["Cancelled", "Transferred / Discharged"].includes(c.stage)).slice(0, 3);
+    // Completed OR cases open their record (operative report); their history rows aren't listed twice.
     const past = [
-        ...data.cases.filter((c) => c.stage === "Transferred / Discharged").map((c) => ({ title: c.procedure_name, date: c.scheduled_date, sub: c.surgeon })),
-        ...data.history.map((h) => ({ title: h.title, date: h.begin_date, sub: h.outcome || "" }))
-    ].slice(0, 4);
+        ...data.cases.filter((c) => c.stage === "Transferred / Discharged").map((c) => ({ title: c.procedure_name, date: c.scheduled_date, sub: `${c.surgeon} · ${c.case_number}`, caseId: c.id })),
+        ...data.history.filter((h) => !h.or_case_id).map((h) => ({ title: h.title, date: h.begin_date, sub: h.outcome || "" }))
+    ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
 
     if (!requests.length && !upcoming.length && !past.length) {
         body.innerHTML = `<div class="pd-widget-empty">
@@ -6690,13 +6691,22 @@ function renderDashboardSurgeries(data, patient)
                 </div>
             </div>`).join("") : ""}
         ${past.length ? `<div class="pd-surg-label">History</div>` + past.map((h) => `
-            <div class="pd-msg-item">
+            <div class="pd-msg-item${h.caseId ? " pd-item-clickable" : ""}"${h.caseId ? ` data-or-case="${h.caseId}" tabindex="0" role="button" title="Open the case record and operative report"` : ""}>
                 <div class="pd-msg-main">
                     <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(h.title)}</span><span class="pd-msg-when">${escapeHtml(fmt(h.date))}</span></div>
                     ${h.sub ? `<span class="pd-msg-preview">${escapeHtml(h.sub)}</span>` : ""}
                 </div>
             </div>`).join("") : ""}
     </div>`;
+
+    body.querySelectorAll("[data-or-case]").forEach((el) => {
+        const open = async () => {
+            const { openOrCase } = await import("../or-board/or-case-panel.js?v=2");
+            openOrCase(Number(el.dataset.orCase), { tab: "report" });
+        };
+        el.addEventListener("click", open);
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+    });
 
     body.querySelectorAll("[data-surgery-request]").forEach((el) => {
         const open = () => openSurgeryRequest(Number(el.dataset.surgeryRequest), { onChange: () => loadDashboardSurgeries(patient) });

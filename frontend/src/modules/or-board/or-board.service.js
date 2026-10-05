@@ -25,3 +25,12 @@ export const addOrSpecimen = (data) => post("/or-live/specimens", data);
 export const removeOrSpecimen = (id) => post("/or-live/specimens/remove", { id });
 /** Room status, e.g. Available once cleaning is done (OR Management's endpoint). */
 export const setOrSuiteStatus = (suiteId, status) => post("/or-management/suites/status", { suite_id: suiteId, status });
+/* Post-op (Phase 5) */
+export const addOrPacu = (data) => post("/or-live/pacu", data);
+export const removeOrPacu = (id) => post("/or-live/pacu/remove", { id });
+/** data: id, destination (bed | home | facility), bed_id?, facility?, override_reason?, notes?, at? */
+export const releaseOrCase = (data) => post("/or-live/release", data);
+export const saveOrReport = (data) => post("/or-live/report", data);
+export const signOrReport = (data) => post("/or-live/report/sign", data);
+export const addOrAddendum = (id, body) => post("/or-live/report/addendum", { id, body });
+export const fetchOrReportPrint = (id) => api(`/or-live/report/print${query({ id })}`);

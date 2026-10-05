@@ -95,3 +95,13 @@ $router->post('/or-live/items', [OrLiveController::class, 'addItem'], $orSchedul
 $router->post('/or-live/items/void', [OrLiveController::class, 'voidItem'], $orScheduleRoles);
 $router->post('/or-live/specimens', [OrLiveController::class, 'addSpecimen'], $orScheduleRoles);
 $router->post('/or-live/specimens/remove', [OrLiveController::class, 'removeSpecimen'], $orScheduleRoles);
+
+// Post-op (Surgery Phase 5): recovery readings, release to a bed / home,
+// the operative report.
+$router->post('/or-live/pacu', [OrLiveController::class, 'addPacu'], $orScheduleRoles);
+$router->post('/or-live/pacu/remove', [OrLiveController::class, 'removePacu'], $orScheduleRoles);
+$router->post('/or-live/release', [OrLiveController::class, 'release'], $orScheduleRoles);
+$router->post('/or-live/report', [OrLiveController::class, 'saveReport'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor']]]);
+$router->post('/or-live/report/sign', [OrLiveController::class, 'signReport'], [AuthMiddleware::class, [RoleMiddleware::class, ['doctor', 'admin']]]);
+$router->post('/or-live/report/addendum', [OrLiveController::class, 'addendum'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor']]]);
+$router->get('/or-live/report/print', [OrLiveController::class, 'printReport'], $orScheduleRoles);

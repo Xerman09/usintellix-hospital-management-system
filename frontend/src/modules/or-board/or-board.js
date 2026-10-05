@@ -1,7 +1,7 @@
-import { fetchOrBoard, setOrSuiteStatus } from "./or-board.service.js?v=1";
+import { fetchOrBoard, setOrSuiteStatus } from "./or-board.service.js?v=2";
 import {
     openOrCase, advanceStage, ensureOrCaseRoot, esc, parseDT, fmtTime, fmtTimeOfDay, fmtDate, fmtMin, minutesSince, STAGE_SHORT, GATES, PHASE_LABELS
-} from "./or-case-panel.js?v=1";
+} from "./or-case-panel.js?v=2";
 import { showToast } from "../../core/toast.js";
 import { systemNow, todayISO } from "../../core/timezone.js";
 
@@ -144,6 +144,10 @@ function checks(c, compact = false) {
 
 function nextButton(c) {
     if (!c.next_stage || c.perioperative_stage === "Cancelled" || !state.data.is_today && WAITING.includes(c.perioperative_stage)) return "";
+    if (c.next_stage === "Transferred / Discharged") {
+        const ready = c.recovery && c.recovery.criteria_met === c.recovery.criteria_total;
+        return `<button type="button" class="orb-btn small ${ready ? "go" : ""}" data-orb-recovery="${c.id}">Release…</button>`;
+    }
     const gate = GATES[c.next_stage];
     const needs = gate && !c.checklist[gate];
     return needs
@@ -163,6 +167,11 @@ function render() {
     $("orbUpdated").textContent = state.loadedAt ? `${d.is_today ? "Live · " : `${fmtDate(d.date)} · `}updated ${fmtTime(state.loadedAt)}` : "";
 
     $("orbSuites").innerHTML = d.suites.length ? d.suites.map(suiteCard).join("") : `<div class="orb-empty">No OR suites are set up.</div>`;
+
+    const pacu = cases.filter((c) => c.perioperative_stage === "In PACU");
+    $("orbPacuWrap").hidden = !pacu.length;
+    $("orbPacuCount").textContent = pacu.length;
+    $("orbPacu").innerHTML = pacu.map(pacuRow).join("");
 
     $("orbListNote").textContent = d.is_today ? "Includes cases from earlier days still in the room or in recovery." : "";
     $("orbList").innerHTML = cases.length ? `<table class="orb-table"><thead><tr><th>Start</th><th>Case</th><th>Patient</th><th>Surgery</th><th>Suite</th><th>Surgeon</th><th>Stage</th><th>Checklist</th><th>Timing</th></tr></thead><tbody>
@@ -226,6 +235,20 @@ function suiteCard(s) {
         </div></div>`;
 }
 
+function pacuRow(c) {
+    const r = c.recovery || {};
+    const since = c.actual_out_room_time ? minutesSince(c.actual_out_room_time) : null;
+    const ready = r.criteria_total && r.criteria_met === r.criteria_total;
+    return `<div class="orb-prow ${ready ? "ready" : ""}">
+        <div class="orb-who"><b>${patientName(c)}</b> ${c.allergies.length ? `<span class="orb-pill bad">⚠ Allergy</span>` : ""}
+            <span class="orb-sub">${esc(c.procedure_name)} · ${esc(c.case_number)}${c.pacu_bed_no ? ` · PACU bed ${esc(c.pacu_bed_no)}` : ""}</span></div>
+        <div class="orb-scores"><span>Aldrete <b>${r.aldrete ?? "–"}</b>/10</span><span>Pain <b>${r.pain ?? "–"}</b>/10</span><span>In recovery <b>${since != null ? fmtMin(since) : "–"}</b></span></div>
+        <div class="orb-chips"><span class="orb-pill ${ready ? "ok" : "warn"}" title="${esc((r.unmet || []).join("; "))}">${ready ? "Ready for release" : `${r.criteria_met ?? 0}/${r.criteria_total ?? 5} release criteria`}</span>
+            ${r.readings ? "" : `<span class="orb-pill bad">No readings yet</span>`}</div>
+        <div class="orb-actions">${nextButton(c)}<button type="button" class="orb-btn small" data-orb-open="${c.id}">Open case</button></div>
+    </div>`;
+}
+
 function nextCase(c) {
     const t = timing(c);
     const start = startAt(c);
@@ -250,6 +273,11 @@ async function onClick(e) {
     if (next) {
         const c = findCase(next.dataset.orbNext);
         if (c) advanceStage(c, { onDone: () => load(true) });
+        return;
+    }
+    const recovery = e.target.closest("[data-orb-recovery]");
+    if (recovery) {
+        openOrCase(Number(recovery.dataset.orbRecovery), { tab: "recovery", onChange: () => load(true) });
         return;
     }
     const check = e.target.closest("[data-orb-check]");

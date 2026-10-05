@@ -118,7 +118,8 @@ class OrLiveService
             }
         }
 
-        $cases = array_map(function ($c) use ($checks, $stageAt, $allergies) {
+        $postop = new OrPostopService();
+        $cases = array_map(function ($c) use ($checks, $stageAt, $allergies, $postop) {
             $id = (int) $c['id'];
             $stage = $c['perioperative_stage'];
             $next = $stage === 'Cancelled' ? null : self::nextStage($stage);
@@ -133,7 +134,8 @@ class OrLiveService
                     'time_out' => $checks[$id]['time_out'] ?? null,
                     'sign_out' => $checks[$id]['sign_out'] ?? null
                 ],
-                'allergies' => $c['patient_id'] ? ($allergies[(int) $c['patient_id']] ?? []) : []
+                'allergies' => $c['patient_id'] ? ($allergies[(int) $c['patient_id']] ?? []) : [],
+                'recovery' => $stage === 'In PACU' ? $postop->recoveryStatus($c) : null
             ];
         }, $cases);
 
@@ -177,8 +179,10 @@ class OrLiveService
      * so two people clicking don't move it twice), at? (Y-m-d H:i[:s],
      * when it happened if recorded late), pacu_bed_no?, pacu_aldrete_score?,
      * postop_disposition?, cancellation_reason (for Cancelled).
+     * Leaving recovery (Transferred / Discharged) goes through
+     * OrPostopService::release(), which passes $release.
      */
-    public function move(int $caseId, array $data, int $userId): array
+    public function move(int $caseId, array $data, int $userId, bool $release = false): array
     {
         $to = trim((string) ($data['stage'] ?? $data['perioperative_stage'] ?? ''));
         if ($to === 'Cancelled') {
@@ -211,6 +215,10 @@ class OrLiveService
                 return $fail($to === $from
                     ? "{$case['case_number']} is already " . self::LABELS[$from] . ' (someone else may have just moved it).'
                     : 'Stages move in order. The next stage for ' . $case['case_number'] . ' is ' . self::LABELS[$next] . '.', ['current_stage' => $from]);
+            }
+
+            if ($to === 'Transferred / Discharged' && !$release) {
+                return $fail('Release the patient from recovery with the release form (criteria, then a ward bed, home or another facility).', ['needs_release' => true]);
             }
 
             $today = date('Y-m-d');

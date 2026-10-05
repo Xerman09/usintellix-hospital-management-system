@@ -7,16 +7,19 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\OrManagement\Services\OrIntraopService;
 use App\Modules\OrManagement\Services\OrLiveService;
+use App\Modules\OrManagement\Services\OrPostopService;
 
 class OrLiveController extends Controller
 {
     private OrLiveService $live;
     private OrIntraopService $intraop;
+    private OrPostopService $postop;
 
     public function __construct()
     {
         $this->live = new OrLiveService();
         $this->intraop = new OrIntraopService();
+        $this->postop = new OrPostopService();
     }
 
     /** Query: date? */
@@ -120,6 +123,66 @@ class OrLiveController extends Controller
         $this->respond($this->intraop->removeSpecimen((int) $request->input('id'), $this->userId()));
     }
 
+    /* ---------------- Post-op (Phase 5) ---------------- */
+
+    /** Body: case_id, recorded_at?, vitals, pain_score?, nausea?, aldrete {activity, respiration, circulation, consciousness, oxygen}?, notes? */
+    public function addPacu(): void
+    {
+        $request = new Request();
+        $this->respond($this->postop->addObservation($request->all(), $this->userId()), 201);
+    }
+
+    /** Body: id (reading) */
+    public function removePacu(): void
+    {
+        $request = new Request();
+        $this->respond($this->postop->removeObservation((int) $request->input('id'), $this->userId()));
+    }
+
+    /** Body: id, destination (bed | home | facility), bed_id?, facility?, override_reason?, notes?, at? */
+    public function release(): void
+    {
+        $request = new Request();
+        $this->respond($this->postop->release((int) $request->input('id'), $request->all(), Session::get('user')));
+    }
+
+    /** Body: id, revision, report fields -- saves the draft. */
+    public function saveReport(): void
+    {
+        $request = new Request();
+        $this->respond($this->postop->saveReport((int) $request->input('id'), $request->all(), Session::get('user')));
+    }
+
+    /** Body: id, revision, report fields -- saves and signs (the case's surgeon). */
+    public function signReport(): void
+    {
+        $request = new Request();
+        $this->respond($this->postop->signReport((int) $request->input('id'), $request->all(), Session::get('user')));
+    }
+
+    /** Body: id, body */
+    public function addendum(): void
+    {
+        $request = new Request();
+        $this->respond($this->postop->addAddendum((int) $request->input('id'), (string) $request->input('body'), Session::get('user')), 201);
+    }
+
+    /** Query: id -- the operative report for printing. */
+    public function printReport(): void
+    {
+        $request = new Request();
+        $data = $this->postop->printData((int) $request->input('id'));
+        if (!$data) {
+            $this->error('Surgical case not found.', 404);
+            return;
+        }
+        if (!empty($data['missing'])) {
+            $this->error('There is no operative report for this case yet.', 422);
+            return;
+        }
+        $this->success($data, 'Operative report retrieved successfully.');
+    }
+
     private function userId(): int
     {
         return (int) (Session::get('user')['id'] ?? 0);
@@ -130,7 +193,8 @@ class OrLiveController extends Controller
         if (!$result['success']) {
             $this->json([
                 'success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null,
-                'needs_check' => $result['needs_check'] ?? null, 'current_stage' => $result['current_stage'] ?? null
+                'needs_check' => $result['needs_check'] ?? null, 'current_stage' => $result['current_stage'] ?? null,
+                'needs_release' => !empty($result['needs_release']), 'unmet' => $result['unmet'] ?? null
             ], !empty($result['not_found']) ? 404 : 422);
             return;
         }

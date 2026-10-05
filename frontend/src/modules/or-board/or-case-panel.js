@@ -7,8 +7,11 @@
  */
 import {
     fetchOrRecord, moveOrStage, undoOrStage, cancelOrCaseLive, setOrDelay, saveOrChecklist, saveOrTimes, addOrVitals, removeOrVitals,
-    fetchOrStock, addOrItem, voidOrItem, addOrSpecimen, removeOrSpecimen
-} from "./or-board.service.js?v=1";
+    fetchOrStock, addOrItem, voidOrItem, addOrSpecimen, removeOrSpecimen,
+    addOrPacu, removeOrPacu, releaseOrCase, saveOrReport, signOrReport, addOrAddendum, fetchOrReportPrint
+} from "./or-board.service.js?v=2";
+import { API_URL } from "../../core/api.js?v=5";
+import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
 
@@ -204,8 +207,26 @@ const STYLES = `
 :root[data-theme="dark"] .orc-err { color: #fca5a5; }
 :root[data-theme="dark"] .orc-btn.ghost-danger { color: #fca5a5; }
 
+.orc-criteria { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; }
+.orc-criteria li { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 12.5px; }
+.orc-criteria li b { display: block; }
+.orc-criteria li::before { content: "✗"; font-weight: 800; color: #dc2626; }
+.orc-criteria li.met { border-color: #86efac; background: #f0fdf4; }
+.orc-criteria li.met::before { content: "✓"; color: #16a34a; }
+.orc-ald { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 6px 10px; align-items: center; font-size: 12.5px; }
+.orc-ald > span { font-weight: 600; }
+.orc-total { font-size: 22px; font-weight: 800; }
+.orc-total.good { color: #16a34a; }
+.orc-total.low { color: #d97706; }
+.orc-report-view h4 { margin: 10px 0 3px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); }
+.orc-report-view p { margin: 0; white-space: pre-wrap; font-size: 13px; }
+.orc-addenda { display: flex; flex-direction: column; gap: 8px; }
+.orc-addenda div { border-left: 3px solid #2563eb; padding: 2px 0 2px 10px; font-size: 12.5px; white-space: pre-wrap; }
+:root[data-theme="dark"] .orc-criteria li.met { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.45); }
+
 @media (max-width: 900px) { .orc-phases { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
+    .orc-ald { grid-template-columns: minmax(0, 1fr); }
     .orc-overlay { padding: 8px 4px; }
     .orc-mhead, .orc-mbody, .orc-mfoot { padding-left: 12px; padding-right: 12px; }
     .orc-tabs { margin: 0 -12px; padding: 0 12px; }
@@ -280,6 +301,8 @@ async function reload(tab = null) {
 
 function defaultTab(d) {
     const stage = d.case.perioperative_stage;
+    if (stage === "In PACU") return "recovery";
+    if (stage === "Transferred / Discharged") return d.postop.report.status === "signed" ? "recovery" : "report";
     return ["Incision / In Progress", "Closing / Extubation"].includes(stage) && !d.next_needs ? "anesthesia" : "checklist";
 }
 
@@ -305,6 +328,8 @@ function render() {
         ["medicines", `Medicines &amp; fluids${counts.medicines ? ` <span class="count">${counts.medicines}</span>` : ""}`],
         ["supplies", `Supplies &amp; implants${counts.supplies ? ` <span class="count">${counts.supplies}</span>` : ""}`],
         ["specimens", `Specimens${counts.specimens ? ` <span class="count">${counts.specimens}</span>` : ""}`],
+        ["recovery", `Recovery${d.postop.observations.length ? ` <span class="count">${d.postop.observations.length}</span>` : ""}`],
+        ["report", `Operative report${d.postop.report.status === "signed" ? ` <span class="count">✓</span>` : d.postop.report.exists ? ` <span class="count">draft</span>` : ""}`],
         ["history", "Timeline"]
     ];
     const team = [["Surgeon", c.lead_surgeon], ["Assistant", c.assistant_surgeon], ["Anesthesia", c.anesthesiologist], ["Scrub", c.scrub_nurse], ["Circulating", c.circulating_nurse]]
@@ -333,7 +358,8 @@ function render() {
         <div class="orc-mbody">
             ${cancelled ? `<div class="orc-alert">Cancelled${c.cancelled_by_name ? ` by ${esc(c.cancelled_by_name)}` : ""}: ${esc(c.cancellation_reason || "")}</div>` : stepper(d)}
             ${cancelled ? "" : `<div class="orc-actions">
-                ${d.next_stage ? `<button type="button" class="orc-btn ${needs ? "" : "go"}" id="orcNext">${needs ? `Do the ${PHASE_LABELS[needs]} first` : `Next: ${esc(d.next_label)} →`}</button>` : `<span class="orc-pill ok">All stages done</span>`}
+                ${d.next_stage ? `<button type="button" class="orc-btn ${needs ? "" : "go"}" id="orcNext">${needs ? `Do the ${PHASE_LABELS[needs]} first`
+                    : d.next_stage === "Transferred / Discharged" ? "Release from recovery…" : `Next: ${esc(d.next_label)} →`}</button>` : `<span class="orc-pill ok">Released: ${esc(c.postop_disposition || "")}</span>`}
                 ${needs ? `<span class="orc-needs">${esc(d.next_label)} needs the ${PHASE_LABELS[needs]}.</span>` : ""}
                 <span class="spacer"></span>
                 <button type="button" class="orc-btn small" id="orcDelay">${c.delay_reason ? "Change delay reason" : "Delay reason…"}</button>
@@ -352,6 +378,12 @@ function render() {
             state.tab = "checklist";
             render();
             document.querySelector(`[data-orc-phase="${needs}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            return;
+        }
+        if (d.next_stage === "Transferred / Discharged") {
+            state.tab = "recovery";
+            render();
+            $("orcRelease")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
             return;
         }
         advanceStage(stageRow(d), { onDone: async () => { changed(); await reload(); } });
@@ -390,27 +422,27 @@ function renderTab() {
     const body = $("orcTabBody");
     if (!body) return;
     ({ checklist: renderChecklist, anesthesia: renderAnesthesia, medicines: () => renderItems(["medicine", "fluid", "blood"]),
-        supplies: () => renderItems(["supply", "implant"]), specimens: renderSpecimens, history: renderHistory }[state.tab] || renderChecklist)(body);
+        supplies: () => renderItems(["supply", "implant"]), specimens: renderSpecimens, recovery: renderRecovery, report: renderReport, history: renderHistory }[state.tab] || renderChecklist)(body);
 }
 
 /* ---------------------------------------------------------------
  * Stage moves (also used by the board)
  * ------------------------------------------------------------- */
 
-const DISPOSITIONS = ["Ward", "ICU", "Home (same-day)", "Another facility", "Other"];
-
 /** The "move to the next stage" dialog. row: id, case_number, procedure_name, patient_name, perioperative_stage, next_stage. */
 export function advanceStage(row, { onDone = null } = {}) {
     ensureOrCaseRoot();
     const next = row.next_stage;
     if (!next) return;
+    // Leaving recovery goes through the release form (criteria, then a bed / home).
+    if (next === "Transferred / Discharged") {
+        openOrCase(row.id, { tab: "recovery", onChange: onDone });
+        return;
+    }
     const label = STAGE_SHORT[next];
     const extra = next === "In PACU"
         ? `<label class="orc-field"><span>PACU bed</span><input id="orcStBed" maxlength="50" value="${esc(row.pacu_bed_no || "")}" placeholder="e.g. PACU-2"></label>`
-        : next === "Transferred / Discharged"
-            ? `<div class="orc-grid"><label class="orc-field"><span>Aldrete score (0–10)</span><input id="orcStAldrete" type="number" min="0" max="10"></label>
-                <label class="orc-field"><span>Going to</span><select id="orcStDisp"><option value="">Choose…</option>${DISPOSITIONS.map((x) => `<option>${esc(x)}</option>`).join("")}</select></label></div>`
-            : "";
+        : "";
     $("orcDialog").innerHTML = `
         <div class="orc-mhead"><div><h2 id="orcDialogTitle">${esc(row.case_number)}: ${esc(label)}</h2>
             <span class="orc-sub">${esc(row.procedure_name)} — ${esc(row.patient_name)}</span></div>
@@ -433,8 +465,6 @@ export function advanceStage(row, { onDone = null } = {}) {
         const payload = { id: row.id, stage: next };
         if (!$("orcStAtWrap").hidden) payload.at = $("orcStAt").value;
         if ($("orcStBed")) payload.pacu_bed_no = $("orcStBed").value;
-        if ($("orcStAldrete")) payload.pacu_aldrete_score = $("orcStAldrete").value;
-        if ($("orcStDisp")) payload.postop_disposition = $("orcStDisp").value;
         $("orcStOk").disabled = true;
         const res = await moveOrStage(payload);
         $("orcStOk").disabled = false;
@@ -1013,7 +1043,8 @@ function renderSpecimens(body) {
  * Timeline
  * ------------------------------------------------------------- */
 
-const ACTIONS = { booked: "Booked", rescheduled: "Moved", team_changed: "Team changed", cancelled: "Cancelled", stage: "Stage", stage_undone: "Stage undone", checklist: "Checklist", delay: "Delay reason" };
+const ACTIONS = { booked: "Booked", rescheduled: "Moved", team_changed: "Team changed", cancelled: "Cancelled", stage: "Stage", stage_undone: "Stage undone", checklist: "Checklist", delay: "Delay reason",
+    released: "Released from recovery", report_signed: "Operative report signed", report_addendum: "Addendum to the operative report" };
 
 function renderHistory(body) {
     const d = state.data;
@@ -1024,10 +1055,352 @@ function renderHistory(body) {
         if (h.action === "stage_undone") what = `${STAGE_SHORT[x.from] || x.from || ""} taken back to ${STAGE_SHORT[x.to] || x.to || ""}`;
         if (h.action === "checklist") what = `${x.label || x.phase || ""} done${x.late ? " (recorded late)" : ""}`;
         if (h.action === "booked") what = `${fmtDate(x.date)} ${fmtTimeOfDay(x.start)}, ${x.suite || ""}`;
+        if (h.action === "released") what = `${x.disposition || ""}${(x.unmet || []).length ? ` — criteria not met: ${x.unmet.join(", ")}` : ""}`;
         if (h.action === "rescheduled") what = `to ${fmtDate(x.to?.date)} ${fmtTimeOfDay(x.to?.start)} ${x.to?.suite || ""}`;
         return `<div class="${esc(h.action)}"><strong>${esc(ACTIONS[h.action] || h.action)}</strong> ${esc(what)}
             ${h.reason ? `<span class="orc-sub">${h.action === "delay" ? "" : "Reason: "}${esc(h.reason)}</span>` : ""}
             <span class="orc-sub">${esc(h.user_name || "")} · ${esc(fmtDate(h.created_at))} ${esc(fmtTime(h.created_at))}</span></div>`;
     };
     body.innerHTML = `<div class="orc-hist">${d.history.length ? d.history.map(line).join("") : `<span class="orc-note">Nothing recorded yet.</span>`}</div>`;
+}
+
+/* ---------------------------------------------------------------
+ * Recovery (PACU): readings, release criteria, release
+ * ------------------------------------------------------------- */
+
+function renderRecovery(body) {
+    const d = state.data;
+    const po = d.postop;
+    const c = d.case;
+    const obs = po.observations;
+    const unmet = po.criteria.filter((x) => !x.met);
+    const before = !["In PACU", "Transferred / Discharged"].includes(c.perioperative_stage);
+    const opts = po.release_options;
+    const bedGroups = {};
+    (opts?.beds || []).forEach((b) => { (bedGroups[`${b.ward_name}${b.ward_type === "ICU" && !/ICU/.test(b.ward_name) ? " (ICU)" : ""}`] ||= []).push(b); });
+    const r = po.release;
+
+    const releasedBox = r ? `<div class="orc-alert info"><strong>Released ${esc(fmtDate(r.at))} ${esc(fmtTime(r.at))}</strong>${r.by_name ? ` by ${esc(r.by_name)}` : ""}: ${esc(r.disposition || "")}
+        ${r.admission ? `<br>Admission ${esc(r.admission.admission_number)} — ${esc(r.admission.ward_name)}, bed ${esc(r.admission.bed_number)} (${esc(r.admission.status)})` : ""}
+        ${r.override_reason ? `<br>Released with criteria not met: ${esc(r.override_reason)}` : ""}${r.notes ? `<br>Notes: ${esc(r.notes)}` : ""}
+        ${r.history_added ? "<br>Added to the patient's surgical history." : ""}</div>` : "";
+
+    const readings = obs.length ? `<div class="orc-table-wrap"><table class="orc-table"><thead><tr><th>Time</th><th>Aldrete</th><th>Pain</th><th>Nausea</th><th>HR</th><th>BP</th><th>SpO₂</th><th>RR</th><th>Temp</th><th>Note</th><th>By</th><th></th></tr></thead><tbody>
+        ${[...obs].reverse().map((o) => `<tr><td>${esc(fmtTime(o.recorded_at))}</td>
+            <td>${o.aldrete_total != null ? `<strong>${o.aldrete_total}</strong>/10` : ""}</td><td>${o.pain_score != null ? `${o.pain_score}/10` : ""}</td>
+            <td>${o.nausea == null ? "" : o.nausea ? "Yes" : "No"}</td><td>${esc(num(o.heart_rate))}</td>
+            <td>${o.bp_systolic != null || o.bp_diastolic != null ? `${esc(num(o.bp_systolic))}/${esc(num(o.bp_diastolic))}` : ""}</td><td>${esc(num(o.spo2))}</td>
+            <td>${esc(num(o.resp_rate))}</td><td>${esc(num(o.temperature))}</td><td>${esc(o.notes || "")}</td><td>${esc(o.recorded_by || "")}</td>
+            <td>${po.can_observe ? `<button type="button" class="x" data-rm-pacu="${o.id}">Remove</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="orc-empty">No recovery readings yet.</div>`;
+
+    const vitalFields = [["heart_rate", "HR (/min)"], ["bp_systolic", "BP systolic"], ["bp_diastolic", "BP diastolic"], ["spo2", "SpO₂ (%)"], ["resp_rate", "RR (/min)"], ["temperature", "Temp (°C)"]];
+    const readingForm = po.can_observe ? `<form id="orcPacu" class="orc-card" novalidate><div class="orc-card-body">
+        <div class="orc-grid">
+            <label class="orc-field" data-key="recorded_at"><span>Time</span><input type="datetime-local" name="recorded_at" value="${nowInput()}"><span class="orc-err"></span></label>
+            <label class="orc-field" data-key="pain_score"><span>Pain (0–10)</span><select name="pain_score"><option value="">—</option>${Array.from({ length: 11 }, (_, i) => `<option>${i}</option>`).join("")}</select><span class="orc-err"></span></label>
+            <label class="orc-field" data-key="nausea"><span>Nausea / vomiting</span><select name="nausea"><option value="">—</option><option value="0">No</option><option value="1">Yes</option></select></label>
+            ${vitalFields.map(([k, l]) => `<label class="orc-field" data-key="${k}"><span>${l}</span><input type="number" step="${k === "temperature" ? "0.1" : "1"}" name="${k}"><span class="orc-err"></span></label>`).join("")}
+        </div>
+        <div class="orc-item" data-key="aldrete"><span class="orc-q">Modified Aldrete score <span class="orc-total" id="orcAldTotal">–</span><span class="orc-note"> / 10 · ${po.thresholds.aldrete} or more to release</span></span>
+            <div class="orc-ald">${Object.entries(po.aldrete).map(([k, a]) => `<span>${esc(a.label)}</span>
+                <div class="orc-opts">${Object.entries(a.options).sort((x, y) => y[0] - x[0]).map(([v, l]) => `<label title="${esc(l)}"><input type="radio" name="ald_${k}" value="${v}"> ${v} · ${esc(l)}</label>`).join("")}</div>`).join("")}</div>
+            <span class="orc-err"></span></div>
+        <label class="orc-field"><span>Note</span><input name="notes" maxlength="255"></label>
+        <div class="orc-actions"><button type="submit" class="orc-btn primary">Add reading</button><div class="orc-alert" id="orcPacuAlert" style="flex:1;"></div></div>
+    </div></form>` : "";
+
+    const releaseForm = po.can_release ? `
+        <div class="orc-section" id="orcRelease">Release from recovery</div>
+        <form id="orcRel" class="orc-card" novalidate><div class="orc-card-body">
+            <div class="orc-alert" id="orcRelAlert"></div>
+            <div class="orc-seg" role="group" aria-label="Destination"><button type="button" data-dest="bed" class="active">Ward / ICU bed</button><button type="button" data-dest="home">Home</button><button type="button" data-dest="facility">Another facility</button></div>
+            <div data-for="bed">
+                ${opts.open_admission ? `<p class="orc-note" style="margin:0 0 6px;">Admission ${esc(opts.open_admission.admission_number)} is open (${esc(opts.open_admission.ward_name)}, bed ${esc(opts.open_admission.bed_number)}). It moves to the bed chosen.</p>`
+                    : `<p class="orc-note" style="margin:0 0 6px;">A new admission is made in Inpatient Admissions (source: Post-Op PACU).</p>`}
+                <label class="orc-field" data-key="bed_id"><span>Bed *</span><select name="bed_id"><option value="">Choose a bed…</option>
+                    ${opts.open_admission ? `<option value="${opts.open_admission.bed_id}">Keep current bed — ${esc(opts.open_admission.bed_number)} (${esc(opts.open_admission.ward_name)})</option>` : ""}
+                    ${Object.entries(bedGroups).map(([w, beds]) => `<optgroup label="${esc(w)}">${beds.map((b) => `<option value="${b.id}">${esc(b.bed_number)} · room ${esc(b.room_number)} · ${esc(b.bed_type)}${b.gender_restriction !== "All" ? ` · ${esc(b.gender_restriction)}` : ""}</option>`).join("")}</optgroup>`).join("")}
+                </select><span class="orc-err"></span></label>
+                ${opts.beds.length ? "" : `<p class="orc-note">No beds are available. Free a bed under Room &amp; Bed Management.</p>`}
+            </div>
+            <label class="orc-field" data-key="facility" data-for="facility" hidden><span>Facility *</span><input name="facility" maxlength="80"><span class="orc-err"></span></label>
+            ${unmet.length ? `<label class="orc-field" data-key="override_reason"><span>Criteria not met (${esc(unmet.map((x) => x.label).join("; "))}) — reason to release anyway *</span>
+                <textarea name="override_reason" maxlength="255" placeholder="e.g. Anesthesiologist reviewed; to ICU for monitoring"></textarea><span class="orc-err"></span></label>` : ""}
+            <label class="orc-field"><span>Notes</span><input name="notes" maxlength="500"></label>
+            <div class="orc-actions"><button type="submit" class="orc-btn go">Release patient</button>
+                <span class="orc-note">The case is closed as Transferred / Discharged and added to the surgical history.</span></div>
+        </div></form>` : "";
+
+    body.innerHTML = before ? `<div class="orc-alert info">Recovery starts when the patient leaves the room (Out of room).</div>` : `${releasedBox}
+        <div class="orc-section">Release criteria</div>
+        <ul class="orc-criteria">${po.criteria.map((x) => `<li class="${x.met ? "met" : ""}"><span><b>${esc(x.label)}</b><span class="orc-note">${esc(x.detail)}</span></span></li>`).join("")}</ul>
+        <div class="orc-section">Recovery readings</div>
+        ${readings}${readingForm}${releaseForm}`;
+
+    const pacu = $("orcPacu");
+    if (pacu) {
+        const total = () => {
+            const vals = Object.keys(po.aldrete).map((k) => pacu.querySelector(`input[name="ald_${k}"]:checked`)?.value);
+            const el = $("orcAldTotal");
+            if (vals.every((v) => v != null)) {
+                const t = vals.reduce((a, v) => a + Number(v), 0);
+                el.textContent = t;
+                el.className = `orc-total ${t >= po.thresholds.aldrete ? "good" : "low"}`;
+            } else {
+                el.textContent = vals.some((v) => v != null) ? "…" : "–";
+                el.className = "orc-total";
+            }
+        };
+        pacu.addEventListener("change", total);
+        pacu.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const data = { case_id: c.id, aldrete: {} };
+            pacu.querySelectorAll("input:not([type=radio]), select").forEach((i) => { data[i.name] = i.value; });
+            Object.keys(po.aldrete).forEach((k) => { data.aldrete[k] = pacu.querySelector(`input[name="ald_${k}"]:checked`)?.value ?? ""; });
+            const res = await addOrPacu(data);
+            showErrors(pacu, res, $("orcPacuAlert"));
+            if (res?.success) {
+                showToast(res.message, "success");
+                changed();
+                await reload();
+            }
+        });
+    }
+    body.querySelectorAll("[data-rm-pacu]").forEach((b) => b.addEventListener("click", async () => {
+        const res = await removeOrPacu(Number(b.dataset.rmPacu));
+        showToast(res?.message || "Couldn't remove it.", res?.success ? "success" : "error");
+        if (res?.success) await reload();
+    }));
+
+    const rel = $("orcRel");
+    if (rel) {
+        let dest = "bed";
+        rel.querySelectorAll("[data-dest]").forEach((b) => b.addEventListener("click", () => {
+            dest = b.dataset.dest;
+            rel.querySelectorAll("[data-dest]").forEach((x) => x.classList.toggle("active", x === b));
+            rel.querySelectorAll("[data-for]").forEach((x) => { x.hidden = x.dataset.for !== dest; });
+        }));
+        rel.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const v = (n) => rel.querySelector(`[name="${n}"]`)?.value ?? "";
+            const btn = rel.querySelector("button[type=submit]");
+            btn.disabled = true;
+            const res = await releaseOrCase({ id: c.id, destination: dest, bed_id: v("bed_id"), facility: v("facility"), override_reason: v("override_reason"), notes: v("notes") });
+            btn.disabled = false;
+            showErrors(rel, res, $("orcRelAlert"));
+            if (!res?.success) return;
+            showToast(res.message, "success", 6000);
+            changed();
+            await reload("report");
+        });
+    }
+}
+
+/* ---------------------------------------------------------------
+ * Operative report
+ * ------------------------------------------------------------- */
+
+const REPORT_FIELDS = [
+    ["preop_diagnosis", "Pre-op diagnosis", "input", false],
+    ["postop_diagnosis", "Post-op diagnosis", "input", true],
+    ["procedure_performed", "Procedure performed", "input", true],
+    ["indications", "Indications", "textarea", false],
+    ["findings", "Findings", "textarea", true],
+    ["technique", "Description of the procedure", "textarea", true],
+    ["drains", "Drains / closure", "input", false],
+    ["postop_plan", "Post-op plan / orders", "textarea", false]
+];
+
+function renderReport(body) {
+    const d = state.data;
+    const rep = d.postop.report;
+    const f = rep.fields;
+    const me = getUser() || {};
+    const isSurgeon = rep.surgeon_user_ids.includes(Number(me.id));
+    const signed = rep.status === "signed";
+    const canAddendum = signed && (isSurgeon || me.role === "admin");
+    const isDoctor = ["doctor", "admin"].includes(me.role);
+    const header = `<div class="orc-actions" style="margin-bottom:10px;">
+        <span class="orc-pill ${signed ? "ok" : rep.exists ? "warn" : ""}">${signed ? "Signed" : rep.exists ? "Draft" : "Not started"}</span>
+        <span class="orc-note">${signed ? `Signed by ${esc(rep.signed_by_name || "")} ${esc(fmtDate(rep.signed_at))} ${esc(fmtTime(rep.signed_at))}`
+            : rep.updated_at ? `Last saved by ${esc(rep.updated_by_name || "")} ${esc(fmtTime(rep.updated_at))}` : ""}</span>
+        <span class="spacer"></span>
+        ${rep.exists ? `<button type="button" class="orc-btn small" id="orcPrintReport">Print</button>` : ""}</div>`;
+
+    if (signed) {
+        body.innerHTML = `${header}<div class="orc-report-view">
+            ${REPORT_FIELDS.filter(([k]) => f[k]).map(([k, label]) => `<h4>${esc(label)}</h4><p>${esc(f[k])}</p>`).join("")}
+            <h4>Complications</h4><p>${f.complications_none ? "None" : esc(f.complications || "")}</p>
+            <h4>Condition at the end of surgery</h4><p>${esc(f.condition_at_end || "")}</p></div>
+            <div class="orc-section">Addenda</div>
+            <div class="orc-addenda">${rep.addenda.length ? rep.addenda.map((a) => `<div>${esc(a.body)}<span class="orc-sub">${esc(a.by_name || "")} · ${esc(fmtDate(a.created_at))} ${esc(fmtTime(a.created_at))}</span></div>`).join("") : `<span class="orc-note">None.</span>`}</div>
+            ${canAddendum ? `<form id="orcAdd" class="orc-grid" novalidate><label class="orc-field wide" data-key="body"><span>Add an addendum</span><textarea name="body" maxlength="5000"></textarea><span class="orc-err"></span></label>
+                <div class="orc-field wide"><div class="orc-actions"><button type="submit" class="orc-btn primary">Add addendum</button><div class="orc-alert" id="orcAddAlert" style="flex:1;"></div></div></div></form>` : ""}`;
+    } else if (!rep.can_edit) {
+        body.innerHTML = `${header}<div class="orc-alert info">${d.case.perioperative_stage === "Cancelled" ? "The case was cancelled." : "The operative report is written from closing on."}</div>`;
+    } else if (!isDoctor) {
+        body.innerHTML = `${header}<div class="orc-alert info">The operative report is written by the surgical team (doctors).</div>`;
+    } else {
+        body.innerHTML = `${header}
+            <form id="orcReport" class="orc-grid" novalidate>
+                <div class="orc-alert" id="orcReportAlert" style="grid-column:1/-1;"></div>
+                ${REPORT_FIELDS.map(([k, label, type, req]) => `<label class="orc-field ${type === "textarea" ? "wide" : ""}" data-key="${k}"><span>${esc(label)}${req ? " *" : ""}</span>
+                    ${type === "textarea" ? `<textarea name="${k}" rows="${k === "technique" ? 7 : 3}">${esc(f[k] || "")}</textarea>` : `<input name="${k}" maxlength="500" value="${esc(f[k] || "")}">`}<span class="orc-err"></span></label>`).join("")}
+                <div class="orc-field wide" data-key="complications"><span>Complications *</span>
+                    <label class="orc-chk"><input type="checkbox" name="complications_none" ${f.complications_none ? "checked" : ""}> <span>None</span></label>
+                    <textarea name="complications" rows="2" ${f.complications_none ? "hidden" : ""}>${esc(f.complications || "")}</textarea><span class="orc-err"></span></div>
+                <label class="orc-field" data-key="condition_at_end"><span>Condition at the end *</span><select name="condition_at_end"><option value="">Choose…</option>
+                    ${d.postop.conditions.map((x) => `<option ${x === f.condition_at_end ? "selected" : ""}>${esc(x)}</option>`).join("")}</select><span class="orc-err"></span></label>
+                <div class="orc-field wide"><span class="orc-note">The printout also lists the team, the times, blood loss, implants (with lot numbers) and specimens from the case record.</span></div>
+                <div class="orc-field wide"><div class="orc-actions">
+                    <button type="button" class="orc-btn" id="orcReportSave">Save draft</button>
+                    ${isSurgeon ? `<button type="button" class="orc-btn go" id="orcReportSign">Sign report</button>` : `<span class="orc-note">Only the case's surgeon (${esc(d.case.lead_surgeon)}${d.case.assistant_surgeon ? ` or ${esc(d.case.assistant_surgeon)}` : ""}) can sign it.</span>`}
+                    <span class="orc-note">Once signed it can't be changed; corrections become addenda.</span></div></div>
+            </form>`;
+        const form = $("orcReport");
+        form.querySelector('[name="complications_none"]').addEventListener("change", (e) => { form.querySelector('[name="complications"]').hidden = e.target.checked; });
+        const collect = () => {
+            const data = { id: d.case.id, revision: rep.revision };
+            form.querySelectorAll("input:not([type=checkbox]), textarea, select").forEach((i) => { data[i.name] = i.value; });
+            data.complications_none = form.querySelector('[name="complications_none"]').checked ? 1 : 0;
+            return data;
+        };
+        const submit = async (fn, btn) => {
+            btn.disabled = true;
+            const res = await fn(collect());
+            btn.disabled = false;
+            if (res?.success) {
+                showToast(res.message, "success");
+                changed();
+                await reload("report");
+                return;
+            }
+            // A failed sign still saved the draft: reload (new revision), then show what's missing.
+            if (/saved as a draft/.test(res?.message || "")) await reload("report");
+            const form2 = $("orcReport");
+            if (form2) showErrors(form2, res, $("orcReportAlert"));
+        };
+        $("orcReportSave").addEventListener("click", (e) => submit(saveOrReport, e.currentTarget));
+        $("orcReportSign")?.addEventListener("click", (e) => submit(signOrReport, e.currentTarget));
+    }
+
+    $("orcPrintReport")?.addEventListener("click", () => printOperativeReport(d.case.id));
+    $("orcAdd")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const res = await addOrAddendum(d.case.id, e.target.querySelector('[name="body"]').value);
+        showErrors(e.target, res, $("orcAddAlert"));
+        if (res?.success) {
+            showToast(res.message, "success");
+            await reload("report");
+        }
+    });
+}
+
+export async function printOperativeReport(caseId) {
+    // Open the window first, while the click still counts, so pop-up blockers allow it.
+    const win = window.open("", "_blank", "width=860,height=900");
+    if (!win) {
+        showToast("Pop-up blocked. Allow pop-ups for this site to print.", "error");
+        return;
+    }
+    win.document.write("<p style=\"font-family:Arial;padding:20px;\">Preparing the operative report...</p>");
+    const res = await fetchOrReportPrint(caseId);
+    if (!res?.success) {
+        win.close();
+        showToast(res?.message || "Couldn't load the report to print.", "error");
+        return;
+    }
+    win.document.open();
+    win.document.write(operativeReportHtml(res.data));
+    win.document.close();
+}
+
+export function operativeReportHtml(data) {
+    const b = data.business || {};
+    const c = data.case;
+    const r = data.report;
+    const f = r.fields;
+    const signed = r.status === "signed";
+    const dt = (s) => (s ? `${fmtDate(s)} ${fmtTime(s)}` : "—");
+    const tm = (s) => (s ? fmtTime(s) : "—");
+    const contacts = [b.phone ? `Tel. ${b.phone}` : null, b.email].filter(Boolean).join("  ·  ");
+    const cell = (label, value) => `<div class="c"><span>${esc(label)}</span><b>${value ? esc(value) : "&nbsp;"}</b></div>`;
+    const section = (label, text) => (text ? `<h3>${esc(label)}</h3><p>${esc(text)}</p>` : "");
+    const minutes = (a, z) => (a && z ? fmtMin((parseDT(z) - parseDT(a)) / 60000) : "—");
+
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Operative report ${esc(c.case_number)} - ${esc(c.patient_name)}</title>
+<style>
+    /* No page margin: the browser leaves out its own date / title / URL lines. */
+    @page { size: A4 portrait; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { padding: 14mm 15mm 12mm; }
+    .head { display: flex; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+    .head img { height: 60px; width: auto; max-width: 100px; object-fit: contain; }
+    .head h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: .5px; }
+    .head .sub { font-size: 11px; color: #374151; margin-top: 2px; }
+    .rule { border: 0; border-top: 2.5px solid #111827; margin: 8px 0 0; }
+    h2 { text-align: center; margin: 10px 0 4px; font-size: 15px; letter-spacing: 1px; }
+    .ref { text-align: center; font-size: 11px; color: #374151; margin-bottom: 10px; }
+    .draft { border: 2px solid #b45309; color: #92400e; text-align: center; font-weight: 700; padding: 5px; margin-bottom: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #9ca3af; border-bottom: 0; border-right: 0; }
+    .grid.three { grid-template-columns: repeat(3, 1fr); }
+    .c { border-right: 1px solid #9ca3af; border-bottom: 1px solid #9ca3af; padding: 4px 6px; min-width: 0; }
+    .c span { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: #4b5563; }
+    .c b { font-size: 11.5px; font-weight: 600; }
+    h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 3px; border-bottom: 1px solid #d1d5db; padding-bottom: 2px; }
+    p { margin: 0; white-space: pre-wrap; line-height: 1.45; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { border: 1px solid #d1d5db; padding: 3px 5px; text-align: left; }
+    th { background: #f3f4f6; font-size: 9.5px; text-transform: uppercase; }
+    .sign { margin: 26px 0 0 auto; width: 55%; text-align: center; font-size: 11px; }
+    .sign .line { border-top: 1px solid #111827; padding-top: 3px; font-weight: 700; font-size: 12.5px; text-transform: uppercase; }
+    .add { border-left: 3px solid #6b7280; padding-left: 8px; margin-top: 6px; }
+    .foot { margin-top: 14px; border-top: 1px dashed #9ca3af; padding-top: 4px; font-size: 9.5px; color: #4b5563; display: flex; justify-content: space-between; }
+    @media screen { body { background: #e5e7eb; } .page { background: #fff; max-width: 210mm; min-height: 297mm; margin: 16px auto; box-shadow: 0 2px 10px rgba(0,0,0,.15); } }
+</style></head><body><div class="page">
+    <div class="head">
+        ${b.logo ? `<img src="${esc(API_URL + b.logo)}" alt="">` : ""}
+        <div><h1>${esc(b.name || "")}</h1>${b.address ? `<div class="sub">${esc(b.address)}</div>` : ""}${contacts ? `<div class="sub">${esc(contacts)}</div>` : ""}</div>
+    </div>
+    <hr class="rule">
+    <h2>OPERATIVE REPORT</h2>
+    <div class="ref">${esc(c.case_number)} · ${esc(fmtDate(c.scheduled_date))} · ${esc(c.or_suite_name)}</div>
+    ${signed ? "" : `<div class="draft">DRAFT — NOT YET SIGNED BY THE SURGEON</div>`}
+    <div class="grid">
+        ${cell("Patient", c.patient_name)}${cell("Hospital no.", c.patient_mrn)}${cell("Age / sex", [c.patient_age ? `${c.patient_age} yrs` : "", c.gender].filter(Boolean).join(" / "))}${cell("Priority", c.case_priority)}
+        ${cell("Surgeon", c.lead_surgeon)}${cell("Assistant", c.assistant_surgeon)}${cell("Anesthesiologist", c.anesthesiologist)}${cell("Anesthesia", c.anesthesia_type)}
+        ${cell("Scrub nurse", c.scrub_nurse)}${cell("Circulating nurse", c.circulating_nurse)}${cell("Specialization", c.surgical_specialty)}${cell("Side", c.laterality)}
+    </div>
+    <div class="grid three" style="margin-top:6px;">
+        ${cell("In room – out of room", `${tm(c.actual_in_room_time)} – ${tm(c.actual_out_room_time)}`)}
+        ${cell("Incision – closing", `${tm(c.actual_incision_time)} – ${tm(c.actual_closing_time)} (${minutes(c.actual_incision_time, c.actual_closing_time)})`)}
+        ${cell("Anesthesia", `${tm(c.anesthesia_start_time)} – ${tm(c.anesthesia_end_time)}`)}
+        ${cell("Estimated blood loss", c.estimated_blood_loss_ml != null ? `${c.estimated_blood_loss_ml} mL` : "—")}
+        ${cell("Urine output", c.urine_output_ml != null ? `${c.urine_output_ml} mL` : "—")}
+        ${cell("Condition at the end", f.condition_at_end)}
+    </div>
+    ${section("Pre-operative diagnosis", f.preop_diagnosis)}
+    ${section("Post-operative diagnosis", f.postop_diagnosis)}
+    ${section("Procedure performed", f.procedure_performed)}
+    ${section("Indications", f.indications)}
+    ${section("Findings", f.findings)}
+    ${section("Description of the procedure", f.technique)}
+    <h3>Complications</h3><p>${f.complications_none ? "None" : esc(f.complications || "")}</p>
+    ${section("Drains / closure", f.drains)}
+    ${data.implants.length ? `<h3>Implants</h3><table><thead><tr><th>Implant</th><th>Lot no.</th><th>Serial no.</th><th>Manufacturer</th><th>Site</th></tr></thead><tbody>
+        ${data.implants.map((i) => `<tr><td>${esc(i.name)}</td><td>${esc(i.lot_number || "")}</td><td>${esc(i.serial_number || "")}</td><td>${esc(i.manufacturer || "")}</td><td>${esc(i.body_site || "")}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${data.specimens.length ? `<h3>Specimens</h3><table><thead><tr><th>Specimen</th><th>Type</th><th>Sent to</th></tr></thead><tbody>
+        ${data.specimens.map((s) => `<tr><td>${esc(s.description)}</td><td>${esc(s.specimen_type)}</td><td>${esc(s.sent_to || "")}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${section("Post-operative plan", f.postop_plan)}
+    <div class="sign">
+        <div class="line">${esc(signed ? r.signed_by_name || c.lead_surgeon : c.lead_surgeon)}</div>
+        <div>Surgeon${data.surgeon.license_number ? ` · Lic. No. ${esc(data.surgeon.license_number)}` : ""}${data.surgeon.ptr_number ? ` · PTR No. ${esc(data.surgeon.ptr_number)}` : ""}</div>
+        <div>${signed ? `Signed electronically ${esc(dt(r.signed_at))}` : "Not signed"}</div>
+    </div>
+    ${r.addenda.length ? `<h3>Addenda</h3>${r.addenda.map((a) => `<div class="add"><p>${esc(a.body)}</p><div style="font-size:10px;color:#4b5563;">${esc(a.by_name || "")} · ${esc(dt(a.created_at))}</div></div>`).join("")}` : ""}
+    <div class="foot"><span>${esc(c.case_number)} · ${esc(c.patient_name)}</span><span>Printed ${esc(dt(nowInput().replace("T", " ")))}</span></div>
+</div><script>window.onload = () => setTimeout(() => window.print(), 300);<\/script></body></html>`;
 }
