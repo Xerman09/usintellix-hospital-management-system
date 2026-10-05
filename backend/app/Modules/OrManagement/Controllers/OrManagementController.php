@@ -150,14 +150,14 @@ class OrManagementController extends Controller
             'cancellation_reason'     => $request->input('cancellation_reason'),
         ];
 
-        $updated = $this->service->transitionStage($id, $newStage, $extra, (int) (Session::get('user')['id'] ?? 0) ?: null);
+        $result = $this->service->transitionStage($id, $newStage, $extra, (int) (Session::get('user')['id'] ?? 0) ?: null);
 
-        if (!$updated) {
-            $this->error('Failed to update case stage.', 404);
+        if (!$result['success']) {
+            $this->scheduleError($result);
             return;
         }
 
-        $this->success($updated, "Case transitioned to '{$newStage}' successfully.");
+        $this->success($result['data'], $result['message']);
     }
 
     /**

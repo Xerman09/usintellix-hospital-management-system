@@ -41,6 +41,9 @@ class PharmacyReportService
 
     private const EPSILON = 0.0005;
 
+    /** Who ordered a dangerous drug: the prescriber, or for one used in surgery the anesthesiologist (else the surgeon). */
+    private const ORDERED_BY = "COALESCE(p.prescriber_user_id, oc.anesthesiologist_user_id, oc.lead_surgeon_user_id)";
+
     public function options(): array
     {
         $db = Database::connection();
@@ -298,18 +301,22 @@ class PharmacyReportService
                     pt.patient_no, pt.first_name, pt.middle_name, pt.last_name, pt.suffix,
                     (SELECT CONCAT_WS(', ', NULLIF(pc.address_line, ''), NULLIF(pc.city, ''), NULLIF(pc.province, ''))
                      FROM patient_contacts pc WHERE pc.patient_id = pt.id AND pc.deleted_at IS NULL ORDER BY pc.id LIMIT 1) AS patient_address,
-                    " . self::userNameSql('p.prescriber_user_id') . " AS prescriber_name,
+                    oc.case_number AS or_case_number, oc.scheduled_date AS or_case_date,
+                    " . self::userNameSql(self::ORDERED_BY) . " AS prescriber_name,
                     (SELECT pr.s2_number FROM employees e JOIN providers pr ON pr.employee_id = e.id AND pr.deleted_at IS NULL
-                     WHERE e.user_id = p.prescriber_user_id AND e.deleted_at IS NULL LIMIT 1) AS prescriber_s2,
+                     WHERE e.user_id = " . self::ORDERED_BY . " AND e.deleted_at IS NULL LIMIT 1) AS prescriber_s2,
                     (SELECT pr.license_number FROM employees e JOIN providers pr ON pr.employee_id = e.id AND pr.deleted_at IS NULL
-                     WHERE e.user_id = p.prescriber_user_id AND e.deleted_at IS NULL LIMIT 1) AS prescriber_prc
+                     WHERE e.user_id = " . self::ORDERED_BY . " AND e.deleted_at IS NULL LIMIT 1) AS prescriber_prc
              FROM drug_stock_movements m
              JOIN drug_inventory_lots l ON l.id = m.lot_id
              JOIN warehouses w ON w.id = m.warehouse_id
              LEFT JOIN prescription_dispense_items di ON m.source_type = 'prescription_dispense_items' AND di.id = m.source_id
              LEFT JOIN prescription_dispenses pd ON pd.id = di.dispense_id
              LEFT JOIN prescriptions p ON p.id = pd.prescription_id
-             LEFT JOIN patients pt ON pt.id = pd.patient_id
+             LEFT JOIN or_case_item_lots oil ON m.source_type = 'or_case_item_lots' AND oil.id = m.source_id
+             LEFT JOIN or_case_items oi ON oi.id = oil.item_id
+             LEFT JOIN or_surgical_cases oc ON oc.id = oi.case_id
+             LEFT JOIN patients pt ON pt.id = COALESCE(pd.patient_id, oc.patient_id)
              WHERE " . implode(' AND ', $where) . "
              ORDER BY m.movement_date, m.movement_type = 'opening' DESC, m.created_at, m.id"
         );
@@ -332,21 +339,24 @@ class PharmacyReportService
             } else {
                 $out -= $qty;
             }
-            $isDispense = $m['dispense_id'] !== null;
+            $isDispense = $m['dispense_id'] !== null || $m['or_case_number'] !== null;
 
             $rows[] = [
                 'id' => (int) $m['id'],
                 'date' => $m['movement_date'],
                 'recorded_at' => $m['created_at'],
                 'type' => $m['movement_type'],
-                'type_label' => StockLedgerService::TYPES[$m['movement_type']] ?? $m['movement_type'],
+                'type_label' => $m['or_case_number'] !== null
+                    ? ($m['movement_type'] === 'dispensed' ? 'Used in surgery' : 'Surgery use undone')
+                    : (StockLedgerService::TYPES[$m['movement_type']] ?? $m['movement_type']),
                 'reference_no' => $m['reference_no'],
                 // Received from (supplier / location) or given to (patient).
                 'counterparty' => $isDispense ? self::personName($m) : $m['counterparty'],
                 'patient_no' => $isDispense ? $m['patient_no'] : null,
                 'patient_address' => $isDispense ? $m['patient_address'] : null,
-                'rx_number' => $m['rx_number'],
-                'prescribed_date' => $m['prescribed_date'],
+                // Used in surgery: the OR case stands in for the prescription.
+                'rx_number' => $m['rx_number'] ?? $m['or_case_number'],
+                'prescribed_date' => $m['prescribed_date'] ?? $m['or_case_date'],
                 'prescriber_name' => $m['prescriber_name'],
                 'prescriber_s2' => $m['prescriber_s2'],
                 'prescriber_prc' => $m['prescriber_prc'],

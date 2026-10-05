@@ -2,6 +2,7 @@ import { api } from '../../core/api.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 import { showToast } from "../../core/toast.js";
+import { openOrCase } from "../or-board/or-case-panel.js?v=1";
 
 let currentScheduleData = {
     cases: [],
@@ -356,8 +357,9 @@ function setupEventListeners() {
     if (regSuiteForm) regSuiteForm.addEventListener('submit', handleRegisterSuiteSubmit);
 
     // Expose global helpers
-    window.__orOpenDetail = openDetailModal;
-    window.__orOpenStage = openStageModal;
+    // Details and Advance open the case record (stages in order, WHO checklist, intra-op record).
+    window.__orOpenDetail = (id) => openOrCase(Number(id), { onChange: () => fetchSchedule(true) });
+    window.__orOpenStage = (id) => openOrCase(Number(id), { onChange: () => fetchSchedule(true) });
     window.__orOpenSuiteStatus = openSuiteModal;
     window.__orOpenBookForSuite = openBookModal;
     window.__orOpenRegisterSuite = openRegSuiteModal;

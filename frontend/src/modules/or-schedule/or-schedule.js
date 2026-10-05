@@ -5,6 +5,7 @@ import {
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
+import { openOrCase } from "../or-board/or-case-panel.js?v=1";
 
 const DAY_START = 7 * 60;
 const DAY_END = 21 * 60;
@@ -486,9 +487,14 @@ async function openCase(id) {
         </div>
         <div class="ors-mfoot">
             <div class="left">${c.can_move ? `<button type="button" class="ors-btn" id="orsCaseChange">Change booking…</button><button type="button" class="ors-btn" id="orsCaseCancel">Cancel case…</button>` : ""}</div>
+            ${c.perioperative_stage === "Cancelled" ? "" : `<button type="button" class="ors-btn primary" id="orsCaseRecord">Open case record</button>`}
             <button type="button" class="ors-btn" data-close>Close</button>
         </div>`;
     const m = $("orsCaseModal");
+    $("orsCaseRecord")?.addEventListener("click", () => {
+        $("orsCaseOverlay").classList.remove("open");
+        openOrCase(c.id, { onChange: load });
+    });
     m.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => $("orsCaseOverlay").classList.remove("open")));
     $("orsCaseChange")?.addEventListener("click", () => {
         $("orsCaseOverlay").classList.remove("open");

@@ -74,3 +74,24 @@ $router->get('/or-schedule/blocks', [OrScheduleController::class, 'blocks'], $or
 $router->post('/or-schedule/blocks', [OrScheduleController::class, 'saveBlock'], $orScheduleAdmin);
 $router->post('/or-schedule/blocks/remove', [OrScheduleController::class, 'removeBlock'], $orScheduleAdmin);
 $router->post('/or-schedule/turnover', [OrScheduleController::class, 'turnover'], $orScheduleAdmin);
+
+// ---------------------------------------------------------------
+// OR Live Board (Surgery Phase 4): stages in order, the WHO checklist
+// built into the case, the intra-op record and stock used.
+// ---------------------------------------------------------------
+use App\Modules\OrManagement\Controllers\OrLiveController;
+
+$router->get('/or-live/board', [OrLiveController::class, 'board'], $orScheduleRoles);
+$router->get('/or-live/case', [OrLiveController::class, 'show'], $orScheduleRoles);
+$router->post('/or-live/stage', [OrLiveController::class, 'stage'], $orScheduleRoles);
+$router->post('/or-live/stage/undo', [OrLiveController::class, 'undo'], $orScheduleRoles);
+$router->post('/or-live/delay', [OrLiveController::class, 'delay'], $orScheduleRoles);
+$router->post('/or-live/checklist', [OrLiveController::class, 'checklist'], $orScheduleRoles);
+$router->post('/or-live/times', [OrLiveController::class, 'times'], $orScheduleRoles);
+$router->post('/or-live/vitals', [OrLiveController::class, 'addVitals'], $orScheduleRoles);
+$router->post('/or-live/vitals/remove', [OrLiveController::class, 'removeVitals'], $orScheduleRoles);
+$router->get('/or-live/stock', [OrLiveController::class, 'stock'], $orScheduleRoles);
+$router->post('/or-live/items', [OrLiveController::class, 'addItem'], $orScheduleRoles);
+$router->post('/or-live/items/void', [OrLiveController::class, 'voidItem'], $orScheduleRoles);
+$router->post('/or-live/specimens', [OrLiveController::class, 'addSpecimen'], $orScheduleRoles);
+$router->post('/or-live/specimens/remove', [OrLiveController::class, 'removeSpecimen'], $orScheduleRoles);

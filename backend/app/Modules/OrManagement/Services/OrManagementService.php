@@ -531,114 +531,17 @@ class OrManagementService
     }
 
     /**
-     * Transition a case through perioperative stages with automatic milestone timestamps
+     * Moves a case to its next stage. Stages go in order only and the WHO
+     * checklist gates apply (see OrLiveService::move()). Returns
+     * ['success', 'message', 'data' => the case].
      */
-    public function transitionStage(int $id, string $newStage, array $extra = [], ?int $userId = null): ?array
+    public function transitionStage(int $id, string $newStage, array $extra = [], ?int $userId = null): array
     {
-        $db = Database::connection();
-
-        $case = $this->getCaseDetails($id);
-        if (!$case) return null;
-
-        $suiteId = (int) $case['or_suite_id'];
-        $now = date('Y-m-d H:i:s');
-        $updates = [
-            'perioperative_stage = :stage',
-            'updated_at = NOW()',
-        ];
-        $params = [
-            'id'    => $id,
-            'stage' => $newStage,
-        ];
-
-        // Automatic timestamp assignments according to stage
-        switch ($newStage) {
-            case 'In Room / Induction':
-                $updates[] = 'actual_in_room_time = COALESCE(actual_in_room_time, :now)';
-                $params['now'] = $now;
-                // Update suite status
-                $db->prepare("UPDATE or_suites SET status = 'In Surgery', current_case_id = :cid, turnover_started_at = NULL WHERE id = :sid")
-                   ->execute(['cid' => $id, 'sid' => $suiteId]);
-                break;
-
-            case 'Incision / In Progress':
-                $updates[] = 'actual_incision_time = COALESCE(actual_incision_time, :now)';
-                $params['now'] = $now;
-                $db->prepare("UPDATE or_suites SET status = 'In Surgery', current_case_id = :cid WHERE id = :sid")
-                   ->execute(['cid' => $id, 'sid' => $suiteId]);
-                break;
-
-            case 'Closing / Extubation':
-                $updates[] = 'actual_closing_time = COALESCE(actual_closing_time, :now)';
-                $params['now'] = $now;
-                break;
-
-            case 'In PACU':
-                $updates[] = 'actual_out_room_time = COALESCE(actual_out_room_time, :now)';
-                $params['now'] = $now;
-                if (!empty($extra['pacu_bed_no'])) {
-                    $updates[] = 'pacu_bed_no = :pacu_bed_no';
-                    $params['pacu_bed_no'] = $extra['pacu_bed_no'];
-                }
-                if (isset($extra['estimated_blood_loss_ml'])) {
-                    $updates[] = 'estimated_blood_loss_ml = :ebl';
-                    $params['ebl'] = (int) $extra['estimated_blood_loss_ml'];
-                }
-                if (!empty($extra['postop_diagnosis'])) {
-                    $updates[] = 'postop_diagnosis = :pdiag';
-                    $params['pdiag'] = trim($extra['postop_diagnosis']);
-                }
-                // Free up the suite and mark as Cleaning / Turnover
-                $db->prepare("UPDATE or_suites SET status = 'Cleaning / Turnover', current_case_id = NULL, turnover_started_at = :now WHERE id = :sid")
-                   ->execute(['now' => $now, 'sid' => $suiteId]);
-                break;
-
-            case 'Transferred / Discharged':
-                $updates[] = 'pacu_discharge_time = COALESCE(pacu_discharge_time, :now)';
-                $params['now'] = $now;
-                if (isset($extra['pacu_aldrete_score'])) {
-                    $updates[] = 'pacu_aldrete_score = :aldrete';
-                    $params['aldrete'] = (int) $extra['pacu_aldrete_score'];
-                }
-                if (!empty($extra['postop_disposition'])) {
-                    $updates[] = 'postop_disposition = :disp';
-                    $params['disp'] = trim($extra['postop_disposition']);
-                }
-                break;
-
-            case 'Cancelled':
-                if (!empty($extra['cancellation_reason'])) {
-                    $updates[] = 'cancellation_reason = :creason';
-                    $params['creason'] = trim($extra['cancellation_reason']);
-                }
-                // If this was current case in suite, clear it
-                $db->prepare("UPDATE or_suites SET current_case_id = NULL WHERE id = :sid AND current_case_id = :cid")
-                   ->execute(['sid' => $suiteId, 'cid' => $id]);
-                break;
+        $result = (new OrLiveService())->move($id, ['stage' => $newStage] + array_filter($extra, fn($v) => $v !== null), (int) $userId);
+        if ($result['success']) {
+            $result['data'] = $this->getCaseDetails($id);
         }
-
-        if ($newStage === 'Cancelled') {
-            $updates[] = 'cancelled_at = COALESCE(cancelled_at, NOW())';
-            $updates[] = 'cancelled_by = COALESCE(cancelled_by, :cancelled_by)';
-            $params['cancelled_by'] = $userId;
-        }
-
-        $setSql = implode(', ', $updates);
-        $stmt = $db->prepare("UPDATE or_surgical_cases SET {$setSql} WHERE id = :id");
-        $stmt->execute($params);
-
-        $scheduling = new OrSchedulingService();
-        if ($newStage !== $case['perioperative_stage']) {
-            $scheduling->log($id, $newStage === 'Cancelled' ? 'cancelled' : 'stage', ['from' => $case['perioperative_stage'], 'to' => $newStage],
-                $newStage === 'Cancelled' ? ($extra['cancellation_reason'] ?? null) : null, $userId);
-        }
-        if ($newStage === 'Cancelled' && $case['perioperative_stage'] !== 'Cancelled') {
-            // The surgery request goes back to the ready list to be booked again.
-            $scheduling->releaseRequest($case, true, (string) ($extra['cancellation_reason'] ?? ''), (int) $userId);
-            $scheduling->notify($id, 'cancelled', $extra['cancellation_reason'] ?? null, (int) $userId);
-        }
-
-        return $this->getCaseDetails($id);
+        return $result;
     }
 
     /**

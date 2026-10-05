@@ -475,7 +475,7 @@ class LotTraceService
 
         // Count corrections and dispensing straight from the ledger.
         $stmt = $db->query(
-            "SELECT m.movement_type, m.movement_date, m.reference_no, m.quantity, m.counterparty, m.reason, m.notes, w.name AS warehouse_name
+            "SELECT m.movement_type, m.movement_date, m.reference_no, m.quantity, m.counterparty, m.reason, m.notes, m.source_type, w.name AS warehouse_name
              FROM drug_stock_movements m JOIN warehouses w ON w.id = m.warehouse_id
              WHERE m.lot_id IN ({$in}) AND m.movement_type IN ('adjusted', 'dispensed', 'dispense_voided')
              ORDER BY m.movement_date, m.id"
@@ -485,6 +485,8 @@ class LotTraceService
             $rows[] = [
                 'type' => $m['movement_type'],
                 'label' => match (true) {
+                    $m['movement_type'] === 'dispensed' && $m['source_type'] === 'or_case_item_lots' => 'Used in surgery',
+                    $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'or_case_item_lots' => 'Surgery use undone',
                     $m['movement_type'] === 'dispensed' => 'Dispensed to patient',
                     $m['movement_type'] === 'dispense_voided' => 'Dispense undone',
                     $qty < 0 => 'Count shortage',
