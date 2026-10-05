@@ -22,7 +22,7 @@ import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } f
 import { fetchPatientPortalCredentials, savePatientPortalCredentials } from "../patient-portal-access/patient-portal-access.service.js";
 import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
 import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=3";
-import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=4";
+import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import { PatientChartView } from "./patients-list.view.js?v=77";
@@ -7714,6 +7714,22 @@ function setupClinicalRemindersWidget()
     if (addBtn) {
         addBtn.addEventListener("click", () => openClinicalRemindersTab());
     }
+
+    // When an action is completed in Clinical Reminders tab/modal, update the widget immediately
+    window.addEventListener("clinical-reminders-updated", (e) => {
+        const { reminderId, due_status } = e.detail || {};
+        if (!reminderId) return;
+        const itemEl = document.querySelector(`.pd-cr-item[data-reminder-id="${reminderId}"]`);
+        if (itemEl) {
+            const pillEl = itemEl.querySelector(".pd-cr-pill");
+            if (pillEl) {
+                const cls = due_status === "not_due" ? "not_due" : (due_status === "past_due" ? "past_due" : "due");
+                const text = due_status === "not_due" ? "Not Due" : (due_status === "past_due" ? "Past Due" : "Due");
+                pillEl.className = `pd-cr-pill ${cls}`;
+                pillEl.innerHTML = `<span class="pd-cr-dot"></span>${text}`;
+            }
+        }
+    });
 }
 
 function openClinicalRemindersTab(presetReminderId = null)

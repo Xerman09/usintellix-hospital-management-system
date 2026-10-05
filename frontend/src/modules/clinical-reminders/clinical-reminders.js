@@ -354,6 +354,25 @@ async function openAssessmentModal(reminder)
             const refreshed = await fetchReminderActions(reminder.id);
             renderHistory(refreshed.success ? refreshed.data : []);
 
+            const completedVal = completedInput?.value || "yes";
+            if (completedVal === "yes") {
+                reminder.due_status = "not_due";
+                const statusInline = document.getElementById("crModalStatusInline");
+                if (statusInline) {
+                    statusInline.className = "cr-modal-status-inline not_due";
+                    statusInline.innerHTML = `
+                        <svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+                        Not Due
+                    `;
+                }
+
+                // Refresh main list tab in background so the list item badge updates immediately
+                loadReminders();
+
+                // Notify custom event if any listeners (like patient chart/dashboard) are active
+                window.dispatchEvent(new CustomEvent("clinical-reminders-updated", { detail: { reminderId: reminder.id, due_status: "not_due" } }));
+            }
+
             showToast("Action logged.", "success");
         };
     }

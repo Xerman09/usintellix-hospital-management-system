@@ -133,7 +133,16 @@ class PatientReminderService
             return ['success' => false, 'message' => 'Failed to log this action.'];
         }
 
-        return ['success' => true, 'message' => 'Action logged.', 'data' => ['id' => $id]];
+        $newDueStatus = null;
+        if ($completed === 'yes') {
+            $newDueStatus = 'not_due';
+            $update = Database::connection()->prepare(
+                "UPDATE patient_reminders SET due_status = 'not_due', updated_at = NOW(), updated_by = ? WHERE id = ?"
+            );
+            $update->execute([$userId, $patientReminderId]);
+        }
+
+        return ['success' => true, 'message' => 'Action logged.', 'data' => ['id' => $id, 'due_status' => $newDueStatus]];
     }
 
     /**
@@ -270,7 +279,18 @@ class PatientReminderService
         $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existing) {
-            $dueStatus = $this->computeDueStatus($existing['date_created'], $pastDueDays);
+            // Check if reminder was marked completed by staff action
+            $actionStmt = Database::connection()->prepare(
+                "SELECT completed FROM patient_reminder_actions WHERE patient_reminder_id = ? AND deleted_at IS NULL ORDER BY action_date DESC, id DESC LIMIT 1"
+            );
+            $actionStmt->execute([$existing['id']]);
+            $latestAction = $actionStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($latestAction && $latestAction['completed'] === 'yes') {
+                $dueStatus = 'not_due';
+            } else {
+                $dueStatus = $this->computeDueStatus($existing['date_created'], $pastDueDays);
+            }
 
             $update = Database::connection()->prepare(
                 "UPDATE patient_reminders SET item_label = ?, due_status = ?, updated_at = ?, updated_by = ? WHERE id = ?"

@@ -24,7 +24,7 @@ import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=77";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=93";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=94";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js?v=2";
 import { initBillingManager } from "../billing-manager/billing-manager.js?v=15";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
