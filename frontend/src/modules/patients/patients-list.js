@@ -15212,10 +15212,18 @@ function bindEyeExamEvents()
     if (hpiDoctorBtn && shorthandPopup) {
         hpiDoctorBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            const isOpen = shorthandPopup.style.display === "block";
-            shorthandPopup.style.display = isOpen ? "none" : "block";
-            if (!isOpen && shorthandInput) {
-                setTimeout(() => shorthandInput.focus(), 50);
+            const container = hpiDoctorBtn.closest(".eye-exam-card-actions");
+            const isDifferentContainer = container && shorthandPopup.parentElement !== container;
+            if (isDifferentContainer) {
+                container.appendChild(shorthandPopup);
+                shorthandPopup.style.display = "block";
+                if (shorthandInput) setTimeout(() => shorthandInput.focus(), 50);
+            } else {
+                const isOpen = shorthandPopup.style.display === "block";
+                shorthandPopup.style.display = isOpen ? "none" : "block";
+                if (!isOpen && shorthandInput) {
+                    setTimeout(() => shorthandInput.focus(), 50);
+                }
             }
         });
     }
@@ -15314,6 +15322,35 @@ function bindEyeExamEvents()
                     const chrField = document.getElementById("eyeExam_chronic_problems");
                     if (chrField && !chrField.value.includes(val)) {
                         chrField.value = chrField.value ? `${chrField.value}, ${val}` : val;
+                    }
+                } else if (key === "med" || key === "meds" || key === "medication") {
+                    const medField = document.getElementById("eyeExam_medication");
+                    if (medField && !medField.value.includes(val)) {
+                        medField.value = medField.value ? `${medField.value}, ${val}` : val;
+                    }
+                } else if (key === "comments" || key === "comment" || key === "notes") {
+                    const commField = document.getElementById("eyeExam_pmsfh_comments");
+                    if (commField && !commField.value.includes(val)) {
+                        commField.value = commField.value ? `${commField.value}\n${val}` : val;
+                    }
+                } else if (key === "start") {
+                    const startField = document.getElementById("eyeExam_med_start");
+                    if (startField) startField.value = val;
+                } else if (key === "finish") {
+                    const finishField = document.getElementById("eyeExam_med_finish");
+                    const finishCheck = document.getElementById("eyeExam_med_finish_check");
+                    if (finishField) finishField.value = val;
+                    if (finishCheck) finishCheck.checked = true;
+                } else if (key === "eyemed" || key === "eyem") {
+                    const eyeMedCheck = document.getElementById("eyeExam_is_eye_med");
+                    if (eyeMedCheck) eyeMedCheck.checked = (val.toLowerCase() !== "no" && val.toLowerCase() !== "false");
+                } else if (["poh", "pos", "pmh", "surg", "all", "fh", "soc", "ros"].includes(key)) {
+                    const radio = document.querySelector(`input[name="eyeExamPmsfhCat"][value="${key.toUpperCase()}"]`) ||
+                                  document.querySelector(`input[name="eyeExamPmsfhCat"][value="${key.charAt(0).toUpperCase() + key.slice(1)}"]`);
+                    if (radio) radio.checked = true;
+                    const commField = document.getElementById("eyeExam_pmsfh_comments");
+                    if (commField && !commField.value.includes(val)) {
+                        commField.value = commField.value ? `${commField.value}\n${key.toUpperCase()}: ${val}` : `${key.toUpperCase()}: ${val}`;
                     }
                 }
             }
@@ -15654,10 +15691,18 @@ function bindEyeExamEvents()
     if (pmhDoctorBtn && shorthandPopup) {
         pmhDoctorBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            const isOpen = shorthandPopup.style.display === "block";
-            shorthandPopup.style.display = isOpen ? "none" : "block";
-            if (!isOpen && shorthandInput) {
-                setTimeout(() => shorthandInput.focus(), 50);
+            const container = pmhDoctorBtn.closest(".eye-exam-card-actions");
+            const isDifferentContainer = container && shorthandPopup.parentElement !== container;
+            if (isDifferentContainer) {
+                container.appendChild(shorthandPopup);
+                shorthandPopup.style.display = "block";
+                if (shorthandInput) setTimeout(() => shorthandInput.focus(), 50);
+            } else {
+                const isOpen = shorthandPopup.style.display === "block";
+                shorthandPopup.style.display = isOpen ? "none" : "block";
+                if (!isOpen && shorthandInput) {
+                    setTimeout(() => shorthandInput.focus(), 50);
+                }
             }
         });
     }
