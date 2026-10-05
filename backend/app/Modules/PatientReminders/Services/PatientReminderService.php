@@ -70,6 +70,8 @@ class PatientReminderService
      */
     public function listForPatient(int $patientId): array
     {
+        $this->processForPatient($patientId);
+
         $stmt = Database::connection()->prepare(
             "SELECT r.id, r.item_label, r.due_status, r.date_created, r.date_sent,
                     pr.actions_list
@@ -132,6 +134,38 @@ class PatientReminderService
         }
 
         return ['success' => true, 'message' => 'Action logged.', 'data' => ['id' => $id]];
+    }
+
+    /**
+     * Evaluate every active "Patient Reminder" type practice_rules row
+     * against a single patient's demographics, upserting or refreshing
+     * their patient_reminders rows on demand.
+     */
+    public function processForPatient(int $patientId): void
+    {
+        $patient = $this->fetchPatient($patientId);
+        if (!$patient) {
+            return;
+        }
+
+        $rules = $this->fetchReminderRules();
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($rules as $rule) {
+            $demographics = json_decode($rule['demographics_criteria'] ?? '[]', true) ?: [];
+            $actions = json_decode($rule['actions_list'] ?? '[]', true) ?: [];
+            $targets = json_decode($rule['clinical_targets'] ?? '[]', true) ?: [];
+            $intervals = json_decode($rule['reminder_intervals'] ?? '{}', true) ?: [];
+
+            $itemLabel = $actions[0]['category_title'] ?? ($targets[0]['criteria'] ?? $rule['title']);
+            $pastDueDays = $this->intervalToDays($intervals, 'patient_past_due');
+
+            if (!$this->matchesDemographics($demographics, $patient)) {
+                continue;
+            }
+
+            $this->upsertReminder((int) $rule['id'], $patientId, $itemLabel, $now, $pastDueDays, 0);
+        }
     }
 
     /**
@@ -351,5 +385,23 @@ class PatientReminderService
             $row['age'] = (new DateTime($row['birthdate']))->diff($now)->y;
             return $row;
         }, $rows);
+    }
+
+    private function fetchPatient(int $patientId): ?array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT id, sex, birthdate FROM patients WHERE id = ? AND deleted_at IS NULL"
+        );
+        $stmt->execute([$patientId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return null;
+        }
+
+        $now = new DateTime();
+        $row['age'] = (new DateTime($row['birthdate']))->diff($now)->y;
+
+        return $row;
     }
 }

@@ -64,7 +64,8 @@ function goBackToPatient()
 
 function renderNoPatient(message)
 {
-    document.getElementById("crRemindersList").innerHTML = `<li class="cr-empty">${escapeHtml(message)}</li>`;
+    const list = document.getElementById("crRemindersList");
+    if (list) list.innerHTML = `<li class="cr-empty">${escapeHtml(message)}</li>`;
 }
 
 function wireTabs()
@@ -83,7 +84,7 @@ function wireTabs()
 async function loadReminders()
 {
     const list = document.getElementById("crRemindersList");
-    list.innerHTML = `<li class="cr-empty">Loading...</li>`;
+    if (list) list.innerHTML = `<li class="cr-empty">Loading…</li>`;
 
     const result = await fetchRemindersForPatient(currentPatient.id);
 
@@ -92,9 +93,66 @@ async function loadReminders()
     renderReminders(result.success ? null : (result.message || "Unable to load reminders."));
 }
 
+/* ── Helpers ────────────────────────────────────────────────────── */
+
+/**
+ * Derive category string from item_label (e.g. "Assessment: Colon…" or "Assessment - Colon…")
+ */
+function reminderCategory(label)
+{
+    const l = String(label || "").toLowerCase();
+    if (l.startsWith("assessment"))  return "assessment";
+    if (l.startsWith("measurement")) return "measurement";
+    if (l.startsWith("treatment") || l.startsWith("immunization")) return "treatment";
+    return "default";
+}
+
+function categoryIcon(cat)
+{
+    const icons = {
+        assessment:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>`,
+        measurement: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+        treatment:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
+        default:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 8 12 12 14 14"/></svg>`
+    };
+    return icons[cat] || icons.default;
+}
+
+/**
+ * Returns the display label part after "Category: " or "Category - " if present.
+ */
+function reminderShortLabel(label)
+{
+    const m = String(label || "").match(/^[^:\-]+(?::\s*|\s+-\s+)(.+)$/);
+    return m ? m[1] : label;
+}
+
+function reminderCategoryLabel(label)
+{
+    const m = String(label || "").match(/^([^:\-]+)(?::|\s+-)/);
+    return m ? m[1].trim() : "Assessment";
+}
+
+function statusPillClass(dueStatus)
+{
+    if (dueStatus === "past_due") return "past_due";
+    if (dueStatus === "due")      return "due";
+    return "not_due";
+}
+
+function statusPillText(dueStatus)
+{
+    if (dueStatus === "past_due") return "Past Due";
+    if (dueStatus === "due")      return "Due";
+    return "Not Due";
+}
+
+/* ── Render list ────────────────────────────────────────────────── */
+
 function renderReminders(errorMessage)
 {
     const list = document.getElementById("crRemindersList");
+    if (!list) return;
 
     if (errorMessage) {
         list.innerHTML = `<li class="cr-empty">${escapeHtml(errorMessage)}</li>`;
@@ -107,26 +165,42 @@ function renderReminders(errorMessage)
     }
 
     list.innerHTML = currentReminders.map((rem) => {
-        const isPastDue = rem.due_status === "past_due";
+        const cat        = reminderCategory(rem.item_label);
+        const pill       = statusPillClass(rem.due_status);
+        const pillText   = statusPillText(rem.due_status);
+        const shortLabel = reminderShortLabel(rem.item_label);
+        const catLabel   = reminderCategoryLabel(rem.item_label);
+        const isClickable = true; // all are openable
 
         return `
-            <li>
-                <button type="button" class="cr-item-link clickable" data-reminder-id="${rem.id}">${escapeHtml(rem.item_label)}</button>
-                <span class="cr-status ${isPastDue ? "past_due" : "not_due"}">
-                    <span class="cr-status-icon">${isPastDue ? "!" : "✓"}</span>
-                    ${isPastDue ? "Past Due" : "Not Due"}
-                </span>
-            </li>
-        `;
+        <li class="cr-list-item">
+            <div class="cr-item-type-icon ${cat}">${categoryIcon(cat)}</div>
+            <div class="cr-item-info">
+                <button type="button"
+                    class="cr-item-link${isClickable ? " clickable" : ""}"
+                    data-reminder-id="${rem.id}"
+                >${escapeHtml(shortLabel)}</button>
+                <div class="cr-item-category">${escapeHtml(catLabel)}</div>
+            </div>
+            <span class="cr-status-pill ${pill}">
+                <span class="cr-status-dot"></span>
+                ${pillText}
+            </span>
+            <span class="cr-item-chevron">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </span>
+        </li>`;
     }).join("");
 
-    list.querySelectorAll(".cr-item-link").forEach((btn) => {
+    list.querySelectorAll(".cr-item-link[data-reminder-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
             const reminder = currentReminders.find((r) => String(r.id) === btn.getAttribute("data-reminder-id"));
             if (reminder) openAssessmentModal(reminder);
         });
     });
 }
+
+/* ── Assessment modal ───────────────────────────────────────────── */
 
 function wireAssessmentModal()
 {
@@ -135,9 +209,9 @@ function wireAssessmentModal()
 
     const close = () => overlay.classList.remove("open");
 
-    document.getElementById("closeCrReminderFormModal").addEventListener("click", close);
-    document.getElementById("crReminderFormCancelBtn").addEventListener("click", close);
-    document.getElementById("closeCrReminderFormModalBottom").addEventListener("click", close);
+    document.getElementById("closeCrReminderFormModal")?.addEventListener("click", close);
+    document.getElementById("crReminderFormCancelBtn")?.addEventListener("click", close);
+    document.getElementById("closeCrReminderFormModalBottom")?.addEventListener("click", close);
 
     overlay.addEventListener("click", (event) => {
         if (event.target === overlay) close();
@@ -154,74 +228,121 @@ function wireAssessmentModal()
  */
 function renderHistory(actions)
 {
-    const tbody = document.getElementById("crReminderHistoryTableBody");
-    const countEl = document.getElementById("crReminderHistoryCount");
+    const timeline  = document.getElementById("crReminderTimeline");
+    const countEl   = document.getElementById("crReminderHistoryCount");
 
-    countEl.textContent = `${actions.length} record(s)`;
+    if (!timeline || !countEl) return;
 
-    tbody.innerHTML = actions.length
-        ? actions.map((item) => `
-            <tr>
-                <td>${escapeHtml(String(item.action_date || "").replace("T", " ").slice(0, 16))}</td>
-                <td>${item.completed === "yes" ? "YES" : "NO"}</td>
-                <td>${escapeHtml(item.details || "-")}</td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="3" class="table-empty">No history recorded yet.</td></tr>`;
+    const n = actions.length;
+    countEl.textContent = n === 1 ? "1 record" : `${n} records`;
+
+    if (!n) {
+        timeline.innerHTML = `<p class="cr-timeline-empty">No previous entries.</p>`;
+        return;
+    }
+
+    timeline.innerHTML = actions.map((item) => {
+        const dateStr     = String(item.action_date || "").replace("T", " ").slice(0, 16);
+        const completed   = item.completed === "yes" ? "yes" : "no";
+        const completedLbl = completed === "yes" ? "YES" : "NO";
+        const details     = item.details || "—";
+
+        return `
+        <div class="cr-timeline-item">
+            <div class="cr-timeline-line">
+                <div class="cr-timeline-dot"></div>
+                <div class="cr-timeline-connector"></div>
+            </div>
+            <div class="cr-timeline-body">
+                <div class="cr-timeline-date">${escapeHtml(dateStr)}</div>
+                <div class="cr-timeline-card">
+                    <span class="cr-timeline-completed ${completed}">${completedLbl}</span>
+                    <span class="cr-timeline-details">${escapeHtml(details)}</span>
+                </div>
+            </div>
+        </div>`;
+    }).join("");
 }
 
 async function openAssessmentModal(reminder)
 {
     const overlay = document.getElementById("crReminderFormModalOverlay");
+    if (!overlay) return;
 
+    // Title
     document.getElementById("crReminderFormTitle").textContent = reminder.item_label;
 
-    const dateInput = document.getElementById("crReminderDate");
+    // Type pill
+    const cat = reminderCategory(reminder.item_label);
+    const catLabel = reminderCategoryLabel(reminder.item_label);
+    const typePill = document.getElementById("crModalTypePill");
+    if (typePill) {
+        typePill.className = `cr-modal-type-pill ${cat}`;
+        typePill.textContent = catLabel;
+    }
+
+    // Status inline
+    const statusInline = document.getElementById("crModalStatusInline");
+    if (statusInline) {
+        const pill = statusPillClass(reminder.due_status);
+        statusInline.className = `cr-modal-status-inline ${pill}`;
+        statusInline.innerHTML = `
+            <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+            ${statusPillText(reminder.due_status)}
+        `;
+    }
+
+    // Form fields
+    const dateInput      = document.getElementById("crReminderDate");
     const completedInput = document.getElementById("crReminderCompleted");
-    const detailsInput = document.getElementById("crReminderDetails");
-    const saveBtn = document.getElementById("crReminderFormSaveBtn");
+    const detailsInput   = document.getElementById("crReminderDetails");
+    const saveBtn        = document.getElementById("crReminderFormSaveBtn");
 
-    dateInput.value = toDateTimeInput(systemNow());
-    completedInput.value = "yes";
-    detailsInput.value = "";
+    if (dateInput)      dateInput.value      = toDateTimeInput(systemNow());
+    if (completedInput) completedInput.value = "yes";
+    if (detailsInput)   detailsInput.value   = "";
 
-    document.getElementById("crReminderHistoryTableBody").innerHTML = `<tr><td colspan="3" class="table-empty">Loading...</td></tr>`;
+    // History loading state
+    const timeline = document.getElementById("crReminderTimeline");
+    if (timeline) timeline.innerHTML = `<p class="cr-timeline-empty">Loading…</p>`;
 
     overlay.classList.add("open");
 
     const actionsResult = await fetchReminderActions(reminder.id);
     renderHistory(actionsResult.success ? actionsResult.data : []);
 
-    saveBtn.onclick = async () => {
-        const actionDate = dateInput.value ? dateInput.value.replace("T", " ") : "";
+    if (saveBtn) {
+        saveBtn.onclick = async () => {
+            const actionDate = dateInput?.value ? dateInput.value.replace("T", " ") : "";
 
-        if (!actionDate) {
-            showToast("Date/Time is required.", "error");
-            return;
-        }
+            if (!actionDate) {
+                showToast("Date/Time is required.", "error");
+                return;
+            }
 
-        saveBtn.disabled = true;
+            saveBtn.disabled = true;
 
-        const result = await addReminderAction(reminder.id, {
-            action_date: actionDate,
-            completed: completedInput.value || "yes",
-            details: detailsInput.value || ""
-        });
+            const result = await addReminderAction(reminder.id, {
+                action_date: actionDate,
+                completed:   completedInput?.value || "yes",
+                details:     detailsInput?.value   || ""
+            });
 
-        saveBtn.disabled = false;
+            saveBtn.disabled = false;
 
-        if (!result.success) {
-            showToast(result.message || "Failed to log this action.", "error");
-            return;
-        }
+            if (!result.success) {
+                showToast(result.message || "Failed to log this action.", "error");
+                return;
+            }
 
-        detailsInput.value = "";
+            if (detailsInput) detailsInput.value = "";
 
-        const refreshed = await fetchReminderActions(reminder.id);
-        renderHistory(refreshed.success ? refreshed.data : []);
+            const refreshed = await fetchReminderActions(reminder.id);
+            renderHistory(refreshed.success ? refreshed.data : []);
 
-        showToast("Action logged.", "success");
-    };
+            showToast("Action logged.", "success");
+        };
+    }
 }
 
 function escapeHtml(value)

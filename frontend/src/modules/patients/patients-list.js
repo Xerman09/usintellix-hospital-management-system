@@ -21,11 +21,11 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientPortalCredentials, savePatientPortalCredentials } from "../patient-portal-access/patient-portal-access.service.js";
 import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
-import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js";
-import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
+import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=2";
+import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=3";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=75";
+import { PatientChartView } from "./patients-list.view.js?v=77";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -55,7 +55,7 @@ import {
     removePatientSurgery
 } from "../patient-surgeries/patient-surgeries.service.js";
 import { fetchSurgeries } from "../surgeries/surgeries.service.js";
-import { fetchPatientSurgeries } from "../surgery-requests/surgery-requests.service.js?v=1";
+import { fetchPatientSurgeries as fetchSurgeryDashboardData } from "../surgery-requests/surgery-requests.service.js?v=1";
 import { openSurgeryRequestForm, openSurgeryRequest, ensureRoot as ensureSurgeryRequestUi, statusBadge as surgeryStatusBadge, priorityBadge as surgeryPriorityBadge } from "../surgery-requests/surgery-request-panel.js?v=1";
 import {
     fetchPatientDentalIssues,
@@ -3777,6 +3777,132 @@ function formatOfficeNoteDate(value)
     return formatDateTime(value);
 }
 
+function getAuthorRole(author)
+{
+    const a = String(author || "").toLowerCase();
+    if (a.includes("admin")) return "Admin";
+    if (a.includes("recep") || a.includes("front")) return "Front Desk";
+    if (a.includes("bill")) return "Billing";
+    if (a.includes("dr") || a.includes("physician") || a.includes("doctor")) return "Physician";
+    if (a.includes("nurse") || a.includes("rn")) return "Nurse";
+    return "Staff";
+}
+
+function getAvatarGradient(name)
+{
+    const gradients = [
+        "linear-gradient(135deg, #0284c7, #2563eb)",
+        "linear-gradient(135deg, #0d9488, #059669)",
+        "linear-gradient(135deg, #7c3aed, #4f46e5)",
+        "linear-gradient(135deg, #ea580c, #d97706)",
+        "linear-gradient(135deg, #e11d48, #be123c)"
+    ];
+    let hash = 0;
+    const str = String(name || "Staff");
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return gradients[Math.abs(hash) % gradients.length];
+}
+
+function getOfficeNoteTags(text)
+{
+    const t = String(text || "").toLowerCase();
+    const tags = [];
+
+    if (t.includes("authoriz") || t.includes("prior auth") || t.includes("pa-") || t.includes("aetna") || t.includes("cigna") || t.includes("blue cross") || t.includes("anthem") || t.includes("humana") || t.includes("united") || t.includes("medicare") || t.includes("medicaid") || t.includes("insurance")) {
+        tags.push({ label: "Prior Auth / Insurance", type: "auth" });
+    }
+    if (t.includes("refill") || t.includes("pharmacy") || t.includes("walgreens") || t.includes("cvs") || t.includes("prescriber") || t.includes("lisinopril") || t.includes("prescription") || t.includes("supply")) {
+        tags.push({ label: "Refill / Rx", type: "rx" });
+    }
+    if (t.includes("lipid") || t.includes("metabolic") || t.includes("lab") || t.includes("panel") || t.includes("medical record") || t.includes("records packet") || t.includes("cardiology")) {
+        tags.push({ label: "Records / Labs", type: "records" });
+    }
+    if (t.includes("called") || t.includes("phone") || t.includes("front desk") || t.includes("voicemail")) {
+        tags.push({ label: "Phone Call", type: "call" });
+    }
+
+    return tags;
+}
+
+function renderOfficeNoteTagBadge(tag)
+{
+    if (tag.type === "auth") {
+        return `<span class="pd-onote-tag tag-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path></svg>${escapeHtml(tag.label)}</span>`;
+    }
+    if (tag.type === "rx") {
+        return `<span class="pd-onote-tag tag-rx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><circle cx="12" cy="12" r="10"></circle><path d="m10.5 13.5 3-3"></path><path d="m13.5 13.5-3-3"></path></svg>${escapeHtml(tag.label)}</span>`;
+    }
+    if (tag.type === "records") {
+        return `<span class="pd-onote-tag tag-records"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"></path></svg>${escapeHtml(tag.label)}</span>`;
+    }
+    if (tag.type === "call") {
+        return `<span class="pd-onote-tag tag-call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>${escapeHtml(tag.label)}</span>`;
+    }
+    return `<span class="pd-onote-tag">${escapeHtml(tag.label)}</span>`;
+}
+
+async function copyOfficeNoteText(text)
+{
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast("Note copied to clipboard", "success");
+    } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("Note copied to clipboard", "success");
+    }
+}
+
+function startEditOfficeNote(note)
+{
+    if (!note) return;
+    editingOfficeNoteId = note.id;
+    const overlay = document.getElementById("officeNotesModalOverlay");
+    if (overlay) overlay.classList.add("open");
+
+    const textarea = document.getElementById("officeNoteTextarea");
+    if (textarea) {
+        textarea.value = note.note;
+        textarea.focus();
+    }
+    const composerTitle = document.getElementById("officeNoteComposerTitle");
+    if (composerTitle) {
+        composerTitle.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="color: #f59e0b;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>Edit Office Note #${note.id}`;
+    }
+    const saveBtn = document.getElementById("officeNoteSaveBtn");
+    if (saveBtn) {
+        saveBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>Update Note`;
+    }
+    const cancelBtn = document.getElementById("officeNoteCancelEditBtn");
+    if (cancelBtn) cancelBtn.style.display = "inline-flex";
+}
+
+function cancelEditOfficeNote()
+{
+    editingOfficeNoteId = null;
+    const textarea = document.getElementById("officeNoteTextarea");
+    if (textarea) textarea.value = "";
+    const composerTitle = document.getElementById("officeNoteComposerTitle");
+    if (composerTitle) {
+        composerTitle.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="color: var(--accent);"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>New Office Note`;
+    }
+    const saveBtn = document.getElementById("officeNoteSaveBtn");
+    if (saveBtn) {
+        saveBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>Add New Note`;
+    }
+    const cancelBtn = document.getElementById("officeNoteCancelEditBtn");
+    if (cancelBtn) cancelBtn.style.display = "none";
+}
+
 function renderDashboardOfficeNotes(notes)
 {
     const body = document.getElementById("pdOfficeNotesBody");
@@ -3784,27 +3910,115 @@ function renderDashboardOfficeNotes(notes)
 
     setWidgetCount("pdOfficeNotesBody", notes.length);
 
+    if (!notes.length) {
+        body.innerHTML = `
+            <div class="pd-onote-empty-box">
+                <div class="pd-onote-empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path>
+                        <path d="M14 2v6h6M8 13h8M8 17h5"></path>
+                    </svg>
+                </div>
+                <h4 class="pd-onote-empty-title">No office notes recorded</h4>
+                <p class="pd-onote-empty-sub">Add administrative or coordination notes visible to the clinic care team.</p>
+                <button type="button" class="btn-primary-inline pd-onote-empty-add-btn" id="pdOfficeNotesEmptyAddBtn" style="font-size: 12px; padding: 5px 12px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12" style="margin-right: 4px; vertical-align: -1px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add First Note
+                </button>
+            </div>
+        `;
+        const emptyAddBtn = document.getElementById("pdOfficeNotesEmptyAddBtn");
+        if (emptyAddBtn) {
+            emptyAddBtn.addEventListener("click", () => {
+                const addBtn = document.getElementById("pdOfficeNotesAddBtn") || document.getElementById("pdOfficeNotesMoreBtn");
+                if (addBtn) addBtn.click();
+            });
+        }
+        return;
+    }
+
     const initials = (name) => String(name || "?").trim().split(/[\s._@-]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("") || "?";
 
-    body.innerHTML = notes.length
-        ? `<div class="pd-msg-list">
-            ${notes.map((note) => `
-                <div class="pd-msg-item">
-                    <div class="pd-msg-avatar pd-onote-avatar" aria-hidden="true">${escapeHtml(initials(note.author))}</div>
-                    <div class="pd-msg-main">
-                        <div class="pd-msg-top">
-                            <span class="pd-msg-from">${escapeHtml(note.author || "Unknown")}</span>
-                            <span class="pd-msg-when">${escapeHtml(formatOfficeNoteDate(note.created_at))}</span>
+    body.innerHTML = `
+        <div class="pd-onote-list">
+            ${notes.map((note) => {
+                const authorInitials = initials(note.author);
+                const authorRole = getAuthorRole(note.author);
+                const bgGradient = getAvatarGradient(note.author);
+                const tags = getOfficeNoteTags(note.note);
+                const dateStr = formatOfficeNoteDate(note.created_at);
+
+                return `
+                    <div class="pd-onote-card" data-note-id="${note.id}" role="button" tabindex="0">
+                        <div class="pd-onote-header">
+                            <div class="pd-onote-meta">
+                                <div class="pd-onote-avatar" style="background: ${bgGradient};" aria-hidden="true">${escapeHtml(authorInitials)}</div>
+                                <div class="pd-onote-author-wrap">
+                                    <span class="pd-onote-author">${escapeHtml(note.author || "Staff")}</span>
+                                    <span class="pd-onote-role">${escapeHtml(authorRole)}</span>
+                                </div>
+                                <span class="pd-onote-dot">&bull;</span>
+                                <span class="pd-onote-date" title="${escapeHtml(note.created_at || "")}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                    ${escapeHtml(dateStr)}
+                                </span>
+                            </div>
+                            <div class="pd-onote-actions">
+                                <button type="button" class="pd-onote-action-btn pd-onote-copy-btn" data-note-id="${note.id}" title="Copy note text" aria-label="Copy note">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                                </button>
+                                <button type="button" class="pd-onote-action-btn pd-onote-edit-btn" data-note-id="${note.id}" title="Edit note" aria-label="Edit note">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                                </button>
+                            </div>
                         </div>
-                        <div class="pd-onote-text" title="${escapeHtml(note.note || "")}">${escapeHtml(note.note || "")}</div>
+                        <div class="pd-onote-body">
+                            <p class="pd-onote-content">${escapeHtml(note.note || "")}</p>
+                            ${tags.length ? `
+                                <div class="pd-onote-tags">
+                                    ${tags.map((t) => renderOfficeNoteTagBadge(t)).join("")}
+                                </div>
+                            ` : ""}
+                        </div>
                     </div>
-                </div>
-            `).join("")}
-           </div>`
-        : `<div class="pd-widget-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
-            <p>No office notes recorded.</p>
-           </div>`;
+                `;
+            }).join("")}
+        </div>
+    `;
+
+    body.querySelectorAll(".pd-onote-copy-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute("data-note-id");
+            const note = notes.find((n) => String(n.id) === id);
+            if (note) copyOfficeNoteText(note.note);
+        });
+    });
+
+    body.querySelectorAll(".pd-onote-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute("data-note-id");
+            const note = notes.find((n) => String(n.id) === id);
+            if (note) startEditOfficeNote(note);
+        });
+    });
+
+    body.querySelectorAll(".pd-onote-card").forEach((card) => {
+        card.addEventListener("click", () => {
+            const id = card.getAttribute("data-note-id");
+            const note = notes.find((n) => String(n.id) === id);
+            if (note) startEditOfficeNote(note);
+        });
+        card.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                const id = card.getAttribute("data-note-id");
+                const note = notes.find((n) => String(n.id) === id);
+                if (note) startEditOfficeNote(note);
+            }
+        });
+    });
 }
 
 let officeNotesFilter = "active";
@@ -3826,7 +4040,7 @@ async function loadOfficeNotesList()
     const tbody = document.getElementById("officeNotesTableBody");
     if (!tbody || !currentDashboardPatient) return;
 
-    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="text-align: center; padding: 30px; color: var(--text-muted);">Loading office notes...</td></tr>`;
 
     const result = await fetchOfficeNotes(currentDashboardPatient.id, {
         filter: officeNotesFilter,
@@ -3835,34 +4049,73 @@ async function loadOfficeNotesList()
     });
 
     if (!result.success) {
-        tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Failed to load notes.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="text-align: center; padding: 30px; color: #ef4444;">Failed to load notes.</td></tr>`;
         return;
     }
 
     const { rows, total, page, per_page: perPage } = result.data;
     officeNotesTotalPages = Math.max(1, Math.ceil(total / perPage));
 
+    const initials = (name) => String(name || "?").trim().split(/[\s._@-]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("") || "?";
+
     tbody.innerHTML = rows.length
-        ? rows.map((note) => `
+        ? rows.map((note) => {
+            const authorInitials = initials(note.author);
+            const authorRole = getAuthorRole(note.author);
+            const bgGradient = getAvatarGradient(note.author);
+            const tags = getOfficeNoteTags(note.note);
+            const dateStr = formatOfficeNoteDate(note.created_at);
+
+            return `
             <tr>
-                <td><input type="checkbox" class="office-note-active-toggle" data-note-id="${note.id}" ${note.active ? "checked" : ""}></td>
-                <td>${escapeHtml(formatOfficeNoteDate(note.created_at))} (${escapeHtml(note.author || "unknown")})</td>
-                <td>${escapeHtml(note.note)}</td>
-                <td>
-                    <button type="button" class="btn-secondary office-note-edit-btn" data-note-id="${note.id}" title="Edit" style="padding: 4px 8px; margin-right: 4px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                <td style="text-align: center; vertical-align: middle;">
+                    <label class="on-status-switch" title="${note.active ? "Active note (click to deactivate)" : "Inactive note (click to activate)"}">
+                        <input type="checkbox" class="office-note-active-toggle" data-note-id="${note.id}" ${note.active ? "checked" : ""}>
+                        <span class="on-status-slider"></span>
+                    </label>
+                </td>
+                <td style="vertical-align: top; white-space: nowrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="pd-onote-avatar" style="background: ${bgGradient}; width: 24px; height: 24px; font-size: 10px;" aria-hidden="true">${escapeHtml(authorInitials)}</div>
+                        <div>
+                            <div style="font-weight: 600; font-size: 12.5px; color: var(--text-primary); display: flex; align-items: center; gap: 4px;">
+                                ${escapeHtml(note.author || "Staff")}
+                                <span class="pd-onote-role" style="font-size: 9px; padding: 0 4px;">${escapeHtml(authorRole)}</span>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(dateStr)}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="vertical-align: top;">
+                    <div style="font-size: 13px; line-height: 1.5; color: var(--text-primary); white-space: pre-wrap; word-break: break-word;">${escapeHtml(note.note)}</div>
+                    ${tags.length ? `
+                        <div class="pd-onote-tags" style="margin-top: 6px;">
+                            ${tags.map((t) => renderOfficeNoteTagBadge(t)).join("")}
+                        </div>
+                    ` : ""}
+                </td>
+                <td style="vertical-align: top; text-align: right; white-space: nowrap;">
+                    <button type="button" class="btn-secondary office-note-copy-action-btn" data-note-id="${note.id}" title="Copy note" style="padding: 4px 8px; margin-right: 4px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
                     </button>
-                    <button type="button" class="btn-secondary office-note-delete-btn" data-note-id="${note.id}" title="Delete" style="padding: 4px 8px; color: #dc2626;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"></path></svg>
+                    <button type="button" class="btn-secondary office-note-edit-btn" data-note-id="${note.id}" title="Edit note" style="padding: 4px 8px; margin-right: 4px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                    </button>
+                    <button type="button" class="btn-secondary office-note-delete-btn" data-note-id="${note.id}" title="Delete note" style="padding: 4px 8px; color: #dc2626;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"></path></svg>
                     </button>
                 </td>
             </tr>
-        `).join("")
-        : `<tr><td colspan="4" class="table-empty">No office notes found.</td></tr>`;
+            `;
+        }).join("")
+        : `<tr><td colspan="4" class="table-empty" style="text-align: center; padding: 32px 16px; color: var(--text-muted);">No office notes found for this filter.</td></tr>`;
 
-    document.getElementById("officeNotesPageInfo").textContent = String(page);
-    document.getElementById("officeNotesPrevBtn").disabled = page <= 1;
-    document.getElementById("officeNotesNextBtn").disabled = page >= officeNotesTotalPages;
+    const pageInfo = document.getElementById("officeNotesPageInfo");
+    if (pageInfo) pageInfo.textContent = `Page ${page} of ${officeNotesTotalPages}`;
+    const prevBtn = document.getElementById("officeNotesPrevBtn");
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    const nextBtn = document.getElementById("officeNotesNextBtn");
+    if (nextBtn) nextBtn.disabled = page >= officeNotesTotalPages;
 
     tbody.querySelectorAll(".office-note-active-toggle").forEach((checkbox) => {
         checkbox.addEventListener("change", async () => {
@@ -3876,16 +4129,20 @@ async function loadOfficeNotesList()
         });
     });
 
+    tbody.querySelectorAll(".office-note-copy-action-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-note-id");
+            const note = rows.find((r) => String(r.id) === id);
+            if (note) copyOfficeNoteText(note.note);
+        });
+    });
+
     tbody.querySelectorAll(".office-note-edit-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
             const id = btn.getAttribute("data-note-id");
             const note = rows.find((r) => String(r.id) === id);
             if (!note) return;
-
-            editingOfficeNoteId = note.id;
-            document.getElementById("officeNoteTextarea").value = note.note;
-            document.getElementById("officeNoteSaveBtn").innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>Update Note`;
-            document.getElementById("officeNoteTextarea").focus();
+            startEditOfficeNote(note);
         });
     });
 
@@ -3905,16 +4162,36 @@ function setupOfficeNotesModal()
     const overlay = document.getElementById("officeNotesModalOverlay");
     if (!overlay) return;
 
-    const closeModal = () => overlay.classList.remove("open");
+    const closeModal = () => {
+        overlay.classList.remove("open");
+        cancelEditOfficeNote();
+    };
+
+    const addBtn = document.getElementById("pdOfficeNotesAddBtn");
+    if (addBtn) {
+        addBtn.addEventListener("click", () => {
+            cancelEditOfficeNote();
+            officeNotesFilter = "active";
+            officeNotesPage = 1;
+            document.querySelectorAll(".office-notes-filter-btn").forEach((btn) => {
+                btn.classList.toggle("active", btn.getAttribute("data-filter") === "active");
+            });
+
+            overlay.classList.add("open");
+            loadOfficeNotesList();
+            setTimeout(() => {
+                const ta = document.getElementById("officeNoteTextarea");
+                if (ta) ta.focus();
+            }, 100);
+        });
+    }
 
     const moreBtn = document.getElementById("pdOfficeNotesMoreBtn");
     if (moreBtn) {
         moreBtn.addEventListener("click", () => {
-            editingOfficeNoteId = null;
+            cancelEditOfficeNote();
             officeNotesFilter = "active";
             officeNotesPage = 1;
-            document.getElementById("officeNoteTextarea").value = "";
-            document.getElementById("officeNoteSaveBtn").innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>Add New Note`;
             document.querySelectorAll(".office-notes-filter-btn").forEach((btn) => {
                 btn.classList.toggle("active", btn.getAttribute("data-filter") === "active");
             });
@@ -3924,8 +4201,16 @@ function setupOfficeNotesModal()
         });
     }
 
-    document.getElementById("closeOfficeNotesModal").addEventListener("click", closeModal);
-    document.getElementById("officeNotesBackBtn").addEventListener("click", closeModal);
+    const cancelEditBtn = document.getElementById("officeNoteCancelEditBtn");
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener("click", cancelEditOfficeNote);
+    }
+
+    const closeBtn = document.getElementById("closeOfficeNotesModal");
+    if (closeBtn) closeBtn.addEventListener("click", closeModal);
+    const backBtn = document.getElementById("officeNotesBackBtn");
+    if (backBtn) backBtn.addEventListener("click", closeModal);
+
     overlay.addEventListener("click", (event) => {
         if (event.target === overlay) closeModal();
     });
@@ -3939,51 +4224,57 @@ function setupOfficeNotesModal()
         });
     });
 
-    document.getElementById("officeNotesPrevBtn").addEventListener("click", () => {
-        if (officeNotesPage > 1) {
-            officeNotesPage--;
+    const prevBtn = document.getElementById("officeNotesPrevBtn");
+    if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+            if (officeNotesPage > 1) {
+                officeNotesPage--;
+                loadOfficeNotesList();
+            }
+        });
+    }
+
+    const nextBtn = document.getElementById("officeNotesNextBtn");
+    if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+            if (officeNotesPage < officeNotesTotalPages) {
+                officeNotesPage++;
+                loadOfficeNotesList();
+            }
+        });
+    }
+
+    const saveBtn = document.getElementById("officeNoteSaveBtn");
+    if (saveBtn) {
+        saveBtn.addEventListener("click", async () => {
+            const textarea = document.getElementById("officeNoteTextarea");
+            const text = textarea ? textarea.value.trim() : "";
+
+            if (!text) {
+                showToast("Enter note text first.", "error");
+                return;
+            }
+
+            saveBtn.disabled = true;
+
+            const result = editingOfficeNoteId
+                ? await updateOfficeNote(editingOfficeNoteId, { note: text })
+                : await addOfficeNote(currentDashboardPatient.id, text);
+
+            saveBtn.disabled = false;
+
+            if (!result.success) {
+                showToast(result.message || "Failed to save note.", "error");
+                return;
+            }
+
+            showToast(editingOfficeNoteId ? "Note updated." : "Note added.", "success");
+            cancelEditOfficeNote();
+
+            await refreshOfficeNotesWidget();
             loadOfficeNotesList();
-        }
-    });
-
-    document.getElementById("officeNotesNextBtn").addEventListener("click", () => {
-        if (officeNotesPage < officeNotesTotalPages) {
-            officeNotesPage++;
-            loadOfficeNotesList();
-        }
-    });
-
-    document.getElementById("officeNoteSaveBtn").addEventListener("click", async () => {
-        const textarea = document.getElementById("officeNoteTextarea");
-        const text = textarea.value.trim();
-
-        if (!text) {
-            showToast("Enter note text first.", "error");
-            return;
-        }
-
-        const saveBtn = document.getElementById("officeNoteSaveBtn");
-        saveBtn.disabled = true;
-
-        const result = editingOfficeNoteId
-            ? await updateOfficeNote(editingOfficeNoteId, { note: text })
-            : await addOfficeNote(currentDashboardPatient.id, text);
-
-        saveBtn.disabled = false;
-
-        if (!result.success) {
-            showToast(result.message || "Failed to save note.", "error");
-            return;
-        }
-
-        showToast(editingOfficeNoteId ? "Note updated." : "Note added.", "success");
-        editingOfficeNoteId = null;
-        textarea.value = "";
-        saveBtn.innerHTML = "Add New Note";
-
-        await refreshOfficeNotesWidget();
-        loadOfficeNotesList();
-    });
+        });
+    }
 }
 
 function renderDashboardClinicalReminders(reminders)
@@ -3996,32 +4287,70 @@ function renderDashboardClinicalReminders(reminders)
 
     setWidgetCount("pdClinicalRemindersBody", reminders.length);
 
-    body.innerHTML = reminders.length
-        ? `
-        <div style="padding: 0 16px;">
-            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;">
-                ${reminders.map((reminder) => `
-                    <li style="border-bottom: 1px solid var(--border-color); padding: 10px 0; display: flex; justify-content: space-between; align-items: center;">
-                        <a href="javascript:void(0)" class="clinical-reminder-link" data-reminder-id="${reminder.id}" style="color: var(--text-primary); font-size: 13px; font-weight: 500; text-decoration: none;">${escapeHtml(reminder.item_label)}</a>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="pd-severity-badge ${reminder.due_status === "past_due" ? "severe" : "mild"}">${escapeHtml(reminderStatusLabel(reminder.due_status))}</span>
-                        </div>
-                    </li>
-                `).join("")}
-            </ul>
-        </div>
-        `
-        : `<div class="pd-widget-empty">
+    if (!reminders.length) {
+        body.innerHTML = `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path></svg>
             <p>No clinical reminders.</p>
            </div>`;
+        return;
+    }
 
-    // Remove the last border
-    const items = body.querySelectorAll("li");
-    if (items.length) items[items.length - 1].style.borderBottom = "none";
+    // helpers (inline so they work without importing clinical-reminders.js)
+    const getCat = (label) => {
+        const l = String(label || "").toLowerCase();
+        if (l.startsWith("assessment"))  return "assessment";
+        if (l.startsWith("measurement")) return "measurement";
+        if (l.startsWith("treatment") || l.startsWith("immunization")) return "treatment";
+        return "default";
+    };
+
+    const catIconSvg = {
+        assessment:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>`,
+        measurement: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+        treatment:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
+        default:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 8 12 12 14 14"/></svg>`
+    };
+
+    const getShortLabel = (label) => {
+        const m = String(label || "").match(/^[^:\-]+(?::\s*|\s+-\s+)(.+)$/);
+        return m ? m[1] : label;
+    };
+
+    const getCatLabel = (label) => {
+        const m = String(label || "").match(/^([^:\-]+)(?::|\s+-)/);
+        return m ? m[1].trim() : "Assessment";
+    };
+
+    const getPill = (dueStatus) => {
+        if (dueStatus === "past_due") return { cls: "past_due", text: "Past Due" };
+        if (dueStatus === "due")      return { cls: "due",      text: "Due" };
+        return { cls: "not_due", text: "Not Due" };
+    };
+
+    body.innerHTML = `<div class="pd-cr-list">
+        ${reminders.map((reminder) => {
+            const cat   = getCat(reminder.item_label);
+            const pill  = getPill(reminder.due_status);
+            const short = getShortLabel(reminder.item_label);
+            const catLabel = getCatLabel(reminder.item_label);
+
+            return `
+            <div class="pd-cr-item clinical-reminder-link" data-reminder-id="${reminder.id}">
+                <div class="pd-cr-icon ${cat}">${catIconSvg[cat] || catIconSvg.default}</div>
+                <div class="pd-cr-info">
+                    <div class="pd-cr-name">${escapeHtml(short)}</div>
+                    <div class="pd-cr-category">${escapeHtml(catLabel)}</div>
+                </div>
+                <span class="pd-cr-pill ${pill.cls}">
+                    <span class="pd-cr-dot"></span>${pill.text}
+                </span>
+            </div>`;
+        }).join("")}
+    </div>`;
 
     wireDashboardItemClicks(body, "data-reminder-id", reminders, (reminder) => openClinicalRemindersTab(reminder.id));
 }
+
 
 // See createPreferencePanelController() (below the Clinical Reminder Form
 // modal logic) for the shared implementation behind both the Care
@@ -6631,7 +6960,7 @@ async function loadDashboardSurgeries(patient)
     if (!body) return;
 
     try {
-        const result = await fetchPatientSurgeries(patient.id);
+        const result = await fetchSurgeryDashboardData(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
             body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load surgeries right now.")}</p></div>`;

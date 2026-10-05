@@ -1136,6 +1136,104 @@ export function PatientsListView(user)
 .pd-severity-badge.mild { background: #e0e7ff; color: #3730a3; }
 .pd-severity-badge.unassigned { background: #f1f5f9; color: #64748b; }
 
+/* Clinical Reminders Widget */
+.pd-cr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+}
+
+.pd-cr-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    cursor: pointer;
+    transition: all .15s ease;
+    text-decoration: none;
+}
+
+.pd-cr-item:hover {
+    border-color: var(--accent, #2563eb);
+    box-shadow: 0 1px 4px rgba(37,99,235,.08);
+}
+
+.pd-cr-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pd-cr-icon svg { width: 14px; height: 14px; }
+.pd-cr-icon.assessment  { background: #ede9fe; color: #7c3aed; }
+.pd-cr-icon.measurement { background: #dbeafe; color: #2563eb; }
+.pd-cr-icon.treatment   { background: #dcfce7; color: #15803d; }
+.pd-cr-icon.default     { background: #f1f5f9; color: #64748b; }
+
+.pd-cr-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pd-cr-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-cr-category {
+    font-size: 11px;
+    color: var(--text-muted, #64748b);
+}
+
+.pd-cr-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pd-cr-pill.past_due { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+.pd-cr-pill.due      { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.pd-cr-pill.not_due  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+
+.pd-cr-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .pd-cr-item { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-cr-item:hover { border-color: var(--accent); }
+:root[data-theme="dark"] .pd-cr-name { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-cr-category { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-cr-icon.assessment  { background: rgba(124,58,237,.2); color: #c4b5fd; }
+:root[data-theme="dark"] .pd-cr-icon.measurement { background: rgba(37,99,235,.2); color: #93c5fd; }
+:root[data-theme="dark"] .pd-cr-icon.treatment   { background: rgba(21,128,61,.2); color: #86efac; }
+:root[data-theme="dark"] .pd-cr-icon.default     { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-cr-pill.past_due { background: rgba(185,28,28,.2); color: #fca5a5; border-color: rgba(252,165,165,.3); }
+:root[data-theme="dark"] .pd-cr-pill.due      { background: rgba(146,64,14,.2); color: #fcd34d; border-color: rgba(252,211,77,.3); }
+:root[data-theme="dark"] .pd-cr-pill.not_due  { background: rgba(21,128,61,.2); color: #86efac; border-color: rgba(134,239,172,.3); }
+
+
 .pd-widget-header-title {
     flex-wrap: wrap;
 }
@@ -1418,22 +1516,315 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-disc-icon { background: rgba(59,130,246,.18); color: #93c5fd; }
 :root[data-theme="dark"] .pd-disc-more { color: var(--text-muted); }
 
-/* Office note card: author initials, author + date, the note (3 lines, full text on hover). */
-.pd-onote-text {
-    font-size: 12.5px;
-    line-height: 1.45;
-    color: #374151;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-top: 2px;
+/* Office Notes Widget & Modal Styles */
+.pd-onote-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 6px;
 }
-.pd-onote-avatar { background: #0d9488; }
-:root[data-theme="dark"] .pd-onote-text { color: var(--text-primary); opacity: .9; }
-:root[data-theme="dark"] .pd-onote-avatar { background: #0f766e; }
+.pd-onote-card {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #e5e9f2;
+    border-left: 3.5px solid #0284c7;
+    border-radius: 8px;
+    padding: 10px 13px;
+    transition: all 0.16s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    cursor: pointer;
+}
+.pd-onote-card:hover {
+    border-color: #bfdbfe;
+    border-left-color: #0284c7;
+    background: #f8fafc;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+.pd-onote-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+.pd-onote-meta {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+.pd-onote-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: 0.2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.pd-onote-author-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.pd-onote-author {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.pd-onote-role {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #dbeafe;
+}
+.pd-onote-dot {
+    color: #94a3b8;
+    font-size: 9px;
+}
+.pd-onote-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.pd-onote-date svg {
+    opacity: 0.7;
+}
+.pd-onote-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.45;
+    transition: opacity 0.14s ease;
+}
+.pd-onote-card:hover .pd-onote-actions {
+    opacity: 1;
+}
+.pd-onote-action-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 3px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s ease;
+}
+.pd-onote-action-btn:hover {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+.pd-onote-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pd-onote-content {
+    margin: 0;
+    font-size: 12.8px;
+    line-height: 1.5;
+    color: #334155;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.pd-onote-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 1px;
+}
+.pd-onote-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.2px;
+}
+.pd-onote-tag.tag-auth {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+.pd-onote-tag.tag-rx {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+.pd-onote-tag.tag-records {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+}
+.pd-onote-tag.tag-call {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+.pd-onote-empty-box {
+    text-align: center;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+.pd-onote-empty-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+.pd-onote-empty-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+.pd-onote-empty-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0 0 6px;
+    max-width: 260px;
+    line-height: 1.4;
+}
+.on-status-switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+.on-status-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.on-status-slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #cbd5e1;
+    transition: .18s;
+    border-radius: 18px;
+}
+.on-status-slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .18s;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.on-status-switch input:checked + .on-status-slider {
+    background-color: #10b981;
+}
+.on-status-switch input:checked + .on-status-slider:before {
+    transform: translateX(14px);
+}
+:root[data-theme="dark"] .pd-onote-card {
+    background: var(--bg-surface-alt, #172033);
+    border-color: rgba(255, 255, 255, 0.08);
+    border-left-color: #38bdf8;
+}
+:root[data-theme="dark"] .pd-onote-card:hover {
+    border-color: rgba(96, 165, 250, 0.4);
+    border-left-color: #60a5fa;
+    background: #1c273e;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+:root[data-theme="dark"] .pd-onote-author {
+    color: #f1f5f9;
+}
+:root[data-theme="dark"] .pd-onote-role {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+:root[data-theme="dark"] .pd-onote-dot,
+:root[data-theme="dark"] .pd-onote-date {
+    color: #94a3b8;
+}
+:root[data-theme="dark"] .pd-onote-action-btn {
+    color: #94a3b8;
+}
+:root[data-theme="dark"] .pd-onote-action-btn:hover {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+:root[data-theme="dark"] .pd-onote-content {
+    color: #e2e8f0;
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-auth {
+    background: rgba(16, 185, 129, 0.16);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-rx {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-records {
+    background: rgba(139, 92, 246, 0.16);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-call {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-empty-box .pd-onote-empty-title {
+    color: #f1f5f9;
+}
+:root[data-theme="dark"] .pd-onote-empty-box .pd-onote-empty-sub {
+    color: #94a3b8;
+}
+:root[data-theme="dark"] .pd-onote-empty-icon {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+:root[data-theme="dark"] .on-status-slider {
+    background-color: #475569;
+}
+:root[data-theme="dark"] .on-status-switch input:checked + .on-status-slider {
+    background-color: #059669;
+}
 
 /* Surgeries widget: section labels between requests / OR cases / history. */
 .pd-surg-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #8b98ac; margin: 2px 2px 0; }
@@ -5750,6 +6141,104 @@ textarea.pd-sdoh-readonly {
 .pd-severity-badge.mild { background: #e0e7ff; color: #3730a3; }
 .pd-severity-badge.unassigned { background: #f1f5f9; color: #64748b; }
 
+/* Clinical Reminders Widget */
+.pd-cr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+}
+
+.pd-cr-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    cursor: pointer;
+    transition: all .15s ease;
+    text-decoration: none;
+}
+
+.pd-cr-item:hover {
+    border-color: var(--accent, #2563eb);
+    box-shadow: 0 1px 4px rgba(37,99,235,.08);
+}
+
+.pd-cr-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pd-cr-icon svg { width: 14px; height: 14px; }
+.pd-cr-icon.assessment  { background: #ede9fe; color: #7c3aed; }
+.pd-cr-icon.measurement { background: #dbeafe; color: #2563eb; }
+.pd-cr-icon.treatment   { background: #dcfce7; color: #15803d; }
+.pd-cr-icon.default     { background: #f1f5f9; color: #64748b; }
+
+.pd-cr-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pd-cr-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-cr-category {
+    font-size: 11px;
+    color: var(--text-muted, #64748b);
+}
+
+.pd-cr-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pd-cr-pill.past_due { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+.pd-cr-pill.due      { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.pd-cr-pill.not_due  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+
+.pd-cr-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .pd-cr-item { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-cr-item:hover { border-color: var(--accent); }
+:root[data-theme="dark"] .pd-cr-name { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-cr-category { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-cr-icon.assessment  { background: rgba(124,58,237,.2); color: #c4b5fd; }
+:root[data-theme="dark"] .pd-cr-icon.measurement { background: rgba(37,99,235,.2); color: #93c5fd; }
+:root[data-theme="dark"] .pd-cr-icon.treatment   { background: rgba(21,128,61,.2); color: #86efac; }
+:root[data-theme="dark"] .pd-cr-icon.default     { background: var(--bg-surface-alt); color: var(--text-muted); }
+:root[data-theme="dark"] .pd-cr-pill.past_due { background: rgba(185,28,28,.2); color: #fca5a5; border-color: rgba(252,165,165,.3); }
+:root[data-theme="dark"] .pd-cr-pill.due      { background: rgba(146,64,14,.2); color: #fcd34d; border-color: rgba(252,211,77,.3); }
+:root[data-theme="dark"] .pd-cr-pill.not_due  { background: rgba(21,128,61,.2); color: #86efac; border-color: rgba(134,239,172,.3); }
+
+
 .pd-widget-header-title {
     flex-wrap: wrap;
 }
@@ -6032,22 +6521,315 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-disc-icon { background: rgba(59,130,246,.18); color: #93c5fd; }
 :root[data-theme="dark"] .pd-disc-more { color: var(--text-muted); }
 
-/* Office note card: author initials, author + date, the note (3 lines, full text on hover). */
-.pd-onote-text {
-    font-size: 12.5px;
-    line-height: 1.45;
-    color: #374151;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-top: 2px;
+/* Office Notes Widget & Modal Styles */
+.pd-onote-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 6px;
 }
-.pd-onote-avatar { background: #0d9488; }
-:root[data-theme="dark"] .pd-onote-text { color: var(--text-primary); opacity: .9; }
-:root[data-theme="dark"] .pd-onote-avatar { background: #0f766e; }
+.pd-onote-card {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #e5e9f2;
+    border-left: 3.5px solid #0284c7;
+    border-radius: 8px;
+    padding: 10px 13px;
+    transition: all 0.16s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    cursor: pointer;
+}
+.pd-onote-card:hover {
+    border-color: #bfdbfe;
+    border-left-color: #0284c7;
+    background: #f8fafc;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+.pd-onote-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+.pd-onote-meta {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+.pd-onote-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: 0.2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.pd-onote-author-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.pd-onote-author {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.pd-onote-role {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #dbeafe;
+}
+.pd-onote-dot {
+    color: #94a3b8;
+    font-size: 9px;
+}
+.pd-onote-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.pd-onote-date svg {
+    opacity: 0.7;
+}
+.pd-onote-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.45;
+    transition: opacity 0.14s ease;
+}
+.pd-onote-card:hover .pd-onote-actions {
+    opacity: 1;
+}
+.pd-onote-action-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 3px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s ease;
+}
+.pd-onote-action-btn:hover {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+.pd-onote-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pd-onote-content {
+    margin: 0;
+    font-size: 12.8px;
+    line-height: 1.5;
+    color: #334155;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.pd-onote-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 1px;
+}
+.pd-onote-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.2px;
+}
+.pd-onote-tag.tag-auth {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+.pd-onote-tag.tag-rx {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+.pd-onote-tag.tag-records {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+}
+.pd-onote-tag.tag-call {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+.pd-onote-empty-box {
+    text-align: center;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+.pd-onote-empty-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+.pd-onote-empty-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+.pd-onote-empty-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0 0 6px;
+    max-width: 260px;
+    line-height: 1.4;
+}
+.on-status-switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+.on-status-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.on-status-slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #cbd5e1;
+    transition: .18s;
+    border-radius: 18px;
+}
+.on-status-slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .18s;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.on-status-switch input:checked + .on-status-slider {
+    background-color: #10b981;
+}
+.on-status-switch input:checked + .on-status-slider:before {
+    transform: translateX(14px);
+}
+:root[data-theme="dark"] .pd-onote-card {
+    background: var(--bg-surface-alt, #172033);
+    border-color: rgba(255, 255, 255, 0.08);
+    border-left-color: #38bdf8;
+}
+:root[data-theme="dark"] .pd-onote-card:hover {
+    border-color: rgba(96, 165, 250, 0.4);
+    border-left-color: #60a5fa;
+    background: #1c273e;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+:root[data-theme="dark"] .pd-onote-author {
+    color: #f1f5f9;
+}
+:root[data-theme="dark"] .pd-onote-role {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+:root[data-theme="dark"] .pd-onote-dot,
+:root[data-theme="dark"] .pd-onote-date {
+    color: #94a3b8;
+}
+:root[data-theme="dark"] .pd-onote-action-btn {
+    color: #94a3b8;
+}
+:root[data-theme="dark"] .pd-onote-action-btn:hover {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+:root[data-theme="dark"] .pd-onote-content {
+    color: #e2e8f0;
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-auth {
+    background: rgba(16, 185, 129, 0.16);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-rx {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-records {
+    background: rgba(139, 92, 246, 0.16);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-tag.tag-call {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.35);
+}
+:root[data-theme="dark"] .pd-onote-empty-box .pd-onote-empty-title {
+    color: #f1f5f9;
+}
+:root[data-theme="dark"] .pd-onote-empty-box .pd-onote-empty-sub {
+    color: #94a3b8;
+}
+:root[data-theme="dark"] .pd-onote-empty-icon {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+:root[data-theme="dark"] .on-status-slider {
+    background-color: #475569;
+}
+:root[data-theme="dark"] .on-status-switch input:checked + .on-status-slider {
+    background-color: #059669;
+}
 
 /* Surgeries widget: section labels between requests / OR cases / history. */
 .pd-surg-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #8b98ac; margin: 2px 2px 0; }
@@ -6411,7 +7193,7 @@ textarea.pd-sdoh-readonly {
                         </div>
                         <div class="pd-widget-body" id="pdDemoPanels"></div>
                     </div>
-                    ${dashboardWidget("Office Notes", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path>', "No office notes recorded.", { bodyId: "pdOfficeNotesBody", addBtnId: "pdOfficeNotesMoreBtn", addBtnLabel: "(More)", addBtnDisabled: false })}
+                    ${dashboardWidget("Office Notes", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path>', "No office notes recorded.", { bodyId: "pdOfficeNotesBody", addBtnId: "pdOfficeNotesAddBtn", addBtnLabel: "+ Add", addBtnDisabled: false, extraButtons: [{ id: "pdOfficeNotesMoreBtn", label: "(More)" }] })}
                     ${dashboardWidget("Clinical Reminders", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>', "No clinical reminders.", { bodyId: "pdClinicalRemindersBody", addBtnId: "pdClinicalRemindersAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Care Experience Preferences", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"></path>', "No care experience preferences recorded.", { bodyId: "pdCarePreferencesBody", addBtnId: "pdCarePreferencesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-carePreferences" })}
                     ${dashboardWidget("Treatment Intervention Preferences", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No treatment intervention preferences recorded.", { bodyId: "pdTreatmentPreferencesBody", addBtnId: "pdTreatmentPreferencesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-treatmentPreferences" })}
@@ -9795,45 +10577,70 @@ textarea.pd-sdoh-readonly {
 </div>
 
 <div class="modal-overlay" id="officeNotesModalOverlay">
-    <div class="modal-box" style="max-width: 900px;">
+    <div class="modal-box" style="max-width: 920px;">
         <div class="modal-header">
-            <h2>Office Notes</h2>
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 30px; height: 30px; border-radius: 8px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path></svg>
+                    </div>
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Office Notes Management</h2>
+                </div>
+                <p class="form-subtitle" style="margin: 4px 0 0; font-size: 12.5px; color: var(--text-muted);">Internal administrative, phone communication, insurance authorization, and pharmacy coordination notes.</p>
+            </div>
             <button type="button" class="modal-close" id="closeOfficeNotesModal">&times;</button>
         </div>
 
-        <textarea id="officeNoteTextarea" class="form-input" placeholder="Enter new office note here. Text only." style="width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical;"></textarea>
+        <div style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-top: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span id="officeNoteComposerTitle" style="font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="color: var(--accent);"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    New Office Note
+                </span>
+                <span style="font-size: 11.5px; color: var(--text-muted);">Internal chart note</span>
+            </div>
+            <textarea id="officeNoteTextarea" class="form-input" placeholder="Type administrative note, patient message, prior authorization status, or refill details here..." style="width: 100%; box-sizing: border-box; min-height: 85px; resize: vertical; border-radius: 6px; font-family: inherit; font-size: 13px;"></textarea>
 
-        <div class="form-actions" style="margin-top: 12px; justify-content: space-between;">
-            <button type="button" class="btn-primary-inline" id="officeNoteSaveBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>
-                Add New Note
-            </button>
-            <button type="button" class="btn-secondary" id="officeNotesBackBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                Back
-            </button>
+            <div class="form-actions" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" class="btn-primary-inline" id="officeNoteSaveBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><path d="M20 6 9 17l-5-5"></path></svg>
+                        Add New Note
+                    </button>
+                    <button type="button" class="btn-secondary" id="officeNoteCancelEditBtn" style="display: none;">
+                        Cancel Edit
+                    </button>
+                </div>
+                <button type="button" class="btn-secondary" id="officeNotesBackBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Close
+                </button>
+            </div>
         </div>
 
-        <div style="display: flex; gap: 8px; margin: 18px 0 12px;">
-            <button type="button" class="btn-secondary office-notes-filter-btn" data-filter="all">All</button>
-            <button type="button" class="btn-secondary office-notes-filter-btn active" data-filter="active">Only Active</button>
-            <button type="button" class="btn-secondary office-notes-filter-btn" data-filter="inactive">Only Inactive</button>
-        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-right: 4px;">Status:</span>
+                <button type="button" class="btn-secondary office-notes-filter-btn" data-filter="all">All</button>
+                <button type="button" class="btn-secondary office-notes-filter-btn active" data-filter="active">Active Only</button>
+                <button type="button" class="btn-secondary office-notes-filter-btn" data-filter="inactive">Inactive Only</button>
+            </div>
 
-        <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px;">
-            <button type="button" class="btn-secondary" id="officeNotesPrevBtn">&laquo; Previous</button>
-            <span id="officeNotesPageInfo" style="font-size: 13px; color: var(--text-muted);">1</span>
-            <button type="button" class="btn-secondary" id="officeNotesNextBtn">Next &raquo;</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn-secondary" id="officeNotesPrevBtn" style="padding: 4px 10px; font-size: 12px;">&laquo; Previous</button>
+                <span id="officeNotesPageInfo" style="font-size: 12.5px; font-weight: 600; color: var(--text-muted); padding: 0 4px;">Page 1</span>
+                <button type="button" class="btn-secondary" id="officeNotesNextBtn" style="padding: 4px 10px; font-size: 12px;">Next &raquo;</button>
+            </div>
         </div>
 
         <div class="data-table-wrap">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 60px;">Active</th>
-                        <th style="width: 160px;">Date</th>
-                        <th>Office Note</th>
-                        <th style="width: 90px;">Actions</th>
+                        <th style="width: 55px; text-align: center;">Active</th>
+                        <th style="width: 190px;">Staff &amp; Date</th>
+                        <th>Office Note Content</th>
+                        <th style="width: 105px; text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="officeNotesTableBody">
