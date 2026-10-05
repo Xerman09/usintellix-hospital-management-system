@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=77";
+import { PatientChartView } from "./patients-list.view.js?v=78";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2998,59 +2998,60 @@ function showClinicalRemindersPopup(reminders)
     const existingOverlay = document.getElementById("crDashboardPopupOverlay");
     if (existingOverlay) existingOverlay.remove();
 
-    const typeColors = {
-        "Assessment"  : "#c0392b",
-        "Measurement" : "#c0392b",
-        "Treatment"   : "#e67e22",
-        "Education"   : "#2980b9",
-        "Referral"    : "#2980b9",
+    const typeClasses = {
+        "Assessment"  : "assessment",
+        "Measurement" : "measurement",
+        "Treatment"   : "treatment",
+        "Education"   : "education",
+        "Referral"    : "referral",
+    };
+
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const typeColorMap = isDark ? {
+        "Assessment"  : "#f87171",
+        "Measurement" : "#60a5fa",
+        "Treatment"   : "#fb923c",
+        "Education"   : "#38bdf8",
+        "Referral"    : "#a78bfa",
+    } : {
+        "Assessment"  : "#dc2626",
+        "Measurement" : "#2563eb",
+        "Treatment"   : "#d97706",
+        "Education"   : "#0284c7",
+        "Referral"    : "#7c3aed",
     };
 
     const listHtml = reminders.map((r) => {
         const type = r.action_type || "";
-        const color = typeColors[type] || "#2980b9";
+        const color = typeColorMap[type] || (isDark ? "#93c5fd" : "#2563eb");
         const typePrefix = type ? `<span style="color:${color};font-weight:600;">${escapeHtml(type)}:</span> ` : "";
-        return `<p style="margin:0 0 6px 0;font-size:13px;color:#333;">${typePrefix}${escapeHtml(r.item_label)}</p>`;
+        return `<p class="cr-dashboard-popup-item">${typePrefix}${escapeHtml(r.item_label)}</p>`;
     }).join("");
 
     const overlay = document.createElement("div");
     overlay.id = "crDashboardPopupOverlay";
-    overlay.style.cssText = `
-        position: fixed; inset: 0; z-index: 99999;
-        background: rgba(0,0,0,0.35);
-        display: flex; align-items: center; justify-content: center;
-    `;
+    overlay.className = "cr-dashboard-popup-overlay";
 
     overlay.innerHTML = `
-        <div id="crDashboardPopupBox" style="
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.22);
-            min-width: 320px;
-            max-width: 460px;
-            width: 90%;
-            padding: 24px 28px 20px;
-            position: relative;
-        ">
-            <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:14px;">
-                New Due Clinical Reminders
+        <div id="crDashboardPopupBox" class="cr-dashboard-popup-box">
+            <div class="cr-dashboard-popup-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent,#2563eb);flex-shrink:0;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>New Due Clinical Reminders</span>
             </div>
-            <div style="margin-bottom:16px;">
+            <div class="cr-dashboard-popup-items">
                 ${listHtml}
             </div>
             <div style="margin-bottom:18px;">
-                <a href="javascript:void(0)" id="crDashboardPopupWidgetLink"
-                   style="font-size:12.5px;color:#5b7faf;text-decoration:underline;cursor:pointer;">
+                <a href="javascript:void(0)" id="crDashboardPopupWidgetLink" class="cr-dashboard-popup-link">
                     See the Clinical Reminders widget for more details
                 </a>
             </div>
             <div style="display:flex;justify-content:flex-end;">
-                <button id="crDashboardPopupOkBtn" style="
-                    background: #3c5a7a; color: #fff; border: none;
-                    border-radius: 20px; padding: 7px 28px;
-                    font-size: 13px; font-weight: 600; cursor: pointer;
-                    letter-spacing: 0.3px;
-                ">OK</button>
+                <button id="crDashboardPopupOkBtn" class="cr-dashboard-popup-ok-btn">OK</button>
             </div>
         </div>
     `;

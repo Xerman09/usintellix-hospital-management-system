@@ -1233,6 +1233,130 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-cr-pill.due      { background: rgba(146,64,14,.2); color: #fcd34d; border-color: rgba(252,211,77,.3); }
 :root[data-theme="dark"] .pd-cr-pill.not_due  { background: rgba(21,128,61,.2); color: #86efac; border-color: rgba(134,239,172,.3); }
 
+/* Clinical Reminders Alert Popup */
+.cr-dashboard-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.cr-dashboard-popup-box {
+    background: var(--bg-surface, #ffffff);
+    color: var(--text-primary, #1e293b);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    min-width: 320px;
+    max-width: 480px;
+    width: 100%;
+    padding: 24px 26px 20px;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.cr-dashboard-popup-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cr-dashboard-popup-items {
+    margin-bottom: 16px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.cr-dashboard-popup-item {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: var(--text-primary, #334155);
+    line-height: 1.45;
+}
+
+.cr-dashboard-popup-item:last-child {
+    margin-bottom: 0;
+}
+
+.cr-dashboard-popup-link {
+    font-size: 12.5px;
+    color: var(--accent, #2563eb);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    display: inline-block;
+    transition: color .15s ease;
+}
+
+.cr-dashboard-popup-link:hover {
+    color: var(--accent-hover, #1d4ed8);
+}
+
+.cr-dashboard-popup-ok-btn {
+    background: var(--accent, #2563eb);
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    padding: 7px 28px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: background .15s ease, transform .05s ease;
+}
+
+.cr-dashboard-popup-ok-btn:hover {
+    background: var(--accent-hover, #1d4ed8);
+}
+
+.cr-dashboard-popup-ok-btn:active {
+    transform: scale(0.98);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-overlay {
+    background: rgba(0, 0, 0, 0.65);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-box {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-color, #334155);
+    box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-title {
+    color: var(--text-primary, #f1f5f9);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-item {
+    color: var(--text-primary, #cbd5e1);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-link {
+    color: #60a5fa;
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-link:hover {
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-ok-btn {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-ok-btn:hover {
+    background: #2563eb;
+}
+
 
 .pd-widget-header-title {
     flex-wrap: wrap;
@@ -6237,6 +6361,130 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-cr-pill.past_due { background: rgba(185,28,28,.2); color: #fca5a5; border-color: rgba(252,165,165,.3); }
 :root[data-theme="dark"] .pd-cr-pill.due      { background: rgba(146,64,14,.2); color: #fcd34d; border-color: rgba(252,211,77,.3); }
 :root[data-theme="dark"] .pd-cr-pill.not_due  { background: rgba(21,128,61,.2); color: #86efac; border-color: rgba(134,239,172,.3); }
+
+/* Clinical Reminders Alert Popup */
+.cr-dashboard-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.cr-dashboard-popup-box {
+    background: var(--bg-surface, #ffffff);
+    color: var(--text-primary, #1e293b);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    min-width: 320px;
+    max-width: 480px;
+    width: 100%;
+    padding: 24px 26px 20px;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.cr-dashboard-popup-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cr-dashboard-popup-items {
+    margin-bottom: 16px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.cr-dashboard-popup-item {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: var(--text-primary, #334155);
+    line-height: 1.45;
+}
+
+.cr-dashboard-popup-item:last-child {
+    margin-bottom: 0;
+}
+
+.cr-dashboard-popup-link {
+    font-size: 12.5px;
+    color: var(--accent, #2563eb);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    display: inline-block;
+    transition: color .15s ease;
+}
+
+.cr-dashboard-popup-link:hover {
+    color: var(--accent-hover, #1d4ed8);
+}
+
+.cr-dashboard-popup-ok-btn {
+    background: var(--accent, #2563eb);
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    padding: 7px 28px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: background .15s ease, transform .05s ease;
+}
+
+.cr-dashboard-popup-ok-btn:hover {
+    background: var(--accent-hover, #1d4ed8);
+}
+
+.cr-dashboard-popup-ok-btn:active {
+    transform: scale(0.98);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-overlay {
+    background: rgba(0, 0, 0, 0.65);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-box {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-color, #334155);
+    box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-title {
+    color: var(--text-primary, #f1f5f9);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-item {
+    color: var(--text-primary, #cbd5e1);
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-link {
+    color: #60a5fa;
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-link:hover {
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-ok-btn {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+:root[data-theme="dark"] .cr-dashboard-popup-ok-btn:hover {
+    background: #2563eb;
+}
 
 
 .pd-widget-header-title {
