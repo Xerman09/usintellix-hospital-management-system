@@ -1,6 +1,7 @@
 import { api } from '../../core/api.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+import { showToast } from "../../core/toast.js";
 
 let currentScheduleData = {
     cases: [],
@@ -10,6 +11,9 @@ let currentScheduleData = {
     surgeons: []
 };
 
+// Specializations, surgery types and staff for booking (GET /or-management/options).
+let bookingOptions = { specializations: [], surgeries: [], doctors: [], staff: [] };
+
 let clockIntervalId = null;
 let autoRefreshIntervalId = null;
 let activeViewMode = 'whiteboard'; // 'whiteboard' | 'table'
@@ -18,6 +22,7 @@ export async function initOrManagement() {
     setupLiveClock();
     setupEventListeners();
     setupPatientPicker();
+    setupBookingPickers();
     setDefaultDate();
     await fetchSchedule();
     setupAutoRefresh();
@@ -256,11 +261,13 @@ function setupEventListeners() {
     const cancelBookBtn = document.getElementById('orCancelBookBtn');
     const bookForm = document.getElementById('orBookForm');
 
-    const openBookModal = (preselectedSuiteId = null) => {
+    const openBookModal = async (preselectedSuiteId = null) => {
         const curDate = document.getElementById('orFilterDate')?.value || todayISO();
         const fDate = document.getElementById('orFDate');
         if (fDate) fDate.value = curDate;
         populateSuiteSelect('orFSuiteId', preselectedSuiteId);
+        clearBookErrors();
+        await loadBookingOptions();
         if (bookModal) bookModal.style.display = 'flex';
     };
 
@@ -894,11 +901,12 @@ function renderScheduleTable(cases) {
 
 async function handleBookSubmit(e) {
     e.preventDefault();
+    clearBookErrors();
     const submitBtn = document.getElementById('orSubmitBookBtn');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Scheduling...'; }
 
     const g = id => document.getElementById(id)?.value || '';
     const chk = id => document.getElementById(id)?.checked ? 1 : 0;
+    const surgeryId = g('orFSurgery');
 
     const payload = {
         patient_id:                 g('orFPatientId') || null,
@@ -912,15 +920,18 @@ async function handleBookSubmit(e) {
         estimated_duration_minutes: g('orFDuration'),
         case_priority:              g('orFPriority'),
         perioperative_stage:        g('orFStage'),
-        surgical_specialty:         g('orFSpecialty'),
-        procedure_name:             g('orFProcedure'),
+        specialization_id:          g('orFSpecialty'),
+        surgery_id:                 surgeryId === 'other' ? '' : surgeryId,
+        procedure_name:             surgeryId === 'other' ? g('orFProcedure') : '',
+        laterality:                 g('orFLaterality'),
         preop_diagnosis:            g('orFPreopDiag'),
-        lead_surgeon:               g('orFSurgeon'),
-        assistant_surgeon:          g('orFAssistant'),
-        anesthesiologist:           g('orFAnesthesiologist'),
+        lead_surgeon_user_id:       g('orFSurgeon'),
+        assistant_surgeon_user_id:  g('orFAssistant'),
+        anesthesiologist_user_id:   g('orFAnesthesiaType') === 'Local' ? '' : g('orFAnesthesiologist'),
         anesthesia_type:            g('orFAnesthesiaType'),
-        scrub_nurse:                g('orFScrub'),
-        circulating_nurse:          g('orFCirculator'),
+        scrub_nurse_user_id:        g('orFScrub'),
+        circulating_nurse_user_id:  g('orFCirculator'),
+        team_override_reason:       document.getElementById('orFOverrideWrap')?.hidden ? '' : g('orFOverrideReason').trim(),
         preop_cleared:              chk('orFPreopCleared'),
         consent_signed:             chk('orFConsentSigned'),
         blood_reserved:             chk('orFBloodReserved'),
@@ -928,6 +939,7 @@ async function handleBookSubmit(e) {
         notes:                      g('orFNotes'),
     };
 
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Scheduling...'; }
     try {
         const res = await api('/or-management/cases', {
             method: 'POST',
@@ -935,20 +947,213 @@ async function handleBookSubmit(e) {
         });
 
         if (res.success) {
-            alert(`Surgical Case Booked Successfully! Case Number: ${res.data?.case_number || ''}`);
+            showToast(`Case ${res.data?.case_number || ''} booked.`, 'success');
             const modal = document.getElementById('orBookModal');
             if (modal) modal.style.display = 'none';
             document.getElementById('orBookForm')?.reset();
+            refreshBookingPickers();
             await fetchSchedule();
         } else {
-            alert('Error: ' + (res.message || 'Failed to book surgical case.'));
+            showBookErrors(res.message || 'Failed to book the surgical case.', res.errors || {});
         }
     } catch (err) {
         console.error(err);
-        alert('An unexpected error occurred while scheduling case.');
+        showBookErrors('An unexpected error occurred while scheduling the case.', {});
     } finally {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm & Schedule Case'; }
     }
+}
+
+/* ---------------------------------------------------------------
+ * Booking: specialization -> surgery -> team (flexible filtering)
+ * ------------------------------------------------------------- */
+
+async function loadBookingOptions() {
+    if (bookingOptions.specializations.length) return;
+    const res = await api('/or-management/options');
+    if (!res?.success) {
+        showBookErrors(res?.message || "Couldn't load the specializations and staff.", {});
+        return;
+    }
+    bookingOptions = res.data;
+    refreshBookingPickers();
+}
+
+function setupBookingPickers() {
+    const on = (id, fn) => document.getElementById(id)?.addEventListener('change', fn);
+    on('orFSpecialty', () => { renderSurgeryOptions(); renderTeamOptions(); applySurgery(); });
+    on('orFSurgery', () => { applySurgery(); });
+    on('orFSurgeon', updateOverride);
+    on('orFAnesthesiologist', updateOverride);
+    on('orFAnesthesiaType', () => { updateAnesthesiaRequired(); updateOverride(); });
+}
+
+/** Rebuilds every picker from the options (after loading, and after a booking resets the form). */
+function refreshBookingPickers() {
+    const spec = document.getElementById('orFSpecialty');
+    if (!spec) return;
+    const groups = [['surgical', 'Surgical'], ['anesthesiology', 'Anesthesiology'], ['medical', 'Medical'], ['other', 'Other']];
+    spec.innerHTML = '<option value="">-- Choose the specialization --</option>' + groups.map(([cat, label]) => {
+        const list = bookingOptions.specializations.filter(s => s.category === cat);
+        return list.length ? `<optgroup label="${label}">${list.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>` : '';
+    }).join('');
+    renderSurgeryOptions();
+    renderTeamOptions();
+    applySurgery();
+}
+
+function selectedSpec() {
+    const id = Number(document.getElementById('orFSpecialty')?.value || 0);
+    return bookingOptions.specializations.find(s => s.id === id) || null;
+}
+
+function selectedSurgery() {
+    const id = Number(document.getElementById('orFSurgery')?.value || 0);
+    return bookingOptions.surgeries.find(s => s.id === id) || null;
+}
+
+function renderSurgeryOptions() {
+    const sel = document.getElementById('orFSurgery');
+    const spec = selectedSpec();
+    if (!sel) return;
+    if (!spec) {
+        sel.innerHTML = '<option value="">-- Choose the specialization first --</option>';
+        return;
+    }
+    const list = bookingOptions.surgeries.filter(s => s.specialization_id === spec.id);
+    sel.innerHTML = `<option value="">-- Choose the surgery (${list.length}) --</option>`
+        + list.map(s => `<option value="${s.id}">${esc(s.name)}${s.code ? ` (${esc(s.code)})` : ''}</option>`).join('')
+        + '<option value="other">Other — not in the list…</option>';
+}
+
+/** Doctors in the specialization first, everyone else under "Other doctors". */
+function doctorOptions(matchFn, firstLabel, placeholder, includeNone) {
+    const docs = bookingOptions.doctors;
+    const match = docs.filter(matchFn);
+    const rest = docs.filter(d => !matchFn(d));
+    const opt = d => `<option value="${d.user_id}">${esc(d.name)}${d.specializations.length ? ` — ${esc(d.specializations.join(', '))}` : ''}</option>`;
+    return `<option value="">${placeholder}</option>`
+        + (match.length ? `<optgroup label="${esc(firstLabel)}">${match.map(opt).join('')}</optgroup>` : '')
+        + (rest.length ? `<optgroup label="Other doctors (a reason is needed)">${rest.map(opt).join('')}</optgroup>` : '')
+        + (includeNone ? '' : '');
+}
+
+function renderTeamOptions() {
+    const spec = selectedSpec();
+    const keep = id => document.getElementById(id)?.value || '';
+    const set = (id, html) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const prev = el.value;
+        el.innerHTML = html;
+        if ([...el.options].some(o => o.value === prev)) el.value = prev;
+    };
+    const inSpec = d => spec && d.specialization_ids.includes(spec.id);
+    const label = spec ? `${spec.name} surgeons` : 'Doctors';
+
+    set('orFSurgeon', doctorOptions(inSpec, label, spec ? '-- Choose the surgeon --' : '-- Choose the specialization first --'));
+    set('orFAssistant', doctorOptions(inSpec, label, '-- None --'));
+    set('orFAnesthesiologist', doctorOptions(d => d.is_anesthesiologist, 'Anesthesiologists', '-- Choose the anesthesiologist --'));
+
+    const staffOpt = s => `<option value="${s.user_id}">${esc(s.name)}${s.role ? ` (${esc(s.role)})` : ''}</option>`;
+    const nurses = bookingOptions.staff.filter(s => !s.is_doctor);
+    const doctors = bookingOptions.staff.filter(s => s.is_doctor);
+    const staffHtml = '<option value="">-- None --</option>'
+        + (nurses.length ? `<optgroup label="Staff">${nurses.map(staffOpt).join('')}</optgroup>` : '')
+        + (doctors.length ? `<optgroup label="Doctors">${doctors.map(staffOpt).join('')}</optgroup>` : '');
+    set('orFScrub', staffHtml);
+    set('orFCirculator', staffHtml);
+    void keep;
+    updateAnesthesiaRequired();
+    updateOverride();
+}
+
+/** Fills the booking defaults from the chosen surgery and shows what it usually needs. */
+function applySurgery() {
+    const surgery = selectedSurgery();
+    const other = document.getElementById('orFSurgery')?.value === 'other';
+    const procWrap = document.getElementById('orFProcedureWrap');
+    if (procWrap) procWrap.hidden = !other;
+
+    const side = document.getElementById('orFLateralityLabel');
+    if (side) side.textContent = surgery?.requires_laterality ? 'Side *' : 'Side';
+
+    const hints = [];
+    if (surgery) {
+        const dur = document.getElementById('orFDuration');
+        if (dur) dur.value = surgery.default_duration_minutes;
+        const anes = document.getElementById('orFAnesthesiaType');
+        if (anes && surgery.default_anesthesia_type) anes.value = surgery.default_anesthesia_type;
+        if (surgery.requires_laterality) hints.push('Say which side.');
+        if (surgery.usually_needs_blood) hints.push('Usually needs blood — reserve it in the blood bank.');
+        if (surgery.usually_needs_implants) hints.push('Usually needs implants — arrange them.');
+        if (surgery.item_count) hints.push(`Preference card: ${surgery.item_count} item${surgery.item_count === 1 ? '' : 's'} (see Surgeries).`);
+        hints.unshift(`${esc(surgery.category)} · usually ${surgery.default_duration_minutes} min${surgery.wound_class ? ` · ${esc(surgery.wound_class)}` : ''}`);
+    }
+    const box = document.getElementById('orFHints');
+    if (box) {
+        box.hidden = !hints.length;
+        box.innerHTML = hints.join('<br>');
+    }
+    updateAnesthesiaRequired();
+}
+
+function updateAnesthesiaRequired() {
+    const local = document.getElementById('orFAnesthesiaType')?.value === 'Local';
+    const label = document.getElementById('orFAnesLabel');
+    const sel = document.getElementById('orFAnesthesiologist');
+    if (label) label.textContent = local ? 'Anesthesiologist (not needed for local)' : 'Anesthesiologist *';
+    if (sel) sel.disabled = local;
+}
+
+/** A surgeon outside the specialization, or an anesthesiologist outside Anesthesiology, needs a reason. */
+function updateOverride() {
+    const spec = selectedSpec();
+    const why = [];
+    const surgeon = bookingOptions.doctors.find(d => String(d.user_id) === (document.getElementById('orFSurgeon')?.value || ''));
+    if (surgeon && spec && !surgeon.specialization_ids.includes(spec.id)) why.push(`${surgeon.name} isn't listed under ${spec.name}.`);
+    const local = document.getElementById('orFAnesthesiaType')?.value === 'Local';
+    const anes = bookingOptions.doctors.find(d => String(d.user_id) === (document.getElementById('orFAnesthesiologist')?.value || ''));
+    if (!local && anes && !anes.is_anesthesiologist) why.push(`${anes.name} isn't listed under Anesthesiology.`);
+    const wrap = document.getElementById('orFOverrideWrap');
+    if (wrap) wrap.hidden = !why.length;
+    const text = document.getElementById('orFOverrideWhy');
+    if (text) text.textContent = why.join(' ');
+}
+
+const BOOK_FIELD_IDS = {
+    patient_name: 'orFPatientName', patient_id: 'orFPatientSelect', or_suite_id: 'orFSuiteId', scheduled_date: 'orFDate', scheduled_start_time: 'orFStartTime',
+    estimated_duration_minutes: 'orFDuration', case_priority: 'orFPriority', perioperative_stage: 'orFStage', specialization_id: 'orFSpecialty',
+    surgery_id: 'orFSurgery', procedure_name: 'orFProcedure', laterality: 'orFLaterality', lead_surgeon_user_id: 'orFSurgeon',
+    assistant_surgeon_user_id: 'orFAssistant', anesthesiologist_user_id: 'orFAnesthesiologist', anesthesia_type: 'orFAnesthesiaType',
+    scrub_nurse_user_id: 'orFScrub', circulating_nurse_user_id: 'orFCirculator', team_override_reason: 'orFOverrideReason'
+};
+
+function clearBookErrors() {
+    const alertBox = document.getElementById('orFAlert');
+    if (alertBox) alertBox.innerHTML = '';
+    document.querySelectorAll('#orBookForm [data-err]').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('#orBookForm .has-error').forEach(el => el.classList.remove('has-error'));
+}
+
+function showBookErrors(message, errors) {
+    const alertBox = document.getElementById('orFAlert');
+    const unplaced = [];
+    Object.entries(errors).forEach(([rawKey, msg]) => {
+        // No surgery chosen at all: the message belongs under the surgery picker.
+        const key = rawKey === 'procedure_name' && document.getElementById('orFProcedureWrap')?.hidden ? 'surgery_id' : rawKey;
+        const slot = document.querySelector(`#orBookForm [data-err="${key}"]`);
+        if (slot) {
+            slot.textContent = msg;
+            slot.closest('.or-form-group')?.classList.add('has-error');
+        } else {
+            unplaced.push(msg);
+            document.getElementById(BOOK_FIELD_IDS[key] || '')?.closest('.or-form-group')?.classList.add('has-error');
+        }
+    });
+    if (errors.team_override_reason) document.getElementById('orFOverrideWrap').hidden = false;
+    if (alertBox) alertBox.innerHTML = `<div class="or-falert">${esc(message)}${unplaced.length ? `<br>${unplaced.map(esc).join('<br>')}` : ''}</div>`;
+    alertBox?.scrollIntoView({ block: 'nearest' });
 }
 
 async function openStageModal(caseId, currentStage) {
@@ -1018,11 +1223,11 @@ async function handleStageSubmit(e) {
             if (modal) modal.style.display = 'none';
             await fetchSchedule();
         } else {
-            alert('Error updating stage: ' + (res.message || 'Operation failed.'));
+            showToast('Error updating stage: ' + (res.message || 'Operation failed.'), 'error');
         }
     } catch (err) {
         console.error(err);
-        alert('An unexpected error occurred while updating stage.');
+        showToast('An unexpected error occurred while updating stage.', 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Update Stage'; }
     }
@@ -1038,11 +1243,11 @@ async function openDetailModal(caseId) {
             populateDetailModal(res.data);
             modal.style.display = 'flex';
         } else {
-            alert('Unable to load surgical case details.');
+            showToast('Unable to load surgical case details.', 'error');
         }
     } catch (err) {
         console.error(err);
-        alert('An error occurred while loading case details.');
+        showToast('An error occurred while loading case details.', 'error');
     }
 }
 
@@ -1170,11 +1375,11 @@ function renderSuiteStatusList() {
                 await fetchSchedule(true);
                 renderSuiteStatusList();
             } else {
-                alert('Error: ' + (res.message || 'Failed to update suite status.'));
+                showToast('Error: ' + (res.message || 'Failed to update suite status.'), 'error');
             }
         } catch (err) {
             console.error(err);
-            alert('An unexpected error occurred while updating suite status.');
+            showToast('An unexpected error occurred while updating suite status.', 'error');
         }
     };
 }
@@ -1306,17 +1511,17 @@ async function handleRegisterSuiteSubmit(e) {
         }
 
         if (res.success) {
-            alert(editId ? 'OR Suite updated successfully!' : `New OR Suite registered successfully: ${res.data?.suite_code || ''}`);
+            showToast(editId ? 'OR Suite updated.' : `New OR Suite registered: ${res.data?.suite_code || ''}`, 'success');
             const modal = document.getElementById('orRegisterSuiteModal');
             if (modal) modal.style.display = 'none';
             resetRegSuiteForm();
             await fetchSchedule();
         } else {
-            alert('Error: ' + (res.message || 'Operation failed.'));
+            showToast('Error: ' + (res.message || 'Operation failed.'), 'error');
         }
     } catch (err) {
         console.error(err);
-        alert('An unexpected error occurred while saving suite.');
+        showToast('An unexpected error occurred while saving suite.', 'error');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;

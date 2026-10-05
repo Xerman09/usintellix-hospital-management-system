@@ -280,6 +280,12 @@ export function ProvidersView()
     .prov-toolbar-controls { justify-content: stretch; }
     .prov-search-wrap { max-width: none; }
 }
+.prov-spec-list { max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 10px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 12px; background: var(--bg-surface); }
+.prov-spec-list .grp { grid-column: 1 / -1; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); margin-top: 6px; }
+.prov-spec-list label { text-transform: none; letter-spacing: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 400; color: var(--text-primary); padding: 3px 0; cursor: pointer; margin: 0; }
+.prov-spec-list input { width: 15px; height: 15px; accent-color: var(--accent); flex: none; }
+.prov-spec-subs { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
 </style>
 
 <div class="prov-page">
@@ -361,9 +367,17 @@ export function ProvidersView()
                 </div>
 
                 <div class="form-group full">
-                    <label>Specialty</label>
-                    <input id="specialty" class="form-input" placeholder="e.g Cardiology">
-                    <span class="form-error" id="err-specialty"></span>
+                    <label>Main specialization</label>
+                    <select id="primary_specialization_id" class="form-input"><option value="">Choose...</option></select>
+                    <span class="form-error" id="err-primary_specialization_id"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Sub-specializations <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+                    <input type="search" id="subSpecSearch" class="form-input" placeholder="Filter the list..." style="margin-bottom:6px;">
+                    <div id="subSpecList" class="prov-spec-list"></div>
+                    <span class="form-error" id="err-sub_specialization_ids"></span>
+                    <span style="font-size:11.5px;color:var(--text-muted);">Surgeons are matched to surgeries by these; Anesthesiology makes the doctor an anesthesiologist. Manage the list under Specializations.</span>
                 </div>
 
                 <div class="form-group full">

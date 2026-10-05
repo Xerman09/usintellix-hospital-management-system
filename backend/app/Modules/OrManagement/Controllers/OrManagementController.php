@@ -76,23 +76,22 @@ class OrManagementController extends Controller
         $user = Session::get('user');
         $userId = $user['id'] ?? null;
 
-        $data = $request->all();
+        $result = $this->service->scheduleCase($request->all(), $userId ? (int) $userId : null);
 
-        if (empty($data['procedure_name'])) {
-            $this->error('Procedure Name is required.', 422);
-            return;
-        }
-        if (empty($data['lead_surgeon'])) {
-            $this->error('Lead Operating Surgeon is required.', 422);
-            return;
-        }
-        if (empty($data['or_suite_id'])) {
-            $this->error('OR Suite selection is required.', 422);
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
             return;
         }
 
-        $newCase = $this->service->scheduleCase($data, $userId ? (int) $userId : null);
-        $this->success($newCase, 'Surgical Case booked and scheduled successfully.', 201);
+        $this->success($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * GET /or-management/options -- specializations, surgery types and staff for booking.
+     */
+    public function options(): void
+    {
+        $this->success($this->service->options(), 'Options retrieved successfully.');
     }
 
     /**

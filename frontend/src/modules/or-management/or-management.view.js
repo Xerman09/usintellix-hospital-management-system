@@ -1071,7 +1071,16 @@ export function OrManagementView() {
                 .or-wrapper { padding: 0 !important; background: #fff !important; }
                 .or-suite-card, .or-kpi-card, .or-table-wrapper { box-shadow: none !important; border: 1px solid #ccc !important; }
             }
-        </style>
+        .or-ferr { display: block; font-size: 11.5px; color: #dc2626; margin-top: 3px; }
+.or-ferr:empty { display: none; }
+.or-fhint { display: block; font-size: 11.5px; color: #64748b; margin-top: 3px; }
+.or-fhints { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; }
+.or-form-group.has-error input, .or-form-group.has-error select { border-color: #dc2626 !important; }
+.or-falert { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 10px; }
+:root[data-theme="dark"] .or-ferr { color: #fca5a5; }
+:root[data-theme="dark"] .or-fhints { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.4); color: #bfdbfe; }
+:root[data-theme="dark"] .or-falert { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.45); color: #fecaca; }
+</style>
 
         <!-- Top Command Strip / Live Operational Ribbon -->
         <div class="or-command-strip">
@@ -1342,6 +1351,7 @@ export function OrManagementView() {
             </div>
             <form id="orBookForm" autocomplete="off">
                 <div class="or-modal-body">
+                    <div id="orFAlert"></div>
                     <div class="or-form-grid">
 
                         <!-- Patient Selector Box -->
@@ -1359,6 +1369,7 @@ export function OrManagementView() {
                         <div class="or-form-group">
                             <label>Patient Full Name *</label>
                             <input type="text" id="orFPatientName" required placeholder="Patient full name" />
+                            <span class="or-ferr" data-err="patient_name"></span>
                         </div>
                         <div class="or-form-group">
                             <label>Patient MRN / Patient No</label>
@@ -1384,6 +1395,7 @@ export function OrManagementView() {
                             <select id="orFSuiteId" required>
                                 <option value="">-- Select OR Suite --</option>
                             </select>
+                            <span class="or-ferr" data-err="or_suite_id"></span>
                         </div>
                         <div class="or-form-group">
                             <label>Scheduled Date *</label>
@@ -1417,41 +1429,44 @@ export function OrManagementView() {
                         <div class="or-section-divider">Procedure &amp; Surgical Team</div>
 
                         <div class="or-form-group">
-                            <label>Surgical Specialty *</label>
-                            <select id="orFSpecialty" required>
-                                <option value="General Surgery">General Surgery</option>
-                                <option value="Orthopedic Surgery">Orthopedic Surgery</option>
-                                <option value="Cardiothoracic Surgery">Cardiothoracic Surgery</option>
-                                <option value="Neurosurgery">Neurosurgery</option>
-                                <option value="OB-GYN Surgery">OB-GYN Surgery</option>
-                                <option value="Urology">Urology</option>
-                                <option value="Otolaryngology (ENT)">Otolaryngology (ENT)</option>
-                                <option value="Ophthalmology">Ophthalmology</option>
-                                <option value="Plastics &amp; Reconstructive">Plastics &amp; Reconstructive</option>
-                                <option value="Vascular Surgery">Vascular Surgery</option>
-                                <option value="Pediatric Surgery">Pediatric Surgery</option>
-                                <option value="Gastroenterology / GI Surgery">Gastroenterology / GI Surgery</option>
-                            </select>
+                            <label>Specialization *</label>
+                            <select id="orFSpecialty"><option value="">-- Loading... --</option></select>
+                            <span class="or-ferr" data-err="specialization_id"></span>
                         </div>
                         <div class="or-form-group">
-                            <label>Procedure Name *</label>
-                            <input type="text" id="orFProcedure" required placeholder="e.g. Laparoscopic Cholecystectomy" />
+                            <label>Surgery *</label>
+                            <select id="orFSurgery"><option value="">-- Choose the specialization first --</option></select>
+                            <span class="or-ferr" data-err="surgery_id"></span>
                         </div>
+                        <div class="or-form-group" id="orFProcedureWrap" hidden>
+                            <label>Procedure (not in the list) *</label>
+                            <input type="text" id="orFProcedure" placeholder="e.g. Exploratory laparotomy" />
+                            <span class="or-ferr" data-err="procedure_name"></span>
+                        </div>
+                        <div class="or-form-group">
+                            <label id="orFLateralityLabel">Side</label>
+                            <select id="orFLaterality">
+                                <option value="">Not applicable</option>
+                                <option value="Left">Left</option>
+                                <option value="Right">Right</option>
+                                <option value="Bilateral">Bilateral (both)</option>
+                            </select>
+                            <span class="or-ferr" data-err="laterality"></span>
+                        </div>
+                        <div class="or-form-group full-width or-fhints" id="orFHints" hidden></div>
                         <div class="or-form-group full-width">
                             <label>Pre-Op Diagnosis</label>
                             <input type="text" id="orFPreopDiag" placeholder="e.g. Acute Cholecystitis with Cholelithiasis" />
                         </div>
                         <div class="or-form-group">
-                            <label>Lead Operating Surgeon *</label>
-                            <input type="text" id="orFSurgeon" required placeholder="e.g. Dr. Mark Villareal, MD, FPCS" />
+                            <label>Lead Surgeon *</label>
+                            <select id="orFSurgeon"></select>
+                            <span class="or-ferr" data-err="lead_surgeon_user_id"></span>
                         </div>
                         <div class="or-form-group">
                             <label>Assistant Surgeon</label>
-                            <input type="text" id="orFAssistant" placeholder="Assistant surgeon name" />
-                        </div>
-                        <div class="or-form-group">
-                            <label>Anesthesiologist *</label>
-                            <input type="text" id="orFAnesthesiologist" required placeholder="e.g. Dr. Karen Ong, MD, DPBA" />
+                            <select id="orFAssistant"></select>
+                            <span class="or-ferr" data-err="assistant_surgeon_user_id"></span>
                         </div>
                         <div class="or-form-group">
                             <label>Anesthesia Type *</label>
@@ -1462,27 +1477,41 @@ export function OrManagementView() {
                                 <option value="Epidural">Epidural Anesthesia</option>
                                 <option value="MAC / Sedation">MAC / Monitored Anesthesia Care</option>
                                 <option value="Regional Block">Regional Nerve Block</option>
-                                <option value="Local">Local Anesthesia</option>
+                                <option value="Local">Local Anesthesia (by the surgeon)</option>
                             </select>
+                            <span class="or-ferr" data-err="anesthesia_type"></span>
+                        </div>
+                        <div class="or-form-group">
+                            <label id="orFAnesLabel">Anesthesiologist *</label>
+                            <select id="orFAnesthesiologist"></select>
+                            <span class="or-ferr" data-err="anesthesiologist_user_id"></span>
+                        </div>
+                        <div class="or-form-group full-width" id="orFOverrideWrap" hidden>
+                            <label>Reason for choosing a doctor outside the specialization *</label>
+                            <input type="text" id="orFOverrideReason" maxlength="255" placeholder="e.g. Emergency; covering for Dr. Cruz" />
+                            <span class="or-fhint" id="orFOverrideWhy"></span>
+                            <span class="or-ferr" data-err="team_override_reason"></span>
                         </div>
                         <div class="or-form-group">
                             <label>Scrub Nurse</label>
-                            <input type="text" id="orFScrub" placeholder="Scrub nurse name" />
+                            <select id="orFScrub"></select>
+                            <span class="or-ferr" data-err="scrub_nurse_user_id"></span>
                         </div>
                         <div class="or-form-group">
                             <label>Circulating Nurse</label>
-                            <input type="text" id="orFCirculator" placeholder="Circulating nurse name" />
+                            <select id="orFCirculator"></select>
+                            <span class="or-ferr" data-err="circulating_nurse_user_id"></span>
                         </div>
 
                         <div class="or-section-divider">Pre-Operative Readiness Checks</div>
 
                         <div class="or-form-group full-width" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
                             <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
-                                <input type="checkbox" id="orFPreopCleared" checked style="width: 16px; height: 16px; accent-color: #0284c7;" />
+                                <input type="checkbox" id="orFPreopCleared" style="width: 16px; height: 16px; accent-color: #0284c7;" />
                                 <span>Pre-Op Anesthesia Clearance Complete</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
-                                <input type="checkbox" id="orFConsentSigned" checked style="width: 16px; height: 16px; accent-color: #0284c7;" />
+                                <input type="checkbox" id="orFConsentSigned" style="width: 16px; height: 16px; accent-color: #0284c7;" />
                                 <span>Informed Surgical Consent Signed</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">

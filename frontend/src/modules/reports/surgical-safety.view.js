@@ -626,27 +626,27 @@ export function SurgicalSafetyView() {
                     <div class="ssc-form-section-title">2. Phase 1: SIGN-IN (Before Induction of Anesthesia)</div>
                     <div class="ssc-form-group">
                         <label>Patient Identity Verified (2 Identifiers)?</label>
-                        <select id="sscFIdentity"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFIdentity" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Surgical Consent Signed &amp; Matched?</label>
-                        <select id="sscFConsent"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFConsent" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Operative Site Marking Required (Lateral/Level)?</label>
-                        <select id="sscFSiteReq"><option value="1" selected>Yes</option><option value="0">No / N/A (Midline Organ)</option></select>
+                        <select id="sscFSiteReq" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No / N/A (Midline Organ)</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Site Marked by Operating Surgeon?</label>
-                        <select id="sscFSiteMarked"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFSiteMarked" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Anesthesia Safety Check Completed?</label>
-                        <select id="sscFAnesCheck"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFAnesCheck" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Allergies Reviewed &amp; Wristband Present?</label>
-                        <select id="sscFAllergies"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFAllergies" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Difficult Airway / Aspiration Risk?</label>
@@ -660,7 +660,7 @@ export function SurgicalSafetyView() {
                     <div class="ssc-form-section-title">3. Phase 2: TIME-OUT (Immediately Pre-Incision &mdash; Full Team Pause)</div>
                     <div class="ssc-form-group">
                         <label>Multidisciplinary Time-Out Pause Performed?</label>
-                        <select id="sscFTimeOut"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFTimeOut" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Time-Out Timestamp</label>
@@ -668,27 +668,27 @@ export function SurgicalSafetyView() {
                     </div>
                     <div class="ssc-form-group">
                         <label>Team Members Introduced (Name &amp; Role)?</label>
-                        <select id="sscFIntroductions"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFIntroductions" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Patient, Procedure, &amp; Site Verbally Agreed?</label>
-                        <select id="sscFVerbalAgreed"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFVerbalAgreed" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Patient Positioning Confirmed Correct?</label>
-                        <select id="sscFPosition"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFPosition" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Antibiotic Prophylaxis Given within 60 Min?</label>
-                        <select id="sscFAbxGiven"><option value="1" selected>Yes</option><option value="0">No / N/A</option></select>
+                        <select id="sscFAbxGiven" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No / N/A</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Essential Diagnostic Imaging Displayed?</label>
-                        <select id="sscFImaging"><option value="1" selected>Yes</option><option value="0">No / N/A</option></select>
+                        <select id="sscFImaging" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No / N/A</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Implants / Hardware Specs Re-Verified?</label>
-                        <select id="sscFImplants"><option value="1" selected>Yes</option><option value="0">No / N/A</option></select>
+                        <select id="sscFImplants" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No / N/A</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Near-Miss / Discrepancy Caught at Time-Out?</label>
@@ -702,12 +702,13 @@ export function SurgicalSafetyView() {
                     <div class="ssc-form-section-title">4. Phase 3: SIGN-OUT (Before Patient Leaves OR)</div>
                     <div class="ssc-form-group">
                         <label>Post-Op Sign-Out Debriefing Completed?</label>
-                        <select id="sscFSignOut"><option value="1" selected>Yes</option><option value="0">No</option></select>
+                        <select id="sscFSignOut" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Surgical Sponge, Needle &amp; Instrument Counts</label>
-                        <select id="sscFCounts">
-                            <option value="Correct &amp; Reconciled" selected>Correct &amp; Reconciled</option>
+                        <select id="sscFCounts" required>
+                            <option value="" selected disabled>Choose…</option>
+                            <option value="Correct &amp; Reconciled">Correct &amp; Reconciled</option>
                             <option value="Discrepancy Resolved on Recount">Discrepancy Resolved on Recount</option>
                             <option value="Unresolved Discrepancy - X-Ray Ordered">Unresolved Discrepancy - X-Ray Ordered</option>
                             <option value="Not Applicable">Not Applicable</option>
@@ -715,7 +716,7 @@ export function SurgicalSafetyView() {
                     </div>
                     <div class="ssc-form-group">
                         <label>Surgical Specimen Containers Labeled Aloud?</label>
-                        <select id="sscFSpecimen"><option value="1" selected>Yes</option><option value="0">No / N/A</option></select>
+                        <select id="sscFSpecimen" required><option value="" selected disabled>Choose…</option><option value="1">Yes</option><option value="0">No / N/A</option></select>
                     </div>
                     <div class="ssc-form-group">
                         <label>Equipment Malfunctions Noted?</label>

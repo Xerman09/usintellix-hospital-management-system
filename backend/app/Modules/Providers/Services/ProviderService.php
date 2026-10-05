@@ -6,6 +6,7 @@ use App\Core\Database;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Providers\Models\Provider;
 use App\Modules\Roles\Models\Role;
+use App\Modules\Specializations\Services\SpecializationService;
 use App\Modules\Users\Models\User;
 use PDO;
 use Throwable;
@@ -31,8 +32,92 @@ class ProviderService
         );
 
         $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $specs = self::specializationsOf(array_column($rows, 'id'));
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(function ($r) use ($specs) {
+            $mine = $specs[(int) $r['id']] ?? [];
+            $primary = array_values(array_filter($mine, fn($s) => $s['is_primary']))[0] ?? null;
+            return $r + [
+                'primary_specialization_id' => $primary['id'] ?? null,
+                'primary_specialization' => $primary['name'] ?? null,
+                'sub_specialization_ids' => array_values(array_map(fn($s) => $s['id'], array_filter($mine, fn($s) => !$s['is_primary']))),
+                'specializations' => $mine
+            ];
+        }, $rows);
+    }
+
+    /**
+     * provider id => its specializations [{id, name, category, is_primary}], primary first.
+     */
+    public static function specializationsOf(array $providerIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $providerIds))));
+        if (!$ids) {
+            return [];
+        }
+
+        $out = [];
+        foreach (Database::connection()->query(
+            "SELECT ps.provider_id, s.id, s.name, s.category, ps.is_primary
+             FROM provider_specializations ps JOIN specializations s ON s.id = ps.specialization_id
+             WHERE ps.provider_id IN (" . implode(',', $ids) . ")
+             ORDER BY ps.is_primary DESC, s.name"
+        )->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $out[(int) $r['provider_id']][] = ['id' => (int) $r['id'], 'name' => $r['name'], 'category' => $r['category'], 'is_primary' => (bool) $r['is_primary']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The primary specialization and sub-specializations asked for:
+     * ['primary' => row, 'subs' => [ids]] or ['errors' => [...]].
+     * A specialization switched off can stay on a doctor who already has it.
+     */
+    private function readSpecializations(array $data, ?int $providerId = null): array
+    {
+        $primaryId = (int) ($data['primary_specialization_id'] ?? 0);
+        $subs = $data['sub_specialization_ids'] ?? [];
+        if (is_string($subs)) {
+            $subs = $subs === '' ? [] : explode(',', $subs);
+        }
+        $subs = array_values(array_unique(array_filter(array_map('intval', is_array($subs) ? $subs : []), fn($id) => $id > 0 && $id !== $primaryId)));
+
+        if (!$primaryId) {
+            return ['errors' => ['primary_specialization_id' => 'Choose the doctor\'s main specialization.']];
+        }
+
+        $current = $providerId ? array_column(self::specializationsOf([$providerId])[$providerId] ?? [], 'id') : [];
+        $found = SpecializationService::byId(array_merge([$primaryId], $subs));
+        $usable = fn($id) => isset($found[$id]) && ((int) $found[$id]['is_active'] === 1 || in_array($id, $current, true));
+
+        if (!$usable($primaryId)) {
+            return ['errors' => ['primary_specialization_id' => 'Choose a specialization from the list.']];
+        }
+        foreach ($subs as $id) {
+            if (!$usable($id)) {
+                return ['errors' => ['sub_specialization_ids' => 'One of the sub-specializations is no longer on the list. Reload and try again.']];
+            }
+        }
+
+        return ['primary' => $found[$primaryId], 'subs' => $subs];
+    }
+
+    /** Replaces the doctor's specializations; providers.specialty follows the primary one (printouts read it). */
+    private function saveSpecializations(int $providerId, array $spec, int $userId): void
+    {
+        $db = Database::connection();
+        $db->prepare("DELETE FROM provider_specializations WHERE provider_id = :id")->execute(['id' => $providerId]);
+        $insert = $db->prepare(
+            "INSERT INTO provider_specializations (provider_id, specialization_id, is_primary, created_at, created_by) VALUES (:p, :s, :primary, :now, :u)"
+        );
+        $now = date('Y-m-d H:i:s');
+        $insert->execute(['p' => $providerId, 's' => $spec['primary']['id'], 'primary' => 1, 'now' => $now, 'u' => $userId]);
+        foreach ($spec['subs'] as $id) {
+            $insert->execute(['p' => $providerId, 's' => $id, 'primary' => 0, 'now' => $now, 'u' => $userId]);
+        }
+        $db->prepare("UPDATE providers SET specialty = :name WHERE id = :id")->execute(['name' => $spec['primary']['name'], 'id' => $providerId]);
     }
 
     /**
@@ -81,6 +166,12 @@ class ProviderService
      */
     public function register(array $data, int $createdBy): array
     {
+        $spec = $this->readSpecializations($data);
+        if (isset($spec['errors'])) {
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => $spec['errors']];
+        }
+        $data['specialty'] = $spec['primary']['name'];
+
         $errors = $this->validate($data);
 
         if (!empty($errors)) {
@@ -91,7 +182,13 @@ class ProviderService
             ];
         }
 
+        $db = Database::connection();
+        $owns = !$db->inTransaction();
+
         try {
+            if ($owns) {
+                $db->beginTransaction();
+            }
             $providerId = (new Provider())->create([
                 'employee_id'    => (int) $data['employee_id'],
                 'specialty'      => $data['specialty'],
@@ -110,6 +207,11 @@ class ProviderService
                 throw new \RuntimeException('Failed to create provider record.');
             }
 
+            $this->saveSpecializations((int) $providerId, $spec, $createdBy);
+            if ($owns) {
+                $db->commit();
+            }
+
             return [
                 'success' => true,
                 'message' => 'Provider created successfully.',
@@ -118,6 +220,9 @@ class ProviderService
                 ]
             ];
         } catch (Throwable $e) {
+            if ($owns && $db->inTransaction()) {
+                $db->rollBack();
+            }
             return [
                 'success' => false,
                 'message' => 'Failed to create provider.'
@@ -140,10 +245,10 @@ class ProviderService
             return ['success' => false, 'message' => 'Provider not found.', 'not_found' => true];
         }
 
-        $errors = [];
-
-        if (trim((string) ($data['specialty'] ?? '')) === '') {
-            $errors['specialty'] = 'Specialty is required.';
+        $spec = $this->readSpecializations($data, $id);
+        $errors = $spec['errors'] ?? [];
+        if (!$errors) {
+            $data['specialty'] = $spec['primary']['name'];
         }
 
         $errors += $this->validateCredentials($data);
@@ -168,7 +273,23 @@ class ProviderService
         $values['updated_at'] = date('Y-m-d H:i:s');
         $values['updated_by'] = $updatedBy;
 
-        (new Provider())->update($values, $id);
+        $db = Database::connection();
+        $owns = !$db->inTransaction();
+        if ($owns) {
+            $db->beginTransaction();
+        }
+        try {
+            (new Provider())->update($values, $id);
+            $this->saveSpecializations($id, $spec, $updatedBy);
+            if ($owns) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($owns) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
 
         return ['success' => true, 'message' => 'Provider updated successfully.'];
     }

@@ -3,6 +3,9 @@
 namespace App\Modules\OrManagement\Services;
 
 use App\Core\Database;
+use App\Modules\Providers\Services\ProviderService;
+use App\Modules\Specializations\Services\SpecializationService;
+use App\Modules\Surgeries\Services\SurgeryService;
 use PDO;
 
 class OrManagementService
@@ -155,114 +158,306 @@ class OrManagementService
         return $row;
     }
 
+    public const LATERALITIES = ['Left', 'Right', 'Bilateral'];
+
     /**
-     * Schedule a new surgical case
+     * Lists for booking: specializations, surgery types and the staff who
+     * can be on the team. Doctors carry their specializations so the form
+     * can put the ones matching the case first (flexible filtering);
+     * anesthesiologists are doctors with an anesthesiology specialization.
+     */
+    public function options(): array
+    {
+        $db = Database::connection();
+
+        $doctors = $db->query(
+            "SELECT p.id AS provider_id, e.user_id, e.first_name, e.last_name, e.suffix
+             FROM providers p
+             JOIN employees e ON e.id = p.employee_id AND e.deleted_at IS NULL
+             JOIN users u ON u.id = e.user_id
+             WHERE p.deleted_at IS NULL
+             ORDER BY e.last_name, e.first_name"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $specs = ProviderService::specializationsOf(array_column($doctors, 'provider_id'));
+
+        $staff = $db->query(
+            "SELECT e.user_id, e.first_name, e.last_name, e.suffix, r.name AS role_name,
+                    EXISTS (SELECT 1 FROM providers p WHERE p.employee_id = e.id AND p.deleted_at IS NULL) AS is_doctor
+             FROM employees e
+             JOIN users u ON u.id = e.user_id
+             LEFT JOIN roles r ON r.id = u.role_id
+             WHERE e.deleted_at IS NULL
+             ORDER BY e.last_name, e.first_name"
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'specializations' => (new SpecializationService())->list(),
+            'surgeries' => (new SurgeryService())->list(),
+            'lateralities' => self::LATERALITIES,
+            'anesthesia_types' => array_map(fn($k, $v) => ['value' => $k, 'label' => $v], array_keys(SurgeryService::ANESTHESIA_TYPES), SurgeryService::ANESTHESIA_TYPES),
+            'doctors' => array_map(function ($d) use ($specs) {
+                $mine = $specs[(int) $d['provider_id']] ?? [];
+                return [
+                    'user_id' => (int) $d['user_id'],
+                    'name' => self::personName($d),
+                    'specialization_ids' => array_map(fn($s) => $s['id'], $mine),
+                    'specializations' => array_map(fn($s) => $s['name'], $mine),
+                    'is_anesthesiologist' => (bool) array_filter($mine, fn($s) => $s['category'] === 'anesthesiology')
+                ];
+            }, $doctors),
+            // Nurses and other staff (the nurse role is on hold, so anyone on staff can be picked).
+            'staff' => array_map(fn($e) => [
+                'user_id' => (int) $e['user_id'], 'name' => self::personName($e), 'role' => $e['role_name'], 'is_doctor' => (bool) $e['is_doctor']
+            ], $staff)
+        ];
+    }
+
+    /**
+     * Schedule a new surgical case.
+     *
+     * The team is chosen from staff (user ids); their names are kept on the
+     * case for the board. The surgeon and the anesthesiologist must be
+     * doctors. A surgeon outside the case's specialization, or an
+     * anesthesiologist without an anesthesiology specialization, needs a
+     * reason (team_override_reason). Returns ['success', 'message',
+     * 'errors'?, 'data'?].
      */
     public function scheduleCase(array $data, ?int $userId = null): array
     {
         $db = Database::connection();
+        $errors = [];
+        $text = fn($key, $max = 255) => ($v = trim((string) ($data[$key] ?? ''))) === '' ? null : mb_substr($v, 0, $max);
 
-        // 1. Generate Case Number OR-YYYY-XXXX
-        $year = date('Y');
-        $cntStmt = $db->query("SELECT COUNT(*) FROM or_surgical_cases WHERE YEAR(created_at) = {$year}");
-        $lastNum = (int) $cntStmt->fetchColumn();
-        $caseNumber = sprintf("OR-%s-%04d", $year, $lastNum + 1);
+        // Suite
+        $suiteId = (int) ($data['or_suite_id'] ?? 0);
+        $stmt = $db->prepare("SELECT id, suite_name, is_active FROM or_suites WHERE id = :id");
+        $stmt->execute(['id' => $suiteId]);
+        $suite = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$suite || !(int) $suite['is_active']) {
+            $errors['or_suite_id'] = 'Choose an OR suite.';
+        }
 
-        // 2. Resolve Suite Name
-        $suiteId = (int) ($data['or_suite_id'] ?? 1);
-        $suiteStmt = $db->prepare("SELECT suite_name FROM or_suites WHERE id = :id");
-        $suiteStmt->execute(['id' => $suiteId]);
-        $suiteName = $suiteStmt->fetchColumn() ?: 'OR Suite 1';
+        // Surgery type and specialization
+        $surgery = null;
+        if (!empty($data['surgery_id'])) {
+            $surgery = (new SurgeryService())->get((int) $data['surgery_id']);
+            if (!$surgery || !$surgery['is_active']) {
+                $errors['surgery_id'] = 'Choose a surgery from the list.';
+                $surgery = null;
+            }
+        }
+        $specId = (int) ($data['specialization_id'] ?? 0) ?: ($surgery['specialization_id'] ?? 0);
+        $spec = $specId ? (SpecializationService::byId([$specId])[$specId] ?? null) : null;
+        if (!$spec) {
+            $errors['specialization_id'] = 'Choose the specialization.';
+        } elseif ($surgery && $surgery['specialization_id'] && (int) $surgery['specialization_id'] !== (int) $spec['id']) {
+            $errors['surgery_id'] = "{$surgery['name']} is a {$surgery['specialization_name']} surgery. Choose that specialization or another surgery.";
+        }
 
-        // 3. Resolve Patient Details if patient_id passed
+        $procedure = $text('procedure_name') ?? ($surgery['name'] ?? null);
+        if ($procedure === null) {
+            $errors['procedure_name'] = 'Choose the surgery (or type the procedure).';
+        }
+
+        $laterality = $text('laterality', 20);
+        if ($laterality !== null && !in_array($laterality, self::LATERALITIES, true)) {
+            $errors['laterality'] = 'Choose Left, Right or Bilateral.';
+        } elseif ($laterality === null && $surgery && $surgery['requires_laterality']) {
+            $errors['laterality'] = "Say which side: {$surgery['name']} needs the side to be given.";
+        }
+
+        // Team
+        $team = [];
+        $people = $this->people(array_filter([
+            $data['lead_surgeon_user_id'] ?? null, $data['assistant_surgeon_user_id'] ?? null, $data['anesthesiologist_user_id'] ?? null,
+            $data['scrub_nurse_user_id'] ?? null, $data['circulating_nurse_user_id'] ?? null
+        ]));
+        $pick = function (string $key, bool $required, bool $mustBeDoctor, string $label) use ($data, $people, &$errors) {
+            $id = (int) ($data[$key] ?? 0);
+            if (!$id) {
+                if ($required) {
+                    $errors[$key] = "Choose the {$label}.";
+                }
+                return null;
+            }
+            $person = $people[$id] ?? null;
+            if (!$person) {
+                $errors[$key] = "Choose the {$label} from the staff list.";
+                return null;
+            }
+            if ($mustBeDoctor && !$person['is_doctor']) {
+                $errors[$key] = "The {$label} must be a doctor (set up under Providers).";
+                return null;
+            }
+            return $person;
+        };
+        $anesthesiaType = (string) ($data['anesthesia_type'] ?? 'General');
+        if (!isset(SurgeryService::ANESTHESIA_TYPES[$anesthesiaType])) {
+            $errors['anesthesia_type'] = 'Choose the anesthesia type.';
+        }
+        $team['lead'] = $pick('lead_surgeon_user_id', true, true, 'lead surgeon');
+        $team['assistant'] = $pick('assistant_surgeon_user_id', false, true, 'assistant surgeon');
+        // Local anesthesia is given by the surgeon; anything else needs an anesthesiologist.
+        $team['anesthesiologist'] = $pick('anesthesiologist_user_id', $anesthesiaType !== 'Local', true, 'anesthesiologist');
+        $team['scrub'] = $pick('scrub_nurse_user_id', false, false, 'scrub nurse');
+        $team['circulating'] = $pick('circulating_nurse_user_id', false, false, 'circulating nurse');
+
+        $outside = [];
+        if ($team['lead'] && $spec && !in_array((int) $spec['id'], $team['lead']['specialization_ids'], true)) {
+            $outside[] = "{$team['lead']['name']} isn't listed under {$spec['name']}";
+        }
+        if ($team['anesthesiologist'] && !$team['anesthesiologist']['is_anesthesiologist']) {
+            $outside[] = "{$team['anesthesiologist']['name']} isn't listed under Anesthesiology";
+        }
+        $overrideReason = $text('team_override_reason');
+        if ($outside && $overrideReason === null) {
+            $errors['team_override_reason'] = implode('; ', $outside) . '. Give the reason (e.g. emergency, covering) or choose another doctor.';
+        }
+        if ($team['lead'] && $team['assistant'] && $team['lead']['user_id'] === $team['assistant']['user_id']) {
+            $errors['assistant_surgeon_user_id'] = 'The assistant surgeon must be someone else.';
+        }
+
+        // Patient
         $patientId = !empty($data['patient_id']) ? (int) $data['patient_id'] : null;
-        $patientName = trim($data['patient_name'] ?? '');
-        $patientMrn  = trim($data['patient_mrn'] ?? '');
-        $patientAge  = !empty($data['patient_age']) ? (int) $data['patient_age'] : null;
-        $gender      = !empty($data['gender']) ? trim($data['gender']) : null;
-
-        if ($patientId && empty($patientName)) {
-            $patStmt = $db->prepare("SELECT patient_no, first_name, middle_name, last_name, sex, birthdate FROM patients WHERE id = :id");
+        $patientName = $text('patient_name', 150);
+        $patientMrn = $text('patient_mrn', 50);
+        $patientAge = isset($data['patient_age']) && $data['patient_age'] !== '' ? (int) $data['patient_age'] : null;
+        $gender = $text('gender', 20);
+        if ($patientId) {
+            $patStmt = $db->prepare("SELECT patient_no, first_name, middle_name, last_name, sex, birthdate FROM patients WHERE id = :id AND deleted_at IS NULL");
             $patStmt->execute(['id' => $patientId]);
             $pat = $patStmt->fetch(PDO::FETCH_ASSOC);
-            if ($pat) {
-                $patientName = trim($pat['first_name'] . ' ' . $pat['middle_name'] . ' ' . $pat['last_name']);
-                $patientMrn  = $pat['patient_no'];
-                $gender      = $pat['sex'];
-                if (!empty($pat['birthdate'])) {
-                    $patientAge = (new \DateTime())->diff(new \DateTime($pat['birthdate']))->y;
+            if (!$pat) {
+                $errors['patient_id'] = 'Patient not found.';
+            } else {
+                $patientName = self::personName($pat);
+                $patientMrn = $pat['patient_no'];
+                $gender = $pat['sex'] ? ucfirst(strtolower($pat['sex'])) : $gender;
+                $patientAge = $pat['birthdate'] ? (new \DateTime())->diff(new \DateTime($pat['birthdate']))->y : $patientAge;
+            }
+        }
+        if ($patientName === null) {
+            $errors['patient_name'] = 'Choose the patient.';
+        }
+
+        // When
+        $scheduledDate = $text('scheduled_date', 10) ?? date('Y-m-d');
+        $dateOk = \DateTime::createFromFormat('Y-m-d', $scheduledDate);
+        if (!$dateOk || $dateOk->format('Y-m-d') !== $scheduledDate) {
+            $errors['scheduled_date'] = 'Enter a valid date.';
+        }
+        $startTime = $text('scheduled_start_time', 8) ?? '08:00';
+        if (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $startTime)) {
+            $errors['scheduled_start_time'] = 'Enter a valid start time.';
+        }
+        $estDuration = (int) ($data['estimated_duration_minutes'] ?? 0) ?: (int) ($surgery['default_duration_minutes'] ?? 120);
+        if ($estDuration < 5 || $estDuration > 1440) {
+            $errors['estimated_duration_minutes'] = 'Enter the duration in minutes (5 to 1440).';
+        }
+
+        $priority = (string) ($data['case_priority'] ?? 'Elective');
+        if (!in_array($priority, ['Elective', 'Urgent', 'Emergency / STAT'], true)) {
+            $errors['case_priority'] = 'Choose the priority.';
+        }
+        $stage = (string) ($data['perioperative_stage'] ?? 'Scheduled');
+        if (!in_array($stage, ['Scheduled', 'Pre-Op Holding', 'In Room / Induction'], true)) {
+            $errors['perioperative_stage'] = 'A new case starts as Scheduled, Pre-Op Holding or In Room.';
+        }
+
+        if ($errors) {
+            return ['success' => false, 'message' => 'Check the highlighted fields.', 'errors' => $errors];
+        }
+
+        $startTime = strlen($startTime) === 5 ? "{$startTime}:00" : $startTime;
+        $endTime = date('H:i:s', strtotime($startTime) + ($estDuration * 60));
+        $flag = fn($key) => !empty($data[$key]) && $data[$key] !== 'false' && $data[$key] !== '0' ? 1 : 0;
+        $doctorName = fn($p) => $p ? (preg_match('/^dr\.?\s/i', $p['name']) ? $p['name'] : "Dr. {$p['name']}") : null;
+
+        $row = [
+            'patient_id' => $patientId, 'patient_name' => $patientName, 'patient_mrn' => $patientMrn, 'patient_age' => $patientAge, 'gender' => $gender,
+            'or_suite_id' => $suiteId, 'or_suite_name' => $suite['suite_name'],
+            'scheduled_date' => $scheduledDate, 'scheduled_start_time' => $startTime, 'scheduled_end_time' => $endTime,
+            'estimated_duration_minutes' => $estDuration,
+            'surgical_specialty' => $spec['name'], 'surgery_id' => $surgery['id'] ?? null, 'specialization_id' => (int) $spec['id'],
+            'procedure_name' => $procedure, 'laterality' => $laterality, 'preop_diagnosis' => $text('preop_diagnosis'),
+            'lead_surgeon' => $doctorName($team['lead']), 'lead_surgeon_user_id' => $team['lead']['user_id'],
+            'surgeon_override_reason' => $outside ? $overrideReason : null,
+            'assistant_surgeon' => $doctorName($team['assistant']), 'assistant_surgeon_user_id' => $team['assistant']['user_id'] ?? null,
+            // The column can't be empty; for local anesthesia the surgeon gives it.
+            'anesthesiologist' => $doctorName($team['anesthesiologist']) ?? 'Local — by the surgeon',
+            'anesthesiologist_user_id' => $team['anesthesiologist']['user_id'] ?? null,
+            'scrub_nurse' => $team['scrub']['name'] ?? null, 'scrub_nurse_user_id' => $team['scrub']['user_id'] ?? null,
+            'circulating_nurse' => $team['circulating']['name'] ?? null, 'circulating_nurse_user_id' => $team['circulating']['user_id'] ?? null,
+            'anesthesia_type' => $anesthesiaType, 'case_priority' => $priority, 'perioperative_stage' => $stage,
+            'preop_cleared' => $flag('preop_cleared'), 'consent_signed' => $flag('consent_signed'),
+            'blood_reserved' => $flag('blood_reserved'), 'blood_units_reserved' => max(0, (int) ($data['blood_units_reserved'] ?? 0)),
+            'implants_required' => $flag('implants_required'), 'implant_details' => $text('implant_details', 2000),
+            'notes' => $text('notes', 5000), 'created_by' => $userId
+        ];
+
+        // Case numbers OR-YYYY-NNNN, one after the highest this year; the
+        // unique index settles any race and we take the next one.
+        $year = date('Y');
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $stmt = $db->prepare(
+                "SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(case_number, '-', -1) AS UNSIGNED)), 0)
+                 FROM or_surgical_cases WHERE case_number LIKE :prefix"
+            );
+            $stmt->execute(['prefix' => "OR-{$year}-%"]);
+            $row['case_number'] = sprintf('OR-%s-%04d', $year, (int) $stmt->fetchColumn() + 1 + $attempt);
+
+            try {
+                $cols = array_keys($row);
+                $db->prepare(
+                    "INSERT INTO or_surgical_cases (" . implode(', ', $cols) . ", created_at) VALUES (:" . implode(', :', $cols) . ", NOW())"
+                )->execute($row);
+                break;
+            } catch (\PDOException $e) {
+                if ($e->getCode() !== '23000' || !str_contains($e->getMessage(), 'case_number') || $attempt === 4) {
+                    throw $e;
                 }
             }
         }
 
-        // 4. Time and Duration
-        $scheduledDate  = !empty($data['scheduled_date']) ? $data['scheduled_date'] : date('Y-m-d');
-        $startTime      = !empty($data['scheduled_start_time']) ? $data['scheduled_start_time'] : '08:00:00';
-        $estDuration    = !empty($data['estimated_duration_minutes']) ? (int) $data['estimated_duration_minutes'] : 120;
-        
-        // Calculate estimated end time if not explicitly provided
-        if (!empty($data['scheduled_end_time'])) {
-            $endTime = $data['scheduled_end_time'];
-        } else {
-            $endTime = date('H:i:s', strtotime($startTime) + ($estDuration * 60));
+        $newId = (int) $db->lastInsertId();
+
+        return ['success' => true, 'message' => "Case {$row['case_number']} booked.", 'data' => $this->getCaseDetails($newId) ?: ['id' => $newId, 'case_number' => $row['case_number']]];
+    }
+
+    /** user id => {user_id, name, is_doctor, specialization_ids, is_anesthesiologist} for active staff. */
+    private function people(array $userIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (!$ids) {
+            return [];
         }
 
-        $stmt = $db->prepare("
-            INSERT INTO or_surgical_cases (
-                case_number, patient_id, patient_name, patient_mrn, patient_age, gender,
-                or_suite_id, or_suite_name, scheduled_date, scheduled_start_time, scheduled_end_time,
-                estimated_duration_minutes, surgical_specialty, procedure_name, preop_diagnosis,
-                lead_surgeon, assistant_surgeon, anesthesiologist, scrub_nurse, circulating_nurse,
-                anesthesia_type, case_priority, perioperative_stage,
-                preop_cleared, consent_signed, blood_reserved, blood_units_reserved,
-                implants_required, implant_details, notes, created_by, created_at
-            ) VALUES (
-                :case_number, :patient_id, :patient_name, :patient_mrn, :patient_age, :gender,
-                :or_suite_id, :or_suite_name, :scheduled_date, :scheduled_start_time, :scheduled_end_time,
-                :estimated_duration_minutes, :surgical_specialty, :procedure_name, :preop_diagnosis,
-                :lead_surgeon, :assistant_surgeon, :anesthesiologist, :scrub_nurse, :circulating_nurse,
-                :anesthesia_type, :case_priority, :perioperative_stage,
-                :preop_cleared, :consent_signed, :blood_reserved, :blood_units_reserved,
-                :implants_required, :implant_details, :notes, :created_by, NOW()
-            )
-        ");
+        $rows = Database::connection()->query(
+            "SELECT e.user_id, e.first_name, e.last_name, e.suffix, p.id AS provider_id
+             FROM employees e
+             LEFT JOIN providers p ON p.employee_id = e.id AND p.deleted_at IS NULL
+             WHERE e.deleted_at IS NULL AND e.user_id IN (" . implode(',', $ids) . ")"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $specs = ProviderService::specializationsOf(array_filter(array_column($rows, 'provider_id')));
 
-        $stmt->execute([
-            'case_number'               => $caseNumber,
-            'patient_id'                => $patientId,
-            'patient_name'              => $patientName,
-            'patient_mrn'               => $patientMrn ?: null,
-            'patient_age'               => $patientAge,
-            'gender'                    => $gender,
-            'or_suite_id'               => $suiteId,
-            'or_suite_name'             => $suiteName,
-            'scheduled_date'            => $scheduledDate,
-            'scheduled_start_time'      => $startTime,
-            'scheduled_end_time'        => $endTime,
-            'estimated_duration_minutes'=> $estDuration,
-            'surgical_specialty'        => trim($data['surgical_specialty'] ?? 'General Surgery'),
-            'procedure_name'            => trim($data['procedure_name'] ?? 'Surgical Procedure'),
-            'preop_diagnosis'           => trim($data['preop_diagnosis'] ?? ''),
-            'lead_surgeon'              => trim($data['lead_surgeon'] ?? ''),
-            'assistant_surgeon'         => trim($data['assistant_surgeon'] ?? '') ?: null,
-            'anesthesiologist'          => trim($data['anesthesiologist'] ?? 'Dr. Staff Anesthesiologist'),
-            'scrub_nurse'               => trim($data['scrub_nurse'] ?? '') ?: null,
-            'circulating_nurse'         => trim($data['circulating_nurse'] ?? '') ?: null,
-            'anesthesia_type'           => $data['anesthesia_type'] ?? 'General',
-            'case_priority'             => $data['case_priority'] ?? 'Elective',
-            'perioperative_stage'       => $data['perioperative_stage'] ?? 'Scheduled',
-            'preop_cleared'             => !empty($data['preop_cleared']) ? 1 : 0,
-            'consent_signed'            => !empty($data['consent_signed']) ? 1 : 0,
-            'blood_reserved'            => !empty($data['blood_reserved']) ? 1 : 0,
-            'blood_units_reserved'      => (int) ($data['blood_units_reserved'] ?? 0),
-            'implants_required'         => !empty($data['implants_required']) ? 1 : 0,
-            'implant_details'           => trim($data['implant_details'] ?? '') ?: null,
-            'notes'                     => trim($data['notes'] ?? '') ?: null,
-            'created_by'                => $userId,
-        ]);
+        $out = [];
+        foreach ($rows as $r) {
+            $mine = $r['provider_id'] ? ($specs[(int) $r['provider_id']] ?? []) : [];
+            $out[(int) $r['user_id']] = [
+                'user_id' => (int) $r['user_id'],
+                'name' => self::personName($r),
+                'is_doctor' => $r['provider_id'] !== null,
+                'specialization_ids' => array_map(fn($s) => $s['id'], $mine),
+                'is_anesthesiologist' => (bool) array_filter($mine, fn($s) => $s['category'] === 'anesthesiology')
+            ];
+        }
 
-        $newId = (int) $db->lastInsertId();
-        return $this->getCaseDetails($newId) ?: ['id' => $newId, 'case_number' => $caseNumber];
+        return $out;
+    }
+
+    private static function personName(array $r): string
+    {
+        return preg_replace('/\s+/', ' ', trim(implode(' ', array_filter([$r['first_name'] ?? '', $r['middle_name'] ?? '', $r['last_name'] ?? '', $r['suffix'] ?? '']))));
     }
 
     /**

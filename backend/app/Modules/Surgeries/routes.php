@@ -9,6 +9,16 @@ $router->get('/surgeries', [SurgeryController::class, 'index'], [
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/surgeries/show', [SurgeryController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/surgeries/options', [SurgeryController::class, 'options'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->post('/surgeries', [SurgeryController::class, 'register'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]

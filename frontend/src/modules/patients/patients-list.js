@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=73";
+import { PatientChartView } from "./patients-list.view.js?v=74";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -3767,19 +3767,23 @@ function renderDashboardOfficeNotes(notes)
 
     setWidgetCount("pdOfficeNotesBody", notes.length);
 
+    const initials = (name) => String(name || "?").trim().split(/[\s._@-]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("") || "?";
+
     body.innerHTML = notes.length
-        ? `
-        <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 16px 12px;">
+        ? `<div class="pd-msg-list">
             ${notes.map((note) => `
-                <div style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
-                    <div style="background: #1e293b; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 600;">
-                        ${escapeHtml(formatOfficeNoteDate(note.created_at))} (${escapeHtml(note.author || "unknown")})
+                <div class="pd-msg-item">
+                    <div class="pd-msg-avatar pd-onote-avatar" aria-hidden="true">${escapeHtml(initials(note.author))}</div>
+                    <div class="pd-msg-main">
+                        <div class="pd-msg-top">
+                            <span class="pd-msg-from">${escapeHtml(note.author || "Unknown")}</span>
+                            <span class="pd-msg-when">${escapeHtml(formatOfficeNoteDate(note.created_at))}</span>
+                        </div>
+                        <div class="pd-onote-text" title="${escapeHtml(note.note || "")}">${escapeHtml(note.note || "")}</div>
                     </div>
-                    <div style="background: var(--bg-surface); color: var(--text-primary); padding: 8px 10px; font-size: 13px; white-space: pre-wrap;">${escapeHtml(note.note)}</div>
                 </div>
             `).join("")}
-        </div>
-        `
+           </div>`
         : `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path></svg>
             <p>No office notes recorded.</p>
@@ -6634,17 +6638,48 @@ function renderDashboardAppointments(appointments)
         return;
     }
 
+    const today = new Date(`${todayISO()}T00:00:00`);
+    // "Today", "Tomorrow", "In 5 days", "In 3 months"...
+    const countdown = (date) => {
+        const days = Math.round((date - today) / 86400000);
+        if (days < 0) return "";
+        if (days === 0) return "Today";
+        if (days === 1) return "Tomorrow";
+        if (days < 14) return `In ${days} days`;
+        if (days < 60) return `In ${Math.round(days / 7)} weeks`;
+        const months = Math.round(days / 30.4);
+        return months < 12 ? `In ${months} months` : `In ${Math.round(months / 12) === 1 ? "about a year" : `${Math.round(months / 12)} years`}`;
+    };
+    const statusLabel = (st) => st ? String(st).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()) : "";
+    const statusClass = (st) => ({ scheduled: "new", confirmed: "new", arrived: "progress", checked_in: "progress", completed: "done", done: "done" }[String(st || "").toLowerCase()] || "");
+
     body.innerHTML = appointments.length
-        ? `<div class="pd-allergy-list">
+        ? `<div class="pd-visit-list">
             ${appointments.map((appt) => {
                 const provider = [appt.provider_first_name, appt.provider_last_name].filter(Boolean).join(" ");
                 const time = appt.is_all_day ? "All day" : formatApptTime(appt.appointment_time);
-                const label = [appt.reason || appt.title || appt.visit_category_name || "Appointment", provider ? `with ${provider}` : ""]
-                    .filter(Boolean).join(" ");
+                const title = (appt.reason || "").trim() || appt.title || appt.visit_category_name || "Appointment";
+                const date = new Date(`${String(appt.appointment_date).slice(0, 10)}T00:00:00`);
+                const valid = !Number.isNaN(date.getTime());
+                const meta = [time, provider ? `Dr. ${provider}` : "", appt.facility_name || "", appt.room_name ? `Room ${appt.room_name}` : ""].filter(Boolean).join(" · ");
+                const soon = valid ? countdown(date) : "";
 
                 return `
-                    <div class="pd-allergy-item pd-item-clickable" tabindex="0" role="button">
-                        <span class="pd-allergy-name">${escapeHtml(formatApptDate(appt.appointment_date))} ${escapeHtml(time)} &middot; ${escapeHtml(label)}</span>
+                    <div class="pd-visit-item pd-item-clickable" tabindex="0" role="button">
+                        <div class="pd-visit-tile" aria-hidden="true">
+                            <span class="m">${valid ? date.toLocaleDateString("en-US", { month: "short" }) : "—"}</span>
+                            <span class="d">${valid ? date.getDate() : ""}</span>
+                            <span class="y">${valid ? date.getFullYear() : ""}</span>
+                        </div>
+                        <div class="pd-visit-info">
+                            <span class="pd-visit-category" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+                            <span class="pd-visit-meta">${escapeHtml(meta || formatApptDate(appt.appointment_date))}</span>
+                            ${soon || appt.status ? `<div class="pd-msg-tags" style="margin-top:2px;">
+                                ${soon ? `<span class="pd-msg-tag">${escapeHtml(soon)}</span>` : ""}
+                                ${appt.status ? `<span class="pd-msg-status ${statusClass(appt.status)}">${escapeHtml(statusLabel(appt.status))}</span>` : ""}
+                            </div>` : ""}
+                        </div>
+                        <svg class="pd-visit-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
                     </div>
                 `;
             }).join("")}
@@ -6659,7 +6694,7 @@ function renderDashboardAppointments(appointments)
     // jumping to the Calendar tab -- same destination as the widget's own
     // "+Add" button, just without also popping the Add Appointment modal.
     if (appointments.length) {
-        wireDashboardPanelClicks(body, ".pd-allergy-item", () => {
+        wireDashboardPanelClicks(body, ".pd-visit-item", () => {
             const isDoctor = getUser()?.role === "doctor";
 
             window.tabManager.openOrReplaceTab("appointments", "Calendar", () => {

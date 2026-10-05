@@ -1418,6 +1418,23 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-disc-icon { background: rgba(59,130,246,.18); color: #93c5fd; }
 :root[data-theme="dark"] .pd-disc-more { color: var(--text-muted); }
 
+/* Office note card: author initials, author + date, the note (3 lines, full text on hover). */
+.pd-onote-text {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #374151;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 2px;
+}
+.pd-onote-avatar { background: #0d9488; }
+:root[data-theme="dark"] .pd-onote-text { color: var(--text-primary); opacity: .9; }
+:root[data-theme="dark"] .pd-onote-avatar { background: #0f766e; }
+
 .pd-allergy-remove {
     flex-shrink: 0;
     border: none;
@@ -6007,6 +6024,23 @@ textarea.pd-sdoh-readonly {
 .pd-disc-more { font-size: 11.5px; color: #8b98ac; text-align: center; padding: 2px 0 0; }
 :root[data-theme="dark"] .pd-disc-icon { background: rgba(59,130,246,.18); color: #93c5fd; }
 :root[data-theme="dark"] .pd-disc-more { color: var(--text-muted); }
+
+/* Office note card: author initials, author + date, the note (3 lines, full text on hover). */
+.pd-onote-text {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #374151;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 2px;
+}
+.pd-onote-avatar { background: #0d9488; }
+:root[data-theme="dark"] .pd-onote-text { color: var(--text-primary); opacity: .9; }
+:root[data-theme="dark"] .pd-onote-avatar { background: #0f766e; }
 
 .pd-allergy-remove {
     flex-shrink: 0;

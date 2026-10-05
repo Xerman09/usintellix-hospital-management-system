@@ -55,6 +55,8 @@ class ProviderController extends Controller
         $data = $request->only([
             'employee_id',
             'specialty',
+            'primary_specialization_id',
+            'sub_specialization_ids',
             'npi_number',
             'license_number',
             'dea_number',
@@ -87,7 +89,7 @@ class ProviderController extends Controller
 
         $result = $this->providerService->update(
             (int) $request->input('id'),
-            $request->only(ProviderService::EDITABLE_FIELDS),
+            $request->only(array_merge(ProviderService::EDITABLE_FIELDS, ['primary_specialization_id', 'sub_specialization_ids'])),
             (int) $admin['id']
         );
 

@@ -3,11 +3,14 @@ import { fetchProviders, createProvider, updateProvider, deleteProvider } from "
 import { todayISO } from "../../core/timezone.js";
 import { fetchEmployeesByRole } from "../employees/employees.service.js";
 import { escapeHtml } from "../appointments/appointment-format.js";
+import { fetchSpecializations } from "../specializations/specializations.service.js?v=1";
 
-const FIELDS = ["employee_id", "specialty", "license_number", "ptr_number", "ptr_date", "s2_number", "s2_expiry_date", "npi_number", "dea_number"];
+const FIELDS = ["employee_id", "license_number", "ptr_number", "ptr_date", "s2_number", "s2_expiry_date", "npi_number", "dea_number"];
 const EDIT_FIELDS = FIELDS.filter((field) => field !== "employee_id");
 
 let providersCache = [];
+let specializations = [];
+const SPEC_GROUPS = [["surgical", "Surgical"], ["anesthesiology", "Anesthesiology"], ["medical", "Medical"], ["other", "Other"]];
 
 export async function initProviders()
 {
@@ -18,13 +21,29 @@ export async function initProviders()
         return;
     }
 
+    const specResult = await fetchSpecializations({ include_inactive: 1 });
+    specializations = specResult?.success ? specResult.data.rows : [];
+
     await loadProviders();
     setupProviderFilters();
+
+    document.getElementById("subSpecSearch").addEventListener("input", (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        document.querySelectorAll("#subSpecList label").forEach((l) => { l.hidden = q !== "" && !l.textContent.toLowerCase().includes(q); });
+    });
+    // The main specialization isn't also a sub-specialization.
+    document.getElementById("primary_specialization_id").addEventListener("change", (e) => {
+        document.querySelectorAll("#subSpecList input").forEach((c) => {
+            c.disabled = c.value === e.target.value;
+            if (c.disabled) c.checked = false;
+        });
+    });
 
     const modalOverlay = document.getElementById("addProviderModalOverlay");
     const form = document.getElementById("addProviderForm");
 
     const openModal = async () => {
+        form.reset();
         setProviderModalMode(null);
         await loadDoctorEmployees();
         modalOverlay.classList.add("open");
@@ -61,6 +80,8 @@ export async function initProviders()
                 data[field] = value;
             }
         });
+        data.primary_specialization_id = document.getElementById("primary_specialization_id").value;
+        data.sub_specialization_ids = [...document.querySelectorAll("#subSpecList input:checked")].map((c) => Number(c.value));
 
         const result = editingId ? await updateProvider(Number(editingId), data) : await createProvider(data);
 
@@ -92,7 +113,7 @@ export async function initProviders()
         if (!provider) return;
         setProviderModalMode(provider);
         modalOverlay.classList.add("open");
-        document.getElementById("specialty").focus();
+        document.getElementById("primary_specialization_id").focus();
     });
 }
 
@@ -117,6 +138,30 @@ function setProviderModalMode(provider)
             document.getElementById(field).value = provider[field] ?? "";
         });
     }
+
+    renderSpecializationPickers(provider);
+}
+
+/** Main specialization (grouped select) and sub-specializations (checkboxes); switched-off ones only if the doctor has them. */
+function renderSpecializationPickers(provider)
+{
+    const mine = new Set((provider?.specializations || []).map((s) => s.id));
+    const usable = specializations.filter((s) => s.is_active || mine.has(s.id));
+    const primary = provider?.primary_specialization_id ?? "";
+    const subs = new Set(provider?.sub_specialization_ids || []);
+
+    document.getElementById("primary_specialization_id").innerHTML = `<option value="">Choose...</option>` + SPEC_GROUPS.map(([cat, label]) => {
+        const list = usable.filter((s) => s.category === cat);
+        return list.length ? `<optgroup label="${label}">${list.map((s) =>
+            `<option value="${s.id}"${String(primary) === String(s.id) ? " selected" : ""}>${escapeHtml(s.name)}${s.is_active ? "" : " (switched off)"}</option>`).join("")}</optgroup>` : "";
+    }).join("");
+
+    document.getElementById("subSpecSearch").value = "";
+    document.getElementById("subSpecList").innerHTML = SPEC_GROUPS.map(([cat, label]) => {
+        const list = usable.filter((s) => s.category === cat);
+        return list.length ? `<div class="grp">${label}</div>` + list.map((s) => `
+            <label><input type="checkbox" value="${s.id}"${subs.has(s.id) ? " checked" : ""}${String(primary) === String(s.id) ? " disabled" : ""}> ${escapeHtml(s.name)}</label>`).join("") : "";
+    }).join("") || `<span style="color:var(--text-muted);font-size:12.5px;">No specializations yet. Add them under Specializations.</span>`;
 }
 
 async function loadDoctorEmployees()
@@ -196,6 +241,7 @@ function getFilteredProviders(searchInput)
             provider.last_name,
             provider.suffix,
             provider.specialty,
+            ...(provider.specializations || []).map((s) => s.name),
             provider.department_name
         ].filter(Boolean).join(" ").toLowerCase();
 
@@ -232,7 +278,8 @@ function renderProvidersTable(providers)
         <tr>
             <td class="prov-name">${escapeHtml([provider.first_name, provider.middle_name, provider.last_name, provider.suffix].filter(Boolean).join(" "))}</td>
             <td class="prov-muted">${escapeHtml(provider.department_name ?? "-")}</td>
-            <td>${escapeHtml(provider.specialty)}</td>
+            <td>${escapeHtml(provider.primary_specialization || provider.specialty || "-")}${(provider.specializations || []).filter((s) => !s.is_primary).length
+                ? `<span class="prov-spec-subs">${escapeHtml(provider.specializations.filter((s) => !s.is_primary).map((s) => s.name).join(", "))}</span>` : ""}</td>
             <td class="prov-muted">${licensesCell(provider)}</td>
             <td class="prov-muted">${escapeHtml(provider.email)}</td>
             <td class="prov-muted">${escapeHtml(provider.phone)}</td>

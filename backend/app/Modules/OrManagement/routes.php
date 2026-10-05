@@ -9,6 +9,11 @@ $router->get('/or-management/schedule', [OrManagementController::class, 'schedul
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/or-management/options', [OrManagementController::class, 'options'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/or-management/suites', [OrManagementController::class, 'suites'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
