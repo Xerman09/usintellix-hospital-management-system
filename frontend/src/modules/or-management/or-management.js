@@ -901,6 +901,8 @@ function renderScheduleTable(cases) {
 
 async function handleBookSubmit(e) {
     e.preventDefault();
+    // Block-time warnings are confirmed with the "Book anyway" box shown after the first try.
+    const acknowledged = document.getElementById('orFAck')?.checked ? 1 : '';
     clearBookErrors();
     const submitBtn = document.getElementById('orSubmitBookBtn');
 
@@ -937,6 +939,7 @@ async function handleBookSubmit(e) {
         blood_reserved:             chk('orFBloodReserved'),
         implants_required:          chk('orFImplantsRequired'),
         notes:                      g('orFNotes'),
+        acknowledge_warnings:       acknowledged,
     };
 
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Scheduling...'; }
@@ -953,6 +956,11 @@ async function handleBookSubmit(e) {
             document.getElementById('orBookForm')?.reset();
             refreshBookingPickers();
             await fetchSchedule();
+        } else if (res.needs_ack) {
+            const alertBox = document.getElementById('orFAlert');
+            alertBox.innerHTML = `<div class="or-falert" style="background:#fffbeb;border-color:#fcd34d;color:#92400e;"><strong>Please confirm:</strong><br>${(res.warnings || []).map(esc).join('<br>')}
+                <label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-weight:600;"><input type="checkbox" id="orFAck"> Book anyway, then press Confirm again</label></div>`;
+            alertBox.scrollIntoView({ block: 'nearest' });
         } else {
             showBookErrors(res.message || 'Failed to book the surgical case.', res.errors || {});
         }

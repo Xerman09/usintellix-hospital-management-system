@@ -79,11 +79,20 @@ class OrManagementController extends Controller
         $result = $this->service->scheduleCase($request->all(), $userId ? (int) $userId : null);
 
         if (!$result['success']) {
-            $this->error($result['message'], 422, $result['errors'] ?? null);
+            $this->scheduleError($result);
             return;
         }
 
         $this->success($result['data'], $result['message'], 201);
+    }
+
+    /** Booking errors carry conflicts, or warnings to confirm (needs_ack). */
+    private function scheduleError(array $result): void
+    {
+        $this->json([
+            'success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null,
+            'needs_ack' => !empty($result['needs_ack']), 'warnings' => $result['warnings'] ?? [], 'conflicts' => $result['conflicts'] ?? []
+        ], !empty($result['not_found']) ? 404 : 422);
     }
 
     /**
@@ -141,7 +150,7 @@ class OrManagementController extends Controller
             'cancellation_reason'     => $request->input('cancellation_reason'),
         ];
 
-        $updated = $this->service->transitionStage($id, $newStage, $extra);
+        $updated = $this->service->transitionStage($id, $newStage, $extra, (int) (Session::get('user')['id'] ?? 0) ?: null);
 
         if (!$updated) {
             $this->error('Failed to update case stage.', 404);

@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=137";
+import { getNavLinks } from "./dashboard.view.js?v=138";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -281,8 +281,10 @@ import { initReadmissionMortality } from "../reports/readmission-mortality.js";
 import { ReadmissionMortalityView } from "../reports/readmission-mortality.view.js";
 import { initSurgicalSafety } from "../reports/surgical-safety.js?v=2";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js?v=2";
-import { initOrManagement } from "../or-management/or-management.js?v=2";
+import { initOrManagement } from "../or-management/or-management.js?v=3";
 import { OrManagementView } from "../or-management/or-management.view.js?v=2";
+import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=1";
+import { initOrSchedule } from "../or-schedule/or-schedule.js?v=1";
 import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
 import { initSurgeryRequests } from "../surgery-requests/surgery-requests.js?v=1";
 import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=2";
@@ -1521,6 +1523,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCareCoordination, 0);
                 return CareCoordinationView();
+            }, activate);
+        } else if (tabId === 'or_schedule') {
+            tabManager.openTab(tabId, 'OR Schedule', () => {
+                setTimeout(initOrSchedule, 0);
+                return OrScheduleView();
             }, activate);
         } else if (tabId === 'surgery_requests') {
             tabManager.openTab(tabId, 'Surgery Requests', () => {

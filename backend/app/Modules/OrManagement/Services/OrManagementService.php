@@ -317,6 +317,17 @@ class OrManagementService
             $errors['assistant_surgeon_user_id'] = 'The assistant surgeon must be someone else.';
         }
 
+        // A surgery request being booked: ready, and this patient's.
+        $requestId = !empty($data['surgery_request_id']) ? (int) $data['surgery_request_id'] : null;
+        if ($requestId) {
+            $stmt = $db->prepare("SELECT status, patient_id, request_number FROM surgery_requests WHERE id = :id");
+            $stmt->execute(['id' => $requestId]);
+            $req = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$req || $req['status'] !== 'ready' || (int) $req['patient_id'] !== (int) ($data['patient_id'] ?? 0)) {
+                $errors['surgery_request_id'] = 'That surgery request is no longer ready to be booked. Reload the list.';
+            }
+        }
+
         // Patient
         $patientId = !empty($data['patient_id']) ? (int) $data['patient_id'] : null;
         $patientName = $text('patient_name', 150);
@@ -374,6 +385,7 @@ class OrManagementService
         $doctorName = fn($p) => $p ? (preg_match('/^dr\.?\s/i', $p['name']) ? $p['name'] : "Dr. {$p['name']}") : null;
 
         $row = [
+            'surgery_request_id' => $requestId,
             'patient_id' => $patientId, 'patient_name' => $patientName, 'patient_mrn' => $patientMrn, 'patient_age' => $patientAge, 'gender' => $gender,
             'or_suite_id' => $suiteId, 'or_suite_name' => $suite['suite_name'],
             'scheduled_date' => $scheduledDate, 'scheduled_start_time' => $startTime, 'scheduled_end_time' => $endTime,
@@ -395,8 +407,59 @@ class OrManagementService
             'notes' => $text('notes', 5000), 'created_by' => $userId
         ];
 
-        // Case numbers OR-YYYY-NNNN, one after the highest this year; the
-        // unique index settles any race and we take the next one.
+        // Conflicts (suite, team, patient) under a lock, so two bookings can't take the same slot.
+        $scheduling = new OrSchedulingService();
+        $lock = $scheduling->lock();
+        $owns = !$db->inTransaction();
+        if ($owns) {
+            $db->beginTransaction();
+        }
+        try {
+            $check = $scheduling->check($row + ['scheduled_start_time' => $startTime], null);
+            if ($check['errors']) {
+                if ($owns) {
+                    $db->rollBack();
+                }
+                $scheduling->unlock($lock);
+                return ['success' => false, 'message' => 'That time doesn\'t work.', 'errors' => $check['errors'], 'conflicts' => array_values($check['errors'])];
+            }
+            if ($check['warnings'] && empty($data['acknowledge_warnings'])) {
+                if ($owns) {
+                    $db->rollBack();
+                }
+                $scheduling->unlock($lock);
+                return ['success' => false, 'message' => 'Check the warnings, then confirm.', 'needs_ack' => true, 'warnings' => $check['warnings']];
+            }
+
+            $newId = $this->insertCase($db, $row);
+
+            if ($requestId) {
+                $db->prepare("UPDATE surgery_requests SET status = 'scheduled', or_case_id = :c, revision = revision + 1 WHERE id = :id AND status = 'ready'")
+                    ->execute(['c' => $newId, 'id' => $requestId]);
+            }
+            $scheduling->log($newId, 'booked', ['suite' => $row['or_suite_name'], 'date' => $scheduledDate, 'start' => substr($startTime, 0, 5),
+                'duration' => $estDuration, 'warnings' => $check['warnings'], 'request' => $requestId ? $req['request_number'] : null], null, $userId);
+
+            if ($owns) {
+                $db->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($owns && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            $scheduling->unlock($lock);
+            throw $e;
+        }
+        $scheduling->unlock($lock);
+        $scheduling->notify($newId, 'booked', null, (int) $userId);
+
+        return ['success' => true, 'message' => "Case {$row['case_number']} booked for " . OrSchedulingService::when($scheduledDate, $startTime) . " in {$row['or_suite_name']}.",
+            'data' => $this->getCaseDetails($newId) ?: ['id' => $newId, 'case_number' => $row['case_number']]];
+    }
+
+    /** Inserts the case with the next free OR-YYYY-NNNN number (the unique index settles races); returns its id. */
+    private function insertCase(PDO $db, array &$row): int
+    {
         $year = date('Y');
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $stmt = $db->prepare(
@@ -408,20 +471,27 @@ class OrManagementService
 
             try {
                 $cols = array_keys($row);
+                $db->exec('SAVEPOINT or_case_number');
                 $db->prepare(
                     "INSERT INTO or_surgical_cases (" . implode(', ', $cols) . ", created_at) VALUES (:" . implode(', :', $cols) . ", NOW())"
                 )->execute($row);
-                break;
+                $id = (int) $db->lastInsertId();
+                $db->exec('RELEASE SAVEPOINT or_case_number');
+                return $id;
             } catch (\PDOException $e) {
+                $db->exec('ROLLBACK TO SAVEPOINT or_case_number');
                 if ($e->getCode() !== '23000' || !str_contains($e->getMessage(), 'case_number') || $attempt === 4) {
                     throw $e;
                 }
             }
         }
+        throw new \RuntimeException('Could not number the case.');
+    }
 
-        $newId = (int) $db->lastInsertId();
-
-        return ['success' => true, 'message' => "Case {$row['case_number']} booked.", 'data' => $this->getCaseDetails($newId) ?: ['id' => $newId, 'case_number' => $row['case_number']]];
+    /** Public view of people() for rescheduling. */
+    public function peopleFor(array $userIds): array
+    {
+        return $this->people($userIds);
     }
 
     /** user id => {user_id, name, is_doctor, specialization_ids, is_anesthesiologist} for active staff. */
@@ -463,7 +533,7 @@ class OrManagementService
     /**
      * Transition a case through perioperative stages with automatic milestone timestamps
      */
-    public function transitionStage(int $id, string $newStage, array $extra = []): ?array
+    public function transitionStage(int $id, string $newStage, array $extra = [], ?int $userId = null): ?array
     {
         $db = Database::connection();
 
@@ -547,9 +617,26 @@ class OrManagementService
                 break;
         }
 
+        if ($newStage === 'Cancelled') {
+            $updates[] = 'cancelled_at = COALESCE(cancelled_at, NOW())';
+            $updates[] = 'cancelled_by = COALESCE(cancelled_by, :cancelled_by)';
+            $params['cancelled_by'] = $userId;
+        }
+
         $setSql = implode(', ', $updates);
         $stmt = $db->prepare("UPDATE or_surgical_cases SET {$setSql} WHERE id = :id");
         $stmt->execute($params);
+
+        $scheduling = new OrSchedulingService();
+        if ($newStage !== $case['perioperative_stage']) {
+            $scheduling->log($id, $newStage === 'Cancelled' ? 'cancelled' : 'stage', ['from' => $case['perioperative_stage'], 'to' => $newStage],
+                $newStage === 'Cancelled' ? ($extra['cancellation_reason'] ?? null) : null, $userId);
+        }
+        if ($newStage === 'Cancelled' && $case['perioperative_stage'] !== 'Cancelled') {
+            // The surgery request goes back to the ready list to be booked again.
+            $scheduling->releaseRequest($case, true, (string) ($extra['cancellation_reason'] ?? ''), (int) $userId);
+            $scheduling->notify($id, 'cancelled', $extra['cancellation_reason'] ?? null, (int) $userId);
+        }
 
         return $this->getCaseDetails($id);
     }

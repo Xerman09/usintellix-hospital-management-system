@@ -53,3 +53,24 @@ $router->post('/or-management/suites/update', [OrManagementController::class, 'u
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
+
+// ---------------------------------------------------------------
+// OR Schedule (Surgery Phase 3): calendar, conflict checks, booking
+// ready surgery requests, rescheduling, block times.
+// ---------------------------------------------------------------
+use App\Modules\OrManagement\Controllers\OrScheduleController;
+use App\Modules\OrManagement\Services\OrSchedulingService;
+
+$orScheduleRoles = [AuthMiddleware::class, [RoleMiddleware::class, OrSchedulingService::ROLES]];
+$orScheduleAdmin = [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]];
+
+$router->get('/or-schedule', [OrScheduleController::class, 'calendar'], $orScheduleRoles);
+$router->post('/or-schedule/check', [OrScheduleController::class, 'check'], $orScheduleRoles);
+$router->get('/or-schedule/case', [OrScheduleController::class, 'show'], $orScheduleRoles);
+$router->post('/or-schedule/book', [OrScheduleController::class, 'book'], $orScheduleRoles);
+$router->post('/or-schedule/reschedule', [OrScheduleController::class, 'reschedule'], $orScheduleRoles);
+$router->post('/or-schedule/cancel', [OrScheduleController::class, 'cancel'], $orScheduleRoles);
+$router->get('/or-schedule/blocks', [OrScheduleController::class, 'blocks'], $orScheduleRoles);
+$router->post('/or-schedule/blocks', [OrScheduleController::class, 'saveBlock'], $orScheduleAdmin);
+$router->post('/or-schedule/blocks/remove', [OrScheduleController::class, 'removeBlock'], $orScheduleAdmin);
+$router->post('/or-schedule/turnover', [OrScheduleController::class, 'turnover'], $orScheduleAdmin);
