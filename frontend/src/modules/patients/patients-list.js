@@ -15707,30 +15707,318 @@ function bindEyeExamEvents()
         });
     }
 
-    if (pmhHistoryBtn && hpiElementsCard) {
-        pmhHistoryBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const isOpen = hpiElementsCard.style.display === "block";
-            hpiElementsCard.style.display = isOpen ? "none" : "block";
-            if (!isOpen) {
-                switchHpiElementsTab(1);
+    // PMSFH Elements & Draw Cards Wiring
+    const pmsfhElementsCard = document.getElementById("eyeExamPmsfhElementsCard");
+    const pmsfhDrawCard = document.getElementById("eyeExamPmsfhDrawCard");
+    const pmsfhDrawCanvas = document.getElementById("eyeExamPmsfhDrawCanvas");
+    let pmsfhDrawCtx = null;
+    let isPmsfhDrawing = false;
+    let currentPmsfhColor = "#18181b";
+    let currentPmsfhLineWidth = 2.5;
+    let isPmsfhEraserMode = false;
+    let pmsfhDrawHistory = [];
+    let pmsfhHistoryStep = -1;
+    let initialPmsfhDrawState = null;
+
+    function savePmsfhDrawState() {
+        if (!pmsfhDrawCanvas || !pmsfhDrawCtx) return;
+        pmsfhHistoryStep++;
+        if (pmsfhHistoryStep < pmsfhDrawHistory.length) {
+            pmsfhDrawHistory.length = pmsfhHistoryStep;
+        }
+        pmsfhDrawHistory.push(pmsfhDrawCanvas.toDataURL());
+    }
+
+    function initPmsfhDrawCanvas() {
+        if (!pmsfhDrawCanvas) return;
+        pmsfhDrawCtx = pmsfhDrawCanvas.getContext("2d");
+        const rect = pmsfhDrawCanvas.getBoundingClientRect();
+        if (rect.width > 0 && pmsfhDrawCanvas.width !== Math.round(rect.width)) {
+            const temp = pmsfhDrawCanvas.toDataURL();
+            pmsfhDrawCanvas.width = Math.round(rect.width);
+            pmsfhDrawCanvas.height = Math.round(rect.height || 215);
+            const img = new Image();
+            img.onload = () => {
+                if (pmsfhDrawCtx) pmsfhDrawCtx.drawImage(img, 0, 0);
+            };
+            img.src = temp;
+        }
+
+        if (pmsfhDrawHistory.length === 0) {
+            pmsfhDrawHistory = [pmsfhDrawCanvas.toDataURL()];
+            pmsfhHistoryStep = 0;
+            initialPmsfhDrawState = pmsfhDrawHistory[0];
+        }
+    }
+
+    function getPmsfhCanvasCoords(e) {
+        if (!pmsfhDrawCanvas) return { x: 0, y: 0 };
+        const rect = pmsfhDrawCanvas.getBoundingClientRect();
+        const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+        const scaleX = pmsfhDrawCanvas.width / (rect.width || 1);
+        const scaleY = pmsfhDrawCanvas.height / (rect.height || 1);
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function startPmsfhDrawing(e) {
+        if (!pmsfhDrawCanvas || !pmsfhDrawCtx) return;
+        isPmsfhDrawing = true;
+        const pos = getPmsfhCanvasCoords(e);
+        pmsfhDrawCtx.beginPath();
+        pmsfhDrawCtx.moveTo(pos.x, pos.y);
+        pmsfhDrawCtx.lineCap = "round";
+        pmsfhDrawCtx.lineJoin = "round";
+        pmsfhDrawCtx.lineWidth = isPmsfhEraserMode ? currentPmsfhLineWidth * 4 : currentPmsfhLineWidth;
+        if (isPmsfhEraserMode) {
+            pmsfhDrawCtx.globalCompositeOperation = "destination-out";
+        } else {
+            pmsfhDrawCtx.globalCompositeOperation = "source-over";
+            pmsfhDrawCtx.strokeStyle = currentPmsfhColor;
+        }
+    }
+
+    function continuePmsfhDrawing(e) {
+        if (!isPmsfhDrawing || !pmsfhDrawCtx) return;
+        e.preventDefault();
+        const pos = getPmsfhCanvasCoords(e);
+        pmsfhDrawCtx.lineTo(pos.x, pos.y);
+        pmsfhDrawCtx.stroke();
+    }
+
+    function stopPmsfhDrawing() {
+        if (!isPmsfhDrawing || !pmsfhDrawCtx) return;
+        isPmsfhDrawing = false;
+        pmsfhDrawCtx.closePath();
+        savePmsfhDrawState();
+    }
+
+    if (pmsfhDrawCanvas) {
+        pmsfhDrawCanvas.addEventListener("mousedown", startPmsfhDrawing);
+        pmsfhDrawCanvas.addEventListener("mousemove", continuePmsfhDrawing);
+        window.addEventListener("mouseup", stopPmsfhDrawing);
+        pmsfhDrawCanvas.addEventListener("touchstart", startPmsfhDrawing, { passive: false });
+        pmsfhDrawCanvas.addEventListener("touchmove", continuePmsfhDrawing, { passive: false });
+        window.addEventListener("touchend", stopPmsfhDrawing);
+    }
+
+    // Palette selection for PMSFH Draw Card
+    const pmsfhPencilEls = document.querySelectorAll("#eyeExamPmsfhDrawPencils .eye-draw-pencil");
+    pmsfhPencilEls.forEach(pen => {
+        pen.addEventListener("click", () => {
+            pmsfhPencilEls.forEach(p => p.classList.remove("active"));
+            pen.classList.add("active");
+            currentPmsfhColor = pen.getAttribute("data-color") || "#18181b";
+            isPmsfhEraserMode = false;
+            const eraserEl = document.getElementById("eyeExamPmsfhDrawEraser");
+            if (eraserEl) eraserEl.style.outline = "none";
+        });
+    });
+
+    const pmsfhEraserBlock = document.getElementById("eyeExamPmsfhDrawEraser");
+    if (pmsfhEraserBlock) {
+        pmsfhEraserBlock.addEventListener("click", () => {
+            isPmsfhEraserMode = true;
+            pmsfhPencilEls.forEach(p => p.classList.remove("active"));
+            pmsfhEraserBlock.style.outline = "2px solid #2563eb";
+            pmsfhEraserBlock.style.outlineOffset = "2px";
+        });
+    }
+
+    const pmsfhSizeDots = document.querySelectorAll("#eyeExamPmsfhDrawSizes .eye-draw-size-dot");
+    pmsfhSizeDots.forEach(dot => {
+        dot.addEventListener("click", () => {
+            pmsfhSizeDots.forEach(d => d.classList.remove("active"));
+            dot.classList.add("active");
+            currentPmsfhLineWidth = parseFloat(dot.getAttribute("data-size")) || 2.5;
+        });
+    });
+
+    const pmsfhUndoBtn = document.getElementById("eyeExamPmsfhDrawUndoBtn");
+    const pmsfhRedoBtn = document.getElementById("eyeExamPmsfhDrawRedoBtn");
+    const pmsfhRevertBtn = document.getElementById("eyeExamPmsfhDrawRevertBtn");
+    const pmsfhNewBtn = document.getElementById("eyeExamPmsfhDrawNewBtn");
+    const pmsfhBlankBtn = document.getElementById("eyeExamPmsfhDrawBlankBtn");
+
+    function renderPmsfhHistoryImage(dataUri) {
+        if (!pmsfhDrawCanvas || !pmsfhDrawCtx || !dataUri) return;
+        const img = new Image();
+        img.onload = () => {
+            pmsfhDrawCtx.clearRect(0, 0, pmsfhDrawCanvas.width, pmsfhDrawCanvas.height);
+            pmsfhDrawCtx.drawImage(img, 0, 0);
+        };
+        img.src = dataUri;
+    }
+
+    if (pmsfhUndoBtn) {
+        pmsfhUndoBtn.addEventListener("click", () => {
+            if (pmsfhHistoryStep > 0) {
+                pmsfhHistoryStep--;
+                renderPmsfhHistoryImage(pmsfhDrawHistory[pmsfhHistoryStep]);
             }
         });
     }
 
-    if (pmhDrawBtn && hpiDrawCard) {
+    if (pmsfhRedoBtn) {
+        pmsfhRedoBtn.addEventListener("click", () => {
+            if (pmsfhHistoryStep < pmsfhDrawHistory.length - 1) {
+                pmsfhHistoryStep++;
+                renderPmsfhHistoryImage(pmsfhDrawHistory[pmsfhHistoryStep]);
+            }
+        });
+    }
+
+    if (pmsfhRevertBtn) {
+        pmsfhRevertBtn.addEventListener("click", () => {
+            if (initialPmsfhDrawState) {
+                renderPmsfhHistoryImage(initialPmsfhDrawState);
+                pmsfhDrawHistory = [initialPmsfhDrawState];
+                pmsfhHistoryStep = 0;
+            }
+        });
+    }
+
+    if (pmsfhNewBtn) {
+        pmsfhNewBtn.addEventListener("click", () => {
+            if (!pmsfhDrawCanvas || !pmsfhDrawCtx) return;
+            pmsfhDrawCtx.clearRect(0, 0, pmsfhDrawCanvas.width, pmsfhDrawCanvas.height);
+            savePmsfhDrawState();
+            showEyeExamNotification("New PMSFH sketch initialized.", "info");
+        });
+    }
+
+    if (pmsfhBlankBtn) {
+        pmsfhBlankBtn.addEventListener("click", () => {
+            if (!pmsfhDrawCanvas || !pmsfhDrawCtx) return;
+            pmsfhDrawCtx.clearRect(0, 0, pmsfhDrawCanvas.width, pmsfhDrawCanvas.height);
+            savePmsfhDrawState();
+        });
+    }
+
+    // PMSFH Draw Header Icon Buttons
+    const pmsfhDrawDoctorBtn = document.getElementById("eyeExamPmsfhDrawDoctorBtn");
+    const pmsfhDrawHistoryBtn = document.getElementById("eyeExamPmsfhDrawHistoryBtn");
+    const pmsfhDrawCloseBtn = document.getElementById("eyeExamPmsfhDrawCloseBtn");
+
+    if (pmsfhDrawDoctorBtn && shorthandPopup) {
+        pmsfhDrawDoctorBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const container = pmsfhDrawDoctorBtn.closest(".eye-exam-card-actions");
+            if (container && shorthandPopup.parentElement !== container) {
+                container.appendChild(shorthandPopup);
+            }
+            const isOpen = shorthandPopup.style.display === "block";
+            shorthandPopup.style.display = isOpen ? "none" : "block";
+            if (!isOpen && shorthandInput) setTimeout(() => shorthandInput.focus(), 50);
+        });
+    }
+
+    if (pmsfhDrawHistoryBtn && pmsfhElementsCard) {
+        pmsfhDrawHistoryBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (pmsfhDrawCard) {
+                pmsfhDrawCard.style.display = "none";
+                pmsfhDrawCard.classList.remove("active-companion");
+            }
+            if (pmhDrawBtn) pmhDrawBtn.classList.remove("active");
+            pmsfhElementsCard.style.display = "block";
+            pmsfhElementsCard.classList.add("active-companion");
+            if (pmhHistoryBtn) pmhHistoryBtn.classList.add("active");
+            const pmhCard = document.getElementById("eyeExamSecPmh");
+            if (pmhCard) pmhCard.classList.add("has-open-companion");
+        });
+    }
+
+    if (pmsfhDrawCloseBtn && pmsfhDrawCard) {
+        pmsfhDrawCloseBtn.addEventListener("click", () => {
+            pmsfhDrawCard.style.display = "none";
+            pmsfhDrawCard.classList.remove("active-companion");
+            if (pmhDrawBtn) pmhDrawBtn.classList.remove("active");
+            const pmhCard = document.getElementById("eyeExamSecPmh");
+            if (pmhCard && (!pmsfhElementsCard || pmsfhElementsCard.style.display !== "block")) {
+                pmhCard.classList.remove("has-open-companion");
+            }
+        });
+    }
+
+    // Clicking New in PMSFH Elements sets category and focuses medication
+    const pmsfhNewLinks = document.querySelectorAll("#eyeExamPmsfhElementsCard .eye-pmsfh-new-link");
+    pmsfhNewLinks.forEach(link => {
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const cat = link.getAttribute("data-cat");
+            if (cat) {
+                const radio = document.querySelector(`input[name="eyeExamPmsfhCat"][value="${cat}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event("change"));
+                }
+                const medField = document.getElementById("eyeExam_medication");
+                if (medField) medField.focus();
+            }
+        });
+    });
+
+    // 2nd Button in PMSFH: Open PMSFH Elements / History Card
+    if (pmhHistoryBtn && pmsfhElementsCard) {
+        pmhHistoryBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const pmhCard = document.getElementById("eyeExamSecPmh");
+            const isCurrentlyOpen = pmsfhElementsCard.style.display === "block";
+
+            // Close draw card if currently open
+            if (pmsfhDrawCard) {
+                pmsfhDrawCard.style.display = "none";
+                pmsfhDrawCard.classList.remove("active-companion");
+            }
+            if (pmhDrawBtn) pmhDrawBtn.classList.remove("active");
+
+            if (isCurrentlyOpen) {
+                pmsfhElementsCard.style.display = "none";
+                pmsfhElementsCard.classList.remove("active-companion");
+                pmhHistoryBtn.classList.remove("active");
+                if (pmhCard) pmhCard.classList.remove("has-open-companion");
+            } else {
+                pmsfhElementsCard.style.display = "block";
+                pmsfhElementsCard.classList.add("active-companion");
+                pmhHistoryBtn.classList.add("active");
+                if (pmhCard) {
+                    pmhCard.classList.add("has-open-companion");
+                    pmhCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }
+            }
+        });
+    }
+
+    // 3rd Button in PMSFH: Open PMSFH Drawing / Sketchpad Card
+    if (pmhDrawBtn && pmsfhDrawCard) {
         pmhDrawBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            const isOpen = hpiDrawCard.style.display === "block";
-            if (isOpen) {
-                hpiDrawCard.style.display = "none";
+            const pmhCard = document.getElementById("eyeExamSecPmh");
+            const isCurrentlyOpen = pmsfhDrawCard.style.display === "block";
+
+            // Close elements card if currently open
+            if (pmsfhElementsCard) {
+                pmsfhElementsCard.style.display = "none";
+                pmsfhElementsCard.classList.remove("active-companion");
+            }
+            if (pmhHistoryBtn) pmhHistoryBtn.classList.remove("active");
+
+            if (isCurrentlyOpen) {
+                pmsfhDrawCard.style.display = "none";
+                pmsfhDrawCard.classList.remove("active-companion");
                 pmhDrawBtn.classList.remove("active");
+                if (pmhCard) pmhCard.classList.remove("has-open-companion");
             } else {
-                hpiDrawCard.setAttribute("data-paper", "pmh");
-                hpiDrawCard.style.display = "block";
+                pmsfhDrawCard.style.display = "block";
+                pmsfhDrawCard.classList.add("active-companion");
                 pmhDrawBtn.classList.add("active");
-                setTimeout(initDrawCanvas, 30);
-                hpiDrawCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                if (pmhCard) pmhCard.classList.add("has-open-companion");
+                setTimeout(initPmsfhDrawCanvas, 30);
+                pmsfhDrawCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
             }
         });
     }
@@ -15748,6 +16036,17 @@ function bindEyeExamEvents()
             } else {
                 pmhCard.style.display = "none";
                 if (pmhNavTab) pmhNavTab.classList.remove("active");
+                if (pmsfhElementsCard) {
+                    pmsfhElementsCard.style.display = "none";
+                    pmsfhElementsCard.classList.remove("active-companion");
+                }
+                if (pmsfhDrawCard) {
+                    pmsfhDrawCard.style.display = "none";
+                    pmsfhDrawCard.classList.remove("active-companion");
+                }
+                if (pmhHistoryBtn) pmhHistoryBtn.classList.remove("active");
+                if (pmhDrawBtn) pmhDrawBtn.classList.remove("active");
+                pmhCard.classList.remove("has-open-companion");
             }
         });
     }

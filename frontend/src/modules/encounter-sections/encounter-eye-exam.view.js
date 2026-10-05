@@ -1468,6 +1468,129 @@ export const EYE_EXAM_STYLES = `
 .eye-hpi-draw-card[data-paper="pmh"] .eye-draw-paper-pmsfh {
     display: block;
 }
+
+/* PMSFH Elements / History Card Box (Toggled by Database Button) */
+.eye-pmsfh-elements-card {
+    background: #fbf5e8;
+    background-image: radial-gradient(#eadbc8 1px, transparent 1px);
+    background-size: 8px 8px;
+    border: 1px solid #dcd1be;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    display: none;
+    animation: eyePopupFadeIn 0.2s ease-out;
+}
+
+:root[data-theme="dark"] .eye-pmsfh-elements-card {
+    background: #1c1917;
+    background-image: radial-gradient(#292524 1px, transparent 1px);
+    border-color: #44403c;
+}
+
+.eye-pmsfh-elements-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: start;
+}
+
+.eye-pmsfh-col-card {
+    background: #ffffff;
+    border: 1.5px solid #94a3b8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .eye-pmsfh-col-card {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+.eye-pmsfh-item-row {
+    margin-bottom: 8px;
+}
+
+.eye-pmsfh-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.eye-pmsfh-item-label {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .eye-pmsfh-item-label {
+    color: #f1f5f9;
+}
+
+.eye-pmsfh-new-link {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.eye-pmsfh-new-link:hover {
+    text-decoration: underline;
+    color: #1d4ed8;
+}
+
+:root[data-theme="dark"] .eye-pmsfh-new-link {
+    color: #60a5fa;
+}
+
+.eye-pmsfh-cream-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #fffdf0;
+    border: 1.2px solid #64748b;
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 11.5px;
+    color: #1e293b;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.08);
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s ease;
+    font-family: inherit;
+    line-height: 1.35;
+}
+
+.eye-pmsfh-cream-input:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+:root[data-theme="dark"] .eye-pmsfh-cream-input {
+    background: #292524;
+    border-color: #57534e;
+    color: #fef3c7;
+}
+
+.eye-pmsfh-allergy-input {
+    color: #dc2626 !important;
+    font-weight: 600;
+}
+
+:root[data-theme="dark"] .eye-pmsfh-allergy-input {
+    color: #f87171 !important;
+}
+
+#eyeExamSecPmh.has-open-companion {
+    grid-column: 1;
+}
+
+.eye-pmsfh-elements-card.active-companion,
+.eye-pmsfh-draw-card.active-companion {
+    grid-column: 2;
+}
 `;
 
 export function renderEyeExamHtml(encounter, patient) {
@@ -2161,6 +2284,182 @@ export function renderEyeExamHtml(encounter, patient) {
                     <button type="button" class="eye-pmh-save-btn" id="eyeExamPmsfhSaveBtn">
                         <span>&#10003; Save</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- PMSFH Elements / History Card (Toggled by 2nd Button) -->
+            <div class="eye-pmsfh-elements-card" id="eyeExamPmsfhElementsCard">
+                <div class="eye-pmsfh-elements-grid">
+                    <!-- Left Column Card -->
+                    <div class="eye-pmsfh-col-card">
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">POH</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="POH">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_poh" rows="1">None</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">POS</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="POS">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_pos" rows="1">None</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">Eye Medications</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="EyeM">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_eyemeds" rows="1">None</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row" style="margin-bottom: 0;">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">Past Medical History</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="PMH">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_pmh" rows="3">Chronic Renal Insufficiency&#10;HTN</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Right Column Card -->
+                    <div class="eye-pmsfh-col-card">
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">Past Surgical History</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="Surg">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_surg" rows="1">None</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">Medications</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="Meds">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_meds" rows="2">Lisinopril&#10;Norvasc</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">Allergies</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="All">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input eye-pmsfh-allergy-input" id="eyeExam_elem_allergies" rows="1">penicillin</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">FH</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="FH">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_fh" rows="1">Negative</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">Social</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="Soc">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_soc" rows="2">Marital: single&#10;Occupation: Pen User</textarea>
+                        </div>
+                        <div class="eye-pmsfh-item-row" style="margin-bottom: 0;">
+                            <div class="eye-pmsfh-item-header">
+                                <span class="eye-pmsfh-item-label">ROS</span>
+                                <a href="javascript:void(0)" class="eye-pmsfh-new-link" data-cat="ROS">New</a>
+                            </div>
+                            <textarea class="eye-pmsfh-cream-input" id="eyeExam_elem_ros" rows="1">Negative</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PMSFH Drawing / Sketchpad Card (Toggled by 3rd Button) -->
+            <div class="eye-hpi-draw-card eye-pmsfh-draw-card" id="eyeExamPmsfhDrawCard">
+                <div class="eye-hpi-draw-header">
+                    <div class="eye-hpi-draw-toolbar">
+                        <!-- Eraser block tool on the left -->
+                        <div class="eye-hpi-draw-eraser-block" id="eyeExamPmsfhDrawEraser" title="Eraser tool"></div>
+
+                        <!-- Colored pencil tips -->
+                        <div class="eye-hpi-draw-pencils" id="eyeExamPmsfhDrawPencils">
+                            <div class="eye-draw-pencil" data-color="#0284c7" style="background: #0284c7;" title="Cyan/Blue pencil"></div>
+                            <div class="eye-draw-pencil" data-color="#eab308" style="background: #eab308;" title="Yellow pencil"></div>
+                            <div class="eye-draw-pencil" data-color="#ea580c" style="background: #ea580c;" title="Orange pencil"></div>
+                            <div class="eye-draw-pencil" data-color="#854d0e" style="background: #854d0e;" title="Brown pencil"></div>
+                            <div class="eye-draw-pencil" data-color="#dc2626" style="background: #dc2626;" title="Red pencil"></div>
+                            <div class="eye-draw-pencil active" data-color="#18181b" style="background: #18181b;" title="Black pencil"></div>
+                            <div class="eye-draw-pencil" data-color="#ffffff" style="background: #ffffff; border: 1px solid #cbd5e1;" title="White pencil / Cover"></div>
+                        </div>
+
+                        <!-- Brush stroke size dots -->
+                        <div class="eye-hpi-draw-sizes" id="eyeExamPmsfhDrawSizes">
+                            <span class="eye-draw-size-dot" data-size="1" style="width: 3px; height: 3px;" title="Fine line (1px)"></span>
+                            <span class="eye-draw-size-dot active" data-size="2.5" style="width: 6px; height: 6px;" title="Normal line (2.5px)"></span>
+                            <span class="eye-draw-size-dot" data-size="4.5" style="width: 8px; height: 8px;" title="Medium line (4.5px)"></span>
+                            <span class="eye-draw-size-dot" data-size="7" style="width: 10px; height: 10px;" title="Thick line (7px)"></span>
+                            <span class="eye-draw-size-dot" data-size="11" style="width: 13px; height: 13px;" title="Extra thick line (11px)"></span>
+                        </div>
+                    </div>
+
+                    <!-- Header right action icons matching screenshot -->
+                    <div class="eye-exam-card-actions" style="margin-bottom: 4px;">
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmsfhDrawDoctorBtn" title="Doctor Shorthand">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        </button>
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmsfhDrawHistoryBtn" title="PMSFH Elements / Database">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                        </button>
+                        <button type="button" class="eye-exam-header-icon-btn" id="eyeExamPmsfhDrawCloseBtn" title="Close Drawing Card">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas Workspace with PMSFH medical template overlay -->
+                <div class="eye-hpi-draw-canvas-container" id="eyeExamPmsfhCanvasContainer" style="border: 1.5px solid #94a3b8; border-radius: 8px;">
+                    <!-- PMSFH Paper Template matching user screenshot -->
+                    <div class="eye-hpi-draw-paper" style="padding: 14px 18px;">
+                        <div class="eye-draw-paper-field" style="margin-bottom: 12px;">
+                            Referred by:
+                            <span class="eye-draw-paper-line" style="width: calc(100% - 90px); min-width: 200px;"></span>
+                        </div>
+                        <div class="eye-draw-paper-field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                            <span style="display: inline-block; width: 14px; height: 14px; border: 1.8px solid #0f172a; border-radius: 2px;"></span>
+                            <span style="font-size: 11px; font-weight: 700;">PMSH/FH/MEDS/ALL/FH/ROS same as</span>
+                            <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 30px; height: 12px;"></span>
+                            <span>/</span>
+                            <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 30px; height: 12px;"></span>
+                            <span>/</span>
+                            <span style="border-bottom: 1.5px solid #1e293b; display: inline-block; width: 30px; height: 12px;"></span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1.1fr 1fr 1.3fr; gap: 10px; font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 10px;">
+                            <div>
+                                <div>PMH:</div>
+                                <div style="margin-top: 38px;">PSH:</div>
+                            </div>
+                            <div>
+                                <div>Meds:</div>
+                            </div>
+                            <div>
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span>SocHx:</span>
+                                    <span>cigs: <span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span>/<span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span></span>
+                                    <span>ETOH: <span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span>/<span style="border-bottom: 1.2px solid #1e293b; display: inline-block; width: 20px;"></span></span>
+                                </div>
+                                <div style="margin-top: 26px;">FH:</div>
+                                <div style="margin-top: 10px;">ALL:</div>
+                            </div>
+                        </div>
+                        <div style="border-bottom: 2px solid #18181b; margin-top: 20px;"></div>
+                    </div>
+
+                    <canvas class="eye-draw-canvas-elem" id="eyeExamPmsfhDrawCanvas" width="600" height="215"></canvas>
+                </div>
+
+                <!-- Bottom Action Buttons: Undo, Redo, Revert, New, Blank -->
+                <div class="eye-hpi-draw-footer">
+                    <button type="button" class="eye-draw-action-btn" id="eyeExamPmsfhDrawUndoBtn">Undo</button>
+                    <button type="button" class="eye-draw-action-btn" id="eyeExamPmsfhDrawRedoBtn">Redo</button>
+                    <button type="button" class="eye-draw-action-btn" id="eyeExamPmsfhDrawRevertBtn">Revert</button>
+                    <button type="button" class="eye-draw-action-btn" id="eyeExamPmsfhDrawNewBtn">New</button>
+                    <button type="button" class="eye-draw-action-btn" id="eyeExamPmsfhDrawBlankBtn">Blank</button>
                 </div>
             </div>
         </div>
