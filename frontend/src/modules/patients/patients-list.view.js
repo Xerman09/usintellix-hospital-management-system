@@ -1435,6 +1435,13 @@ export function PatientsListView(user)
 :root[data-theme="dark"] .pd-onote-text { color: var(--text-primary); opacity: .9; }
 :root[data-theme="dark"] .pd-onote-avatar { background: #0f766e; }
 
+/* Surgeries widget: section labels between requests / OR cases / history. */
+.pd-surg-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #8b98ac; margin: 2px 2px 0; }
+.pd-surg-bar { height: 6px; border-radius: 999px; background: #eef2f7; overflow: hidden; margin-top: 4px; max-width: 220px; }
+.pd-surg-bar span { display: block; height: 100%; background: #16a34a; }
+:root[data-theme="dark"] .pd-surg-label { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-bar { background: rgba(148,163,184,.18); }
+
 .pd-allergy-remove {
     flex-shrink: 0;
     border: none;
@@ -6042,6 +6049,13 @@ textarea.pd-sdoh-readonly {
 :root[data-theme="dark"] .pd-onote-text { color: var(--text-primary); opacity: .9; }
 :root[data-theme="dark"] .pd-onote-avatar { background: #0f766e; }
 
+/* Surgeries widget: section labels between requests / OR cases / history. */
+.pd-surg-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #8b98ac; margin: 2px 2px 0; }
+.pd-surg-bar { height: 6px; border-radius: 999px; background: #eef2f7; overflow: hidden; margin-top: 4px; max-width: 220px; }
+.pd-surg-bar span { display: block; height: 100%; background: #16a34a; }
+:root[data-theme="dark"] .pd-surg-label { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-bar { background: rgba(148,163,184,.18); }
+
 .pd-allergy-remove {
     flex-shrink: 0;
     border: none;
@@ -6407,6 +6421,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Health Concerns", '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path>', "No health concerns recorded.", { bodyId: "pdHealthConcernsBody", addBtnId: "pdHealthConcernsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Medications", '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path><path d="m8.5 8.5 7 7"></path>', "No active medications recorded.", { bodyId: "pdMedicationsBody", addBtnId: "pdMedicationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Prescriptions", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6M9 15h6M9 11h3"></path>', "No prescriptions recorded.", { bodyId: "pdPrescriptionsBody", addBtnId: "pdPrescriptionsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
+                    ${dashboardWidget("Surgeries", '<path d="M3 21l7.5-7.5"></path><path d="M14.5 9.5 21 3"></path><path d="m9 15 6-6 3 3-6 6Z"></path><path d="M6 18l-2-2"></path>', "No surgeries requested or recorded.", { bodyId: "pdSurgeriesBody", addBtnId: "pdSurgeriesAddBtn", addBtnLabel: "+ Request", addBtnDisabled: false, widgetId: "pdWidget-surgeries" })}
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.", { bodyId: "pdImmunizationsBody", addBtnId: "pdImmunizationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.", { bodyId: "pdVitalsHistoryBody", addBtnId: "pdVitalsHistoryAddBtn", addBtnLabel: "View All", addBtnDisabled: false, extraButtons: [{ id: "pdVitalsGraphBtn", label: "View Graph" }] })}

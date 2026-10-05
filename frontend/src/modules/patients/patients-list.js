@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=74";
+import { PatientChartView } from "./patients-list.view.js?v=75";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -55,6 +55,8 @@ import {
     removePatientSurgery
 } from "../patient-surgeries/patient-surgeries.service.js";
 import { fetchSurgeries } from "../surgeries/surgeries.service.js";
+import { fetchPatientSurgeries } from "../surgery-requests/surgery-requests.service.js?v=1";
+import { openSurgeryRequestForm, openSurgeryRequest, ensureRoot as ensureSurgeryRequestUi, statusBadge as surgeryStatusBadge, priorityBadge as surgeryPriorityBadge } from "../surgery-requests/surgery-request-panel.js?v=1";
 import {
     fetchPatientDentalIssues,
     addPatientDentalIssue,
@@ -2721,6 +2723,7 @@ export async function initPatientChartTab(patient)
 
     loadPatientDashboardWidgets(patient);
     loadDashboardAppointments(patient);
+    loadDashboardSurgeries(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2773,6 +2776,20 @@ export async function initPatientChartTab(patient)
 
         goToScheduleAppointment(currentDashboardPatient.id, currentDashboardPatient.provider_id);
     });
+
+    // Only doctors (and admin) request surgery.
+    const surgeriesAddBtn = document.getElementById("pdSurgeriesAddBtn");
+    if (surgeriesAddBtn) {
+        surgeriesAddBtn.hidden = !["admin", "doctor"].includes(getUser()?.role);
+        surgeriesAddBtn.addEventListener("click", () => {
+            if (!currentDashboardPatient) return;
+            const p = currentDashboardPatient;
+            openSurgeryRequestForm({
+                patient: { id: p.id, name: [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ") },
+                onSaved: () => loadDashboardSurgeries(p)
+            });
+        });
+    }
 
     document.getElementById("pdEditDemographicsBtn").addEventListener("click", () => {
         if (currentDashboardPatient) {
@@ -6605,6 +6622,87 @@ function renderVitalsAiExplanation(container, data)
             AI-generated from this patient's recorded vitals history. Not a substitute for clinical judgement. Generated at ${escapeHtml(data.generated_at || "")}
         </div>
     `;
+}
+
+/** Surgeries widget: open requests (with readiness), OR cases, past surgeries. */
+async function loadDashboardSurgeries(patient)
+{
+    const body = document.getElementById("pdSurgeriesBody");
+    if (!body) return;
+
+    try {
+        const result = await fetchPatientSurgeries(patient.id);
+        if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
+        if (!result.success) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load surgeries right now.")}</p></div>`;
+            return;
+        }
+        renderDashboardSurgeries(result.data, patient);
+    } catch (error) {
+        console.error("Failed to load surgeries", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load surgeries right now.</p></div>`;
+    }
+}
+
+function renderDashboardSurgeries(data, patient)
+{
+    const body = document.getElementById("pdSurgeriesBody");
+    if (!body) return;
+    ensureSurgeryRequestUi();
+
+    const today = todayISO();
+    const fmt = (iso) => (iso ? formatDate(iso) : "");
+    const requests = data.requests.filter((r) => r.status !== "cancelled" && r.status !== "scheduled").slice(0, 5);
+    const upcoming = data.cases.filter((c) => c.scheduled_date >= today && !["Cancelled", "Transferred / Discharged"].includes(c.stage)).slice(0, 3);
+    const past = [
+        ...data.cases.filter((c) => c.stage === "Transferred / Discharged").map((c) => ({ title: c.procedure_name, date: c.scheduled_date, sub: c.surgeon })),
+        ...data.history.map((h) => ({ title: h.title, date: h.begin_date, sub: h.outcome || "" }))
+    ].slice(0, 4);
+
+    if (!requests.length && !upcoming.length && !past.length) {
+        body.innerHTML = `<div class="pd-widget-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.5-7.5"></path><path d="M14.5 9.5 21 3"></path><path d="m9 15 6-6 3 3-6 6Z"></path></svg>
+            <p>No surgeries requested or recorded.</p></div>`;
+        return;
+    }
+
+    body.innerHTML = `<div class="pd-msg-list">
+        ${requests.length ? `<div class="pd-surg-label">Requested</div>` + requests.map((r) => {
+            const pct = r.readiness_total ? Math.round(r.readiness_done * 100 / r.readiness_total) : 100;
+            return `
+            <div class="pd-msg-item pd-item-clickable" data-surgery-request="${r.id}" tabindex="0" role="button">
+                <div class="pd-msg-main">
+                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(r.procedure_name)}${r.laterality ? ` (${escapeHtml(r.laterality)})` : ""}</span>
+                        <span class="pd-msg-when">${escapeHtml(r.request_number)}</span></div>
+                    <span class="pd-msg-preview">${escapeHtml([r.surgeon_name ? `Dr. ${r.surgeon_name}` : "", r.preferred_date ? `preferred ${fmt(r.preferred_date)}` : "", r.diagnosis].filter(Boolean).join(" · "))}</span>
+                    <div class="pd-msg-tags">${surgeryStatusBadge(r)}${r.priority !== "Elective" ? surgeryPriorityBadge(r.priority) : ""}<span class="pd-msg-status">Readiness ${r.readiness_done}/${r.readiness_total}</span></div>
+                    <div class="pd-surg-bar"><span style="width:${pct}%"></span></div>
+                </div>
+            </div>`;
+        }).join("") : ""}
+        ${upcoming.length ? `<div class="pd-surg-label">Scheduled</div>` + upcoming.map((c) => `
+            <div class="pd-msg-item">
+                <div class="pd-msg-main">
+                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
+                        <span class="pd-msg-when">${escapeHtml(fmt(c.scheduled_date))} ${escapeHtml(String(c.scheduled_start_time || "").slice(0, 5))}</span></div>
+                    <span class="pd-msg-preview">${escapeHtml([c.case_number, c.suite, c.surgeon].filter(Boolean).join(" · "))}</span>
+                    <div class="pd-msg-tags"><span class="pd-msg-tag">${escapeHtml(c.stage)}</span></div>
+                </div>
+            </div>`).join("") : ""}
+        ${past.length ? `<div class="pd-surg-label">History</div>` + past.map((h) => `
+            <div class="pd-msg-item">
+                <div class="pd-msg-main">
+                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(h.title)}</span><span class="pd-msg-when">${escapeHtml(fmt(h.date))}</span></div>
+                    ${h.sub ? `<span class="pd-msg-preview">${escapeHtml(h.sub)}</span>` : ""}
+                </div>
+            </div>`).join("") : ""}
+    </div>`;
+
+    body.querySelectorAll("[data-surgery-request]").forEach((el) => {
+        const open = () => openSurgeryRequest(Number(el.dataset.surgeryRequest), { onChange: () => loadDashboardSurgeries(patient) });
+        el.addEventListener("click", open);
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+    });
 }
 
 async function loadDashboardAppointments(patient)

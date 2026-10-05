@@ -61,6 +61,7 @@ function staffNavLinks(role)
                 <a data-tab="manage_modules">Manage Modules</a>
                 <a data-tab="carecoordination">Carecoordination</a>
                 <a data-tab="or_management">Operating Room (OR) Management</a>
+                <a data-tab="surgery_requests">Surgery Requests</a>
                 <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
@@ -103,6 +104,7 @@ function staffNavLinks(role)
             <span>Procedures</span>
             <div class="dropdown-content">
                 <a data-tab="or_management">Operating Room (OR) Management</a>
+                <a data-tab="surgery_requests">Surgery Requests</a>
                 <a data-tab="providers">Providers</a>
                 <a data-tab="procedure_configuration">Configuration</a>
                 <a data-tab="procedure_load_compendium">Load Compendium</a>

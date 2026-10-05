@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=136";
+import { getNavLinks } from "./dashboard.view.js?v=137";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -24,9 +24,9 @@ import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=75";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=84";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=85";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js?v=2";
-import { initBillingManager } from "../billing-manager/billing-manager.js?v=11";
+import { initBillingManager } from "../billing-manager/billing-manager.js?v=12";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
 import { initBatchPayments } from "../batch-payments/batch-payments.js";
 import { EobPostingView } from "../eob-posting/eob-posting.view.js";
@@ -76,7 +76,7 @@ import { initWarehouses } from "../warehouses/warehouses.js?v=3";
 import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
 import { initDestroyedDrugs } from "../destroyed-drugs/destroyed-drugs.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
-import { initPatientFinder } from "../patients/patient-finder.js?v=15";
+import { initPatientFinder } from "../patients/patient-finder.js?v=16";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
 import { initManageModules } from "../manage-modules/manage-modules.js?v=103";
 import { CareCoordinationView } from "../care-coordination/care-coordination.view.js?v=105";
@@ -201,7 +201,7 @@ import { initPharmacies } from "../pharmacies/pharmacies.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
 import { PatientFlowView } from "../patient-flow/patient-flow.view.js";
-import { initPatientFlow } from "../patient-flow/patient-flow.js?v=10";
+import { initPatientFlow } from "../patient-flow/patient-flow.js?v=11";
 import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
@@ -283,6 +283,8 @@ import { initSurgicalSafety } from "../reports/surgical-safety.js?v=2";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js?v=2";
 import { initOrManagement } from "../or-management/or-management.js?v=2";
 import { OrManagementView } from "../or-management/or-management.view.js?v=2";
+import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
+import { initSurgeryRequests } from "../surgery-requests/surgery-requests.js?v=1";
 import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=2";
 import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=2";
 import { initRoomManagement } from "../room-management/room-management.js?v=2";
@@ -1519,6 +1521,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initCareCoordination, 0);
                 return CareCoordinationView();
+            }, activate);
+        } else if (tabId === 'surgery_requests') {
+            tabManager.openTab(tabId, 'Surgery Requests', () => {
+                setTimeout(initSurgeryRequests, 0);
+                return SurgeryRequestsView();
             }, activate);
         } else if (tabId === 'or_management') {
             tabManager.openTab(tabId, title || 'Operating Room (OR) Management', () => {
