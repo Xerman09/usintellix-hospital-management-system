@@ -11,7 +11,8 @@ class SurgeryController extends Controller
 {
     private const FIELDS = [
         'name', 'description', 'specialization_id', 'code', 'category', 'default_duration_minutes', 'default_anesthesia_type',
-        'wound_class', 'requires_laterality', 'usually_needs_blood', 'usually_needs_implants', 'default_or_fee', 'is_active', 'preference_items'
+        'wound_class', 'requires_laterality', 'usually_needs_blood', 'usually_needs_implants', 'default_or_fee', 'default_surgeon_fee', 'default_anesthesia_fee',
+        'philhealth_case_rate_code', 'philhealth_case_rate_amount', 'is_active', 'preference_items'
     ];
 
     private SurgeryService $surgeryService;

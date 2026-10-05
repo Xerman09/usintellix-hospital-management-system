@@ -5,6 +5,7 @@ namespace App\Modules\OrManagement\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\OrManagement\Services\OrChargeService;
 use App\Modules\OrManagement\Services\OrIntraopService;
 use App\Modules\OrManagement\Services\OrLiveService;
 use App\Modules\OrManagement\Services\OrPostopService;
@@ -181,6 +182,22 @@ class OrLiveController extends Controller
             return;
         }
         $this->success($data, 'Operative report retrieved successfully.');
+    }
+
+    /* ---------------- Charges (Phase 6) ---------------- */
+
+    /** Body: id (case), lines [{charge_type, item_id?, description, quantity, unit_price, provider_user_id?}], discount_type?, discount_id_no?, discount_rate?, discount_reason? */
+    public function postCharges(): void
+    {
+        $request = new Request();
+        $this->respond((new OrChargeService())->post((int) $request->input('id'), $request->all(), Session::get('user')), 201);
+    }
+
+    /** Body: id (charge), reason */
+    public function voidCharge(): void
+    {
+        $request = new Request();
+        $this->respond((new OrChargeService())->void((int) $request->input('id'), (string) $request->input('reason'), $this->userId()));
     }
 
     private function userId(): int

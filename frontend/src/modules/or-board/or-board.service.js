@@ -34,3 +34,7 @@ export const saveOrReport = (data) => post("/or-live/report", data);
 export const signOrReport = (data) => post("/or-live/report/sign", data);
 export const addOrAddendum = (id, body) => post("/or-live/report/addendum", { id, body });
 export const fetchOrReportPrint = (id) => api(`/or-live/report/print${query({ id })}`);
+/* Charges (Phase 6) */
+/** data: id (case), lines [{charge_type, item_id?, description, quantity, unit_price, provider_user_id?}], discount_type?, discount_id_no?, discount_rate?, discount_reason? */
+export const postOrCharges = (data) => post("/or-live/charges", data);
+export const voidOrCharge = (id, reason) => post("/or-live/charges/void", { id, reason });

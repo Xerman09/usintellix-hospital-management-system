@@ -6701,7 +6701,7 @@ function renderDashboardSurgeries(data, patient)
 
     body.querySelectorAll("[data-or-case]").forEach((el) => {
         const open = async () => {
-            const { openOrCase } = await import("../or-board/or-case-panel.js?v=2");
+            const { openOrCase } = await import("../or-board/or-case-panel.js?v=3");
             openOrCase(Number(el.dataset.orCase), { tab: "report" });
         };
         el.addEventListener("click", open);

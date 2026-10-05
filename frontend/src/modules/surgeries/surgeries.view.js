@@ -54,8 +54,16 @@ export function SurgeriesView() {
                     <label class="ss-field"><span>Usual duration (minutes) *</span><input id="sgDuration" type="number" min="5" max="1440" step="5"><span class="ss-err" data-err="default_duration_minutes"></span></label>
                     <label class="ss-field"><span>Anesthesia</span><select id="sgAnesthesia"></select><span class="ss-err" data-err="default_anesthesia_type"></span></label>
                     <label class="ss-field"><span>Wound class</span><select id="sgWound"></select><span class="ss-err" data-err="wound_class"></span></label>
-                    <label class="ss-field"><span>OR fee (₱)</span><input id="sgFee" type="number" min="0" step="0.01" placeholder="Optional"><span class="ss-err" data-err="default_or_fee"></span></label>
                 </div>
+                <div class="ss-section">Default charges</div>
+                <div class="ss-grid">
+                    <label class="ss-field"><span>OR room fee (₱)</span><input id="sgFee" type="number" min="0" step="0.01" placeholder="Optional"><span class="ss-err" data-err="default_or_fee"></span></label>
+                    <label class="ss-field"><span>Surgeon's fee (₱)</span><input id="sgSurgeonFee" type="number" min="0" step="0.01" placeholder="Optional"><span class="ss-err" data-err="default_surgeon_fee"></span></label>
+                    <label class="ss-field"><span>Anesthesia fee (₱)</span><input id="sgAnesFee" type="number" min="0" step="0.01" placeholder="Optional"><span class="ss-err" data-err="default_anesthesia_fee"></span></label>
+                    <label class="ss-field"><span>PhilHealth case rate code</span><input id="sgPhCode" maxlength="30" placeholder="For later"><span class="ss-err" data-err="philhealth_case_rate_code"></span></label>
+                    <label class="ss-field"><span>PhilHealth case rate (₱)</span><input id="sgPhAmount" type="number" min="0" step="0.01" placeholder="For later"><span class="ss-err" data-err="philhealth_case_rate_amount"></span></label>
+                </div>
+                <p class="ss-hint" style="margin:4px 0 0;font-size:12px;color:var(--text-muted);">These fill in the OR charges for each case (they can be changed when billing). The PhilHealth case rate is recorded for now and not yet deducted from the bill.</p>
                 <div class="ss-checks">
                     <label class="ss-check"><input type="checkbox" id="sgLaterality"> The side must be given (left / right / both)</label>
                     <label class="ss-check"><input type="checkbox" id="sgBlood"> Usually needs blood</label>

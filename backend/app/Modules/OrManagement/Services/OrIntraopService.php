@@ -246,6 +246,8 @@ class OrIntraopService
             'preference_items' => $preference,
             // Recovery, release and the operative report (Phase 5).
             'postop' => (new OrPostopService())->summary($case),
+            // Charges to the patient ledger (Phase 6).
+            'charges' => (new OrChargeService())->summary($caseId),
             'history' => $history,
             'options' => [
                 'item_kinds' => self::ITEM_KINDS,
@@ -955,6 +957,8 @@ class OrIntraopService
             if ($item['kind'] === 'implant') {
                 $this->syncImplantSummary($db, (int) $item['case_id']);
             }
+            // Already billed: its charge comes off the patient's ledger too.
+            OrChargeService::voidForItem($itemId, $reason, $userId);
             $this->commit($db, $owns);
         } catch (Throwable $e) {
             $this->rollBack($db, $owns);

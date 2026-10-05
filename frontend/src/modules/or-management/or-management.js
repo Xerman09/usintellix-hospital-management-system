@@ -2,7 +2,7 @@ import { api } from '../../core/api.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 import { showToast } from "../../core/toast.js";
-import { openOrCase } from "../or-board/or-case-panel.js?v=2";
+import { openOrCase } from "../or-board/or-case-panel.js?v=3";
 
 let currentScheduleData = {
     cases: [],

@@ -67,7 +67,8 @@ class SurgeryService
         $stmt = Database::connection()->prepare(
             "SELECT su.id, su.name, su.description, su.specialization_id, su.code, su.category, su.default_duration_minutes,
                     su.default_anesthesia_type, su.wound_class, su.requires_laterality, su.usually_needs_blood, su.usually_needs_implants,
-                    su.default_or_fee, su.is_active, su.created_at, su.updated_at,
+                    su.default_or_fee, su.default_surgeon_fee, su.default_anesthesia_fee, su.philhealth_case_rate_code, su.philhealth_case_rate_amount,
+                    su.is_active, su.created_at, su.updated_at,
                     s.name AS specialization_name, s.category AS specialization_category,
                     (SELECT COUNT(*) FROM surgery_preference_items i WHERE i.surgery_id = su.id) AS item_count
              FROM surgeries su
@@ -296,15 +297,22 @@ class SurgeryService
             $errors['wound_class'] = 'Choose a wound class from the list.';
         }
 
-        $fee = null;
-        $rawFee = trim((string) ($data['default_or_fee'] ?? ''));
-        if ($rawFee !== '') {
-            if (!is_numeric($rawFee) || (float) $rawFee < 0) {
-                $errors['default_or_fee'] = 'Enter the OR fee as an amount, or leave it blank.';
-            } else {
-                $fee = round((float) $rawFee, 2);
+        // Fees (and the PhilHealth case rate, kept for later): an amount, or blank.
+        $amount = function (string $key, string $label) use ($data, &$errors) {
+            $raw = trim((string) ($data[$key] ?? ''));
+            if ($raw === '') {
+                return null;
             }
-        }
+            if (!is_numeric($raw) || (float) $raw < 0) {
+                $errors[$key] = "Enter the {$label} as an amount, or leave it blank.";
+                return null;
+            }
+            return round((float) $raw, 2);
+        };
+        $fee = $amount('default_or_fee', 'OR fee');
+        $surgeonFee = $amount('default_surgeon_fee', 'surgeon\'s fee');
+        $anesthesiaFee = $amount('default_anesthesia_fee', 'anesthesia fee');
+        $caseRate = $amount('philhealth_case_rate_amount', 'case rate');
 
         $flag = fn($key) => in_array((string) ($data[$key] ?? ''), ['1', 'true', 'on'], true) || ($data[$key] ?? null) === true ? 1 : 0;
 
@@ -318,6 +326,10 @@ class SurgeryService
             'default_anesthesia_type' => $anesthesia,
             'wound_class' => $wound,
             'default_or_fee' => $fee,
+            'default_surgeon_fee' => $surgeonFee,
+            'default_anesthesia_fee' => $anesthesiaFee,
+            'philhealth_case_rate_code' => $text('philhealth_case_rate_code', 30),
+            'philhealth_case_rate_amount' => $caseRate,
             'is_active' => array_key_exists('is_active', $data) ? $flag('is_active') : (int) ($existing['is_active'] ?? 1)
         ];
         foreach (self::FLAGS as $key) {
@@ -409,6 +421,10 @@ class SurgeryService
             'usually_needs_blood' => (bool) $r['usually_needs_blood'],
             'usually_needs_implants' => (bool) $r['usually_needs_implants'],
             'default_or_fee' => $r['default_or_fee'] !== null ? (float) $r['default_or_fee'] : null,
+            'default_surgeon_fee' => $r['default_surgeon_fee'] !== null ? (float) $r['default_surgeon_fee'] : null,
+            'default_anesthesia_fee' => $r['default_anesthesia_fee'] !== null ? (float) $r['default_anesthesia_fee'] : null,
+            'philhealth_case_rate_code' => $r['philhealth_case_rate_code'],
+            'philhealth_case_rate_amount' => $r['philhealth_case_rate_amount'] !== null ? (float) $r['philhealth_case_rate_amount'] : null,
             'is_active' => (bool) $r['is_active'],
             'item_count' => (int) $r['item_count'],
             'created_at' => $r['created_at'],

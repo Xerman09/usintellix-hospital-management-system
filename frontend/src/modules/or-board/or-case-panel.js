@@ -8,8 +8,8 @@
 import {
     fetchOrRecord, moveOrStage, undoOrStage, cancelOrCaseLive, setOrDelay, saveOrChecklist, saveOrTimes, addOrVitals, removeOrVitals,
     fetchOrStock, addOrItem, voidOrItem, addOrSpecimen, removeOrSpecimen,
-    addOrPacu, removeOrPacu, releaseOrCase, saveOrReport, signOrReport, addOrAddendum, fetchOrReportPrint
-} from "./or-board.service.js?v=2";
+    addOrPacu, removeOrPacu, releaseOrCase, saveOrReport, signOrReport, addOrAddendum, fetchOrReportPrint, postOrCharges, voidOrCharge
+} from "./or-board.service.js?v=3";
 import { API_URL } from "../../core/api.js?v=5";
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
@@ -167,6 +167,8 @@ const STYLES = `
 .orc-table td { padding: 7px 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
 .orc-table tr:last-child td { border-bottom: none; }
 .orc-table tr.voided td { color: var(--text-muted); }
+.orc-table th.r, .orc-table td.r { text-align: right; white-space: nowrap; }
+.orc-table tr.has-error td { background: rgba(220,38,38,.08); }
 .orc-table tr.voided td.name { text-decoration: line-through; }
 .orc-table .x { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 0 4px; text-decoration: underline; }
 .orc-empty { padding: 18px; text-align: center; color: var(--text-muted); font-size: 12.5px; }
@@ -330,6 +332,7 @@ function render() {
         ["specimens", `Specimens${counts.specimens ? ` <span class="count">${counts.specimens}</span>` : ""}`],
         ["recovery", `Recovery${d.postop.observations.length ? ` <span class="count">${d.postop.observations.length}</span>` : ""}`],
         ["report", `Operative report${d.postop.report.status === "signed" ? ` <span class="count">✓</span>` : d.postop.report.exists ? ` <span class="count">draft</span>` : ""}`],
+        ["charges", `Charges${d.charges.billing_status === "billed" ? ` <span class="count">${esc(peso(d.charges.totals.net))}</span>` : ""}`],
         ["history", "Timeline"]
     ];
     const team = [["Surgeon", c.lead_surgeon], ["Assistant", c.assistant_surgeon], ["Anesthesia", c.anesthesiologist], ["Scrub", c.scrub_nurse], ["Circulating", c.circulating_nurse]]
@@ -422,7 +425,7 @@ function renderTab() {
     const body = $("orcTabBody");
     if (!body) return;
     ({ checklist: renderChecklist, anesthesia: renderAnesthesia, medicines: () => renderItems(["medicine", "fluid", "blood"]),
-        supplies: () => renderItems(["supply", "implant"]), specimens: renderSpecimens, recovery: renderRecovery, report: renderReport, history: renderHistory }[state.tab] || renderChecklist)(body);
+        supplies: () => renderItems(["supply", "implant"]), specimens: renderSpecimens, recovery: renderRecovery, report: renderReport, charges: renderCharges, history: renderHistory }[state.tab] || renderChecklist)(body);
 }
 
 /* ---------------------------------------------------------------
@@ -1044,7 +1047,8 @@ function renderSpecimens(body) {
  * ------------------------------------------------------------- */
 
 const ACTIONS = { booked: "Booked", rescheduled: "Moved", team_changed: "Team changed", cancelled: "Cancelled", stage: "Stage", stage_undone: "Stage undone", checklist: "Checklist", delay: "Delay reason",
-    released: "Released from recovery", report_signed: "Operative report signed", report_addendum: "Addendum to the operative report" };
+    released: "Released from recovery", report_signed: "Operative report signed", report_addendum: "Addendum to the operative report",
+    charged: "Charged", charge_voided: "Charge voided" };
 
 function renderHistory(body) {
     const d = state.data;
@@ -1055,6 +1059,8 @@ function renderHistory(body) {
         if (h.action === "stage_undone") what = `${STAGE_SHORT[x.from] || x.from || ""} taken back to ${STAGE_SHORT[x.to] || x.to || ""}`;
         if (h.action === "checklist") what = `${x.label || x.phase || ""} done${x.late ? " (recorded late)" : ""}`;
         if (h.action === "booked") what = `${fmtDate(x.date)} ${fmtTimeOfDay(x.start)}, ${x.suite || ""}`;
+        if (h.action === "charged") what = `${x.lines} line${x.lines === 1 ? "" : "s"}, ${peso(x.net)}${x.discount ? ` (${x.discount} discount)` : ""}`;
+        if (h.action === "charge_voided") what = `${x.description || ""}${x.net != null ? `, ${peso(x.net)}` : ""}`;
         if (h.action === "released") what = `${x.disposition || ""}${(x.unmet || []).length ? ` — criteria not met: ${x.unmet.join(", ")}` : ""}`;
         if (h.action === "rescheduled") what = `to ${fmtDate(x.to?.date)} ${fmtTimeOfDay(x.to?.start)} ${x.to?.suite || ""}`;
         return `<div class="${esc(h.action)}"><strong>${esc(ACTIONS[h.action] || h.action)}</strong> ${esc(what)}
@@ -1403,4 +1409,132 @@ export function operativeReportHtml(data) {
     ${r.addenda.length ? `<h3>Addenda</h3>${r.addenda.map((a) => `<div class="add"><p>${esc(a.body)}</p><div style="font-size:10px;color:#4b5563;">${esc(a.by_name || "")} · ${esc(dt(a.created_at))}</div></div>`).join("")}` : ""}
     <div class="foot"><span>${esc(c.case_number)} · ${esc(c.patient_name)}</span><span>Printed ${esc(dt(nowInput().replace("T", " ")))}</span></div>
 </div><script>window.onload = () => setTimeout(() => window.print(), 300);<\/script></body></html>`;
+}
+
+/* ---------------------------------------------------------------
+ * Charges (Phase 6): posted to the patient ledger
+ * ------------------------------------------------------------- */
+
+const peso = (v) => `₱${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function renderCharges(body) {
+    const d = state.data;
+    const ch = d.charges;
+    const live = ch.charges.filter((c) => c.status === "charged");
+    const posted = ch.charges.length ? `<div class="orc-table-wrap"><table class="orc-table"><thead><tr><th>Type</th><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Discount</th><th class="r">Net</th><th>Posted</th><th></th></tr></thead><tbody>
+        ${ch.charges.map((c) => `<tr class="${c.status === "voided" ? "voided" : ""}"><td>${esc(c.type_label)}</td>
+            <td class="name">${esc(c.description)}${c.status === "voided" ? `<span class="orc-sub">Voided by ${esc(c.voided_by_name || "")}: ${esc(c.void_reason || "")}</span>` : ""}</td>
+            <td class="r">${esc(qty(c.quantity))}</td><td class="r">${peso(c.unit_price)}</td><td class="r">${c.discount_amount ? `−${peso(c.discount_amount)}` : ""}</td>
+            <td class="r"><strong>${peso(c.net_amount)}</strong></td><td>${esc(fmtDate(c.charge_date))}<span class="orc-sub">${esc(c.posted_by || "")}</span></td>
+            <td>${c.status === "charged" ? `<button type="button" class="x" data-void-charge="${c.id}">Void</button>` : ""}</td></tr>`).join("")}
+        <tr><td colspan="4" class="r"><strong>Total charged</strong></td><td class="r">${ch.totals.discount ? `−${peso(ch.totals.discount)}` : ""}</td><td class="r"><strong>${peso(ch.totals.net)}</strong></td><td colspan="2"></td></tr>
+        </tbody></table></div>` : `<div class="orc-empty">Nothing charged yet.</div>`;
+    const ph = ch.philhealth ? `<div class="orc-alert info">PhilHealth case rate${ch.philhealth.code ? ` ${esc(ch.philhealth.code)}` : ""}${ch.philhealth.amount != null ? ` — ${peso(ch.philhealth.amount)}` : ""}: recorded only, not deducted from the bill yet.</div>` : "";
+    const disc = ch.discount;
+
+    body.innerHTML = `
+        <div class="orc-actions" style="margin-bottom:10px;"><span class="orc-pill ${ch.billing_status === "billed" ? "ok" : ""}">${ch.billing_status === "billed" ? "Billed" : "Not billed"}</span>
+            <span class="orc-note">Charges go to the patient's ledger (type "Surgery"), where payments are recorded.</span></div>
+        ${ph}
+        <div class="orc-section">Charged</div>
+        ${posted}
+        ${!ch.can_bill ? `<div class="orc-alert info" style="margin-top:10px;">${esc(ch.blocked_reason || "")}</div>` : `
+        <div class="orc-section" style="margin-top:6px;">To charge</div>
+        <form id="orcCharge" novalidate class="orc-card"><div class="orc-card-body">
+            <div class="orc-alert" id="orcChargeAlert"></div>
+            <div class="orc-table-wrap"><table class="orc-table" id="orcChargeLines"><thead><tr><th></th><th>Type</th><th>Description</th><th class="r">Qty</th><th class="r">Price (₱)</th><th class="r">Amount</th></tr></thead><tbody>
+                ${ch.pending.map((l, n) => chargeRow(l, n)).join("")}
+            </tbody></table></div>
+            <div><button type="button" class="orc-btn small" id="orcChargeAdd">+ Another charge</button>
+                <span class="orc-note">Lines with no price aren't charged now; they stay here for later.</span></div>
+            ${disc ? `<div class="orc-note">Discount for this case: <strong>${esc(ch.discounts[disc.type]?.label || disc.type)} ${esc(String(disc.rate))}%</strong>${disc.id_no ? ` (ID ${esc(disc.id_no)})` : ""} — applied to these lines too.</div>`
+                : `<div class="orc-grid">
+                    <label class="orc-field" data-key="discount_type"><span>Discount</span><select name="discount_type"><option value="">None</option>
+                        ${Object.entries(ch.discounts).map(([k, x]) => `<option value="${esc(k)}">${esc(x.label)}${x.rate ? ` (${x.rate}%)` : ""}</option>`).join("")}</select><span class="orc-err"></span></label>
+                    <label class="orc-field" data-key="discount_id_no" data-disc="id" hidden><span>ID number *</span><input name="discount_id_no" maxlength="50"><span class="orc-err"></span></label>
+                    <label class="orc-field" data-key="discount_rate" data-disc="other" hidden><span>Discount % *</span><input name="discount_rate" type="number" min="0" max="100" step="0.01"><span class="orc-err"></span></label>
+                    <label class="orc-field" data-key="discount_reason" data-disc="other" hidden><span>Reason *</span><input name="discount_reason" maxlength="255"><span class="orc-err"></span></label>
+                </div>`}
+            <div class="orc-actions"><button type="submit" class="orc-btn primary">Post charges</button><span class="orc-note" id="orcChargeTotal"></span></div>
+        </div></form>`}`;
+
+    body.querySelectorAll("[data-void-charge]").forEach((b) => b.addEventListener("click", () => {
+        const c = ch.charges.find((x) => x.id === Number(b.dataset.voidCharge));
+        reasonDialog({
+            title: "Void this charge?", intro: `${esc(c.description)} — ${peso(c.net_amount)}. It comes off the patient's ledger (kept, marked voided). If it was paid, refund it in the ledger.`,
+            label: "Reason", placeholder: "e.g. Wrong amount", okLabel: "Void charge", okClass: "danger",
+            onOk: (reason) => voidOrCharge(c.id, reason)
+        });
+    }));
+
+    const form = $("orcCharge");
+    if (!form) return;
+    const lines = $("orcChargeLines").querySelector("tbody");
+    let extra = ch.pending.length;
+    const total = () => {
+        let sum = 0;
+        lines.querySelectorAll("tr").forEach((tr) => {
+            const on = tr.querySelector("[data-on]").checked;
+            const amount = (Number(tr.querySelector("[data-q]").value) || 0) * (Number(tr.querySelector("[data-p]").value) || 0);
+            tr.querySelector("[data-amt]").textContent = tr.querySelector("[data-p]").value === "" ? "" : peso(amount);
+            if (on && tr.querySelector("[data-p]").value !== "") sum += amount;
+        });
+        const rate = disc ? disc.rate : { senior: 20, pwd: 20 }[form.querySelector('[name="discount_type"]')?.value] ?? Number(form.querySelector('[name="discount_rate"]')?.value || 0);
+        $("orcChargeTotal").textContent = `To post: ${peso(sum)}${rate ? ` less ${rate}% = ${peso(sum * (1 - rate / 100))}` : ""}`;
+    };
+    form.addEventListener("input", total);
+    form.addEventListener("change", (e) => {
+        if (e.target.name === "discount_type") {
+            const t = e.target.value;
+            form.querySelectorAll("[data-disc]").forEach((el) => { el.hidden = !((el.dataset.disc === "id" && (t === "senior" || t === "pwd")) || (el.dataset.disc === "other" && t === "other")); });
+        }
+        total();
+    });
+    $("orcChargeAdd").addEventListener("click", () => {
+        lines.insertAdjacentHTML("beforeend", chargeRow({ charge_type: "other", type_label: "Other", description: "", quantity: 1, unit_price: null, item_id: null }, extra++, true));
+        lines.lastElementChild.querySelector("[data-desc]").focus();
+    });
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = { id: d.case.id, lines: [] };
+        lines.querySelectorAll("tr").forEach((tr) => {
+            if (!tr.querySelector("[data-on]").checked) return;
+            payload.lines.push({ charge_type: tr.dataset.type, item_id: tr.dataset.item || null, provider_user_id: tr.dataset.provider || null,
+                description: tr.querySelector("[data-desc]").value, quantity: tr.querySelector("[data-q]").value, unit_price: tr.querySelector("[data-p]").value });
+        });
+        ["discount_type", "discount_id_no", "discount_rate", "discount_reason"].forEach((k) => { const el = form.querySelector(`[name="${k}"]`); if (el) payload[k] = el.value; });
+        lines.querySelectorAll("tr").forEach((tr) => tr.classList.remove("has-error"));
+        const btn = form.querySelector("button[type=submit]");
+        btn.disabled = true;
+        const res = await postOrCharges(payload);
+        btn.disabled = false;
+        showErrors(form, res, $("orcChargeAlert"));
+        if (!res?.success) {
+            // Line errors are keyed by their position among the lines sent.
+            const sent = [...lines.querySelectorAll("tr")].filter((tr) => tr.querySelector("[data-on]").checked);
+            Object.entries(res?.errors || {}).forEach(([k, msg]) => {
+                const m = /^lines\.(\d+)$/.exec(k);
+                if (m && sent[+m[1]]) {
+                    sent[+m[1]].classList.add("has-error");
+                    sent[+m[1]].title = msg;
+                }
+            });
+            if (res?.errors) $("orcChargeAlert").textContent = `${res.message} ${Object.values(res.errors).join(" ")}`;
+            return;
+        }
+        showToast(res.message, "success", 6000);
+        changed();
+        await reload("charges");
+    });
+    total();
+}
+
+function chargeRow(l, n, editable = false) {
+    return `<tr data-type="${esc(l.charge_type)}" data-item="${l.item_id ?? ""}" data-provider="${l.provider_user_id ?? ""}">
+        <td><input type="checkbox" data-on checked aria-label="Charge this line"></td>
+        <td>${esc(l.type_label)}</td>
+        <td><input data-desc maxlength="255" value="${esc(l.description)}" ${editable ? 'placeholder="What is charged"' : ""} style="width:100%;min-width:180px;height:30px;border:1px solid var(--border-color);border-radius:6px;padding:0 8px;background:var(--bg-surface);color:var(--text-primary);"></td>
+        <td class="r"><input data-q type="number" min="0" step="any" value="${esc(qty(l.quantity))}" style="width:70px;height:30px;border:1px solid var(--border-color);border-radius:6px;padding:0 6px;text-align:right;background:var(--bg-surface);color:var(--text-primary);"></td>
+        <td class="r"><input data-p type="number" min="0" step="0.01" value="${l.unit_price != null ? esc(String(l.unit_price)) : ""}" placeholder="—" style="width:110px;height:30px;border:1px solid var(--border-color);border-radius:6px;padding:0 6px;text-align:right;background:var(--bg-surface);color:var(--text-primary);"></td>
+        <td class="r" data-amt></td></tr>`;
 }

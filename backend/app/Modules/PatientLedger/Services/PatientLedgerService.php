@@ -20,7 +20,7 @@ class PatientLedgerService
      */
     public function getLedger(int $patientId, string $from, string $to): array
     {
-        $charges = array_merge($this->listCharges($patientId, $from, $to), $this->listPharmacyCharges($patientId, $from, $to));
+        $charges = array_merge($this->listCharges($patientId, $from, $to), $this->listPharmacyCharges($patientId, $from, $to), $this->listSurgeryCharges($patientId, $from, $to));
         $payments = $this->listPayments($patientId, $from, $to);
 
         $rows = array_merge($charges, $payments);
@@ -121,6 +121,38 @@ class PatientLedgerService
             // Same-day ordering with visit charges: when it was dispensed.
             'entry_date' => $row['created_at'] ?: $row['charge_date'],
             'encounter_id' => $row['encounter_id'] !== null ? (int) $row['encounter_id'] : null
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** OR charges (fees, supplies, medicines, implants) not voided, one row per charge. */
+    private function listSurgeryCharges(int $patientId, string $from, string $to): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT ch.id, ch.description, ch.quantity, ch.net_amount, ch.discount_amount, ch.charge_date, ch.created_at, c.case_number, c.discount_type
+             FROM or_charges ch
+             JOIN or_surgical_cases c ON c.id = ch.case_id
+             WHERE ch.patient_id = :patient_id AND ch.status = 'charged'
+               AND ch.charge_date >= :from AND ch.charge_date <= :to
+             ORDER BY ch.charge_date ASC, ch.id ASC"
+        );
+        $stmt->execute(['patient_id' => $patientId, 'from' => $from, 'to' => $to]);
+
+        return array_map(fn(array $row) => [
+            'row_type' => 'charge',
+            'id' => 's' . $row['id'],
+            'code' => $row['case_number'],
+            'description' => $row['description'] . ((float) $row['quantity'] != 1.0 ? ' x ' . rtrim(rtrim(number_format((float) $row['quantity'], 3, '.', ''), '0'), '.') : '')
+                . ((float) $row['discount_amount'] > 0
+                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+            'billed_date' => $row['charge_date'],
+            'payor' => null,
+            'type' => 'Surgery',
+            'units' => 1,
+            'charge' => round((float) $row['net_amount'], 2),
+            'payment' => 0.0,
+            'adjustment' => 0.0,
+            'entry_date' => $row['created_at'] ?: $row['charge_date'],
+            'encounter_id' => null
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 

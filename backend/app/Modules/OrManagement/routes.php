@@ -105,3 +105,14 @@ $router->post('/or-live/report', [OrLiveController::class, 'saveReport'], [AuthM
 $router->post('/or-live/report/sign', [OrLiveController::class, 'signReport'], [AuthMiddleware::class, [RoleMiddleware::class, ['doctor', 'admin']]]);
 $router->post('/or-live/report/addendum', [OrLiveController::class, 'addendum'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor']]]);
 $router->get('/or-live/report/print', [OrLiveController::class, 'printReport'], $orScheduleRoles);
+
+// Charges and reports (Surgery Phase 6).
+$router->post('/or-live/charges', [OrLiveController::class, 'postCharges'], $orScheduleRoles);
+$router->post('/or-live/charges/void', [OrLiveController::class, 'voidCharge'], $orScheduleRoles);
+
+use App\Modules\OrManagement\Controllers\OrReportController;
+
+$router->get('/or-reports/options', [OrReportController::class, 'options'], $orScheduleRoles);
+foreach (['utilization', 'timeliness', 'cancellations', 'volume', 'compliance', 'ssi'] as $orReport) {
+    $router->get("/or-reports/{$orReport}", [OrReportController::class, $orReport], $orScheduleRoles);
+}

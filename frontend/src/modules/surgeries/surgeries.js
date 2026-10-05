@@ -128,6 +128,10 @@ function openForm(surgery)
         `<option value="${escapeHtml(a.value)}"${s.default_anesthesia_type === a.value ? " selected" : ""}>${escapeHtml(a.label)}</option>`).join("");
     $("sgWound").innerHTML = `<option value="">Not set</option>` + options.wound_classes.map((w) => `<option${s.wound_class === w ? " selected" : ""}>${escapeHtml(w)}</option>`).join("");
     $("sgFee").value = s.default_or_fee ?? "";
+    $("sgSurgeonFee").value = s.default_surgeon_fee ?? "";
+    $("sgAnesFee").value = s.default_anesthesia_fee ?? "";
+    $("sgPhCode").value = s.philhealth_case_rate_code || "";
+    $("sgPhAmount").value = s.philhealth_case_rate_amount ?? "";
     $("sgLaterality").checked = !!s.requires_laterality;
     $("sgBlood").checked = !!s.usually_needs_blood;
     $("sgImplants").checked = !!s.usually_needs_implants;
@@ -212,7 +216,8 @@ async function submit(event)
     const data = {
         name: $("sgName").value.trim(), specialization_id: $("sgSpec").value, code: $("sgCode").value.trim(), category: $("sgCategory").value,
         description: $("sgDescription").value.trim(), default_duration_minutes: $("sgDuration").value, default_anesthesia_type: $("sgAnesthesia").value,
-        wound_class: $("sgWound").value, default_or_fee: $("sgFee").value, requires_laterality: $("sgLaterality").checked ? 1 : 0,
+        wound_class: $("sgWound").value, default_or_fee: $("sgFee").value, default_surgeon_fee: $("sgSurgeonFee").value,
+        default_anesthesia_fee: $("sgAnesFee").value, philhealth_case_rate_code: $("sgPhCode").value.trim(), philhealth_case_rate_amount: $("sgPhAmount").value, requires_laterality: $("sgLaterality").checked ? 1 : 0,
         usually_needs_blood: $("sgBlood").checked ? 1 : 0, usually_needs_implants: $("sgImplants").checked ? 1 : 0, is_active: $("sgActive").checked ? 1 : 0,
         preference_items: items
     };
