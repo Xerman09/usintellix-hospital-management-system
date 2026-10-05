@@ -272,7 +272,7 @@ async function openAssessmentModal(reminder)
     // Title
     document.getElementById("crReminderFormTitle").textContent = reminder.item_label;
 
-    // Type pill
+    // Type pill & header icon
     const cat = reminderCategory(reminder.item_label);
     const catLabel = reminderCategoryLabel(reminder.item_label);
     const typePill = document.getElementById("crModalTypePill");
@@ -281,13 +281,18 @@ async function openAssessmentModal(reminder)
         typePill.textContent = catLabel;
     }
 
+    const headIcon = document.getElementById("crModalHeadIcon");
+    if (headIcon) {
+        headIcon.innerHTML = categoryIcon(cat);
+    }
+
     // Status inline
     const statusInline = document.getElementById("crModalStatusInline");
     if (statusInline) {
         const pill = statusPillClass(reminder.due_status);
         statusInline.className = `cr-modal-status-inline ${pill}`;
         statusInline.innerHTML = `
-            <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+            <svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
             ${statusPillText(reminder.due_status)}
         `;
     }
@@ -297,10 +302,19 @@ async function openAssessmentModal(reminder)
     const completedInput = document.getElementById("crReminderCompleted");
     const detailsInput   = document.getElementById("crReminderDetails");
     const saveBtn        = document.getElementById("crReminderFormSaveBtn");
+    const cancelBtn      = document.getElementById("crReminderFormCancelBtn");
 
     if (dateInput)      dateInput.value      = toDateTimeInput(systemNow());
     if (completedInput) completedInput.value = "yes";
     if (detailsInput)   detailsInput.value   = "";
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            if (dateInput) dateInput.value = toDateTimeInput(systemNow());
+            if (completedInput) completedInput.value = "yes";
+            if (detailsInput) detailsInput.value = "";
+        };
+    }
 
     // History loading state
     const timeline = document.getElementById("crReminderTimeline");

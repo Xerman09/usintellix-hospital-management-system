@@ -21,8 +21,8 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientPortalCredentials, savePatientPortalCredentials } from "../patient-portal-access/patient-portal-access.service.js";
 import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
-import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=2";
-import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=3";
+import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=3";
+import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=4";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import { PatientChartView } from "./patients-list.view.js?v=77";
