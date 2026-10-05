@@ -1951,10 +1951,143 @@ export function PatientsListView(user)
 }
 
 /* Surgeries widget: section labels between requests / OR cases / history. */
-.pd-surg-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #8b98ac; margin: 2px 2px 0; }
+.pd-surg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.pd-surg-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pd-surg-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-muted, #8b98ac);
+    margin: 4px 2px 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pd-surg-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 8px;
+    background: var(--bg-surface, #ffffff);
+    transition: all .15s ease;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.pd-surg-item:hover {
+    border-color: var(--accent, #2563eb);
+    box-shadow: 0 2px 6px rgba(37,99,235,.07);
+}
+
+.pd-surg-item.pd-item-clickable {
+    cursor: pointer;
+}
+
+.pd-surg-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.pd-surg-icon svg { width: 15px; height: 15px; }
+
+.pd-surg-icon.history   { background: rgba(14,165,233,.12); color: #0284c7; }
+.pd-surg-icon.scheduled { background: rgba(99,102,241,.12); color: #6366f1; }
+.pd-surg-icon.in-or     { background: rgba(239,68,68,.12);  color: #dc2626; }
+.pd-surg-icon.requested { background: rgba(245,158,11,.12); color: #d97706; }
+
+.pd-surg-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.pd-surg-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.pd-surg-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-surg-date {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted, #8b98ac);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pd-surg-sub {
+    font-size: 11.5px;
+    color: var(--text-muted, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-surg-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.pd-surg-badge.outcome-success   { background: #dcfce7; color: #166534; }
+.pd-surg-badge.outcome-routine   { background: #e0f2fe; color: #0369a1; }
+.pd-surg-badge.outcome-default   { background: #f1f5f9; color: #475569; }
+
 .pd-surg-bar { height: 6px; border-radius: 999px; background: #eef2f7; overflow: hidden; margin-top: 4px; max-width: 220px; }
 .pd-surg-bar span { display: block; height: 100%; background: #16a34a; }
+
 :root[data-theme="dark"] .pd-surg-label { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-item  { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-surg-item:hover { border-color: var(--accent); }
+:root[data-theme="dark"] .pd-surg-title { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-surg-date  { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-sub   { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-icon.history   { background: rgba(14,165,233,.2); color: #38bdf8; }
+:root[data-theme="dark"] .pd-surg-icon.scheduled { background: rgba(99,102,241,.2); color: #a5b4fc; }
+:root[data-theme="dark"] .pd-surg-icon.in-or     { background: rgba(239,68,68,.2);  color: #f87171; }
+:root[data-theme="dark"] .pd-surg-icon.requested { background: rgba(245,158,11,.2); color: #fbbf24; }
+:root[data-theme="dark"] .pd-surg-badge.outcome-success   { background: rgba(34,197,94,.2); color: #86efac; }
+:root[data-theme="dark"] .pd-surg-badge.outcome-routine   { background: rgba(56,189,248,.2); color: #7dd3fc; }
+:root[data-theme="dark"] .pd-surg-badge.outcome-default   { background: rgba(148,163,184,.18); color: #cbd5e1; }
 :root[data-theme="dark"] .pd-surg-bar { background: rgba(148,163,184,.18); }
 
 .pd-allergy-remove {
@@ -7080,10 +7213,143 @@ textarea.pd-sdoh-readonly {
 }
 
 /* Surgeries widget: section labels between requests / OR cases / history. */
-.pd-surg-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #8b98ac; margin: 2px 2px 0; }
+.pd-surg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.pd-surg-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pd-surg-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-muted, #8b98ac);
+    margin: 4px 2px 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pd-surg-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 8px;
+    background: var(--bg-surface, #ffffff);
+    transition: all .15s ease;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.pd-surg-item:hover {
+    border-color: var(--accent, #2563eb);
+    box-shadow: 0 2px 6px rgba(37,99,235,.07);
+}
+
+.pd-surg-item.pd-item-clickable {
+    cursor: pointer;
+}
+
+.pd-surg-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.pd-surg-icon svg { width: 15px; height: 15px; }
+
+.pd-surg-icon.history   { background: rgba(14,165,233,.12); color: #0284c7; }
+.pd-surg-icon.scheduled { background: rgba(99,102,241,.12); color: #6366f1; }
+.pd-surg-icon.in-or     { background: rgba(239,68,68,.12);  color: #dc2626; }
+.pd-surg-icon.requested { background: rgba(245,158,11,.12); color: #d97706; }
+
+.pd-surg-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.pd-surg-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.pd-surg-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-surg-date {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted, #8b98ac);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pd-surg-sub {
+    font-size: 11.5px;
+    color: var(--text-muted, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pd-surg-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.pd-surg-badge.outcome-success   { background: #dcfce7; color: #166534; }
+.pd-surg-badge.outcome-routine   { background: #e0f2fe; color: #0369a1; }
+.pd-surg-badge.outcome-default   { background: #f1f5f9; color: #475569; }
+
 .pd-surg-bar { height: 6px; border-radius: 999px; background: #eef2f7; overflow: hidden; margin-top: 4px; max-width: 220px; }
 .pd-surg-bar span { display: block; height: 100%; background: #16a34a; }
+
 :root[data-theme="dark"] .pd-surg-label { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-item  { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .pd-surg-item:hover { border-color: var(--accent); }
+:root[data-theme="dark"] .pd-surg-title { color: var(--text-primary); }
+:root[data-theme="dark"] .pd-surg-date  { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-sub   { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-surg-icon.history   { background: rgba(14,165,233,.2); color: #38bdf8; }
+:root[data-theme="dark"] .pd-surg-icon.scheduled { background: rgba(99,102,241,.2); color: #a5b4fc; }
+:root[data-theme="dark"] .pd-surg-icon.in-or     { background: rgba(239,68,68,.2);  color: #f87171; }
+:root[data-theme="dark"] .pd-surg-icon.requested { background: rgba(245,158,11,.2); color: #fbbf24; }
+:root[data-theme="dark"] .pd-surg-badge.outcome-success   { background: rgba(34,197,94,.2); color: #86efac; }
+:root[data-theme="dark"] .pd-surg-badge.outcome-routine   { background: rgba(56,189,248,.2); color: #7dd3fc; }
+:root[data-theme="dark"] .pd-surg-badge.outcome-default   { background: rgba(148,163,184,.18); color: #cbd5e1; }
 :root[data-theme="dark"] .pd-surg-bar { background: rgba(148,163,184,.18); }
 
 .pd-allergy-remove {

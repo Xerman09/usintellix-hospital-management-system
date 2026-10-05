@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=78";
+import { PatientChartView } from "./patients-list.view.js?v=79";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -6992,6 +6992,9 @@ function renderDashboardSurgeries(data, patient)
         ...data.history.filter((h) => !h.or_case_id).map((h) => ({ title: h.title, date: h.begin_date, sub: h.outcome || "" }))
     ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
 
+    const totalItems = requests.length + inOr.length + upcoming.length + past.length;
+    setWidgetCount("pdSurgeriesBody", totalItems);
+
     if (!requests.length && !inOr.length && !upcoming.length && !past.length) {
         body.innerHTML = `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.5-7.5"></path><path d="M14.5 9.5 21 3"></path><path d="m9 15 6-6 3 3-6 6Z"></path></svg>
@@ -6999,45 +7002,93 @@ function renderDashboardSurgeries(data, patient)
         return;
     }
 
-    body.innerHTML = `<div class="pd-msg-list">
-        ${requests.length ? `<div class="pd-surg-label">Requested</div>` + requests.map((r) => {
-            const pct = r.readiness_total ? Math.round(r.readiness_done * 100 / r.readiness_total) : 100;
-            return `
-            <div class="pd-msg-item pd-item-clickable" data-surgery-request="${r.id}" tabindex="0" role="button">
-                <div class="pd-msg-main">
-                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(r.procedure_name)}${r.laterality ? ` (${escapeHtml(r.laterality)})` : ""}</span>
-                        <span class="pd-msg-when">${escapeHtml(r.request_number)}</span></div>
-                    <span class="pd-msg-preview">${escapeHtml([r.surgeon_name ? `Dr. ${r.surgeon_name}` : "", r.preferred_date ? `preferred ${fmt(r.preferred_date)}` : "", r.diagnosis].filter(Boolean).join(" · "))}</span>
-                    <div class="pd-msg-tags">${surgeryStatusBadge(r)}${r.priority !== "Elective" ? surgeryPriorityBadge(r.priority) : ""}<span class="pd-msg-status">Readiness ${r.readiness_done}/${r.readiness_total}</span></div>
-                    <div class="pd-surg-bar"><span style="width:${pct}%"></span></div>
-                </div>
-            </div>`;
-        }).join("") : ""}
-        ${inOr.length ? `<div class="pd-surg-label">In the OR / recovery</div>` + inOr.map((c) => `
-            <div class="pd-msg-item pd-item-clickable" data-or-case="${c.id}" tabindex="0" role="button" title="Open the case record">
-                <div class="pd-msg-main">
-                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
-                        <span class="pd-msg-when">${escapeHtml(c.suite || "")}</span></div>
-                    <span class="pd-msg-preview">${escapeHtml([c.case_number, c.surgeon].filter(Boolean).join(" · "))}</span>
-                    <div class="pd-msg-tags"><span class="pd-msg-tag">${escapeHtml(c.stage === "In PACU" ? "In recovery (PACU)" : c.stage)}</span></div>
-                </div>
-            </div>`).join("") : ""}
-        ${upcoming.length ? `<div class="pd-surg-label">Scheduled</div>` + upcoming.map((c) => `
-            <div class="pd-msg-item pd-item-clickable" data-or-case="${c.id}" tabindex="0" role="button" title="Open the case record">
-                <div class="pd-msg-main">
-                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
-                        <span class="pd-msg-when">${escapeHtml(fmt(c.scheduled_date))} ${escapeHtml(String(c.scheduled_start_time || "").slice(0, 5))}</span></div>
-                    <span class="pd-msg-preview">${escapeHtml([c.case_number, c.suite, c.surgeon].filter(Boolean).join(" · "))}</span>
-                    <div class="pd-msg-tags"><span class="pd-msg-tag">${escapeHtml(c.stage)}</span></div>
-                </div>
-            </div>`).join("") : ""}
-        ${past.length ? `<div class="pd-surg-label">History</div><div data-or-history>` + past.map((h) => `
-            <div class="pd-msg-item${h.caseId ? " pd-item-clickable" : ""}"${h.caseId ? ` data-or-case="${h.caseId}" tabindex="0" role="button" title="Open the case record and operative report"` : ""}>
-                <div class="pd-msg-main">
-                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(h.title)}</span><span class="pd-msg-when">${escapeHtml(fmt(h.date))}</span></div>
-                    ${h.sub ? `<span class="pd-msg-preview">${escapeHtml(h.sub)}</span>` : ""}
-                </div>
-            </div>`).join("") + `</div>` : ""}
+    const surgeryIconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.5-7.5"></path><path d="M14.5 9.5 21 3"></path><path d="m9 15 6-6 3 3-6 6Z"></path><path d="M6 18l-2-2"></path></svg>`;
+
+    body.innerHTML = `<div class="pd-surg-list">
+        ${requests.length ? `
+        <div class="pd-surg-section">
+            <div class="pd-surg-label">Requested (${requests.length})</div>
+            ${requests.map((r) => {
+                const pct = r.readiness_total ? Math.round(r.readiness_done * 100 / r.readiness_total) : 100;
+                return `
+                <div class="pd-surg-item pd-item-clickable" data-surgery-request="${r.id}" tabindex="0" role="button">
+                    <div class="pd-surg-icon requested">${surgeryIconSvg}</div>
+                    <div class="pd-surg-main">
+                        <div class="pd-surg-top">
+                            <span class="pd-surg-title">${escapeHtml(r.procedure_name)}${r.laterality ? ` (${escapeHtml(r.laterality)})` : ""}</span>
+                            <span class="pd-surg-date">${escapeHtml(r.request_number)}</span>
+                        </div>
+                        <span class="pd-surg-sub">${escapeHtml([r.surgeon_name ? `Dr. ${r.surgeon_name}` : "", r.preferred_date ? `Preferred ${fmt(r.preferred_date)}` : "", r.diagnosis].filter(Boolean).join(" · "))}</span>
+                        <div class="pd-msg-tags" style="margin-top:2px;">
+                            ${surgeryStatusBadge(r)}
+                            ${r.priority !== "Elective" ? surgeryPriorityBadge(r.priority) : ""}
+                            <span class="pd-msg-status">Readiness ${r.readiness_done}/${r.readiness_total}</span>
+                        </div>
+                        <div class="pd-surg-bar"><span style="width:${pct}%"></span></div>
+                    </div>
+                </div>`;
+            }).join("")}
+        </div>` : ""}
+
+        ${inOr.length ? `
+        <div class="pd-surg-section">
+            <div class="pd-surg-label">In the OR / Recovery (${inOr.length})</div>
+            ${inOr.map((c) => `
+                <div class="pd-surg-item pd-item-clickable" data-or-case="${c.id}" tabindex="0" role="button" title="Open the case record">
+                    <div class="pd-surg-icon in-or">${surgeryIconSvg}</div>
+                    <div class="pd-surg-main">
+                        <div class="pd-surg-top">
+                            <span class="pd-surg-title">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
+                            <span class="pd-surg-date">${escapeHtml(c.suite || "")}</span>
+                        </div>
+                        <span class="pd-surg-sub">${escapeHtml([c.case_number, c.surgeon].filter(Boolean).join(" · "))}</span>
+                        <div style="margin-top:2px;">
+                            <span class="pd-surg-badge outcome-routine">${escapeHtml(c.stage === "In PACU" ? "In recovery (PACU)" : c.stage)}</span>
+                        </div>
+                    </div>
+                </div>`).join("")}
+        </div>` : ""}
+
+        ${upcoming.length ? `
+        <div class="pd-surg-section">
+            <div class="pd-surg-label">Scheduled (${upcoming.length})</div>
+            ${upcoming.map((c) => `
+                <div class="pd-surg-item pd-item-clickable" data-or-case="${c.id}" tabindex="0" role="button" title="Open the case record">
+                    <div class="pd-surg-icon scheduled">${surgeryIconSvg}</div>
+                    <div class="pd-surg-main">
+                        <div class="pd-surg-top">
+                            <span class="pd-surg-title">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
+                            <span class="pd-surg-date">${escapeHtml(fmt(c.scheduled_date))} ${escapeHtml(String(c.scheduled_start_time || "").slice(0, 5))}</span>
+                        </div>
+                        <span class="pd-surg-sub">${escapeHtml([c.case_number, c.suite, c.surgeon].filter(Boolean).join(" · "))}</span>
+                        <div style="margin-top:2px;">
+                            <span class="pd-surg-badge outcome-routine">${escapeHtml(c.stage)}</span>
+                        </div>
+                    </div>
+                </div>`).join("")}
+        </div>` : ""}
+
+        ${past.length ? `
+        <div class="pd-surg-section" data-or-history>
+            <div class="pd-surg-label">History (${past.length})</div>
+            ${past.map((h) => {
+                const outcomeCls = (h.sub && /success|normal|resolved/i.test(h.sub)) ? "outcome-success" : (h.sub ? "outcome-default" : "");
+                return `
+                <div class="pd-surg-item${h.caseId ? " pd-item-clickable" : ""}"${h.caseId ? ` data-or-case="${h.caseId}" tabindex="0" role="button" title="Open the case record and operative report"` : ""}>
+                    <div class="pd-surg-icon history">${surgeryIconSvg}</div>
+                    <div class="pd-surg-main">
+                        <div class="pd-surg-top">
+                            <span class="pd-surg-title">${escapeHtml(h.title)}</span>
+                            ${h.date ? `<span class="pd-surg-date">${escapeHtml(fmt(h.date))}</span>` : ""}
+                        </div>
+                        ${h.sub ? `
+                        <div style="margin-top:2px;">
+                            <span class="pd-surg-badge ${outcomeCls || 'outcome-default'}">${escapeHtml(h.sub)}</span>
+                        </div>` : ""}
+                    </div>
+                </div>`;
+            }).join("")}
+        </div>` : ""}
     </div>`;
 
     body.querySelectorAll("[data-or-case]").forEach((el) => {
