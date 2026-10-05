@@ -5,7 +5,7 @@ import {
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
-import { openOrCase } from "../or-board/or-case-panel.js?v=3";
+import { openOrCase } from "../or-board/or-case-panel.js?v=4";
 
 const DAY_START = 7 * 60;
 const DAY_END = 21 * 60;

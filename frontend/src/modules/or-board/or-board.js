@@ -1,7 +1,7 @@
 import { fetchOrBoard, setOrSuiteStatus } from "./or-board.service.js?v=3";
 import {
     openOrCase, advanceStage, ensureOrCaseRoot, esc, parseDT, fmtTime, fmtTimeOfDay, fmtDate, fmtMin, minutesSince, STAGE_SHORT, GATES, PHASE_LABELS
-} from "./or-case-panel.js?v=3";
+} from "./or-case-panel.js?v=4";
 import { showToast } from "../../core/toast.js";
 import { systemNow, todayISO } from "../../core/timezone.js";
 
@@ -15,6 +15,7 @@ const LATE_AFTER = 10;
 let state = { date: todayISO(), data: null, loadedAt: null };
 let refreshTimer = null;
 let tickTimer = null;
+let fullscreenBound = false;
 const $ = (id) => document.getElementById(id);
 const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -37,9 +38,13 @@ export async function initOrBoard() {
     $("orbInitials").checked = store.get("orb.initials") === "1";
     $("orbInitials").addEventListener("change", () => { store.set("orb.initials", $("orbInitials").checked ? "1" : "0"); render(); });
     $("orbTheater").addEventListener("click", toggleTheater);
-    document.addEventListener("fullscreenchange", () => {
-        if (!document.fullscreenElement && $("orbPage")?.classList.contains("orb-theater")) setTheater(false);
-    });
+    if (!fullscreenBound) {
+        // Esc out of full screen leaves theater mode too.
+        document.addEventListener("fullscreenchange", () => {
+            if (!document.fullscreenElement && $("orbPage")?.classList.contains("orb-theater")) setTheater(false);
+        });
+        fullscreenBound = true;
+    }
     $("orbPage").addEventListener("click", onClick);
 
     clearInterval(refreshTimer);

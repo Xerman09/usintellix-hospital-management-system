@@ -384,14 +384,36 @@ class OrSchedulingService
         $lock = $this->lock();
         $owns = $this->begin($db);
         try {
+            // Someone may have moved it on (e.g. into the room) since it was read.
+            $stmt = $db->prepare("SELECT perioperative_stage FROM or_surgical_cases WHERE id = :id FOR UPDATE");
+            $stmt->execute(['id' => $caseId]);
+            $stageNow = (string) $stmt->fetchColumn();
+            if (!in_array($stageNow, self::MOVABLE_STAGES, true)) {
+                $this->rollBack($db, $owns);
+                $this->unlock($lock);
+                return ['success' => false, 'message' => "{$case['case_number']} is now {$stageNow}; it can no longer be moved."];
+            }
             $check = $this->check($new, $caseId);
             if ($check['errors']) {
                 $this->rollBack($db, $owns);
+                $this->unlock($lock);
                 return ['success' => false, 'message' => 'That time doesn\'t work.', 'errors' => $check['errors'], 'conflicts' => array_values($check['errors'])];
             }
             if ($moved && $check['warnings'] && empty($data['acknowledge_warnings'])) {
                 $this->rollBack($db, $owns);
+                $this->unlock($lock);
                 return ['success' => false, 'message' => 'Check the warnings, then confirm.', 'needs_ack' => true, 'warnings' => $check['warnings']];
+            }
+
+            // Moved to another day: back to Scheduled, and the Sign-In is done again on the new day.
+            $otherDay = $new['scheduled_date'] !== $case['scheduled_date'];
+            if ($otherDay) {
+                $db->prepare("UPDATE or_surgical_cases SET perioperative_stage = 'Scheduled' WHERE id = :id AND perioperative_stage = 'Pre-Op Holding'")->execute(['id' => $caseId]);
+                $reset = $db->prepare("DELETE FROM or_case_safety_checks WHERE case_id = :id AND phase = 'sign_in'");
+                $reset->execute(['id' => $caseId]);
+                if ($reset->rowCount()) {
+                    $this->log($caseId, 'checklist_reset', ['phase' => 'sign_in', 'label' => 'Sign-In'], 'Moved to another day', (int) $user['id']);
+                }
             }
 
             $stmt = $db->prepare("SELECT suite_name FROM or_suites WHERE id = :id");
@@ -403,8 +425,7 @@ class OrSchedulingService
                         scheduled_end_time = :e, estimated_duration_minutes = :dur,
                         lead_surgeon = :lead, lead_surgeon_user_id = :lead_id, assistant_surgeon = :asst, assistant_surgeon_user_id = :asst_id,
                         anesthesiologist = :anes, anesthesiologist_user_id = :anes_id, scrub_nurse = :scrub, scrub_nurse_user_id = :scrub_id,
-                        circulating_nurse = :circ, circulating_nurse_user_id = :circ_id, surgeon_override_reason = :override,
-                        delay_reason = COALESCE(:delay, delay_reason), updated_at = NOW()
+                        circulating_nurse = :circ, circulating_nurse_user_id = :circ_id, surgeon_override_reason = :override, updated_at = NOW()
                  WHERE id = :id"
             )->execute([
                 'suite' => $new['or_suite_id'], 'suite_name' => $stmt->fetchColumn(), 'd' => $new['scheduled_date'], 's' => $start,
@@ -414,7 +435,7 @@ class OrSchedulingService
                 'anes' => $doctorName($anes) ?? 'Local — by the surgeon', 'anes_id' => $new['anesthesiologist_user_id'],
                 'scrub' => $people[$new['scrub_nurse_user_id']]['name'] ?? null, 'scrub_id' => $new['scrub_nurse_user_id'],
                 'circ' => $people[$new['circulating_nurse_user_id']]['name'] ?? null, 'circ_id' => $new['circulating_nurse_user_id'],
-                'override' => $outside ? $override : null, 'delay' => $moved ? mb_substr($reason, 0, 255) : null, 'id' => $caseId
+                'override' => $outside ? $override : null, 'id' => $caseId
             ]);
 
             $from = ['suite' => $case['or_suite_name'], 'date' => $case['scheduled_date'], 'start' => substr($case['scheduled_start_time'], 0, 5), 'duration' => (int) $case['estimated_duration_minutes']];

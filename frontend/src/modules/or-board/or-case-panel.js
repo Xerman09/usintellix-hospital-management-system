@@ -13,7 +13,7 @@ import {
 import { API_URL } from "../../core/api.js?v=5";
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
-import { systemNow, toDateTimeInput } from "../../core/timezone.js";
+import { systemNow, toDateTimeInput, todayISO } from "../../core/timezone.js";
 
 export const STAGES = ["Scheduled", "Pre-Op Holding", "In Room / Induction", "Incision / In Progress", "Closing / Extubation", "In PACU", "Transferred / Discharged"];
 export const STAGE_SHORT = {
@@ -282,6 +282,7 @@ function changed() {
 export async function openOrCase(id, { tab = null, onChange = null } = {}) {
     ensureOrCaseRoot();
     state = { id, data: null, tab: tab || null, onChange };
+    itemForm = { kind: null, fromStock: true, picked: null, results: [] };
     $("orcModal").innerHTML = `<div class="orc-mbody"><div class="orc-empty">Loading the case…</div></div>`;
     $("orcOverlay").classList.add("open");
     await reload(tab);
@@ -338,6 +339,8 @@ function render() {
     const team = [["Surgeon", c.lead_surgeon], ["Assistant", c.assistant_surgeon], ["Anesthesia", c.anesthesiologist], ["Scrub", c.scrub_nurse], ["Circulating", c.circulating_nurse]]
         .filter(([, n]) => n).map(([r, n]) => `${r}: ${esc(n)}`).join(" · ");
     const needs = d.next_needs;
+    // Pre-op holding and going into the room happen only on the booked day.
+    const notToday = ["Pre-Op Holding", "In Room / Induction"].includes(d.next_stage) && c.scheduled_date !== todayISO();
 
     $("orcModal").innerHTML = `
         <div class="orc-mhead">
@@ -361,9 +364,11 @@ function render() {
         <div class="orc-mbody">
             ${cancelled ? `<div class="orc-alert">Cancelled${c.cancelled_by_name ? ` by ${esc(c.cancelled_by_name)}` : ""}: ${esc(c.cancellation_reason || "")}</div>` : stepper(d)}
             ${cancelled ? "" : `<div class="orc-actions">
-                ${d.next_stage ? `<button type="button" class="orc-btn ${needs ? "" : "go"}" id="orcNext">${needs ? `Do the ${PHASE_LABELS[needs]} first`
+                ${notToday ? `<button type="button" class="orc-btn" disabled>Next: ${esc(d.next_label)} →</button>
+                    <span class="orc-needs">Booked for ${esc(fmtDate(c.scheduled_date))}; stages start on the day. To do it today, move the booking on the OR Schedule.</span>`
+                : d.next_stage ? `<button type="button" class="orc-btn ${needs ? "" : "go"}" id="orcNext">${needs ? `Do the ${PHASE_LABELS[needs]} first`
                     : d.next_stage === "Transferred / Discharged" ? "Release from recovery…" : `Next: ${esc(d.next_label)} →`}</button>` : `<span class="orc-pill ok">Released: ${esc(c.postop_disposition || "")}</span>`}
-                ${needs ? `<span class="orc-needs">${esc(d.next_label)} needs the ${PHASE_LABELS[needs]}.</span>` : ""}
+                ${needs && !notToday ? `<span class="orc-needs">${esc(d.next_label)} needs the ${PHASE_LABELS[needs]}.</span>` : ""}
                 <span class="spacer"></span>
                 <button type="button" class="orc-btn small" id="orcDelay">${c.delay_reason ? "Change delay reason" : "Delay reason…"}</button>
                 ${d.can_undo ? `<button type="button" class="orc-btn small" id="orcUndo">Undo last stage…</button>` : ""}
@@ -953,11 +958,15 @@ function resultsHtml() {
         <span class="orc-pill ${r.usable > 0 ? "ok" : ""}">${r.usable > 0 ? `${esc(qty(r.usable))} ${esc(r.unit_name || "")}` : "None here"}</span></div>`).join("");
 }
 
+let stockSeq = 0;
+
 async function loadStock(q, then = null) {
     const whSel = document.querySelector('#orcItem [name="warehouse_id"]');
     const wh = whSel ? whSel.value : warehouseId();
+    const seq = ++stockSeq;
     itemForm.loading = true;
     const res = await fetchOrStock(wh, q);
+    if (seq !== stockSeq) return;
     itemForm.loading = false;
     itemForm.results = res?.success ? res.data : [];
     const box = $("orcResults");

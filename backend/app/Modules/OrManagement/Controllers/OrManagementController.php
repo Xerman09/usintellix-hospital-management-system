@@ -175,7 +175,11 @@ class OrManagementController extends Controller
         }
 
         $res = $this->service->updateSuiteStatus($suiteId, $status);
-        $this->success($res, "OR Suite status updated to '{$status}'.");
+        if (!$res['success']) {
+            $this->error($res['message'], 422);
+            return;
+        }
+        $this->success($res['data'], "OR Suite status updated to '{$status}'.");
     }
 
     /**

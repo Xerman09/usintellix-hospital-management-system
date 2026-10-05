@@ -39,6 +39,9 @@ class OrLiveService
         'Transferred / Discharged' => 'Transferred / discharged', 'Cancelled' => 'Cancelled'
     ];
 
+    /** Longest gap between cases that still counts as a turnover, in minutes. */
+    public const TURNOVER_WINDOW = 240;
+
     /** The checklist phase each stage needs first. */
     public const GATES = [
         'In Room / Induction' => 'sign_in',
@@ -278,10 +281,17 @@ class OrLiveService
                 if ($busy) {
                     return $fail("{$suite['suite_name']} is still in use by {$busy['case_number']} ({$busy['procedure_name']}). Move that case out of the room first.");
                 }
-                // The room was being cleaned: that turnover ends now.
-                if ($suite['status'] === 'Cleaning / Turnover' && $suite['turnover_started_at']) {
+                // Turnover: from the previous case leaving this room to this one coming in
+                // (not counted after a gap of more than 4 hours -- the room was idle).
+                $stmt = $db->prepare(
+                    "SELECT MAX(actual_out_room_time) FROM or_surgical_cases
+                     WHERE or_suite_id = :s AND id <> :c AND actual_out_room_time IS NOT NULL AND actual_out_room_time <= :at"
+                );
+                $stmt->execute(['s' => $suite['id'], 'c' => $caseId, 'at' => $at]);
+                $prevOut = $stmt->fetchColumn();
+                if ($prevOut && strtotime($at) - strtotime($prevOut) <= self::TURNOVER_WINDOW * 60) {
                     $sets[] = 'turnover_duration_minutes = :turnover';
-                    $params['turnover'] = max(0, (int) round((strtotime($at) - strtotime($suite['turnover_started_at'])) / 60));
+                    $params['turnover'] = max(0, (int) round((strtotime($at) - strtotime($prevOut)) / 60));
                     $details['turnover_minutes'] = $params['turnover'];
                 }
                 $db->prepare("UPDATE or_suites SET status = 'In Surgery', current_case_id = :c, turnover_started_at = NULL, updated_at = NOW() WHERE id = :s")
@@ -369,6 +379,10 @@ class OrLiveService
         $owns = $this->begin($db);
         try {
             $case = $this->lockCase($db, $caseId);
+            if (!$case) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'Surgical case not found.', 'not_found' => true];
+            }
             if ($case['perioperative_stage'] !== 'In Room / Induction') {
                 $this->rollBack($db, $owns);
                 return ['success' => false, 'message' => $case['perioperative_stage'] === 'Cancelled'
@@ -418,6 +432,10 @@ class OrLiveService
             if ($i === false || $i === 0) {
                 $this->rollBack($db, $owns);
                 return ['success' => false, 'message' => $stage === 'Cancelled' ? 'A cancelled case can\'t be taken back here.' : 'There is no stage move to take back.'];
+            }
+            if ($stage === 'Transferred / Discharged') {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'A release from recovery can\'t be undone here (the bed admission and surgical history are already made). Correct it in Inpatient Admissions.'];
             }
             $previous = self::STAGES[$i - 1];
 

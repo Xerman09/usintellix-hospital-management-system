@@ -6653,14 +6653,16 @@ function renderDashboardSurgeries(data, patient)
     const today = todayISO();
     const fmt = (iso) => (iso ? formatDate(iso) : "");
     const requests = data.requests.filter((r) => r.status !== "cancelled" && r.status !== "scheduled").slice(0, 5);
-    const upcoming = data.cases.filter((c) => c.scheduled_date >= today && !["Cancelled", "Transferred / Discharged"].includes(c.stage)).slice(0, 3);
+    // In the room or in recovery now; booked and not started yet.
+    const inOr = data.cases.filter((c) => ["In Room / Induction", "Incision / In Progress", "Closing / Extubation", "In PACU"].includes(c.stage));
+    const upcoming = data.cases.filter((c) => c.scheduled_date >= today && ["Scheduled", "Pre-Op Holding"].includes(c.stage)).slice(0, 3);
     // Completed OR cases open their record (operative report); their history rows aren't listed twice.
     const past = [
         ...data.cases.filter((c) => c.stage === "Transferred / Discharged").map((c) => ({ title: c.procedure_name, date: c.scheduled_date, sub: `${c.surgeon} · ${c.case_number}`, caseId: c.id })),
         ...data.history.filter((h) => !h.or_case_id).map((h) => ({ title: h.title, date: h.begin_date, sub: h.outcome || "" }))
     ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
 
-    if (!requests.length && !upcoming.length && !past.length) {
+    if (!requests.length && !inOr.length && !upcoming.length && !past.length) {
         body.innerHTML = `<div class="pd-widget-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.5-7.5"></path><path d="M14.5 9.5 21 3"></path><path d="m9 15 6-6 3 3-6 6Z"></path></svg>
             <p>No surgeries requested or recorded.</p></div>`;
@@ -6681,8 +6683,17 @@ function renderDashboardSurgeries(data, patient)
                 </div>
             </div>`;
         }).join("") : ""}
+        ${inOr.length ? `<div class="pd-surg-label">In the OR / recovery</div>` + inOr.map((c) => `
+            <div class="pd-msg-item pd-item-clickable" data-or-case="${c.id}" tabindex="0" role="button" title="Open the case record">
+                <div class="pd-msg-main">
+                    <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
+                        <span class="pd-msg-when">${escapeHtml(c.suite || "")}</span></div>
+                    <span class="pd-msg-preview">${escapeHtml([c.case_number, c.surgeon].filter(Boolean).join(" · "))}</span>
+                    <div class="pd-msg-tags"><span class="pd-msg-tag">${escapeHtml(c.stage === "In PACU" ? "In recovery (PACU)" : c.stage)}</span></div>
+                </div>
+            </div>`).join("") : ""}
         ${upcoming.length ? `<div class="pd-surg-label">Scheduled</div>` + upcoming.map((c) => `
-            <div class="pd-msg-item">
+            <div class="pd-msg-item pd-item-clickable" data-or-case="${c.id}" tabindex="0" role="button" title="Open the case record">
                 <div class="pd-msg-main">
                     <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(c.procedure_name)}${c.laterality ? ` (${escapeHtml(c.laterality)})` : ""}</span>
                         <span class="pd-msg-when">${escapeHtml(fmt(c.scheduled_date))} ${escapeHtml(String(c.scheduled_start_time || "").slice(0, 5))}</span></div>
@@ -6690,19 +6701,19 @@ function renderDashboardSurgeries(data, patient)
                     <div class="pd-msg-tags"><span class="pd-msg-tag">${escapeHtml(c.stage)}</span></div>
                 </div>
             </div>`).join("") : ""}
-        ${past.length ? `<div class="pd-surg-label">History</div>` + past.map((h) => `
+        ${past.length ? `<div class="pd-surg-label">History</div><div data-or-history>` + past.map((h) => `
             <div class="pd-msg-item${h.caseId ? " pd-item-clickable" : ""}"${h.caseId ? ` data-or-case="${h.caseId}" tabindex="0" role="button" title="Open the case record and operative report"` : ""}>
                 <div class="pd-msg-main">
                     <div class="pd-msg-top"><span class="pd-msg-from">${escapeHtml(h.title)}</span><span class="pd-msg-when">${escapeHtml(fmt(h.date))}</span></div>
                     ${h.sub ? `<span class="pd-msg-preview">${escapeHtml(h.sub)}</span>` : ""}
                 </div>
-            </div>`).join("") : ""}
+            </div>`).join("") + `</div>` : ""}
     </div>`;
 
     body.querySelectorAll("[data-or-case]").forEach((el) => {
         const open = async () => {
-            const { openOrCase } = await import("../or-board/or-case-panel.js?v=3");
-            openOrCase(Number(el.dataset.orCase), { tab: "report" });
+            const { openOrCase } = await import("../or-board/or-case-panel.js?v=4");
+            openOrCase(Number(el.dataset.orCase), { tab: el.closest("[data-or-history]") ? "report" : null, onChange: () => loadDashboardSurgeries(patient) });
         };
         el.addEventListener("click", open);
         el.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });

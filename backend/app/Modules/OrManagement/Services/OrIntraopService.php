@@ -222,7 +222,7 @@ class OrIntraopService
             'next_stage' => $next,
             'next_label' => $next ? OrLiveService::LABELS[$next] : null,
             'next_needs' => $gate && !isset($done[$gate]) ? $gate : null,
-            'can_undo' => !in_array($stage, ['Scheduled', 'Cancelled'], true),
+            'can_undo' => !in_array($stage, ['Scheduled', 'Cancelled', 'Transferred / Discharged'], true),
             'can_cancel' => in_array($stage, ['Scheduled', 'Pre-Op Holding', 'In Room / Induction'], true),
             'checklist' => [
                 'definition' => $this->definition($case),

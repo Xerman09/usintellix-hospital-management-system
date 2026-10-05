@@ -1417,14 +1417,6 @@ export function OrManagementView() {
                                 <option value="Emergency / STAT">Emergency / STAT</option>
                             </select>
                         </div>
-                        <div class="or-form-group">
-                            <label>Initial Stage</label>
-                            <select id="orFStage">
-                                <option value="Scheduled">Scheduled</option>
-                                <option value="Pre-Op Holding">Pre-Op Holding</option>
-                                <option value="In Room / Induction">In Room / Induction</option>
-                            </select>
-                        </div>
 
                         <div class="or-section-divider">Procedure &amp; Surgical Team</div>
 

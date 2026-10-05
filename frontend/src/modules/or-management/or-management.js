@@ -2,7 +2,7 @@ import { api } from '../../core/api.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 import { showToast } from "../../core/toast.js";
-import { openOrCase } from "../or-board/or-case-panel.js?v=3";
+import { openOrCase } from "../or-board/or-case-panel.js?v=4";
 
 let currentScheduleData = {
     cases: [],
@@ -611,6 +611,8 @@ function renderSuitesGrid(suites) {
             });
             if (res.success) {
                 fetchSchedule(true);
+            } else {
+                showToast(res.message || 'Could not update the room.', 'error');
             }
         } catch (err) {
             console.error(err);
@@ -923,7 +925,6 @@ async function handleBookSubmit(e) {
         scheduled_start_time:       g('orFStartTime'),
         estimated_duration_minutes: g('orFDuration'),
         case_priority:              g('orFPriority'),
-        perioperative_stage:        g('orFStage'),
         specialization_id:          g('orFSpecialty'),
         surgery_id:                 surgeryId === 'other' ? '' : surgeryId,
         procedure_name:             surgeryId === 'other' ? g('orFProcedure') : '',
@@ -1133,7 +1134,7 @@ function updateOverride() {
 
 const BOOK_FIELD_IDS = {
     patient_name: 'orFPatientName', patient_id: 'orFPatientSelect', or_suite_id: 'orFSuiteId', scheduled_date: 'orFDate', scheduled_start_time: 'orFStartTime',
-    estimated_duration_minutes: 'orFDuration', case_priority: 'orFPriority', perioperative_stage: 'orFStage', specialization_id: 'orFSpecialty',
+    estimated_duration_minutes: 'orFDuration', case_priority: 'orFPriority', specialization_id: 'orFSpecialty',
     surgery_id: 'orFSurgery', procedure_name: 'orFProcedure', laterality: 'orFLaterality', lead_surgeon_user_id: 'orFSurgeon',
     assistant_surgeon_user_id: 'orFAssistant', anesthesiologist_user_id: 'orFAnesthesiologist', anesthesia_type: 'orFAnesthesiaType',
     scrub_nurse_user_id: 'orFScrub', circulating_nurse_user_id: 'orFCirculator', team_override_reason: 'orFOverrideReason'

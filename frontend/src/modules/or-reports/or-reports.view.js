@@ -50,6 +50,15 @@ export function OrReportsView() {
 :root[data-theme="dark"] .orr-pill.bad { background: rgba(239,68,68,.18); color: #fecaca; border-color: rgba(239,68,68,.45); }
 :root[data-theme="dark"] .orr-pill.warn { background: rgba(245,158,11,.18); color: #fde68a; border-color: rgba(245,158,11,.45); }
 :root[data-theme="dark"] .orr-pill.ok { background: rgba(34,197,94,.16); color: #bbf7d0; border-color: rgba(34,197,94,.45); }
+/* Print the report only, not the app around it. */
+@media print {
+    body * { visibility: hidden; }
+    .orr-page, .orr-page * { visibility: visible; }
+    .orr-page { position: absolute; left: 0; top: 0; width: 100%; }
+    .orr-tabs button:not(.active), #orrPrint, [data-csv], [data-range], .orr-filters select, .orr-filters input { display: none !important; }
+    .orr-wrap { overflow: visible; }
+    .orr-card { break-inside: avoid; }
+}
 @media (max-width: 900px) { .orr-grid2 { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .orr-filters > * { flex: 1 1 140px; } }
 </style>

@@ -370,10 +370,9 @@ class OrManagementService
         if (!in_array($priority, ['Elective', 'Urgent', 'Emergency / STAT'], true)) {
             $errors['case_priority'] = 'Choose the priority.';
         }
-        $stage = (string) ($data['perioperative_stage'] ?? 'Scheduled');
-        if (!in_array($stage, ['Scheduled', 'Pre-Op Holding', 'In Room / Induction'], true)) {
-            $errors['perioperative_stage'] = 'A new case starts as Scheduled, Pre-Op Holding or In Room.';
-        }
+        // A new case always starts as Scheduled; it moves on from the OR Live Board,
+        // where the Sign-In / Time-Out / Sign-Out gates apply.
+        $stage = 'Scheduled';
 
         if ($errors) {
             return ['success' => false, 'message' => 'Check the highlighted fields.', 'errors' => $errors];
@@ -547,9 +546,25 @@ class OrManagementService
     /**
      * Update suite operational status (e.g. from Cleaning to Available)
      */
+    /** Statuses set by hand; 'In Surgery' is set by moving a case into the room. */
+    public const MANUAL_SUITE_STATUSES = ['Available', 'Cleaning / Turnover', 'Maintenance', 'Blocked'];
+
     public function updateSuiteStatus(int $suiteId, string $status): array
     {
         $db = Database::connection();
+        if (!in_array($status, self::MANUAL_SUITE_STATUSES, true)) {
+            return ['success' => false, 'message' => $status === 'In Surgery'
+                ? 'A room is set to In Surgery by moving a case into it on the OR Live Board.' : 'Choose a valid room status.'];
+        }
+        $stmt = $db->prepare(
+            "SELECT case_number, procedure_name FROM or_surgical_cases
+             WHERE or_suite_id = :s AND perioperative_stage IN ('In Room / Induction', 'Incision / In Progress', 'Closing / Extubation') LIMIT 1"
+        );
+        $stmt->execute(['s' => $suiteId]);
+        $inRoom = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($inRoom) {
+            return ['success' => false, 'message' => "{$inRoom['case_number']} ({$inRoom['procedure_name']}) is still in this room. Move it out of the room on the OR Live Board first."];
+        }
 
         // Check if completing turnover
         $now = date('Y-m-d H:i:s');
@@ -577,11 +592,11 @@ class OrManagementService
             'id'     => $suiteId
         ]);
 
-        return [
+        return ['success' => true, 'data' => [
             'suite_id'         => $suiteId,
             'status'           => $status,
             'turnover_minutes' => $turnoverMinutes,
-        ];
+        ]];
     }
 
     /**
@@ -593,13 +608,11 @@ class OrManagementService
         $fields = ['updated_at = NOW()'];
         $params = ['id' => $id];
 
+        // The team changes on the OR Schedule (with user ids and conflict checks); times, blood loss,
+        // recovery and disposition are recorded on the case record.
         $updatables = [
-            'procedure_name', 'surgical_specialty', 'preop_diagnosis', 'postop_diagnosis',
-            'lead_surgeon', 'assistant_surgeon', 'anesthesiologist', 'scrub_nurse', 'circulating_nurse',
-            'anesthesia_type', 'case_priority', 'preop_cleared', 'consent_signed',
-            'blood_reserved', 'blood_units_reserved', 'implants_required', 'implant_details',
-            'estimated_blood_loss_ml', 'specimens_sent', 'pacu_bed_no', 'pacu_aldrete_score',
-            'postop_disposition', 'delay_reason', 'notes'
+            'preop_diagnosis', 'case_priority', 'preop_cleared', 'consent_signed',
+            'blood_reserved', 'blood_units_reserved', 'implants_required', 'delay_reason', 'notes'
         ];
 
         foreach ($updatables as $col) {
