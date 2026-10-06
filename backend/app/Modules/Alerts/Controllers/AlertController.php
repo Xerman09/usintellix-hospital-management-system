@@ -5,6 +5,8 @@ namespace App\Modules\Alerts\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Alerts\Services\AlertEscalationService;
+use App\Modules\Alerts\Services\AlertReportService;
 use App\Modules\Alerts\Services\AlertService;
 
 class AlertController extends Controller
@@ -33,6 +35,7 @@ class AlertController extends Controller
         $data = $this->service->list($this->user(), $filters);
         $data['can_send'] = in_array($this->user()['role'] ?? '', self::SENDERS, true);
         $data['can_send_everyone'] = ($this->user()['role'] ?? '') === 'admin';
+        $data['can_manage'] = ($this->user()['role'] ?? '') === 'admin';
         $this->success($data, 'Alerts retrieved.');
     }
 
@@ -108,6 +111,34 @@ class AlertController extends Controller
             'requires_ack' => (bool) $request->input('requires_ack', false),
         ];
         $this->respond(AlertService::raise($data, (int) $user['id']), 201);
+    }
+
+    /** Admin: escalation chains per alert type. */
+    public function escalationSettings(): void
+    {
+        $this->success((new AlertEscalationService())->settings(), 'Escalation settings retrieved.');
+    }
+
+    /** Admin. Body: alert_type, applies_to, is_active, steps[] */
+    public function saveEscalation(): void
+    {
+        $request = new Request();
+        $this->respond((new AlertEscalationService())->save($request->all(), (int) ($this->user()['id'] ?? 0)));
+    }
+
+    /** Admin. Body: alert_type */
+    public function removeEscalation(): void
+    {
+        $request = new Request();
+        $this->respond((new AlertEscalationService())->remove((string) $request->input('alert_type')));
+    }
+
+    /** Admin. Query: from?, to?, type?, urgency? */
+    public function report(): void
+    {
+        $request = new Request();
+        $filters = array_intersect_key($request->all(), array_flip(['from', 'to', 'type', 'urgency']));
+        $this->success((new AlertReportService())->report($filters), 'Alert report retrieved.');
     }
 
     private function user(): array

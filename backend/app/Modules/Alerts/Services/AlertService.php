@@ -193,6 +193,13 @@ class AlertService
         if (!$this->isStaff($user)) {
             return ['unread' => 0, 'popups' => [], 'latest' => [], 'server_time' => date('Y-m-d H:i:s')];
         }
+        // Escalate overdue alerts first (at most every 30 s, whoever polls), so a newly
+        // escalated alert reaches the next person on this very poll.
+        try {
+            (new AlertEscalationService())->run();
+        } catch (\Throwable $e) {
+            error_log('Alert escalation failed: ' . $e->getMessage());
+        }
         $db = Database::connection();
         [$where, $params] = $this->visibleWhere($db, $user);
         $uid = (int) $user['id'];
@@ -279,7 +286,7 @@ class AlertService
         $alert = $rows[0];
 
         $stmt = $db->prepare(
-            "SELECT t.target_type, t.target_id, t.target_role,
+            "SELECT t.target_type, t.target_id, t.target_role, t.escalation_level,
                     CASE t.target_type
                         WHEN 'user' THEN " . self::userNameSql('t.target_id') . "
                         WHEN 'department' THEN (SELECT d.name FROM departments d WHERE d.id = t.target_id)
@@ -289,8 +296,12 @@ class AlertService
         $stmt->execute(['id' => $id]);
         $alert['targets'] = array_map(fn($t) => [
             'type' => $t['target_type'], 'id' => $t['target_id'] !== null ? (int) $t['target_id'] : null,
-            'role' => $t['target_role'], 'label' => self::targetLabel($t),
+            'role' => $t['target_role'], 'label' => self::targetLabel($t), 'escalation_level' => (int) $t['escalation_level'],
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        $escalation = new AlertEscalationService();
+        $alert['escalations'] = $escalation->history($id);
+        $alert['next_escalation'] = $escalation->next($alert);
 
         $stmt = $db->prepare(
             "SELECT r.user_id, " . self::userNameSql('r.user_id') . " AS name, r.delivered_at, r.seen_at, r.read_at, r.acknowledged_at
@@ -504,6 +515,8 @@ class AlertService
             'resolve_note' => $a['resolve_note'],
             'created_at' => $a['created_at'],
             'created_by_name' => $a['created_by'] !== null ? $a['created_by_name'] : 'System',
+            'escalation_level' => (int) ($a['escalation_level'] ?? 0),
+            'last_escalated_at' => $a['last_escalated_at'] ?? null,
             'read' => $a['my_read_at'] !== null || (!$open && ($a['acknowledged_at'] || $a['resolved_at'])),
             'my_seen_at' => $a['my_seen_at'],
             'my_read_at' => $a['my_read_at'],

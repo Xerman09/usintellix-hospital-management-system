@@ -1,5 +1,6 @@
-import { fetchAlerts, fetchAlert, fetchAlertOptions, markAlertRead, markAllAlertsRead, acknowledgeAlert, sendAlert } from "./alerts.service.js?v=1";
-import { esc, fmtDateTime, ago, URGENCY_LABEL, openAlertLink, hasLink, refreshAlerts, onAlertsChanged, takePendingAlert } from "./alert-bell.js?v=1";
+import { fetchAlerts, fetchAlert, fetchAlertOptions, markAlertRead, markAllAlertsRead, acknowledgeAlert, sendAlert } from "./alerts.service.js?v=2";
+import { esc, fmtDateTime, ago, URGENCY_LABEL, openAlertLink, hasLink, refreshAlerts, onAlertsChanged, takePendingAlert } from "./alert-bell.js?v=2";
+import { initAlertAdmin, showEscalation, showReport } from "./alerts-admin.js?v=1";
 import { fetchPatients } from "../patients/patients.service.js";
 import { showToast } from "../../core/toast.js";
 
@@ -18,6 +19,21 @@ export function initAlerts() {
     if (!page || page.dataset.bound) return;
     page.dataset.bound = "1";
     filters = { status: "all", urgency: "", q: "", page: 1 };
+    initAlertAdmin({ openModal, closeModal, openDetail });
+
+    // Admin: My alerts / Escalation / Report.
+    $("alpPageTabs").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-section]");
+        if (!b) return;
+        $("alpPageTabs").querySelectorAll("button").forEach((x) => {
+            x.classList.toggle("active", x === b);
+            x.setAttribute("aria-selected", x === b ? "true" : "false");
+        });
+        ["alpMine", "alpEsc", "alpReport"].forEach((id) => ($(id).hidden = id !== b.dataset.section));
+        $("alpSend").style.visibility = b.dataset.section === "alpMine" ? "" : "hidden";
+        if (b.dataset.section === "alpEsc") showEscalation();
+        if (b.dataset.section === "alpReport") showReport();
+    });
 
     page.querySelectorAll(".alp-tabs button").forEach((b) => b.addEventListener("click", () => {
         page.querySelectorAll(".alp-tabs button").forEach((x) => {
@@ -104,13 +120,14 @@ async function load(quiet = false) {
     }
     data = res.data;
     $("alpSend").hidden = !data.can_send;
+    $("alpPageTabs").hidden = !data.can_manage;
     renderList();
 }
 
 function stateHtml(a) {
     if (a.acknowledged_at) return `<span class="alb-pill done">Acknowledged</span><div class="alp-sub">${esc(a.acknowledged_by_name || "")}</div>`;
     if (a.resolved_at) return `<span class="alb-pill done">Closed</span>`;
-    if (a.open) return `<span class="alb-pill ${a.urgency}">Waiting</span>`;
+    if (a.open) return `<span class="alb-pill ${a.urgency}">Waiting</span>${a.escalation_level ? `<div class="alp-sub">Escalated · level ${a.escalation_level}</div>` : ""}`;
     return a.read ? `<span class="alp-sub">Read</span>` : `<span class="alp-sub">Unread</span>`;
 }
 
@@ -192,6 +209,11 @@ function renderDetail(a) {
                 ${status ? `<dt>Status</dt><dd>${esc(status)}</dd>` : ""}
                 ${a.ack_note ? `<dt>Note</dt><dd>${esc(a.ack_note)}</dd>` : ""}
             </dl>
+            ${a.escalations?.length || a.next_escalation ? `<div class="alp-h3">Escalation</div>
+                <ul style="margin:0 0 6px;padding-left:18px;line-height:1.6">
+                    ${(a.escalations || []).map((e) => `<li>Level ${e.level}: not acknowledged in ${e.waited_minutes} min — sent to <strong>${esc(e.to)}</strong> at ${t(e.escalated_at)}</li>`).join("")}
+                    ${a.next_escalation ? `<li>Next: if nobody acknowledges by <strong>${t(a.next_escalation.at)}</strong>${a.next_escalation.minutes_left ? ` (in ${a.next_escalation.minutes_left} min)` : ""}, it goes to <strong>${esc(a.next_escalation.to)}</strong>.</li>` : ""}
+                </ul>` : ""}
             <div class="alp-h3">Who saw it</div>
             ${a.receipts.length ? `<div class="alp-tablewrap"><table class="alp-table">
                 <thead><tr><th>Person</th><th>Reached screen</th><th>Seen</th><th>Opened</th><th>Acknowledged</th></tr></thead>

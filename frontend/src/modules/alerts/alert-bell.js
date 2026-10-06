@@ -1,4 +1,4 @@
-import { pollAlerts, markAlertsSeen, markAlertRead, markAllAlertsRead, acknowledgeAlert } from "./alerts.service.js?v=1";
+import { pollAlerts, markAlertsSeen, markAlertRead, markAllAlertsRead, acknowledgeAlert } from "./alerts.service.js?v=2";
 import { showToast } from "../../core/toast.js";
 
 /*
@@ -142,6 +142,8 @@ const CSS = `
 .alb-modal h2 { margin: 6px 0 6px; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
 .alb-modal p { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
 .alb-meta { color: var(--text-muted); font-size: 12.5px; margin-bottom: 10px; }
+.alb-esc { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 7px 10px; font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+:root[data-theme="dark"] .alb-esc { background: #7f1d1d; color: #fecaca; }
 .alb-modal label { display: block; font-size: 12.5px; color: var(--text-muted); margin: 8px 0 4px; }
 .alb-modal textarea { width: 100%; box-sizing: border-box; min-height: 56px; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; font: inherit; background: var(--bg-surface-alt); color: var(--text-primary); resize: vertical; }
 .alb-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; padding: 12px 20px 16px; }
@@ -315,7 +317,7 @@ function render() {
 
 function itemHtml(a) {
     const sub = [a.patient_name, a.type_label, ago(a.created_at)].filter(Boolean).join(" · ");
-    const status = a.open ? "" : a.acknowledged_at ? `<span class="alb-pill done">Acknowledged</span>` : a.resolved_at ? `<span class="alb-pill done">Closed</span>` : "";
+    const status = a.open ? (a.escalation_level ? `<span class="alb-pill critical">Escalated</span>` : "") : a.acknowledged_at ? `<span class="alb-pill done">Acknowledged</span>` : a.resolved_at ? `<span class="alb-pill done">Closed</span>` : "";
     return `<button type="button" class="alb-item ${a.read ? "" : "unread"}" data-alb-id="${a.id}">
         <span class="alb-dot" aria-hidden="true"></span>
         <span class="alb-main">
@@ -430,6 +432,7 @@ function renderPopup() {
             <span class="alb-pill ${a.urgency}">${URGENCY_LABEL[a.urgency]}</span><span class="alb-meta">${esc(a.type_label)}</span>
             <h2 id="albModalTitle">${esc(a.title)}</h2>
             <div class="alb-meta">${esc([a.patient_name ? `Patient: ${a.patient_name}` : "", `From ${a.created_by_name}`, fmtDateTime(a.created_at)].filter(Boolean).join(" · "))}</div>
+            ${a.escalation_level ? `<div class="alb-esc">Escalated (level ${a.escalation_level}): nobody acknowledged it in time.</div>` : ""}
             ${a.body ? `<p>${esc(a.body)}</p>` : ""}
             <label for="albNote">Note (optional) — e.g. what you did</label>
             <textarea id="albNote" maxlength="500"></textarea>
@@ -486,7 +489,7 @@ function renderStack() {
     stack.dataset.ids = ids;
     stack.innerHTML = urgent.map((a) => `
         <div class="alb-card" role="alert" data-alb-card="${a.id}">
-            <span class="alb-pill urgent">Urgent</span><span class="alb-meta">${esc(a.type_label)} · ${esc(ago(a.created_at))}</span>
+            <span class="alb-pill urgent">Urgent</span>${a.escalation_level ? `<span class="alb-pill critical">Escalated</span>` : ""}<span class="alb-meta">${esc(a.type_label)} · ${esc(ago(a.created_at))}</span>
             <div class="alb-title">${esc(a.title)}</div>
             ${a.patient_name ? `<div class="alb-sub">Patient: ${esc(a.patient_name)}</div>` : ""}
             <div class="alb-card-actions">

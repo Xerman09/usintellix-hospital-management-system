@@ -21,3 +21,9 @@ $router->post('/alerts/acknowledge', [AlertController::class, 'acknowledge'], [A
 
 // Sending by hand: admin, doctor, nurse (checked in the controller; only admins send to everyone).
 $router->post('/alerts/send', [AlertController::class, 'send'], [AuthMiddleware::class]);
+
+// Escalation settings and the alert log report: admin only.
+$router->get('/alerts/escalation', [AlertController::class, 'escalationSettings'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
+$router->post('/alerts/escalation', [AlertController::class, 'saveEscalation'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
+$router->post('/alerts/escalation/remove', [AlertController::class, 'removeEscalation'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
+$router->get('/alerts/report', [AlertController::class, 'report'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
