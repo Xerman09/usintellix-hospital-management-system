@@ -141,6 +141,7 @@ export function AlertsView() {
             <button type="button" role="tab" data-status="unread" aria-selected="false">Unread</button>
             <button type="button" role="tab" data-status="open" aria-selected="false">Waiting for acknowledgement</button>
             <button type="button" role="tab" data-status="closed" aria-selected="false">Closed</button>
+            <button type="button" role="tab" data-status="sent" aria-selected="false">Sent by me</button>
         </div>
         <select id="alpUrgency" aria-label="Urgency">
             <option value="">All urgencies</option>

@@ -128,6 +128,7 @@ function stateHtml(a) {
     if (a.acknowledged_at) return `<span class="alb-pill done">Acknowledged</span><div class="alp-sub">${esc(a.acknowledged_by_name || "")}</div>`;
     if (a.resolved_at) return `<span class="alb-pill done">Closed</span>`;
     if (a.open) return `<span class="alb-pill ${a.urgency}">Waiting</span>${a.escalation_level ? `<div class="alp-sub">Escalated · level ${a.escalation_level}</div>` : ""}`;
+    if (filters.status === "sent") return `<span class="alp-sub">Sent</span>`;
     return a.read ? `<span class="alp-sub">Read</span>` : `<span class="alp-sub">Unread</span>`;
 }
 
@@ -136,10 +137,10 @@ function renderList() {
     const rows = data.rows;
     const empty = {
         all: "No alerts yet.", unread: "No unread alerts. You're all caught up.",
-        open: "Nothing is waiting for an acknowledgement.", closed: "No closed alerts.",
+        open: "Nothing is waiting for an acknowledgement.", closed: "No closed alerts.", sent: "You haven't sent any alerts.",
     }[filters.status];
     list.innerHTML = rows.length ? rows.map((a) => `
-        <div class="alp-row ${a.read ? "" : "unread"}" tabindex="0" role="button" data-id="${a.id}" aria-label="${esc(a.title)}">
+        <div class="alp-row ${a.read || filters.status === "sent" ? "" : "unread"}" tabindex="0" role="button" data-id="${a.id}" aria-label="${esc(a.title)}">
             <span class="alp-dot" aria-hidden="true"></span>
             <div>
                 <div class="alp-title">${a.urgency !== "info" ? `<span class="alb-pill ${a.urgency}">${URGENCY_LABEL[a.urgency]}</span>` : ""}${esc(a.title)}</div>
@@ -499,8 +500,20 @@ async function submitSend() {
         }
         return;
     }
-    showToast("Alert sent.");
+    const to = send.targets.map((t) => t.label).join(", ");
+    showToast(`Alert sent to ${to}. It's under "Sent by me".`, "success", 5000);
     closeModal();
     refreshAlerts();
-    load(true);
+    // Show it: the sender only sees it in "My alerts" if it was also sent to them.
+    showStatus("sent");
+}
+
+function showStatus(status) {
+    document.querySelectorAll("#alpPage .alp-tabs button").forEach((x) => {
+        x.classList.toggle("active", x.dataset.status === status);
+        x.setAttribute("aria-selected", x.dataset.status === status ? "true" : "false");
+    });
+    filters.status = status;
+    filters.page = 1;
+    load();
 }

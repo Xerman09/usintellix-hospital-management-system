@@ -232,10 +232,15 @@ class AlertService
             return ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => 25];
         }
         $db = Database::connection();
-        [$where, $params] = $this->visibleWhere($db, $user);
+        $status = (string) ($filters['status'] ?? 'all');
+        if ($status === 'sent') {
+            // Alerts I sent (to anyone), to follow whether they were seen / acknowledged.
+            [$where, $params] = ['a.created_by = :sent_by', ['sent_by' => (int) $user['id']]];
+        } else {
+            [$where, $params] = $this->visibleWhere($db, $user);
+        }
         $params['me'] = (int) $user['id'];
 
-        $status = (string) ($filters['status'] ?? 'all');
         if ($status === 'unread') {
             $where .= " AND r.read_at IS NULL AND a.resolved_at IS NULL AND NOT (a.requires_ack = 1 AND a.acknowledged_at IS NOT NULL)";
         } elseif ($status === 'open') {
@@ -459,10 +464,14 @@ class AlertService
         if ($id <= 0 || empty($user['id'])) {
             return false;
         }
-        if ($adminAny && ($user['role'] ?? '') === 'admin') {
-            $stmt = $db->prepare("SELECT 1 FROM alerts WHERE id = :id");
+        if ($adminAny) {
+            // Detail: admins see any alert, and the sender sees what they sent.
+            $stmt = $db->prepare("SELECT created_by FROM alerts WHERE id = :id");
             $stmt->execute(['id' => $id]);
-            return (bool) $stmt->fetchColumn();
+            $createdBy = $stmt->fetchColumn();
+            if ($createdBy !== false && (($user['role'] ?? '') === 'admin' || (int) $createdBy === (int) $user['id'])) {
+                return true;
+            }
         }
         if (!$this->isStaff($user)) {
             return false;
