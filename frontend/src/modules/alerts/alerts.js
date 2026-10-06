@@ -301,6 +301,7 @@ async function openSend() {
             <div>
                 <label for="alpPatientQ">Patient (optional)</label>
                 <div id="alpPatientBox"></div>
+                <div class="alp-err" data-err="patient_id"></div>
             </div>
             <div>
                 <label for="alpTType">Send to</label>
@@ -376,42 +377,86 @@ function renderChips() {
     $("alpModal").querySelector('[data-err="targets"]').textContent = "";
 }
 
+/* Patient: picked from the registered patient list only (typed text alone is never sent). */
+async function loadPatients() {
+    if (!patients) {
+        const res = await fetchPatients().catch(() => null);
+        patients = res?.success && Array.isArray(res.data) ? res.data : null;
+    }
+    return patients || [];
+}
+
+const patientName = (p) => [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ");
+
+function patientMatches(term) {
+    const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+    return (patients || []).filter((p) => {
+        const hay = [p.first_name, p.middle_name, p.last_name, p.patient_no].filter(Boolean).join(" ").toLowerCase();
+        return words.every((w) => hay.includes(w));
+    });
+}
+
 async function renderPatientBox() {
     const box = $("alpPatientBox");
     if (!box) return;
+    const err = $("alpModal").querySelector('[data-err="patient_id"]');
+    if (err) err.textContent = "";
     if (send.patient) {
-        box.innerHTML = `<div class="alp-picked"><span>${esc(send.patient.label)}</span><button type="button" class="alp-btn" id="alpPatientClear">Remove</button></div>`;
+        box.innerHTML = `<div class="alp-picked"><span>${esc(send.patient.label)}</span><button type="button" class="alp-btn" id="alpPatientClear">Change</button></div>`;
         $("alpPatientClear").onclick = () => {
             send.patient = null;
             renderPatientBox();
+            setTimeout(() => $("alpPatientQ")?.focus(), 0);
         };
         return;
     }
-    box.innerHTML = `<input id="alpPatientQ" type="search" placeholder="Search by name or patient number" autocomplete="off"><div id="alpPatientResults"></div>`;
-    $("alpPatientQ").addEventListener("input", async (e) => {
-        const term = e.target.value.trim().toLowerCase();
-        const out = $("alpPatientResults");
-        if (term.length < 2) {
-            out.innerHTML = "";
-            return;
-        }
+    box.innerHTML = `<input id="alpPatientQ" type="search" placeholder="Search the patient list by name or patient number" autocomplete="off"
+            role="combobox" aria-expanded="false" aria-controls="alpPatientResults" aria-autocomplete="list">
+        <div id="alpPatientResults"></div>`;
+    const input = $("alpPatientQ");
+    const out = $("alpPatientResults");
+    let shown = [];
+
+    const show = async () => {
+        const term = input.value.trim();
         if (!patients) {
-            const res = await fetchPatients().catch(() => null);
-            patients = res?.success && Array.isArray(res.data) ? res.data : [];
+            out.innerHTML = `<div class="alp-hint">Loading the patient list…</div>`;
+            await loadPatients();
+            if (!$("alpPatientQ") || input.value.trim() !== term) return;
+            if (!patients) {
+                out.innerHTML = `<div class="alp-hint">Could not load the patient list.</div>`;
+                return;
+            }
         }
-        if ($("alpPatientQ")?.value.trim().toLowerCase() !== term) return;
-        const matches = patients.filter((p) => [p.first_name, p.middle_name, p.last_name, p.patient_no].filter(Boolean).join(" ").toLowerCase().includes(term)).slice(0, 8);
-        out.innerHTML = matches.length ? `<div class="alp-patient-results">${matches.map((p) => {
-            const name = [p.first_name, p.last_name].filter(Boolean).join(" ");
-            return `<button type="button" data-pid="${p.id}" data-label="${esc(`${name} (${p.patient_no || p.id})`)}">${esc(name)} <span class="alp-sub" style="display:inline">${esc(p.patient_no || "")}</span></button>`;
-        }).join("")}</div>` : `<div class="alp-hint">No patient found.</div>`;
-        out.onclick = (ev) => {
-            const b = ev.target.closest("[data-pid]");
-            if (!b) return;
-            send.patient = { id: Number(b.dataset.pid), label: b.dataset.label };
-            renderPatientBox();
-        };
+        const all = term ? patientMatches(term) : patients;
+        shown = all.slice(0, 8);
+        input.setAttribute("aria-expanded", shown.length ? "true" : "false");
+        out.innerHTML = shown.length ? `<div class="alp-patient-results" role="listbox">${shown.map((p) => `
+            <button type="button" role="option" data-pid="${p.id}">${esc(patientName(p))}
+                <span class="alp-sub" style="display:inline">${esc([p.patient_no, p.birthdate, p.sex].filter(Boolean).join(" · "))}</span></button>`).join("")}</div>
+            ${all.length > shown.length ? `<div class="alp-hint">${all.length - shown.length} more — keep typing to narrow it down.</div>` : ""}`
+            : `<div class="alp-hint">No registered patient matches "${esc(term)}". Only patients in the patient list can be chosen.</div>`;
+    };
+    const pick = (id) => {
+        const p = (patients || []).find((x) => Number(x.id) === Number(id));
+        if (!p) return;
+        send.patient = { id: Number(p.id), label: `${patientName(p)} (${p.patient_no || p.id})` };
+        renderPatientBox();
+    };
+
+    input.addEventListener("focus", show);
+    input.addEventListener("input", show);
+    input.addEventListener("keydown", (e) => {
+        // Enter picks the only match; it never submits typed text.
+        if (e.key === "Enter") {
+            e.preventDefault();
+            if (shown.length === 1) pick(shown[0].id);
+        }
     });
+    out.onclick = (ev) => {
+        const b = ev.target.closest("[data-pid]");
+        if (b) pick(b.dataset.pid);
+    };
 }
 
 async function submitSend() {
@@ -421,6 +466,11 @@ async function submitSend() {
     let bad = false;
     if (!title) {
         modal.querySelector('[data-err="title"]').textContent = "Enter what the alert is about.";
+        bad = true;
+    }
+    // Text in the patient box that wasn't picked from the list: don't send without the patient.
+    if (!send.patient && $("alpPatientQ")?.value.trim()) {
+        modal.querySelector('[data-err="patient_id"]').textContent = "Choose the patient from the list, or clear the box to send without a patient.";
         bad = true;
     }
     if (!send.targets.length) {

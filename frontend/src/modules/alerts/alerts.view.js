@@ -75,7 +75,7 @@ export function AlertsView() {
 .alp-err { color: #dc2626; font-size: 12px; margin-top: 4px; }
 .alp-patient-results { border: 1px solid var(--border-color); border-radius: 8px; margin-top: 4px; max-height: 180px; overflow-y: auto; }
 .alp-patient-results button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); padding: 7px 10px; cursor: pointer; font: inherit; font-size: 13px; }
-.alp-patient-results button:hover { background: var(--bg-surface-alt); }
+.alp-patient-results button:hover, .alp-patient-results button:focus-visible { background: var(--bg-surface-alt); outline: none; }
 .alp-picked { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 10px; }
 /* Admin sections (Phase 2): page tabs, escalation chains, report. */
 .alp-pagetabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); margin-bottom: 16px; flex-wrap: wrap; }
