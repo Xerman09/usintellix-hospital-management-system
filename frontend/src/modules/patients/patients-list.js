@@ -15685,8 +15685,15 @@ function bindEyeExamEvents()
     const pmhDoctorBtn = document.getElementById("eyeExamPmhDoctorBtn");
     const pmhHistoryBtn = document.getElementById("eyeExamPmhHistoryBtn");
     const pmhDrawBtn = document.getElementById("eyeExamPmhDrawBtn");
+    const pmhListBtn = document.getElementById("eyeExamPmhListBtn");
     const pmhClearBtn = document.getElementById("eyeExamPmhClearBtn");
     const pmhSaveBtn = document.getElementById("eyeExamPmsfhSaveBtn");
+
+    const eyeExamPmsfhSidebar = document.getElementById("eyeExamPmsfhSidebar");
+    const pmsfhListModal = document.getElementById("eyeExamPmsfhListModal");
+    const pmsfhListCloseBtn = document.getElementById("eyeExamPmsfhListCloseBtn");
+    const pmsfhListTabs = document.querySelectorAll("#eyeExamPmsfhListTabs .eye-pmsfh-list-tab");
+    const sidebarDocBtn = document.getElementById("eyeExamSidebarDocBtn");
 
     if (pmhDoctorBtn && shorthandPopup) {
         pmhDoctorBtn.addEventListener("click", (e) => {
@@ -15962,11 +15969,85 @@ function bindEyeExamEvents()
         });
     });
 
+    // Sidebar Header Buttons Wiring
+    const sidebarDbBtn = document.getElementById("eyeExamSidebarDbBtn");
+    const sidebarPencilBtn = document.getElementById("eyeExamSidebarPencilBtn");
+    const sidebarDoctorBtn = document.getElementById("eyeExamSidebarDoctorBtn");
+    const sidebarCloseBtn = document.getElementById("eyeExamSidebarCloseBtn");
+
+    if (sidebarDbBtn) {
+        sidebarDbBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (pmhHistoryBtn) {
+                pmhHistoryBtn.click();
+            } else if (pmsfhElementsCard) {
+                if (pmsfhDrawCard) {
+                    pmsfhDrawCard.style.display = "none";
+                    pmsfhDrawCard.classList.remove("active-companion");
+                }
+                if (pmhDrawBtn) pmhDrawBtn.classList.remove("active");
+                pmsfhElementsCard.style.display = "block";
+                pmsfhElementsCard.classList.add("active-companion");
+                const pmhCard = document.getElementById("eyeExamSecPmh");
+                if (pmhCard) pmhCard.classList.add("has-open-companion");
+            }
+        });
+    }
+
+    if (sidebarPencilBtn) {
+        sidebarPencilBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (pmhDrawBtn) {
+                pmhDrawBtn.click();
+            }
+        });
+    }
+
+    if (sidebarDoctorBtn) {
+        sidebarDoctorBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (pmhDoctorBtn) {
+                pmhDoctorBtn.click();
+            } else if (shorthandPopup) {
+                const isOpen = shorthandPopup.style.display === "block";
+                shorthandPopup.style.display = isOpen ? "none" : "block";
+                if (!isOpen && shorthandInput) setTimeout(() => shorthandInput.focus(), 50);
+            }
+        });
+    }
+
+    if (sidebarCloseBtn && eyeExamPmsfhSidebar) {
+        sidebarCloseBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            eyeExamPmsfhSidebar.style.display = "none";
+            if (pmhListBtn) pmhListBtn.classList.remove("active");
+        });
+    }
+
+    // Sidebar items and Add buttons: select category on PMSFH card and focus inputs
+    const sidebarClickables = document.querySelectorAll("#eyeExamPmsfhSidebar .eye-sidebar-item-label, #eyeExamPmsfhSidebar .eye-sidebar-add-btn");
+    sidebarClickables.forEach(elem => {
+        elem.addEventListener("click", (e) => {
+            e.preventDefault();
+            const cat = elem.getAttribute("data-cat");
+            if (cat) {
+                const radio = document.querySelector(`input[name="eyeExamPmsfhCat"][value="${cat}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event("change"));
+                }
+                const medField = document.getElementById("eyeExam_medication");
+                if (medField) medField.focus();
+            }
+        });
+    });
+
     // 2nd Button in PMSFH: Open PMSFH Elements / History Card
     if (pmhHistoryBtn && pmsfhElementsCard) {
         pmhHistoryBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             const pmhCard = document.getElementById("eyeExamSecPmh");
+            const grid = document.querySelector(".eye-exam-grid-2");
             const isCurrentlyOpen = pmsfhElementsCard.style.display === "block";
 
             // Close draw card if currently open
@@ -15981,14 +16062,16 @@ function bindEyeExamEvents()
                 pmsfhElementsCard.classList.remove("active-companion");
                 pmhHistoryBtn.classList.remove("active");
                 if (pmhCard) pmhCard.classList.remove("has-open-companion");
+                if (grid) grid.classList.remove("pmsfh-companion-active");
             } else {
                 pmsfhElementsCard.style.display = "block";
                 pmsfhElementsCard.classList.add("active-companion");
                 pmhHistoryBtn.classList.add("active");
-                if (pmhCard) {
-                    pmhCard.classList.add("has-open-companion");
-                    pmhCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                }
+                if (pmhCard) pmhCard.classList.add("has-open-companion");
+                if (grid) grid.classList.add("pmsfh-companion-active");
+                setTimeout(() => {
+                    pmsfhElementsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }, 50);
             }
         });
     }
@@ -15998,6 +16081,7 @@ function bindEyeExamEvents()
         pmhDrawBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             const pmhCard = document.getElementById("eyeExamSecPmh");
+            const grid = document.querySelector(".eye-exam-grid-2");
             const isCurrentlyOpen = pmsfhDrawCard.style.display === "block";
 
             // Close elements card if currently open
@@ -16012,21 +16096,125 @@ function bindEyeExamEvents()
                 pmsfhDrawCard.classList.remove("active-companion");
                 pmhDrawBtn.classList.remove("active");
                 if (pmhCard) pmhCard.classList.remove("has-open-companion");
+                if (grid) grid.classList.remove("pmsfh-companion-active");
             } else {
                 pmsfhDrawCard.style.display = "block";
                 pmsfhDrawCard.classList.add("active-companion");
                 pmhDrawBtn.classList.add("active");
                 if (pmhCard) pmhCard.classList.add("has-open-companion");
-                setTimeout(initPmsfhDrawCanvas, 30);
-                pmsfhDrawCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                if (grid) grid.classList.add("pmsfh-companion-active");
+                if (eyeExamPmsfhSidebar) {
+                    eyeExamPmsfhSidebar.style.display = "flex";
+                    if (pmhListBtn) pmhListBtn.classList.add("active");
+                }
+                setTimeout(() => {
+                    initPmsfhDrawCanvas();
+                    pmsfhDrawCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }, 50);
             }
         });
     }
+
+    // 4th Button in PMSFH: Toggle Vertical PMSFH History Sidebar
+    if (pmhListBtn && eyeExamPmsfhSidebar) {
+        pmhListBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isVisible = eyeExamPmsfhSidebar.style.display === "flex" || 
+                (eyeExamPmsfhSidebar.style.display !== "none" && window.getComputedStyle(eyeExamPmsfhSidebar).display === "flex");
+            if (isVisible) {
+                eyeExamPmsfhSidebar.style.display = "none";
+                pmhListBtn.classList.remove("active");
+            } else {
+                eyeExamPmsfhSidebar.style.display = "flex";
+                pmhListBtn.classList.add("active");
+                setTimeout(() => {
+                    eyeExamPmsfhSidebar.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }, 50);
+            }
+        });
+    }
+
+    // Sidebar Document Button: Open PMSFH Medical History List Modal
+    function openPmsfhListModal() {
+        if (!pmsfhListModal) return;
+        pmsfhListModal.classList.add("open");
+    }
+
+    function closePmsfhListModal() {
+        if (!pmsfhListModal) return;
+        pmsfhListModal.classList.remove("open");
+    }
+
+    if (sidebarDocBtn) {
+        sidebarDocBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openPmsfhListModal();
+        });
+    }
+
+    if (pmsfhListCloseBtn) {
+        pmsfhListCloseBtn.addEventListener("click", () => {
+            closePmsfhListModal();
+        });
+    }
+
+    if (pmsfhListModal) {
+        pmsfhListModal.addEventListener("click", (e) => {
+            if (e.target === pmsfhListModal) {
+                closePmsfhListModal();
+            }
+        });
+    }
+
+    // Filter table by tab category in PMSFH List Modal
+    if (pmsfhListTabs && pmsfhListTabs.length > 0) {
+        pmsfhListTabs.forEach(tab => {
+            tab.addEventListener("click", () => {
+                pmsfhListTabs.forEach(t => t.classList.remove("active"));
+                tab.classList.add("active");
+                const targetCat = tab.getAttribute("data-cat");
+                const rows = document.querySelectorAll("#eyeExamPmsfhListTableBody tr");
+                rows.forEach(row => {
+                    if (targetCat === "all" || row.getAttribute("data-cat") === targetCat) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                });
+            });
+        });
+    }
+
+    // Action buttons inside PMSFH List Modal: select into PMSFH form fields
+    const pmsfhListActionBtns = document.querySelectorAll("#eyeExamPmsfhListTableBody .eye-pmsfh-list-action-btn");
+    pmsfhListActionBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const cat = btn.getAttribute("data-cat");
+            const val = btn.getAttribute("data-val");
+            if (cat) {
+                const radio = document.querySelector(`input[name="eyeExamPmsfhCat"][value="${cat}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event("change"));
+                }
+            }
+            if (val) {
+                const medField = document.getElementById("eyeExam_medication");
+                if (medField) {
+                    medField.value = val;
+                    medField.focus();
+                }
+            }
+            closePmsfhListModal();
+            showEyeExamNotification(`Selected ${cat || "record"} loaded into PMSFH.`, "info");
+        });
+    });
 
     if (pmhClearBtn) {
         pmhClearBtn.addEventListener("click", () => {
             const pmhCard = document.getElementById("eyeExamSecPmh");
             const pmhNavTab = document.querySelector('.eye-exam-nav-tab[data-target="eyeExamSecPmh"]');
+            const grid = document.querySelector(".eye-exam-grid-2");
             if (!pmhCard) return;
 
             const isCurrentlyHidden = pmhCard.style.display === "none";
@@ -16044,9 +16232,14 @@ function bindEyeExamEvents()
                     pmsfhDrawCard.style.display = "none";
                     pmsfhDrawCard.classList.remove("active-companion");
                 }
+                if (eyeExamPmsfhSidebar) {
+                    eyeExamPmsfhSidebar.style.display = "none";
+                }
                 if (pmhHistoryBtn) pmhHistoryBtn.classList.remove("active");
                 if (pmhDrawBtn) pmhDrawBtn.classList.remove("active");
+                if (pmhListBtn) pmhListBtn.classList.remove("active");
                 pmhCard.classList.remove("has-open-companion");
+                if (grid) grid.classList.remove("pmsfh-companion-active");
             }
         });
     }
