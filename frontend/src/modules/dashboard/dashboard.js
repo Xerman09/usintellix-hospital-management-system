@@ -287,6 +287,9 @@ import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=1";
 import { initOrSchedule } from "../or-schedule/or-schedule.js?v=5";
 import { OrBoardView } from "../or-board/or-board.view.js?v=2";
 import { initOrBoard } from "../or-board/or-board.js?v=4";
+import { AlertsView } from "../alerts/alerts.view.js?v=1";
+import { initAlerts } from "../alerts/alerts.js?v=1";
+import { initAlertBell } from "../alerts/alert-bell.js?v=1";
 import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
 import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
@@ -1533,6 +1536,11 @@ export function Dashboard()
                 setTimeout(initOrReports, 0);
                 return OrReportsView();
             }, activate);
+        } else if (tabId === 'alerts') {
+            tabManager.openTab(tabId, 'Alerts', () => {
+                setTimeout(initAlerts, 0);
+                return AlertsView();
+            }, activate);
         } else if (tabId === 'or_board') {
             tabManager.openTab(tabId, 'OR Live Board', () => {
                 setTimeout(initOrBoard, 0);
@@ -1610,6 +1618,8 @@ export function Dashboard()
     }
     attachNavListeners();
     initNavOverflow();
+    // Alert bell on every screen (staff only): unread count, critical pop-ups with sound.
+    initAlertBell(user);
 
     // Top navbar "Search by any demographic..." box -- pressing Enter hands
     // the typed term off to the Finder tab (same one-shot localStorage
