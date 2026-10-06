@@ -153,8 +153,9 @@ class AlertReportService
 
     private static function userNameSql(string $column): string
     {
-        return "(SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))), ''), u.username)
-                 FROM users u LEFT JOIN employees e ON e.user_id = u.id AND e.deleted_at IS NULL
-                 WHERE u.id = {$column} LIMIT 1)";
+        // Own aliases (nu / ne) so a caller's "u.id" can't be captured by this subquery.
+        return "(SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ne.first_name, ''), ' ', COALESCE(ne.last_name, ''))), ''), nu.username)
+                 FROM users nu LEFT JOIN employees ne ON ne.user_id = nu.id AND ne.deleted_at IS NULL
+                 WHERE nu.id = {$column} LIMIT 1)";
     }
 }
