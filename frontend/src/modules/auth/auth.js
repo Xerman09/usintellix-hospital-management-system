@@ -1,6 +1,7 @@
 console.log("auth.js loaded");
 import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, logout, acknowledgeNpp } from "./auth.service.js?v=5";
 import { saveUser, clearSession } from "../../core/session.js";
+import { markResultsInboxLogin } from "../results-inbox/results-inbox.js?v=1";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
 import { resetInactivityTimer, stopInactivityGuard } from "../../core/inactivity-guard.js?v=1";
@@ -433,6 +434,9 @@ let pendingNppUser = null;
 
 function proceedAfterAuthentication(user)
 {
+    // The results inbox opens by itself after sign-in when there are new results.
+    markResultsInboxLogin();
+
     if (user.must_change_password) {
         showFirstLoginStep(user);
         return;

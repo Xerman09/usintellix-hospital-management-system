@@ -6,6 +6,7 @@ use App\Core\Database;
 use App\Modules\LabRanges\Services\CriticalLabService;
 use App\Modules\LabRanges\Services\LabFlagService;
 use App\Modules\PatientProcedureOrders\Models\PatientProcedureOrder;
+use App\Modules\ResultsInbox\Services\ResultsInboxService;
 use PDO;
 use Throwable;
 
@@ -137,6 +138,12 @@ class PatientProcedureResultService
             $alerted = (new CriticalLabService())->notify($orderId, $flags, $userId);
         } catch (Throwable $e) {
             error_log('critical lab alert failed: ' . $e->getMessage());
+        }
+        // The results inbox ("!"): the patient's doctors and nurse see the result until they open it.
+        try {
+            (new ResultsInboxService())->deliver($orderId, $userId);
+        } catch (Throwable $e) {
+            error_log('results inbox failed: ' . $e->getMessage());
         }
         $message = 'Results saved.';
         if ($critical) {
