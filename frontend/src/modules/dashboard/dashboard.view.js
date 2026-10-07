@@ -73,6 +73,7 @@ function staffNavLinks(role)
                 <a data-tab="dd_register">DD Register</a>
                 <a data-tab="ward_cabinet">Ward Cabinets</a>
                 <a data-tab="restock_queue">Cabinet Restock Requests</a>
+                <a data-tab="ward_stock_report">Ward Stock Report</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
         </div>
@@ -726,6 +727,7 @@ function nurseNavLinks(role)
     <a data-tab="mar">Medicine Rounds</a>
     <a data-tab="ward_cabinet">Ward Cabinet</a>
     <a data-tab="dd_register">DD Register</a>
+    ${role === "charge_nurse" ? `<a data-tab="ward_stock_report">Ward Stock Report</a>` : ""}
     <a data-tab="nurse_assignments">Shift Assignments</a>
     <a data-tab="patient_flow">Flow</a>
     <div class="nav-dropdown">
@@ -747,6 +749,7 @@ const PHARMACIST_NAV_LINKS = `
     <a data-tab="dd_register">DD Register</a>
     <a data-tab="restock_queue">Restock Requests</a>
     <a data-tab="ward_cabinet">Ward Cabinets</a>
+    <a data-tab="ward_stock_report">Ward Stock Report</a>
     <a data-tab="patients">Patients</a>
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="messaging">Messages</a>

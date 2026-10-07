@@ -1,7 +1,7 @@
 import {
     fetchCabinet, withdrawDose, returnWithdrawal, wasteWithdrawal, saveCabinetLevels,
-    fetchRestockQueue, fillRestock, receiveRestock, flagRestockUrgent, requestRestockNow,
-} from "./ward-cabinet.service.js?v=2";
+    fetchRestockQueue, fillRestock, receiveRestock, flagRestockUrgent, requestRestockNow, fetchDdCount, saveDdCount,
+} from "./ward-cabinet.service.js?v=3";
 import { getUser } from "../../core/session.js?v=2";
 import { showToast } from "../../core/toast.js";
 
@@ -143,6 +143,7 @@ export function initWardCabinet() {
 
 async function load(message) {
     if (message) showToast(message);
+    dd = null;
     const n = ++seq;
     const res = await fetchCabinet(ward).catch(() => null);
     if (n !== seq || !$("wcbBody")) return;
@@ -167,9 +168,10 @@ function render() {
     $("wcbCabinet").textContent = `Cabinet: ${data.cabinet.name}`;
     const arriving = data.restock.filter((r) => r.status === "in_transit").length;
     const tabs = [["take", "Take out for a patient"], ["open", `Taken, not given (${data.open.length})`], ["stock", `Stock${low ? ` (${low} low)` : ""}`],
-        ["restock", `Restock${arriving ? ` (${arriving} to check in)` : ""}`], ["activity", "Activity"]];
+        ["restock", `Restock${arriving ? ` (${arriving} to check in)` : ""}`], ["ddcount", "DD count"], ["activity", "Activity"]];
     $("wcbTabs").innerHTML = tabs.map(([k, l]) => `<button type="button" role="tab" class="wcb-tab" data-tab-key="${k}" aria-selected="${tab === k}">${esc(l)}</button>`).join("");
-    $("wcbBody").innerHTML = tab === "take" ? takeHtml() : tab === "open" ? openHtml() : tab === "stock" ? stockHtml() : tab === "restock" ? restockHtml() : activityHtml();
+    $("wcbBody").innerHTML = tab === "take" ? takeHtml() : tab === "open" ? openHtml() : tab === "stock" ? stockHtml() : tab === "restock" ? restockHtml() : tab === "ddcount" ? ddHtml() : activityHtml();
+    if (tab === "ddcount" && !dd) loadDd();
 }
 
 /* ---------------- take out ---------------- */
@@ -188,7 +190,8 @@ function takeHtml() {
 }
 
 function doseHtml(p, d, i) {
-    const when = d.order_type === "prn" ? `<span class="wcb-badge">As needed</span>`
+    const when = d.state === "unverified" ? `<span class="wcb-badge low" title="The pharmacist hasn't verified this order yet">⚠ Not verified yet${d.slot_at ? ` · ${esc(hm(d.slot_at))}` : ""}</span>${d.is_stat ? ` <span class="wcb-flag">STAT</span>` : ""}`
+        : d.order_type === "prn" ? `<span class="wcb-badge">As needed</span>`
         : `<span class="wcb-badge ${d.state}">${d.state === "late" ? "⏰ Late" : "● Due"} ${esc(hm(d.slot_at))}</span>`;
     const taken = d.taken[0];
     let act;
@@ -204,7 +207,9 @@ function doseHtml(p, d, i) {
         act = `<span class="wcb-sub ${short ? "wcb-warn" : ""}">${d.in_cabinet > 0 ? `${esc(num(d.in_cabinet))} in the cabinet` : "None in the cabinet"}</span>
             <input type="number" min="0.5" step="0.5" inputmode="decimal" value="${d.quantity}" aria-label="How many ${esc(d.unit_name)}(s) of ${esc(d.drug_name)}" data-qty="${p.admission_id}:${i}">
             <span class="wcb-sub">${esc(d.unit_name)}(s)</span>
-            <button type="button" class="wcb-btn primary" data-take="${p.admission_id}:${i}" ${d.in_cabinet <= 0 ? "disabled" : ""}>Take out</button>`;
+            ${d.state === "unverified"
+                ? `<button type="button" class="wcb-btn danger" data-override="${p.admission_id}:${i}" ${d.in_cabinet <= 0 ? "disabled" : ""}>Take with override…</button>`
+                : `<button type="button" class="wcb-btn primary" data-take="${p.admission_id}:${i}" ${d.in_cabinet <= 0 ? "disabled" : ""}>Take out</button>`}`;
     }
     return `<div class="wcb-dose">
         <div><strong>${esc(d.drug_name)}</strong> ${when}${d.needs_witness ? ` <span class="wcb-badge due" title="A second nurse checks when it's given or wasted">2nd nurse</span>` : ""}
@@ -283,6 +288,15 @@ async function onClick(e) {
     const waste = e.target.closest("[data-waste]")?.dataset.waste;
     const lv = e.target.closest("[data-levels]")?.dataset.levels;
     const rcv = e.target.closest("[data-receive]")?.dataset.receive;
+    const ovr = e.target.closest("[data-override]")?.dataset.override;
+    if (ovr) {
+        overrideForm(ovr, e.target.closest(".wcb-dose"));
+        return;
+    }
+    if (e.target.closest("[data-dd-save]")) {
+        saveCount(e.target.closest("button"));
+        return;
+    }
     const urg = e.target.closest("[data-urgent]")?.dataset.urgent;
     if (e.target.closest("[data-request-now]")) {
         requestNowForm();
@@ -310,7 +324,7 @@ async function onClick(e) {
         }
         load(r.message);
     } else if (mar) {
-        const { openMar } = await import("../mar/mar.js?v=5");
+        const { openMar } = await import("../mar/mar.js?v=6");
         openMar(Number(mar), { onChange: () => load() });
     } else if (ret) {
         const btn = e.target.closest("button");
@@ -578,4 +592,107 @@ async function onQueueClick(e) {
         return;
     }
     loadQueue(r.message);
+}
+
+/* ---------------- override (order not verified yet) ---------------- */
+
+function overrideForm(key, row) {
+    if (row.nextElementSibling?.classList.contains("wcb-inline")) return;
+    const [adm, i] = key.split(":").map(Number);
+    const d = data.patients.find((p) => p.admission_id === adm).doses[i];
+    row.insertAdjacentHTML("afterend", `<div class="wcb-inline">
+        <strong>Override: the pharmacist hasn't verified this order yet.</strong>
+        <span class="wcb-sub">Only in an emergency. It is logged, and the pharmacy is alerted to verify the order now. You can give it on the MAR with what you take out.</span>
+        <label for="wcbOvrWhy">Why can't it wait for the pharmacist?</label>
+        <input id="wcbOvrWhy" maxlength="255" placeholder="e.g. STAT for fever 40 °C, pharmacy not answering">
+        <div style="display:flex;gap:6px"><button type="button" class="wcb-btn danger" data-v="go">Take with override</button><button type="button" class="wcb-btn" data-v="cancel">Cancel</button></div>
+        <div class="wcb-err" role="alert"></div></div>`);
+    const box = row.nextElementSibling;
+    $("wcbOvrWhy").focus();
+    box.querySelector('[data-v="cancel"]').onclick = () => box.remove();
+    box.querySelector('[data-v="go"]').onclick = async (ev) => {
+        const why = $("wcbOvrWhy").value.trim();
+        if (!why) { box.querySelector(".wcb-err").textContent = "Give the reason."; return; }
+        const qty = $("wcbBody").querySelector(`[data-qty="${key}"]`)?.value;
+        ev.target.disabled = true;
+        const r = await withdrawDose({ order_id: d.order_id, slot_at: d.slot_at || undefined, quantity: qty, override_reason: why }).catch(() => null);
+        ev.target.disabled = false;
+        if (!r?.success) { box.querySelector(".wcb-err").textContent = r?.message || "Could not take it out."; return; }
+        load(r.message);
+    };
+}
+
+/* ---------------- dangerous-drug shift count ---------------- */
+
+let dd = null;
+
+async function loadDd() {
+    const r = await fetchDdCount(data.ward_id).catch(() => null);
+    if (!r?.success) {
+        dd = { error: r?.message || "Could not load the count." };
+    } else {
+        dd = r.data;
+    }
+    if (tab === "ddcount") $("wcbBody").innerHTML = ddHtml();
+}
+
+const COUNT_STATUS = { ok: ["ok", "✓ Matches"], discrepancy: ["out", "⚠ Discrepancy"], resolved: ["", "Discrepancy resolved"] };
+
+function countCard(c) {
+    const [cls, label] = COUNT_STATUS[c.status];
+    return `<div class="wcb-card ${c.status === "discrepancy" ? "urgent" : ""}">
+        <div class="wcb-req-head"><div><strong>${esc(c.shift_name)} · ${esc(c.shift_date)}</strong> <span class="wcb-badge ${cls}">${label}</span>
+            <div class="wcb-sub">Counted ${esc(fmt(c.counted_at))} by ${esc(c.counted_by_name || "")}, witness ${esc(c.witness_name || "")}${c.note ? ` · ${esc(c.note)}` : ""}</div>
+            ${c.resolved_at ? `<div class="wcb-sub"><strong>Resolved</strong> by ${esc(c.resolved_by_name || "")} ${esc(fmt(c.resolved_at))}: ${esc(c.resolution_note)}</div>` : ""}</div></div>
+        <table class="wcb-lines"><thead><tr><th>Medicine</th><th>Counted</th><th>System</th><th>Difference</th><th>Note</th></tr></thead><tbody>
+            ${c.lines.map((l) => `<tr><td>${esc(l.drug_name)}</td><td class="num">${esc(num(l.counted))}</td><td class="num">${esc(num(l.expected))}</td>
+                <td class="num ${l.difference ? "wcb-warn" : ""}">${l.difference > 0 ? "+" : ""}${esc(num(l.difference))}</td><td>${esc(l.note || "")}</td></tr>`).join("")}
+        </tbody></table></div>`;
+}
+
+function ddHtml() {
+    if (!dd) return `<div class="wcb-empty">Loading…</div>`;
+    if (dd.error) return `<div class="wcb-empty">${esc(dd.error)}</div>`;
+    if (!dd.items?.length) return `<div class="wcb-empty">No dangerous drugs in this cabinet, so there is nothing to count.</div>`
+        + (dd.recent?.length ? dd.recent.map(countCard).join("") : "");
+    const done = dd.this_shift;
+    const form = dd.can_count ? `<div class="wcb-card"><h3>Count now — ${esc(dd.shift.name)}</h3>
+        <p class="wcb-sub">Count what is physically in the cabinet, with a second nurse watching. The system figure is shown after you save. A line that doesn't match needs a note (recount first).</p>
+        <table class="wcb-lines"><thead><tr><th>Medicine</th><th>Counted</th><th>Note (if different)</th></tr></thead><tbody>
+            ${dd.items.map((i) => `<tr data-dd="${i.drug_id}"><td>${esc(i.name)} <span class="wcb-sub">(${esc(i.unit_name)})</span></td>
+                <td><input type="number" min="0" step="any" inputmode="decimal" data-dd-count aria-label="Counted ${esc(i.name)}"></td>
+                <td><input data-dd-note maxlength="255" aria-label="Note for ${esc(i.name)}" style="width:100%"></td></tr>`).join("")}
+        </tbody></table>
+        <div class="wcb-bar" style="margin-top:8px"><input id="wcbDdUser" placeholder="Second nurse's username" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Second nurse's username">
+            <input id="wcbDdPass" type="password" placeholder="Their password" autocomplete="new-password" aria-label="Their password">
+            <input id="wcbDdNote" maxlength="255" placeholder="Note (optional)" aria-label="Note">
+            <button type="button" class="wcb-btn primary" data-dd-save>Save count</button></div>
+        <div class="wcb-err" id="wcbDdErr" role="alert"></div></div>` : "";
+    return `<div class="wcb-bar"><span class="wcb-badge ${done ? (done.status === "discrepancy" ? "out" : "ok") : "due"}">${done ? `${esc(dd.shift.name)}: counted` : `${esc(dd.shift.name)}: not counted yet`}</span>
+            <span class="wcb-sub">Counted at every shift change. Any difference alerts the pharmacy and the charge nurse.</span></div>
+        ${form}${dd.recent.length ? `<h3 style="margin:14px 0 8px;font-size:14px">Recent counts</h3>${dd.recent.map(countCard).join("")}` : ""}`;
+}
+
+async function saveCount(btn) {
+    const err = $("wcbDdErr");
+    const lines = [];
+    for (const tr of $("wcbBody").querySelectorAll("tr[data-dd]")) {
+        const v = tr.querySelector("[data-dd-count]").value;
+        if (v === "") { err.textContent = "Count every medicine (0 if none)."; tr.querySelector("[data-dd-count]").focus(); return; }
+        lines.push({ drug_id: Number(tr.dataset.dd), counted: v, note: tr.querySelector("[data-dd-note]").value.trim() });
+    }
+    if (!$("wcbDdUser").value.trim() || !$("wcbDdPass").value) { err.textContent = "The second nurse signs with their username and password."; return; }
+    btn.disabled = true;
+    const r = await saveDdCount({ ward_id: data.ward_id, lines, note: $("wcbDdNote").value.trim(), witness_username: $("wcbDdUser").value.trim(), witness_password: $("wcbDdPass").value }).catch(() => null);
+    btn.disabled = false;
+    $("wcbDdPass").value = "";
+    if (!r?.success) {
+        err.textContent = r?.message || "Could not save.";
+        const bad = r?.errors && Object.keys(r.errors)[0]?.match(/^drug_(\d+)$/);
+        if (bad) $("wcbBody").querySelector(`tr[data-dd="${bad[1]}"] [data-dd-${r.needs_note ? "note" : "count"}]`)?.focus();
+        return;
+    }
+    showToast(r.message, r.data.status === "ok" ? "success" : "error");
+    dd = null;
+    loadDd();
 }

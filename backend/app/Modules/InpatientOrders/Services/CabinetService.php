@@ -98,7 +98,7 @@ class CabinetService
             $doses = [];
             foreach ($m['rows'] as $row) {
                 $o = $row['order'];
-                if ($o['state'] !== 'active') {
+                if (!in_array($o['state'], ['active', 'pending'], true)) {
                     continue;
                 }
                 $info = $this->supply->order($db, $o['id']);
@@ -110,7 +110,12 @@ class CabinetService
                     'in_cabinet' => $usable[(int) $info['drug_id']] ?? 0.0, 'needs_witness' => $o['needs_witness'],
                     'taken' => $openByKey[$o['id'] . '|' . ($slot ?? '')] ?? [],
                 ];
-                if ($o['order_type'] === 'prn') {
+                if ($o['state'] === 'pending') {
+                    // Not verified yet: can only be taken with an override (an emergency).
+                    foreach ($o['order_type'] === 'prn' ? [null] : $this->mar->dueSlots($o['id'], true) as $slot) {
+                        $doses[] = $entry($slot, 'unverified') + ['is_stat' => $o['is_stat']];
+                    }
+                } elseif ($o['order_type'] === 'prn') {
                     $doses[] = $entry(null, 'prn', $row['prn']['blocked'] ?? null);
                 } else {
                     foreach ($row['slots'] as $s) {
@@ -148,7 +153,10 @@ class CabinetService
         ];
     }
 
-    /** Take out for one patient's dose. data: order_id, slot_at (not for as-needed), quantity?, note? */
+    /**
+     * Take out for one patient's dose. data: order_id, slot_at (not for as-needed), quantity?, note?,
+     * override_reason? -- an emergency dose of an order the pharmacist hasn't verified yet (logged, the pharmacy alerted).
+     */
     public function withdraw(array $data, array $actor): array
     {
         $fail = fn(string $m, array $extra = []) => ['success' => false, 'message' => $m] + $extra;
@@ -174,8 +182,14 @@ class CabinetService
         if (!$cabinetId) {
             return $fail('This ward has no medicine cabinet set up (Medicine Rounds → Supply settings).');
         }
+        $overrideReason = trim((string) ($data['override_reason'] ?? ''));
+        $override = $o['status'] === 'pending';
+        if ($override && $overrideReason === '') {
+            return $fail('This order is waiting for the pharmacist to verify it. In an emergency you can take it with an override: give the reason.',
+                ['needs_override' => true, 'errors' => ['override_reason' => 'Required for an override.']]);
+        }
         $slot = $o['order_type'] === 'prn' ? null : (string) ($data['slot_at'] ?? '');
-        if ($why = $this->mar->doseCheck((int) $o['id'], $slot)) {
+        if ($why = $this->mar->doseCheck((int) $o['id'], $slot, $override)) {
             return $fail($why, ['errors' => ['slot_at' => $why]]);
         }
         $slotAt = $slot !== null ? str_replace('T', ' ', substr($slot, 0, 16)) . ':00' : null;
@@ -211,11 +225,12 @@ class CabinetService
             }
             $now = (string) $db->query("SELECT NOW()")->fetchColumn();
             $db->prepare(
-                "INSERT INTO cabinet_withdrawals (warehouse_id, admission_id, patient_id, order_id, drug_id, slot_at, quantity, status, note, withdrawn_by, withdrawn_at)
-                 VALUES (:w, :a, :p, :o, :d, :s, :q, 'open', :n, :by, :now)"
+                "INSERT INTO cabinet_withdrawals (warehouse_id, admission_id, patient_id, order_id, drug_id, slot_at, quantity, status, note, is_override, override_reason, withdrawn_by, withdrawn_at)
+                 VALUES (:w, :a, :p, :o, :d, :s, :q, 'open', :n, :ov, :ovr, :by, :now)"
             )->execute([
                 'w' => $cabinetId, 'a' => $o['admission_id'], 'p' => $a['patient_id'], 'o' => $o['id'], 'd' => $o['drug_id'], 's' => $slotAt,
                 'q' => $qty, 'n' => $note !== '' ? mb_substr($note, 0, 255) : null, 'by' => (int) $actor['id'], 'now' => $now,
+                'ov' => $override ? 1 : 0, 'ovr' => $override ? mb_substr($overrideReason, 0, 255) : null,
             ]);
             $id = (int) $db->lastInsertId();
             $insert = $db->prepare("INSERT INTO cabinet_withdrawal_lots (withdrawal_id, lot_id, quantity, unit_cost, created_at) VALUES (:w, :l, :q, :c, :now)");
@@ -241,6 +256,16 @@ class CabinetService
             $this->rollBack($db, $owns);
             throw $e;
         }
+        if ($override) {
+            // The pharmacy must verify the order now.
+            AlertService::raise([
+                'type' => 'medication', 'urgency' => 'urgent',
+                'title' => "Override: {$o['drug_name']} taken for {$a['patient_name']} before verification",
+                'body' => "Reason: {$overrideReason}. Taken out of the ward cabinet by " . ($this->name((int) $actor['id'])) . '. Verify (or reject) the order now.',
+                'patient_id' => $a['patient_id'], 'link' => ['tab' => 'med_verification'],
+                'targets' => [['role' => 'pharmacist']], 'source_type' => 'cabinet_withdrawals', 'source_id' => $id, 'dedupe_key' => "override:{$id}",
+            ], (int) $actor['id']);
+        }
         // Below the minimum now? Restock request to the pharmacy.
         try {
             (new RestockService())->check($cabinetId, (int) $actor['id']);
@@ -248,7 +273,8 @@ class CabinetService
             error_log('restock check failed: ' . $e->getMessage());
         }
         $w = $this->withdrawal($id);
-        return ['success' => true, 'message' => MedSupplyService::num($qty) . " {$w['unit_name']}(s) of {$o['drug_name']} taken out for {$a['patient_name']}. Record the dose on the MAR when given.", 'data' => $w];
+        return ['success' => true, 'message' => MedSupplyService::num($qty) . " {$w['unit_name']}(s) of {$o['drug_name']} taken out for {$a['patient_name']}"
+            . ($override ? ' with an override; the pharmacy was alerted to verify the order' : '') . '. Record the dose on the MAR when given.', 'data' => $w];
     }
 
     /** Put it back in the cabinet (not given). */
@@ -425,7 +451,16 @@ class CabinetService
             'witness_name' => $r['witness_by'] ? $r['witness_name'] : null,
             'administration_id' => $r['administration_id'] !== null ? (int) $r['administration_id'] : null,
             'needs_witness' => (int) $r['is_high_alert'] === 1 || ($r['controlled_class'] ?? 'None') !== 'None',
+            'is_override' => (int) ($r['is_override'] ?? 0) === 1, 'override_reason' => $r['override_reason'] ?? null,
+            'override_reviewed_at' => $r['override_reviewed_at'] ?? null, 'override_review_note' => $r['override_review_note'] ?? null,
         ];
+    }
+
+    private function name(int $userId): string
+    {
+        $stmt = Database::connection()->prepare("SELECT " . self::nameSql(':id'));
+        $stmt->execute(['id' => $userId]);
+        return (string) $stmt->fetchColumn();
     }
 
     private function rollBack(PDO $db, bool $owns): void

@@ -25,3 +25,13 @@ export const fillRestock = (id, quantities, sentVia = "") => post("/ward-cabinet
 export const receiveRestock = (id, lots = [], notes = "") => post("/ward-cabinet/restock/receive", { id, lots, notes });
 export const flagRestockUrgent = (id, reason) => post("/ward-cabinet/restock/urgent", { id, reason });
 export const requestRestockNow = (wardId, urgent = false, reason = "") => post("/ward-cabinet/restock/request", { ward_id: wardId, urgent: urgent ? 1 : 0, reason });
+
+/* ---- controls ---- */
+/** The dangerous-drug shift count of a ward's cabinet: what to count, this shift's count, recent counts. */
+export const fetchDdCount = (wardId) => api(`/ward-cabinet/dd-count${query({ ward_id: wardId })}`);
+/** data: ward_id, lines [{drug_id, counted, note?}], note?, witness_username, witness_password */
+export const saveDdCount = (data) => post("/ward-cabinet/dd-count", data);
+export const resolveDdCount = (id, note) => post("/ward-cabinet/dd-count/resolve", { id, note });
+export const reviewOverride = (id, note) => post("/ward-cabinet/override/review", { id, note });
+/** filters: from?, to?, ward_id? */
+export const fetchWardStockReport = (filters = {}) => api(`/ward-stock-report${query(filters)}`);

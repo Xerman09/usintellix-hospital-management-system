@@ -66,3 +66,10 @@ $router->post('/ward-cabinet/restock/fill', [CabinetController::class, 'restockF
 $router->post('/ward-cabinet/restock/receive', [CabinetController::class, 'restockReceive'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/ward-cabinet/restock/urgent', [CabinetController::class, 'restockUrgent'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/ward-cabinet/restock/request', [CabinetController::class, 'restockNow'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+
+// Controls: dangerous-drug shift counts, overrides, the ward stock report.
+$router->get('/ward-cabinet/dd-count', [CabinetController::class, 'ddCount'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'nurse', 'charge_nurse', 'pharmacist']]]);
+$router->post('/ward-cabinet/dd-count', [CabinetController::class, 'ddCountSave'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/ward-cabinet/dd-count/resolve', [CabinetController::class, 'ddCountResolve'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist']]]);
+$router->post('/ward-cabinet/override/review', [CabinetController::class, 'reviewOverride'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist']]]);
+$router->get('/ward-stock-report', [CabinetController::class, 'report'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist', 'charge_nurse']]]);

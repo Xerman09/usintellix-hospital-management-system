@@ -628,6 +628,13 @@ class MarService
             error_log('restock check failed: ' . $e->getMessage());
         }
 
+        // Dangerous-drug shift counts not done an hour into the shift.
+        try {
+            (new DdCountService())->dueReminders();
+        } catch (\Throwable $e) {
+            error_log('DD count reminder failed: ' . $e->getMessage());
+        }
+
         // Taken out of the cabinet over an hour ago and not given, returned or wasted: remind whoever took it.
         $rs = $db->query(
             "SELECT w.id, w.withdrawn_by, w.withdrawn_at, w.quantity, w.patient_id, w.admission_id, o.drug_name, a.patient_name, du.name AS unit_name
@@ -751,7 +758,18 @@ class MarService
             if (!$show) {
                 continue;
             }
-            $out[(int) $o['admission_id']][] = ['order' => $order, 'slots' => $slots, 'given' => $given, 'voided' => $voided, 'prn' => $prn];
+            $ovr = [];
+            if ($o['status'] === 'pending') {
+                $q = $db->prepare(
+                    "SELECT w.id, w.slot_at, w.quantity, w.withdrawn_by, w.withdrawn_at, w.override_reason, " . self::nameSql('w.withdrawn_by') . " AS withdrawn_by_name
+                     FROM cabinet_withdrawals w WHERE w.order_id = :o AND w.status = 'open' AND w.is_override = 1 ORDER BY w.id"
+                );
+                $q->execute(['o' => $oid]);
+                $ovr = array_map(fn($w) => ['id' => (int) $w['id'], 'slot_at' => $w['slot_at'], 'quantity' => (float) $w['quantity'],
+                    'withdrawn_by' => (int) $w['withdrawn_by'], 'withdrawn_by_name' => $w['withdrawn_by_name'], 'withdrawn_at' => $w['withdrawn_at'],
+                    'reason' => $w['override_reason']], $q->fetchAll(PDO::FETCH_ASSOC));
+            }
+            $out[(int) $o['admission_id']][] = ['order' => $order, 'slots' => $slots, 'given' => $given, 'voided' => $voided, 'prn' => $prn, 'overrides' => $ovr];
         }
         // Scheduled first (by first dose time), then once / STAT, then as-needed, then waiting for pharmacy.
         foreach ($out as &$rows) {
@@ -768,7 +786,7 @@ class MarService
     /** Dose times of a verified order in [from, to) (seconds, DB clock read as UTC). */
     private function slotsFor(array $o, int $from, int $to): array
     {
-        if ($o['verified_at'] === null || $o['order_type'] === 'prn') {
+        if (($o['verified_at'] === null && empty($o['_override'])) || $o['order_type'] === 'prn') {
             return [];
         }
         $start = self::ts($o['start_at']);
@@ -903,7 +921,33 @@ class MarService
      * For the cabinet: can a dose of this order be taken out now? slotAt: the dose time (not for as-needed).
      * Returns null when it can, else why not.
      */
-    public function doseCheck(int $orderId, ?string $slotAt): ?string
+    /**
+     * For the cabinet: an order's dose times due or late now and not yet recorded ('Y-m-d H:i:s').
+     * $override: also for an order not verified yet.
+     */
+    public function dueSlots(int $orderId, bool $override = false): array
+    {
+        $db = Database::connection();
+        $o = $this->orderRow($orderId);
+        if (!$o || $o['order_type'] === 'prn') {
+            return [];
+        }
+        if ($override) {
+            $o['_override'] = true;
+        }
+        $now = self::ts($this->dbNow());
+        $out = [];
+        $rec = $db->prepare("SELECT 1 FROM inpatient_med_administrations WHERE order_id = :o AND slot_at = :s");
+        foreach ($this->slotsFor($o, $now - self::CARRY_HOURS * 3600, $now + self::EARLY_MIN * 60 + 1) as $t) {
+            $rec->execute(['o' => $orderId, 's' => gmdate('Y-m-d H:i:s', $t)]);
+            if (!$rec->fetchColumn()) {
+                $out[] = gmdate('Y-m-d H:i:s', $t);
+            }
+        }
+        return $out;
+    }
+
+    public function doseCheck(int $orderId, ?string $slotAt, bool $override = false): ?string
     {
         $db = Database::connection();
         $o = $this->orderRow($orderId);
@@ -911,7 +955,10 @@ class MarService
             return 'Order not found.';
         }
         $now = self::ts($this->dbNow());
-        if ($o['status'] !== 'verified') {
+        // Override: an emergency dose of an order the pharmacy hasn't verified yet.
+        if ($o['status'] === 'pending' && $override) {
+            $o['_override'] = true;
+        } elseif ($o['status'] !== 'verified') {
             return $o['status'] === 'pending' ? 'This order is waiting for the pharmacy to verify it.' : "This order was {$o['status']}.";
         }
         if ($o['stop_at'] && self::ts($o['stop_at']) <= $now) {
@@ -955,10 +1002,18 @@ class MarService
         if (!$this->canGive($actor, (int) $o['admission_id'])) {
             return $fail('Only a nurse of this ward (or the patient\'s nurse this shift) can record doses.', ['forbidden' => true]);
         }
-        if ($o['status'] === 'pending') {
+        if ($o['status'] === 'pending' && !isset($data['_skip'])) {
+            // Taken out of the cabinet with an override (before verification): it can be given.
+            $ov = Database::connection()->prepare("SELECT COUNT(*) FROM cabinet_withdrawals WHERE id = :w AND order_id = :o AND status = 'open' AND is_override = 1");
+            $ov->execute(['w' => (int) ($data['withdrawal_id'] ?? 0), 'o' => $o['id']]);
+            if (($data['supply_source'] ?? '') === 'cabinet' && (int) $ov->fetchColumn()) {
+                $o['_override'] = true;
+            }
+        }
+        if ($o['status'] === 'pending' && empty($o['_override'])) {
             return $fail('This order is waiting for the pharmacy to verify it.');
         }
-        if ($o['status'] !== 'verified') {
+        if (!in_array($o['status'], ['verified', 'pending'], true)) {
             return $fail("This order was {$o['status']}.");
         }
         $now = self::ts($this->dbNow());
@@ -995,7 +1050,8 @@ class MarService
         try {
             $lock = $db->prepare("SELECT status FROM inpatient_med_orders WHERE id = :id FOR UPDATE");
             $lock->execute(['id' => $o['id']]);
-            if ($lock->fetchColumn() !== 'verified') {
+            $st = $lock->fetchColumn();
+            if ($st !== 'verified' && !($st === 'pending' && !empty($o['_override']))) {
                 $this->rollBack($db, $owns);
                 return ['success' => false, 'message' => 'This order was changed just now; reload the MAR.'];
             }

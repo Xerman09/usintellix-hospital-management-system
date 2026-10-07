@@ -234,7 +234,12 @@ function rowHtml(row, i) {
     const hasLate = row.slots.some((s) => s.state === "late");
     let body = "";
     if (o.state === "pending") {
-        body = `<div class="marx-sub" style="margin-top:6px">Can't be given until the pharmacy verifies it.</div>`;
+        const ov = row.overrides || [];
+        body = ov.length
+            ? `<div class="marx-prn"><span class="marx-sub">Not verified yet — taken out of the cabinet with an override:</span>${ov.map((w, k) => d.can_give
+                ? `<button type="button" class="marx-btn primary" data-ovr="${i}:${k}">Give (taken ${esc(hm(w.withdrawn_at))} by ${esc(w.withdrawn_by_name || "")})</button>`
+                : `<span class="marx-sub">taken ${esc(hm(w.withdrawn_at))} by ${esc(w.withdrawn_by_name || "")}</span>`).join("")}</div>`
+            : `<div class="marx-sub" style="margin-top:6px">Can't be given until the pharmacy verifies it (in an emergency: Ward Cabinet → take with override).</div>`;
     } else if (o.order_type === "prn") {
         const p = row.prn || {};
         const bits = [
@@ -311,7 +316,7 @@ function render() {
     m.querySelector("[data-orders]")?.addEventListener("click", () => {
         const id = cur.admissionId;
         close();
-        import("../med-orders/med-orders.js?v=5").then((x) => x.openMedOrders(id));
+        import("../med-orders/med-orders.js?v=6").then((x) => x.openMedOrders(id));
     });
     m.onclick = onModalClick;
     if (cur.open) {
@@ -338,6 +343,14 @@ function onModalClick(e) {
     if (sl) {
         const [r, k] = sl.split(":").map(Number);
         openSlot(r, k);
+        return;
+    }
+    const ovr = e.target.closest("[data-ovr]")?.dataset.ovr;
+    if (ovr) {
+        const [r, k] = ovr.split(":").map(Number);
+        const row = cur.data.rows[r];
+        const w = row.overrides[k];
+        doseForm(panelBox(r), row, w.slot_at ? { at: w.slot_at } : null, "given", false, true);
         return;
     }
     const prn = e.target.closest("[data-prn]")?.dataset.prn;
@@ -512,11 +525,11 @@ function recheckLine(g) {
 }
 
 /** Record a dose: given (time, note, second nurse) / held (reason) / refused (reason). */
-function doseForm(box, row, slot, mode, holdOnly) {
+function doseForm(box, row, slot, mode, holdOnly, givenOnly = false) {
     const o = row.order;
     const d = cur.data;
     const reasons = d.hold_reasons;
-    const tabs = slot ? [["given", "Given"], ["held", "Held"], ["refused", "Refused"]].filter(([m]) => !holdOnly || m === "held") : [];
+    const tabs = slot && !givenOnly ? [["given", "Given"], ["held", "Held"], ["refused", "Refused"]].filter(([m]) => !holdOnly || m === "held") : [];
     const nowInput = toDateTimeInput(systemNow());
     box.innerHTML = `<div class="marx-panel">
         <div><strong>${slot ? `Dose due ${esc(fmt(slot.at))}` : "As-needed dose"}</strong>${holdOnly ? ` <span class="marx-sub">— can be given from ${d.rules.early_min} min before its time; it can be held now.</span>` : ""}</div>

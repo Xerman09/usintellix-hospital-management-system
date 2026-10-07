@@ -254,6 +254,7 @@ class MedOrderService
         }
 
         AlertService::resolveByKey("medorder:{$id}", (int) $actor['id'], 'Verified');
+        $this->closeOverrideAlerts($id, (int) $actor['id'], 'Order verified');
         $order = $this->order($id);
         if ($order['is_stat']) {
             // Give now: tell the patient's nurse.
@@ -290,6 +291,7 @@ class MedOrderService
         }
         $this->log($id, 'rejected', $reason, (int) $actor['id']);
         AlertService::resolveByKey("medorder:{$id}", (int) $actor['id'], 'Rejected');
+        $this->closeOverrideAlerts($id, (int) $actor['id'], 'Order rejected');
         if ($o['ordered_by']) {
             AlertService::raise([
                 'type' => 'medication', 'urgency' => 'urgent',
@@ -527,6 +529,16 @@ class MedOrderService
         $stmt->execute(['a' => $admissionId]);
         $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
         return $ids ? array_map(fn($u) => ['user' => $u], $ids) : [['role' => 'nurse']];
+    }
+
+    /** Overrides taken for this order (cabinet, before verification): the pharmacy has now acted on it. */
+    private function closeOverrideAlerts(int $orderId, int $userId, string $note): void
+    {
+        $stmt = Database::connection()->prepare("SELECT id FROM cabinet_withdrawals WHERE order_id = :o AND is_override = 1");
+        $stmt->execute(['o' => $orderId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $wid) {
+            AlertService::resolveByKey("override:{$wid}", $userId, $note);
+        }
     }
 
     private function lock(PDO $db, int $id): ?array

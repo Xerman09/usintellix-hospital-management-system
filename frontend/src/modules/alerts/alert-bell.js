@@ -70,7 +70,7 @@ export async function openAlertLink(a) {
         return true;
     }
     if (link.mar) {
-        const { openMar } = await import("../mar/mar.js?v=5");
+        const { openMar } = await import("../mar/mar.js?v=6");
         openMar(Number(link.mar));
         return true;
     }

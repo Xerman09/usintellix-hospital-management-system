@@ -434,7 +434,7 @@ class RestockService
     }
 
     /** Admin; a nurse / charge nurse linked to the ward (or not linked to any ward yet). */
-    private function isWardStaff(array $actor, int $wardId): bool
+    public function isWardStaff(array $actor, int $wardId): bool
     {
         $role = (string) ($actor['role'] ?? '');
         if ($role === 'admin') {
