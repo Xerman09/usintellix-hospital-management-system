@@ -319,8 +319,10 @@ class PharmacyReportService
              LEFT JOIN or_surgical_cases oc ON oc.id = oi.case_id
              LEFT JOIN inpatient_med_admin_lots imal ON m.source_type = 'inpatient_med_admin_lots' AND imal.id = m.source_id
              LEFT JOIN inpatient_med_administrations ima ON ima.id = imal.administration_id
-             LEFT JOIN inpatient_med_orders imo ON imo.id = ima.order_id
-             LEFT JOIN inpatient_admissions ia ON ia.id = ima.admission_id
+             LEFT JOIN cabinet_withdrawal_lots cwl ON m.source_type = 'cabinet_withdrawal_lots' AND cwl.id = m.source_id
+             LEFT JOIN cabinet_withdrawals cw ON cw.id = cwl.withdrawal_id
+             LEFT JOIN inpatient_med_orders imo ON imo.id = COALESCE(ima.order_id, cw.order_id)
+             LEFT JOIN inpatient_admissions ia ON ia.id = COALESCE(ima.admission_id, cw.admission_id)
              LEFT JOIN patients pt ON pt.id = COALESCE(pd.patient_id, oc.patient_id, ia.patient_id)
              WHERE " . implode(' AND ', $where) . "
              ORDER BY m.movement_date, m.movement_type = 'opening' DESC, m.created_at, m.id"
@@ -354,7 +356,9 @@ class PharmacyReportService
                 'type_label' => $m['or_case_number'] !== null
                     ? ($m['movement_type'] === 'dispensed' ? 'Used in surgery' : 'Surgery use undone')
                     : ($m['ward_admission_number'] !== null
-                        ? ($m['movement_type'] === 'dispensed' ? 'Given on the ward' : 'Ward dose undone')
+                        ? ($m['source_type'] === 'cabinet_withdrawal_lots'
+                            ? ($m['movement_type'] === 'dispensed' ? 'Taken from ward cabinet' : 'Returned to ward cabinet')
+                            : ($m['movement_type'] === 'dispensed' ? 'Given on the ward' : 'Ward dose undone'))
                         : (StockLedgerService::TYPES[$m['movement_type']] ?? $m['movement_type'])),
                 'reference_no' => $m['reference_no'],
                 // Received from (supplier / location) or given to (patient).

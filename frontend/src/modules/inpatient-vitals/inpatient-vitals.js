@@ -661,8 +661,8 @@ function onBoardClick(e) {
     const p = board.patients.find((x) => x.admission_id === adm);
     if (act === "record") openRecordVitals(p, { onSaved: loadBoard });
     else if (act === "graph") openVitalsGraph(adm, { onChange: loadBoard });
-    else if (act === "orders") import("../med-orders/med-orders.js?v=4").then((m) => m.openMedOrders(adm));
-    else if (act === "mar") import("../mar/mar.js?v=4").then((m) => m.openMar(adm));
+    else if (act === "orders") import("../med-orders/med-orders.js?v=5").then((m) => m.openMedOrders(adm));
+    else if (act === "mar") import("../mar/mar.js?v=5").then((m) => m.openMar(adm));
     else if (act === "schedule") openVitalsSchedule(p, { onSaved: loadBoard });
     else if (act === "apply") {
         setVitalsSchedule(adm, p.news2_hours, `NEWS2 ${p.news2.score} (${p.news2.risk_label})`).then((r) => {

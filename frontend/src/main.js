@@ -1,10 +1,10 @@
 console.log("MAIN FILE LOADED");
 
-import { router } from "./core/router.js?v=196";
+import { router } from "./core/router.js?v=197";
 import { initTheme } from "./core/theme.js";
 import { initInactivityGuard } from "./core/inactivity-guard.js?v=1";
 import { initBreakGlassListener } from "./core/break-glass-modal.js?v=1";
-import "./core/patient-chart-helper.js?v=28";
+import "./core/patient-chart-helper.js?v=29";
 import { initSystemTimezone } from "./core/timezone.js";
 
 initTheme();

@@ -80,7 +80,7 @@ class MarController extends Controller
     public function supply(): void
     {
         $request = new Request();
-        $data = (new MedSupplyService())->options((int) $request->input('order_id'));
+        $data = (new MedSupplyService())->options((int) $request->input('order_id'), (int) ($this->user()['id'] ?? 0));
         if (!$data) {
             $this->error('Order not found.', 404);
             return;

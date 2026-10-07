@@ -71,6 +71,7 @@ function staffNavLinks(role)
                 <a data-tab="med_verification">Medicine Order Verification</a>
                 <a data-tab="mar">Medicine Rounds (MAR)</a>
                 <a data-tab="dd_register">DD Register</a>
+                <a data-tab="ward_cabinet">Ward Cabinets</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
         </div>
@@ -722,6 +723,7 @@ function nurseNavLinks(role)
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="inpatient_vitals">Vital Signs</a>
     <a data-tab="mar">Medicine Rounds</a>
+    <a data-tab="ward_cabinet">Ward Cabinet</a>
     <a data-tab="dd_register">DD Register</a>
     <a data-tab="nurse_assignments">Shift Assignments</a>
     <a data-tab="patient_flow">Flow</a>
@@ -742,6 +744,7 @@ const PHARMACIST_NAV_LINKS = `
     <a data-tab="med_verification">Order Verification</a>
     <a data-tab="mar">Medicine Rounds</a>
     <a data-tab="dd_register">DD Register</a>
+    <a data-tab="ward_cabinet">Ward Cabinets</a>
     <a data-tab="patients">Patients</a>
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="messaging">Messages</a>

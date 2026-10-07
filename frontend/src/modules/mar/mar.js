@@ -311,7 +311,7 @@ function render() {
     m.querySelector("[data-orders]")?.addEventListener("click", () => {
         const id = cur.admissionId;
         close();
-        import("../med-orders/med-orders.js?v=4").then((x) => x.openMedOrders(id));
+        import("../med-orders/med-orders.js?v=5").then((x) => x.openMedOrders(id));
     });
     m.onclick = onModalClick;
     if (cur.open) {
@@ -475,6 +475,10 @@ const peso = (n) => `₱${Number(n || 0).toLocaleString("en-PH", { minimumFracti
 function supplyText(rec) {
     if (rec.supply_source === "own") return "From the patient's own supply (not charged)";
     if (rec.supply_source === "opened") return "From the patient's opened container (charged with the first dose)";
+    if (rec.supply_source === "cabinet") {
+        const what = `Taken out of the ward cabinet: ${Number(rec.stock_quantity)}`;
+        return rec.charge ? `${what} · ${peso(rec.charge.amount)} ${rec.charge.status === "voided" ? "charge voided" : "charged"}` : `${what} · not charged (no selling price)`;
+    }
     const qty = `${Number(rec.stock_quantity)} from ${esc(rec.warehouse_name || "stock")}`;
     if (!rec.charge) return `Taken: ${qty} · not charged (no selling price)`;
     return `Taken: ${qty} · ${peso(rec.charge.amount)} ${rec.charge.status === "voided" ? "charge voided" : "charged"}`;
@@ -539,6 +543,8 @@ function doseForm(box, row, slot, mode, holdOnly) {
         el.innerHTML = `<div class="row">
                 <div><label for="marxFrom">Taken from</label><select id="marxFrom">
                     ${def ? "" : `<option value="">Choose…</option>`}
+                    ${(s.withdrawals || []).map((w) => opt(`cabinet:${w.id}`, `Taken out of the cabinet ${hm(w.withdrawn_at)}${w.slot_at ? ` for the ${hm(w.slot_at)} dose` : ""} — ${Number(w.quantity)} ${s.unit_name}(s)${w.mine ? "" : ` by ${w.withdrawn_by_name}`}`,
+                        def?.source === "cabinet" ? def.withdrawal_id === w.id : false)).join("")}
                     ${s.locations.map((l) => opt(`stock:${l.id}`, `${l.label} — ${l.usable > 0 ? `${Number(l.usable)} ${s.unit_name}(s) usable` : "none usable"}`, def?.source === "stock" && def.warehouse_id === l.id, !(l.usable > 0))).join("")}
                     ${s.opened_available ? opt("opened", "Patient's opened container (already charged)", def?.source === "opened") : ""}
                     ${opt("own", "Patient's own supply (not charged)", false)}
@@ -547,11 +553,19 @@ function doseForm(box, row, slot, mode, holdOnly) {
             </div>
             <div class="marx-price" data-v="price"></div>
             ${def ? "" : `<div class="marx-err">No usable stock at the ward or the pharmacy. Ask the pharmacy to send it, or record the patient's own supply.</div>`}`;
+        // Taken out for this dose time: pick that one.
+        const forSlot = slot && (s.withdrawals || []).find((w) => w.slot_at && w.slot_at.slice(0, 16) === slot.at.slice(0, 16));
+        if (forSlot) $("marxFrom").value = `cabinet:${forSlot.id}`;
         const sync = () => {
             const from = $("marxFrom").value;
             const isStock = from.startsWith("stock:");
+            const cab = from.startsWith("cabinet:") ? (s.withdrawals || []).find((w) => w.id === Number(from.slice(8))) : null;
             q("qtybox").style.display = isStock ? "" : "none";
-            const qty = Number($("marxQty").value || 0);
+            const qty = cab ? cab.quantity : Number($("marxQty").value || 0);
+            if (cab) {
+                q("price").textContent = s.unit_price ? `Already taken out of the cabinet: ${qty} × ${peso(s.unit_price)} = ${peso(qty * s.unit_price)} will be charged to the patient.` : "Already taken out of the cabinet; no selling price set, not charged.";
+                return;
+            }
             q("price").textContent = !isStock ? (from === "" ? "" : "Nothing taken from stock; not charged.")
                 : s.unit_price ? `${qty} × ${peso(s.unit_price)} = ${peso(qty * s.unit_price)} will be charged to the patient.` : "No selling price set: taken from stock, not charged.";
         };
@@ -618,7 +632,8 @@ function doseForm(box, row, slot, mode, holdOnly) {
             const from = $("marxFrom").value;
             if (!from) { err.textContent = "Choose where the dose was taken from."; $("marxFrom").focus(); return; }
             if (from.startsWith("stock:") && !(Number($("marxQty").value) > 0)) { err.textContent = "Enter how many were taken from stock."; $("marxQty").focus(); return; }
-            base.supply_source = from.startsWith("stock:") ? "stock" : from;
+            base.supply_source = from.startsWith("stock:") ? "stock" : from.startsWith("cabinet:") ? "cabinet" : from;
+            base.withdrawal_id = from.startsWith("cabinet:") ? Number(from.slice(8)) : undefined;
             base.warehouse_id = from.startsWith("stock:") ? Number(from.slice(6)) : undefined;
             base.stock_quantity = from.startsWith("stock:") ? $("marxQty").value : undefined;
             if (o.needs_witness && (!v("marxWUser") || !$("marxWPass").value)) { err.textContent = "The second nurse must sign with their username and password."; $("marxWUser").focus(); return; }

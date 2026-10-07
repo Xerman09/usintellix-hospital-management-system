@@ -277,7 +277,7 @@ class MarService
         }
 
         // Where it comes from (stock location + quantity, opened container, own supply).
-        $supply = (new MedSupplyService())->resolve($o, $data);
+        $supply = (new MedSupplyService())->resolve($o, $data, $actor);
         if (isset($supply['error'])) {
             return $supply['error'];
         }
@@ -300,6 +300,9 @@ class MarService
             return $id;
         }
         $this->clearAlerts($o, $slot, (int) $actor['id'], 'Given');
+        if ($supply['source'] === 'cabinet') {
+            AlertService::resolveByKey("cabopen:{$supply['withdrawal_id']}", (int) $actor['id'], 'Given');
+        }
         $rec = $this->record($id);
         $msg = $witness ? "Recorded as given, checked by {$witness['name']}." : 'Recorded as given.';
         if ($rec['recheck_due_at']) {
@@ -308,8 +311,8 @@ class MarService
         if ($rec['dd_entry_no']) {
             $msg .= " DD register entry #{$rec['dd_entry_no']}.";
         }
-        if ($rec['supply_source'] === 'stock') {
-            $msg .= ' ' . MedSupplyService::num($rec['stock_quantity']) . " taken from {$rec['warehouse_name']}"
+        if (in_array($rec['supply_source'], ['stock', 'cabinet'], true)) {
+            $msg .= ' ' . MedSupplyService::num($rec['stock_quantity']) . " taken from " . ($rec['supply_source'] === 'cabinet' ? 'the cabinet' : $rec['warehouse_name']) . ""
                 . ($rec['charge'] ? ', ₱' . number_format($rec['charge']['amount'], 2) . ' charged.' : ' (no selling price set, so not charged).');
         }
         return ['success' => true, 'message' => $msg, 'data' => $rec];
@@ -350,7 +353,10 @@ class MarService
                 'dedupe_key' => "marskip:{$id}",
             ], (int) $actor['id']);
         }
-        return ['success' => true, 'message' => $status === 'held' ? 'Recorded as held; the doctor was told.' : 'Recorded as refused; the doctor was told.', 'data' => $rec];
+        $open = $db->prepare("SELECT COUNT(*) FROM cabinet_withdrawals WHERE order_id = :o AND status = 'open'");
+        $open->execute(['o' => $o['id']]);
+        $hint = (int) $open->fetchColumn() ? ' Return what was taken out of the cabinet for it (or record it as wasted).' : '';
+        return ['success' => true, 'message' => ($status === 'held' ? 'Recorded as held; the doctor was told.' : 'Recorded as refused; the doctor was told.') . $hint, 'data' => $rec];
     }
 
     /** Entered in error: the entry stays (struck through) and the dose is due again. */
@@ -392,7 +398,9 @@ class MarService
         foreach (["marskip:{$id}", "painrecheck:{$id}", "painlate:{$id}"] as $key) {
             AlertService::resolveByKey($key, (int) $actor['id'], 'Entry voided');
         }
-        $msg = 'Entry voided.' . ($rec['supply_source'] === 'stock' ? ' The stock is back at ' . $rec['warehouse_name'] . ($rec['charge'] ? ' and the charge is off the patient\'s bill.' : '.') : '');
+        $msg = 'Entry voided.' . ($rec['supply_source'] === 'cabinet'
+            ? ' What was taken from the cabinet is waiting again: give it, or return it to the cabinet.' . ($rec['charge'] ? ' The charge is off the patient\'s bill.' : '')
+            : '') . ($rec['supply_source'] === 'stock' ? ' The stock is back at ' . $rec['warehouse_name'] . ($rec['charge'] ? ' and the charge is off the patient\'s bill.' : '.') : '');
         return ['success' => true, 'message' => $msg, 'data' => $this->record($id)];
     }
 
@@ -603,6 +611,31 @@ class MarService
                 }
                 $raised[] = ['order_id' => 0, 'at' => $r['given_at'], 'patient' => $r['patient_name'], 'drug' => ($overdue ? 'pain recheck overdue: ' : 'pain recheck: ') . $r['drug_name']];
             }
+        }
+
+        // Taken out of the cabinet over an hour ago and not given, returned or wasted: remind whoever took it.
+        $rs = $db->query(
+            "SELECT w.id, w.withdrawn_by, w.withdrawn_at, w.quantity, w.patient_id, w.admission_id, o.drug_name, a.patient_name, du.name AS unit_name
+             FROM cabinet_withdrawals w JOIN inpatient_med_orders o ON o.id = w.order_id JOIN inpatient_admissions a ON a.id = w.admission_id
+             JOIN drugs d ON d.id = w.drug_id LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
+             WHERE w.status = 'open' AND w.withdrawn_at <= NOW() - INTERVAL " . CabinetService::OPEN_REMIND_MIN . " MINUTE"
+        );
+        foreach ($rs->fetchAll(PDO::FETCH_ASSOC) as $w) {
+            $key = "cabopen:{$w['id']}";
+            $seen = $db->prepare("SELECT 1 FROM alerts WHERE dedupe_key = :k LIMIT 1");
+            $seen->execute(['k' => $key]);
+            if ($seen->fetchColumn() || !$w['withdrawn_by']) {
+                continue;
+            }
+            AlertService::raise([
+                'type' => 'medication', 'urgency' => 'info',
+                'title' => "Not given or returned: {$w['drug_name']} for {$w['patient_name']}",
+                'body' => MedSupplyService::num($w['quantity']) . ' ' . ($w['unit_name'] ?: 'unit') . '(s) taken out of the ward cabinet at '
+                    . gmdate('g:i A', self::ts($w['withdrawn_at'])) . '. Record the dose on the MAR, or return it to the cabinet (or record it as wasted).',
+                'patient_id' => $w['patient_id'], 'link' => ['tab' => 'ward_cabinet'],
+                'targets' => [['user' => (int) $w['withdrawn_by']]], 'source_type' => 'cabinet_withdrawals', 'source_id' => (int) $w['id'],
+                'dedupe_key' => $key,
+            ]);
         }
 
         // Close the alerts of doses that are no longer late (stopped, patient discharged, or recorded elsewhere).
@@ -851,6 +884,45 @@ class MarService
     // Internals: recording
     // ------------------------------------------------------------------
 
+    /**
+     * For the cabinet: can a dose of this order be taken out now? slotAt: the dose time (not for as-needed).
+     * Returns null when it can, else why not.
+     */
+    public function doseCheck(int $orderId, ?string $slotAt): ?string
+    {
+        $db = Database::connection();
+        $o = $this->orderRow($orderId);
+        if (!$o) {
+            return 'Order not found.';
+        }
+        $now = self::ts($this->dbNow());
+        if ($o['status'] !== 'verified') {
+            return $o['status'] === 'pending' ? 'This order is waiting for the pharmacy to verify it.' : "This order was {$o['status']}.";
+        }
+        if ($o['stop_at'] && self::ts($o['stop_at']) <= $now) {
+            return 'This order has ended.';
+        }
+        if ($o['order_type'] === 'prn') {
+            return $this->prnLimit($db, $o, $now);
+        }
+        $slot = $this->dt($slotAt);
+        if ($slot === null || $this->slotsFor($o, $slot, $slot + 1) !== [$slot]) {
+            return 'Choose a dose time of this order.';
+        }
+        if ($slot < $now - self::CARRY_HOURS * 3600) {
+            return 'That dose is too old.';
+        }
+        if ($slot - $now > self::EARLY_MIN * 60) {
+            return 'This dose is not due until ' . gmdate('g:i A', $slot) . '.';
+        }
+        $rec = $db->prepare("SELECT status FROM inpatient_med_administrations WHERE order_id = :o AND slot_at = :s");
+        $rec->execute(['o' => $orderId, 's' => gmdate('Y-m-d H:i:s', $slot)]);
+        if ($st = $rec->fetchColumn()) {
+            return "That dose was already recorded as {$st}.";
+        }
+        return null;
+    }
+
     /** Checks shared by give / hold / refuse. Returns ['order', 'now', 'slot'] or ['error' => result]. */
     private function context(array $data, array $actor): array
     {
@@ -943,8 +1015,10 @@ class MarService
                 'sq' => $status === 'given' ? ($f['supply']['quantity'] ?? null) : null,
             ]);
             $id = (int) $db->lastInsertId();
-            if ($status === 'given' && ($f['supply']['source'] ?? null) === 'stock') {
-                $took = (new MedSupplyService())->take($db, $id, $o, (int) $f['supply']['warehouse_id'], (float) $f['supply']['quantity'], (int) $actor['id'], $f['given_at']);
+            if ($status === 'given' && in_array($f['supply']['source'] ?? null, ['stock', 'cabinet'], true)) {
+                $took = $f['supply']['source'] === 'cabinet'
+                    ? (new MedSupplyService())->useWithdrawal($db, $id, $o, (int) $f['supply']['withdrawal_id'], (int) $actor['id'], $f['given_at'])
+                    : (new MedSupplyService())->take($db, $id, $o, (int) $f['supply']['warehouse_id'], (float) $f['supply']['quantity'], (int) $actor['id'], $f['given_at']);
                 if (isset($took['error'])) {
                     $this->rollBack($db, $owns);
                     return ['success' => false, 'message' => $took['error'], 'errors' => ['stock_quantity' => $took['error']]];
@@ -966,7 +1040,7 @@ class MarService
      * towards their account lockout, the same as a failed login.
      * @return array ['id', 'initials', 'name'] or ['error' => result]
      */
-    private function witness(array $data, int $actorId): array
+    public function witness(array $data, int $actorId): array
     {
         $username = trim((string) ($data['witness_username'] ?? ''));
         $password = (string) ($data['witness_password'] ?? '');
@@ -1018,7 +1092,7 @@ class MarService
     }
 
     /** Admin; a charge nurse or nurse of the patient's ward; the patient's nurse this shift; a nurse not yet linked to any ward. */
-    private function canGive(array $actor, int $admissionId): bool
+    public function canGive(array $actor, int $admissionId): bool
     {
         $role = (string) ($actor['role'] ?? '');
         if ($role === 'admin') {
@@ -1043,7 +1117,7 @@ class MarService
         return (bool) $stmt->fetchColumn();
     }
 
-    private function needsWitness(array $o): bool
+    public function needsWitness(array $o): bool
     {
         return (int) $o['is_high_alert'] === 1 || ($o['controlled_class'] ?? 'None') !== 'None';
     }

@@ -17,11 +17,13 @@ use PDO;
  *   * opened -- the patient's container opened at an earlier dose of the same order
  *               (multi-dose vial, inhaler, syrup, cream): nothing taken or charged again.
  *   * own    -- the patient's own supply: nothing taken or charged.
+ *   * cabinet -- taken out of the ward cabinet beforehand for this patient (CabinetService):
+ *               already deducted; giving it links the withdrawal to the dose and charges it.
  * Voiding the dose puts the stock back ('dispense_voided') and voids the charge.
  */
 class MedSupplyService
 {
-    public const SOURCES = ['stock', 'opened', 'own'];
+    public const SOURCES = ['stock', 'cabinet', 'opened', 'own'];
     public const SETTINGS_ROLES = ['admin'];
     private const EPSILON = 0.0005;
     /** Units that come as one container used over many doses. */
@@ -34,7 +36,7 @@ class MedSupplyService
      * own stock and the pharmacy first), the opened container (when an earlier dose took one),
      * the patient's own supply; plus the default choice and quantity, and the price.
      */
-    public function options(int $orderId): ?array
+    public function options(int $orderId, ?int $actorId = null): ?array
     {
         $db = Database::connection();
         $o = $this->order($db, $orderId);
@@ -67,12 +69,30 @@ class MedSupplyService
             $locations[$id] ??= ['id' => $id, 'label' => $w['name'], 'usable' => $w['usable'], 'kind' => 'other'];
         }
 
+        $stmt = $db->prepare(
+            "SELECT w.id, w.quantity, w.slot_at, w.withdrawn_at, w.withdrawn_by, wh.name AS warehouse_name,
+                    (SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ne.first_name, ''), ' ', COALESCE(ne.last_name, ''))), ''), nu.username)
+                     FROM users nu LEFT JOIN employees ne ON ne.user_id = nu.id AND ne.deleted_at IS NULL WHERE nu.id = w.withdrawn_by LIMIT 1) AS withdrawn_by_name
+             FROM cabinet_withdrawals w JOIN warehouses wh ON wh.id = w.warehouse_id
+             WHERE w.order_id = :o AND w.status = 'open' ORDER BY w.withdrawn_at"
+        );
+        $stmt->execute(['o' => $orderId]);
+        $withdrawals = array_map(fn($w) => [
+            'id' => (int) $w['id'], 'quantity' => (float) $w['quantity'], 'slot_at' => $w['slot_at'], 'withdrawn_at' => $w['withdrawn_at'],
+            'warehouse_name' => $w['warehouse_name'], 'withdrawn_by_name' => $w['withdrawn_by_name'],
+            'mine' => $actorId !== null && (int) $w['withdrawn_by'] === $actorId,
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+
         $multi = $this->isMultiDose($o);
         $qty = $this->defaultQuantity($o);
         // An opened container only makes sense for multi-dose items (vial, inhaler, syrup...).
         $opened = $multi && $this->hasOpened($db, $orderId);
         $default = null;
-        if ($multi && $opened) {
+        $mine = array_values(array_filter($withdrawals, fn($w) => $w['mine']));
+        if ($mine) {
+            // Taken out of the cabinet for this patient: give that.
+            $default = ['source' => 'cabinet', 'withdrawal_id' => $mine[0]['id'], 'warehouse_id' => null];
+        } elseif ($multi && $opened) {
             $default = ['source' => 'opened', 'warehouse_id' => null];
         } else {
             foreach ($locations as $l) {
@@ -89,6 +109,7 @@ class MedSupplyService
             'unit_name' => $o['unit_name'] ?: 'unit',
             'multi_dose' => $multi,
             'opened_available' => $opened,
+            'withdrawals' => $withdrawals,
             'unit_price' => $o['selling_price'] !== null ? (float) $o['selling_price'] : null,
             'ward_stock_set' => $wardWh !== null,
         ];
@@ -98,10 +119,10 @@ class MedSupplyService
      * Check a supply choice before the dose is written. data: supply_source?, warehouse_id?, stock_quantity?
      * Returns ['source', 'warehouse_id', 'quantity'] or ['error' => result]. No source: the default choice.
      */
-    public function resolve(array $o, array $data): array
+    public function resolve(array $o, array $data, array $actor = []): array
     {
         $fail = fn(string $m, string $field = 'supply_source') => ['error' => ['success' => false, 'message' => $m, 'errors' => [$field => $m]]];
-        $opts = $this->options((int) $o['id']);
+        $opts = $this->options((int) $o['id'], (int) ($actor['id'] ?? 0));
         $source = (string) ($data['supply_source'] ?? '');
         if ($source === '') {
             if (!$opts['default']) {
@@ -109,9 +130,29 @@ class MedSupplyService
             }
             $source = $opts['default']['source'];
             $data['warehouse_id'] = $opts['default']['warehouse_id'];
+            $data['withdrawal_id'] = $opts['default']['withdrawal_id'] ?? null;
         }
         if (!in_array($source, self::SOURCES, true)) {
             return $fail('Choose where the dose was taken from.');
+        }
+        if ($source === 'cabinet') {
+            $w = null;
+            foreach ($opts['withdrawals'] as $x) {
+                if ($x['id'] === (int) ($data['withdrawal_id'] ?? 0)) {
+                    $w = $x;
+                }
+            }
+            if (!$w) {
+                return $fail('That medicine taken from the cabinet is no longer waiting to be given (given, returned or wasted).', 'withdrawal_id');
+            }
+            if (!$w['mine'] && !in_array($actor['role'] ?? '', ['admin', 'charge_nurse'], true)) {
+                return $fail("It was taken out by {$w['withdrawn_by_name']}: only they (or the charge nurse) can record giving it.", 'withdrawal_id');
+            }
+            $slot = $data['scheduled_at'] ?? null;
+            if ($w['slot_at'] !== null && $slot && substr(str_replace('T', ' ', (string) $slot), 0, 16) !== substr($w['slot_at'], 0, 16)) {
+                return $fail('That was taken out for the ' . date('g:i A', strtotime($w['slot_at'])) . ' dose.', 'withdrawal_id');
+            }
+            return ['source' => 'cabinet', 'warehouse_id' => null, 'quantity' => $w['quantity'], 'withdrawal_id' => $w['id']];
         }
         if ($source === 'opened') {
             if (!$opts['opened_available']) {
@@ -185,10 +226,35 @@ class MedSupplyService
             $left = round($left - $part, 3);
         }
 
-        // The charge: catalog selling price per dispensing unit.
+        return $this->charge($db, $administrationId, $o, $qty, $userId, $givenAt) + ['warehouse' => $this->warehouseName($db, $warehouseId)];
+    }
+
+    /**
+     * Give what was taken out of the cabinet as this dose: link it and charge it (inside the
+     * recording transaction). Returns like take(), or ['error' => message].
+     */
+    public function useWithdrawal(PDO $db, int $administrationId, array $o, int $withdrawalId, int $userId, string $givenAt): array
+    {
+        $stmt = $db->prepare("SELECT * FROM cabinet_withdrawals WHERE id = :id FOR UPDATE");
+        $stmt->execute(['id' => $withdrawalId]);
+        $w = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$w || $w['status'] !== 'open' || (int) $w['order_id'] !== (int) $o['id']) {
+            return ['error' => 'That medicine taken from the cabinet is no longer waiting to be given. Reload the MAR.'];
+        }
+        $db->prepare("UPDATE cabinet_withdrawals SET status = 'given', administration_id = :a, closed_by = :u, closed_at = NOW() WHERE id = :id")
+            ->execute(['a' => $administrationId, 'u' => $userId ?: null, 'id' => $withdrawalId]);
+        $db->prepare("UPDATE inpatient_med_administrations SET withdrawal_id = :w, warehouse_id = :wh, stock_quantity = :q WHERE id = :id")
+            ->execute(['w' => $withdrawalId, 'wh' => $w['warehouse_id'], 'q' => $w['quantity'], 'id' => $administrationId]);
+        return $this->charge($db, $administrationId, $o, (float) $w['quantity'], $userId, $givenAt) + ['warehouse' => $this->warehouseName($db, (int) $w['warehouse_id'])];
+    }
+
+    /** The dose's charge: catalog selling price per dispensing unit × quantity. */
+    private function charge(PDO $db, int $administrationId, array $o, float $qty, int $userId, string $givenAt): array
+    {
+        $now = (string) $db->query("SELECT NOW()")->fetchColumn();
         $price = $o['selling_price'] !== null ? (float) $o['selling_price'] : 0.0;
         if ($price <= 0 || !$o['patient_id']) {
-            return ['charged' => null, 'no_price' => $price <= 0, 'warehouse' => $this->warehouseName($db, $warehouseId)];
+            return ['charged' => null, 'no_price' => $price <= 0];
         }
         $gross = round($price * $qty, 2);
         $dose = self::num($o['dose']);
@@ -202,7 +268,7 @@ class MedSupplyService
             'desc' => mb_substr("{$o['drug_name']} — {$dose} {$o['dose_unit']} {$o['route']} (" . self::num($qty) . " {$unit})", 0, 255),
             'q' => $qty, 'price' => $price, 'gross' => $gross, 'gross2' => $gross, 'date' => substr($givenAt, 0, 10), 'now' => $now, 'u' => $userId ?: null,
         ]);
-        return ['charged' => $gross, 'no_price' => false, 'warehouse' => $this->warehouseName($db, $warehouseId)];
+        return ['charged' => $gross, 'no_price' => false];
     }
 
     /** The dose was voided: stock back to its lots, charge voided (inside the void transaction). */
@@ -226,6 +292,9 @@ class MedSupplyService
         }
         $db->prepare("UPDATE inpatient_med_charges SET status = 'voided', voided_at = :now, voided_by = :u, void_reason = :r WHERE administration_id = :a AND status = 'charged'")
             ->execute(['now' => $now, 'u' => $userId ?: null, 'r' => mb_substr($reason, 0, 255), 'a' => $administrationId]);
+        // Taken from the cabinet: it is back to "taken, not yet given" (return it or give it again).
+        $db->prepare("UPDATE cabinet_withdrawals SET status = 'open', administration_id = NULL, closed_by = NULL, closed_at = NULL WHERE administration_id = :a AND status = 'given'")
+            ->execute(['a' => $administrationId]);
     }
 
     /** Charges of an admission (the MAR's summary): live total and lines. */
@@ -307,7 +376,7 @@ class MedSupplyService
         return [$ward, $pharmacy ? (int) $pharmacy : null];
     }
 
-    private function order(PDO $db, int $orderId): ?array
+    public function order(PDO $db, int $orderId): ?array
     {
         $stmt = $db->prepare(
             "SELECT o.*, a.ward_id, d.strength, d.selling_price, du.name AS unit_name FROM inpatient_med_orders o

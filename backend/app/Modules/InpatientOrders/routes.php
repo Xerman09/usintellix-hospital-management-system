@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\InpatientOrders\Controllers\CabinetController;
 use App\Modules\InpatientOrders\Controllers\MarController;
 use App\Modules\InpatientOrders\Controllers\MedOrderController;
 
@@ -45,3 +46,15 @@ $router->post('/mar/supply-settings', [MarController::class, 'saveSupplySettings
 
 // Dangerous-drugs register (read only; entries are written when a DD dose is recorded on the MAR).
 $router->get('/dd-register', [MarController::class, 'ddRegister'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist', 'doctor', 'nurse', 'charge_nurse']]]);
+
+// ---------------------------------------------------------------
+// Ward medicine cabinets: nurses take medicine out for a patient's
+// dose (deducted through the medicine ledger), then give it on the
+// MAR (charged), return it or record it as wasted.
+// ---------------------------------------------------------------
+
+$router->get('/ward-cabinet', [CabinetController::class, 'view'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'nurse', 'charge_nurse', 'pharmacist', 'doctor']]]);
+$router->post('/ward-cabinet/withdraw', [CabinetController::class, 'withdraw'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/ward-cabinet/return', [CabinetController::class, 'giveBack'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/ward-cabinet/waste', [CabinetController::class, 'waste'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/ward-cabinet/levels', [CabinetController::class, 'levels'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist', 'charge_nurse']]]);
