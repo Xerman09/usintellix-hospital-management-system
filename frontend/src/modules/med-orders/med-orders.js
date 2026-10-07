@@ -224,7 +224,7 @@ function renderOrders() {
     m.querySelector("[data-mar]").onclick = () => {
         const id = current.admissionId;
         close();
-        import("../mar/mar.js?v=2").then((x) => x.openMar(id));
+        import("../mar/mar.js?v=3").then((x) => x.openMar(id));
     };
     if ($("moxNew")) $("moxNew").onclick = () => showForm();
     m.onclick = (e) => {

@@ -376,6 +376,8 @@ class NursingShiftService
             'shift' => $cur, 'team' => $team($cur['date'], (int) $cur['shift']['id']),
             'next_shift' => $next, 'next_team' => $team($next['date'], (int) $next['shift']['id']),
             'latest_handover' => $hid ? $this->handover((int) $hid) : null,
+            // For the room TV: last pain medicine and when the next dose is allowed.
+            'pain_medicine' => (new \App\Modules\InpatientOrders\Services\MarService())->painSummary((int) $adm['id']),
         ];
     }
 

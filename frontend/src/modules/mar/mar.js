@@ -1,4 +1,4 @@
-import { fetchMarBoard, fetchMar, giveDose, holdDose, refuseDose, voidDose } from "./mar.service.js?v=1";
+import { fetchMarBoard, fetchMar, giveDose, holdDose, refuseDose, voidDose, recheckPain } from "./mar.service.js?v=2";
 import { getUser } from "../../core/session.js?v=2";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
@@ -111,6 +111,16 @@ const CSS = `
 .marx-err { color: #dc2626; font-size: 12px; }
 .marx-void { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
 .marx-void s { color: var(--text-muted); }
+.marx-score { display: flex; gap: 4px; flex-wrap: wrap; }
+.marx-score button { min-width: 34px; padding: 6px 0; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); border-radius: 7px; font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; }
+.marx-score button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.marx-score button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.marx-scorehint { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); max-width: 420px; }
+.marx-pain { font-weight: 600; }
+.marx-recheck { display: block; font-weight: 600; }
+.marx-recheck.due, .marx-recheck.overdue { color: #b91c1c; }
+:root[data-theme="dark"] .marx-recheck.due, :root[data-theme="dark"] .marx-recheck.overdue { color: #fca5a5; }
+.marx-confirm { border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 10px; background: var(--bg-surface); }
 .marx-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-muted); margin-top: 10px; }
 .marx-empty { color: var(--text-muted); padding: 12px 0; }
 .mrb-page { padding: 20px 24px 32px; color: var(--text-primary); font-size: 13.5px; max-width: 1280px; min-width: 0; }
@@ -211,6 +221,8 @@ function rowHtml(row, i) {
         o.is_stat ? `<span class="marx-pill stat">STAT</span>` : "",
         o.needs_witness ? `<span class="marx-pill ha" title="A second nurse must check and sign">${o.high_alert ? "High-alert" : "Controlled"} · 2nd nurse</span>` : "",
         o.order_type === "prn" ? `<span class="marx-pill">As needed</span>` : "",
+        o.pain ? `<span class="marx-pill" title="Pain score before giving; recheck 30–60 min after">Pain score</span>` : "",
+        o.dd ? `<span class="marx-pill ha" title="Recorded in the dangerous-drugs register">DD register</span>` : "",
         o.state === "pending" ? `<span class="marx-pill wait">⏳ Waiting for pharmacy</span>` : "",
         o.state === "stopped" ? `<span class="marx-pill">Stopped</span>` : "",
         o.state === "ended" ? `<span class="marx-pill">Ended</span>` : "",
@@ -229,7 +241,7 @@ function rowHtml(row, i) {
         ].filter(Boolean).join(" · ");
         body = `<div class="marx-prn"><span>${esc(bits)}</span>
             ${d.can_give && o.state === "active" ? `<button type="button" class="marx-btn ${p.blocked ? "" : "primary"}" data-prn="${i}" ${p.blocked ? `disabled title="${esc(p.blocked)}"` : ""}>Give dose</button>${p.blocked ? `<span class="marx-sub">${esc(p.blocked)}</span>` : ""}` : ""}</div>
-            ${row.given.length ? `<div class="marx-slots">${row.given.map((g, k) => `<button type="button" class="marx-slot given" data-given="${i}:${k}" aria-label="Given ${esc(hm(g.given_at))} by ${esc(g.recorded_by_name || g.initials)}"><span class="t">${esc(hm(g.given_at))}</span><span class="s">✓ Given · ${esc(g.initials)}${g.witness_initials ? `/${esc(g.witness_initials)}` : ""}</span></button>`).join("")}</div>` : ""}`;
+            ${row.given.length ? `<div class="marx-slots">${row.given.map((g, k) => `<button type="button" class="marx-slot given" data-given="${i}:${k}" aria-label="Given ${esc(hm(g.given_at))} by ${esc(g.recorded_by_name || g.initials)}${g.recheck_state ? `, ${esc(recheckText(g))}` : ""}"><span class="t">${esc(hm(g.given_at))}</span><span class="s">✓ Given · ${esc(g.initials)}${g.witness_initials ? `/${esc(g.witness_initials)}` : ""}</span>${recheckLine(g)}</button>`).join("")}</div>` : ""}`;
     } else if (row.slots.length) {
         body = `<div class="marx-slots" role="list">${row.slots.map((s, k) => {
             const l = slotLabel(s, d.now);
@@ -283,17 +295,18 @@ function render() {
                 ${c.refused ? `<span class="marx-count"><b>${c.refused}</b>refused</span>` : ""}
                 ${c.missed ? `<span class="marx-count"><b>${c.missed}</b>not given</span>` : ""}
                 ${c.pending ? `<span class="marx-count"><b>${c.pending}</b>waiting for pharmacy</span>` : ""}
+                ${c.recheck ? `<span class="marx-count late"><b>${c.recheck}</b>⏰ pain recheck due</span>` : ""}
             </div>
             ${d.rows.length ? d.rows.map(rowHtml).join("") : `<div class="marx-empty">No medicines in this shift.</div>`}
             ${d.can_give ? "" : `<p class="marx-sub">${a.active ? "View only — doses are recorded by the patient's nurse or a nurse of this ward." : "View only — the patient was discharged."}</p>`}
-            <div class="marx-legend"><span>⏰ Late (over ${d.rules.late_min} min after its time; ${d.rules.stat_late_min} for STAT)</span><span>● Due (from ${d.rules.early_min} min before)</span><span>○ Coming</span><span>✓ Given (time · initials, /2nd nurse)</span><span>⏸ Held</span><span>✕ Refused</span></div>
+            <div class="marx-legend"><span>⏰ Late (over ${d.rules.late_min} min after its time; ${d.rules.stat_late_min} for STAT)</span><span>● Due (from ${d.rules.early_min} min before)</span><span>○ Coming</span><span>✓ Given (time · initials, /2nd nurse)</span><span>⏸ Held</span><span>✕ Refused</span><span>Pain: score before → recheck 30–60 min after</span></div>
         </div>`;
     const m = $("marxModal");
     m.querySelector("[data-close]").onclick = close;
     m.querySelector("[data-orders]")?.addEventListener("click", () => {
         const id = cur.admissionId;
         close();
-        import("../med-orders/med-orders.js?v=2").then((x) => x.openMedOrders(id));
+        import("../med-orders/med-orders.js?v=3").then((x) => x.openMedOrders(id));
     });
     m.onclick = onModalClick;
     if (cur.open) {
@@ -349,6 +362,8 @@ function recordDetail(rec) {
         if (rec.witness_name) lines.push(`Second nurse: ${esc(rec.witness_name)} (${esc(rec.witness_initials)})`);
         if (rec.dose_text) lines.push(`${esc(`${rec.dose_text} ${rec.dose_unit} ${rec.route}`)}`);
         if (rec.reason) lines.push(`For: ${esc(rec.reason)}`);
+        if (rec.pain_before != null) lines.push(`<span class="marx-pain">Pain before: ${rec.pain_before}/10</span>${rec.pain_after != null ? ` · <span class="marx-pain">after: ${rec.pain_after}/10</span> (${esc(fmt(rec.pain_after_at))}${rec.pain_after_by_name ? `, ${esc(rec.pain_after_by_name)}` : ""}${rec.pain_after_note ? ` — ${esc(rec.pain_after_note)}` : ""})` : ` · ${esc(recheckText(rec).replace(/^pain \d+ · /, ""))}`}`);
+        if (rec.dd_entry_no) lines.push(`DD register entry #${rec.dd_entry_no}${rec.wasted ? ` · wasted ${esc(rec.wasted)}${rec.waste_note ? ` (${esc(rec.waste_note)})` : ""}` : ""}`);
     } else {
         lines.push(`<strong>${rec.status === "held" ? "Held" : "Refused"}</strong> — recorded by ${esc(who)} · ${esc(fmt(rec.recorded_at))}`);
         lines.push(`Reason: ${esc(rec.reason)}`);
@@ -360,9 +375,32 @@ function recordDetail(rec) {
 
 /** A recorded entry: details + void. */
 function showRecord(box, rec) {
+    const canRecheck = cur.data.can_give && rec.recheck_state && rec.recheck_state !== "done";
     box.innerHTML = `<div class="marx-panel">${recordDetail(rec)}
+        ${canRecheck ? `<div class="marx-witness"><strong>Pain recheck</strong> <span class="marx-sub">— score the pain again ${rec.recheck_state === "pending" ? `from ${esc(hm(rec.recheck_due_at))}` : "now"} (30–60 min after the dose).</span>
+            <div style="margin-top:6px">${scorePicker("marxAfter")}</div>
+            <label for="marxAfterNote" style="margin-top:6px">Note (optional)</label><input id="marxAfterNote" maxlength="255" placeholder="e.g. resting comfortably">
+            <div style="margin-top:6px"><button type="button" class="marx-btn primary" data-v="recheck">Record recheck</button></div></div>` : ""}
         ${cur.data.can_give && canVoid(rec) ? `<div><button type="button" class="marx-btn small danger" data-v="void">Void (entered in error)…</button></div>` : ""}
-        <div data-v="voidbox"></div></div>`;
+        <div data-v="voidbox"></div><div class="marx-err" role="alert" data-v="err"></div></div>`;
+    if (canRecheck) {
+        bindScore(box, "marxAfter");
+        box.querySelector('[data-v="recheck"]').onclick = async (ev) => {
+            const score = box.querySelector("#marxAfter").dataset.value;
+            if (score === undefined || score === "") {
+                box.querySelector('[data-v="err"]').textContent = "Choose the pain score now.";
+                return;
+            }
+            ev.target.disabled = true;
+            const r = await recheckPain(rec.id, Number(score), ($("marxAfterNote").value || "").trim()).catch(() => null);
+            ev.target.disabled = false;
+            if (!r?.success) {
+                box.querySelector('[data-v="err"]').textContent = r?.message || "Could not save.";
+                return;
+            }
+            reload(r.message);
+        };
+    }
     const btn = box.querySelector('[data-v="void"]');
     if (!btn) return;
     btn.onclick = () => {
@@ -427,6 +465,33 @@ function openPrn(r) {
     doseForm(box, row, null, "given", false);
 }
 
+/** 0-10 pain score buttons; the chosen value is kept in data-value on the group. */
+function scorePicker(id, labelledBy = "") {
+    return `<div class="marx-score" id="${id}" role="radiogroup" ${labelledBy ? `aria-labelledby="${labelledBy}"` : `aria-label="Pain score 0 to 10"`}>${Array.from({ length: 11 }, (_, n) => `<button type="button" role="radio" aria-checked="false" aria-pressed="false" data-score="${n}">${n}</button>`).join("")}</div>
+        <div class="marx-scorehint"><span>0 no pain</span><span>5 moderate</span><span>10 worst</span></div>`;
+}
+function bindScore(scope, id) {
+    const group = scope.querySelector(`#${id}`);
+    group.onclick = (e) => {
+        const b = e.target.closest("[data-score]");
+        if (!b) return;
+        group.dataset.value = b.dataset.score;
+        group.querySelectorAll("[data-score]").forEach((x) => { const on = x === b; x.setAttribute("aria-pressed", String(on)); x.setAttribute("aria-checked", String(on)); });
+    };
+}
+function recheckText(g) {
+    if (g.recheck_state === "done") return `pain ${g.pain_before} → ${g.pain_after}`;
+    if (g.recheck_state === "pending") return `pain ${g.pain_before} · recheck ${hm(g.recheck_due_at)}`;
+    if (g.recheck_state === "due") return `pain ${g.pain_before} · recheck due now`;
+    if (g.recheck_state === "overdue") return `pain ${g.pain_before} · recheck overdue`;
+    return "";
+}
+function recheckLine(g) {
+    if (!g.recheck_state) return "";
+    const icon = { done: "", pending: "◔ ", due: "⏰ ", overdue: "⏰ " }[g.recheck_state];
+    return `<span class="marx-recheck ${g.recheck_state}">${icon}${esc(recheckText(g))}</span>`;
+}
+
 /** Record a dose: given (time, note, second nurse) / held (reason) / refused (reason). */
 function doseForm(box, row, slot, mode, holdOnly) {
     const o = row.order;
@@ -448,12 +513,19 @@ function doseForm(box, row, slot, mode, holdOnly) {
             q("fields").innerHTML = `<div class="marx-grid">
                     <div><label for="marxGivenAt">Time given</label><input type="datetime-local" id="marxGivenAt" value="${nowInput}"></div>
                     ${o.order_type === "prn" ? `<div><label for="marxReason">Given for (required)</label><input id="marxReason" maxlength="255" placeholder="${esc(o.prn_indication ? `e.g. ${o.prn_indication}` : "e.g. pain score 6")}"></div>` : `<div><label>Dose</label><div style="padding:7px 0">${esc(`${o.dose_text} ${o.dose_unit} · ${o.route_label}`)}</div></div>`}
+                    ${o.pain ? `<div style="grid-column:1/-1"><label id="marxPainLbl">Pain score now, before giving (required)${o.pain_threshold != null ? ` — the order is for ${esc(o.prn_indication)}` : ""}</label>${scorePicker("marxPain", "marxPainLbl")}</div>` : ""}
                     <div style="grid-column:1/-1"><label for="marxNote">Note (optional)</label><input id="marxNote" maxlength="500"></div>
+                    ${o.dd ? `<div><label for="marxWaste">Amount wasted (if any)</label><div style="display:flex;gap:6px"><input id="marxWaste" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+                        <select id="marxWasteUnit" aria-label="Unit wasted">${[...new Set([o.dose_unit, "mg", "mcg", "mL", "tablet", "ampule", "vial"])].map((u) => `<option>${esc(u)}</option>`).join("")}</select></div></div>
+                        <div><label for="marxWasteHow">How it was disposed of</label><input id="marxWasteHow" maxlength="255" placeholder="e.g. discarded in the sharps bin"></div>` : ""}
                 </div>
+                ${o.dd ? `<p class="marx-sub" style="margin:0">Dangerous drug: this dose goes into the DD register with the second nurse as witness.</p>` : ""}
+                <div data-v="confirm"></div>
                 ${o.needs_witness ? `<div class="marx-witness"><strong>Second nurse check</strong> <span class="marx-sub">— ${o.high_alert ? "high-alert" : "controlled"} medicine. Another nurse checks the patient, medicine, dose and route, then signs with their own username and password.</span>
                     <div class="marx-grid" style="margin-top:6px"><div><label for="marxWUser">Second nurse's username</label><input id="marxWUser" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
                     <div><label for="marxWPass">Their password</label><input id="marxWPass" type="password" autocomplete="new-password"></div></div></div>` : ""}`;
             q("save").textContent = "Record as given";
+            if (o.pain) bindScore(box, "marxPain");
         } else if (mode === "held") {
             q("fields").innerHTML = `<div class="marx-grid">
                 <div><label for="marxHoldWhy">Why held</label><select id="marxHoldWhy"><option value="">Choose…</option>${reasons.map((r) => `<option>${esc(r)}</option>`).join("")}</select></div>
@@ -479,14 +551,20 @@ function doseForm(box, row, slot, mode, holdOnly) {
         box.innerHTML = "";
         $("marxModal").querySelectorAll(".marx-slot.sel").forEach((b) => b.classList.remove("sel"));
     };
+    let confirmLow = false;
     q("save").onclick = async () => {
         const v = (id) => ($(id)?.value || "").trim();
         const base = { order_id: o.id, scheduled_at: slot ? slot.at : undefined, note: v("marxNote") };
         let call;
         if (mode === "given") {
             if (o.order_type === "prn" && !v("marxReason")) { err.textContent = "Say what it was given for."; $("marxReason").focus(); return; }
+            const pain = o.pain ? box.querySelector("#marxPain").dataset.value : undefined;
+            if (o.pain && (pain === undefined || pain === "")) { err.textContent = "Score the pain before giving it."; box.querySelector("#marxPain button")?.focus(); return; }
+            if (o.dd && Number(v("marxWaste")) > 0 && !v("marxWasteHow")) { err.textContent = "Say how the wasted amount was disposed of."; $("marxWasteHow").focus(); return; }
             if (o.needs_witness && (!v("marxWUser") || !$("marxWPass").value)) { err.textContent = "The second nurse must sign with their username and password."; $("marxWUser").focus(); return; }
             call = () => giveDose({ ...base, given_at: $("marxGivenAt").value, reason: v("marxReason"),
+                pain_score: o.pain ? Number(pain) : undefined, confirm_low: confirmLow ? 1 : undefined,
+                wasted_amount: o.dd ? v("marxWaste") : undefined, wasted_unit: o.dd ? v("marxWasteUnit") : undefined, waste_note: o.dd ? v("marxWasteHow") : undefined,
                 witness_username: o.needs_witness ? v("marxWUser") : undefined, witness_password: o.needs_witness ? $("marxWPass").value : undefined });
         } else if (mode === "held") {
             const why = v("marxHoldWhy");
@@ -500,11 +578,20 @@ function doseForm(box, row, slot, mode, holdOnly) {
         q("save").disabled = true;
         const r = await call().catch(() => null);
         q("save").disabled = false;
-        if ($("marxWPass")) $("marxWPass").value = "";
         if (!r?.success) {
+            if (r?.needs_confirm) {
+                // Pain below the order's threshold: confirm, then save again (the second nurse signs again).
+                q("confirm").innerHTML = `<div class="marx-confirm">${esc(r.message)} <label class="marx-check" style="display:flex;gap:6px;align-items:center;margin-top:4px;font-weight:600;color:var(--text-primary)"><input type="checkbox" id="marxConfirmLow" style="width:auto"> Yes, give it — the reason is in the note</label></div>`;
+                $("marxConfirmLow").onchange = (e) => { confirmLow = e.target.checked; };
+                if ($("marxWPass")) $("marxWPass").value = "";
+                err.textContent = "";
+                return;
+            }
+            if ($("marxWPass")) $("marxWPass").value = "";
             err.textContent = r?.message || "Could not save.";
             return;
         }
+        if ($("marxWPass")) $("marxWPass").value = "";
         reload(r.message);
     };
     box.querySelector("input, select")?.focus();
@@ -516,7 +603,7 @@ export function MarBoardView() {
     ensureStyles();
     return `<div class="mrb-page" id="mrbPage">
     <h1>Medicine Rounds</h1>
-    <p class="mrb-intro">This shift's medicines for each patient: late, due now and still to come. Open a patient's MAR to record each dose as given (time and your initials), held or refused. High-alert and controlled medicines need a second nurse. A dose not recorded an hour after its time (15 minutes for STAT) is late and alerts the patient's nurse.</p>
+    <p class="mrb-intro">This shift's medicines for each patient: late, due now and still to come. Open a patient's MAR to record each dose as given (time and your initials), held or refused. High-alert and controlled medicines need a second nurse. A dose not recorded an hour after its time (15 minutes for STAT) is late and alerts the patient's nurse. As-needed pain medicine needs a pain score before it is given and a recheck 30–60 minutes after.</p>
     <div class="mrb-bar">
         <select id="mrbWard" aria-label="Ward"></select>
         <span class="marx-sub" id="mrbShift"></span>
@@ -581,12 +668,13 @@ function renderBoard() {
         <span class="marx-count"><b>${t.due}</b>due now</span>
         <span class="marx-count"><b>${t.upcoming}</b>still to come</span>
         <span class="marx-count"><b>${t.given}</b>given</span>
-        <span class="marx-count"><b>${t.pending}</b>waiting for pharmacy</span>`;
+        <span class="marx-count"><b>${t.pending}</b>waiting for pharmacy</span>
+        ${board.patients.some((p) => p.counts.recheck) ? `<span class="marx-count late"><b>${board.patients.reduce((n, p) => n + p.counts.recheck, 0)}</b>⏰ pain recheck due</span>` : ""}`;
     if (!board.patients.length) {
         $("mrbList").innerHTML = `<div class="mrb-empty">${board.ward_id === "mine" ? "No patients are assigned to you this shift. Choose a ward above." : "No patients in this ward."}</div>`;
         return;
     }
-    const rows = [...board.patients].sort((a, b) => b.counts.late - a.counts.late || b.counts.due - a.counts.due);
+    const rows = [...board.patients].sort((a, b) => b.counts.late - a.counts.late || b.counts.recheck - a.counts.recheck || b.counts.due - a.counts.due);
     $("mrbList").innerHTML = `<table class="mrb-table">
         <thead><tr><th>Bed</th><th>Patient</th><th>Late</th><th>Due now</th><th>Next dose</th><th class="mrb-hide-sm">This shift</th><th><span class="marx-sub" style="position:absolute;left:-9999px">Actions</span></th></tr></thead>
         <tbody>${rows.map((p) => {
@@ -596,10 +684,10 @@ function renderBoard() {
                 <td><strong style="white-space:nowrap">${esc(p.room)} · ${esc(p.bed)}</strong>${board.ward_id === "mine" ? `<div class="marx-sub">${esc(p.ward)}</div>` : ""}</td>
                 <td><strong>${esc(p.patient_name)}</strong><div class="marx-sub">${esc(p.nurse_name ? `RN ${p.nurse_name}` : "No nurse assigned")}</div></td>
                 <td>${c.late ? `<span class="mrb-late">⏰ ${c.late}${p.late_high_alert ? " · high-alert" : ""}</span>` : `<span class="marx-sub">—</span>`}</td>
-                <td>${c.due ? `<span class="mrb-due">● ${c.due}</span>` : `<span class="marx-sub">—</span>`}</td>
+                <td>${c.due ? `<span class="mrb-due">● ${c.due}</span>` : ""}${c.recheck ? ` <span class="mrb-late">⏰ pain recheck ${c.recheck}</span>` : ""}${!c.due && !c.recheck ? `<span class="marx-sub">—</span>` : ""}</td>
                 <td class="num">${p.next_due_at ? esc(hm(p.next_due_at)) : `<span class="marx-sub">—</span>`}</td>
                 <td class="mrb-hide-sm marx-sub">${esc(done || "No medicines")}</td>
-                <td><button type="button" class="marx-btn ${c.late || c.due ? "primary" : ""}" data-open aria-label="Open the MAR of ${esc(p.patient_name)}">MAR</button></td>
+                <td><button type="button" class="marx-btn ${c.late || c.due || c.recheck ? "primary" : ""}" data-open aria-label="Open the MAR of ${esc(p.patient_name)}">MAR</button></td>
             </tr>`;
         }).join("")}</tbody></table>`;
 }

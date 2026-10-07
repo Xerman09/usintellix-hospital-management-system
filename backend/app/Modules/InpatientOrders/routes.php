@@ -37,3 +37,7 @@ $router->post('/mar/give', [MarController::class, 'give'], [AuthMiddleware::clas
 $router->post('/mar/hold', [MarController::class, 'hold'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/mar/refuse', [MarController::class, 'refuse'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/mar/void', [MarController::class, 'void'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/mar/recheck', [MarController::class, 'recheck'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+
+// Dangerous-drugs register (read only; entries are written when a DD dose is recorded on the MAR).
+$router->get('/dd-register', [MarController::class, 'ddRegister'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist', 'doctor', 'nurse', 'charge_nurse']]]);

@@ -15,6 +15,10 @@ use PDO;
  * for STAT), or recorded as given / held / refused. Given doses carry the time and the
  * nurse's initials; high-alert and controlled medicines also need a second nurse.
  * Late doses alert the patient's nurse (runOverdue, from the bell poll and cron).
+ *
+ * Pain medicine (as needed, for pain): the pain score before giving is required, and a
+ * recheck is due 30-60 minutes after (reminder at 30, urgent at 60). Dangerous drugs
+ * (RA 9165, e.g. morphine) also go into the numbered DD register, with any amount wasted.
  */
 class MarService
 {
@@ -31,6 +35,10 @@ class MarService
     /** A dose can be held this far ahead (e.g. the doctor says hold tonight's dose). */
     public const HOLD_AHEAD_HOURS = 12;
     public const THROTTLE_SECONDS = 60;
+    /** Pain recheck: due this many minutes after the dose; overdue after RECHECK_LATE_MIN. */
+    public const RECHECK_MIN = 30;
+    public const RECHECK_LATE_MIN = 60;
+    private const PAIN_WORDS = '/pain|ache|sakit|kirot/i';
     public const HOLD_REASONS = [
         'Nil by mouth (NPO)', 'Patient off the ward', 'Vital signs outside the limit (e.g. low BP or pulse)',
         "Held on the doctor's instruction", 'Medicine not available', 'Patient asleep / not able to take it', 'Other',
@@ -229,8 +237,38 @@ class MarService
         if (mb_strlen($note) > 500 || mb_strlen($reason) > 255) {
             $errors['note'] = 'Keep the note under 500 characters.';
         }
+        $pain = null;
+        if ($this->isPain($o)) {
+            $p = self::score($data['pain_score'] ?? null);
+            if ($p === null) {
+                $errors['pain_score'] = 'Score the pain before giving it (0 = no pain, 10 = worst).';
+            } else {
+                $pain = $p;
+            }
+        }
+        $waste = null;
+        if ($this->isDD($o) && ($data['wasted_amount'] ?? '') !== '' && $data['wasted_amount'] !== null) {
+            $amt = filter_var($data['wasted_amount'], FILTER_VALIDATE_FLOAT);
+            $unit = (string) ($data['wasted_unit'] ?? '') ?: $o['dose_unit'];
+            $how = trim((string) ($data['waste_note'] ?? ''));
+            if ($amt === false || $amt < 0 || $amt > 100000) {
+                $errors['wasted_amount'] = 'Amount wasted must be a number (0 or more).';
+            } elseif (!in_array($unit, MedOrderService::UNITS, true)) {
+                $errors['wasted_unit'] = 'Choose the unit of the amount wasted.';
+            } elseif ($amt > 0 && $how === '') {
+                $errors['waste_note'] = 'Say how the rest was disposed of (e.g. discarded in the sharps bin).';
+            } elseif ($amt > 0) {
+                $waste = ['amount' => $amt, 'unit' => $unit, 'note' => mb_substr($how, 0, 255)];
+            }
+        }
         if ($errors) {
             return ['success' => false, 'message' => reset($errors), 'errors' => $errors];
+        }
+        // The order says e.g. "pain 4 or more": a lower score needs the nurse to confirm.
+        $min = $this->painThreshold($o);
+        if ($pain !== null && $min !== null && $pain < $min && empty($data['confirm_low'])) {
+            return ['success' => false, 'needs_confirm' => true,
+                'message' => "The order is for {$o['prn_indication']}, and the pain score is {$pain}. Give it anyway?"];
         }
 
         // Second nurse, checked before anything is written (a wrong password counts towards their lockout).
@@ -244,12 +282,22 @@ class MarService
 
         $id = $this->insert($db, $o, $slot, 'given', $actor, [
             'given_at' => gmdate('Y-m-d H:i:s', $givenAt), 'reason' => $reason, 'note' => $note, 'witness' => $witness,
+            'pain_before' => $pain, 'recheck_due_at' => $pain !== null ? gmdate('Y-m-d H:i:s', $givenAt + self::RECHECK_MIN * 60) : null,
+            'waste' => $waste,
         ]);
         if (is_array($id)) {
             return $id;
         }
         $this->clearAlerts($o, $slot, (int) $actor['id'], 'Given');
-        return ['success' => true, 'message' => $witness ? "Recorded as given, checked by {$witness['name']}." : 'Recorded as given.', 'data' => $this->record($id)];
+        $rec = $this->record($id);
+        $msg = $witness ? "Recorded as given, checked by {$witness['name']}." : 'Recorded as given.';
+        if ($rec['recheck_due_at']) {
+            $msg .= ' Recheck the pain at ' . gmdate('g:i A', self::ts($rec['recheck_due_at'])) . '.';
+        }
+        if ($rec['dd_entry_no']) {
+            $msg .= " DD register entry #{$rec['dd_entry_no']}.";
+        }
+        return ['success' => true, 'message' => $msg, 'data' => $rec];
     }
 
     /** Held or refused. data: order_id, scheduled_at, reason, note? */
@@ -310,8 +358,129 @@ class MarService
         }
         $stmt = $db->prepare("UPDATE inpatient_med_administrations SET voided_at = NOW(), voided_by = :by, void_reason = :r, slot_at = NULL WHERE id = :id AND voided_at IS NULL");
         $stmt->execute(['by' => (int) $actor['id'], 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
-        AlertService::resolveByKey("marskip:{$id}", (int) $actor['id'], 'Entry voided');
+        $db->prepare("UPDATE dd_register SET voided_at = NOW(), voided_by_name = :n, void_reason = :r WHERE administration_id = :id AND voided_at IS NULL")
+            ->execute(['n' => $this->name((int) $actor['id']), 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
+        foreach (["marskip:{$id}", "painrecheck:{$id}", "painlate:{$id}"] as $key) {
+            AlertService::resolveByKey($key, (int) $actor['id'], 'Entry voided');
+        }
         return ['success' => true, 'message' => 'Entry voided.', 'data' => $this->record($id)];
+    }
+
+    /** Pain score 30-60 minutes after an as-needed pain dose. data: pain_score, rechecked_at?, note? */
+    public function recheck(int $id, array $data, array $actor): array
+    {
+        if (!in_array($actor['role'] ?? '', self::GIVERS, true)) {
+            return ['success' => false, 'message' => 'The pain recheck is recorded by a nurse.', 'forbidden' => true];
+        }
+        $db = Database::connection();
+        $stmt = $db->prepare(
+            "SELECT r.*, o.drug_name, o.ordered_by, a.patient_name FROM inpatient_med_administrations r
+             JOIN inpatient_med_orders o ON o.id = r.order_id JOIN inpatient_admissions a ON a.id = r.admission_id WHERE r.id = :id"
+        );
+        $stmt->execute(['id' => $id]);
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            return ['success' => false, 'message' => 'Entry not found.', 'not_found' => true];
+        }
+        if ($r['voided_at'] !== null || $r['status'] !== 'given' || $r['recheck_due_at'] === null) {
+            return ['success' => false, 'message' => 'This dose has no pain recheck.'];
+        }
+        if ($r['pain_after'] !== null) {
+            return ['success' => false, 'message' => 'The pain was already rechecked.'];
+        }
+        if (!$this->canGive($actor, (int) $r['admission_id'])) {
+            return ['success' => false, 'message' => 'Only a nurse of this ward (or the patient\'s nurse this shift) can record it.', 'forbidden' => true];
+        }
+        $score = self::score($data['pain_score'] ?? null);
+        if ($score === null) {
+            return ['success' => false, 'message' => 'Score the pain now (0 = no pain, 10 = worst).', 'errors' => ['pain_score' => 'Required.']];
+        }
+        $now = self::ts($this->dbNow());
+        $at = $now;
+        if (!empty($data['rechecked_at'])) {
+            $at = $this->dt($data['rechecked_at']);
+            if ($at === null || $at > $now + 300 || $at < self::ts($r['given_at'])) {
+                return ['success' => false, 'message' => 'The recheck time must be after the dose and not in the future.', 'errors' => ['rechecked_at' => 'Invalid time.']];
+            }
+        }
+        $note = trim((string) ($data['note'] ?? ''));
+        $upd = $db->prepare(
+            "UPDATE inpatient_med_administrations SET pain_after = :p, pain_after_at = :at, pain_after_by = :by, pain_after_note = :n
+             WHERE id = :id AND pain_after IS NULL AND voided_at IS NULL"
+        );
+        $upd->execute(['p' => $score, 'at' => gmdate('Y-m-d H:i:s', $at), 'by' => (int) $actor['id'], 'n' => $note !== '' ? mb_substr($note, 0, 255) : null, 'id' => $id]);
+        if (!$upd->rowCount()) {
+            return ['success' => false, 'message' => 'The pain was already rechecked.'];
+        }
+        foreach (["painrecheck:{$id}", "painlate:{$id}"] as $key) {
+            AlertService::resolveByKey($key, (int) $actor['id'], "Rechecked: pain {$score}");
+        }
+        $before = (int) $r['pain_before'];
+        $msg = "Pain recheck recorded ({$before} → {$score}).";
+        if ($score >= 4 && $score >= $before && $r['ordered_by']) {
+            // Not relieved: the doctor should review the pain plan.
+            AlertService::raise([
+                'type' => 'medication', 'urgency' => 'info',
+                'title' => "Pain not relieved: {$r['patient_name']} — pain {$before} → {$score} after {$r['drug_name']}",
+                'body' => 'Given ' . gmdate('M j, g:i A', self::ts($r['given_at'])) . ($note !== '' ? ". Note: {$note}" : '') . '. Review the pain plan.',
+                'patient_id' => $r['patient_id'], 'link' => ['mar' => (int) $r['admission_id']],
+                'targets' => [['user' => (int) $r['ordered_by']]], 'source_type' => 'inpatient_med_administrations', 'source_id' => $id,
+                'dedupe_key' => "painnr:{$id}",
+            ], (int) $actor['id']);
+            $msg .= ' Not relieved — the doctor was told.';
+        }
+        return ['success' => true, 'message' => $msg, 'data' => $this->record($id)];
+    }
+
+    /**
+     * For the chart and the room TV: the last pain medicine given, and when each pain medicine
+     * can next be given. Null when the patient has no pain medicine.
+     */
+    public function painSummary(int $admissionId): ?array
+    {
+        $db = Database::connection();
+        $now = self::ts($this->dbNow());
+        $stmt = $db->prepare(
+            "SELECT o.*, d.is_high_alert, d.controlled_class, c.name AS category FROM inpatient_med_orders o JOIN drugs d ON d.id = o.drug_id
+             LEFT JOIN drug_categories c ON c.id = d.category_id
+             WHERE o.admission_id = :a AND o.order_type = 'prn' AND o.status = 'verified' AND (o.stop_at IS NULL OR o.stop_at > NOW())"
+        );
+        $stmt->execute(['a' => $admissionId]);
+        $orders = array_values(array_filter($stmt->fetchAll(PDO::FETCH_ASSOC), fn($o) => $this->isPain($o)));
+        $last = $db->prepare(
+            "SELECT r.*, o.drug_name FROM inpatient_med_administrations r JOIN inpatient_med_orders o ON o.id = r.order_id
+             WHERE r.admission_id = :a AND r.status = 'given' AND r.voided_at IS NULL AND r.pain_before IS NOT NULL ORDER BY r.given_at DESC, r.id DESC LIMIT 1"
+        );
+        $last->execute(['a' => $admissionId]);
+        $l = $last->fetch(PDO::FETCH_ASSOC);
+        if (!$orders && !$l) {
+            return null;
+        }
+        $list = [];
+        foreach ($orders as $o) {
+            $rs = $db->prepare("SELECT * FROM inpatient_med_administrations WHERE order_id = :o AND status = 'given' AND voided_at IS NULL AND given_at >= NOW() - INTERVAL 2 DAY");
+            $rs->execute(['o' => $o['id']]);
+            $st = $this->prnStatus($o, $rs->fetchAll(PDO::FETCH_ASSOC), $now);
+            $list[] = [
+                'order_id' => (int) $o['id'], 'drug_name' => $o['drug_name'],
+                'dose' => self::num3($o['dose']) . " {$o['dose_unit']} {$o['route']}",
+                'indication' => $o['prn_indication'], 'available_now' => $st['blocked'] === null,
+                'next_allowed_at' => $st['next_allowed_at'], 'why_not' => $st['blocked'],
+            ];
+        }
+        $waiting = array_filter($list, fn($x) => !$x['available_now']);
+        $next = $list && count($waiting) === count($list) ? min(array_column($waiting, 'next_allowed_at')) : null;
+        return [
+            'last' => $l ? [
+                'drug_name' => $l['drug_name'], 'dose' => self::num3($l['dose']) . " {$l['dose_unit']} {$l['route']}",
+                'given_at' => $l['given_at'], 'pain_before' => (int) $l['pain_before'],
+                'pain_after' => $l['pain_after'] !== null ? (int) $l['pain_after'] : null, 'recheck_state' => $this->recheckState($l, $now),
+            ] : null,
+            'orders' => $list,
+            'available_now' => (bool) array_filter($list, fn($x) => $x['available_now']),
+            // The earliest time one of them can be given, when none can be given now.
+            'next_allowed_at' => $next,
+        ];
     }
 
     // ------------------------------------------------------------------
@@ -370,6 +539,42 @@ class MarService
                 }
             }
         }
+        // Pain rechecks: a reminder at 30 minutes, urgent once past 60.
+        $rs = $db->query(
+            "SELECT r.id, r.admission_id, r.patient_id, r.given_at, r.pain_before, r.recheck_due_at, o.drug_name, o.dose, o.dose_unit, o.route,
+                    a.patient_name, w.ward_name, b.bed_number
+             FROM inpatient_med_administrations r JOIN inpatient_med_orders o ON o.id = r.order_id
+             JOIN inpatient_admissions a ON a.id = r.admission_id JOIN hospital_wards w ON w.id = a.ward_id JOIN hospital_beds b ON b.id = a.bed_id
+             WHERE r.recheck_due_at IS NOT NULL AND r.pain_after IS NULL AND r.voided_at IS NULL AND r.recheck_due_at <= NOW()
+               AND r.given_at >= NOW() - INTERVAL " . self::ALERT_LOOKBACK_HOURS . " HOUR AND a.status IN " . self::ACTIVE
+        );
+        $orderSvc = new MedOrderService();
+        foreach ($rs->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $overdue = $now > self::ts($r['given_at']) + self::RECHECK_LATE_MIN * 60;
+            $key = ($overdue ? 'painlate:' : 'painrecheck:') . $r['id'];
+            $seen = $db->prepare("SELECT 1 FROM alerts WHERE dedupe_key = :k LIMIT 1");
+            $seen->execute(['k' => $key]);
+            if ($seen->fetchColumn()) {
+                continue;
+            }
+            $given = gmdate('g:i A', self::ts($r['given_at']));
+            $res = AlertService::raise([
+                'type' => 'medication', 'urgency' => $overdue ? 'urgent' : 'info',
+                'title' => ($overdue ? 'Pain recheck overdue: ' : 'Recheck pain: ') . "{$r['patient_name']} ({$r['ward_name']} {$r['bed_number']})",
+                'body' => "{$r['drug_name']} " . self::num3($r['dose']) . " {$r['dose_unit']} {$r['route']} given {$given} for pain {$r['pain_before']}/10. "
+                    . ($overdue ? 'The recheck was due within an hour of the dose.' : 'Score the pain again now (due within an hour of the dose).'),
+                'patient_id' => $r['patient_id'], 'link' => ['mar' => (int) $r['admission_id']],
+                'targets' => $orderSvc->nurseTargets((int) $r['admission_id']), 'source_type' => 'inpatient_med_administrations', 'source_id' => (int) $r['id'],
+                'dedupe_key' => $key,
+            ]);
+            if (!empty($res['success'])) {
+                if ($overdue) {
+                    AlertService::resolveByKey("painrecheck:{$r['id']}", null, 'Now overdue');
+                }
+                $raised[] = ['order_id' => 0, 'at' => $r['given_at'], 'patient' => $r['patient_name'], 'drug' => ($overdue ? 'pain recheck overdue: ' : 'pain recheck: ') . $r['drug_name']];
+            }
+        }
+
         // Close the alerts of doses that are no longer late (stopped, patient discharged, or recorded elsewhere).
         $open = $db->query("SELECT dedupe_key FROM alerts WHERE dedupe_key LIKE 'marlate:%' AND resolved_at IS NULL AND acknowledged_at IS NULL")->fetchAll(PDO::FETCH_COLUMN);
         foreach ($open as $key) {
@@ -394,8 +599,8 @@ class MarService
         $in = implode(',', array_map('intval', $admissionIds));
         $lo = $carryFrom !== null ? min($from, $carryFrom) : $from;
         $stmt = $db->prepare(
-            "SELECT o.*, d.is_high_alert, d.controlled_class, a.patient_name, w.ward_name, b.bed_number
-             FROM inpatient_med_orders o JOIN drugs d ON d.id = o.drug_id
+            "SELECT o.*, d.is_high_alert, d.controlled_class, c.name AS category, a.patient_name, w.ward_name, b.bed_number
+             FROM inpatient_med_orders o JOIN drugs d ON d.id = o.drug_id LEFT JOIN drug_categories c ON c.id = d.category_id
              JOIN inpatient_admissions a ON a.id = o.admission_id JOIN hospital_wards w ON w.id = a.ward_id JOIN hospital_beds b ON b.id = a.bed_id
              WHERE o.admission_id IN ({$in}) AND o.status IN ('pending', 'verified', 'discontinued')
                AND o.start_at < :to AND (o.stop_at IS NULL OR o.stop_at > :lo1) AND (o.discontinued_at IS NULL OR o.discontinued_at > :lo2)
@@ -413,7 +618,8 @@ class MarService
         $oin = implode(',', array_map(fn($o) => (int) $o['id'], $orders));
         $rs = $db->prepare(
             "SELECT r.*, " . self::nameSql('r.recorded_by') . " AS recorded_by_name, " . self::nameSql('r.witness_by') . " AS witness_name,
-                    " . self::nameSql('r.voided_by') . " AS voided_by_name
+                    " . self::nameSql('r.voided_by') . " AS voided_by_name, " . self::nameSql('r.pain_after_by') . " AS pain_after_by_name,
+                    (SELECT x.entry_no FROM dd_register x WHERE x.administration_id = r.id) AS dd_entry_no
              FROM inpatient_med_administrations r
              WHERE r.order_id IN ({$oin}) AND COALESCE(r.scheduled_at, r.given_at, r.recorded_at) BETWEEN :lo AND :hi ORDER BY COALESCE(r.given_at, r.recorded_at), r.id"
         );
@@ -452,8 +658,10 @@ class MarService
                 ];
             }
             $inWindow = fn($r) => ($x = self::ts($r['scheduled_at'] ?? $r['given_at'] ?? $r['recorded_at'])) >= $from && $x < $to;
+            // As-needed doses of the shift, plus any whose pain recheck is still open (given just before it).
+            $openRecheck = fn($r) => $r['recheck_due_at'] !== null && $r['pain_after'] === null && self::ts($r['given_at']) >= $now - 12 * 3600;
             $given = $o['order_type'] === 'prn'
-                ? array_map(fn($r) => $this->shape($r, $o), array_values(array_filter($mine, fn($r) => $r['voided_at'] === null && $inWindow($r))))
+                ? array_map(fn($r) => $this->shape($r, $o), array_values(array_filter($mine, fn($r) => $r['voided_at'] === null && ($inWindow($r) || $openRecheck($r)))))
                 : [];
             $voided = array_map(fn($r) => $this->shape($r, $o), array_values(array_filter($mine, fn($r) => $r['voided_at'] !== null && $inWindow($r))));
             $prn = $o['order_type'] === 'prn' ? $this->prnStatus($o, $mine, $now) : null;
@@ -589,7 +797,7 @@ class MarService
 
     private function counts(array $rows): array
     {
-        $c = ['late' => 0, 'due' => 0, 'upcoming' => 0, 'given' => 0, 'held' => 0, 'refused' => 0, 'missed' => 0, 'prn_given' => 0, 'pending' => 0, 'prn' => 0];
+        $c = ['late' => 0, 'due' => 0, 'upcoming' => 0, 'given' => 0, 'held' => 0, 'refused' => 0, 'missed' => 0, 'prn_given' => 0, 'pending' => 0, 'prn' => 0, 'recheck' => 0];
         foreach ($rows as $row) {
             if ($row['order']['state'] === 'pending') {
                 $c['pending']++;
@@ -601,6 +809,7 @@ class MarService
             if ($row['prn']) {
                 $c['prn']++;
                 $c['prn_given'] += count($row['given']);
+                $c['recheck'] += count(array_filter($row['given'], fn($g) => in_array($g['recheck_state'], ['due', 'overdue'], true)));
             }
         }
         return $c;
@@ -687,8 +896,8 @@ class MarService
             $w = $f['witness'] ?? null;
             $db->prepare(
                 "INSERT INTO inpatient_med_administrations (order_id, admission_id, patient_id, scheduled_at, slot_at, status, given_at, dose, dose_unit, route,
-                    reason, note, initials, recorded_by, recorded_at, witness_by, witness_initials, witness_at)
-                 VALUES (:o, :a, :p, :s, :s2, :st, :g, :dose, :u, :r, :reason, :note, :ini, :by, NOW(), :wb, :wi, :wa)"
+                    reason, note, pain_before, recheck_due_at, wasted_amount, wasted_unit, waste_note, initials, recorded_by, recorded_at, witness_by, witness_initials, witness_at)
+                 VALUES (:o, :a, :p, :s, :s2, :st, :g, :dose, :u, :r, :reason, :note, :pb, :rd, :wa_amt, :wa_unit, :wa_note, :ini, :by, NOW(), :wb, :wi, :wa)"
             )->execute([
                 'o' => $o['id'], 'a' => $o['admission_id'], 'p' => $o['patient_id'], 's' => $slot !== null ? gmdate('Y-m-d H:i:s', $slot) : null,
                 's2' => $slot !== null ? gmdate('Y-m-d H:i:s', $slot) : null, 'st' => $status, 'g' => $f['given_at'] ?? null,
@@ -696,8 +905,13 @@ class MarService
                 'reason' => ($f['reason'] ?? '') !== '' ? mb_substr($f['reason'], 0, 255) : null, 'note' => ($f['note'] ?? '') !== '' ? mb_substr($f['note'], 0, 500) : null,
                 'ini' => $this->initials((int) $actor['id']), 'by' => (int) $actor['id'],
                 'wb' => $w['id'] ?? null, 'wi' => $w['initials'] ?? null, 'wa' => $w ? $this->dbNow() : null,
+                'pb' => $f['pain_before'] ?? null, 'rd' => $f['recheck_due_at'] ?? null,
+                'wa_amt' => $f['waste']['amount'] ?? null, 'wa_unit' => $f['waste']['unit'] ?? null, 'wa_note' => $f['waste']['note'] ?? null,
             ]);
             $id = (int) $db->lastInsertId();
+            if ($status === 'given' && $this->isDD($o)) {
+                $this->register($db, $id, $o, $actor, $f);
+            }
             $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT mar_rec');
             return $id;
         } catch (\Throwable $e) {
@@ -796,8 +1010,10 @@ class MarService
     private function orderRow(int $id): ?array
     {
         $stmt = Database::connection()->prepare(
-            "SELECT o.*, d.is_high_alert, d.controlled_class, a.status AS admission_status, a.patient_name, w.ward_name, b.bed_number
-             FROM inpatient_med_orders o JOIN drugs d ON d.id = o.drug_id JOIN inpatient_admissions a ON a.id = o.admission_id
+            "SELECT o.*, d.is_high_alert, d.controlled_class, c.name AS category, a.status AS admission_status, a.patient_name, a.patient_mrn,
+                    w.ward_name, b.bed_number
+             FROM inpatient_med_orders o JOIN drugs d ON d.id = o.drug_id LEFT JOIN drug_categories c ON c.id = d.category_id
+             JOIN inpatient_admissions a ON a.id = o.admission_id
              JOIN hospital_wards w ON w.id = a.ward_id JOIN hospital_beds b ON b.id = a.bed_id WHERE o.id = :id"
         );
         $stmt->execute(['id' => $id]);
@@ -808,7 +1024,8 @@ class MarService
     {
         $stmt = Database::connection()->prepare(
             "SELECT r.*, " . self::nameSql('r.recorded_by') . " AS recorded_by_name, " . self::nameSql('r.witness_by') . " AS witness_name,
-                    " . self::nameSql('r.voided_by') . " AS voided_by_name, o.is_stat, o.verified_at
+                    " . self::nameSql('r.voided_by') . " AS voided_by_name, " . self::nameSql('r.pain_after_by') . " AS pain_after_by_name,
+                    (SELECT x.entry_no FROM dd_register x WHERE x.administration_id = r.id) AS dd_entry_no, o.is_stat, o.verified_at
              FROM inpatient_med_administrations r JOIN inpatient_med_orders o ON o.id = r.order_id WHERE r.id = :id"
         );
         $stmt->execute(['id' => $id]);
@@ -831,7 +1048,95 @@ class MarService
             'voided_by_name' => $r['voided_by'] ? $r['voided_by_name'] : null,
             'given_late' => $r['status'] === 'given' && $r['scheduled_at'] !== null && $r['given_at'] !== null
                 && self::ts($r['given_at']) > $this->lateAt($o, self::ts($r['scheduled_at'])),
+            'pain_before' => $r['pain_before'] !== null ? (int) $r['pain_before'] : null,
+            'pain_after' => $r['pain_after'] !== null ? (int) $r['pain_after'] : null,
+            'pain_after_at' => $r['pain_after_at'], 'pain_after_note' => $r['pain_after_note'],
+            'pain_after_by_name' => $r['pain_after_by'] ? ($r['pain_after_by_name'] ?? null) : null,
+            'recheck_due_at' => $r['recheck_due_at'], 'recheck_state' => $this->recheckState($r),
+            'wasted' => $r['wasted_amount'] !== null ? self::num3($r['wasted_amount']) . " {$r['wasted_unit']}" : null,
+            'waste_note' => $r['waste_note'], 'dd_entry_no' => isset($r['dd_entry_no']) ? (int) $r['dd_entry_no'] : null,
         ];
+    }
+
+    /** null (no recheck) | done | pending (not yet 30 min) | due (30-60 min) | overdue */
+    private function recheckState(array $r, ?int $now = null): ?string
+    {
+        if ($r['recheck_due_at'] === null || $r['voided_at'] !== null) {
+            return null;
+        }
+        if ($r['pain_after'] !== null) {
+            return 'done';
+        }
+        $now ??= self::ts($this->dbNow());
+        if ($now < self::ts($r['recheck_due_at'])) {
+            return 'pending';
+        }
+        return $now > self::ts($r['given_at']) + self::RECHECK_LATE_MIN * 60 ? 'overdue' : 'due';
+    }
+
+    /** As needed, for pain (the indication says pain), or any as-needed opioid. */
+    private function isPain(array $o): bool
+    {
+        return $o['order_type'] === 'prn'
+            && (preg_match(self::PAIN_WORDS, (string) $o['prn_indication']) || preg_match('/opioid/i', (string) ($o['category'] ?? '')));
+    }
+
+    /** Dangerous drug under RA 9165: goes into the DD register. */
+    private function isDD(array $o): bool
+    {
+        return str_starts_with((string) ($o['controlled_class'] ?? ''), 'Dangerous Drug');
+    }
+
+    /** "pain 4+", "pain score 4 or more", ">= 4" -> 4; "above 3" -> 4; else null. */
+    private function painThreshold(array $o): ?int
+    {
+        $t = (string) $o['prn_indication'];
+        if (preg_match('/(?:≥|>=)\s*(\d{1,2})|(\d{1,2})\s*(?:\+|or more|or higher|or above|and above|and up)/iu', $t, $m)) {
+            return (int) ($m[1] !== '' ? $m[1] : $m[2]);
+        }
+        if (preg_match('/(?:above|over|more than|>)\s*(\d{1,2})/i', $t, $m)) {
+            return (int) $m[1] + 1;
+        }
+        return null;
+    }
+
+    /** One numbered DD register entry for a dangerous drug given (inside the recording transaction). */
+    private function register(PDO $db, int $administrationId, array $o, array $actor, array $f): void
+    {
+        $no = $db->prepare("SELECT COALESCE(MAX(entry_no), 0) + 1 FROM dd_register WHERE drug_id = :d FOR UPDATE");
+        $no->execute(['d' => $o['drug_id']]);
+        $w = $f['witness'] ?? null;
+        $db->prepare(
+            "INSERT INTO dd_register (drug_id, entry_no, administration_id, order_id, admission_id, patient_id, drug_name, patient_name, patient_mrn,
+                ward_name, bed, dose, dose_unit, route, wasted_amount, wasted_unit, waste_note, given_at, given_by, given_by_name, witness_by, witness_name,
+                prescriber_name, created_at)
+             VALUES (:d, :no, :aid, :o, :a, :p, :dn, :pn, :mrn, :w, :b, :dose, :u, :r, :wa, :wu, :wn, :g, :by, :byn, :wb, :wbn, :pr, NOW())"
+        )->execute([
+            'd' => $o['drug_id'], 'no' => (int) $no->fetchColumn(), 'aid' => $administrationId, 'o' => $o['id'], 'a' => $o['admission_id'], 'p' => $o['patient_id'],
+            'dn' => $o['drug_name'], 'pn' => $o['patient_name'], 'mrn' => $o['patient_mrn'] ?? null, 'w' => $o['ward_name'], 'b' => $o['bed_number'],
+            'dose' => $o['dose'], 'u' => $o['dose_unit'], 'r' => $o['route'],
+            'wa' => $f['waste']['amount'] ?? null, 'wu' => $f['waste']['unit'] ?? null, 'wn' => $f['waste']['note'] ?? null,
+            'g' => $f['given_at'], 'by' => (int) $actor['id'], 'byn' => $this->name((int) $actor['id']),
+            'wb' => $w['id'] ?? null, 'wbn' => $w['name'] ?? null, 'pr' => $o['ordered_by'] ? $this->name((int) $o['ordered_by']) : null,
+        ]);
+    }
+
+    /** 0-10 pain score, or null. */
+    private static function score($raw): ?int
+    {
+        if (is_int($raw)) {
+            $v = $raw;
+        } elseif (is_string($raw) && preg_match('/^\s*\d{1,2}\s*$/', $raw)) {
+            $v = (int) $raw;
+        } else {
+            return null;
+        }
+        return $v >= 0 && $v <= 10 ? $v : null;
+    }
+
+    private static function num3($v): string
+    {
+        return rtrim(rtrim(number_format((float) $v, 3, '.', ''), '0'), '.');
     }
 
     private function compact(array $o, int $now): array
@@ -850,6 +1155,7 @@ class MarService
             'prn_indication' => $o['prn_indication'], 'is_stat' => (int) $o['is_stat'] === 1,
             'high_alert' => (int) $o['is_high_alert'] === 1, 'controlled' => ($o['controlled_class'] ?? 'None') !== 'None' ? $o['controlled_class'] : null,
             'needs_witness' => $this->needsWitness($o), 'instructions' => $o['instructions'],
+            'pain' => $this->isPain($o), 'pain_threshold' => $this->isPain($o) ? $this->painThreshold($o) : null, 'dd' => $this->isDD($o),
             'start_at' => $o['start_at'], 'stop_at' => $o['stop_at'], 'discontinued_at' => $o['discontinued_at'], 'discontinue_reason' => $o['discontinue_reason'],
             'state' => $state,
         ];

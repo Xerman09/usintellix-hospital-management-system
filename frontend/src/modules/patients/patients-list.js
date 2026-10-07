@@ -7015,7 +7015,7 @@ async function loadDashboardInpatientVitals(patient)
     setButtons(false);
     try {
         const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=2");
-        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=4");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=5");
         const result = await fetchPatientVitals(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7058,7 +7058,7 @@ async function loadDashboardInpatientOrders(patient)
     if (marBtn) marBtn.disabled = true;
     try {
         const { fetchPatientOrders } = await import("../med-orders/med-orders.service.js?v=1");
-        const ui = await import("../med-orders/med-orders.js?v=2");
+        const ui = await import("../med-orders/med-orders.js?v=3");
         const result = await fetchPatientOrders(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7073,7 +7073,13 @@ async function loadDashboardInpatientOrders(patient)
         ui.ensureMedOrderStyles();
         const active = d.orders.filter((o) => o.state === "active");
         const pending = d.orders.filter((o) => o.state === "pending");
-        body.innerHTML = `
+        const pain = d.pain;
+        const fmtT = (dt) => { const m = String(dt || "").match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); if (!m) return ""; const h = +m[4]; return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m[2] - 1]} ${+m[3]}, ${h % 12 || 12}:${m[5]} ${h < 12 ? "AM" : "PM"}`; };
+        const painHtml = pain ? `<div style="padding:6px 8px;margin-bottom:6px;border-radius:8px;background:var(--bg-surface-alt)">
+                <strong>Pain medicine</strong><div class="pd-msg-preview" style="white-space:normal">${pain.last
+                    ? `Last: ${escapeHtml(pain.last.drug_name)} ${escapeHtml(pain.last.dose)} · ${escapeHtml(fmtT(pain.last.given_at))} · pain ${pain.last.pain_before}${pain.last.pain_after != null ? ` → ${pain.last.pain_after}` : pain.last.recheck_state === "overdue" || pain.last.recheck_state === "due" ? " · <strong>recheck due</strong>" : ""}`
+                    : "Not given yet"}<br>${pain.orders.length ? (pain.available_now ? "Next dose: <strong>can be given now</strong>" : `Next dose allowed from <strong>${escapeHtml(fmtT(pain.next_allowed_at))}</strong>`) : "No active pain medicine order"}</div></div>` : "";
+        body.innerHTML = `${painHtml}
             <div class="pd-msg-preview" style="white-space:normal;margin-bottom:6px">${active.length} active · ${pending.length} waiting for pharmacy${d.allergies.length ? ` · <strong>Allergies:</strong> ${escapeHtml(d.allergies.map((a) => a.name).join(", "))}` : ""}</div>
             ${[...pending, ...active].slice(0, 5).map((o) => `<div style="padding:4px 0;border-bottom:1px dashed var(--border-color, #e5e9f2)">
                 <strong>${escapeHtml(o.drug_name)}</strong> <span class="mox-pill ${o.state === "pending" ? "wait" : "ok"}">${o.state === "pending" ? "Waiting" : "Active"}</span>${o.is_stat ? ` <span class="mox-pill stat">STAT</span>` : ""}
@@ -7085,7 +7091,7 @@ async function loadDashboardInpatientOrders(patient)
         }
         if (marBtn) {
             marBtn.disabled = false;
-            marBtn.onclick = () => import("../mar/mar.js?v=2").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
+            marBtn.onclick = () => import("../mar/mar.js?v=3").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
         }
     } catch (error) {
         console.error("Failed to load inpatient medicine orders", error);

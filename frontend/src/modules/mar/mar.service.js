@@ -16,3 +16,7 @@ export const giveDose = (data) => post("/mar/give", data);
 export const holdDose = (data) => post("/mar/hold", data);
 export const refuseDose = (data) => post("/mar/refuse", data);
 export const voidDose = (id, reason) => post("/mar/void", { id, reason });
+/** Pain score 30-60 min after an as-needed pain dose. */
+export const recheckPain = (id, painScore, note = "") => post("/mar/recheck", { id, pain_score: painScore, note });
+/** filters: from?, to?, ward?, drug_id? */
+export const fetchDdRegister = (filters = {}) => api(`/dd-register${query(filters)}`);

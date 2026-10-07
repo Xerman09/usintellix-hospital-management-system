@@ -353,6 +353,8 @@ class MedOrderService
                 'active' => in_array($a['status'], ['Admitted', 'Pending Discharge'], true)],
             'allergies' => $this->allergies((int) $a['patient_id']),
             'orders' => $orders,
+            // Last pain medicine and when the next dose is allowed.
+            'pain' => (new MarService())->painSummary((int) $a['id']),
         ];
     }
 

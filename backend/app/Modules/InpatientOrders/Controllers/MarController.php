@@ -5,6 +5,7 @@ namespace App\Modules\InpatientOrders\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\InpatientOrders\Services\DdRegisterService;
 use App\Modules\InpatientOrders\Services\MarService;
 
 class MarController extends Controller
@@ -58,6 +59,22 @@ class MarController extends Controller
         $this->respond($this->service->skip('refused', $request->all(), $this->user()), 201);
     }
 
+    /** Body: id, pain_score, rechecked_at?, note? -- the pain recheck after an as-needed pain dose */
+    public function recheck(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->recheck((int) $request->input('id'), $request->all(), $this->user()));
+    }
+
+    /** Query: from?, to?, ward?, drug_id? -- the dangerous-drugs register */
+    public function ddRegister(): void
+    {
+        $request = new Request();
+        $this->success((new DdRegisterService())->list([
+            'from' => $request->input('from'), 'to' => $request->input('to'), 'ward' => $request->input('ward'), 'drug_id' => $request->input('drug_id'),
+        ]), 'Retrieved.');
+    }
+
     /** Body: id, reason */
     public function void(): void
     {
@@ -76,7 +93,7 @@ class MarController extends Controller
             $code = !empty($result['not_found']) ? 404 : (!empty($result['forbidden']) ? 403 : (!empty($result['conflict']) ? 409 : 422));
             $this->json([
                 'success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null,
-                'needs_witness' => !empty($result['needs_witness']),
+                'needs_witness' => !empty($result['needs_witness']), 'needs_confirm' => !empty($result['needs_confirm']),
             ], $code);
             return;
         }
