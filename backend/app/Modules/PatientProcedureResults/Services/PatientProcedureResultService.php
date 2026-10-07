@@ -3,6 +3,7 @@
 namespace App\Modules\PatientProcedureResults\Services;
 
 use App\Core\Database;
+use App\Modules\LabRanges\Services\CriticalLabService;
 use App\Modules\LabRanges\Services\LabFlagService;
 use App\Modules\PatientProcedureOrders\Models\PatientProcedureOrder;
 use PDO;
@@ -112,7 +113,7 @@ class PatientProcedureResultService
                     $now,
                     $userId
                 ]);
-                $flags[] = ['name' => $row['name'], 'value' => $row['value'] ?? null, 'units' => $row['units'] ?? null] + $f;
+                $flags[] = ['result_id' => (int) $pdo->lastInsertId(), 'name' => $row['name'], 'value' => $row['value'] ?? null, 'units' => $row['units'] ?? null] + $f;
             }
 
             $updateOrder = $pdo->prepare(
@@ -129,15 +130,25 @@ class PatientProcedureResultService
 
         $critical = array_values(array_filter($flags, fn($f) => $f['flag'] === 'critical'));
         $abnormal = count(array_filter($flags, fn($f) => $f['flag'] === 'abnormal'));
+        // Critical results: alert the ordering doctor and the patient's nurse now.
+        $alerted = [];
+        try {
+            $alerted = (new CriticalLabService())->notify($orderId, $flags, $userId);
+        } catch (Throwable $e) {
+            error_log('critical lab alert failed: ' . $e->getMessage());
+        }
         $message = 'Results saved.';
         if ($critical) {
             $message .= ' ' . count($critical) . ' CRITICAL: ' . implode('; ', array_map(fn($c) => trim("{$c['name']} {$c['value']} {$c['units']}") . " — {$c['detail']}", $critical)) . '.';
+            if ($alerted) {
+                $message .= " The ordering doctor and the patient's nurse were alerted.";
+            }
         }
         if ($abnormal) {
             $message .= " {$abnormal} abnormal.";
         }
 
-        return ['success' => true, 'message' => $message, 'data' => ['flags' => $flags, 'critical' => count($critical), 'abnormal' => $abnormal]];
+        return ['success' => true, 'message' => $message, 'data' => ['flags' => $flags, 'critical' => count($critical), 'abnormal' => $abnormal, 'alerted' => count($alerted)]];
     }
 
     /** Ticked abnormal by hand (not worked out from a range); results from before flags count as by hand. */

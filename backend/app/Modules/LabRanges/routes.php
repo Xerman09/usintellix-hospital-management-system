@@ -14,3 +14,7 @@ $router->get('/lab-ranges', [LabRangeController::class, 'index'], [AuthMiddlewar
 $router->post('/lab-ranges', [LabRangeController::class, 'save'], [AuthMiddleware::class, [RoleMiddleware::class, LabRangeService::EDIT_ROLES]]);
 $router->delete('/lab-ranges', [LabRangeController::class, 'destroy'], [AuthMiddleware::class, [RoleMiddleware::class, LabRangeService::EDIT_ROLES]]);
 $router->post('/lab-ranges/test', [LabRangeController::class, 'test'], [AuthMiddleware::class, [RoleMiddleware::class, LabRangeService::VIEW_ROLES]]);
+
+// The chart's red banner: a patient's critical results and whether they were acknowledged.
+$router->get('/critical-labs/patient', [LabRangeController::class, 'patientCritical'], [AuthMiddleware::class, [RoleMiddleware::class,
+    ['admin', 'doctor', 'clinician', 'nurse', 'charge_nurse', 'lab_technician', 'pharmacist', 'cna']]]);

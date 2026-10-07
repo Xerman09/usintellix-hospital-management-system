@@ -7586,10 +7586,14 @@ textarea.pd-sdoh-readonly {
                     <p id="pdSubtitle">&nbsp;</p>
                 </div>
             </div>
-            <div id="pdConfidentialCommBadgeContainer" style="display:flex;align-items:center;gap:8px;"></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                <div id="pdCriticalLabBadge"></div>
+                <div id="pdConfidentialCommBadgeContainer" style="display:flex;align-items:center;gap:8px;"></div>
+            </div>
         </div>
 
         <div id="pdConfidentialCommBanner" style="display:none;margin:12px 24px 0 24px;padding:12px 18px;border-radius:8px;background:#fef2f2;border:1.5px solid #ef4444;color:#991b1b;box-shadow:0 2px 6px rgba(239,68,68,0.12);"></div>
+        <div id="pdCriticalLabBanner" style="display:none" aria-live="polite"></div>
 
         <div class="pd-body">
             <div class="pd-sidebar">

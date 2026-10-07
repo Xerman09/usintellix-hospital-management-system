@@ -5,6 +5,8 @@ namespace App\Modules\LabRanges\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Core\PhiAccessGuard;
+use App\Modules\LabRanges\Services\CriticalLabService;
 use App\Modules\LabRanges\Services\LabRangeService;
 
 class LabRangeController extends Controller
@@ -40,6 +42,16 @@ class LabRangeController extends Controller
     {
         $request = new Request();
         $this->success($this->service->test($request->all()), 'Checked.');
+    }
+
+    /** Query: patient_id -- the chart's red banner: critical results not acknowledged (or acknowledged lately). */
+    public function patientCritical(): void
+    {
+        $request = new Request();
+        $user = Session::get('user') ?? [];
+        $patientId = (int) $request->input('patient_id');
+        PhiAccessGuard::assertPatientAccess($user, $patientId, true);
+        $this->success((new CriticalLabService())->forPatient($patientId, $user), 'Retrieved.');
     }
 
     private function respond(array $result): void
