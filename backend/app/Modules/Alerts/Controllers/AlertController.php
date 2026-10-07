@@ -4,6 +4,7 @@ namespace App\Modules\Alerts\Controllers;
 
 use App\Core\Controller;
 use App\Core\Request;
+use App\Core\RoleAccess;
 use App\Core\Session;
 use App\Modules\Alerts\Services\AlertEscalationService;
 use App\Modules\Alerts\Services\AlertReportService;
@@ -33,7 +34,7 @@ class AlertController extends Controller
         $request = new Request();
         $filters = array_intersect_key($request->all(), array_flip(['status', 'urgency', 'type', 'q', 'page']));
         $data = $this->service->list($this->user(), $filters);
-        $data['can_send'] = in_array($this->user()['role'] ?? '', self::SENDERS, true);
+        $data['can_send'] = RoleAccess::inList((string) ($this->user()['role'] ?? ''), self::SENDERS);
         $data['can_send_everyone'] = ($this->user()['role'] ?? '') === 'admin';
         $data['can_manage'] = ($this->user()['role'] ?? '') === 'admin';
         $this->success($data, 'Alerts retrieved.');
@@ -88,7 +89,7 @@ class AlertController extends Controller
     public function send(): void
     {
         $user = $this->user();
-        if (!in_array($user['role'] ?? '', self::SENDERS, true)) {
+        if (!RoleAccess::inList((string) ($user['role'] ?? ''), self::SENDERS)) {
             $this->error('You are not allowed to send alerts.', 403);
             return;
         }

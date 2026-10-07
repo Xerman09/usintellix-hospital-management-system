@@ -6,6 +6,9 @@ class Router
 {
     private array $routes = [];
 
+    /** The request being dispatched (method, path) -- read by RoleMiddleware for path-based grants. */
+    public static array $current = ['method' => '', 'path' => ''];
+
     /**
      * Register a GET route.
      */
@@ -55,6 +58,7 @@ class Router
     public function dispatch(string $method, string $uri): void
     {
         $uri = $this->normalize($uri);
+        self::$current = ['method' => strtoupper($method), 'path' => $uri];
 
         if (!isset($this->routes[$method][$uri])) {
             http_response_code(404);

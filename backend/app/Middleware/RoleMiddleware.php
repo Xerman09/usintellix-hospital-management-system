@@ -23,7 +23,10 @@ class RoleMiddleware
         }
 
 
-        if(!in_array($user['role'], $allowedRoles))
+        // The route's own list, roles it inherits (charge nurse -> nurse), or a grant
+        // for this path in config/role_access.php.
+        $current = \App\Core\Router::$current;
+        if(!\App\Core\RoleAccess::allows((string) $user['role'], $allowedRoles, $current['method'], $current['path']))
         {
             http_response_code(403);
             header('Content-Type: application/json');

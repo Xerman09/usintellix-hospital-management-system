@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=140";
+import { getNavLinks } from "./dashboard.view.js?v=141";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -288,8 +288,10 @@ import { initOrSchedule } from "../or-schedule/or-schedule.js?v=5";
 import { OrBoardView } from "../or-board/or-board.view.js?v=2";
 import { initOrBoard } from "../or-board/or-board.js?v=4";
 import { AlertsView } from "../alerts/alerts.view.js?v=4";
-import { initAlerts } from "../alerts/alerts.js?v=4";
-import { initAlertBell } from "../alerts/alert-bell.js?v=2";
+import { initAlerts } from "../alerts/alerts.js?v=5";
+import { initAlertBell } from "../alerts/alert-bell.js?v=3";
+import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
+import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
 import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
@@ -432,6 +434,12 @@ function renderPlaceholderTab(title) {
         </div>
     </div>
     `;
+}
+
+/** charge_nurse -> "Charge Nurse", cna -> "CNA". */
+function roleLabel(role) {
+    const special = { cna: "CNA", charge_nurse: "Charge Nurse", lab_technician: "Lab Technician" };
+    return special[role] || String(role || "").replace(/_/g, " ");
 }
 
 export function Dashboard()
@@ -1536,6 +1544,11 @@ export function Dashboard()
                 setTimeout(initOrReports, 0);
                 return OrReportsView();
             }, activate);
+        } else if (tabId === 'nursing_staff') {
+            tabManager.openTab(tabId, 'Nursing Staff', () => {
+                setTimeout(initNursingStaff, 0);
+                return NursingStaffView();
+            }, activate);
         } else if (tabId === 'alerts') {
             tabManager.openTab(tabId, 'Alerts', () => {
                 setTimeout(initAlerts, 0);
@@ -1675,7 +1688,7 @@ export function Dashboard()
                 updatePatientNavState();
             }
             const profileRole = document.getElementById('profileRole');
-            if (profileRole) profileRole.textContent = freshUser.role;
+            if (profileRole) profileRole.textContent = roleLabel(freshUser.role);
             const profileName = document.getElementById('profileName');
             if (profileName) {
                 const fullName = `${freshUser.first_name || ''} ${freshUser.last_name || ''}`.trim();
@@ -1798,7 +1811,7 @@ export function Dashboard()
     if (profileName) profileName.textContent = `${user.first_name} ${user.last_name}` || "User";
     
     const profileRole = document.getElementById('profileRole');
-    if (profileRole) profileRole.textContent = user.role || "patient";
+    if (profileRole) profileRole.textContent = roleLabel(user.role || "patient");
 
     if (user.role === 'patient') {
         setupProxySwitcher();

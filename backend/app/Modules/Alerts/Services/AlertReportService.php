@@ -18,9 +18,12 @@ class AlertReportService
     public function report(array $filters): array
     {
         $db = Database::connection();
+        // "Today" by the database clock -- alerts are stamped with NOW() there, and PHP's
+        // timezone can differ (e.g. UTC vs Manila), which would drop today's alerts after midnight.
+        $today = (string) $db->query("SELECT CURDATE()")->fetchColumn();
         $from = $this->date($filters['from'] ?? null);
         // No end date: today (or the start date itself, if that is later).
-        $to = $this->date($filters['to'] ?? null) ?? max(date('Y-m-d'), $from ?? '');
+        $to = $this->date($filters['to'] ?? null) ?? max($today, $from ?? '');
         $from ??= date('Y-m-d', strtotime($to . ' -29 days'));
         if ($from > $to) {
             [$from, $to] = [$to, $from];

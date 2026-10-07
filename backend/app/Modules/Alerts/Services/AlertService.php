@@ -191,7 +191,7 @@ class AlertService
     public function poll(array $user): array
     {
         if (!$this->isStaff($user)) {
-            return ['unread' => 0, 'popups' => [], 'latest' => [], 'server_time' => date('Y-m-d H:i:s')];
+            return ['unread' => 0, 'popups' => [], 'latest' => [], 'server_time' => self::dbNow()];
         }
         // Escalate overdue alerts first (at most every 30 s, whoever polls), so a newly
         // escalated alert reaches the next person on this very poll.
@@ -219,7 +219,7 @@ class AlertService
 
         $this->stamp($db, array_merge(array_column($popups, 'id'), array_column($latest, 'id')), $uid, 'delivered_at');
 
-        return ['unread' => $unread, 'popups' => $popups, 'latest' => $latest, 'server_time' => date('Y-m-d H:i:s')];
+        return ['unread' => $unread, 'popups' => $popups, 'latest' => $latest, 'server_time' => self::dbNow()];
     }
 
     /**
@@ -431,6 +431,12 @@ class AlertService
     // ------------------------------------------------------------------
     // Internals
     // ------------------------------------------------------------------
+
+    /** "Now" by the database clock, which stamps every alert (PHP's timezone may differ). */
+    private static function dbNow(): string
+    {
+        return (string) Database::connection()->query("SELECT NOW()")->fetchColumn();
+    }
 
     private function isStaff(array $user): bool
     {

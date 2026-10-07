@@ -177,5 +177,6 @@ require_once __DIR__ . '/../app/Modules/Audit/routes.php';
 require_once __DIR__ . '/../app/Modules/PatientPsychiatricNotes/routes.php';
 require_once __DIR__ . '/../app/Modules/NppConsent/routes.php';
 require_once __DIR__ . '/../app/Modules/Alerts/routes.php';
+require_once __DIR__ . '/../app/Modules/NursingStaff/routes.php';
 
 return $router;

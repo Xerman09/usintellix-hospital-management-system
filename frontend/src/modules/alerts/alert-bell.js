@@ -3,6 +3,7 @@ import { showToast } from "../../core/toast.js";
 
 /*
  * Alert bell on every screen: unread count, the latest alerts, and pop-ups.
+ * New info alerts show a notice at the top right for a few seconds (and stay in the bell).
  * Critical (and urgent) alerts must be acknowledged: critical ones open a pop-up
  * with a sound that stays until someone acknowledges; urgent ones sit in a
  * corner card with a softer sound. Polls the server every 20 seconds.
@@ -17,6 +18,8 @@ let state = { unread: 0, popups: [], latest: [], serverTime: null };
 let known = new Set();           // alert ids already announced (sound) in this tab
 let snoozedUrgent = new Set();   // urgent cards hidden for now (they stay in the bell)
 let lastBeep = 0;
+let firstPoll = true;            // the first poll after login sums up unread alerts instead of one notice each
+const INFO_NOTICE_MS = 12000;
 let audioCtx = null;
 let listeners = new Set();
 let pendingOpen = null;          // alert to show when the Alerts page opens
@@ -155,6 +158,11 @@ const CSS = `
 .alb-b:disabled { opacity: .6; cursor: default; }
 
 /* Urgent cards, bottom right. */
+.alb-notices { position: fixed; right: 16px; top: 64px; z-index: 4600; display: flex; flex-direction: column; gap: 10px; width: 340px; max-width: calc(100vw - 32px); }
+.alb-notice { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); border-left: 5px solid var(--accent); border-radius: 10px; box-shadow: 0 12px 30px rgba(15,23,42,.2); padding: 12px 14px; font-size: 13px; animation: alb-in .2s ease-out; }
+.alb-notice .alb-title { margin: 4px 0 2px; }
+@keyframes alb-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .alb-notice { animation: none; } }
 .alb-stack { position: fixed; right: 16px; bottom: 16px; z-index: 4500; display: flex; flex-direction: column; gap: 10px; width: 340px; max-width: calc(100vw - 32px); }
 .alb-card { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); border-left: 5px solid #f59e0b; border-radius: 10px; box-shadow: 0 12px 30px rgba(15,23,42,.2); padding: 12px 14px; font-size: 13px; }
 .alb-card .alb-title { margin: 4px 0 2px; }
@@ -186,6 +194,11 @@ function ensureDom() {
         stack.id = "albStack";
         stack.setAttribute("aria-live", "assertive");
         document.body.appendChild(stack);
+        const notices = document.createElement("div");
+        notices.className = "alb-notices";
+        notices.id = "albNotices";
+        notices.setAttribute("aria-live", "polite");
+        document.body.appendChild(notices);
     }
 }
 
@@ -249,7 +262,10 @@ function stop() {
     pollTimer = null;
     started = false;
     known = new Set();
+    firstPoll = true;
     state = { unread: 0, popups: [], latest: [], serverTime: null };
+    const notices = document.getElementById("albNotices");
+    if (notices) notices.innerHTML = "";
     document.getElementById("albOverlay")?.classList.remove("open");
     const stack = document.getElementById("albStack");
     if (stack) stack.innerHTML = "";
@@ -263,13 +279,25 @@ async function poll() {
         if (res?.success) {
             const d = res.data;
             const fresh = d.popups.filter((a) => !known.has(a.id));
+            const unreadInfo = d.latest.filter((a) => !a.requires_ack && !a.read);
+            const freshInfo = unreadInfo.filter((a) => !known.has(a.id));
             [...d.popups, ...d.latest].forEach((a) => known.add(a.id));
             state = { unread: d.unread, popups: d.popups, latest: d.latest, serverTime: d.server_time };
             render();
+            // Info alerts: a notice at the top right right away (after login: one summary notice).
+            if (firstPoll) {
+                if (unreadInfo.length === 1) showNotice(unreadInfo[0]);
+                else if (unreadInfo.length > 1) showSummaryNotice(unreadInfo.length);
+            } else {
+                freshInfo.slice(0, 3).reverse().forEach(showNotice);   // oldest first, newest at the bottom
+            }
+            firstPoll = false;
             const critical = d.popups.some((a) => a.urgency === "critical");
-            // Info alerts are silent; new urgent/critical ones beep, and an open critical beeps again every minute.
+            // New urgent/critical alerts beep, and an open critical beeps again every minute; a new info alert chimes once.
             if (fresh.length || (critical && Date.now() - lastBeep > REPEAT_SOUND_MS)) {
                 beep(critical ? "critical" : "urgent");
+            } else if (freshInfo.length) {
+                beep("info");
             }
             listeners.forEach((fn) => fn(state));
         }
@@ -280,7 +308,7 @@ async function poll() {
 function beep(level) {
     if (!audioCtx || audioCtx.state !== "running") return;
     lastBeep = Date.now();
-    const tones = level === "critical" ? [[880, 0], [660, .22], [880, .44], [660, .66]] : [[660, 0], [880, .2]];
+    const tones = level === "critical" ? [[880, 0], [660, .22], [880, .44], [660, .66]] : level === "urgent" ? [[660, 0], [880, .2]] : [[784, 0]];
     tones.forEach(([freq, at]) => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -382,6 +410,11 @@ async function onPanelClick(e) {
         showPopup(a);
         return;
     }
+    await openInfoAlert(id, a);
+}
+
+/** Open an alert that needs no acknowledgement: mark it read and go to what it's about. */
+async function openInfoAlert(id, a) {
     await markAlertRead(id).catch(() => {});
     if (!a || !(await openAlertLink(a))) {
         // Nothing to open: show it on the Alerts page.
@@ -390,6 +423,68 @@ async function onPanelClick(e) {
         window.dispatchEvent(new CustomEvent("alerts:open"));
     }
     poll();
+}
+
+/* ---------------- info notices (top right, a few seconds) ---------------- */
+
+function addNotice(html, onAction) {
+    const box = document.getElementById("albNotices");
+    if (!box) return;
+    while (box.children.length >= 3) box.firstElementChild.remove();
+    const el = document.createElement("div");
+    el.className = "alb-notice";
+    el.setAttribute("role", "status");
+    el.innerHTML = html;
+    box.appendChild(el);
+    let timer = null;
+    const close = () => {
+        clearTimeout(timer);
+        el.remove();
+    };
+    const arm = () => {
+        clearTimeout(timer);
+        timer = setTimeout(close, INFO_NOTICE_MS);
+    };
+    // Stays while the mouse or keyboard focus is on it.
+    el.addEventListener("mouseenter", () => clearTimeout(timer));
+    el.addEventListener("mouseleave", arm);
+    el.addEventListener("focusin", () => clearTimeout(timer));
+    el.addEventListener("focusout", arm);
+    el.addEventListener("click", (e) => {
+        const act = e.target.closest("[data-notice]")?.dataset.notice;
+        if (!act) return;
+        e.stopPropagation();   // else the "click outside closes the bell list" handler shuts what View opens
+        close();
+        onAction(act);
+    });
+    arm();
+}
+
+function showNotice(a) {
+    addNotice(`
+        <span class="alb-pill info">New alert</span><span class="alb-meta">${esc(a.type_label)} · from ${esc(a.created_by_name)}</span>
+        <div class="alb-title">${esc(a.title)}</div>
+        ${a.patient_name ? `<div class="alb-sub">Patient: ${esc(a.patient_name)}</div>` : ""}
+        ${a.body ? `<div class="alb-sub">${esc(a.body.length > 140 ? a.body.slice(0, 140) + "…" : a.body)}</div>` : ""}
+        <div class="alb-card-actions">
+            <button type="button" class="alb-b" data-notice="dismiss">Dismiss</button>
+            <button type="button" class="alb-b amber" data-notice="open" style="background:var(--accent);border-color:var(--accent)">Open</button>
+        </div>`, (act) => {
+        if (act === "open") openInfoAlert(a.id, a);
+        else markAlertsSeen([a.id]).catch(() => {});
+    });
+}
+
+function showSummaryNotice(count) {
+    addNotice(`
+        <span class="alb-pill info">Alerts</span>
+        <div class="alb-title">You have ${count} unread alerts.</div>
+        <div class="alb-card-actions">
+            <button type="button" class="alb-b" data-notice="dismiss">Dismiss</button>
+            <button type="button" class="alb-b amber" data-notice="view" style="background:var(--accent);border-color:var(--accent)">View</button>
+        </div>`, (act) => {
+        if (act === "view") togglePanel();
+    });
 }
 
 /* ------------------------------------------------------------------ */

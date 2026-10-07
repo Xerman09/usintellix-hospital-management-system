@@ -225,6 +225,7 @@ function staffNavLinks(role)
                 </div>
                 ` : ""}
                 <a data-tab="employees">Users</a>
+                ${role === "admin" ? `<a data-tab="nursing_staff">Nursing Staff &amp; Wards</a>` : ""}
                 ${role === "admin" ? `<a data-tab="general_settings">Two Factor Authentication</a>` : ""}
                 <a data-tab="admin_address_book">Address Book</a>
                 ${role === "admin" ? `
@@ -696,11 +697,51 @@ const DOCTOR_NAV_LINKS = `
     <a data-tab="help">Help</a>
 `;
 
+// Nurses and charge nurses: patients, inpatient wards, flow, the OR, messages.
+// What each role may open on the server is set in backend/config/role_access.php.
+function nurseNavLinks(role)
+{
+    return `
+    <div class="nav-dropdown">
+        <span>Patient</span>
+        <div class="dropdown-content">
+            <a data-tab="patients">Search</a>
+            <a data-tab="patient_finder">Dashboard</a>
+            <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+            <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="patient_flow">Flow</a>
+        </div>
+    </div>
+    <a data-tab="inpatient_admissions">Wards</a>
+    <a data-tab="patient_flow">Flow</a>
+    <div class="nav-dropdown">
+        <span>Surgery</span>
+        <div class="dropdown-content">
+            <a data-tab="or_board">OR Live Board</a>
+            <a data-tab="or_schedule">OR Schedule</a>
+        </div>
+    </div>
+    <a data-tab="messaging">Messages</a>
+    ${role === "charge_nurse" ? `<a data-tab="nursing_staff">Nursing Staff</a>` : ""}
+    `;
+}
+
+// CNA: find a patient, the wards, rooming / vital signs, messages.
+const CNA_NAV_LINKS = `
+    <a data-tab="patients">Patients</a>
+    <a data-tab="inpatient_admissions">Wards</a>
+    <a data-tab="room_management">Rooms &amp; Beds</a>
+    <a data-tab="patient_flow">Flow</a>
+    <a data-tab="messaging">Messages</a>
+`;
+
 export function getNavLinks(role)
 {
     if (role === "patient") return PATIENT_NAV_LINKS;
     if (role === "doctor") return DOCTOR_NAV_LINKS;
     if (role === "receptionist") return RECEPTIONIST_NAV_LINKS;
+    if (role === "nurse" || role === "charge_nurse") return nurseNavLinks(role);
+    if (role === "cna") return CNA_NAV_LINKS;
     return staffNavLinks(role);
 }
 
