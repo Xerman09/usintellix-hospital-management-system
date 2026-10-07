@@ -22,6 +22,11 @@ class PatientProcedureOrderService
     {
         $sql = "SELECT o.id, o.patient_id, o.procedure_order_config_id, o.provider_id, o.vendor_facility_id,
                        o.order_date, o.ext_time_collected, o.specimen, o.status, o.reported_at, o.created_at,
+                       o.results_at, o.reviewed_at, o.review_action, o.review_comment,
+                       (SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(re.first_name, ''), ' ', COALESCE(re.last_name, ''))), ''), ru.username)
+                        FROM users ru LEFT JOIN employees re ON re.user_id = ru.id AND re.deleted_at IS NULL WHERE ru.id = o.reviewed_by LIMIT 1) AS reviewed_by_name,
+                       (o.reviewed_at IS NULL AND o.results_at < NOW() - INTERVAL " . \App\Modules\ResultsInbox\Services\ResultReviewService::days() . " DAY) AS review_overdue,
+                       TIMESTAMPDIFF(DAY, o.results_at, NOW()) AS days_waiting,
                        p.patient_no,
                        CONCAT_WS(' ', p.first_name, p.middle_name, p.last_name, p.suffix) AS patient_name,
                        poc.name AS procedure_name, poc.identifying_code, poc.standard_code,

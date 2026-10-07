@@ -38,13 +38,14 @@ class AlertService
         'task'         => 'Task',
         'assignment'   => 'Patient assignment',
         'early_warning' => 'Early warning score (NEWS2)',
+        'result_review' => 'Result to review',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */
     private const NON_STAFF_ROLES = ['patient'];
 
     /** Links an alert may carry -- each one the screen knows how to open. */
-    private const LINK_KEYS = ['tab', 'patient_id', 'or_case'];
+    private const LINK_KEYS = ['tab', 'patient_id', 'or_case', 'mar', 'result'];
 
     // ------------------------------------------------------------------
     // Raising and closing (used by other modules)
@@ -207,6 +208,12 @@ class AlertService
             (new \App\Modules\InpatientOrders\Services\MarService())->runOverdue();
         } catch (\Throwable $e) {
             error_log('MAR late-dose check failed: ' . $e->getMessage());
+        }
+        // Results not reviewed in time: flag them to the doctor (at most every 5 minutes, whoever polls).
+        try {
+            (new \App\Modules\ResultsInbox\Services\ResultReviewService())->runOverdue();
+        } catch (\Throwable $e) {
+            error_log('Result review check failed: ' . $e->getMessage());
         }
         $db = Database::connection();
         [$where, $params] = $this->visibleWhere($db, $user);

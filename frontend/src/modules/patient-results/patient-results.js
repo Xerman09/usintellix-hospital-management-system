@@ -15,6 +15,10 @@ import {
     importPatientProcedureResults
 } from "./patient-results.service.js?v=2";
 import { todayISO } from "../../core/timezone.js";
+import { openResultByOrder } from "../results-inbox/results-inbox.js?v=3";
+
+const REVIEW_ROLES = ["doctor", "clinician"];
+let reviewListener = null;
 
 const STATUS_OPTIONS = [
     { value: "pending", label: "Pending" },
@@ -61,6 +65,14 @@ export async function initPatientResults()
 
     document.getElementById("ptResRefreshBtn").addEventListener("click", () => loadOrders());
     orderBtn.addEventListener("click", openOrderModal);
+
+    // Signed off in the result view: show it here too (while this page is open).
+    if (reviewListener) window.removeEventListener("results-reviewed", reviewListener);
+    reviewListener = () => {
+        if (document.getElementById("ptResOrders")) loadOrders();
+        else window.removeEventListener("results-reviewed", reviewListener);
+    };
+    window.addEventListener("results-reviewed", reviewListener);
 
     await loadOrders();
 }
@@ -264,6 +276,8 @@ function renderOrderCard(order, results)
             </tbody>
         </table>
 
+        ${reviewStrip(order, results)}
+
         <div class="pt-res-card-actions">
             <button type="button" class="pt-res-add-row-btn">+ Add Result Row</button>
             <label class="pt-res-add-row-btn pt-res-import-btn" title="CSV columns: code, name, value, units, reference_range, result_date, end_date, abnormal">Import results (CSV)
@@ -304,6 +318,7 @@ function wireOrderCards()
         });
 
         card.querySelector(".pt-res-save-btn").addEventListener("click", () => saveOrderCard(orderId, card));
+        card.querySelector("[data-review]")?.addEventListener("click", () => openResultByOrder(orderId));
 
         card.querySelector(".pt-res-import-input").addEventListener("change", async (e) => {
             const file = e.target.files[0];
@@ -380,6 +395,36 @@ async function saveOrderCard(orderId, card)
     showToast(resultsSave.message || "Results saved.", resultsSave.data?.critical ? "error" : "success", resultsSave.data?.critical ? 9000 : 3500);
     await loadOrders();
 }
+
+/** Sign-off: reviewed by whom and what is to be done, or not reviewed (flagged when over the limit). */
+function reviewStrip(order, results)
+{
+    if (!results.length) return "";
+    const canReview = REVIEW_ROLES.includes(getUser()?.role);
+    const days = Number(order.days_waiting ?? 0);
+    let text;
+    let cls = "";
+    if (order.reviewed_at) {
+        cls = "ok";
+        text = `<strong>✓ Reviewed</strong> by ${escapeHtml(order.reviewed_by_name || "")} · ${escapeHtml(order.reviewed_at.slice(0, 16))}`
+            + `${order.review_action && order.review_action !== "none" ? ` · ${escapeHtml(REVIEW_ACTIONS[order.review_action] || order.review_action)}` : ""}`
+            + `${order.review_comment ? ` — ${escapeHtml(order.review_comment)}` : ""}`;
+    } else if (Number(order.review_overdue) === 1) {
+        cls = "late";
+        text = `<strong>⚑ Not reviewed for ${days} day${days === 1 ? "" : "s"}</strong> (over the limit)`;
+    } else {
+        text = `<strong>Not reviewed yet</strong>${order.results_at ? ` · out ${days ? `${days} day${days === 1 ? "" : "s"}` : "today"}` : ""}`;
+    }
+    const button = canReview
+        ? `<button type="button" class="pt-res-review-btn" data-review>${order.reviewed_at ? "View sign-off" : "Review &amp; sign off…"}</button>`
+        : order.reviewed_at ? "" : `<button type="button" class="pt-res-review-btn" data-review>View</button>`;
+    return `<div class="pt-res-review ${cls}" role="status">${text}${button}</div>`;
+}
+
+const REVIEW_ACTIONS = {
+    none: "No action needed", repeat_test: "Repeat test", call_patient: "Call patient", follow_up: "Follow-up visit",
+    change_treatment: "Change treatment", refer: "Refer", other: "Other",
+};
 
 /** Ticked abnormal by hand (not worked out from a range); results from before flags count as by hand. */
 function markedByHand(r)

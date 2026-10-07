@@ -163,6 +163,14 @@ export function PatientResultsView()
 :root[data-theme="dark"] .pt-res-flag.abnormal { background: #78350f; color: #fde68a; }
 :root[data-theme="dark"] .pt-res-flag.normal { background: #14532d; color: #bbf7d0; }
 .pt-res-import-btn { display: inline-flex; align-items: center; cursor: pointer; }
+.pt-res-review { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 8px 12px 0; padding: 8px 12px; border-radius: 8px; background: var(--bg-surface-alt); color: var(--text-primary); font-size: 13px; }
+.pt-res-review.ok { background: #f0fdf4; color: #14532d; }
+.pt-res-review.late { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+:root[data-theme="dark"] .pt-res-review.ok { background: #052e16; color: #bbf7d0; }
+:root[data-theme="dark"] .pt-res-review.late { background: #2a1214; color: #fecaca; border-color: #7f1d1d; }
+.pt-res-review-btn { margin-left: auto; border: 1px solid var(--accent); background: var(--bg-surface); color: var(--accent); border-radius: 8px; padding: 5px 11px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.pt-res-review-btn:hover { background: var(--accent); color: #fff; }
+.pt-res-review-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .pt-res-remove-row-btn {
     width: 22px;

@@ -2728,7 +2728,7 @@ export async function initPatientChartTab(patient)
     loadDashboardInpatientVitals(patient);
     loadDashboardInpatientOrders(patient);
     // Red mark for critical lab results (not acknowledged / acknowledged lately).
-    import("../lab-ranges/critical-banner.js?v=2").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
+    import("../lab-ranges/critical-banner.js?v=3").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {

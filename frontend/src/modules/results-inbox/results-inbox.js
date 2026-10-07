@@ -1,12 +1,16 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { esc, ago, fmtDateTime } from "../alerts/alert-bell.js?v=9";
+import { esc, ago, fmtDateTime } from "../alerts/alert-bell.js?v=10";
 
 /*
  * Results inbox: the "!" in the top bar. New lab and radiology results for your patients
  * (you ordered them, they're your patients, or you're their nurse) until you open each one.
  * Critical results come first, in red. Opening a result from the list shows it straight away
  * and takes it off the "!". Right after signing in, the list opens by itself when something is new.
+ *
+ * Sign-off (Phase 2): doctors mark each result reviewed, with an optional action (repeat test,
+ * call patient, ...) and comment. "To review" lists their patients' results not signed off yet;
+ * those waiting longer than the set number of days are flagged (a red dot on the "!", and an alert).
  */
 
 const POLL_MS = 60000;
@@ -14,9 +18,13 @@ const LOGIN_FLAG = "resultsInboxAtLogin";
 const REASON = { ordering: "You ordered it", primary: "Your patient", nurse: "Your patient (nurse)" };
 const FLAG_LABEL = { critical: "Critical", abnormal: "Abnormal", normal: "Normal" };
 
+const REVIEW_ROLES = ["doctor", "clinician"];
+
 let started = false;
 let timer = null;
-let state = { new: 0, critical: 0 };
+let me = null;
+let reviewDays = 3;
+let state = { new: 0, critical: 0, to_review: 0, review_overdue: 0 };
 let view = "new";
 let list = { items: [], server_time: null };
 
@@ -100,6 +108,43 @@ const CSS = `
 .rib-b:hover { background: var(--bg-surface-alt); }
 .rib-b.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .rib-b:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rib-btn.has-late::after { content: ""; position: absolute; bottom: 3px; right: 3px; width: 9px; height: 9px; border-radius: 50%; background: #dc2626; box-shadow: 0 0 0 2px var(--bg-surface); }
+.rib-red { color: #dc2626; }
+:root[data-theme="dark"] .rib-red { color: #f87171; }
+.rib-late-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #dc2626; vertical-align: 1px; margin-left: 2px; }
+.rib-note-sm { padding: 6px 14px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
+.rib-rev { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.rib-rev.ok { color: #15803d; }
+.rib-rev.late { color: #b91c1c; }
+:root[data-theme="dark"] .rib-rev.ok { color: #86efac; }
+:root[data-theme="dark"] .rib-rev.late { color: #fca5a5; }
+.rib-item.late:not(.critical) { border-left-color: #f87171; }
+.rib-set { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border-color); font-size: 12.5px; color: var(--text-muted); }
+.rib-set label { font-weight: 600; }
+.rib-set input { width: 64px; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 6px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
+.rib-set .rib-b { padding: 4px 10px; font-size: 12px; }
+.rib-signoff { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+.rib-signoff h3 { margin: 0 0 8px; font-size: 14px; }
+.rib-rev-box { border-radius: 8px; padding: 8px 10px; background: var(--bg-surface-alt); font-size: 13px; }
+.rib-rev-box.ok { background: #f0fdf4; color: #14532d; }
+.rib-rev-box.late { background: #fef2f2; color: #991b1b; }
+:root[data-theme="dark"] .rib-rev-box.ok { background: #052e16; color: #bbf7d0; }
+:root[data-theme="dark"] .rib-rev-box.late { background: #2a1214; color: #fecaca; }
+.rib-form { margin-top: 10px; }
+.rib-form-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.rib-form-row > div { min-width: 180px; }
+.rib-form-row .grow { flex: 1 1 260px; }
+.rib-form label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; }
+.rib-opt { font-weight: 400; }
+.rib-form select, .rib-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--text-primary); }
+.rib-form textarea { resize: vertical; min-height: 40px; }
+.rib-form [aria-invalid="true"] { border-color: #dc2626; }
+.rib-err { color: #dc2626; font-size: 12px; min-height: 1em; margin-top: 4px; }
+.rib-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.rib-link { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; padding: 6px 0 0; }
+.rib-link:hover { text-decoration: underline; }
+.rib-hist { margin-top: 8px; font-size: 12.5px; color: var(--text-muted); }
+.rib-hist ul { margin: 6px 0 0; padding-left: 18px; }
 @media (max-width: 600px) {
     .rib-panel { position: fixed; top: 56px; right: 12px; left: 12px; width: auto; }
     .rib-table thead { display: none; }
@@ -133,6 +178,7 @@ function ensureDom() {
 /** Put the "!" in the top bar (before the alert bell) and start checking for new results. */
 export function initResultsInbox(user) {
     if (!user || user.role === "patient") return;
+    me = user;
     ensureDom();
     const right = document.querySelector(".navbar-right");
     if (right && !document.getElementById("ribWrap")) {
@@ -181,7 +227,7 @@ function stop() {
     clearTimeout(timer);
     timer = null;
     started = false;
-    state = { new: 0, critical: 0 };
+    state = { new: 0, critical: 0, to_review: 0, review_overdue: 0 };
     closeResult();
 }
 
@@ -202,10 +248,15 @@ async function poll(first = false) {
             atLogin = first && sessionStorage.getItem(LOGIN_FLAG) === "1";
             if (first) sessionStorage.removeItem(LOGIN_FLAG);
         } catch { /* storage blocked */ }
-        // Just signed in with new results: show them.
-        if (atLogin && state.new > 0) openPanel();
+        // Just signed in with new results (or results waiting too long for sign-off): show them.
+        if (atLogin && (state.new > 0 || state.review_overdue > 0)) openPanel(state.new > 0 ? "new" : "review");
     }
     if (started) timer = setTimeout(poll, POLL_MS);
+}
+
+function setCounts(d) {
+    state = { new: d.new ?? 0, critical: d.critical ?? 0, to_review: d.to_review ?? 0, review_overdue: d.review_overdue ?? 0 };
+    render();
 }
 
 function render() {
@@ -214,14 +265,19 @@ function render() {
     if (!btn) return;
     btn.classList.toggle("has-new", state.new > 0 && !state.critical);
     btn.classList.toggle("has-critical", state.critical > 0);
+    btn.classList.toggle("has-late", state.review_overdue > 0);
     count.hidden = state.new === 0;
     count.textContent = state.new > 99 ? "99+" : String(state.new);
-    const label = state.new
-        ? `Results inbox, ${state.new} new result${state.new > 1 ? "s" : ""}${state.critical ? `, ${state.critical} critical` : ""}`
-        : "Results inbox, nothing new";
+    const parts = [];
+    if (state.new) parts.push(`${state.new} new result${state.new > 1 ? "s" : ""}${state.critical ? `, ${state.critical} critical` : ""}`);
+    if (state.review_overdue) parts.push(`${state.review_overdue} not reviewed in time`);
+    const label = `Results inbox, ${parts.length ? parts.join("; ") : "nothing new"}`;
     btn.setAttribute("aria-label", label);
     btn.title = label;
 }
+
+const isReviewer = () => REVIEW_ROLES.includes(me?.role);
+const isAdmin = () => me?.role === "admin";
 
 /* ---------------- the list ---------------- */
 
@@ -231,26 +287,39 @@ async function loadList() {
         list = { items: [], server_time: null, error: res?.message || "Could not load the results." };
     } else {
         list = res.data;
-        state = { new: res.data.new, critical: res.data.critical };
-        render();
+        reviewDays = res.data.review_days ?? reviewDays;
+        setCounts(res.data);
     }
     renderPanel();
 }
 
+/** "Reviewed ✓ Repeat test" / "Not reviewed · 4 days" (red when over the limit). */
+function reviewLine(r) {
+    if (r.reviewed_at) return `<span class="rib-rev ok">✓ Reviewed${r.reviewed_by_name ? ` by ${esc(r.reviewed_by_name)}` : ""}${r.review_action && r.review_action !== "none" ? ` · ${esc(r.review_action_label)}` : ""}</span>`;
+    if (r.days_waiting == null) return "";
+    const days = `${r.days_waiting} day${r.days_waiting === 1 ? "" : "s"}`;
+    return r.review_overdue
+        ? `<span class="rib-rev late">⚑ Not reviewed · ${days} (limit ${reviewDays})</span>`
+        : view === "review" || view === "overdue" ? `<span class="rib-rev">Not reviewed · ${r.days_waiting ? days : "today"}</span>` : "";
+}
+
 function itemHtml(r) {
-    const cls = ["rib-item", r.opened_at ? "opened" : "new", r.critical ? "critical" : ""].join(" ");
+    const cls = ["rib-item", r.opened_at || r.id == null ? "opened" : "new", r.critical ? "critical" : "", r.review_overdue ? "late" : ""].join(" ");
     const pills = [
         r.critical ? `<span class="rib-pill critical">Critical</span>` : r.abnormal ? `<span class="rib-pill abnormal">Abnormal</span>` : "",
         `<span class="rib-pill">${r.kind === "radiology" ? "Radiology" : "Lab"}</span>`,
         r.corrected ? `<span class="rib-pill corrected">Corrected</span>` : "",
     ].join("");
-    const sub = [r.location, REASON[r.reason], ago(r.resulted_at, list.server_time), r.opened_at ? "opened" : ""].filter(Boolean).join(" · ");
-    return `<button type="button" class="${cls}" data-rib-id="${r.id}">
+    const who = view === "overdue" ? (r.ordering_doctor ? `Ordered by ${r.ordering_doctor}` : "No ordering doctor") : REASON[r.reason];
+    const sub = [r.location, who, ago(r.resulted_at, list.server_time), r.opened_at && view !== "review" ? "opened" : ""].filter(Boolean).join(" · ");
+    const summary = r.summary || `${r.results} result${r.results === 1 ? "" : "s"}`;
+    return `<button type="button" class="${cls}" ${r.id != null ? `data-rib-id="${r.id}"` : `data-rib-order="${r.order_id}"`}>
         <span class="rib-dot" aria-hidden="true"></span>
         <span class="rib-main">
             <span class="rib-title" style="display:block">${pills}${esc(r.patient_name)} — ${esc(r.test_name || "Result")}</span>
-            <span class="rib-sum" style="display:block">${esc(r.summary || "")}</span>
+            <span class="rib-sum" style="display:block">${esc(summary)}</span>
             <span class="rib-sub" style="display:block">${esc(sub)}</span>
+            ${reviewLine(r) ? `<span style="display:block;margin-top:3px">${reviewLine(r)}</span>` : ""}
         </span>
     </button>`;
 }
@@ -259,21 +328,50 @@ function renderPanel() {
     const panel = document.getElementById("ribPanel");
     if (!panel) return;
     const items = list.items || [];
-    const empty = list.error ? esc(list.error) : view === "new" ? "No new results. You've opened them all." : `No results in the last 14 days.`;
+    const empty = list.error ? esc(list.error) : {
+        new: "No new results. You've opened them all.",
+        review: "Nothing waiting for your sign-off.",
+        overdue: "No result is waiting longer than the limit.",
+        recent: "No results in the last 14 days.",
+    }[view];
+    const tab = (v, label) => `<button type="button" class="rib-tab" role="tab" data-rib-view="${v}" aria-selected="${view === v}">${label}</button>`;
+    const head = [state.new ? `${state.new} new${state.critical ? ` · <b class="rib-red">${state.critical} critical</b>` : ""}` : "Nothing new",
+        state.review_overdue ? `<b class="rib-red">${state.review_overdue} overdue for review</b>` : ""].filter(Boolean).join(" · ");
     panel.innerHTML = `
-        <div class="rib-head"><strong>Results inbox</strong>
-            <span class="rib-sub" style="margin:0">${state.new ? `${state.new} new${state.critical ? ` · <b style="color:#dc2626">${state.critical} critical</b>` : ""}` : "Nothing new"}</span></div>
+        <div class="rib-head"><strong>Results inbox</strong><span class="rib-sub" style="margin:0">${head}</span></div>
         <div class="rib-tabs" role="tablist">
-            <button type="button" class="rib-tab" role="tab" data-rib-view="new" aria-selected="${view === "new"}">New${state.new ? ` (${state.new})` : ""}</button>
-            <button type="button" class="rib-tab" role="tab" data-rib-view="recent" aria-selected="${view === "recent"}">Last 14 days</button>
+            ${tab("new", `New${state.new ? ` (${state.new})` : ""}`)}
+            ${isReviewer() || state.to_review ? tab("review", `To review${state.to_review ? ` (${state.to_review})` : ""}${state.review_overdue ? ` <span class="rib-late-dot" aria-label="${state.review_overdue} overdue"></span>` : ""}`) : ""}
+            ${tab("recent", "Last 14 days")}
+            ${isAdmin() ? tab("overdue", "Overdue (all)") : ""}
         </div>
-        <div class="rib-list">${items.length ? items.map(itemHtml).join("") : `<div class="rib-empty">${empty}</div>`}</div>`;
+        ${view === "review" ? `<div class="rib-note-sm">Your patients' results not yet signed off. Flagged after ${reviewDays} day${reviewDays === 1 ? "" : "s"}.</div>` : ""}
+        <div class="rib-list">${items.length ? items.map(itemHtml).join("") : `<div class="rib-empty">${empty}</div>`}</div>
+        ${isAdmin() ? `<form class="rib-set" data-rib-set>
+            <label for="ribDays">Flag results not reviewed after</label>
+            <input id="ribDays" type="number" min="1" max="60" step="1" value="${reviewDays}" required> days
+            <button type="submit" class="rib-b">Save</button></form>` : ""}`;
+    panel.querySelector("[data-rib-set]")?.addEventListener("submit", saveDays);
 }
 
-function openPanel() {
+async function saveDays(e) {
+    e.preventDefault();
+    const input = document.getElementById("ribDays");
+    const res = await api("/results-review/settings", { method: "POST", body: JSON.stringify({ review_days: input.value }) }).catch(() => null);
+    if (!res?.success) {
+        showToast(res?.message || "Could not save.", "error");
+        input.focus();
+        return;
+    }
+    reviewDays = res.data.days;
+    showToast(res.message, "success");
+    loadList();
+}
+
+function openPanel(startView = "new") {
     const panel = document.getElementById("ribPanel");
     if (!panel) return;
-    view = "new";
+    view = startView;
     list = { items: [], server_time: null };
     panel.innerHTML = `<div class="rib-empty">Loading…</div>`;
     panel.classList.add("open");
@@ -292,35 +390,45 @@ function closePanel() {
 }
 
 function onPanelClick(e) {
+    if (e.target.closest("[data-rib-set]")) return;
     const tab = e.target.closest("[data-rib-view]");
     if (tab) {
         view = tab.dataset.ribView;
         loadList();
         return;
     }
-    const id = Number(e.target.closest("[data-rib-id]")?.dataset.ribId);
-    if (id) openResult(id);
+    const el = e.target.closest("[data-rib-id], [data-rib-order]");
+    if (!el) return;
+    if (el.dataset.ribId) openResult({ id: Number(el.dataset.ribId) });
+    else openResult({ order_id: Number(el.dataset.ribOrder) });
 }
 
 /* ---------------- one result ---------------- */
 
-async function openResult(id) {
+/** Open one order's result (an alert's link, Patient Results' "Review"). */
+export function openResultByOrder(orderId) {
+    ensureDom();
+    return openResult({ order_id: Number(orderId) });
+}
+
+async function openResult(ref) {
+    ensureDom();
     const overlay = document.getElementById("ribOverlay");
     const modal = document.getElementById("ribModal");
     closePanel();
     modal.className = "rib-modal";
     modal.innerHTML = `<div class="rib-mhead"><h2 id="ribModalTitle">Opening the result…</h2></div>`;
     overlay.classList.add("open");
-    const res = await api("/results-inbox/open", { method: "POST", body: JSON.stringify({ id }) }).catch(() => null);
+    const res = await api("/results-inbox/open", { method: "POST", body: JSON.stringify(ref) }).catch(() => null);
     if (!res?.success) {
         closeResult();
         showToast(res?.message || "Could not open the result.", "error");
         poll();
         return;
     }
-    const { item, order, results } = res.data;
-    state = { new: res.data.new, critical: res.data.critical };
-    render();
+    const { item, order, results, review } = res.data;
+    reviewDays = review.review_days ?? reviewDays;
+    setCounts(res.data);
     const critical = results.some((r) => r.flag === "critical");
     modal.className = `rib-modal${critical ? " critical" : ""}`;
     const meta = [
@@ -338,7 +446,7 @@ async function openResult(id) {
     }).join("");
     modal.innerHTML = `
         <div class="rib-mhead">
-            <div>${critical ? `<span class="rib-pill critical">Critical</span>` : ""}${item.corrected ? `<span class="rib-pill corrected">Corrected result</span>` : ""}</div>
+            <div>${critical ? `<span class="rib-pill critical">Critical</span>` : ""}${item?.corrected ? `<span class="rib-pill corrected">Corrected result</span>` : ""}</div>
             <h2 id="ribModalTitle">${esc(order.patient_name)} — ${esc(order.test_name || "Result")}</h2>
             <div class="rib-meta">${meta.map((m) => `<span>${esc(m)}</span>`).join("")}</div>
             ${critical ? `<p class="rib-note">Critical result: acknowledge the critical lab alert with the read-back (bell or the chart's red banner).</p>` : ""}
@@ -346,21 +454,107 @@ async function openResult(id) {
         <div class="rib-mbody">
             ${results.length ? `<table class="rib-table"><thead><tr><th>Test</th><th>Value</th><th>Units</th><th>Range</th><th>Flag</th></tr></thead><tbody>${rows}</tbody></table>`
                 : `<p class="rib-empty">The results were removed from this order.</p>`}
+            <section class="rib-signoff" data-rib-signoff aria-labelledby="ribSignTitle"></section>
         </div>
         <div class="rib-actions">
-            <span class="rib-left">${state.new ? `${state.new} more new` : "No more new results"}</span>
+            <span class="rib-left" data-rib-left></span>
             <button type="button" class="rib-b" data-rib-act="close">Close</button>
             <button type="button" class="rib-b" data-rib-act="chart">Open patient chart</button>
-            ${state.new ? `<button type="button" class="rib-b primary" data-rib-act="next">Next new result</button>` : ""}
+            <button type="button" class="rib-b primary" data-rib-act="next" hidden>Next new result</button>
         </div>`;
     modal.querySelector("[data-rib-act=close]").onclick = closeResult;
     modal.querySelector("[data-rib-act=chart]").onclick = () => {
         closeResult();
         window.__openPatientChartFromReport?.(order.patient_no || order.patient_id);
     };
+    modal.querySelector("[data-rib-act=next]").onclick = openNext;
+    renderSignoff(modal, order, review, results.length > 0);
+    renderFooter(modal);
+    const focus = modal.querySelector("[data-rib-act=next]:not([hidden])") || modal.querySelector("#ribAction") || modal.querySelector("[data-rib-act=close]");
+    focus.focus();
+}
+
+function renderFooter(modal) {
     const next = modal.querySelector("[data-rib-act=next]");
-    if (next) next.onclick = openNext;
-    (next || modal.querySelector("[data-rib-act=close]")).focus();
+    const left = modal.querySelector("[data-rib-left]");
+    next.hidden = !state.new;
+    left.textContent = state.new ? `${state.new} more new` : state.to_review ? `${state.to_review} to review` : "No more new results";
+}
+
+/** The sign-off: who reviewed it and what is to be done, or the form to mark it reviewed. */
+function renderSignoff(modal, order, review, hasResults) {
+    const box = modal.querySelector("[data-rib-signoff]");
+    if (!hasResults) {
+        box.innerHTML = "";
+        return;
+    }
+    const days = review.days_waiting ?? 0;
+    const status = review.reviewed
+        ? `<div class="rib-rev-box ok"><strong>✓ Reviewed</strong> by ${esc(review.reviewed_by_name || "")} · ${esc(fmtDateTime(review.reviewed_at))}
+            <div>${esc(review.action_label || "")}${review.comment ? ` — ${esc(review.comment)}` : ""}</div></div>`
+        : `<div class="rib-rev-box ${review.overdue ? "late" : ""}"><strong>${review.overdue ? "⚑ " : ""}Not reviewed</strong>
+            ${review.results_at ? ` · out for ${days ? `${days} day${days === 1 ? "" : "s"}` : "less than a day"}${review.overdue ? ` — over the ${review.review_days}-day limit` : ` (to be reviewed within ${review.review_days} day${review.review_days === 1 ? "" : "s"})`}` : ""}</div>`;
+    const history = review.history?.length
+        ? `<details class="rib-hist"><summary>Earlier sign-offs (${review.history.length})</summary><ul>${review.history.map((h) =>
+            `<li>${esc(fmtDateTime(h.reviewed_at))} · ${esc(h.reviewed_by_name || "")} · ${esc(h.action_label)}${h.comment ? ` — ${esc(h.comment)}` : ""}</li>`).join("")}</ul></details>` : "";
+    const form = review.can_review ? `
+        <form class="rib-form" data-rib-form ${review.reviewed ? "hidden" : ""} novalidate>
+            <div class="rib-form-row">
+                <div><label for="ribAction">Action</label>
+                    <select id="ribAction">${Object.entries(review.actions).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}</select></div>
+                <div class="grow"><label for="ribComment">Comment <span class="rib-opt">(optional)</span></label>
+                    <textarea id="ribComment" maxlength="1000" rows="2" placeholder="e.g. Repeat potassium tomorrow morning; call the patient with the result"></textarea></div>
+            </div>
+            <div class="rib-err" role="alert"></div>
+            <div class="rib-form-actions">
+                ${review.reviewed ? `<button type="button" class="rib-b" data-rib-cancel>Cancel</button>` : ""}
+                <button type="submit" class="rib-b primary">Mark reviewed</button></div>
+        </form>
+        ${review.reviewed ? `<button type="button" class="rib-link" data-rib-again>Sign off again (change the action or comment)</button>` : ""}` : "";
+    box.innerHTML = `<h3 id="ribSignTitle">Sign-off</h3>${status}${form}${history}`;
+    const f = box.querySelector("[data-rib-form]");
+    if (!f) return;
+    box.querySelector("[data-rib-again]")?.addEventListener("click", (e) => {
+        e.target.hidden = true;
+        f.hidden = false;
+        box.querySelector("#ribAction").value = review.action || "none";
+        box.querySelector("#ribComment").value = review.comment || "";
+        box.querySelector("#ribAction").focus();
+    });
+    box.querySelector("[data-rib-cancel]")?.addEventListener("click", () => renderSignoff(modal, order, review, true));
+    f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const err = f.querySelector(".rib-err");
+        const action = f.querySelector("#ribAction").value;
+        const comment = f.querySelector("#ribComment").value.trim();
+        f.querySelectorAll("[aria-invalid]").forEach((x) => x.removeAttribute("aria-invalid"));
+        if (action === "other" && !comment) {
+            err.textContent = "Say what is to be done.";
+            f.querySelector("#ribComment").setAttribute("aria-invalid", "true");
+            f.querySelector("#ribComment").focus();
+            return;
+        }
+        err.textContent = "";
+        const btn = f.querySelector("button[type=submit]");
+        btn.disabled = true;
+        const res = await api("/results-review", { method: "POST", body: JSON.stringify({ order_id: order.id, action, comment }) }).catch(() => null);
+        btn.disabled = false;
+        if (!res?.success) {
+            err.textContent = res?.message || "Could not save. Try again.";
+            const field = res?.errors?.comment ? "#ribComment" : res?.errors?.action ? "#ribAction" : null;
+            if (field) {
+                f.querySelector(field).setAttribute("aria-invalid", "true");
+                f.querySelector(field).focus();
+            }
+            return;
+        }
+        showToast(res.message, "success");
+        renderSignoff(modal, order, res.data, true);
+        window.dispatchEvent(new CustomEvent("results-reviewed", { detail: { orderId: order.id } }));
+        await poll();
+        renderFooter(modal);
+        modal.querySelector("[data-rib-act=next]:not([hidden])")?.focus();
+    });
 }
 
 /** Straight to the next new one: critical first. */
@@ -372,7 +566,7 @@ async function openNext() {
         poll();
         return;
     }
-    openResult(first.id);
+    openResult({ id: first.id });
 }
 
 function closeResult() {

@@ -70,6 +70,11 @@ export async function openAlertLink(a) {
         openOrCase(Number(link.or_case));
         return true;
     }
+    if (link.result) {
+        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=3");
+        openResultByOrder(Number(link.result));
+        return true;
+    }
     if (link.mar) {
         const { openMar } = await import("../mar/mar.js?v=6");
         openMar(Number(link.mar));
