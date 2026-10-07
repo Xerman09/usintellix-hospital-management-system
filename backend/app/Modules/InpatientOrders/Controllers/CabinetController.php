@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\InpatientOrders\Services\CabinetService;
+use App\Modules\InpatientOrders\Services\RestockService;
 
 class CabinetController extends Controller
 {
@@ -50,6 +51,41 @@ class CabinetController extends Controller
         $request = new Request();
         $levels = $request->input('levels');
         $this->respond($this->service->saveLevels((int) $request->input('ward_id'), is_array($levels) ? $levels : [], $this->user()));
+    }
+
+    /** The pharmacy's restock queue. */
+    public function restockQueue(): void
+    {
+        $this->success((new RestockService())->queue(), 'Retrieved.');
+    }
+
+    /** Body: id, quantities {item_id: qty}, sent_via? */
+    public function restockFill(): void
+    {
+        $request = new Request();
+        $this->respond((new RestockService())->fill((int) $request->input('id'), $request->all(), $this->user()));
+    }
+
+    /** Body: id, lots? [{id, quantity_received, short_reason?, short_notes?}], notes? */
+    public function restockReceive(): void
+    {
+        $request = new Request();
+        $this->respond((new RestockService())->receive((int) $request->input('id'), $request->all(), $this->user()));
+    }
+
+    /** Body: id, reason */
+    public function restockUrgent(): void
+    {
+        $request = new Request();
+        $this->respond((new RestockService())->markUrgent((int) $request->input('id'), (string) $request->input('reason', ''), $this->user()));
+    }
+
+    /** Body: ward_id, urgent?, reason? */
+    public function restockNow(): void
+    {
+        $request = new Request();
+        $this->respond((new RestockService())->requestNow((int) $request->input('ward_id'), !empty($request->input('urgent')),
+            (string) $request->input('reason', ''), $this->user()));
     }
 
     private function user(): array

@@ -58,3 +58,11 @@ $router->post('/ward-cabinet/withdraw', [CabinetController::class, 'withdraw'], 
 $router->post('/ward-cabinet/return', [CabinetController::class, 'giveBack'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/ward-cabinet/waste', [CabinetController::class, 'waste'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
 $router->post('/ward-cabinet/levels', [CabinetController::class, 'levels'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist', 'charge_nurse']]]);
+
+// Restocking the cabinets: automatic requests to the pharmacy, filled as stock transfers,
+// receipt confirmed by the ward.
+$router->get('/ward-cabinet/restock-queue', [CabinetController::class, 'restockQueue'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist']]]);
+$router->post('/ward-cabinet/restock/fill', [CabinetController::class, 'restockFill'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'pharmacist']]]);
+$router->post('/ward-cabinet/restock/receive', [CabinetController::class, 'restockReceive'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/ward-cabinet/restock/urgent', [CabinetController::class, 'restockUrgent'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);
+$router->post('/ward-cabinet/restock/request', [CabinetController::class, 'restockNow'], [AuthMiddleware::class, [RoleMiddleware::class, $marGivers]]);

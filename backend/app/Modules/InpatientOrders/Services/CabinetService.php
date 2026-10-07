@@ -140,6 +140,8 @@ class CabinetService
                 array_filter($levels['items'] ?? [], fn($i) => $i['is_active'] && $i['min_level'] === null && $i['on_hand'] <= self::EPSILON))) : [],
             'patients' => $patients,
             'open' => $this->openRows($db, $cabinetId),
+            'restock' => (new RestockService())->forCabinet($cabinetId),
+            'pharmacy_set' => (new MedSupplyService())->pharmacyLocation() !== null,
             'activity' => array_map(fn($r) => $this->shape($r), $act->fetchAll(PDO::FETCH_ASSOC)),
             'can_take' => in_array($actor['role'] ?? '', self::TAKERS, true),
             'now' => (string) $db->query("SELECT NOW()")->fetchColumn(),
@@ -239,6 +241,12 @@ class CabinetService
             $this->rollBack($db, $owns);
             throw $e;
         }
+        // Below the minimum now? Restock request to the pharmacy.
+        try {
+            (new RestockService())->check($cabinetId, (int) $actor['id']);
+        } catch (\Throwable $e) {
+            error_log('restock check failed: ' . $e->getMessage());
+        }
         $w = $this->withdrawal($id);
         return ['success' => true, 'message' => MedSupplyService::num($qty) . " {$w['unit_name']}(s) of {$o['drug_name']} taken out for {$a['patient_name']}. Record the dose on the MAR when given.", 'data' => $w];
     }
@@ -329,7 +337,19 @@ class CabinetService
         if (!$cabinetId) {
             return ['success' => false, 'message' => 'This ward has no medicine cabinet set up.'];
         }
-        return (new StockLevelService())->save($cabinetId, $levels, (int) $actor['id']);
+        $res = (new StockLevelService())->save($cabinetId, $levels, (int) $actor['id']);
+        if (!empty($res['success'])) {
+            // A minimum raised above the stock: restock request now.
+            try {
+                $made = (new RestockService())->check($cabinetId, (int) $actor['id']);
+                if ($made) {
+                    $res['message'] .= " Restock request {$made['st_number']} " . ($made['created'] ? 'sent to' : 'updated for') . ' the pharmacy.';
+                }
+            } catch (\Throwable $e) {
+                error_log('restock check failed: ' . $e->getMessage());
+            }
+        }
+        return $res;
     }
 
     public function withdrawal(int $id): ?array

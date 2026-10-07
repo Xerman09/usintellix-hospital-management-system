@@ -358,6 +358,12 @@ class MedSupplyService
     // Internals
     // ------------------------------------------------------------------
 
+    /** The pharmacy location ward medicines (and cabinet restocks) come from, or null. */
+    public function pharmacyLocation(): ?int
+    {
+        return $this->locations(Database::connection(), 0)[1];
+    }
+
     /** [ward stock location or null, pharmacy location or null]. Pharmacy: the setting, else a location named "pharmacy". */
     private function locations(PDO $db, int $wardId): array
     {

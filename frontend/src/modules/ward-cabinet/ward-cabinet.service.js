@@ -15,3 +15,13 @@ export const returnWithdrawal = (id, reason = "") => post("/ward-cabinet/return"
 export const wasteWithdrawal = (id, data) => post("/ward-cabinet/waste", { id, ...data });
 /** levels: [{drug_id, min_level, max_level}] */
 export const saveCabinetLevels = (wardId, levels) => post("/ward-cabinet/levels", { ward_id: wardId, levels });
+
+/* ---- restocking ---- */
+/** The pharmacy's queue: requests waiting to be filled, and those on the way. */
+export const fetchRestockQueue = () => api("/ward-cabinet/restock-queue");
+/** quantities: {item_id: qty} (0 = leave out) */
+export const fillRestock = (id, quantities, sentVia = "") => post("/ward-cabinet/restock/fill", { id, quantities, sent_via: sentVia });
+/** lots: [{id, quantity_received, short_reason?, short_notes?}] -- left out = arrived in full */
+export const receiveRestock = (id, lots = [], notes = "") => post("/ward-cabinet/restock/receive", { id, lots, notes });
+export const flagRestockUrgent = (id, reason) => post("/ward-cabinet/restock/urgent", { id, reason });
+export const requestRestockNow = (wardId, urgent = false, reason = "") => post("/ward-cabinet/restock/request", { ward_id: wardId, urgent: urgent ? 1 : 0, reason });

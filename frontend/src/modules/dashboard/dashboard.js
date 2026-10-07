@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=147";
+import { getNavLinks } from "./dashboard.view.js?v=148";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -298,7 +298,7 @@ import { InpatientVitalsView } from "../inpatient-vitals/inpatient-vitals.view.j
 import { initInpatientVitals } from "../inpatient-vitals/inpatient-vitals.js?v=7";
 import { MedVerificationView, initMedVerification } from "../med-orders/med-orders.js?v=5";
 import { MarBoardView, initMarBoard } from "../mar/mar.js?v=5";
-import { WardCabinetView, initWardCabinet } from "../ward-cabinet/ward-cabinet.js?v=2";
+import { WardCabinetView, initWardCabinet, RestockQueueView, initRestockQueue } from "../ward-cabinet/ward-cabinet.js?v=3";
 import { DdRegisterView, initDdRegister } from "../mar/dd-register.js?v=3";
 import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
@@ -1551,6 +1551,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'OR Reports', () => {
                 setTimeout(initOrReports, 0);
                 return OrReportsView();
+            }, activate);
+        } else if (tabId === 'restock_queue') {
+            tabManager.openTab(tabId, 'Restock Requests', () => {
+                setTimeout(initRestockQueue, 0);
+                return RestockQueueView();
             }, activate);
         } else if (tabId === 'ward_cabinet') {
             tabManager.openTab(tabId, 'Ward Cabinet', () => {

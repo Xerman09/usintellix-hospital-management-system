@@ -45,9 +45,10 @@ class StockTransferService
 
     public const EDITABLE_STATUSES = ['draft', 'requested'];
 
-    public const STAFF_ROLES = PurchaseOrderService::CREATOR_ROLES;
+    /** Plus the pharmacist, who fills the wards' restock requests. */
+    public const STAFF_ROLES = [...PurchaseOrderService::CREATOR_ROLES, 'pharmacist'];
 
-    public const VIEW_ROLES = ['admin', 'receptionist', 'doctor', 'accountant'];
+    public const VIEW_ROLES = ['admin', 'receptionist', 'doctor', 'accountant', 'pharmacist'];
 
     public const PRIORITIES = ['normal', 'urgent'];
 
@@ -291,9 +292,10 @@ class StockTransferService
      * ------------------------------------------------------------- */
 
     /** action: draft (default) | request | send. Body also: sent_date?, sent_via? when sending. */
-    public function create(array $data, array $user): array
+    /** $trusted: made by the system (an automatic restock request), not checked against STAFF_ROLES. */
+    public function create(array $data, array $user, bool $trusted = false): array
     {
-        return $this->save(null, $data, $user);
+        return $this->save(null, $data, $user, $trusted);
     }
 
     public function update(int $id, array $data, array $user): array
@@ -311,9 +313,9 @@ class StockTransferService
         return $this->save($existing, $data, $user);
     }
 
-    private function save(?array $existing, array $data, array $user): array
+    private function save(?array $existing, array $data, array $user, bool $trusted = false): array
     {
-        if (!in_array($user['role'] ?? null, self::STAFF_ROLES, true)) {
+        if (!$trusted && !in_array($user['role'] ?? null, self::STAFF_ROLES, true)) {
             return ['success' => false, 'message' => 'Only storage location staff can make transfers.'];
         }
 
@@ -613,7 +615,8 @@ class StockTransferService
      * lots: [{id, quantity_received, short_reason?, short_notes?}] -- a lot
      * left out arrived in full.
      */
-    public function receive(int $id, array $data, array $user): array
+    /** $trusted: the caller checked who may receive (e.g. a ward nurse confirming a cabinet restock). */
+    public function receive(int $id, array $data, array $user, bool $trusted = false): array
     {
         $existing = $this->find($id);
 
@@ -621,7 +624,7 @@ class StockTransferService
             return ['success' => false, 'message' => 'Transfer not found.', 'not_found' => true];
         }
 
-        if (!in_array($user['role'] ?? null, self::STAFF_ROLES, true)) {
+        if (!$trusted && !in_array($user['role'] ?? null, self::STAFF_ROLES, true)) {
             return ['success' => false, 'message' => 'Only storage location staff can receive transfers.'];
         }
 

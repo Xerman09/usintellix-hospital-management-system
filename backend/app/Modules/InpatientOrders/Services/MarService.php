@@ -303,6 +303,14 @@ class MarService
         if ($supply['source'] === 'cabinet') {
             AlertService::resolveByKey("cabopen:{$supply['withdrawal_id']}", (int) $actor['id'], 'Given');
         }
+        if ($supply['source'] === 'stock') {
+            // Taken straight from a ward cabinet: below its minimum now?
+            try {
+                (new RestockService())->check((int) $supply['warehouse_id'], (int) $actor['id']);
+            } catch (\Throwable $e) {
+                error_log('restock check failed: ' . $e->getMessage());
+            }
+        }
         $rec = $this->record($id);
         $msg = $witness ? "Recorded as given, checked by {$witness['name']}." : 'Recorded as given.';
         if ($rec['recheck_due_at']) {
@@ -611,6 +619,13 @@ class MarService
                 }
                 $raised[] = ['order_id' => 0, 'at' => $r['given_at'], 'patient' => $r['patient_name'], 'drug' => ($overdue ? 'pain recheck overdue: ' : 'pain recheck: ') . $r['drug_name']];
             }
+        }
+
+        // Cabinets below their minimum (e.g. after a stock count): restock requests to the pharmacy.
+        try {
+            (new RestockService())->checkAll();
+        } catch (\Throwable $e) {
+            error_log('restock check failed: ' . $e->getMessage());
         }
 
         // Taken out of the cabinet over an hour ago and not given, returned or wasted: remind whoever took it.
