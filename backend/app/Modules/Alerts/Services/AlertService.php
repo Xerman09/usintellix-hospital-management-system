@@ -36,6 +36,7 @@ class AlertService
         'medication'   => 'Medication',
         'or_case'      => 'Surgery',
         'task'         => 'Task',
+        'assignment'   => 'Patient assignment',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

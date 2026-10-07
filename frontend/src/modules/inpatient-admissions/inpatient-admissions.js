@@ -12,7 +12,7 @@ import {
     createBed
 } from './inpatient-admissions.service.js?v=2';
 import { showToast } from '../../core/toast.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=1';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=2';
 import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
@@ -499,7 +499,7 @@ function filterAndRenderBeds() {
             return false;
         }
         if (searchQuery) {
-            const matchStr = `${b.bed_number} ${b.room_number} ${b.patient_name || ''} ${b.patient_mrn || ''} ${b.attending_physician || ''} ${b.admitting_diagnosis || ''}`.toLowerCase();
+            const matchStr = `${b.bed_number} ${b.room_number} ${b.patient_name || ''} ${b.patient_mrn || ''} ${b.attending_physician || ''} ${b.admitting_diagnosis || ''} ${b.shift_nurse_name || ''} ${b.shift_cna_name || ''}`.toLowerCase();
             if (!matchStr.includes(searchQuery)) return false;
         }
         return true;
@@ -644,6 +644,14 @@ function renderBedCard(bed) {
                     <div class="bed-detail-row">
                         <span class="bed-detail-label">Admitted / LOS:</span>
                         <span class="bed-detail-val">${formattedAdmDate} (${bed.los_days || 0}d)</span>
+                    </div>
+                    <div class="bed-detail-row">
+                        <span class="bed-detail-label">Nurse (shift):</span>
+                        <span class="bed-detail-val">${bed.shift_nurse_name ? esc(bed.shift_nurse_name) : '<span style="color:#b45309;font-weight:600">Not assigned</span>'}</span>
+                    </div>
+                    <div class="bed-detail-row">
+                        <span class="bed-detail-label">CNA (shift):</span>
+                        <span class="bed-detail-val">${bed.shift_cna_name ? esc(bed.shift_cna_name) : '--'}</span>
                     </div>
                     ${bed.primary_nurse ? `
                     <div class="bed-detail-row">
@@ -797,7 +805,7 @@ function renderTable(beds) {
                     ` : '<span style="color: #94a3b8;">-- Vacant --</span>'}
                 </td>
                 <td>${bed.patient_age ? `${bed.patient_age}y / ${esc(bed.patient_gender || '')}` : '--'}</td>
-                <td>${esc(bed.attending_physician || '--')}</td>
+                <td>${esc(bed.attending_physician || '--')}${bed.patient_name ? `<br><span style="font-size: 11px; color: #64748b;">RN: ${esc(bed.shift_nurse_name || 'not assigned')}${bed.shift_cna_name ? ` · CNA: ${esc(bed.shift_cna_name)}` : ''}</span>` : ''}</td>
                 <td>${bed.admission_date ? `${bed.admission_date.substring(0, 10)} (${bed.los_days || 0}d)` : '--'}</td>
                 <td>
                     ${bed.admitting_diagnosis ? esc(bed.admitting_diagnosis) : '--'}

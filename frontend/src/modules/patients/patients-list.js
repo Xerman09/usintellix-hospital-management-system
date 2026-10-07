@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=79";
+import { PatientChartView } from "./patients-list.view.js?v=80";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2724,6 +2724,7 @@ export async function initPatientChartTab(patient)
     loadPatientDashboardWidgets(patient);
     loadDashboardAppointments(patient);
     loadDashboardSurgeries(patient);
+    loadDashboardNursing(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -6955,6 +6956,52 @@ function renderVitalsAiExplanation(container, data)
 }
 
 /** Surgeries widget: open requests (with readiness), OR cases, past surgeries. */
+/** Nursing widget: ward / bed, the nurse and CNA this shift (and next), the latest hand-over. */
+async function loadDashboardNursing(patient)
+{
+    const body = document.getElementById("pdNursingBody");
+    const btn = document.getElementById("pdNursingHandoverBtn");
+    if (!body) return;
+    try {
+        const { fetchPatientNursing } = await import("../nurse-assignments/nurse-assignments.service.js?v=1");
+        const result = await fetchPatientNursing(patient.id);
+        if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
+        if (!result.success) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load the nursing team right now.")}</p></div>`;
+            return;
+        }
+        const d = result.data;
+        if (!d) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>Not admitted. The nurse and CNA show here while the patient is in a ward.</p></div>`;
+            if (btn) btn.disabled = true;
+            return;
+        }
+        const who = (name) => (name ? `<span class="v">${escapeHtml(name)}</span>` : `<span class="v none">Not assigned</span>`);
+        const h = d.latest_handover;
+        const shiftName = (s) => (s?.shift?.name || "");
+        body.innerHTML = `
+            <div class="pd-msg-preview" style="white-space:normal">${escapeHtml(`${d.ward} · Room ${d.room} · Bed ${d.bed}`)}${d.status === "Pending Discharge" ? " · going home" : ""}</div>
+            <div class="pd-nurse-grid">
+                <div class="pd-nurse-cell"><div class="k">Nurse · ${escapeHtml(shiftName(d.shift))}</div>${who(d.team.nurse_name)}</div>
+                <div class="pd-nurse-cell"><div class="k">CNA · ${escapeHtml(shiftName(d.shift))}</div>${who(d.team.cna_name)}</div>
+            </div>
+            <div class="pd-nurse-ho">Next shift (${escapeHtml(shiftName(d.next_shift))}): ${escapeHtml(d.next_team.nurse_name || "nurse not assigned yet")}</div>
+            <div class="pd-nurse-ho" style="margin-top:6px">${h
+                ? `Last hand-over (${escapeHtml(h.shift_name)}, ${escapeHtml(h.written_by_name || "")}): <span class="s">${escapeHtml(h.situation.length > 120 ? h.situation.slice(0, 120) + "…" : h.situation)}</span> · ${h.received_at ? "received" : "<strong>not received yet</strong>"}`
+                : "No hand-over written yet."}</div>`;
+        if (btn) {
+            btn.disabled = false;
+            btn.onclick = async () => {
+                const { openHandovers } = await import("../nurse-assignments/nurse-assignments.js?v=1");
+                openHandovers(d.admission_id, { onChange: () => loadDashboardNursing(patient) });
+            };
+        }
+    } catch (error) {
+        console.error("Failed to load nursing team", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load the nursing team right now.</p></div>`;
+    }
+}
+
 async function loadDashboardSurgeries(patient)
 {
     const body = document.getElementById("pdSurgeriesBody");

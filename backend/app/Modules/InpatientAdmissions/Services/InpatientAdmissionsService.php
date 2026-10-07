@@ -54,6 +54,13 @@ class InpatientAdmissionsService
 
         $whereClause = implode(' AND ', $where);
 
+        // The nurse and CNA assigned to each patient for the shift running now.
+        $currentShift = (new \App\Modules\NursingStaff\Services\NursingShiftService())->current();
+        $params['cur_d'] = $currentShift['date'];
+        $params['cur_s'] = (int) ($currentShift['shift']['id'] ?? 0);
+        $nameSql = fn(string $col) => "(SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ne.first_name, ''), ' ', COALESCE(ne.last_name, ''))), ''), nu.username)
+                 FROM users nu LEFT JOIN employees ne ON ne.user_id = nu.id AND ne.deleted_at IS NULL WHERE nu.id = {$col} LIMIT 1)";
+
         $bedSql = "
             SELECT 
                 b.*,
@@ -78,10 +85,15 @@ class InpatientAdmissionsService
                 a.expected_discharge_date,
                 a.status AS admission_status,
                 TIMESTAMPDIFF(DAY, a.admission_date, NOW()) AS los_days,
-                TIMESTAMPDIFF(HOUR, a.admission_date, NOW()) AS los_hours
+                TIMESTAMPDIFF(HOUR, a.admission_date, NOW()) AS los_hours,
+                npa.nurse_user_id AS shift_nurse_user_id,
+                IF(npa.nurse_user_id IS NULL, NULL, " . $nameSql('npa.nurse_user_id') . ") AS shift_nurse_name,
+                npa.cna_user_id AS shift_cna_user_id,
+                IF(npa.cna_user_id IS NULL, NULL, " . $nameSql('npa.cna_user_id') . ") AS shift_cna_name
             FROM hospital_beds b
             JOIN hospital_wards w ON b.ward_id = w.id
             LEFT JOIN inpatient_admissions a ON b.current_admission_id = a.id
+            LEFT JOIN nurse_patient_assignments npa ON npa.admission_id = a.id AND npa.shift_date = :cur_d AND npa.shift_id = :cur_s
             WHERE {$whereClause}
             ORDER BY w.id ASC, b.room_number ASC, b.bed_number ASC
         ";
@@ -164,6 +176,7 @@ class InpatientAdmissionsService
                 'active_inpatients'       => $activeInpatients,
             ],
             'recent_transfers' => $transfers,
+            'current_shift' => $currentShift,
         ];
     }
 

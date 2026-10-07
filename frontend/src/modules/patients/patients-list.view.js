@@ -1950,6 +1950,14 @@ export function PatientsListView(user)
     background-color: #059669;
 }
 
+/* Nursing widget: this shift's nurse / CNA and the latest hand-over. */
+.pd-nurse-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 8px; }
+.pd-nurse-cell { background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-color, #e5e9f2); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+.pd-nurse-cell .k { font-size: 11px; color: var(--text-muted, #71809b); text-transform: uppercase; letter-spacing: .03em; }
+.pd-nurse-cell .v { font-weight: 600; overflow-wrap: anywhere; }
+.pd-nurse-cell .v.none { color: #b45309; }
+.pd-nurse-ho { font-size: 12.5px; color: var(--text-muted, #71809b); overflow-wrap: anywhere; }
+.pd-nurse-ho .s { color: var(--text-primary, #24324a); }
 /* Surgeries widget: section labels between requests / OR cases / history. */
 .pd-surg-list {
     display: flex;
@@ -7212,6 +7220,14 @@ textarea.pd-sdoh-readonly {
     background-color: #059669;
 }
 
+/* Nursing widget: this shift's nurse / CNA and the latest hand-over. */
+.pd-nurse-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 8px; }
+.pd-nurse-cell { background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-color, #e5e9f2); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+.pd-nurse-cell .k { font-size: 11px; color: var(--text-muted, #71809b); text-transform: uppercase; letter-spacing: .03em; }
+.pd-nurse-cell .v { font-weight: 600; overflow-wrap: anywhere; }
+.pd-nurse-cell .v.none { color: #b45309; }
+.pd-nurse-ho { font-size: 12.5px; color: var(--text-muted, #71809b); overflow-wrap: anywhere; }
+.pd-nurse-ho .s { color: var(--text-primary, #24324a); }
 /* Surgeries widget: section labels between requests / OR cases / history. */
 .pd-surg-list {
     display: flex;
@@ -7711,6 +7727,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Clinical Reminders", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M9 19l3 3 3-3M19 9l3 3-3 3M2 12h20M12 2v20"></path>', "No clinical reminders.", { bodyId: "pdClinicalRemindersBody", addBtnId: "pdClinicalRemindersAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Care Experience Preferences", '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"></path>', "No care experience preferences recorded.", { bodyId: "pdCarePreferencesBody", addBtnId: "pdCarePreferencesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-carePreferences" })}
                     ${dashboardWidget("Treatment Intervention Preferences", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No treatment intervention preferences recorded.", { bodyId: "pdTreatmentPreferencesBody", addBtnId: "pdTreatmentPreferencesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-treatmentPreferences" })}
+                    ${dashboardWidget("Nursing (this shift)", '<path d="M12 2v6M9 5h6"></path><circle cx="12" cy="14" r="3"></circle><path d="M5 22v-1a7 7 0 0 1 14 0v1"></path>', "Not admitted.", { bodyId: "pdNursingBody", addBtnId: "pdNursingHandoverBtn", addBtnLabel: "Hand-over", addBtnDisabled: true, widgetId: "pdWidget-nursing" })}
                     ${dashboardWidget("Care Team", '<circle cx="12" cy="8" r="4"></circle><path d="M6 21v-2a6 6 0 0 1 12 0v2"></path>', "No care team recorded yet.", { bodyId: "pdCareTeamBody", addBtnId: "pdCareTeamAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Allergies", '<path d="M12 2 2 22h20L12 2Z"></path><path d="M12 9v5M12 17h.01"></path>', "No known allergies recorded.", { bodyId: "pdAllergiesBody", addBtnId: "pdAllergiesAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Problems", '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path>', "No active problems recorded.", { bodyId: "pdProblemsBody", addBtnId: "pdProblemsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false, widgetId: "pdWidget-issues" })}
