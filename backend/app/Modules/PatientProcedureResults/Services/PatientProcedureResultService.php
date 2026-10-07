@@ -113,7 +113,8 @@ class PatientProcedureResultService
                     $now,
                     $userId
                 ]);
-                $flags[] = ['result_id' => (int) $pdo->lastInsertId(), 'name' => $row['name'], 'value' => $row['value'] ?? null, 'units' => $row['units'] ?? null] + $f;
+                $flags[] = ['result_id' => (int) $pdo->lastInsertId(), 'name' => $row['name'], 'value' => $row['value'] ?? null, 'units' => $row['units'] ?? null,
+                    'reference_range' => $row['reference_range'] ?? null] + $f;
             }
 
             $updateOrder = $pdo->prepare(

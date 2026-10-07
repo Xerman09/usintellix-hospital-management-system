@@ -367,11 +367,19 @@ class AlertService
     }
 
     /** Acknowledge an urgent / critical alert. The first acknowledgement closes it for everyone. */
-    public function acknowledge(int $id, array $user, string $note = ''): array
+    /** $readBack: called by CriticalLabService with the read-back recorded (critical lab alerts need it). */
+    public function acknowledge(int $id, array $user, string $note = '', bool $readBack = false): array
     {
         $db = Database::connection();
         if (!$this->canSee($db, $id, $user, false)) {
             return ['success' => false, 'message' => 'Alert not found.', 'not_found' => true];
+        }
+        $type = $db->prepare("SELECT alert_type, acknowledged_at FROM alerts WHERE id = :id");
+        $type->execute(['id' => $id]);
+        $t = $type->fetch(PDO::FETCH_ASSOC);
+        if ($t && $t['alert_type'] === 'critical_lab' && !$readBack && !$t['acknowledged_at']) {
+            return ['success' => false, 'needs_readback' => true,
+                'message' => 'A critical lab result is acknowledged with its read-back: who was told, when, and what was done.'];
         }
         $note = trim($note);
         if (mb_strlen($note) > 500) {

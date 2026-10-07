@@ -46,6 +46,14 @@ class AlertEscalationService
             $step = $this->dueStep($a, $policies, $now);
             if ($step && ($r = $this->escalate($db, (int) $a['id'], (int) $a['escalation_level'], $step))) {
                 $done[] = $r;
+                if ($a['alert_type'] === 'critical_lab') {
+                    // The Critical TAT report shows the escalation.
+                    try {
+                        (new \App\Modules\LabRanges\Services\CriticalLabService())->onEscalated((int) $a['id'], $r['to']);
+                    } catch (\Throwable $e) {
+                        error_log('critical TAT escalation note failed: ' . $e->getMessage());
+                    }
+                }
             }
         }
         return $done;

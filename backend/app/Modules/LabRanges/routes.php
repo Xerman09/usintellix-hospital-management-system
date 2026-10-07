@@ -18,3 +18,6 @@ $router->post('/lab-ranges/test', [LabRangeController::class, 'test'], [AuthMidd
 // The chart's red banner: a patient's critical results and whether they were acknowledged.
 $router->get('/critical-labs/patient', [LabRangeController::class, 'patientCritical'], [AuthMiddleware::class, [RoleMiddleware::class,
     ['admin', 'doctor', 'clinician', 'nurse', 'charge_nurse', 'lab_technician', 'pharmacist', 'cna']]]);
+
+// Acknowledge a critical lab alert with the read-back (anyone the alert reached).
+$router->post('/critical-labs/acknowledge', [LabRangeController::class, 'acknowledge'], [AuthMiddleware::class]);

@@ -1,4 +1,5 @@
 import { pollAlerts, markAlertsSeen, markAlertRead, markAllAlertsRead, acknowledgeAlert } from "./alerts.service.js?v=2";
+import { readBackFormHtml, bindReadBack, submitReadBack } from "../lab-ranges/readback.js?v=1";
 import { showToast } from "../../core/toast.js";
 
 /*
@@ -534,15 +535,18 @@ function renderPopup() {
             <div class="alb-meta">${esc([a.patient_name ? `Patient: ${a.patient_name}` : "", `From ${a.created_by_name}`, fmtDateTime(a.created_at)].filter(Boolean).join(" · "))}</div>
             ${a.escalation_level ? `<div class="alb-esc">Escalated (level ${a.escalation_level}): nobody acknowledged it in time.</div>` : ""}
             ${a.body ? `<p>${esc(a.body)}</p>` : ""}
-            <label for="albNote">Note (optional) — e.g. what you did</label>
-            <textarea id="albNote" maxlength="500"></textarea>
+            ${a.type === "critical_lab"
+                ? `<strong style="display:block;margin:6px 0">Read-back</strong>${readBackFormHtml("albRb")}`
+                : `<label for="albNote">Note (optional) — e.g. what you did</label>
+            <textarea id="albNote" maxlength="500"></textarea>`}
         </div>
         <div class="alb-actions">
             <span class="alb-more">${others ? `${others} more critical` : ""}</span>
             ${a.urgency !== "critical" ? `<button type="button" class="alb-b" data-alb-pop="later">Later</button>` : ""}
-            ${hasLink(a) ? `<button type="button" class="alb-b" data-alb-pop="ack-open">Acknowledge &amp; open</button>` : ""}
-            <button type="button" class="alb-b red" data-alb-pop="ack">Acknowledge</button>
+            ${hasLink(a) ? `<button type="button" class="alb-b" data-alb-pop="ack-open">${a.type === "critical_lab" ? "Record &amp; open the chart" : "Acknowledge &amp; open"}</button>` : ""}
+            <button type="button" class="alb-b red" data-alb-pop="ack">${a.type === "critical_lab" ? "Record read-back &amp; acknowledge" : "Acknowledge"}</button>
         </div>`;
+    if (a.type === "critical_lab") bindReadBack(modal, "albRb");
     modal.onclick = (e) => onPopupClick(e, a);
     overlay.classList.add("open");
     markAlertsSeen([a.id]).catch(() => {});
@@ -562,13 +566,22 @@ async function onPopupClick(e, a) {
     }
     const buttons = e.currentTarget.querySelectorAll("button");
     buttons.forEach((b) => (b.disabled = true));
-    const note = document.getElementById("albNote")?.value || "";
-    const res = await acknowledgeAlert(a.id, note).catch(() => null);
-    buttons.forEach((b) => (b.disabled = false));
+    let res;
+    if (a.type === "critical_lab") {
+        // Who was told, when, how, read back, what was done -- shown in the form when incomplete.
+        res = await submitReadBack(e.currentTarget, "albRb", a.id);
+        buttons.forEach((b) => (b.disabled = false));
+        if (!res?.success) return;
+    } else {
+        const note = document.getElementById("albNote")?.value || "";
+        res = await acknowledgeAlert(a.id, note).catch(() => null);
+        buttons.forEach((b) => (b.disabled = false));
+    }
     if (!res?.success) {
         showToast(res?.message || "Could not acknowledge. Try again.", "error");
         return;
     }
+    if (a.type === "critical_lab") showToast(res.message, "success", 5000);
     if (res.data?.already) showToast(res.message, "success", 5000);
     forced = null;
     state.popups = state.popups.filter((x) => x.id !== a.id);

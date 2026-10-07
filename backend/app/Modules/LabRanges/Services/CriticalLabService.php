@@ -19,11 +19,19 @@ use PDO;
  *     corrected result (no longer critical, or a different value) closes the old alert.
  *   * The patient's chart shows a red banner with the critical results of the last days and
  *     whether each was acknowledged (forPatient()).
+ *   * Read-back (Phase 3): the alert is acknowledged only with who was told, when, how, that
+ *     they read the result back, and what was done (acknowledge()). Every alert has a row in
+ *     the Critical TAT report (critical_result_turnaround, source 'auto'): made when the alert
+ *     goes out, completed by the read-back, marked when it escalates or the result is corrected.
  */
 class CriticalLabService
 {
     /** Critical results stay on the chart banner this long after they're acknowledged. */
     public const BANNER_DAYS = 3;
+    /** How the person responsible was told. */
+    public const METHODS = ['In-Person' => 'In person', 'Phone' => 'Phone', 'EHR Alert' => 'Read the alert in the system', 'SMS' => 'SMS / text', 'Pager' => 'Pager'];
+    /** Minutes within which a critical result must reach the person responsible (the report's limit). */
+    public const POLICY_MINUTES = 30;
 
     /**
      * After an order's results were saved. flags: [{result_id, name, value, units, flag, detail}].
@@ -62,6 +70,11 @@ class CriticalLabService
             ], $actorId ?: null);
             if (!empty($res['success'])) {
                 $raised[] = ['key' => $key, 'name' => $f['name'], 'value' => $value];
+                try {
+                    $this->openTat($db, (int) $res['data']['id'], $o, $f, $actorId);
+                } catch (\Throwable $e) {
+                    error_log('critical TAT row failed: ' . $e->getMessage());
+                }
             } else {
                 error_log('critical lab alert not sent: ' . json_encode($res));
             }
@@ -72,6 +85,10 @@ class CriticalLabService
         foreach ($open->fetchAll(PDO::FETCH_COLUMN) as $k) {
             if (!isset($current[$k])) {
                 AlertService::resolveByKey($k, $actorId ?: null, 'Result corrected');
+                $db->prepare(
+                    "UPDATE critical_result_turnaround t JOIN alerts a ON a.id = t.alert_id SET t.notes = CONCAT(COALESCE(CONCAT(t.notes, ' '), ''), :n), t.updated_at = NOW()
+                     WHERE a.dedupe_key = :k AND t.acknowledged_at IS NULL"
+                )->execute(['n' => 'Result corrected by the lab before it was acknowledged; alert closed.', 'k' => $k]);
             }
         }
         return $raised;
@@ -131,6 +148,132 @@ class CriticalLabService
         return ['results' => array_slice($rows, 0, 20), 'unacknowledged' => count(array_filter($rows, fn($r) => !$r['acknowledged_at']))];
     }
 
+    /**
+     * Acknowledge a critical lab alert with its read-back.
+     * data: told_self (1: I am the one responsible) | told_name + told_role?, told_at? (default now),
+     *       method (METHODS), read_back (must be 1), action (what was done)
+     */
+    public function acknowledge(int $alertId, array $data, array $actor): array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("SELECT id, alert_type, created_at, acknowledged_at FROM alerts WHERE id = :id");
+        $stmt->execute(['id' => $alertId]);
+        $a = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$a || $a['alert_type'] !== 'critical_lab') {
+            return ['success' => false, 'message' => 'Critical lab alert not found.', 'not_found' => true];
+        }
+        $errors = [];
+        $self = !empty($data['told_self']);
+        $me = $this->userName($db, (int) $actor['id']) ?: 'me';
+        $toldName = $self ? $me : trim((string) ($data['told_name'] ?? ''));
+        $toldRole = $self ? self::roleLabel((string) ($actor['role'] ?? '')) : trim((string) ($data['told_role'] ?? ''));
+        if ($toldName === '') {
+            $errors['told_name'] = 'Who was told (e.g. Dr Santos, the attending)?';
+        }
+        $method = (string) ($data['method'] ?? '');
+        if (!array_key_exists($method, self::METHODS)) {
+            $errors['method'] = 'How were they told?';
+        }
+        $now = (string) $db->query("SELECT NOW()")->fetchColumn();
+        $at = $now;
+        if (!empty($data['told_at'])) {
+            $raw = str_replace('T', ' ', trim((string) $data['told_at']));
+            $at = preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $raw) ? substr($raw . ':00', 0, 19) : '';
+            if ($at === '') {
+                $errors['told_at'] = 'Invalid time.';
+            } elseif ($at > date('Y-m-d H:i:s', strtotime($now) + 300)) {
+                $errors['told_at'] = 'That time is in the future.';
+            } elseif ($at < substr($a['created_at'], 0, 16) . ':00') {
+                $errors['told_at'] = 'That is before the result came out.';
+            }
+        }
+        if (empty($data['read_back'])) {
+            $errors['read_back'] = 'The person told must read the result back to you (patient, test, value); confirm that they did.';
+        }
+        $action = trim((string) ($data['action'] ?? ''));
+        if ($action === '') {
+            $errors['action'] = 'What was done about it (e.g. repeat test, medicine given, doctor coming)?';
+        } elseif (mb_strlen($action) > 1000) {
+            $errors['action'] = 'Keep it under 1000 characters.';
+        }
+        if ($errors) {
+            return ['success' => false, 'message' => reset($errors), 'errors' => $errors];
+        }
+        $note = "Read-back: {$toldName}" . ($toldRole !== '' ? " ({$toldRole})" : '') . ', ' . self::METHODS[$method] . ', ' . date('g:i A', strtotime($at))
+            . ". Action: {$action}";
+        $ack = (new AlertService())->acknowledge($alertId, $actor, mb_substr($note, 0, 500), true);
+        if (empty($ack['success']) || !empty($ack['data']['already'])) {
+            return $ack;
+        }
+        $tat = $db->prepare("SELECT id FROM critical_result_turnaround WHERE alert_id = :a");
+        $tat->execute(['a' => $alertId]);
+        if ($tid = (int) $tat->fetchColumn()) {
+            $reports = new \App\Modules\Reports\Services\ReportService();
+            $row = $reports->updateCriticalTATRecord($tid, [
+                'acknowledged_at' => $at, 'acknowledged_by' => mb_substr($toldName, 0, 200), 'acknowledged_by_role' => $toldRole !== '' ? mb_substr($toldRole, 0, 150) : null,
+                'read_back_confirmed' => 1, 'documented_in_chart_at' => $now, 'action_taken' => $action,
+                'first_call_method' => $method,
+            ]);
+            $db->prepare("UPDATE critical_result_turnaround SET status = :s, recorded_by = :u WHERE id = :id")
+                ->execute(['s' => (int) ($row['jcaho_compliant'] ?? 0) === 1 ? 'Documented' : 'Breached', 'u' => (int) $actor['id'], 'id' => $tid]);
+        }
+        return ['success' => true, 'message' => "Read-back recorded: {$toldName} was told at " . date('g:i A', strtotime($at)) . '.', 'data' => ['tat_id' => $tid ?: null]];
+    }
+
+    /** The alert escalated: the report row shows it. */
+    public function onEscalated(int $alertId, string $to): void
+    {
+        Database::connection()->prepare(
+            "UPDATE critical_result_turnaround SET status = 'Escalated', escalated_to = TRIM(BOTH '; ' FROM CONCAT(COALESCE(escalated_to, ''), '; ', :to)), updated_at = NOW()
+             WHERE alert_id = :a AND acknowledged_at IS NULL"
+        )->execute(['to' => mb_substr($to, 0, 150), 'a' => $alertId]);
+    }
+
+    /** The report row for a new alert: result time, first notification (the EHR alert), who it went to. */
+    private function openTat(PDO $db, int $alertId, array $o, array $f, int $actorId): void
+    {
+        $a = $db->prepare("SELECT created_at FROM alerts WHERE id = :id");
+        $a->execute(['id' => $alertId]);
+        $at = (string) $a->fetchColumn();
+        $to = $db->prepare(
+            "SELECT GROUP_CONCAT(CASE WHEN t.target_type = 'user' THEN " . self::nameSql('t.target_id') . " ELSE CONCAT('all ', t.target_role, 's') END SEPARATOR '; ')
+             FROM alert_targets t WHERE t.alert_id = :id AND t.escalation_level = 0"
+        );
+        $to->execute(['id' => $alertId]);
+        $range = null;
+        if (!empty($f['range_id'])) {
+            $r = $db->prepare("SELECT normal_low, normal_high, units FROM lab_result_ranges WHERE id = :id");
+            $r->execute(['id' => $f['range_id']]);
+            if ($x = $r->fetch(PDO::FETCH_ASSOC)) {
+                $n = fn($v) => $v !== null ? rtrim(rtrim(number_format((float) $v, 4, '.', ''), '0'), '.') : null;
+                $range = $x['normal_low'] !== null || $x['normal_high'] !== null
+                    ? trim(($n($x['normal_low']) ?? '') . ' – ' . ($n($x['normal_high']) ?? '') . ' ' . $x['units']) : null;
+            }
+        }
+        $actor = $db->prepare("SELECT LOWER(r.name) FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = :id");
+        $actor->execute(['id' => $actorId]);
+        $row = (new \App\Modules\Reports\Services\ReportService())->createCriticalTATRecord([
+            'result_date' => $at, 'result_available_at' => $at, 'first_call_at' => $at, 'first_call_method' => 'EHR Alert',
+            'first_call_to' => mb_substr((string) $to->fetchColumn(), 0, 200),
+            'test_type' => preg_match('/culture|gram stain/i', (string) $f['name']) ? 'Microbiology' : 'Laboratory',
+            'test_name' => mb_substr($f['name'] . ($o['test_name'] ? " ({$o['test_name']})" : ''), 0, 255),
+            'critical_value' => mb_substr(trim(($f['value'] ?? '') . ' ' . ($f['units'] ?? '')) . ' — ' . $f['detail'], 0, 500),
+            'normal_range' => $range ?? ($f['reference_range'] ?? null),
+            'ordering_department' => $o['ward_name'] ?: 'Outpatient',
+            'patient_id' => $o['patient_id'], 'patient_name' => $o['patient_name'], 'patient_mrn' => $o['patient_no'] ?? null,
+            'patient_location' => $o['admission_id'] ? trim("{$o['ward_name']} {$o['bed_number']}") : 'Outpatient',
+            'reported_by' => $this->userName($db, $actorId) ?: 'Laboratory', 'reported_by_role' => self::roleLabel((string) $actor->fetchColumn()),
+            'policy_limit_minutes' => self::POLICY_MINUTES,
+        ]);
+        $db->prepare("UPDATE critical_result_turnaround SET source = 'auto', alert_id = :a WHERE id = :id")->execute(['a' => $alertId, 'id' => $row['id']]);
+    }
+
+    private static function roleLabel(string $role): string
+    {
+        return ['lab_technician' => 'Laboratory Technologist', 'charge_nurse' => 'Charge Nurse', 'nurse' => 'Nurse', 'doctor' => 'Physician',
+            'admin' => 'Administrator', 'clinician' => 'Clinician', 'cna' => 'Nursing Assistant'][$role] ?? ucwords(str_replace('_', ' ', $role));
+    }
+
     // ------------------------------------------------------------------
 
     /** One key per order + result + value: the same critical value isn't alerted twice. */
@@ -169,7 +312,7 @@ class CriticalLabService
     private function order(PDO $db, int $orderId): ?array
     {
         $stmt = $db->prepare(
-            "SELECT o.id, o.patient_id, o.provider_id AS order_provider_id, c.name AS test_name,
+            "SELECT o.id, o.patient_id, o.provider_id AS order_provider_id, c.name AS test_name, p.patient_no,
                     TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) AS patient_name, p.provider_id AS patient_provider_id,
                     a.id AS admission_id, w.ward_name, b.bed_number
              FROM patient_procedure_orders o JOIN patients p ON p.id = o.patient_id

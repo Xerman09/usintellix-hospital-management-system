@@ -150,8 +150,8 @@ class AlertController extends Controller
     private function respond(array $result, int $successStatus = 200): void
     {
         if (!$result['success']) {
-            $this->json(['success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null],
-                !empty($result['not_found']) ? 404 : 422);
+            $this->json(['success' => false, 'message' => $result['message'], 'errors' => $result['errors'] ?? null,
+                'needs_readback' => !empty($result['needs_readback'])], !empty($result['not_found']) ? 404 : 422);
             return;
         }
         $this->success($result['data'] ?? null, $result['message'], $successStatus);

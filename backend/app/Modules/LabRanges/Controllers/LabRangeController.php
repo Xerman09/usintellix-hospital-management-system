@@ -54,6 +54,19 @@ class LabRangeController extends Controller
         $this->success((new CriticalLabService())->forPatient($patientId, $user), 'Retrieved.');
     }
 
+    /** Body: alert_id, told_self | told_name + told_role, told_at?, method, read_back, action -- acknowledge with the read-back */
+    public function acknowledge(): void
+    {
+        $request = new Request();
+        $this->respond((new CriticalLabService())->acknowledge((int) $request->input('alert_id'), $request->all(), Session::get('user') ?? []));
+    }
+
+    /** How the person responsible can be told (for the read-back form). */
+    public function readbackOptions(): void
+    {
+        $this->success(['methods' => CriticalLabService::METHODS, 'policy_minutes' => CriticalLabService::POLICY_MINUTES], 'Retrieved.');
+    }
+
     private function respond(array $result): void
     {
         if (!$result['success']) {

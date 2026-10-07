@@ -230,12 +230,12 @@ $router->post('/reports/incident-log/update', [ReportController::class, 'updateI
 // JCAHO: Critical Diagnostic Test Results Turnaround Time Report
 $router->get('/reports/critical-tat', [ReportController::class, 'criticalTATReport'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'lab_technician', 'charge_nurse']]
 ]);
 
 $router->get('/reports/critical-tat/details', [ReportController::class, 'criticalTATDetails'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'lab_technician', 'charge_nurse']]
 ]);
 
 $router->post('/reports/critical-tat', [ReportController::class, 'storeCriticalTAT'], [

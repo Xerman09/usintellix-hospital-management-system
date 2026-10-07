@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js";
 import { logReportRun } from "./report-history.js";
-import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=11";
+import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=12";
 
 let currentRecords = [];
 let availableDepts = [];
@@ -117,6 +117,7 @@ async function fetchCriticalTAT() {
             updateKpis(res.data.kpis);
             populateDeptSelect(availableDepts);
             renderTable(currentRecords);
+            renderByTest(res.data.by_test);
             logReportRun("Critical Diagnostic TAT Report", "critical_tat", { date_from: dateFrom, date_to: dateTo });
         } else {
             if (tbody) tbody.innerHTML = `<tr><td colspan="13" style="padding:30px;text-align:center;color:#ef4444;">Failed to load critical TAT records.</td></tr>`;
@@ -125,6 +126,17 @@ async function fetchCriticalTAT() {
         console.error("Error fetching critical TAT:", err);
         if (tbody) tbody.innerHTML = `<tr><td colspan="13" style="padding:30px;text-align:center;color:#ef4444;">Server error loading report.</td></tr>`;
     }
+}
+
+/** How fast, per test: median and longest time to acknowledgment, % within the policy limit. */
+function renderByTest(rows) {
+    const body = document.getElementById("ctatByTestBody");
+    if (!body) return;
+    body.innerHTML = (rows || []).length ? rows.map((t) => `<tr>
+        <td style="font-weight:600;">${escHtml(t.test_name)}</td><td style="text-align:center;">${t.count}</td><td style="text-align:center;">${t.acknowledged}</td>
+        <td style="text-align:center;">${t.median_tat != null ? t.median_tat + " min" : "—"}</td><td style="text-align:center;">${t.max_tat != null ? t.max_tat + " min" : "—"}</td>
+        <td style="text-align:center;font-weight:700;color:${t.compliance_rate >= 90 ? "#15803d" : "#b91c1c"};">${t.compliance_rate}%</td></tr>`).join("")
+        : `<tr><td colspan="6" style="padding:16px;text-align:center;color:#64748b;">No critical results in this period.</td></tr>`;
 }
 
 function updateKpis(kpis) {
@@ -136,6 +148,7 @@ function updateKpis(kpis) {
     set("ctatKpiAvgTat",   kpis.avg_tat_minutes !== null ? (kpis.avg_tat_minutes ?? 0) + " min" : "N/A");
     set("ctatKpiPending",  kpis.pending_ack ?? 0);
     set("ctatKpiReadBack", kpis.read_back_done ?? 0);
+    set("ctatKpiPct", kpis.median_tat != null ? `${kpis.median_tat} / ${kpis.p90_tat}` : "N/A");
 
     // Compliance rate sub-label
     const rateEl = document.getElementById("ctatKpiCompliantRate");
@@ -171,7 +184,7 @@ function renderTable(records) {
 
         return `
         <tr>
-            <td style="font-family:monospace;font-size:12px;font-weight:700;color:#3b82f6;">${escHtml(r.tracking_number)}</td>
+            <td style="font-family:monospace;font-size:12px;font-weight:700;color:#3b82f6;">${escHtml(r.tracking_number)}${r.source === "auto" ? `<br><span title="Logged automatically from the critical lab alert" style="font-family:inherit;font-size:10px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:4px;">EHR alert</span>` : ""}</td>
             <td style="white-space:nowrap;font-size:12px;">${formatDateTime(r.result_date)}</td>
             <td><span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-weight:600;">${escHtml(r.test_type)}</span></td>
             <td style="font-size:12px;max-width:180px;">${escHtml(r.test_name)}</td>

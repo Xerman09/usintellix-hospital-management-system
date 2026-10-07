@@ -1,6 +1,6 @@
 import { fetchAlerts, fetchAlert, fetchAlertOptions, markAlertRead, markAllAlertsRead, acknowledgeAlert, sendAlert } from "./alerts.service.js?v=2";
-import { esc, fmtDateTime, ago, URGENCY_LABEL, openAlertLink, hasLink, refreshAlerts, onAlertsChanged, takePendingAlert } from "./alert-bell.js?v=8";
-import { initAlertAdmin, showEscalation, showReport } from "./alerts-admin.js?v=7";
+import { esc, fmtDateTime, ago, URGENCY_LABEL, openAlertLink, hasLink, refreshAlerts, onAlertsChanged, takePendingAlert, showPopup } from "./alert-bell.js?v=9";
+import { initAlertAdmin, showEscalation, showReport } from "./alerts-admin.js?v=8";
 import { fetchPatients } from "../patients/patients.service.js";
 import { showToast } from "../../core/toast.js";
 
@@ -239,6 +239,12 @@ function renderDetail(a) {
         ack.disabled = true;
         const res = await acknowledgeAlert(a.id, $("alpAckNote")?.value || "").catch(() => null);
         ack.disabled = false;
+        if (res?.needs_readback) {
+            // A critical lab: acknowledged with its read-back, in the pop-up.
+            closeModal();
+            showPopup({ ...a, type: "critical_lab", urgency: "critical" });
+            return;
+        }
         if (!res?.success) {
             showToast(res?.message || "Could not acknowledge.", "error");
             return;

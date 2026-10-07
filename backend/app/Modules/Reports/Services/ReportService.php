@@ -3042,10 +3042,42 @@ class ReportService
         // Departments list
         $depts = $db->query("SELECT DISTINCT ordering_department FROM critical_result_turnaround ORDER BY ordering_department")->fetchAll(PDO::FETCH_COLUMN);
 
+        // How fast: median and 90th percentile time to acknowledge; still open; per test.
+        $tats = array_values(array_map('intval', array_filter(array_column($records, 'tat_total'), fn($v) => $v !== null)));
+        sort($tats);
+        $pct = fn(float $p) => $tats ? $tats[(int) min(count($tats) - 1, max(0, ceil($p * count($tats)) - 1))] : null;
+        $kpis['median_tat'] = $pct(0.5);
+        $kpis['p90_tat'] = $pct(0.9);
+        $kpis['auto_count'] = count(array_filter($records, fn($r) => ($r['source'] ?? 'manual') === 'auto'));
+        $kpis['open_unacknowledged'] = count(array_filter($records, fn($r) => $r['acknowledged_at'] === null && in_array($r['status'], ['Pending', 'Notified', 'Escalated'], true)));
+        $byTest = [];
+        foreach ($records as $r) {
+            $name = preg_replace('/\s*\(.*\)$/', '', (string) $r['test_name']);
+            $t = &$byTest[$name];
+            $t ??= ['test_name' => $name, 'count' => 0, 'acknowledged' => 0, 'within_limit' => 0, 'tats' => []];
+            $t['count']++;
+            if ($r['acknowledged_at'] !== null) {
+                $t['acknowledged']++;
+                $t['tats'][] = (int) $r['tat_total'];
+                $t['within_limit'] += (int) $r['jcaho_compliant'];
+            }
+            unset($t);
+        }
+        $byTest = array_values(array_map(function ($t) {
+            sort($t['tats']);
+            $t['median_tat'] = $t['tats'] ? $t['tats'][(int) floor((count($t['tats']) - 1) / 2)] : null;
+            $t['max_tat'] = $t['tats'] ? max($t['tats']) : null;
+            $t['compliance_rate'] = $t['count'] ? round($t['within_limit'] / $t['count'] * 100, 1) : 0;
+            unset($t['tats']);
+            return $t;
+        }, $byTest));
+        usort($byTest, fn($a, $b) => $b['count'] <=> $a['count']);
+
         return [
             'records'     => $records,
             'kpis'        => $kpis,
             'departments' => $depts,
+            'by_test'     => $byTest,
         ];
     }
 

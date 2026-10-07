@@ -1,7 +1,7 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { acknowledgeAlert } from "../alerts/alerts.service.js?v=2";
-import { onAlertsChanged } from "../alerts/alert-bell.js?v=8";
+import { onAlertsChanged } from "../alerts/alert-bell.js?v=9";
+import { readBackFormHtml, bindReadBack, submitReadBack } from "./readback.js?v=1";
 
 /*
  * The red mark on the patient's chart for critical lab results: a badge next to the name and
@@ -97,20 +97,20 @@ function ackForm(btn) {
     const row = btn.closest(".pd-critlab-row");
     if (row.querySelector(".pd-critlab-ack")) return;
     const id = Number(btn.dataset.ack);
-    row.insertAdjacentHTML("beforeend", `<div class="pd-critlab-ack">
-        <input maxlength="500" placeholder="What you are doing about it (optional), e.g. repeat K, calcium gluconate given" aria-label="Note">
-        <button type="button" class="pd-critlab-btn">Acknowledge</button></div>`);
+    const p = `pdRb${id}`;
+    row.insertAdjacentHTML("beforeend", `<div class="pd-critlab-ack" style="display:block;background:var(--bg-surface);color:var(--text-primary);border-radius:8px;padding:10px;margin-top:4px">
+        <strong>Read-back</strong>${readBackFormHtml(p)}
+        <div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="pd-critlab-btn" data-rb-go>Record read-back &amp; acknowledge</button>
+            <button type="button" class="pd-critlab-btn" style="background:transparent;color:inherit;border-color:var(--border-color)" data-rb-cancel>Cancel</button></div></div>`);
     const box = row.querySelector(".pd-critlab-ack");
-    box.querySelector("input").focus();
-    box.querySelector("button").onclick = async (ev) => {
+    bindReadBack(box, p);
+    box.querySelector("[data-rb-cancel]").onclick = () => box.remove();
+    box.querySelector("[data-rb-go]").onclick = async (ev) => {
         ev.target.disabled = true;
-        const r = await acknowledgeAlert(id, box.querySelector("input").value.trim()).catch(() => null);
+        const r = await submitReadBack(box, p, id);
         ev.target.disabled = false;
-        if (!r?.success) {
-            showToast(r?.message || "Could not acknowledge.", "error");
-            return;
-        }
-        showToast(r.message || "Acknowledged.");
+        if (!r?.success) return;
+        showToast(r.message || "Read-back recorded.", "success", 5000);
         refresh();
     };
 }

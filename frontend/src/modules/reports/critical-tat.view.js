@@ -475,7 +475,20 @@ export function CriticalTATView() {
             <div class="ctat-kpi-value" id="ctatKpiReadBack">—</div>
             <div class="ctat-kpi-sub">read-back protocol confirmed</div>
         </div>
+        <div class="ctat-kpi-card blue">
+            <div class="ctat-kpi-label">Median / 90th pct TAT</div>
+            <div class="ctat-kpi-value" id="ctatKpiPct">—</div>
+            <div class="ctat-kpi-sub">minutes, result to acknowledgment</div>
+        </div>
     </div>
+
+    <!-- How fast, per test -->
+    <details class="ctat-bytest" id="ctatByTestWrap" style="margin:0 0 14px">
+        <summary style="cursor:pointer;font-weight:700;padding:6px 0">By test — how fast critical results were acknowledged</summary>
+        <div class="ctat-table-wrapper"><table class="ctat-table"><thead><tr>
+            <th>Test</th><th>Critical results</th><th>Acknowledged</th><th>Median TAT</th><th>Longest TAT</th><th>Within policy</th>
+        </tr></thead><tbody id="ctatByTestBody"></tbody></table></div>
+    </details>
 
     <!-- Filters -->
     <div class="ctat-filter-row">
