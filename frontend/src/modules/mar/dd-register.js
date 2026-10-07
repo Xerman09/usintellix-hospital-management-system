@@ -1,4 +1,4 @@
-import { fetchDdRegister } from "./mar.service.js?v=2";
+import { fetchDdRegister } from "./mar.service.js?v=3";
 import { showToast } from "../../core/toast.js";
 import { todayISO, nowDateTime } from "../../core/timezone.js";
 

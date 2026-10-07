@@ -19,6 +19,10 @@ use PDO;
  * Pain medicine (as needed, for pain): the pain score before giving is required, and a
  * recheck is due 30-60 minutes after (reminder at 30, urgent at 60). Dangerous drugs
  * (RA 9165, e.g. morphine) also go into the numbered DD register, with any amount wasted.
+ *
+ * Supply and charging (MedSupplyService): a dose given is taken from the ward's stock or the
+ * pharmacy through the medicine ledger and charged to the patient ledger -- or comes from the
+ * patient's opened container or own supply. Voiding the dose returns the stock and the charge.
  */
 class MarService
 {
@@ -104,6 +108,7 @@ class MarService
             'now' => gmdate('Y-m-d H:i:s', $now),
             'can_give' => $active && $this->canGive($actor, $admissionId),
             'hold_reasons' => self::HOLD_REASONS,
+            'charges' => (new MedSupplyService())->chargesFor($admissionId),
             'rules' => ['early_min' => self::EARLY_MIN, 'late_min' => self::LATE_MIN, 'stat_late_min' => self::STAT_LATE_MIN],
         ];
     }
@@ -271,6 +276,12 @@ class MarService
                 'message' => "The order is for {$o['prn_indication']}, and the pain score is {$pain}. Give it anyway?"];
         }
 
+        // Where it comes from (stock location + quantity, opened container, own supply).
+        $supply = (new MedSupplyService())->resolve($o, $data);
+        if (isset($supply['error'])) {
+            return $supply['error'];
+        }
+
         // Second nurse, checked before anything is written (a wrong password counts towards their lockout).
         $witness = null;
         if ($this->needsWitness($o)) {
@@ -283,7 +294,7 @@ class MarService
         $id = $this->insert($db, $o, $slot, 'given', $actor, [
             'given_at' => gmdate('Y-m-d H:i:s', $givenAt), 'reason' => $reason, 'note' => $note, 'witness' => $witness,
             'pain_before' => $pain, 'recheck_due_at' => $pain !== null ? gmdate('Y-m-d H:i:s', $givenAt + self::RECHECK_MIN * 60) : null,
-            'waste' => $waste,
+            'waste' => $waste, 'supply' => $supply,
         ]);
         if (is_array($id)) {
             return $id;
@@ -296,6 +307,10 @@ class MarService
         }
         if ($rec['dd_entry_no']) {
             $msg .= " DD register entry #{$rec['dd_entry_no']}.";
+        }
+        if ($rec['supply_source'] === 'stock') {
+            $msg .= ' ' . MedSupplyService::num($rec['stock_quantity']) . " taken from {$rec['warehouse_name']}"
+                . ($rec['charge'] ? ', ₱' . number_format($rec['charge']['amount'], 2) . ' charged.' : ' (no selling price set, so not charged).');
         }
         return ['success' => true, 'message' => $msg, 'data' => $rec];
     }
@@ -356,14 +371,29 @@ class MarService
         if ($reason === '') {
             return ['success' => false, 'message' => 'Say why (e.g. wrong patient, wrong time).', 'errors' => ['reason' => 'Required.']];
         }
-        $stmt = $db->prepare("UPDATE inpatient_med_administrations SET voided_at = NOW(), voided_by = :by, void_reason = :r, slot_at = NULL WHERE id = :id AND voided_at IS NULL");
-        $stmt->execute(['by' => (int) $actor['id'], 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
-        $db->prepare("UPDATE dd_register SET voided_at = NOW(), voided_by_name = :n, void_reason = :r WHERE administration_id = :id AND voided_at IS NULL")
-            ->execute(['n' => $this->name((int) $actor['id']), 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
+        $owns = !$db->inTransaction();
+        $owns ? $db->beginTransaction() : $db->exec('SAVEPOINT mar_rec');
+        try {
+            $stmt = $db->prepare("UPDATE inpatient_med_administrations SET voided_at = NOW(), voided_by = :by, void_reason = :r, slot_at = NULL WHERE id = :id AND voided_at IS NULL");
+            $stmt->execute(['by' => (int) $actor['id'], 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
+            if (!$stmt->rowCount()) {
+                $this->rollBack($db, $owns);
+                return ['success' => false, 'message' => 'Already voided.'];
+            }
+            $db->prepare("UPDATE dd_register SET voided_at = NOW(), voided_by_name = :n, void_reason = :r WHERE administration_id = :id AND voided_at IS NULL")
+                ->execute(['n' => $this->name((int) $actor['id']), 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
+            // Stock back to its lots, charge off the patient's ledger.
+            (new MedSupplyService())->giveBack($db, $id, $reason, (int) $actor['id']);
+            $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT mar_rec');
+        } catch (\Throwable $e) {
+            $this->rollBack($db, $owns);
+            throw $e;
+        }
         foreach (["marskip:{$id}", "painrecheck:{$id}", "painlate:{$id}"] as $key) {
             AlertService::resolveByKey($key, (int) $actor['id'], 'Entry voided');
         }
-        return ['success' => true, 'message' => 'Entry voided.', 'data' => $this->record($id)];
+        $msg = 'Entry voided.' . ($rec['supply_source'] === 'stock' ? ' The stock is back at ' . $rec['warehouse_name'] . ($rec['charge'] ? ' and the charge is off the patient\'s bill.' : '.') : '');
+        return ['success' => true, 'message' => $msg, 'data' => $this->record($id)];
     }
 
     /** Pain score 30-60 minutes after an as-needed pain dose. data: pain_score, rechecked_at?, note? */
@@ -619,7 +649,9 @@ class MarService
         $rs = $db->prepare(
             "SELECT r.*, " . self::nameSql('r.recorded_by') . " AS recorded_by_name, " . self::nameSql('r.witness_by') . " AS witness_name,
                     " . self::nameSql('r.voided_by') . " AS voided_by_name, " . self::nameSql('r.pain_after_by') . " AS pain_after_by_name,
-                    (SELECT x.entry_no FROM dd_register x WHERE x.administration_id = r.id) AS dd_entry_no
+                    (SELECT x.entry_no FROM dd_register x WHERE x.administration_id = r.id) AS dd_entry_no,
+                    (SELECT wh.name FROM warehouses wh WHERE wh.id = r.warehouse_id) AS warehouse_name,
+                    (SELECT CONCAT(ch.net_amount, '|', ch.status) FROM inpatient_med_charges ch WHERE ch.administration_id = r.id) AS charge_info
              FROM inpatient_med_administrations r
              WHERE r.order_id IN ({$oin}) AND COALESCE(r.scheduled_at, r.given_at, r.recorded_at) BETWEEN :lo AND :hi ORDER BY COALESCE(r.given_at, r.recorded_at), r.id"
         );
@@ -896,8 +928,8 @@ class MarService
             $w = $f['witness'] ?? null;
             $db->prepare(
                 "INSERT INTO inpatient_med_administrations (order_id, admission_id, patient_id, scheduled_at, slot_at, status, given_at, dose, dose_unit, route,
-                    reason, note, pain_before, recheck_due_at, wasted_amount, wasted_unit, waste_note, initials, recorded_by, recorded_at, witness_by, witness_initials, witness_at)
-                 VALUES (:o, :a, :p, :s, :s2, :st, :g, :dose, :u, :r, :reason, :note, :pb, :rd, :wa_amt, :wa_unit, :wa_note, :ini, :by, NOW(), :wb, :wi, :wa)"
+                    reason, note, pain_before, recheck_due_at, wasted_amount, wasted_unit, waste_note, supply_source, warehouse_id, stock_quantity, initials, recorded_by, recorded_at, witness_by, witness_initials, witness_at)
+                 VALUES (:o, :a, :p, :s, :s2, :st, :g, :dose, :u, :r, :reason, :note, :pb, :rd, :wa_amt, :wa_unit, :wa_note, :ss, :sw, :sq, :ini, :by, NOW(), :wb, :wi, :wa)"
             )->execute([
                 'o' => $o['id'], 'a' => $o['admission_id'], 'p' => $o['patient_id'], 's' => $slot !== null ? gmdate('Y-m-d H:i:s', $slot) : null,
                 's2' => $slot !== null ? gmdate('Y-m-d H:i:s', $slot) : null, 'st' => $status, 'g' => $f['given_at'] ?? null,
@@ -907,8 +939,17 @@ class MarService
                 'wb' => $w['id'] ?? null, 'wi' => $w['initials'] ?? null, 'wa' => $w ? $this->dbNow() : null,
                 'pb' => $f['pain_before'] ?? null, 'rd' => $f['recheck_due_at'] ?? null,
                 'wa_amt' => $f['waste']['amount'] ?? null, 'wa_unit' => $f['waste']['unit'] ?? null, 'wa_note' => $f['waste']['note'] ?? null,
+                'ss' => $status === 'given' ? ($f['supply']['source'] ?? null) : null, 'sw' => $status === 'given' ? ($f['supply']['warehouse_id'] ?? null) : null,
+                'sq' => $status === 'given' ? ($f['supply']['quantity'] ?? null) : null,
             ]);
             $id = (int) $db->lastInsertId();
+            if ($status === 'given' && ($f['supply']['source'] ?? null) === 'stock') {
+                $took = (new MedSupplyService())->take($db, $id, $o, (int) $f['supply']['warehouse_id'], (float) $f['supply']['quantity'], (int) $actor['id'], $f['given_at']);
+                if (isset($took['error'])) {
+                    $this->rollBack($db, $owns);
+                    return ['success' => false, 'message' => $took['error'], 'errors' => ['stock_quantity' => $took['error']]];
+                }
+            }
             if ($status === 'given' && $this->isDD($o)) {
                 $this->register($db, $id, $o, $actor, $f);
             }
@@ -1011,8 +1052,9 @@ class MarService
     {
         $stmt = Database::connection()->prepare(
             "SELECT o.*, d.is_high_alert, d.controlled_class, c.name AS category, a.status AS admission_status, a.patient_name, a.patient_mrn,
-                    w.ward_name, b.bed_number
+                    w.ward_name, b.bed_number, d.strength, d.selling_price, du.name AS unit_name
              FROM inpatient_med_orders o JOIN drugs d ON d.id = o.drug_id LEFT JOIN drug_categories c ON c.id = d.category_id
+             LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
              JOIN inpatient_admissions a ON a.id = o.admission_id
              JOIN hospital_wards w ON w.id = a.ward_id JOIN hospital_beds b ON b.id = a.bed_id WHERE o.id = :id"
         );
@@ -1025,7 +1067,9 @@ class MarService
         $stmt = Database::connection()->prepare(
             "SELECT r.*, " . self::nameSql('r.recorded_by') . " AS recorded_by_name, " . self::nameSql('r.witness_by') . " AS witness_name,
                     " . self::nameSql('r.voided_by') . " AS voided_by_name, " . self::nameSql('r.pain_after_by') . " AS pain_after_by_name,
-                    (SELECT x.entry_no FROM dd_register x WHERE x.administration_id = r.id) AS dd_entry_no, o.is_stat, o.verified_at
+                    (SELECT x.entry_no FROM dd_register x WHERE x.administration_id = r.id) AS dd_entry_no,
+                    (SELECT wh.name FROM warehouses wh WHERE wh.id = r.warehouse_id) AS warehouse_name,
+                    (SELECT CONCAT(ch.net_amount, '|', ch.status) FROM inpatient_med_charges ch WHERE ch.administration_id = r.id) AS charge_info, o.is_stat, o.verified_at
              FROM inpatient_med_administrations r JOIN inpatient_med_orders o ON o.id = r.order_id WHERE r.id = :id"
         );
         $stmt->execute(['id' => $id]);
@@ -1055,6 +1099,12 @@ class MarService
             'recheck_due_at' => $r['recheck_due_at'], 'recheck_state' => $this->recheckState($r),
             'wasted' => $r['wasted_amount'] !== null ? self::num3($r['wasted_amount']) . " {$r['wasted_unit']}" : null,
             'waste_note' => $r['waste_note'], 'dd_entry_no' => isset($r['dd_entry_no']) ? (int) $r['dd_entry_no'] : null,
+            'supply_source' => $r['supply_source'] ?? null, 'warehouse_name' => $r['warehouse_name'] ?? null,
+            'stock_quantity' => isset($r['stock_quantity']) && $r['stock_quantity'] !== null ? (float) $r['stock_quantity'] : null,
+            'charge' => !empty($r['charge_info']) ? (function ($c) {
+                [$amt, $st] = explode('|', $c);
+                return ['amount' => (float) $amt, 'status' => $st];
+            })($r['charge_info']) : null,
         ];
     }
 

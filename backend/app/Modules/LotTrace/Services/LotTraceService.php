@@ -487,6 +487,8 @@ class LotTraceService
                 'label' => match (true) {
                     $m['movement_type'] === 'dispensed' && $m['source_type'] === 'or_case_item_lots' => 'Used in surgery',
                     $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'or_case_item_lots' => 'Surgery use undone',
+                    $m['movement_type'] === 'dispensed' && $m['source_type'] === 'inpatient_med_admin_lots' => 'Given on the ward',
+                    $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'inpatient_med_admin_lots' => 'Ward dose undone',
                     $m['movement_type'] === 'dispensed' => 'Dispensed to patient',
                     $m['movement_type'] === 'dispense_voided' => 'Dispense undone',
                     $qty < 0 => 'Count shortage',

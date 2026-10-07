@@ -20,7 +20,8 @@ class PatientLedgerService
      */
     public function getLedger(int $patientId, string $from, string $to): array
     {
-        $charges = array_merge($this->listCharges($patientId, $from, $to), $this->listPharmacyCharges($patientId, $from, $to), $this->listSurgeryCharges($patientId, $from, $to));
+        $charges = array_merge($this->listCharges($patientId, $from, $to), $this->listPharmacyCharges($patientId, $from, $to), $this->listSurgeryCharges($patientId, $from, $to),
+            $this->listInpatientMedCharges($patientId, $from, $to));
         $payments = $this->listPayments($patientId, $from, $to);
 
         $rows = array_merge($charges, $payments);
@@ -152,6 +153,38 @@ class PatientLedgerService
             'payment' => 0.0,
             'adjustment' => 0.0,
             'entry_date' => $row['created_at'] ?: $row['charge_date'],
+            'encounter_id' => null
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** Medicines given on the ward (MAR), taken from stock: one row per dose, not voided. */
+    private function listInpatientMedCharges(int $patientId, string $from, string $to): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT ch.id, ch.description, ch.net_amount, ch.charge_date, r.given_at, ch.created_at, a.admission_number
+             FROM inpatient_med_charges ch
+             JOIN inpatient_med_administrations r ON r.id = ch.administration_id
+             JOIN inpatient_admissions a ON a.id = ch.admission_id
+             WHERE ch.patient_id = :patient_id AND ch.status = 'charged'
+               AND ch.charge_date >= :from AND ch.charge_date <= :to
+             ORDER BY ch.charge_date ASC, ch.id ASC"
+        );
+        $stmt->execute(['patient_id' => $patientId, 'from' => $from, 'to' => $to]);
+
+        return array_map(fn(array $row) => [
+            'row_type' => 'charge',
+            'id' => 'w' . $row['id'],
+            'code' => $row['admission_number'],
+            'description' => $row['description'],
+            'billed_date' => $row['charge_date'],
+            'payor' => null,
+            'type' => 'Inpatient medicine',
+            'units' => 1,
+            'charge' => round((float) $row['net_amount'], 2),
+            'payment' => 0.0,
+            'adjustment' => 0.0,
+            // Ordered by when the dose was given.
+            'entry_date' => $row['given_at'] ?: $row['created_at'],
             'encounter_id' => null
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }

@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Modules\InpatientOrders\Services\DdRegisterService;
 use App\Modules\InpatientOrders\Services\MarService;
+use App\Modules\InpatientOrders\Services\MedSupplyService;
 
 class MarController extends Controller
 {
@@ -73,6 +74,30 @@ class MarController extends Controller
         $this->success((new DdRegisterService())->list([
             'from' => $request->input('from'), 'to' => $request->input('to'), 'ward' => $request->input('ward'), 'drug_id' => $request->input('drug_id'),
         ]), 'Retrieved.');
+    }
+
+    /** Query: order_id -- where a dose can be taken from (the give form) */
+    public function supply(): void
+    {
+        $request = new Request();
+        $data = (new MedSupplyService())->options((int) $request->input('order_id'));
+        if (!$data) {
+            $this->error('Order not found.', 404);
+            return;
+        }
+        $this->success($data, 'Retrieved.');
+    }
+
+    public function supplySettings(): void
+    {
+        $this->success((new MedSupplyService())->settings(), 'Retrieved.');
+    }
+
+    /** Body: pharmacy_warehouse_id?, wards: {ward_id: warehouse_id|null} */
+    public function saveSupplySettings(): void
+    {
+        $request = new Request();
+        $this->respond((new MedSupplyService())->saveSettings($request->all(), $this->user()));
     }
 
     /** Body: id, reason */

@@ -7015,7 +7015,7 @@ async function loadDashboardInpatientVitals(patient)
     setButtons(false);
     try {
         const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=2");
-        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=5");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=6");
         const result = await fetchPatientVitals(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7058,7 +7058,7 @@ async function loadDashboardInpatientOrders(patient)
     if (marBtn) marBtn.disabled = true;
     try {
         const { fetchPatientOrders } = await import("../med-orders/med-orders.service.js?v=1");
-        const ui = await import("../med-orders/med-orders.js?v=3");
+        const ui = await import("../med-orders/med-orders.js?v=4");
         const result = await fetchPatientOrders(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7091,7 +7091,7 @@ async function loadDashboardInpatientOrders(patient)
         }
         if (marBtn) {
             marBtn.disabled = false;
-            marBtn.onclick = () => import("../mar/mar.js?v=3").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
+            marBtn.onclick = () => import("../mar/mar.js?v=4").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
         }
     } catch (error) {
         console.error("Failed to load inpatient medicine orders", error);

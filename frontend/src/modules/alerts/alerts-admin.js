@@ -1,5 +1,5 @@
 import { fetchEscalation, saveEscalation, removeEscalation, fetchAlertReport, fetchAlertOptions } from "./alerts.service.js?v=2";
-import { esc, fmtDateTime, URGENCY_LABEL } from "./alert-bell.js?v=5";
+import { esc, fmtDateTime, URGENCY_LABEL } from "./alert-bell.js?v=6";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 

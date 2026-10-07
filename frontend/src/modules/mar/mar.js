@@ -1,4 +1,4 @@
-import { fetchMarBoard, fetchMar, giveDose, holdDose, refuseDose, voidDose, recheckPain } from "./mar.service.js?v=2";
+import { fetchMarBoard, fetchMar, giveDose, holdDose, refuseDose, voidDose, recheckPain, fetchSupply, fetchSupplySettings, saveSupplySettings } from "./mar.service.js?v=3";
 import { getUser } from "../../core/session.js?v=2";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
@@ -121,6 +121,10 @@ const CSS = `
 .marx-recheck.due, .marx-recheck.overdue { color: #b91c1c; }
 :root[data-theme="dark"] .marx-recheck.due, :root[data-theme="dark"] .marx-recheck.overdue { color: #fca5a5; }
 .marx-confirm { border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 10px; background: var(--bg-surface); }
+.marx-supply { border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; background: var(--bg-surface); }
+.marx-supply .row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px 12px; }
+@media (max-width: 640px) { .marx-supply .row { grid-template-columns: 1fr; } }
+.marx-price { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .marx-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-muted); margin-top: 10px; }
 .marx-empty { color: var(--text-muted); padding: 12px 0; }
 .mrb-page { padding: 20px 24px 32px; color: var(--text-primary); font-size: 13.5px; max-width: 1280px; min-width: 0; }
@@ -296,6 +300,7 @@ function render() {
                 ${c.missed ? `<span class="marx-count"><b>${c.missed}</b>not given</span>` : ""}
                 ${c.pending ? `<span class="marx-count"><b>${c.pending}</b>waiting for pharmacy</span>` : ""}
                 ${c.recheck ? `<span class="marx-count late"><b>${c.recheck}</b>⏰ pain recheck due</span>` : ""}
+                ${d.charges?.count ? `<span class="marx-count" title="Doses taken from stock and charged to the patient this stay"><b>${peso(d.charges.total)}</b>medicines charged this stay</span>` : ""}
             </div>
             ${d.rows.length ? d.rows.map(rowHtml).join("") : `<div class="marx-empty">No medicines in this shift.</div>`}
             ${d.can_give ? "" : `<p class="marx-sub">${a.active ? "View only — doses are recorded by the patient's nurse or a nurse of this ward." : "View only — the patient was discharged."}</p>`}
@@ -306,7 +311,7 @@ function render() {
     m.querySelector("[data-orders]")?.addEventListener("click", () => {
         const id = cur.admissionId;
         close();
-        import("../med-orders/med-orders.js?v=3").then((x) => x.openMedOrders(id));
+        import("../med-orders/med-orders.js?v=4").then((x) => x.openMedOrders(id));
     });
     m.onclick = onModalClick;
     if (cur.open) {
@@ -363,6 +368,7 @@ function recordDetail(rec) {
         if (rec.dose_text) lines.push(`${esc(`${rec.dose_text} ${rec.dose_unit} ${rec.route}`)}`);
         if (rec.reason) lines.push(`For: ${esc(rec.reason)}`);
         if (rec.pain_before != null) lines.push(`<span class="marx-pain">Pain before: ${rec.pain_before}/10</span>${rec.pain_after != null ? ` · <span class="marx-pain">after: ${rec.pain_after}/10</span> (${esc(fmt(rec.pain_after_at))}${rec.pain_after_by_name ? `, ${esc(rec.pain_after_by_name)}` : ""}${rec.pain_after_note ? ` — ${esc(rec.pain_after_note)}` : ""})` : ` · ${esc(recheckText(rec).replace(/^pain \d+ · /, ""))}`}`);
+        if (rec.supply_source) lines.push(supplyText(rec));
         if (rec.dd_entry_no) lines.push(`DD register entry #${rec.dd_entry_no}${rec.wasted ? ` · wasted ${esc(rec.wasted)}${rec.waste_note ? ` (${esc(rec.waste_note)})` : ""}` : ""}`);
     } else {
         lines.push(`<strong>${rec.status === "held" ? "Held" : "Refused"}</strong> — recorded by ${esc(who)} · ${esc(fmt(rec.recorded_at))}`);
@@ -465,6 +471,15 @@ function openPrn(r) {
     doseForm(box, row, null, "given", false);
 }
 
+const peso = (n) => `₱${Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function supplyText(rec) {
+    if (rec.supply_source === "own") return "From the patient's own supply (not charged)";
+    if (rec.supply_source === "opened") return "From the patient's opened container (charged with the first dose)";
+    const qty = `${Number(rec.stock_quantity)} from ${esc(rec.warehouse_name || "stock")}`;
+    if (!rec.charge) return `Taken: ${qty} · not charged (no selling price)`;
+    return `Taken: ${qty} · ${peso(rec.charge.amount)} ${rec.charge.status === "voided" ? "charge voided" : "charged"}`;
+}
+
 /** 0-10 pain score buttons; the chosen value is kept in data-value on the group. */
 function scorePicker(id, labelledBy = "") {
     return `<div class="marx-score" id="${id}" role="radiogroup" ${labelledBy ? `aria-labelledby="${labelledBy}"` : `aria-label="Pain score 0 to 10"`}>${Array.from({ length: 11 }, (_, n) => `<button type="button" role="radio" aria-checked="false" aria-pressed="false" data-score="${n}">${n}</button>`).join("")}</div>
@@ -508,6 +523,42 @@ function doseForm(box, row, slot, mode, holdOnly) {
     </div>`;
     const q = (k) => box.querySelector(`[data-v="${k}"]`);
     const err = box.querySelector(".marx-err");
+    let supply = null;
+    const loadSupply = async () => {
+        const r = await fetchSupply(o.id).catch(() => null);
+        const el = q("supply");
+        if (!el) return;
+        if (!r?.success) {
+            el.innerHTML = `<span class="marx-err">Could not check the stock. ${esc(r?.message || "")}</span>`;
+            return;
+        }
+        supply = r.data;
+        const s = supply;
+        const def = s.default;
+        const opt = (value, label, selected, disabled = false) => `<option value="${value}" ${selected ? "selected" : ""} ${disabled ? "disabled" : ""}>${esc(label)}</option>`;
+        el.innerHTML = `<div class="row">
+                <div><label for="marxFrom">Taken from</label><select id="marxFrom">
+                    ${def ? "" : `<option value="">Choose…</option>`}
+                    ${s.locations.map((l) => opt(`stock:${l.id}`, `${l.label} — ${l.usable > 0 ? `${Number(l.usable)} ${s.unit_name}(s) usable` : "none usable"}`, def?.source === "stock" && def.warehouse_id === l.id, !(l.usable > 0))).join("")}
+                    ${s.opened_available ? opt("opened", "Patient's opened container (already charged)", def?.source === "opened") : ""}
+                    ${opt("own", "Patient's own supply (not charged)", false)}
+                </select></div>
+                <div data-v="qtybox"><label for="marxQty">How many ${esc(s.unit_name)}(s)</label><input id="marxQty" type="number" min="0.5" step="0.5" inputmode="decimal" value="${s.quantity}"></div>
+            </div>
+            <div class="marx-price" data-v="price"></div>
+            ${def ? "" : `<div class="marx-err">No usable stock at the ward or the pharmacy. Ask the pharmacy to send it, or record the patient's own supply.</div>`}`;
+        const sync = () => {
+            const from = $("marxFrom").value;
+            const isStock = from.startsWith("stock:");
+            q("qtybox").style.display = isStock ? "" : "none";
+            const qty = Number($("marxQty").value || 0);
+            q("price").textContent = !isStock ? (from === "" ? "" : "Nothing taken from stock; not charged.")
+                : s.unit_price ? `${qty} × ${peso(s.unit_price)} = ${peso(qty * s.unit_price)} will be charged to the patient.` : "No selling price set: taken from stock, not charged.";
+        };
+        $("marxFrom").onchange = sync;
+        $("marxQty").oninput = sync;
+        sync();
+    };
     const fields = () => {
         if (mode === "given") {
             q("fields").innerHTML = `<div class="marx-grid">
@@ -520,12 +571,14 @@ function doseForm(box, row, slot, mode, holdOnly) {
                         <div><label for="marxWasteHow">How it was disposed of</label><input id="marxWasteHow" maxlength="255" placeholder="e.g. discarded in the sharps bin"></div>` : ""}
                 </div>
                 ${o.dd ? `<p class="marx-sub" style="margin:0">Dangerous drug: this dose goes into the DD register with the second nurse as witness.</p>` : ""}
+                <div class="marx-supply" data-v="supply"><span class="marx-sub">Checking stock…</span></div>
                 <div data-v="confirm"></div>
                 ${o.needs_witness ? `<div class="marx-witness"><strong>Second nurse check</strong> <span class="marx-sub">— ${o.high_alert ? "high-alert" : "controlled"} medicine. Another nurse checks the patient, medicine, dose and route, then signs with their own username and password.</span>
                     <div class="marx-grid" style="margin-top:6px"><div><label for="marxWUser">Second nurse's username</label><input id="marxWUser" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
                     <div><label for="marxWPass">Their password</label><input id="marxWPass" type="password" autocomplete="new-password"></div></div></div>` : ""}`;
             q("save").textContent = "Record as given";
             if (o.pain) bindScore(box, "marxPain");
+            loadSupply();
         } else if (mode === "held") {
             q("fields").innerHTML = `<div class="marx-grid">
                 <div><label for="marxHoldWhy">Why held</label><select id="marxHoldWhy"><option value="">Choose…</option>${reasons.map((r) => `<option>${esc(r)}</option>`).join("")}</select></div>
@@ -561,6 +614,13 @@ function doseForm(box, row, slot, mode, holdOnly) {
             const pain = o.pain ? box.querySelector("#marxPain").dataset.value : undefined;
             if (o.pain && (pain === undefined || pain === "")) { err.textContent = "Score the pain before giving it."; box.querySelector("#marxPain button")?.focus(); return; }
             if (o.dd && Number(v("marxWaste")) > 0 && !v("marxWasteHow")) { err.textContent = "Say how the wasted amount was disposed of."; $("marxWasteHow").focus(); return; }
+            if (!supply || !$("marxFrom")) { err.textContent = "Wait for the stock check."; return; }
+            const from = $("marxFrom").value;
+            if (!from) { err.textContent = "Choose where the dose was taken from."; $("marxFrom").focus(); return; }
+            if (from.startsWith("stock:") && !(Number($("marxQty").value) > 0)) { err.textContent = "Enter how many were taken from stock."; $("marxQty").focus(); return; }
+            base.supply_source = from.startsWith("stock:") ? "stock" : from;
+            base.warehouse_id = from.startsWith("stock:") ? Number(from.slice(6)) : undefined;
+            base.stock_quantity = from.startsWith("stock:") ? $("marxQty").value : undefined;
             if (o.needs_witness && (!v("marxWUser") || !$("marxWPass").value)) { err.textContent = "The second nurse must sign with their username and password."; $("marxWUser").focus(); return; }
             call = () => giveDose({ ...base, given_at: $("marxGivenAt").value, reason: v("marxReason"),
                 pain_score: o.pain ? Number(pain) : undefined, confirm_low: confirmLow ? 1 : undefined,
@@ -607,6 +667,7 @@ export function MarBoardView() {
     <div class="mrb-bar">
         <select id="mrbWard" aria-label="Ward"></select>
         <span class="marx-sub" id="mrbShift"></span>
+        ${me().role === "admin" ? `<button type="button" class="marx-btn" id="mrbSupply" style="margin-left:auto">Supply settings</button>` : ""}
     </div>
     <div class="marx-counts" id="mrbCounts"></div>
     <div class="mrb-card" id="mrbList"><div class="mrb-empty">Loading…</div></div>
@@ -628,6 +689,7 @@ export function initMarBoard() {
         boardWard = e.target.value;
         loadBoard();
     });
+    $("mrbSupply")?.addEventListener("click", openSupplySettings);
     $("mrbList").addEventListener("click", (e) => {
         const adm = e.target.closest("[data-adm]")?.dataset.adm;
         if (adm && e.target.closest("[data-open]")) openMar(Number(adm), { onChange: () => loadBoard() });
@@ -690,4 +752,49 @@ function renderBoard() {
                 <td><button type="button" class="marx-btn ${c.late || c.due || c.recheck ? "primary" : ""}" data-open aria-label="Open the MAR of ${esc(p.patient_name)}">MAR</button></td>
             </tr>`;
         }).join("")}</tbody></table>`;
+}
+
+/* ---------------- Supply settings (admin) ---------------- */
+
+/** Where ward doses come from: each ward's own stock location, and the pharmacy location. */
+async function openSupplySettings() {
+    ensureRoot().classList.add("open");
+    cur = null;
+    $("marxModal").innerHTML = `<div class="marx-body" style="padding:24px">Loading…</div>`;
+    const r = await fetchSupplySettings().catch(() => null);
+    if (!r?.success) {
+        $("marxModal").innerHTML = `<div class="marx-head"><h2 id="marxTitle">Supply settings</h2><button type="button" class="marx-x" data-close aria-label="Close">×</button></div>
+            <div class="marx-body"><p>${esc(r?.message || "Could not load the settings.")}</p></div>`;
+        $("marxModal").querySelector("[data-close]").onclick = close;
+        return;
+    }
+    const d = r.data;
+    const opts = (selected, none) => `<option value="">${esc(none)}</option>${d.warehouses.map((w) => `<option value="${w.id}" ${w.id === selected ? "selected" : ""}>${esc(w.name)}</option>`).join("")}`;
+    const defName = d.warehouses.find((w) => w.id === d.default_pharmacy_warehouse_id)?.name;
+    $("marxModal").innerHTML = `
+        <div class="marx-head"><div><h2 id="marxTitle">Where ward medicines come from</h2>
+            <div class="marx-sub">A dose given on the MAR is taken from the ward's own stock when it has enough, else from the pharmacy — through the medicine ledger — and charged to the patient. Refill ward stock from the pharmacy with Stock Transfers.</div></div>
+            <button type="button" class="marx-x" data-close aria-label="Close">×</button></div>
+        <div class="marx-body"><div class="marx-panel">
+            <div><label for="marxPharmWh">Pharmacy location</label><select id="marxPharmWh">${opts(d.pharmacy_warehouse_id, defName ? `Not set (uses ${defName})` : "Not set")}</select></div>
+            <table class="mrb-table" style="background:var(--bg-surface);border-radius:8px"><thead><tr><th>Ward</th><th>Ward stock location</th></tr></thead><tbody>
+                ${d.wards.map((w) => `<tr><td>${esc(w.name)}</td><td><select data-ward="${w.id}" aria-label="Stock location of ${esc(w.name)}">${opts(w.stock_warehouse_id, "No ward stock (pharmacy only)")}</select></td></tr>`).join("")}
+            </tbody></table>
+            <div style="display:flex;gap:6px"><button type="button" class="marx-btn primary" id="marxSupplySave">Save</button><button type="button" class="marx-btn" data-close>Cancel</button></div>
+            <div class="marx-err" role="alert"></div>
+        </div></div>`;
+    $("marxModal").querySelectorAll("[data-close]").forEach((b) => { b.onclick = close; });
+    $("marxSupplySave").onclick = async (ev) => {
+        const wards = {};
+        $("marxModal").querySelectorAll("[data-ward]").forEach((s) => { wards[s.dataset.ward] = s.value; });
+        ev.target.disabled = true;
+        const res = await saveSupplySettings({ pharmacy_warehouse_id: $("marxPharmWh").value, wards }).catch(() => null);
+        ev.target.disabled = false;
+        if (!res?.success) {
+            $("marxModal").querySelector(".marx-err").textContent = res?.message || "Could not save.";
+            return;
+        }
+        showToast(res.message);
+        close();
+    };
 }
