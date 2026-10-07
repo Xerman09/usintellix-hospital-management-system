@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=80";
+import { PatientChartView } from "./patients-list.view.js?v=81";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2725,6 +2725,7 @@ export async function initPatientChartTab(patient)
     loadDashboardAppointments(patient);
     loadDashboardSurgeries(patient);
     loadDashboardNursing(patient);
+    loadDashboardInpatientVitals(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -6999,6 +7000,48 @@ async function loadDashboardNursing(patient)
     } catch (error) {
         console.error("Failed to load nursing team", error);
         body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load the nursing team right now.</p></div>`;
+    }
+}
+
+/** Inpatient vital signs widget: due status, latest set, Record / Graph. */
+async function loadDashboardInpatientVitals(patient)
+{
+    const body = document.getElementById("pdInVitalsBody");
+    const recordBtn = document.getElementById("pdInVitalsRecordBtn");
+    const graphBtn = document.getElementById("pdInVitalsGraphBtn");
+    if (!body) return;
+    const setButtons = (on) => [recordBtn, graphBtn].forEach((b) => b && (b.disabled = !on));
+    setButtons(false);
+    try {
+        const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=1");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=1");
+        const result = await fetchPatientVitals(patient.id);
+        if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
+        if (!result.success) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load vital signs right now.")}</p></div>`;
+            return;
+        }
+        const s = result.data;
+        if (!s) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>Not admitted. Ward vital signs show here during a hospital stay (clinic vitals are in the Vitals widget).</p></div>`;
+            return;
+        }
+        ui.ensureVitalsStyles();
+        body.classList.add("ivx-root");
+        body.innerHTML = `
+            <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px">
+                <div>${ui.statusBadge(s.status)}</div>
+                <div class="pd-msg-preview" style="white-space:normal">Every ${s.schedule.every_hours} h · ${s.sets_24h} set${s.sets_24h === 1 ? "" : "s"} in 24 h</div>
+            </div>
+            <div style="line-height:1.7">${ui.valuesLine(s.latest)}</div>
+            ${s.latest ? `<div class="pd-msg-preview">${escapeHtml(ui.fmtTime(s.latest.taken_at))} · ${escapeHtml(s.latest.recorded_by_name || "")}</div>` : ""}`;
+        const refresh = () => loadDashboardInpatientVitals(patient);
+        setButtons(true);
+        if (recordBtn) recordBtn.onclick = () => ui.openRecordVitals(s, { onSaved: refresh });
+        if (graphBtn) graphBtn.onclick = () => ui.openVitalsGraph(s.admission_id, { onChange: refresh });
+    } catch (error) {
+        console.error("Failed to load inpatient vital signs", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load vital signs right now.</p></div>`;
     }
 }
 

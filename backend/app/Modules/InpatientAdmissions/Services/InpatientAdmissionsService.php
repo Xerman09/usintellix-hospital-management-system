@@ -101,6 +101,18 @@ class InpatientAdmissionsService
         $stmt->execute($params);
         $beds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Vital signs: due / overdue per patient, and the latest set.
+        $admIds = array_values(array_filter(array_map(fn($b) => (int) ($b['admission_id'] ?? 0), $beds)));
+        $vitals = (new \App\Modules\InpatientVitals\Services\InpatientVitalsService())->summaries($admIds);
+        foreach ($beds as &$bed) {
+            $v = $vitals[(int) ($bed['admission_id'] ?? 0)] ?? null;
+            $bed['vitals_state'] = $v['status']['state'] ?? null;
+            $bed['vitals_next_due'] = $v['status']['next_due'] ?? null;
+            $bed['vitals_every_hours'] = $v['schedule']['every_hours'] ?? null;
+            $bed['vitals_last_at'] = $v['latest']['taken_at'] ?? null;
+        }
+        unset($bed);
+
         // 3. System-wide Census & Quality Analytics (KPIs)
         $kpiSql = "
             SELECT 

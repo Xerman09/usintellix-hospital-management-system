@@ -67,6 +67,7 @@ function staffNavLinks(role)
                 <a data-tab="or_reports">OR Reports</a>
                 <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
                 <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
+                <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
         </div>
@@ -636,6 +637,7 @@ const DOCTOR_NAV_LINKS = `
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
             <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+            <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
@@ -714,6 +716,7 @@ function nurseNavLinks(role)
         </div>
     </div>
     <a data-tab="inpatient_admissions">Wards</a>
+    <a data-tab="inpatient_vitals">Vital Signs</a>
     <a data-tab="nurse_assignments">Shift Assignments</a>
     <a data-tab="patient_flow">Flow</a>
     <div class="nav-dropdown">
@@ -733,6 +736,7 @@ const CNA_NAV_LINKS = `
     <a data-tab="patients">Patients</a>
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="nurse_assignments">My Patients</a>
+    <a data-tab="inpatient_vitals">Vital Signs</a>
     <a data-tab="room_management">Rooms &amp; Beds</a>
     <a data-tab="patient_flow">Flow</a>
     <a data-tab="messaging">Messages</a>

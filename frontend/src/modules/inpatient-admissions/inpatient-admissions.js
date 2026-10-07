@@ -12,7 +12,7 @@ import {
     createBed
 } from './inpatient-admissions.service.js?v=2';
 import { showToast } from '../../core/toast.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=2';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=3';
 import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
@@ -653,6 +653,11 @@ function renderBedCard(bed) {
                         <span class="bed-detail-label">CNA (shift):</span>
                         <span class="bed-detail-val">${bed.shift_cna_name ? esc(bed.shift_cna_name) : '--'}</span>
                     </div>
+                    ${bed.vitals_state ? `
+                    <div class="bed-detail-row">
+                        <span class="bed-detail-label">Vitals:</span>
+                        <span class="bed-detail-val">${vitalsLabel(bed)}</span>
+                    </div>` : ''}
                     ${bed.primary_nurse ? `
                     <div class="bed-detail-row">
                         <span class="bed-detail-label">Primary Nurse:</span>
@@ -805,7 +810,7 @@ function renderTable(beds) {
                     ` : '<span style="color: #94a3b8;">-- Vacant --</span>'}
                 </td>
                 <td>${bed.patient_age ? `${bed.patient_age}y / ${esc(bed.patient_gender || '')}` : '--'}</td>
-                <td>${esc(bed.attending_physician || '--')}${bed.patient_name ? `<br><span style="font-size: 11px; color: #64748b;">RN: ${esc(bed.shift_nurse_name || 'not assigned')}${bed.shift_cna_name ? ` · CNA: ${esc(bed.shift_cna_name)}` : ''}</span>` : ''}</td>
+                <td>${esc(bed.attending_physician || '--')}${bed.patient_name ? `<br><span style="font-size: 11px; color: #64748b;">RN: ${esc(bed.shift_nurse_name || 'not assigned')}${bed.shift_cna_name ? ` · CNA: ${esc(bed.shift_cna_name)}` : ''}</span>` : ''}${bed.vitals_state ? `<br><span style="font-size: 11px;">Vitals: ${vitalsLabel(bed)}</span>` : ''}</td>
                 <td>${bed.admission_date ? `${bed.admission_date.substring(0, 10)} (${bed.los_days || 0}d)` : '--'}</td>
                 <td>
                     ${bed.admitting_diagnosis ? esc(bed.admitting_diagnosis) : '--'}
@@ -1048,4 +1053,17 @@ function openConfigModal() {
     }
 
     modal.classList.add('open');
+}
+
+/** Census: vital-signs due status (icon + words, never color alone). */
+function vitalsLabel(bed) {
+    const t = String(bed.vitals_next_due || '').slice(11, 16);
+    const map = {
+        overdue: ['#b91c1c', '⏰ Overdue'],
+        due: ['#b45309', '● Due now'],
+        due_soon: ['inherit', `◔ Due ${t}`],
+        ok: ['#15803d', `✓ Next ${t}`],
+    };
+    const [color, label] = map[bed.vitals_state] || map.ok;
+    return `<span style="font-weight:700;color:${color}">${label}</span>${bed.vitals_every_hours ? ` <span style="color:#64748b;font-weight:400">(every ${bed.vitals_every_hours} h)</span>` : ''}`;
 }
