@@ -23,7 +23,7 @@ export function InpatientVitalsView() {
 </style>
 <div class="ivb-page" id="ivbPage">
     <h1>Vital Signs</h1>
-    <p class="ivb-intro">Each inpatient's latest vital signs and when the next set is due. Sets are due every 4 hours by default (every hour in the ICU); change it per patient with the schedule.</p>
+    <p class="ivb-intro">Each inpatient's latest vital signs, NEWS2 early warning score and when the next set is due. Sets are due every 4 hours by default (every hour in the ICU). A NEWS2 of 5 or more, or 3 in any single parameter, alerts the nurse, charge nurse and doctor. * = partial score (not every parameter measured).</p>
     <div class="ivb-bar">
         <select id="ivbWard" aria-label="Ward"></select>
         <div class="ivb-counts" id="ivbCounts"></div>

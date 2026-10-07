@@ -12,7 +12,7 @@ import {
     createBed
 } from './inpatient-admissions.service.js?v=2';
 import { showToast } from '../../core/toast.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=3';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=4';
 import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
@@ -1065,5 +1065,7 @@ function vitalsLabel(bed) {
         ok: ['#15803d', `✓ Next ${t}`],
     };
     const [color, label] = map[bed.vitals_state] || map.ok;
-    return `<span style="font-weight:700;color:${color}">${label}</span>${bed.vitals_every_hours ? ` <span style="color:#64748b;font-weight:400">(every ${bed.vitals_every_hours} h)</span>` : ''}`;
+    const news = bed.news2_score == null ? '' : bed.news2_risk === 'high' ? ` <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-weight:700">⚠ NEWS2 ${bed.news2_score}</span>`
+        : ['medium', 'low_medium'].includes(bed.news2_risk) ? ` <span style="color:#c2410c;font-weight:700">▲ NEWS2 ${bed.news2_score}</span>` : ` <span style="color:#64748b">NEWS2 ${bed.news2_score}</span>`;
+    return `<span style="font-weight:700;color:${color}">${label}</span>${news}${bed.vitals_every_hours ? ` <span style="color:#64748b;font-weight:400">(every ${bed.vitals_every_hours} h)</span>` : ''}`;
 }

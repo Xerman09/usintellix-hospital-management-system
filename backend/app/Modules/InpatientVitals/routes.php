@@ -18,3 +18,4 @@ $router->get('/inpatient-vitals/history', [InpatientVitalsController::class, 'hi
 $router->post('/inpatient-vitals', [InpatientVitalsController::class, 'record'], [AuthMiddleware::class, [RoleMiddleware::class, $vitalsReadRoles]]);
 $router->post('/inpatient-vitals/void', [InpatientVitalsController::class, 'void'], [AuthMiddleware::class, [RoleMiddleware::class, $vitalsReadRoles]]);
 $router->post('/inpatient-vitals/schedule', [InpatientVitalsController::class, 'schedule'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse']]]);
+$router->post('/inpatient-vitals/scale', [InpatientVitalsController::class, 'scale'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor']]]);

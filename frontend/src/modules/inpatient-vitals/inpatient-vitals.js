@@ -1,4 +1,4 @@
-import { fetchVitalsBoard, fetchVitalsHistory, recordVitals, voidVitals, setVitalsSchedule } from "./inpatient-vitals.service.js?v=1";
+import { fetchVitalsBoard, fetchVitalsHistory, recordVitals, voidVitals, setVitalsSchedule, setSpo2Scale } from "./inpatient-vitals.service.js?v=2";
 import { getUser } from "../../core/session.js?v=2";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
@@ -50,6 +50,14 @@ export function statusBadge(status) {
     return `<span class="ivx-badge ${cls}">${label}</span>${sub ? `<div class="ivx-sub">${esc(sub)}</div>` : ""}`;
 }
 
+/** NEWS2: score + risk in words (icon + label, never color alone); "partial" when parameters are missing. */
+export function news2Badge(n, { long = false } = {}) {
+    if (!n) return "";
+    const icon = { low: "", low_medium: "▲ ", medium: "▲ ", high: "⚠ " }[n.risk] || "";
+    const tip = n.complete ? "" : ` title="Partial: not every NEWS2 parameter was measured"`;
+    return `<span class="ivx-news ${n.risk}"${tip}>${icon}NEWS2 ${n.score}${n.complete ? "" : "*"}${long || n.risk !== "low" ? ` · ${esc(n.risk_label)}` : ""}</span>`;
+}
+
 const MEASURES = [
     { key: "bp", label: "Blood pressure", short: "BP", unit: "mmHg" },
     { key: "heart_rate", label: "Heart rate", short: "HR", unit: "/min" },
@@ -90,6 +98,14 @@ const CSS = `
 .ivx-badge.due { background: #fef3c7; color: #92400e; }
 .ivx-badge.soon { background: var(--accent-lighter); color: var(--accent-text); }
 .ivx-badge.ok { background: #dcfce7; color: #166534; }
+.ivx-news { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; border: 1px solid var(--border-color); color: var(--text-primary); }
+.ivx-news.low_medium { background: #fef3c7; color: #92400e; border-color: transparent; }
+.ivx-news.medium { background: #ffedd5; color: #9a3412; border-color: transparent; }
+.ivx-news.high { background: #dc2626; color: #fff; border-color: transparent; }
+:root[data-theme="dark"] .ivx-news.low_medium { background: #78350f; color: #fde68a; }
+:root[data-theme="dark"] .ivx-news.medium { background: #7c2d12; color: #fed7aa; }
+.ivx-warn { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #b45309; font-weight: 600; margin-top: 3px; }
+:root[data-theme="dark"] .ivx-warn { color: #fcd34d; }
 :root[data-theme="dark"] .ivx-badge.overdue { background: #7f1d1d; color: #fecaca; }
 :root[data-theme="dark"] .ivx-badge.due { background: #78350f; color: #fde68a; }
 :root[data-theme="dark"] .ivx-badge.ok { background: #14532d; color: #bbf7d0; }
@@ -280,7 +296,9 @@ export function openRecordVitals(s, { onSaved = null } = {}) {
             modal.querySelector('[aria-invalid="true"]')?.focus();
             return;
         }
-        showToast("Vital signs saved.");
+        const n = res.data.set?.news2;
+        const alerted = res.data.alert?.raised;
+        showToast(`Vital signs saved${n ? ` · NEWS2 ${n.score}${n.complete ? "" : " (partial)"}${n.risk !== "low" ? ` — ${n.risk_label} risk` : ""}` : ""}.${alerted ? " The nurse, charge nurse and doctor were alerted." : ""}`, "success", alerted ? 7000 : 3500);
         closeModal();
         onSaved?.(res.data.summary);
     }
@@ -315,6 +333,39 @@ export function openVitalsSchedule(s, { onSaved = null } = {}) {
         onSaved?.(res.data);
     };
     setTimeout(() => $("ivxEvery")?.focus(), 0);
+}
+
+/* ---------------- SpO2 scale (doctors) ---------------- */
+
+export function openSpo2Scale(s, { onSaved = null } = {}) {
+    openModal();
+    const modal = $("ivxModal");
+    modal.innerHTML = `${header("NEWS2 SpO₂ scale", s)}
+        <div class="ivx-body ivx-form">
+            <div class="full"><label for="ivxScale">Scale</label>
+                <select id="ivxScale">
+                    <option value="1" ${s.spo2_scale !== 2 ? "selected" : ""}>Scale 1 — standard (target 96% and above)</option>
+                    <option value="2" ${s.spo2_scale === 2 ? "selected" : ""}>Scale 2 — prescribed target 88–92% (e.g. hypercapnic respiratory failure)</option>
+                </select>
+                <div class="ivx-hint">Scale 2 only for patients with a prescribed 88–92% target. It applies from the next set; earlier scores stay as they were.</div></div>
+            <div class="full"><label for="ivxScaleWhy">Reason</label><input id="ivxScaleWhy" maxlength="255" value="${esc(s.scale_reason || "")}" placeholder="e.g. COPD with CO₂ retention"></div>
+            <div class="ivx-err full" id="ivxScaleErr"></div>
+        </div>
+        <div class="ivx-foot"><button type="button" class="ivx-btn" data-close>Cancel</button><button type="button" class="ivx-btn primary" id="ivxScaleSave">Save</button></div>`;
+    modal.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeModal));
+    $("ivxScaleSave").onclick = async () => {
+        $("ivxScaleSave").disabled = true;
+        const res = await setSpo2Scale(s.admission_id, Number($("ivxScale").value), $("ivxScaleWhy").value.trim()).catch(() => null);
+        $("ivxScaleSave").disabled = false;
+        if (!res?.success) {
+            $("ivxScaleErr").textContent = res?.message || "Could not save.";
+            return;
+        }
+        showToast(res.message);
+        closeModal();
+        onSaved?.(res.data);
+    };
+    setTimeout(() => $("ivxScale")?.focus(), 0);
 }
 
 /* ---------------- graph ---------------- */
@@ -442,7 +493,11 @@ export async function openVitalsGraph(admissionId, { hours = 72, onChange = null
     }
     const d = res.data;
     const s = d.summary;
-    const valid = d.sets.filter((x) => !x.voided_at);
+    // NEWS2 as a measure of its own (5+ = key threshold).
+    const valid = d.sets.filter((x) => !x.voided_at).map((x) => ({ ...x, news2_score: x.news2?.score ?? null,
+        flags: { ...x.flags, ...(x.news2 && x.news2.score >= 5 ? { news2_score: "high" } : {}) } }));
+    const normal = { ...d.normal, news2_score: [null, 5] };
+    const NEWS = { key: "news2_score", label: "NEWS2", short: "NEWS2", unit: "" };
     const to = ms(d.now);
     const first = valid.length ? ms(valid[0].taken_at) : to - 3600e3;
     const from = hours > 0 ? to - hours * 3600e3 : Math.min(first, to - 3600e3);
@@ -452,25 +507,29 @@ export async function openVitalsGraph(admissionId, { hours = 72, onChange = null
 
     modal.innerHTML = `${header("Vital signs", s)}
         <div class="ivx-body">
-            ${s ? `<div class="ivx-summary"><div>${statusBadge(s.status)}</div><div class="ivx-sub">Every ${s.schedule.every_hours} h${s.schedule.is_default ? " (ward default)" : ""} · ${s.sets_24h} set${s.sets_24h === 1 ? "" : "s"} in 24 h</div>
+            ${s ? `<div class="ivx-summary"><div>${statusBadge(s.status)}</div><div>${news2Badge(s.news2, { long: true })}${s.news2 && !s.news2.complete ? `<div class="ivx-sub">* partial: ${esc(s.news2.missing.length)} not measured</div>` : ""}</div>
+                <div class="ivx-sub">Every ${s.schedule.every_hours} h${s.schedule.is_default ? " (ward default)" : ""} · ${s.sets_24h} set${s.sets_24h === 1 ? "" : "s"} in 24 h · SpO₂ scale ${s.spo2_scale}${s.spo2_scale === 2 ? ` (target 88–92%${s.scale_reason ? `: ${esc(s.scale_reason)}` : ""})` : ""}
+                ${s.schedule_too_slow ? `<div class="ivx-warn">NEWS2 asks for vitals at least every ${s.news2_hours} h</div>` : ""}</div>
                 <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+                    ${["admin", "doctor"].includes(user.role) ? `<button type="button" class="ivx-btn" id="ivxGScale">SpO₂ scale</button>` : ""}
                     ${canSchedule ? `<button type="button" class="ivx-btn" id="ivxGSched">Schedule</button>` : ""}
                     <button type="button" class="ivx-btn primary" id="ivxGRecord">Record vitals</button></div></div>` : `<p class="ivx-sub">This patient is no longer admitted; showing the stay's record.</p>`}
             <div class="ivx-ranges" role="group" aria-label="Period">
                 ${[[24, "24 h"], [72, "3 days"], [168, "7 days"], [0, "Whole stay"]].map(([h, l]) => `<button type="button" class="ivx-btn ${h === hours ? "on" : ""}" data-hours="${h}" aria-pressed="${h === hours}">${l}</button>`).join("")}
                 <span class="ivx-sub">Shaded = normal adult range · hollow dot = outside it</span>
             </div>
-            <div class="ivx-charts">${MEASURES.map((m) => lineChart(valid, m, d.normal, from, to)).join("")}</div>
+            <div class="ivx-charts">${[NEWS, ...MEASURES].map((m) => lineChart(valid, m, normal, from, to)).join("")}</div>
             <div class="ivx-tablewrap"><table class="ivx-table">
-                <thead><tr><th>Taken</th>${MEASURES.map((m) => `<th>${m.short} <span class="ivx-sub">${m.unit}</span></th>`).join("")}<th>AVPU</th><th>By</th><th>Note</th><th><span class="ivx-sr">Actions</span></th></tr></thead>
+                <thead><tr><th>Taken</th><th>NEWS2</th>${MEASURES.map((m) => `<th>${m.short} <span class="ivx-sub">${m.unit}</span></th>`).join("")}<th>AVPU</th><th>By</th><th>Note</th><th><span class="ivx-sr">Actions</span></th></tr></thead>
                 <tbody>${d.sets.length ? [...d.sets].reverse().map((x) => `
                     <tr class="${x.voided_at ? "void" : ""}" data-set="${x.id}">
                         <td>${esc(fmtTime(x.taken_at))}</td>
+                        <td>${x.voided_at ? "—" : news2Badge(x.news2)}</td>
                         ${MEASURES.map((m) => `<td class="num">${valueOf(x, m.key) != null ? `${esc(valueOf(x, m.key))}${flagMark(flagOf(x, m.key))}` : "—"}</td>`).join("")}
                         <td>${esc(x.consciousness || "—")}</td><td>${esc(x.recorded_by_name || "—")}</td>
                         <td class="why" style="white-space:normal;min-width:120px">${x.voided_at ? `<em>Voided: ${esc(x.void_reason)} (${esc(x.voided_by_name || "")})</em>` : esc(x.notes || "")}</td>
                         <td>${canVoid(x) ? `<button type="button" class="ivx-btn" data-void="${x.id}">Void</button>` : ""}</td>
-                    </tr>`).join("") : `<tr><td colspan="${MEASURES.length + 5}" class="ivx-sub" style="text-align:center;padding:16px">No vital signs recorded in this period.</td></tr>`}</tbody>
+                    </tr>`).join("") : `<tr><td colspan="${MEASURES.length + 6}" class="ivx-sub" style="text-align:center;padding:16px">No vital signs recorded in this period.</td></tr>`}</tbody>
             </table></div>
         </div>`;
     modal.querySelector("[data-close]").onclick = closeModal;
@@ -479,10 +538,11 @@ export async function openVitalsGraph(admissionId, { hours = 72, onChange = null
     modal.querySelectorAll("[data-hours]").forEach((b) => (b.onclick = () => reopen(Number(b.dataset.hours))));
     if ($("ivxGRecord")) $("ivxGRecord").onclick = () => openRecordVitals(s, { onSaved: () => { onChange?.(); reopen(); } });
     if ($("ivxGSched")) $("ivxGSched").onclick = () => openVitalsSchedule(s, { onSaved: () => { onChange?.(); reopen(); } });
+    if ($("ivxGScale")) $("ivxGScale").onclick = () => openSpo2Scale(s, { onSaved: () => { onChange?.(); reopen(); } });
     modal.querySelectorAll("[data-void]").forEach((b) => (b.onclick = () => {
         const row = b.closest("tr");
         if (row.nextElementSibling?.classList.contains("ivx-voidrow")) return;
-        row.insertAdjacentHTML("afterend", `<tr class="ivx-voidrow"><td colspan="${MEASURES.length + 5}">
+        row.insertAdjacentHTML("afterend", `<tr class="ivx-voidrow"><td colspan="${MEASURES.length + 6}">
             <label class="ivx-sub" for="ivxVoidWhy">Why void this entry?</label>
             <input id="ivxVoidWhy" maxlength="255" placeholder="e.g. wrong patient, machine error">
             <button type="button" class="ivx-btn primary" id="ivxVoidGo">Void entry</button> <button type="button" class="ivx-btn" id="ivxVoidNo">Keep</button>
@@ -557,6 +617,7 @@ function renderBoard() {
     $("ivbWard").innerHTML = board.wards.map((w) => `<option value="${w.id}" ${w.id === board.ward_id ? "selected" : ""}>${esc(w.name)}${w.mine ? " (my ward)" : ""}</option>`).join("");
     const c = board.counts;
     $("ivbCounts").innerHTML = `
+        <span class="ivb-count"><b>${board.patients.filter((p) => ["medium", "high"].includes(p.news2?.risk)).length}</b>NEWS2 5+</span>
         <span class="ivb-count"><b>${c.overdue}</b>overdue</span>
         <span class="ivb-count"><b>${c.due}</b>due now</span>
         <span class="ivb-count"><b>${c.due_soon}</b>due soon</span>`;
@@ -566,15 +627,19 @@ function renderBoard() {
     }
     const role = getUser()?.role;
     const canSchedule = ["admin", "doctor", "nurse", "charge_nurse"].includes(role);
+    // Highest NEWS2 first, then the most overdue.
     const order = { overdue: 0, due: 1, due_soon: 2, ok: 3 };
-    const rows = [...board.patients].sort((a, b) => order[a.status.state] - order[b.status.state] || b.status.minutes - a.status.minutes);
+    const risk = { high: 0, medium: 1, low_medium: 2, low: 3 };
+    const rows = [...board.patients].sort((a, b) => (risk[a.news2?.risk] ?? 4) - (risk[b.news2?.risk] ?? 4)
+        || order[a.status.state] - order[b.status.state] || b.status.minutes - a.status.minutes);
     $("ivbList").innerHTML = `<table class="ivb-table">
-        <thead><tr><th>Bed</th><th>Patient</th><th>Status</th><th>Latest vital signs</th><th class="ivb-hide-sm">Every</th><th><span class="ivx-sr">Actions</span></th></tr></thead>
+        <thead><tr><th>Bed</th><th>Patient</th><th>NEWS2</th><th>Status</th><th>Latest vital signs</th><th class="ivb-hide-sm">Every</th><th><span class="ivx-sr">Actions</span></th></tr></thead>
         <tbody>${rows.map((p) => `
             <tr data-adm="${p.admission_id}">
                 <td><div class="ivb-bed">${esc(p.room)} · ${esc(p.bed)}</div></td>
                 <td><strong>${esc(p.patient_name)}</strong><div class="ivb-sub">${esc([p.nurse_name ? `RN ${p.nurse_name}` : "", p.cna_name ? `CNA ${p.cna_name}` : ""].filter(Boolean).join(" · ") || "No nurse assigned")}</div></td>
-                <td>${statusBadge(p.status)}</td>
+                <td>${p.news2 ? news2Badge(p.news2) : `<span class="ivb-sub">—</span>`}</td>
+                <td>${statusBadge(p.status)}${p.schedule_too_slow ? `<div class="ivx-warn">NEWS2: every ${p.news2_hours} h${canSchedule ? ` <button type="button" class="ivx-btn" data-act="apply" title="Set the schedule to every ${p.news2_hours} h">Apply</button>` : ""}</div>` : ""}</td>
                 <td>${valuesLine(p.latest)}${p.latest ? `<div class="ivb-sub">${esc(fmtTime(p.latest.taken_at))} · ${esc(p.latest.recorded_by_name || "")}</div>` : ""}</td>
                 <td class="ivb-hide-sm">${p.schedule.every_hours} h${p.schedule.is_default ? "" : " ★"}</td>
                 <td><div class="ivb-actions">
@@ -594,4 +659,10 @@ function onBoardClick(e) {
     if (act === "record") openRecordVitals(p, { onSaved: loadBoard });
     else if (act === "graph") openVitalsGraph(adm, { onChange: loadBoard });
     else if (act === "schedule") openVitalsSchedule(p, { onSaved: loadBoard });
+    else if (act === "apply") {
+        setVitalsSchedule(adm, p.news2_hours, `NEWS2 ${p.news2.score} (${p.news2.risk_label})`).then((r) => {
+            showToast(r?.message || "Could not change the schedule.", r?.success ? "success" : "error");
+            if (r?.success) loadBoard();
+        });
+    }
 }

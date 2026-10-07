@@ -37,6 +37,7 @@ class AlertService
         'or_case'      => 'Surgery',
         'task'         => 'Task',
         'assignment'   => 'Patient assignment',
+        'early_warning' => 'Early warning score (NEWS2)',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

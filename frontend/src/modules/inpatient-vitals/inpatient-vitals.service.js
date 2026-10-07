@@ -14,4 +14,6 @@ export const fetchPatientVitals = (patientId) => api(`/inpatient-vitals/patient$
 export const fetchVitalsHistory = (admissionId, hours = 72) => api(`/inpatient-vitals/history${query({ admission_id: admissionId, hours })}`);
 export const recordVitals = (data) => post("/inpatient-vitals", data);
 export const voidVitals = (id, reason) => post("/inpatient-vitals/void", { id, reason });
+/** Doctors / admins: 1 = standard, 2 = prescribed 88-92% target. */
+export const setSpo2Scale = (admissionId, scale, reason) => post("/inpatient-vitals/scale", { admission_id: admissionId, spo2_scale: scale, reason });
 export const setVitalsSchedule = (admissionId, everyHours, reason) => post("/inpatient-vitals/schedule", { admission_id: admissionId, every_hours: everyHours, reason });

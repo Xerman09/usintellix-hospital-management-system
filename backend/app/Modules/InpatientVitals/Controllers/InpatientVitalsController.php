@@ -59,6 +59,13 @@ class InpatientVitalsController extends Controller
         $this->respond($this->service->setSchedule($request->all(), $this->user()));
     }
 
+    /** Body: admission_id, spo2_scale (1|2), reason? -- doctors / admins (checked in the service). */
+    public function scale(): void
+    {
+        $request = new Request();
+        $this->respond($this->service->setScale($request->all(), $this->user()));
+    }
+
     private function user(): array
     {
         return Session::get('user') ?? [];

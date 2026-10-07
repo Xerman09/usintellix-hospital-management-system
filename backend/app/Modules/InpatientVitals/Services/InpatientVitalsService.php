@@ -89,11 +89,13 @@ class InpatientVitalsService
         $in = implode(',', array_map('intval', $admissionIds));
         $adms = $db->query(
             "SELECT a.id, a.patient_id, a.patient_name, a.patient_mrn, a.patient_age, a.gender, a.admission_date, a.status, a.isolation_precautions,
-                    a.ward_id, w.ward_name, w.ward_type, b.room_number, b.bed_number, s.every_hours, s.reason AS schedule_reason
+                    a.ward_id, w.ward_name, w.ward_type, b.room_number, b.bed_number, s.every_hours, s.reason AS schedule_reason,
+                    COALESCE(ns.spo2_scale, 1) AS spo2_scale, ns.reason AS scale_reason
              FROM inpatient_admissions a
              JOIN hospital_wards w ON w.id = a.ward_id
              JOIN hospital_beds b ON b.id = a.bed_id
              LEFT JOIN inpatient_vitals_schedules s ON s.admission_id = a.id
+             LEFT JOIN inpatient_news2_settings ns ON ns.admission_id = a.id
              WHERE a.id IN ({$in})"
         )->fetchAll(PDO::FETCH_ASSOC);
 
@@ -131,6 +133,7 @@ class InpatientVitalsService
             $id = (int) $a['id'];
             $every = $a['every_hours'] !== null ? (int) $a['every_hours'] : $this->defaultHours($a['ward_type']);
             $last = $latest[$id] ?? null;
+            $news2 = $last ? $this->news2Of($last) : null;
             $out[$id] = [
                 'admission_id' => $id,
                 'patient_id' => $a['patient_id'] !== null ? (int) $a['patient_id'] : null,
@@ -144,6 +147,11 @@ class InpatientVitalsService
                 'sets_24h' => (int) ($counts[$id] ?? 0),
                 'status' => $this->status($last['taken_at'] ?? null, $a['admission_date'], $every, $now),
                 'nurse_name' => $team[$id]['nurse_name'] ?? null, 'cna_name' => $team[$id]['cna_name'] ?? null,
+                'news2' => $news2,
+                'spo2_scale' => (int) $a['spo2_scale'], 'scale_reason' => $a['scale_reason'],
+                // NEWS2 asks for vitals at least this often; flag a schedule that is slower.
+                'news2_hours' => $news2['min_hours'] ?? null,
+                'schedule_too_slow' => $news2 !== null && $every > $news2['min_hours'],
             ];
         }
         // Keep the order asked for.
@@ -246,11 +254,20 @@ class InpatientVitalsService
             return ['success' => false, 'message' => $errors['form'] ?? reset($errors), 'errors' => $errors];
         }
 
+        // NEWS2 for this set, with the patient's SpO2 scale.
+        $scale = $this->spo2Scale($admId);
+        $n = News2::score([
+            'resp_rate' => $vals['resp_rate'], 'spo2' => $vals['spo2'], 'on_oxygen' => $onOxygen, 'bp_systolic' => $vals['bp_systolic'],
+            'heart_rate' => $vals['heart_rate'], 'consciousness' => $avpu, 'temperature_c' => $vals['temperature_c'],
+        ], $scale);
+
         $db->prepare(
             "INSERT INTO inpatient_vitals (admission_id, patient_id, taken_at, bp_systolic, bp_diastolic, heart_rate, resp_rate, temperature_c, spo2,
-                on_oxygen, oxygen_lpm, consciousness, pain_score, blood_sugar_mgdl, notes, recorded_by, recorded_at)
-             VALUES (:a, :p, :t, :sys, :dia, :hr, :rr, :temp, :spo2, :o2, :lpm, :avpu, :pain, :bs, :notes, :by, NOW())"
+                on_oxygen, oxygen_lpm, consciousness, pain_score, blood_sugar_mgdl, notes, news2_score, news2_risk, news2_complete, news2_scale, news2_parts,
+                recorded_by, recorded_at)
+             VALUES (:a, :p, :t, :sys, :dia, :hr, :rr, :temp, :spo2, :o2, :lpm, :avpu, :pain, :bs, :notes, :ns, :nr, :nc, :nsc, :np, :by, NOW())"
         )->execute([
+            'ns' => $n['score'], 'nr' => $n['risk'], 'nc' => $n['complete'] ? 1 : 0, 'nsc' => $scale, 'np' => json_encode($n['parts']),
             'a' => $admId, 'p' => $adm['patient_id'], 't' => $taken,
             'sys' => $vals['bp_systolic'], 'dia' => $vals['bp_diastolic'], 'hr' => $vals['heart_rate'], 'rr' => $vals['resp_rate'],
             'temp' => $vals['temperature_c'], 'spo2' => $vals['spo2'], 'o2' => $onOxygen === null ? null : ($onOxygen ? 1 : 0), 'lpm' => $vals['oxygen_lpm'],
@@ -258,8 +275,9 @@ class InpatientVitalsService
             'by' => (int) ($actor['id'] ?? 0) ?: null,
         ]);
         $id = (int) $db->lastInsertId();
+        $alert = (new News2AlertService())->evaluate($admId, (int) ($actor['id'] ?? 0) ?: null);
         $summary = $this->summaries([$admId])[$admId] ?? null;
-        return ['success' => true, 'message' => 'Vital signs saved.', 'data' => ['id' => $id, 'set' => $this->set($id), 'summary' => $summary]];
+        return ['success' => true, 'message' => 'Vital signs saved.', 'data' => ['id' => $id, 'set' => $this->set($id), 'summary' => $summary, 'alert' => $alert]];
     }
 
     /** Void a wrong entry (kept, struck through). By the person who recorded it, a charge nurse or an admin. */
@@ -283,6 +301,7 @@ class InpatientVitalsService
         }
         $db->prepare("UPDATE inpatient_vitals SET voided_at = NOW(), voided_by = :by, void_reason = :r WHERE id = :id AND voided_at IS NULL")
             ->execute(['by' => (int) $actor['id'], 'r' => mb_substr($reason, 0, 255), 'id' => $id]);
+        (new News2AlertService())->evaluate($set['admission_id'], (int) $actor['id']);
         return ['success' => true, 'message' => 'Entry voided.', 'data' => $this->set($id)];
     }
 
@@ -306,6 +325,64 @@ class InpatientVitalsService
              ON DUPLICATE KEY UPDATE every_hours = VALUES(every_hours), reason = VALUES(reason), set_by = VALUES(set_by), set_at = NOW()"
         )->execute(['a' => $admId, 'h' => $hours, 'r' => $reason !== '' ? mb_substr($reason, 0, 255) : null, 'by' => (int) ($actor['id'] ?? 0) ?: null]);
         return ['success' => true, 'message' => "Vitals now every {$hours} hour" . ($hours === 1 ? '' : 's') . '.', 'data' => $this->summaries([$admId])[$admId] ?? null];
+    }
+
+    /** SpO2 scale 2 (88-92% target) is a doctor's decision. data: admission_id, spo2_scale (1|2), reason? */
+    public function setScale(array $data, array $actor): array
+    {
+        if (!in_array($actor['role'] ?? '', ['admin', 'doctor'], true)) {
+            return ['success' => false, 'message' => 'The SpO₂ scale is set by a doctor.', 'forbidden' => true];
+        }
+        $admId = (int) ($data['admission_id'] ?? 0);
+        $scale = (int) ($data['spo2_scale'] ?? 0);
+        $reason = trim((string) ($data['reason'] ?? ''));
+        if (!in_array($scale, [1, 2], true)) {
+            return ['success' => false, 'message' => 'Choose scale 1 or 2.'];
+        }
+        if ($scale === 2 && $reason === '') {
+            return ['success' => false, 'message' => 'Say why (e.g. COPD with prescribed target 88–92%).', 'errors' => ['reason' => 'Required for scale 2.']];
+        }
+        $db = Database::connection();
+        $stmt = $db->prepare("SELECT 1 FROM inpatient_admissions WHERE id = :id AND status IN " . self::ACTIVE);
+        $stmt->execute(['id' => $admId]);
+        if (!$stmt->fetchColumn()) {
+            return ['success' => false, 'message' => 'This patient is not admitted.', 'not_found' => true];
+        }
+        $db->prepare(
+            "INSERT INTO inpatient_news2_settings (admission_id, spo2_scale, reason, set_by, set_at) VALUES (:a, :s, :r, :by, NOW())
+             ON DUPLICATE KEY UPDATE spo2_scale = VALUES(spo2_scale), reason = VALUES(reason), set_by = VALUES(set_by), set_at = NOW()"
+        )->execute(['a' => $admId, 's' => $scale, 'r' => $reason !== '' ? mb_substr($reason, 0, 255) : null, 'by' => (int) $actor['id']]);
+        return ['success' => true, 'message' => $scale === 2 ? 'SpO₂ scale 2 (target 88–92%) from the next set.' : 'SpO₂ scale 1 from the next set.',
+            'data' => $this->summaries([$admId])[$admId] ?? null];
+    }
+
+    public function spo2Scale(int $admissionId): int
+    {
+        $stmt = Database::connection()->prepare("SELECT spo2_scale FROM inpatient_news2_settings WHERE admission_id = :a");
+        $stmt->execute(['a' => $admissionId]);
+        return (int) ($stmt->fetchColumn() ?: 1);
+    }
+
+    /** NEWS2 for a stored set: as saved, or worked out now for sets saved before scoring existed. */
+    public function news2Of(array $row): array
+    {
+        $num = fn($k, $float = false) => $row[$k] === null || $row[$k] === '' ? null : ($float ? (float) $row[$k] : (int) $row[$k]);
+        $values = [
+            'resp_rate' => $num('resp_rate'), 'spo2' => $num('spo2'),
+            'on_oxygen' => $row['on_oxygen'] === null || $row['on_oxygen'] === '' ? null : (bool) (int) $row['on_oxygen'],
+            'bp_systolic' => $num('bp_systolic'), 'heart_rate' => $num('heart_rate'),
+            'consciousness' => $row['consciousness'] ?: null, 'temperature_c' => $num('temperature_c', true),
+        ];
+        $scale = isset($row['news2_scale']) && $row['news2_scale'] !== null ? (int) $row['news2_scale'] : 1;
+        $n = News2::score($values, $scale);
+        if (isset($row['news2_score']) && $row['news2_score'] !== null) {
+            // The saved score wins (it is what staff saw and acted on).
+            $n['score'] = (int) $row['news2_score'];
+            $n['risk'] = $row['news2_risk'];
+            $n['complete'] = (int) $row['news2_complete'] === 1;
+        }
+        $n['risk_label'] = News2::RISK_LABELS[$n['risk']];
+        return $n;
     }
 
     /** All sets for an admission (oldest first), within the last `hours` (0 = whole stay). */
@@ -388,6 +465,7 @@ class InpatientVitalsService
             'voided_at' => $v['voided_at'], 'voided_by_name' => $v['voided_at'] ? ($v['voided_by_name'] ?? null) : null, 'void_reason' => $v['void_reason'],
         ];
         $out['flags'] = $this->flags($out);
+        $out['news2'] = $this->news2Of($v);
         return $out;
     }
 

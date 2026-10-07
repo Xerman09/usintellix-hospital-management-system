@@ -110,6 +110,9 @@ class InpatientAdmissionsService
             $bed['vitals_next_due'] = $v['status']['next_due'] ?? null;
             $bed['vitals_every_hours'] = $v['schedule']['every_hours'] ?? null;
             $bed['vitals_last_at'] = $v['latest']['taken_at'] ?? null;
+            $bed['news2_score'] = $v['news2']['score'] ?? null;
+            $bed['news2_risk'] = $v['news2']['risk'] ?? null;
+            $bed['news2_complete'] = $v['news2']['complete'] ?? null;
         }
         unset($bed);
 

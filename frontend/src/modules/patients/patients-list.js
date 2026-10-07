@@ -7013,8 +7013,8 @@ async function loadDashboardInpatientVitals(patient)
     const setButtons = (on) => [recordBtn, graphBtn].forEach((b) => b && (b.disabled = !on));
     setButtons(false);
     try {
-        const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=1");
-        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=1");
+        const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=2");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=2");
         const result = await fetchPatientVitals(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7031,7 +7031,8 @@ async function loadDashboardInpatientVitals(patient)
         body.innerHTML = `
             <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px">
                 <div>${ui.statusBadge(s.status)}</div>
-                <div class="pd-msg-preview" style="white-space:normal">Every ${s.schedule.every_hours} h · ${s.sets_24h} set${s.sets_24h === 1 ? "" : "s"} in 24 h</div>
+                <div>${ui.news2Badge(s.news2, { long: true })}</div>
+                <div class="pd-msg-preview" style="white-space:normal">Every ${s.schedule.every_hours} h · ${s.sets_24h} set${s.sets_24h === 1 ? "" : "s"} in 24 h${s.schedule_too_slow ? ` · <strong>NEWS2 asks every ${s.news2_hours} h</strong>` : ""}</div>
             </div>
             <div style="line-height:1.7">${ui.valuesLine(s.latest)}</div>
             ${s.latest ? `<div class="pd-msg-preview">${escapeHtml(ui.fmtTime(s.latest.taken_at))} · ${escapeHtml(s.latest.recorded_by_name || "")}</div>` : ""}`;
