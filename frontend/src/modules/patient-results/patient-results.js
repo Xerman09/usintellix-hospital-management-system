@@ -11,8 +11,9 @@ import {
     createPatientProcedureOrder,
     updatePatientProcedureOrder,
     fetchPatientProcedureResults,
-    savePatientProcedureResults
-} from "./patient-results.service.js";
+    savePatientProcedureResults,
+    importPatientProcedureResults
+} from "./patient-results.service.js?v=2";
 import { todayISO } from "../../core/timezone.js";
 
 const STATUS_OPTIONS = [
@@ -253,9 +254,9 @@ function renderOrderCard(order, results)
 
         <table class="pt-res-results-table">
             <thead>
-                <tr class="pt-res-group-row"><th colspan="9">Results and Recommendations</th></tr>
+                <tr class="pt-res-group-row"><th colspan="10">Results and Recommendations</th></tr>
                 <tr class="pt-res-col-row">
-                    <th>Code</th><th>Name</th><th>Date</th><th>End Date</th><th>Abn</th><th>Value</th><th>Units</th><th>Range</th><th></th>
+                    <th>Code</th><th>Name</th><th>Date</th><th>End Date</th><th title="Ticked by hand as abnormal">Abn</th><th>Value</th><th>Units</th><th>Range</th><th>Flag</th><th></th>
                 </tr>
             </thead>
             <tbody class="pt-res-results-body">
@@ -265,6 +266,8 @@ function renderOrderCard(order, results)
 
         <div class="pt-res-card-actions">
             <button type="button" class="pt-res-add-row-btn">+ Add Result Row</button>
+            <label class="pt-res-add-row-btn pt-res-import-btn" title="CSV columns: code, name, value, units, reference_range, result_date, end_date, abnormal">Import results (CSV)
+                <input type="file" accept=".csv,text/csv" class="pt-res-import-input" hidden></label>
             <button type="button" class="pt-res-save-btn">Save</button>
         </div>
     </div>
@@ -279,10 +282,11 @@ function renderResultRow(r = {})
         <td><input type="text" class="pt-res-cell-input" data-field="name" value="${escapeHtml(r.name || "")}" placeholder="Result name"></td>
         <td><input type="date" class="pt-res-cell-input" data-field="result_date" value="${r.result_date || ""}"></td>
         <td><input type="date" class="pt-res-cell-input" data-field="end_date" value="${r.end_date || ""}"></td>
-        <td class="pt-res-abn-cell"><input type="checkbox" data-field="is_abnormal" ${Number(r.is_abnormal) ? "checked" : ""}></td>
+        <td class="pt-res-abn-cell"><input type="checkbox" data-field="is_abnormal" aria-label="Mark abnormal by hand" ${markedByHand(r) ? "checked" : ""}></td>
         <td><input type="text" class="pt-res-cell-input" data-field="value" value="${escapeHtml(r.value || "")}"></td>
         <td><input type="text" class="pt-res-cell-input" data-field="units" value="${escapeHtml(r.units || "")}"></td>
         <td><input type="text" class="pt-res-cell-input" data-field="reference_range" value="${escapeHtml(r.reference_range || "")}"></td>
+        <td>${flagBadge(r)}</td>
         <td><button type="button" class="pt-res-remove-row-btn" title="Remove row">&times;</button></td>
     </tr>
     `;
@@ -300,6 +304,19 @@ function wireOrderCards()
         });
 
         card.querySelector(".pt-res-save-btn").addEventListener("click", () => saveOrderCard(orderId, card));
+
+        card.querySelector(".pt-res-import-input").addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            e.target.value = "";
+            if (!file) return;
+            const res = await importPatientProcedureResults(orderId, file).catch(() => null);
+            if (!res?.success) {
+                showToast(res?.message || "Could not import the results.", "error");
+                return;
+            }
+            showToast(res.message, res.data?.critical ? "error" : "success", res.data?.critical ? 9000 : 3500);
+            await loadOrders();
+        });
 
         wireRemoveButtons(resultsBody);
     });
@@ -359,8 +376,24 @@ async function saveOrderCard(orderId, card)
         return;
     }
 
-    showToast("Results saved successfully.", "success");
+    // A critical result stays on screen longer, in red.
+    showToast(resultsSave.message || "Results saved.", resultsSave.data?.critical ? "error" : "success", resultsSave.data?.critical ? 9000 : 3500);
     await loadOrders();
+}
+
+/** Ticked abnormal by hand (not worked out from a range); results from before flags count as by hand. */
+function markedByHand(r)
+{
+    return r.flag_detail === "Marked abnormal" || (!r.flag && Number(r.is_abnormal) === 1);
+}
+
+/** Normal / Abnormal / Critical, worked out on save against the critical lab ranges. */
+function flagBadge(r)
+{
+    if (!r.flag) return `<span class="pt-res-flag none" title="Not flagged (nothing to compare against)">—</span>`;
+    const label = { critical: "⚠ Critical", abnormal: "Abnormal", normal: "Normal" }[r.flag] || r.flag;
+
+    return `<span class="pt-res-flag ${escapeHtml(r.flag)}" title="${escapeHtml(r.flag_detail || "")}">${label}</span>${r.flag_detail && r.flag !== "normal" ? `<div class="pt-res-subtext">${escapeHtml(r.flag_detail)}</div>` : ""}`;
 }
 
 function toDatetimeLocal(value)

@@ -1,7 +1,7 @@
 import { getUser } from "../../core/session.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { fetchPatients } from "../patients/patients.service.js";
-import { fetchPatientProcedureResultsForPatient } from "../patient-results/patient-results.service.js";
+import { fetchPatientProcedureResultsForPatient } from "../patient-results/patient-results.service.js?v=2";
 
 let allResults = [];
 let items = []; // [{ name, count }]
@@ -276,6 +276,10 @@ function dateOf(r)
 function valueCell(r, includeUnits = true)
 {
     const value = escapeHtml(includeUnits ? [r.value, r.units].filter(Boolean).join(" ") : (r.value || ""));
+
+    if (r.flag === "critical") {
+        return `<span class="lt-abn-value" style="color:#b91c1c;font-weight:800" title="${escapeHtml(r.flag_detail || "Critical")}">⚠ ${value}</span>`;
+    }
 
     return Number(r.is_abnormal) ? `<span class="lt-abn-value">${value}</span>` : value;
 }

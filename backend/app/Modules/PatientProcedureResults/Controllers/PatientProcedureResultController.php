@@ -77,6 +77,32 @@ class PatientProcedureResultController extends Controller
             return;
         }
 
-        $this->success(null, $result['message']);
+        $this->success($result['data'] ?? null, $result['message']);
+    }
+
+    /** Multipart: order_id, file (CSV: code, name, value, units, reference_range, result_date, end_date, abnormal) */
+    public function import(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        PhiAccessGuard::assertLabAccess($user);
+
+        $orderId = (int) $request->input('order_id');
+        $order = $orderId > 0 ? (new PatientProcedureOrder())->where('id', $orderId)->first() : null;
+        if (!$order || $order['deleted_at'] !== null) {
+            $this->error('Procedure order not found.', 404);
+            return;
+        }
+
+        PhiAccessGuard::assertPatientAccess($user, (int) $order['patient_id'], true);
+
+        $result = $this->service->importForOrder($orderId, $request->files()['file'] ?? [], (int) $user['id']);
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'] ?? null, $result['message']);
     }
 }

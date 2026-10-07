@@ -155,6 +155,15 @@ export function PatientResultsView()
     text-align: center;
 }
 
+.pt-res-flag { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.pt-res-flag.critical { background: #dc2626; color: #fff; }
+.pt-res-flag.abnormal { background: #fef3c7; color: #92400e; }
+.pt-res-flag.normal { background: #dcfce7; color: #166534; }
+.pt-res-flag.none { color: var(--text-muted); }
+:root[data-theme="dark"] .pt-res-flag.abnormal { background: #78350f; color: #fde68a; }
+:root[data-theme="dark"] .pt-res-flag.normal { background: #14532d; color: #bbf7d0; }
+.pt-res-import-btn { display: inline-flex; align-items: center; cursor: pointer; }
+
 .pt-res-remove-row-btn {
     width: 22px;
     height: 22px;

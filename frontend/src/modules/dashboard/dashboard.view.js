@@ -121,6 +121,7 @@ function staffNavLinks(role)
                 <a data-tab="or_reports">OR Reports</a>
                 <a data-tab="providers">Providers</a>
                 <a data-tab="procedure_configuration">Configuration</a>
+                ${role === "admin" ? `<a data-tab="lab_critical_ranges">Critical Lab Ranges</a>` : ""}
                 <a data-tab="procedure_load_compendium">Load Compendium</a>
                 <a class="patient-dependent-nav" data-tab="procedure_pending_review">Pending Review</a>
                 <a class="patient-dependent-nav" data-tab="procedure_patient_results">Patient Results</a>

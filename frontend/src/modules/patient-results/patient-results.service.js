@@ -47,6 +47,23 @@ export async function savePatientProcedureResults(orderId, results)
     );
 }
 
+/** CSV of results for an order (columns: code, name, value, units, reference_range, result_date, end_date, abnormal). */
+export async function importPatientProcedureResults(orderId, file)
+{
+    const formData = new FormData();
+    formData.append("order_id", orderId);
+    formData.append("file", file);
+
+    return await api(
+        "/patient-procedure-results/import",
+        {
+            method: "POST",
+            headers: {},
+            body: formData
+        }
+    );
+}
+
 export async function fetchPatientProcedureResultsForPatient(patientId)
 {
     const query = new URLSearchParams({ patient_id: patientId }).toString();

@@ -321,7 +321,7 @@ function renderResultsTable(records)
                         return `
                             <tr class="${abnormal ? "hrs-result-abnormal" : ""}">
                                 <td>${escapeHtml(result.name)}</td>
-                                <td>${escapeHtml(value)}${abnormal ? ` <span class="hrs-abnormal-flag">Abnormal</span>` : ""}</td>
+                                <td>${escapeHtml(value)}${result.flag === "critical" ? ` <span class="hrs-abnormal-flag" style="background:#dc2626;color:#fff" title="${escapeHtml(result.flag_detail || "")}">⚠ Critical</span>` : abnormal ? ` <span class="hrs-abnormal-flag">Abnormal</span>` : ""}</td>
                                 <td>${escapeHtml(result.reference_range || "-")}</td>
                                 <td>${formatDate(result.result_date) || "-"}</td>
                             </tr>

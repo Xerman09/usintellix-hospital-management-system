@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=149";
+import { getNavLinks } from "./dashboard.view.js?v=150";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -130,10 +130,10 @@ import { BatchResultsView } from "../batch-results/batch-results.view.js";
 import { initBatchResults } from "../batch-results/batch-results.js";
 import { ProcedureReportsView } from "../procedure-reports/procedure-reports.view.js";
 import { initProcedureReports } from "../procedure-reports/procedure-reports.js";
-import { PatientResultsView } from "../patient-results/patient-results.view.js";
-import { initPatientResults } from "../patient-results/patient-results.js";
+import { PatientResultsView } from "../patient-results/patient-results.view.js?v=2";
+import { initPatientResults } from "../patient-results/patient-results.js?v=2";
 import { LabsTrendView } from "../labs-trend/labs-trend.view.js";
-import { initLabsTrend } from "../labs-trend/labs-trend.js";
+import { initLabsTrend } from "../labs-trend/labs-trend.js?v=2";
 import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=3";
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=4";
 import { LabDocumentsView } from "../lab-documents/lab-documents.view.js";
@@ -185,7 +185,7 @@ import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
 import { PatientAppointmentsView } from "../appointments/patient-appointments.view.js";
 import { initPatientAppointments } from "../appointments/patient-appointments.js";
 import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
-import { initHealthSummary } from "../health-records/health-summary.js?v=4";
+import { initHealthSummary } from "../health-records/health-summary.js?v=5";
 import { DocumentsView } from "../documents/documents.view.js";
 import { initDocuments } from "../documents/documents.js";
 import { AppearanceView } from "../appearance/appearance.view.js";
@@ -300,6 +300,7 @@ import { MedVerificationView, initMedVerification } from "../med-orders/med-orde
 import { MarBoardView, initMarBoard } from "../mar/mar.js?v=6";
 import { WardCabinetView, initWardCabinet, RestockQueueView, initRestockQueue } from "../ward-cabinet/ward-cabinet.js?v=4";
 import { WardStockReportView, initWardStockReport } from "../ward-cabinet/ward-stock-report.js?v=2";
+import { LabRangesView, initLabRanges } from "../lab-ranges/lab-ranges.js?v=1";
 import { DdRegisterView, initDdRegister } from "../mar/dd-register.js?v=3";
 import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
@@ -1552,6 +1553,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'OR Reports', () => {
                 setTimeout(initOrReports, 0);
                 return OrReportsView();
+            }, activate);
+        } else if (tabId === 'lab_critical_ranges') {
+            tabManager.openTab(tabId, 'Critical Lab Ranges', () => {
+                setTimeout(initLabRanges, 0);
+                return LabRangesView();
             }, activate);
         } else if (tabId === 'ward_stock_report') {
             tabManager.openTab(tabId, 'Ward Stock Report', () => {

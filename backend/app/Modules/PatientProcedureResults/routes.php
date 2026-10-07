@@ -13,3 +13,9 @@ $router->put('/patient-procedure-results/bulk', [PatientProcedureResultControlle
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse', 'lab_technician']]
 ]);
+
+// Import results from a CSV file (each row flagged Normal / Abnormal / Critical).
+$router->post('/patient-procedure-results/import', [PatientProcedureResultController::class, 'import'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'nurse', 'lab_technician']]
+]);
