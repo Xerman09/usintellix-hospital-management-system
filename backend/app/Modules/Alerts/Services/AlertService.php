@@ -202,6 +202,12 @@ class AlertService
         } catch (\Throwable $e) {
             error_log('Alert escalation failed: ' . $e->getMessage());
         }
+        // Late medicine doses (MAR): alert the patient's nurse (at most every 60 s, whoever polls).
+        try {
+            (new \App\Modules\InpatientOrders\Services\MarService())->runOverdue();
+        } catch (\Throwable $e) {
+            error_log('MAR late-dose check failed: ' . $e->getMessage());
+        }
         $db = Database::connection();
         [$where, $params] = $this->visibleWhere($db, $user);
         $uid = (int) $user['id'];

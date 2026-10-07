@@ -76,6 +76,15 @@ return [
         // (those routes list charge_nurse themselves).
         'charge_nurse' => $nurse,
 
+        // Pharmacist: reads the patient chart (allergies, medicines, problems, visits) to verify
+        // medicine orders; verifying itself is on the /med-orders routes.
+        'pharmacist' => [
+            'GET' => array_merge($lookups, $chartRead, ['/inpatient-admissions/whiteboard', '/inpatient-admissions/details']),
+            'POST' => [],
+            'PUT' => [],
+            'DELETE' => [],
+        ],
+
         // CNA: looks up patients, records vital signs, rooms patients; no medicines or orders.
         'cna' => [
             'GET' => array_merge($lookups, [

@@ -15,6 +15,8 @@
 --                            OR case added (one per case).
 --
 -- Safe to re-run.
+-- Text below contains non-ASCII characters: read this file as UTF-8 whatever the client's default is.
+SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS or_pacu_observations (
     id INT AUTO_INCREMENT PRIMARY KEY,

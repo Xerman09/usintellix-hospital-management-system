@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=81";
+import { PatientChartView } from "./patients-list.view.js?v=83";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2726,6 +2726,7 @@ export async function initPatientChartTab(patient)
     loadDashboardSurgeries(patient);
     loadDashboardNursing(patient);
     loadDashboardInpatientVitals(patient);
+    loadDashboardInpatientOrders(patient);
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -7014,7 +7015,7 @@ async function loadDashboardInpatientVitals(patient)
     setButtons(false);
     try {
         const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=2");
-        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=2");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=4");
         const result = await fetchPatientVitals(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7043,6 +7044,52 @@ async function loadDashboardInpatientVitals(patient)
     } catch (error) {
         console.error("Failed to load inpatient vital signs", error);
         body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load vital signs right now.</p></div>`;
+    }
+}
+
+/** Inpatient medicine orders widget: active / waiting for pharmacy, opens the orders window. */
+async function loadDashboardInpatientOrders(patient)
+{
+    const body = document.getElementById("pdInOrdersBody");
+    const btn = document.getElementById("pdInOrdersBtn");
+    const marBtn = document.getElementById("pdInMarBtn");
+    if (!body) return;
+    if (btn) btn.disabled = true;
+    if (marBtn) marBtn.disabled = true;
+    try {
+        const { fetchPatientOrders } = await import("../med-orders/med-orders.service.js?v=1");
+        const ui = await import("../med-orders/med-orders.js?v=2");
+        const result = await fetchPatientOrders(patient.id);
+        if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
+        if (!result.success) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>${escapeHtml(result.message || "Unable to load medicine orders right now.")}</p></div>`;
+            return;
+        }
+        const d = result.data;
+        if (!d) {
+            body.innerHTML = `<div class="pd-widget-empty"><p>Not admitted. Ward medicine orders show here during a hospital stay.</p></div>`;
+            return;
+        }
+        ui.ensureMedOrderStyles();
+        const active = d.orders.filter((o) => o.state === "active");
+        const pending = d.orders.filter((o) => o.state === "pending");
+        body.innerHTML = `
+            <div class="pd-msg-preview" style="white-space:normal;margin-bottom:6px">${active.length} active · ${pending.length} waiting for pharmacy${d.allergies.length ? ` · <strong>Allergies:</strong> ${escapeHtml(d.allergies.map((a) => a.name).join(", "))}` : ""}</div>
+            ${[...pending, ...active].slice(0, 5).map((o) => `<div style="padding:4px 0;border-bottom:1px dashed var(--border-color, #e5e9f2)">
+                <strong>${escapeHtml(o.drug_name)}</strong> <span class="mox-pill ${o.state === "pending" ? "wait" : "ok"}">${o.state === "pending" ? "Waiting" : "Active"}</span>${o.is_stat ? ` <span class="mox-pill stat">STAT</span>` : ""}
+                <div class="pd-msg-preview">${escapeHtml(`${o.dose_text} ${o.dose_unit} ${o.route} · ${o.how}`)}</div></div>`).join("") || `<div class="pd-widget-empty"><p>No medicine orders yet.</p></div>`}
+            ${active.length + pending.length > 5 ? `<div class="pd-msg-preview">+ ${active.length + pending.length - 5} more</div>` : ""}`;
+        if (btn) {
+            btn.disabled = false;
+            btn.onclick = () => ui.openMedOrders(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) });
+        }
+        if (marBtn) {
+            marBtn.disabled = false;
+            marBtn.onclick = () => import("../mar/mar.js?v=2").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
+        }
+    } catch (error) {
+        console.error("Failed to load inpatient medicine orders", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load medicine orders right now.</p></div>`;
     }
 }
 

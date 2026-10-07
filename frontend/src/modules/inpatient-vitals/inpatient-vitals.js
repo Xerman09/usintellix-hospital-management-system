@@ -627,6 +627,7 @@ function renderBoard() {
     }
     const role = getUser()?.role;
     const canSchedule = ["admin", "doctor", "nurse", "charge_nurse"].includes(role);
+    const canOrders = ["admin", "doctor", "nurse", "charge_nurse", "clinician", "pharmacist"].includes(role);
     // Highest NEWS2 first, then the most overdue.
     const order = { overdue: 0, due: 1, due_soon: 2, ok: 3 };
     const risk = { high: 0, medium: 1, low_medium: 2, low: 3 };
@@ -645,6 +646,8 @@ function renderBoard() {
                 <td><div class="ivb-actions">
                     <button type="button" class="ivx-btn primary" data-act="record">Record</button>
                     <button type="button" class="ivx-btn" data-act="graph">Graph</button>
+                    ${canOrders ? `<button type="button" class="ivx-btn" data-act="orders" aria-label="Medicine orders for ${esc(p.patient_name)}">Orders</button>` : ""}
+                    ${canOrders ? `<button type="button" class="ivx-btn" data-act="mar" aria-label="Medicine administration record for ${esc(p.patient_name)}">MAR</button>` : ""}
                     ${canSchedule ? `<button type="button" class="ivx-btn" data-act="schedule" aria-label="Schedule for ${esc(p.patient_name)}">Schedule</button>` : ""}
                 </div></td>
             </tr>`).join("")}</tbody></table>
@@ -658,6 +661,8 @@ function onBoardClick(e) {
     const p = board.patients.find((x) => x.admission_id === adm);
     if (act === "record") openRecordVitals(p, { onSaved: loadBoard });
     else if (act === "graph") openVitalsGraph(adm, { onChange: loadBoard });
+    else if (act === "orders") import("../med-orders/med-orders.js?v=2").then((m) => m.openMedOrders(adm));
+    else if (act === "mar") import("../mar/mar.js?v=2").then((m) => m.openMar(adm));
     else if (act === "schedule") openVitalsSchedule(p, { onSaved: loadBoard });
     else if (act === "apply") {
         setVitalsSchedule(adm, p.news2_hours, `NEWS2 ${p.news2.score} (${p.news2.risk_label})`).then((r) => {

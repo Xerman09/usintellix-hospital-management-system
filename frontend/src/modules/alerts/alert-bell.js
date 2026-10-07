@@ -69,6 +69,11 @@ export async function openAlertLink(a) {
         openOrCase(Number(link.or_case));
         return true;
     }
+    if (link.mar) {
+        const { openMar } = await import("../mar/mar.js?v=2");
+        openMar(Number(link.mar));
+        return true;
+    }
     if (link.patient_id && typeof window.__openPatientChartFromReport === "function") {
         window.__openPatientChartFromReport(a.patient_no || link.patient_id);
         return true;

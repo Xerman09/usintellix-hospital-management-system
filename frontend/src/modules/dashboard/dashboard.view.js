@@ -68,6 +68,8 @@ function staffNavLinks(role)
                 <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
                 <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
                 <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+                <a data-tab="med_verification">Medicine Order Verification</a>
+                <a data-tab="mar">Medicine Rounds (MAR)</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
         </div>
@@ -638,6 +640,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="patients">New/Search</a>
             <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
             <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+            <a data-tab="mar">Medicine Rounds (MAR)</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
@@ -717,6 +720,7 @@ function nurseNavLinks(role)
     </div>
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="inpatient_vitals">Vital Signs</a>
+    <a data-tab="mar">Medicine Rounds</a>
     <a data-tab="nurse_assignments">Shift Assignments</a>
     <a data-tab="patient_flow">Flow</a>
     <div class="nav-dropdown">
@@ -730,6 +734,15 @@ function nurseNavLinks(role)
     ${role === "charge_nurse" ? `<a data-tab="nursing_staff">Nursing Staff</a>` : ""}
     `;
 }
+
+// Pharmacist: the order verification queue, patients (read), wards, messages.
+const PHARMACIST_NAV_LINKS = `
+    <a data-tab="med_verification">Order Verification</a>
+    <a data-tab="mar">Medicine Rounds</a>
+    <a data-tab="patients">Patients</a>
+    <a data-tab="inpatient_admissions">Wards</a>
+    <a data-tab="messaging">Messages</a>
+`;
 
 // CNA: find a patient, the wards, rooming / vital signs, messages.
 const CNA_NAV_LINKS = `
@@ -749,6 +762,7 @@ export function getNavLinks(role)
     if (role === "receptionist") return RECEPTIONIST_NAV_LINKS;
     if (role === "nurse" || role === "charge_nurse") return nurseNavLinks(role);
     if (role === "cna") return CNA_NAV_LINKS;
+    if (role === "pharmacist") return PHARMACIST_NAV_LINKS;
     return staffNavLinks(role);
 }
 
