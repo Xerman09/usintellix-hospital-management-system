@@ -17,7 +17,8 @@ use PDO;
  *     own siren on each screen; the room TVs on the ward and every nurse station TV show it.
  *   * respond() -- a team member taps "Responding" (or "Not responding"): that person's pop-up
  *                  closes, everyone sees who is coming. The alert itself stays open until
- *   * end()     -- the code ends (or was a false alarm): the alert closes, the TVs clear.
+ *   * end()     -- the code ends with its outcome and time (or was a false alarm): the alert closes, the TVs clear.
+ * The timed record during the code (Phase 2) is CodeBlueRecordService.
  */
 class CodeBlueService
 {
@@ -162,7 +163,10 @@ class CodeBlueService
         return ['success' => true, 'message' => $responding ? "You're responding. {$ev['responding_count']} responding." : 'Noted: not responding.', 'data' => $ev];
     }
 
-    /** The code is over (end_reason: ended | false_alarm): the alert closes and the TVs clear. */
+    /**
+     * The code is over: the alert closes and the TVs clear.
+     * data: reason (ended | false_alarm), note?; when ended: outcome (rosc | icu | died) + outcome_time (HH:MM, blank = now).
+     */
     public function end(int $id, array $data, array $actor): array
     {
         $db = Database::connection();
@@ -174,8 +178,7 @@ class CodeBlueService
             return ['success' => false, 'message' => 'This Code Blue has already ended.'];
         }
         $uid = (int) $actor['id'];
-        $onTeam = (bool) $db->query("SELECT 1 FROM code_blue_team WHERE user_id = {$uid}")->fetchColumn();
-        if ((int) $e['called_by'] !== $uid && !$onTeam && !in_array($actor['role'] ?? '', self::END_ROLES, true)) {
+        if (!self::mayEnd($db, $e, $actor)) {
             return ['success' => false, 'message' => 'The team leader, a doctor, the charge nurse or the person who called it ends the code.', 'forbidden' => true];
         }
         $false = ($data['reason'] ?? '') === 'false_alarm';
@@ -183,21 +186,43 @@ class CodeBlueService
         if ($false && $note === '') {
             return ['success' => false, 'message' => 'Say what happened (why it was a false alarm).', 'errors' => ['note' => 'Required for a false alarm.']];
         }
-        $db->prepare("UPDATE code_blue_events SET status = :s, ended_at = NOW(), ended_by = :u, end_note = :n WHERE id = :id")
-            ->execute(['s' => $false ? 'cancelled' : 'ended', 'u' => $uid, 'n' => $note !== '' ? mb_substr($note, 0, 500) : null, 'id' => $id]);
+        $now = (string) $db->query("SELECT NOW()")->fetchColumn();
+        $outcome = null;
+        $outcomeAt = null;
+        if (!$false) {
+            $chk = (new CodeBlueRecordService())->checkOutcome($data, $e['called_at'], $now);
+            if (isset($chk['errors'])) {
+                return ['success' => false, 'message' => reset($chk['errors']), 'errors' => $chk['errors']];
+            }
+            [$outcome, $outcomeAt] = $chk;
+        }
+        $db->prepare(
+            "UPDATE code_blue_events SET status = :s, ended_at = :now, ended_by = :u, end_note = :n,
+                    outcome = :o, outcome_at = :oat, outcome_by = :ob, outcome_set_at = :oset WHERE id = :id"
+        )->execute(['s' => $false ? 'cancelled' : 'ended', 'now' => $now, 'u' => $uid, 'n' => $note !== '' ? mb_substr($note, 0, 500) : null,
+            'o' => $outcome, 'oat' => $outcomeAt, 'ob' => $outcome ? $uid : null, 'oset' => $outcome ? $now : null, 'id' => $id]);
+        // CPR still marked as running: it stopped at the outcome (never before the last start: "14:05" may be earlier than 14:05:40).
+        $rec = (new CodeBlueRecordService())->forEvent($id);
+        if (!$false && !empty($rec['summary']['cpr_on'])) {
+            $starts = array_filter($rec['entries'], fn($x) => $x['kind'] === 'cpr_start' && !$x['voided']);
+            $stopAt = max($outcomeAt, (string) end($starts)['event_at']);
+            $db->prepare("INSERT INTO code_blue_record (event_id, kind, note, event_at, recorded_by, recorded_at) VALUES (:e, 'cpr_stop', 'Code ended', :at, :u, :now)")
+                ->execute(['e' => $id, 'at' => $stopAt, 'u' => $uid, 'now' => $now]);
+        }
         AlertService::resolveByKey("codeblue:{$id}", $uid, $false ? 'False alarm' : 'Code ended');
-        return ['success' => true, 'message' => $false ? 'Code Blue cancelled (false alarm).' : 'Code Blue ended.', 'data' => $this->show($id)];
+        $msg = $false ? 'Code Blue cancelled (false alarm).' : 'Code Blue ended: ' . CodeBlueRecordService::OUTCOMES[$outcome] . ', ' . substr($outcomeAt, 11, 5) . '.';
+        return ['success' => true, 'message' => $msg, 'data' => $this->show($id, true)];
     }
 
     // ------------------------------------------------------------------
     // Reading
     // ------------------------------------------------------------------
 
-    /** Codes on now (newest first), with who is responding. */
-    public function active(): array
+    /** Codes on now (newest first), with who is responding (and, with $record, the code record). */
+    public function active(bool $record = false): array
     {
         $ids = Database::connection()->query("SELECT id FROM code_blue_events WHERE status = 'active' ORDER BY id DESC")->fetchAll(PDO::FETCH_COLUMN);
-        return array_map(fn($id) => $this->show((int) $id), $ids);
+        return array_map(fn($id) => $this->show((int) $id, $record), $ids);
     }
 
     /** The last codes (ended or not). */
@@ -207,11 +232,13 @@ class CodeBlueService
         return array_map(fn($id) => $this->show((int) $id), $ids);
     }
 
-    public function show(int $id): ?array
+    /** One code; with $record, its timed record and running summary (Phase 2). */
+    public function show(int $id, bool $record = false): ?array
     {
         $db = Database::connection();
         $stmt = $db->prepare(
             "SELECT e.*, " . self::nameSql('e.called_by') . " AS called_by_name, " . self::nameSql('e.ended_by') . " AS ended_by_name,
+                    " . self::nameSql('e.outcome_by') . " AS outcome_by_name,
                     TIMESTAMPDIFF(SECOND, e.called_at, COALESCE(e.ended_at, NOW())) AS seconds,
                     TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) AS patient_name, p.patient_no
              FROM code_blue_events e LEFT JOIN patients p ON p.id = e.patient_id WHERE e.id = :id"
@@ -238,9 +265,11 @@ class CodeBlueService
             'called_from' => $e['called_from'], 'called_by' => (int) $e['called_by'], 'called_by_name' => $e['called_by_name'], 'called_at' => $e['called_at'],
             'alert_id' => $e['alert_id'] !== null ? (int) $e['alert_id'] : null,
             'ended_at' => $e['ended_at'], 'ended_by_name' => $e['ended_at'] ? $e['ended_by_name'] : null, 'end_note' => $e['end_note'],
+            'outcome' => $e['outcome'], 'outcome_label' => $e['outcome'] ? (CodeBlueRecordService::OUTCOMES[$e['outcome']] ?? $e['outcome']) : null,
+            'outcome_at' => $e['outcome_at'], 'outcome_by_name' => $e['outcome_by'] ? $e['outcome_by_name'] : null,
             'seconds' => (int) $e['seconds'],
             'responders' => $people, 'responding_count' => count(array_filter($people, fn($p) => $p['response'] === 'responding')),
-        ];
+        ] + ($record ? ['record' => (new CodeBlueRecordService())->forEvent($id)] : []);
     }
 
     /** For the TVs: the newest code on now, on this ward (room TV) or anywhere (nurse station). */
@@ -343,6 +372,18 @@ class CodeBlueService
         }
         $t[] = ['role' => 'charge_nurse'];
         return $t;
+    }
+
+    /** The person who called it, a code-team member, or an admin / doctor / clinician / charge nurse. */
+    public static function mayEnd(PDO $db, array $e, array $actor): bool
+    {
+        $uid = (int) ($actor['id'] ?? 0);
+        if ((int) $e['called_by'] === $uid || in_array($actor['role'] ?? '', self::END_ROLES, true)) {
+            return true;
+        }
+        $st = $db->prepare("SELECT 1 FROM code_blue_team WHERE user_id = :u");
+        $st->execute(['u' => $uid]);
+        return (bool) $st->fetchColumn();
     }
 
     private function respondRow(PDO $db, int $eventId, int $userId, string $response): void

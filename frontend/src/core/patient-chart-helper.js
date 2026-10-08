@@ -1,5 +1,5 @@
 import { fetchPatients } from "../modules/patients/patients.service.js";
-import { openPatientChartTab } from "../modules/patients/patients-list.js?v=109";
+import { openPatientChartTab } from "../modules/patients/patients-list.js?v=110";
 import { systemNow } from "./timezone.js";
 
 /**

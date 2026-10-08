@@ -5,6 +5,7 @@ namespace App\Modules\CodeBlue\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\CodeBlue\Services\CodeBlueRecordService;
 use App\Modules\CodeBlue\Services\CodeBlueService;
 
 class CodeBlueController extends Controller
@@ -20,8 +21,12 @@ class CodeBlueController extends Controller
     public function index(): void
     {
         $db = \App\Core\Database::connection();
+        $user = Session::get('user') ?? [];
+        $records = new CodeBlueRecordService();
+        $active = array_map(fn($e) => $e + ['can_record' => $records->canRecord($e['id'], $user)], $this->service->active(true));
         $this->success([
-            'active' => $this->service->active(),
+            'active' => $active,
+            'record_options' => CodeBlueRecordService::options(),
             'history' => $this->service->history(20),
             'wards' => $db->query("SELECT id, ward_name AS name FROM hospital_wards WHERE is_active = 1 ORDER BY ward_name")->fetchAll(\PDO::FETCH_ASSOC),
             'patients' => $db->query(
@@ -33,15 +38,39 @@ class CodeBlueController extends Controller
         ], 'Retrieved.');
     }
 
-    /** Query: id */
+    /** Query: id. The code with its record (and whether this person may add to it). */
     public function show(): void
     {
-        $e = $this->service->show((int) (new Request())->input('id'));
+        $e = $this->service->show((int) (new Request())->input('id'), true);
         if (!$e) {
             $this->json(['success' => false, 'message' => 'Code Blue not found.'], 404);
             return;
         }
+        $user = Session::get('user') ?? [];
+        $db = \App\Core\Database::connection();
+        $e['can_record'] = (new CodeBlueRecordService())->canRecord($e['id'], $user);
+        $e['can_outcome'] = $e['status'] === 'ended' && $e['can_record']
+            && CodeBlueService::mayEnd($db, ['called_by' => $e['called_by']], $user);
+        $e['record_options'] = CodeBlueRecordService::options();
         $this->success($e, 'Retrieved.');
+    }
+
+    /** Body: id, kind, value?, dose?, unit?, route?, energy?, note?, time? */
+    public function record(): void
+    {
+        $this->respond((new CodeBlueRecordService())->add((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: entry_id, time? | remove (1) + reason? */
+    public function fixRecord(): void
+    {
+        $this->respond((new CodeBlueRecordService())->fix((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: id, outcome, outcome_time */
+    public function outcome(): void
+    {
+        $this->respond((new CodeBlueRecordService())->outcome((new Request())->all(), Session::get('user') ?? []));
     }
 
     /** Body: admission_id? | patient_id?, ward_id?, location?, detail?, from? */
@@ -58,7 +87,7 @@ class CodeBlueController extends Controller
         $this->respond($this->service->respond((int) $request->input('id'), (string) $request->input('responding') !== '0', Session::get('user') ?? []));
     }
 
-    /** Body: id, reason? (ended | false_alarm), note? */
+    /** Body: id, reason (ended | false_alarm), note?, outcome (rosc | icu | died), outcome_time? */
     public function end(): void
     {
         $request = new Request();

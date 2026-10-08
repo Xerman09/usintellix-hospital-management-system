@@ -10,6 +10,11 @@ import { getUser } from "../../core/session.js";
  *   * The Code Blue screen (tab code_blue): codes on now with who is responding, "Responding" /
  *     "Not responding", end the code (or false alarm); the code team (admin); the last codes.
  * The alert itself (pop-up with a siren) is the bell's (alert-bell.js).
+ *
+ * Phase 2, the code record: on each code on now, one tap per event (CPR start / stop, pulse
+ * check, rhythm, shock, drugs and doses, airway, note) with a running summary and the timeline;
+ * a mistap is struck out or its time corrected (nothing is deleted). Ending the code records the
+ * outcome (ROSC, transfer to ICU, died) with its time. Past codes: "Record" opens it (with a printout).
  */
 
 export const CALL_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse", "cna", "pharmacist", "lab_technician", "receptionist", "staff", "accountant"];
@@ -81,6 +86,51 @@ const CSS = `
 .cbp-team { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 8px; }
 .cbp-team select { border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
 @media (max-width: 700px) { .cbp-table thead { display: none; } .cbp-table tr, .cbp-table td { display: block; } }
+
+.cbr-sum { display: flex; flex-wrap: wrap; gap: 6px; }
+.cbr-chip { display: inline-flex; flex-direction: column; padding: 5px 10px; border-radius: 10px; background: var(--bg-surface-alt); border: 1px solid var(--border-color); min-width: 84px; }
+.cbr-chip small { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 700; }
+.cbr-chip b { font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.cbr-chip.on { background: #dcfce7; border-color: #86efac; color: #14532d; }
+.cbr-chip.on small { color: #166534; }
+.cbr-chip.due { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+.cbr-chip.due small { color: #92400e; }
+:root[data-theme="dark"] .cbr-chip.on { background: #14532d; border-color: #166534; color: #dcfce7; }
+:root[data-theme="dark"] .cbr-chip.on small { color: #bbf7d0; }
+:root[data-theme="dark"] .cbr-chip.due { background: #451a03; border-color: #92400e; color: #fef3c7; }
+:root[data-theme="dark"] .cbr-chip.due small { color: #fde68a; }
+.cbr-pad { display: grid; gap: 6px; border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; background: var(--bg-surface-alt); }
+.cbr-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cbr-h { width: 72px; flex: none; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.cbr-pad button, .cbr-pad select, .cbr-pad input { min-height: 40px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.cbr-pad input { cursor: text; font-weight: 600; }
+.cbr-pad button:hover { border-color: #1d4ed8; }
+.cbr-pad button:active { transform: translateY(1px); }
+.cbr-pad button.go { background: #15803d; border-color: #15803d; color: #fff; }
+.cbr-pad button.stop { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+.cbr-pad button.shock { background: #b45309; border-color: #b45309; color: #fff; }
+.cbr-pad button:disabled { opacity: .55; }
+.cbr-pad button:focus-visible, .cbr-pad select:focus-visible, .cbr-pad input:focus-visible { outline: 3px solid #93c5fd; outline-offset: 1px; }
+.cbr-at { display: flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--text-muted); }
+.cbr-tl { max-height: 300px; overflow: auto; display: block; }
+.cbr-tl table { width: 100%; }
+.cbr-tl td.n { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cbr-tl tr.void td { color: var(--text-muted); }
+.cbr-tl tr.void td.e > b { text-decoration: line-through; }
+.cbr-sub { font-size: 12px; color: var(--text-muted); }
+.cbr-fix { border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.cbr-out { font-weight: 800; }
+.cbr-out.died { color: #b91c1c; }
+:root[data-theme="dark"] .cbr-out.died { color: #fca5a5; }
+.cbr-end fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cbr-end legend { font-size: 12.5px; font-weight: 700; color: var(--text-muted); float: left; margin-right: 6px; }
+.cbr-end label.o { display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 999px; font-weight: 600; cursor: pointer; }
+.cbr-end label.o:has(input:checked) { border-color: #1d4ed8; background: #eff6ff; color: #1d4ed8; }
+:root[data-theme="dark"] .cbr-end label.o:has(input:checked) { background: #172554; color: #bfdbfe; }
+.cbr-end input[type=time], .cbp-inline input[type=time], .cbp-inline select { border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
+.cbp-inline input[type=time] { flex: 0 0 auto; }
+.cbr-modal { max-width: 860px; }
+.cbr-modal .cbx-body { gap: 14px; }
 `;
 
 function ensureCss() {
@@ -284,7 +334,8 @@ export function initCodeBlue() {
     load();
     pageTimer = setInterval(() => {
         if (!document.getElementById("codeBlue")) return clearInterval(pageTimer);
-        if (!document.hidden && !document.querySelector("#codeBlue .cbp-inline")) load();
+        const typing = document.activeElement?.closest?.("#codeBlue") && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+        if (!document.hidden && !document.querySelector("#codeBlue .cbp-inline") && !typing) load();
     }, 5000);
     clockTimer = setInterval(tickClocks, 1000);
 }
@@ -306,14 +357,338 @@ async function load() {
     render(root, team);
 }
 
-const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const mmss = (s) => {
+    const a = Math.abs(Math.round(s));
+    return `${s < 0 ? "−" : ""}${Math.floor(a / 60)}:${String(a % 60).padStart(2, "0")}`;
+};
 
 function tickClocks() {
-    document.querySelectorAll("#codeBlue [data-elapsed]").forEach((el) => {
-        const s = Number(el.dataset.elapsed) + 1;
-        el.dataset.elapsed = s;
+    document.querySelectorAll("#codeBlue [data-elapsed], #codeBlue [data-tick]").forEach((el) => {
+        const k = el.hasAttribute("data-elapsed") ? "elapsed" : "tick";
+        const s = Number(el.dataset[k]) + 1;
+        el.dataset[k] = s;
         el.textContent = mmss(s);
     });
+}
+
+/* ---------------- the code record (Phase 2) ---------------- */
+
+const energyFor = new Map();   // the chosen shock energy, per code (kept across refreshes)
+const atFor = new Map();       // "record at" time, per code
+const hms = (dt) => String(dt || "").slice(11, 19);
+const shortDrug = (d) => `${d.name.replace(/ \(.*\)$/, "")} ${d.dose} ${d.unit}`;
+
+/** The summary chips, the one-tap pad (when this person may record) and the timeline. */
+function recordBlock(e, o) {
+    const r = e.record;
+    if (!r || !o) return "";
+    const s = r.summary;
+    const live = e.status === "active";
+    const tick = (secs) => (live ? `data-tick="${secs}"` : "");
+    const adrDue = live && s.adrenaline_ago_s !== null && s.adrenaline_ago_s >= 180;
+    const chip = (label, val, cls = "", title = "") => `<span class="cbr-chip ${cls}"${title ? ` title="${esc(title)}"` : ""}><small>${label}</small><b>${val}</b></span>`;
+    const summary = `<div class="cbr-sum" aria-label="Code record summary">
+        ${chip("CPR", s.cpr_on ? `on <span ${tick(s.cpr_since_s)}>${mmss(s.cpr_since_s)}</span>` : "off", s.cpr_on ? "on" : "")}
+        ${chip("CPR total", `<span ${s.cpr_on ? tick(s.cpr_total_s) : ""}>${mmss(s.cpr_total_s)}</span>`)}
+        ${chip("Rhythm", s.rhythm ? esc(s.rhythm) : "—")}
+        ${chip("Shocks", s.shocks ? `${s.shocks} · last ${s.last_energy} J` : "0")}
+        ${chip(adrDue ? "Adrenaline — due?" : "Adrenaline", s.adrenaline ? `×${s.adrenaline}${live ? ` · <span ${tick(s.adrenaline_ago_s)}>${mmss(s.adrenaline_ago_s)}</span> ago` : ""}` : "none", adrDue ? "due" : "", "Adult ACLS: adrenaline every 3–5 minutes")}
+        ${chip("Drugs", String(s.drugs))}
+        ${chip("Airway", s.airway ? esc(s.airway) : "—")}
+    </div>`;
+    const b = (kind, text, cls = "", attrs = "") => `<button type="button" class="${cls}" data-rec="${kind}" ${attrs}>${esc(text)}</button>`;
+    const energy = energyFor.get(e.id) || 200;
+    const pad = e.can_record ? `<div class="cbr-pad" role="group" aria-label="Record an event">
+        <div class="cbr-row cbr-at"><label for="cbrAt${e.id}">${live ? "At" : "Time it happened"}</label>
+            <input type="time" step="1" id="cbrAt${e.id}" data-at value="${esc(atFor.get(e.id) || "")}" ${live ? "" : "required"}>
+            <span>${live ? "blank = now (each tap is timed when you press it)" : "required: the code has ended"}</span></div>
+        <div class="cbr-row"><span class="cbr-h">CPR</span>${s.cpr_on ? b("cpr_stop", "CPR stop", "stop") : b("cpr_start", "CPR start", "go")}${b("pulse_check", "Pulse check")}</div>
+        <div class="cbr-row"><span class="cbr-h">Rhythm</span>${o.rhythms.filter((x) => x !== "Other").map((x) => b("rhythm", x, "", `data-value="${esc(x)}"`)).join("")}
+            <button type="button" data-form="rhythm">Other…</button></div>
+        <div class="cbr-row"><span class="cbr-h">Shock</span><select data-energy aria-label="Shock energy">${o.energies.map((j) => `<option value="${j}" ${j === energy ? "selected" : ""}>${j} J</option>`).join("")}</select>
+            ${b("shock", "Shock", "shock")}</div>
+        <div class="cbr-row"><span class="cbr-h">Drugs</span>${o.drugs.map((d, i) => b("drug", shortDrug(d), "", `data-drug="${i}" aria-label="${esc(`${d.name} ${d.dose} ${d.unit} ${d.route}`)}"`)).join("")}
+            <button type="button" data-form="drug">Other drug…</button></div>
+        <div class="cbr-row"><span class="cbr-h">Airway</span>${o.airways.map((x) => b("airway", x, "", `data-value="${esc(x)}"`)).join("")}</div>
+        <div class="cbr-row"><span class="cbr-h">Note</span><button type="button" data-form="note">Note…</button></div>
+    </div>` : live ? `<div class="cbp-meta">Tap “Responding” to add to the code record.</div>` : "";
+    const rows = live ? [...r.entries].reverse() : r.entries;
+    const tl = rows.length ? `<div class="cbr-tl"><table class="cbp-table"><thead><tr><th>Time</th><th>Since call</th><th>Event</th><th>By</th><th></th></tr></thead><tbody>
+        ${rows.map((x) => `<tr class="${x.voided ? "void" : ""}" data-entry="${x.id}"><td class="n">${esc(hms(x.event_at))}</td><td class="n">+${mmss(x.offset_s)}</td>
+            <td class="e"><b>${esc(x.label)}</b>${x.note && (x.kind !== "rhythm" || x.value !== "Other") ? `<div class="cbr-sub">${x.kind === "note" ? "" : "Note: "}${esc(x.note)}</div>` : ""}
+                ${x.original_event_at ? `<div class="cbr-sub">Time corrected (was ${esc(hms(x.original_event_at))})</div>` : x.late ? `<div class="cbr-sub">Entered ${esc(hms(x.recorded_at))}</div>` : ""}
+                ${x.voided ? `<div class="cbr-sub">Struck out by ${esc(x.voided_by_name || "")}${x.void_reason ? `: ${esc(x.void_reason)}` : ""}</div>` : ""}</td>
+            <td>${esc(x.by_name || "")}</td>
+            <td style="text-align:right">${e.can_record && !x.voided ? `<button type="button" class="cbr-fix" data-fix="${x.id}" aria-label="Fix: ${esc(x.label)} at ${esc(hms(x.event_at))}">Fix</button>` : ""}</td></tr>`).join("")}
+        </tbody></table></div>` : `<div class="cbp-meta">Nothing recorded yet.</div>`;
+    return `<div class="cbr" data-rec-for="${e.id}">${summary}${pad}<div><b>Code record</b>${tl}</div></div>`;
+}
+
+async function post(path, body) {
+    return api(path, { method: "POST", body: JSON.stringify(body) }).catch(() => null);
+}
+
+/**
+ * Taps and forms of a record block. scope: the element holding it; e: the code; reload: re-render.
+ * Returns true when the click was the record's.
+ */
+async function onRecordClick(ev, scope, e, o, reload) {
+    const t = ev.target;
+    const box = scope.querySelector(".cbr");
+    if (!box) return false;
+    const atInput = box.querySelector("[data-at]");
+    const at = () => atInput?.value || "";
+    const needTime = () => {
+        if (e.status === "active" || at()) return false;
+        showToast("Enter the time it happened (the code has ended).", "error");
+        atInput?.focus();
+        return true;
+    };
+    const tap = t.closest("[data-rec]");
+    if (tap && box.contains(tap)) {
+        if (needTime()) return true;
+        const body = { id: e.id, kind: tap.dataset.rec, time: at() };
+        if (tap.dataset.value) body.value = tap.dataset.value;
+        if (body.kind === "shock") body.energy = Number(box.querySelector("[data-energy]").value);
+        if (body.kind === "drug") {
+            const d = o.drugs[Number(tap.dataset.drug)];
+            Object.assign(body, { value: d.name, dose: d.dose, unit: d.unit, route: d.route });
+        }
+        tap.disabled = true;
+        const r = await post("/code-blue/record", body);
+        setTimeout(() => (tap.disabled = false), 800);
+        if (!r?.success) {
+            showToast(r?.message || "Not recorded. Try again.", "error");
+            return true;
+        }
+        showToast(r.message, "success", 2500);
+        if (e.status === "active") atFor.delete(e.id);
+        await reload();
+        return true;
+    }
+    const form = t.closest("[data-form]");
+    if (form && box.contains(form)) {
+        box.querySelector(".cbp-inline")?.remove();
+        const k = form.dataset.form;
+        const fields = k === "drug"
+            ? `<input type="text" data-f="value" maxlength="80" aria-label="Drug" placeholder="Drug, e.g. Vasopressin">
+               <input type="text" data-f="dose" inputmode="decimal" aria-label="Dose" placeholder="Dose" style="flex:0 1 90px">
+               <select data-f="unit" aria-label="Unit">${o.units.map((u) => `<option>${esc(u)}</option>`).join("")}</select>
+               <select data-f="route" aria-label="Route">${o.routes.map((u) => `<option>${esc(u)}</option>`).join("")}</select>`
+            : `<input type="text" data-f="note" maxlength="300" aria-label="${k === "rhythm" ? "Rhythm" : "Note"}" placeholder="${k === "rhythm" ? "Which rhythm? e.g. SVT, AF with RVR" : "Note, e.g. family informed, IO access left tibia"}">`;
+        box.querySelector(".cbr-pad").insertAdjacentHTML("afterend", `<div class="cbp-inline" data-inline="${k}">${fields}
+            <button type="button" class="cbx-b go" data-save>Record</button><button type="button" class="cbx-b" data-back>Back</button><span class="cbx-err" role="alert"></span></div>`);
+        const il = box.querySelector(".cbp-inline");
+        il.querySelector("input").focus();
+        il.querySelector("[data-back]").onclick = () => il.remove();
+        il.querySelector("[data-save]").onclick = async (b) => {
+            if (needTime()) return;
+            const v = (f) => il.querySelector(`[data-f="${f}"]`)?.value.trim() ?? "";
+            const body = k === "drug" ? { kind: "drug", value: v("value"), dose: v("dose"), unit: v("unit"), route: v("route") }
+                : k === "rhythm" ? { kind: "rhythm", value: "Other", note: v("note") } : { kind: "note", note: v("note") };
+            b.target.disabled = true;
+            const r = await post("/code-blue/record", { id: e.id, time: at(), ...body });
+            b.target.disabled = false;
+            if (!r?.success) {
+                il.querySelector(".cbx-err").textContent = r?.message || "Not recorded.";
+                return;
+            }
+            showToast(r.message, "success", 2500);
+            il.remove();
+            if (e.status === "active") atFor.delete(e.id);
+            await reload();
+        };
+        return true;
+    }
+    const fix = t.closest("[data-fix]");
+    if (fix && box.contains(fix)) {
+        box.querySelector(".cbr-fixrow")?.remove();
+        const tr = fix.closest("tr");
+        const x = e.record.entries.find((y) => y.id === Number(fix.dataset.fix));
+        tr.insertAdjacentHTML("afterend", `<tr class="cbr-fixrow"><td colspan="5"><div class="cbp-inline">
+            <label class="cbx-lbl" for="cbrFixT" style="margin:0">Correct time</label><input type="time" step="1" id="cbrFixT" value="${esc(hms(x.event_at))}">
+            <button type="button" class="cbx-b go" data-savet>Save time</button>
+            <input type="text" data-why maxlength="200" aria-label="Reason (optional)" placeholder="Reason to strike out (optional), e.g. tapped twice">
+            <button type="button" class="cbx-b danger" data-void>Strike out</button><button type="button" class="cbx-b" data-back>Back</button>
+            <span class="cbx-err" role="alert"></span></div></td></tr>`);
+        const row = box.querySelector(".cbr-fixrow");
+        row.querySelector("#cbrFixT").focus();
+        row.querySelector("[data-back]").onclick = () => row.remove();
+        const send = async (body, btn) => {
+            btn.disabled = true;
+            const r = await post("/code-blue/record/fix", { entry_id: x.id, ...body });
+            btn.disabled = false;
+            if (!r?.success) {
+                row.querySelector(".cbx-err").textContent = r?.message || "Not saved.";
+                return;
+            }
+            showToast(r.message, "success");
+            row.remove();
+            await reload();
+        };
+        row.querySelector("[data-savet]").onclick = (b) => send({ time: row.querySelector("#cbrFixT").value }, b.target);
+        row.querySelector("[data-void]").onclick = (b) => send({ remove: 1, reason: row.querySelector("[data-why]").value.trim() }, b.target);
+        return true;
+    }
+    return false;
+}
+
+function bindRecordInputs(scope, id) {
+    scope.querySelector(".cbr [data-energy]")?.addEventListener("change", (ev) => energyFor.set(id, Number(ev.target.value)));
+    scope.querySelector(".cbr [data-at]")?.addEventListener("input", (ev) => atFor.set(id, ev.target.value));
+}
+
+const outcomeText = (e) => (e.outcome ? `${e.outcome_label}, ${String(e.outcome_at).slice(11, 16)}` : "");
+
+/* ---------------- a past code's record (with a printout) ---------------- */
+
+export async function openCodeRecord(id) {
+    ensureCss();
+    const opener = document.activeElement;
+    const ov = document.createElement("div");
+    ov.className = "cbx-ov";
+    ov.innerHTML = `<div class="cbx cbr-modal" role="dialog" aria-modal="true" aria-labelledby="cbrTitle">
+        <div class="cbx-head"><h2 id="cbrTitle">Code record</h2><button type="button" class="cbx-x" data-x aria-label="Close">×</button></div>
+        <div class="cbx-body"><div class="cbp-empty">Loading…</div></div>
+        <div class="cbx-foot"><button type="button" class="cbx-b" data-print>Print</button><button type="button" class="cbx-b" data-x>Close</button></div></div>`;
+    document.body.appendChild(ov);
+    const body = ov.querySelector(".cbx-body");
+    let e = null;
+    const close = () => {
+        ov.remove();
+        document.removeEventListener("keydown", onKey, true);
+        opener?.focus?.();
+    };
+    const onKey = (k) => {
+        if (k.key === "Escape") {
+            k.stopPropagation();
+            close();
+        }
+    };
+    document.addEventListener("keydown", onKey, true);
+    ov.querySelectorAll("[data-x]").forEach((b) => (b.onclick = close));
+    ov.querySelector("[data-print]").onclick = () => e && printCodeRecord(e);
+    const reload = async () => {
+        const r = await api(`/code-blue/show?id=${encodeURIComponent(id)}`).catch(() => null);
+        if (!r?.success) {
+            body.innerHTML = `<div class="cbp-empty">${esc(r?.message || "Could not load.")}</div>`;
+            return;
+        }
+        e = r.data;
+        const label = { ended: "Ended", cancelled: "False alarm", active: "On now" }[e.status] || e.status;
+        body.innerHTML = `
+            <div><div class="cbx-where">${esc(e.location)}</div>
+                <div class="cbp-meta" style="margin-top:6px">Called ${esc(String(e.called_at).slice(0, 16))} by ${esc(e.called_by_name || "")}${e.detail ? ` — ${esc(e.detail)}` : ""}
+                ${e.patient_name ? ` · Patient: ${esc(e.patient_name)}${e.patient_no ? ` (${esc(e.patient_no)})` : ""}` : ""}<br>
+                ${esc(label)}${e.ended_at ? ` ${esc(String(e.ended_at).slice(11, 16))} by ${esc(e.ended_by_name || "")} · length ${mmss(e.seconds)}` : ""}${e.end_note ? ` — ${esc(e.end_note)}` : ""}</div></div>
+            ${e.status === "ended" ? `<div><span class="cbx-lbl">Outcome</span>${e.outcome ? `<span class="cbr-out ${e.outcome === "died" ? "died" : ""}">${esc(outcomeText(e))}</span>
+                <span class="cbp-meta">${e.outcome === "died" ? "(time of death)" : ""}</span>` : `<span class="cbp-meta">Not recorded.</span>`}
+                ${e.can_outcome ? `<button type="button" class="cbr-fix" data-outcome style="margin-left:8px">${e.outcome ? "Correct" : "Record outcome"}</button>` : ""}</div>` : ""}
+            ${recordBlock(e, e.record_options)}
+            ${e.status !== "active" && !e.can_record ? `<div class="cbp-meta">The record is closed for changes ${e.record_options.record_hours} hours after the code ends (or you weren't at this code).</div>` : ""}`;
+        bindRecordInputs(body, e.id);
+    };
+    body.onclick = async (ev) => {
+        if (!e) return;
+        if (await onRecordClick(ev, body, e, e.record_options, reload)) return;
+        if (ev.target.closest("[data-outcome]")) {
+            body.querySelector(".cbr-end")?.remove();
+            ev.target.closest("div").insertAdjacentHTML("afterend", outcomeForm(e, e.record_options, "Save outcome"));
+            const f = body.querySelector(".cbr-end");
+            bindOutcomeForm(f, e, async (vals, btn) => {
+                btn.disabled = true;
+                const r = await post("/code-blue/outcome", { id: e.id, ...vals });
+                btn.disabled = false;
+                if (!r?.success) return (f.querySelector(".cbx-err").textContent = r?.message || "Not saved.");
+                showToast(r.message, "success");
+                await reload();
+            });
+        }
+    };
+    await reload();
+    ov.querySelector("[data-x]").focus();
+}
+
+/** The outcome choice + its time (ending a code, or correcting it afterwards). */
+function outcomeForm(e, o, saveLabel, withNote = false) {
+    return `<div class="cbp-inline cbr-end"><fieldset><legend>Outcome</legend>
+        ${Object.entries(o.outcomes).map(([k, v]) => `<label class="o"><input type="radio" name="cbrOut${e.id}" value="${k}" ${e.outcome === k ? "checked" : ""}> ${esc(v)}</label>`).join("")}</fieldset>
+        <label class="cbx-lbl" style="margin:0" for="cbrOt${e.id}" data-otl>Time</label>
+        <input type="time" id="cbrOt${e.id}" data-otime value="${esc(e.outcome_at ? String(e.outcome_at).slice(11, 16) : "")}" aria-describedby="cbrOtH${e.id}">
+        <span class="cbr-sub" id="cbrOtH${e.id}">${e.outcome_at ? "" : "blank = now"}</span>
+        ${withNote ? `<input type="text" data-onote maxlength="500" aria-label="Note (optional)" placeholder="Note (optional)">` : ""}
+        <button type="button" class="cbx-b go" data-osave>${esc(saveLabel)}</button><button type="button" class="cbx-b" data-back>Back</button>
+        <span class="cbx-err" role="alert"></span></div>`;
+}
+
+function bindOutcomeForm(f, e, onSave) {
+    const sync = () => {
+        const died = f.querySelector("input[type=radio]:checked")?.value === "died";
+        f.querySelector("[data-otl]").textContent = died ? "Time of death" : "Time";
+    };
+    f.addEventListener("change", sync);
+    sync();
+    (f.querySelector("input[type=radio]:checked") || f.querySelector("input[type=radio]")).focus();
+    f.querySelector("[data-back]").onclick = () => f.remove();
+    f.querySelector("[data-osave]").onclick = (b) => {
+        const outcome = f.querySelector("input[type=radio]:checked")?.value;
+        if (!outcome) {
+            f.querySelector(".cbx-err").textContent = "Choose the outcome.";
+            f.querySelector("input[type=radio]").focus();
+            return;
+        }
+        onSave({ outcome, outcome_time: f.querySelector("[data-otime]").value, note: f.querySelector("[data-onote]")?.value.trim() || "" }, b.target);
+    };
+}
+
+/** A printable code record (opens a print window). */
+function printCodeRecord(e) {
+    const win = window.open("", "_blank");
+    if (!win) {
+        showToast("Pop-up blocked. Allow pop-ups for this site to print.", "error");
+        return;
+    }
+    const s = e.record.summary;
+    const label = { ended: "Ended", cancelled: "False alarm", active: "On now" }[e.status] || e.status;
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Code Blue record ${esc(String(e.called_at).slice(0, 10))}</title>
+<style>
+    @page { size: A4; margin: 14mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 10.5pt; }
+    h1 { margin: 0 0 4px; font-size: 17pt; } .sub { color: #444; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 18px; margin: 10px 0; border: 1px solid #999; padding: 8px 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { text-align: left; font-size: 8.5pt; text-transform: uppercase; border-bottom: 1.5px solid #111; padding: 4px 5px; }
+    td { border-bottom: 1px solid #bbb; padding: 4px 5px; vertical-align: top; } tr { page-break-inside: avoid; }
+    .n { white-space: nowrap; font-variant-numeric: tabular-nums; } .s { color: #555; font-size: 8.5pt; }
+    .v td { color: #777; } .v td.e b { text-decoration: line-through; }
+    footer { margin-top: 12px; font-size: 8.5pt; color: #555; display: flex; justify-content: space-between; }
+    .sig { margin-top: 26px; display: flex; gap: 40px; } .sig div { flex: 1; border-top: 1px solid #111; padding-top: 3px; font-size: 9pt; }
+    .bar { margin: 0 0 12px; } .bar button { font: inherit; padding: 6px 14px; } @media print { .bar { display: none; } }
+</style></head><body>
+<div class="bar"><button type="button" onclick="window.print()">Print</button></div>
+<h1>Code Blue record</h1><div class="sub">${esc(e.location)}</div>
+<div class="grid">
+    <div><b>Patient:</b> ${esc(e.patient_name || "—")}${e.patient_no ? ` (${esc(e.patient_no)})` : ""}</div>
+    <div><b>Called:</b> ${esc(String(e.called_at).slice(0, 19))} by ${esc(e.called_by_name || "")}</div>
+    <div><b>Status:</b> ${esc(label)}${e.ended_at ? ` ${esc(String(e.ended_at).slice(11, 19))}` : ""} · length ${mmss(e.seconds)}</div>
+    <div><b>Outcome:</b> ${esc(e.outcome ? `${e.outcome_label}${e.outcome === "died" ? " — time of death" : ""} ${String(e.outcome_at).slice(11, 16)}` : "—")}</div>
+    <div><b>CPR total:</b> ${mmss(s.cpr_total_s)} · pulse checks ${s.pulse_checks}</div>
+    <div><b>Shocks:</b> ${s.shocks} · <b>Adrenaline:</b> ${s.adrenaline} · <b>Drugs:</b> ${s.drugs}</div>
+    <div><b>Airway:</b> ${esc(s.airway || "—")}</div>
+    <div><b>Responders:</b> ${esc(e.responders.filter((p) => p.response === "responding").map((p) => p.name + (p.team_role ? ` (${p.team_role})` : "")).join(", ") || "—")}</div>
+    ${e.detail || e.end_note ? `<div style="grid-column:1/-1">${e.detail ? `<b>What happened:</b> ${esc(e.detail)} ` : ""}${e.end_note ? `<b>Note:</b> ${esc(e.end_note)}` : ""}</div>` : ""}
+</div>
+<table><thead><tr><th>Time</th><th>Since call</th><th>Event</th><th>Recorded by</th></tr></thead><tbody>
+${e.record.entries.map((x) => `<tr class="${x.voided ? "v" : ""}"><td class="n">${esc(hms(x.event_at))}</td><td class="n">+${mmss(x.offset_s)}</td>
+    <td class="e"><b>${esc(x.label)}</b>${x.note && (x.kind !== "rhythm" || x.value !== "Other") ? ` — ${esc(x.note)}` : ""}
+    ${x.original_event_at ? `<div class="s">Time corrected (was ${esc(hms(x.original_event_at))})</div>` : x.late ? `<div class="s">Entered ${esc(hms(x.recorded_at))}</div>` : ""}
+    ${x.voided ? `<div class="s">Struck out by ${esc(x.voided_by_name || "")}${x.void_reason ? `: ${esc(x.void_reason)}` : ""}</div>` : ""}</td>
+    <td>${esc(x.by_name || "")}</td></tr>`).join("") || `<tr><td colspan="4">Nothing recorded.</td></tr>`}
+</tbody></table>
+<div class="sig"><div>Team leader</div><div>Recorder</div></div>
+<footer><span>Code Blue #${e.id}</span><span>Confidential — patient record</span></footer>
+</body></html>`);
+    win.document.close();
 }
 
 function activeCard(e) {
@@ -326,11 +701,12 @@ function activeCard(e) {
             <div class="cbp-meta">Called ${esc(String(e.called_at).slice(11, 16))} by ${esc(e.called_by_name || "")} (from the ${esc(e.called_from || "station")})${e.detail ? ` — ${esc(e.detail)}` : ""}${e.patient_name ? ` · Patient: ${esc(e.patient_name)}` : ""}</div>
             <div><b>${e.responding_count} responding</b>
                 <div class="cbp-resp">${e.responders.map((p) => `<span class="${p.response === "declined" ? "no" : ""}" title="${p.response === "declined" ? "Not responding" : "Responding"}">${esc(p.name)}${p.team_role ? ` · ${esc(p.team_role)}` : p.role ? ` · ${esc(p.role.replace("_", " "))}` : ""}</span>`).join("") || "—"}</div></div>
+            ${recordBlock(e, data.record_options)}
             <div class="cbp-acts">
                 ${mine?.response === "responding" ? `<span class="cbp-meta">You're responding.</span>` : `<button type="button" class="cbx-b go" data-resp="1">Responding</button>`}
                 ${mine?.response !== "declined" && mine?.response !== "responding" ? `<button type="button" class="cbx-b" data-resp="0">Not responding</button>` : ""}
                 ${e.patient_id ? `<button type="button" class="cbx-b" data-chart="${e.patient_id}">Patient chart</button>` : ""}
-                ${canEnd ? `<button type="button" class="cbx-b" data-end="ended">End code…</button><button type="button" class="cbx-b danger" data-end="false_alarm">False alarm…</button>` : ""}
+                ${canEnd ? `<button type="button" class="cbx-b" data-end="ended">End code (outcome)…</button><button type="button" class="cbx-b danger" data-end="false_alarm">False alarm…</button>` : ""}
             </div>
         </div></section>`;
 }
@@ -353,17 +729,24 @@ function render(root, team) {
                 <div><label class="cbx-lbl" for="cbpRole">Team role</label><select id="cbpRole"><option value="">—</option>${team.team_roles.map((r) => `<option>${esc(r)}</option>`).join("")}</select></div>
                 <button type="button" class="cbx-b" data-add>Add to team</button></div></section>` : ""}
         <section class="cbp-sec"><h2>Last codes</h2>
-            ${hist.length ? `<table class="cbp-table"><thead><tr><th>Called</th><th>Where</th><th>Result</th><th>Length</th><th>Called by</th><th>Responding</th></tr></thead><tbody>
+            ${hist.length ? `<table class="cbp-table"><thead><tr><th>Called</th><th>Where</th><th>Result</th><th>Outcome</th><th>Length</th><th>Called by</th><th>Responding</th><th></th></tr></thead><tbody>
                 ${hist.map((h) => `<tr><td>${esc(String(h.called_at).slice(0, 16))}</td><td>${esc(h.location)}</td><td>${statusLabel[h.status] || esc(h.status)}${h.end_note ? `<div class="cbp-meta">${esc(h.end_note)}</div>` : ""}</td>
-                    <td>${mmss(h.seconds)}</td><td>${esc(h.called_by_name || "")}</td><td>${h.responding_count}</td></tr>`).join("")}</tbody></table>` : `<div class="cbp-empty">No codes yet.</div>`}
+                    <td>${h.outcome ? `<span class="cbr-out ${h.outcome === "died" ? "died" : ""}">${esc(outcomeText(h))}</span>` : h.status === "ended" ? `<span class="cbp-meta">Not recorded</span>` : "—"}</td>
+                    <td>${mmss(h.seconds)}</td><td>${esc(h.called_by_name || "")}</td><td>${h.responding_count}</td>
+                    <td style="text-align:right"><button type="button" class="cbx-b" data-record="${h.id}" aria-label="Code record: ${esc(h.location)}, ${esc(String(h.called_at).slice(0, 16))}">Record</button></td></tr>`).join("")}</tbody></table>` : `<div class="cbp-empty">No codes yet.</div>`}
         </section>`;
     root.onclick = onClick;
+    active.forEach((e) => bindRecordInputs(root.querySelector(`.cbp-card[data-id="${e.id}"]`), e.id));
 }
 
 async function onClick(e) {
     if (e.target.closest("[data-call]")) return openCallCodeBlue({ from: "station" });
+    const recBtn = e.target.closest("[data-record]");
+    if (recBtn) return openCodeRecord(Number(recBtn.dataset.record));
     const card = e.target.closest(".cbp-card");
     const id = Number(card?.dataset.id);
+    const ev = id ? data.active.find((x) => x.id === id) : null;
+    if (ev && (await onRecordClick(e, card, ev, data.record_options, load))) return;
     const resp = e.target.closest("[data-resp]");
     if (resp && id) {
         resp.disabled = true;
@@ -375,6 +758,24 @@ async function onClick(e) {
     const chart = e.target.closest("[data-chart]");
     if (chart) return window.__openPatientChartFromReport?.(chart.dataset.chart);
     const end = e.target.closest("[data-end]");
+    if (end && id && end.dataset.end === "ended") {
+        card.querySelector(".cbr-end")?.remove();
+        card.querySelector(".cbp-acts").insertAdjacentHTML("afterend", outcomeForm({ id }, data.record_options, "End the code", true));
+        const f = card.querySelector(".cbr-end");
+        bindOutcomeForm(f, { id }, async (vals, btn) => {
+            btn.disabled = true;
+            const r = await post("/code-blue/end", { id, reason: "ended", ...vals });
+            btn.disabled = false;
+            if (!r?.success) {
+                f.querySelector(".cbx-err").textContent = r?.message || "Could not save.";
+                return;
+            }
+            showToast(r.message, "success", 6000);
+            refreshTopButton();
+            load();
+        });
+        return;
+    }
     if (end && id) {
         card.querySelector(".cbp-inline")?.remove();
         const fa = end.dataset.end === "false_alarm";
