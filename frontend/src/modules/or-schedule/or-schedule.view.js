@@ -157,6 +157,7 @@ export function OrScheduleView() {
         <select id="orsSpec" aria-label="Specialization"><option value="">All specializations</option></select>
         <select id="orsSuite" aria-label="Suite"><option value="">All suites</option></select>
         <select id="orsSurgeon" aria-label="Surgeon"><option value="">All surgeons</option></select>
+        <button type="button" class="ors-btn small" id="orsPrint" title="Print the OR list for the day shown (the suite chosen, or all)">Print OR list</button>
     </div>
     <div class="ors-layout">
         <div>

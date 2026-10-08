@@ -80,6 +80,9 @@ class DisplayService
             'content' => match ($d['kind']) {
                 'room' => (new RoomTvService())->content($d),
                 'nurse_station' => (new NurseStationTvService())->content($d),
+                // Waiting room: the family board; OR: the day's list (one room, or all of them).
+                'waiting_room' => (new FamilyBoardService())->content(),
+                'or' => (new \App\Modules\OrManagement\Services\OrListService())->forDate(null, $d['or_suite_id'] !== null ? (int) $d['or_suite_id'] : null),
                 default => null,
             },
             // A Code Blue on the ward: takes over the room TV, flashes at the top of the nurse station TV.
@@ -187,10 +190,8 @@ class DisplayService
                 $errors['ward_id'] = 'Which ward\'s nurse station?';
             }
         } elseif ($kind === 'or') {
+            // One operating room's list, or (no room chosen) every room's.
             $bedId = $wardId = null;
-            if (!$suiteId) {
-                $errors['or_suite_id'] = 'Which operating room?';
-            }
         } else {
             $bedId = $suiteId = null;
         }
@@ -353,7 +354,7 @@ class DisplayService
             $label = match ($d['kind']) {
                 'room' => trim(($ward ? "{$ward} · " : '') . ($bed ? trim("{$bed['room_number']} · Bed {$bed['bed_number']}") : '')),
                 'nurse_station' => $ward ? "{$ward} nurse station" : null,
-                'or' => $suite,
+                'or' => $suite ?: 'All operating rooms',
                 default => $d['location_note'],
             };
             $out[(int) $d['id']] = ['label' => $label ?: ($d['location_note'] ?: null), 'ward' => $ward, 'room' => $bed['room_number'] ?? null,

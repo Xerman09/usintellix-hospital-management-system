@@ -19,6 +19,9 @@ import { API_URL } from "../../core/api.js?v=5";
  * Nurse station TV (Phase 3): every patient on the ward on one line (room, initials, nurse,
  * NEWS2, critical labs, medicines overdue, alerts); a Code Blue and critical alerts flash at the
  * top. More patients than fit: the list pages by itself.
+ * Waiting room TV (Phase 4): the family board -- case code and initials only, and where the
+ * patient is (preparing, in surgery, in recovery, moved to the ICU / ward, ready to go home).
+ * OR TV (Phase 4): today's OR list -- time, room, surgeon, anesthesiologist, specialization.
  * Other kinds show the hospital, the place and the time until their phases.
  */
 
@@ -142,6 +145,23 @@ const CSS = `
 .ns-flags .ns-b { font-size: .7em; }
 .ns-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: clamp(11px, 1vw, 18px); }
 .ns-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: clamp(20px, 2.4vw, 44px); }
+
+/* Family board / OR list */
+.fb-help { color: var(--muted); font-size: clamp(14px, 1.4vw, 26px); }
+.fb-st { display: inline-flex; align-items: center; gap: .45em; padding: .2em .8em; border-radius: 999px; font-weight: 800; }
+.fb-st::before { content: ""; width: .6em; height: .6em; border-radius: 50%; background: currentColor; }
+.fb-st.preparing { background: #1e293b; color: #cbd5e1; }
+.fb-st.in_surgery { background: #4c1d95; color: #ede9fe; }
+.fb-st.recovery { background: #134e4a; color: #ccfbf1; }
+.fb-st.icu, .fb-st.ward, .fb-st.transferred, .fb-st.done { background: #14532d; color: #dcfce7; }
+.fb-st.home { background: #166534; color: #fff; }
+.fb-table td.code { font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: .03em; }
+.fb-table { font-size: clamp(15px, 1.6vw, 30px) !important; }
+.or-table tr.live td { background: rgba(124, 58, 237, .18); }
+.or-table tr.cx td { color: #475569; text-decoration: line-through; }
+.or-table tr.cx td.st { text-decoration: none; }
+.or-st { font-weight: 700; font-size: .85em; }
+.or-st.live { color: #c4b5fd; } .or-st.done { color: #86efac; } .or-st.cx { color: #f87171; }
 
 /* Code Blue */
 .cb { position: fixed; inset: 0; background: #1d4ed8; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3vh; padding: 5vw;
@@ -310,6 +330,16 @@ function render() {
     document.title = dev.name;
     if (dev.kind === "nurse_station" && d.content) {
         renderStation(d);
+        renderStatus();
+        return;
+    }
+    if (dev.kind === "waiting_room" && d.content) {
+        renderFamily(d);
+        renderStatus();
+        return;
+    }
+    if (dev.kind === "or" && d.content) {
+        renderOrList(d);
         renderStatus();
         return;
     }
@@ -520,7 +550,7 @@ function pageStation() {
     }
     stationPage %= pages;
     rows.forEach((r, i) => (r.hidden = Math.floor(i / per) !== stationPage));
-    label.textContent = `Page ${stationPage + 1} of ${pages} · ${rows.length} patients`;
+    label.textContent = `Page ${stationPage + 1} of ${pages} · ${rows.length} ${root.querySelector(".ns-table").dataset.noun || "patients"}`;
     if (!stationTurnAt || stationTurnAt < Date.now()) stationTurnAt = Date.now() + STATION_PAGE_MS;
     stationTimer = setTimeout(() => {
         stationPage = (stationPage + 1) % pages;
@@ -532,6 +562,68 @@ function pageStation() {
 window.addEventListener("resize", () => {
     if (root.querySelector(".ns-table")) pageStation();
 });
+
+/* ---------------- waiting room: family board ---------------- */
+
+function boardFrame(d, title, sub, chips, table, help = "") {
+    return `<div class="ns">
+        <header class="ns-top">
+            <div class="ns-title">${esc(title)}<small>${esc(sub)}</small></div>
+            <div class="ns-chips">${chips}</div>
+            <div class="rm-clock"><div class="t" data-clock></div><div class="d" data-date></div><div class="d" data-status data-quiet></div></div>
+        </header>
+        <div class="ns-banners">${help ? `<div class="fb-help">${help}</div>` : ""}</div>
+        <div class="ns-wrap">${table}</div>
+        <footer class="ns-foot"><span data-page></span><span>${esc(d.device.name)}</span></footer>
+    </div>`;
+}
+
+function renderFamily(d) {
+    const c = d.content;
+    const chip = (n, label) => `<span class="ns-chip"><b>${n}</b>${esc(label)}</span>`;
+    const rows = c.cases.map((x) => {
+        const when = x.status === "preparing" ? (x.planned ? `Planned ${esc(clock12(x.planned))}` : "") : x.since ? `Since ${esc(t12(x.since))}` : "";
+        return `<tr><td class="code">${esc(x.code)}</td><td class="ns-init">${esc(x.initials)}</td>
+            <td><span class="fb-st ${esc(x.status)}">${esc(x.label)}</span></td><td class="ns-nurse">${when}</td></tr>`;
+    });
+    root.innerHTML = boardFrame(d, "Surgery status", d.hospital.name,
+        chip(c.counts.in_surgery, "in surgery") + chip(c.counts.recovery, "in recovery") + chip(c.counts.preparing, "preparing") + chip(c.counts.finished, "finished"),
+        rows.length ? `<table class="ns-table fb-table" data-noun="surgeries"><thead><tr><th>Case code</th><th>Patient</th><th>Status</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+            : `<div class="ns-empty">No surgeries today.</div>`,
+        "Find your family member by the case code you were given (or their initials). Please ask at the desk for more information.");
+    drawClock();
+    pageStation();
+}
+
+/* ---------------- OR: today's list ---------------- */
+
+/** "13:05" -> "1:05 PM". */
+function clock12(hhmm) {
+    const [h, m] = String(hhmm).split(":").map(Number);
+    return `${h % 12 || 12}:${pad(m)} ${h < 12 ? "AM" : "PM"}`;
+}
+
+const OR_LIVE = ["In Room / Induction", "Incision / In Progress", "Closing / Extubation"];
+
+function renderOrList(d) {
+    const c = d.content;
+    const chip = (n, label) => `<span class="ns-chip"><b>${n}</b>${esc(label)}</span>`;
+    const rows = c.cases.map((x) => {
+        const live = OR_LIVE.includes(x.stage);
+        const done = ["In PACU", "Transferred / Discharged"].includes(x.stage);
+        const cls = x.cancelled ? "cx" : live ? "live" : "";
+        const st = x.cancelled ? `<span class="or-st cx">Cancelled</span>` : `<span class="or-st ${live ? "live" : done ? "done" : ""}">${esc(x.stage_label)}</span>`;
+        return `<tr class="${cls}"><td class="ns-room">${esc(clock12(x.start))}<small>${esc(clock12(x.end))}</small></td>${c.suite ? "" : `<td>${esc(x.suite || "—")}</td>`}
+            <td>${esc(x.surgeon || "—")}</td><td>${esc(x.anesthesiologist || "—")}</td><td class="ns-nurse">${esc(x.specialization || "—")}</td>
+            <td class="st">${st}${x.priority && x.priority !== "Elective" ? ` <span class="ns-b red">${esc(x.priority)}</span>` : ""}</td></tr>`;
+    });
+    root.innerHTML = boardFrame(d, c.suite || "Today's OR list", c.suite ? "Today's list" : d.hospital.name,
+        chip(c.counts.total, "cases") + chip(c.counts.in_room, "in progress") + chip(c.counts.done, "done") + (c.counts.cancelled ? chip(c.counts.cancelled, "cancelled") : ""),
+        rows.length ? `<table class="ns-table or-table" data-noun="cases"><thead><tr><th>Time</th>${c.suite ? "" : "<th>Room</th>"}<th>Surgeon</th><th>Anesthesiologist</th><th>Specialization</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+            : `<div class="ns-empty">No cases scheduled today.</div>`);
+    drawClock();
+    pageStation();
+}
 
 function renderCodeBlue(cb) {
     document.title = "CODE BLUE";

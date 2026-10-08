@@ -6,6 +6,7 @@ import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 import { openOrCase } from "../or-board/or-case-panel.js?v=4";
+import { printOrList } from "./or-list-print.js?v=1";
 
 const DAY_START = 7 * 60;
 const DAY_END = 21 * 60;
@@ -58,6 +59,7 @@ export async function initOrSchedule() {
     $("orsToday").addEventListener("click", () => { state.start = todayISO(); load(); });
     $("orsDate").addEventListener("change", () => { if ($("orsDate").value) { state.start = $("orsDate").value; load(); } });
     ["orsSpec", "orsSuite", "orsSurgeon"].forEach((id) => $(id).addEventListener("change", load));
+    $("orsPrint").addEventListener("click", () => printOrList(state.start, $("orsSuite").value));
     $("orsCalendar").addEventListener("click", onCalendarClick);
     $("orsReady").addEventListener("click", (e) => {
         const b = e.target.closest("[data-ors-book]");

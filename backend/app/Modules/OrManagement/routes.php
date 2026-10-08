@@ -116,3 +116,6 @@ $router->get('/or-reports/options', [OrReportController::class, 'options'], $orS
 foreach (['utilization', 'timeliness', 'cancellations', 'volume', 'compliance', 'ssi'] as $orReport) {
     $router->get("/or-reports/{$orReport}", [OrReportController::class, $orReport], $orScheduleRoles);
 }
+
+// The day's OR list to print (time, room, surgeon, anesthesiologist, specialization).
+$router->get('/or-list', [\App\Modules\OrManagement\Controllers\OrListController::class, 'index'], $orScheduleRoles);
