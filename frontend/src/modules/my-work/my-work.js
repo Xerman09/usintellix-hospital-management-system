@@ -5,6 +5,8 @@ import { esc, ago } from "../alerts/alert-bell.js?v=10";
 /*
  * My Work: the first screen after login -- what is assigned to me today.
  *   nurse:    my patients this shift, medicines due, vitals due, tasks (hand-overs, reminders)
+ *   everyone: tasks (Phase 2) -- given to me, my role, or me as the patient's nurse, with a due
+ *             time; Done records who and when. "I gave" shows who did mine and when.
  *   doctor:   my admitted patients, results to review, today's appointments, OR cases
  *   pharmacy: orders to verify, ward restock requests
  *   lab:      pending lab and radiology orders
@@ -19,6 +21,7 @@ const LOGIN_FLAG = "myWorkAtLogin";
 let timer = null;
 let data = null;
 let seq = 0;
+let taskView = "mine";   // mine | given | done
 
 /** Set when the person signs in: the dashboard opens on My Work. */
 export function markMyWorkLogin() {
@@ -90,6 +93,18 @@ const CSS = `
 .mw-done { border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .mw-done:hover { background: var(--bg-surface-alt); }
 .mw-loading { padding: 40px; text-align: center; color: var(--text-muted); }
+.mw-tabs { display: flex; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
+.mw-tab { border: 1px solid var(--border-color); background: transparent; color: var(--text-muted); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.mw-tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mw-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mw-new { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 8px; padding: 5px 11px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.mw-new:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mw-inline { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 16px 10px 16px; background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); }
+.mw-inline input { flex: 1 1 200px; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 9px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--text-primary); }
+.mw-inline input[aria-invalid="true"] { border-color: #dc2626; }
+.mw-inline .mw-err { flex-basis: 100%; color: #dc2626; font-size: 12px; }
+.mw-done.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mw-sep { padding: 6px 16px; font-size: 11.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); }
 @media (max-width: 600px) { .mw { padding: 14px 16px 32px; } .mw-side { max-width: 45%; } }
 `;
 
@@ -105,7 +120,7 @@ export function initMyWork() {
             clearInterval(timer);
             return;
         }
-        if (!document.hidden) load(true);
+        if (!document.hidden && !document.querySelector("#myWork .mw-inline")) load(true);
     }, REFRESH_MS);
 }
 
@@ -177,7 +192,7 @@ function nurseSections(s, cna) {
         tile("patients", "My patients", s.patients.count, data.shift?.name ? esc(`${data.shift.name} shift`) : ""),
         cna ? "" : tile("meds", "Medicines", s.meds.late + s.meds.due, s.meds.late ? `<b>${s.meds.late} late</b> · ${s.meds.due} due` : `${s.meds.due} due now`, s.meds.late ? "red" : s.meds.due ? "amber" : ""),
         tile("vitals", "Vitals", s.vitals.overdue + s.vitals.due, s.vitals.overdue ? `<b>${s.vitals.overdue} overdue</b> · ${s.vitals.due} due` : `${s.vitals.due} due · ${s.vitals.due_soon} soon`, s.vitals.overdue ? "red" : s.vitals.due ? "amber" : ""),
-        tile("tasks", "Tasks", s.tasks.count, s.tasks.items.some((t) => t.overdue) ? "<b>some overdue</b>" : "hand-overs, reminders", s.tasks.items.some((t) => t.overdue) ? "red" : ""),
+        tasksTile(s),
     ].join("");
 
     const patientRows = pts.map((p) => {
@@ -208,21 +223,12 @@ function nurseSections(s, cna) {
         });
     }).join("");
 
-    const taskRows = s.tasks.items.map((t, i) => t.type === "handover"
-        ? row(`t-h${t.admission_id}`, `chart:${t.patient_id}`, { tone: "amber", title: esc(t.title), meta: esc(t.detail), side: pill("Hand-over", "amber") })
-        : row(`t-r${t.id}`, t.patient_id ? `chart:${t.patient_id}` : "tab:messaging:Messages", {
-            tone: t.overdue ? "red" : t.priority === "high" ? "amber" : "", title: esc(t.title),
-            meta: [t.patient_name, t.detail, t.due_date ? (t.overdue ? `was due ${t.due_date}` : "due today") : ""].filter(Boolean).map(esc).join(" · "),
-            side: (t.priority === "high" ? pill("High", "amber") : "") + (t.overdue ? pill("Overdue", "red") : ""),
-            extra: `<button type="button" class="mw-done" data-mw-done="${t.id}">Done</button>`,
-        })).join("");
-
     return `<div class="mw-tiles">${tiles}</div><div class="mw-grid">
         ${card("patients", "My patients", s.patients.count, patientRows || empty("No patients assigned to you this shift. The charge nurse assigns them in Shift Assignments."),
             { link: ["nurse_assignments", "Shift Assignments", "Assignments"], wide: true })}
         ${cna ? "" : card("meds", "Medicines due", s.meds.late + s.meds.due, medRows || empty("No medicines late or due for your patients right now."), { link: ["mar", "Medicine Rounds", "Medicine rounds"] })}
         ${card("vitals", "Vitals due", s.vitals.items.length, vitalRows || empty("All your patients' vitals are up to date."), { link: ["inpatient_vitals", "Vital Signs", "Vital signs"] })}
-        ${card("tasks", "Tasks", s.tasks.count, taskRows || empty("No tasks for today."), { link: ["messaging", "Messages", "Messages & reminders"] })}
+        ${tasksCard(s)}
     </div>`;
 }
 
@@ -233,6 +239,7 @@ function doctorSections(s) {
         tile("results", "Results to review", r.to_review, r.overdue ? `<b>${r.overdue} over ${r.review_days} days</b>` : r.new ? `${r.new} new` : "", r.overdue ? "red" : r.to_review ? "amber" : ""),
         tile("appointments", "Appointments today", s.appointments.count, s.appointments.items.length ? `next ${esc(nextAppt(s.appointments.items) || "—")}` : ""),
         tile("or", "OR cases", s.or_cases.count, s.or_cases.items.length ? "today & tomorrow" : ""),
+        tasksTile(s),
     ].join("");
 
     const patientRows = s.patients.items.map((p) => row(`p${p.admission_id}`, `chart:${p.patient_id}`, {
@@ -270,6 +277,7 @@ function doctorSections(s) {
         ${card("appointments", "Today's appointments", s.appointments.count, apptRows || empty(s.appointments.linked ? "No appointments today." : "Your user isn't linked to a provider record."),
             { link: ["appointments", "Calendar", "Calendar"] })}
         ${card("or", "OR cases", s.or_cases.count, orRows || empty("No surgery for you today or tomorrow."), { link: ["or_schedule", "OR Schedule", "OR schedule"] })}
+        ${tasksCard(s)}
     </div>`;
 }
 
@@ -315,6 +323,132 @@ function labSections(s) {
     };
 }
 
+/* ---------------- tasks ---------------- */
+
+/** "14:00", or "Oct 9 14:00" when not today. */
+function dueLabel(dt) {
+    if (!dt) return "";
+    if (String(dt).slice(0, 10) === data.today) return hm(dt);
+    const [, m, d] = String(dt).slice(0, 10).split("-").map(Number);
+    return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1]} ${d} ${hm(dt)}`;
+}
+
+function lateLabel(min) {
+    return min < 60 ? `${min} min late` : `${waited(min)} late`;
+}
+
+function tasksTile(s) {
+    const w = s.work_tasks || { count: 0, overdue: 0 };
+    const other = s.tasks?.count || 0;
+    const overdueOther = (s.tasks?.items || []).some((t) => t.overdue);
+    const sub = w.overdue ? `<b>${w.overdue} overdue</b>` : w.items?.[0] ? `next ${esc(dueLabel(w.items[0].due_at))}` : other ? "hand-overs, reminders" : "";
+    return tile("tasks", "Tasks", w.count + other, sub, w.overdue || overdueOther ? "red" : w.items?.some((t) => t.priority === "urgent") ? "amber" : "");
+}
+
+function taskRow(t, mode) {
+    const who = t.assign_type === "user" ? "" : t.assignee_label;
+    const meta = [t.patient_name ? `${t.patient_name}${t.location ? ` · ${t.location}` : ""}` : "", mode === "given" ? `For ${t.assignee_label.replace(/^The /, "the ")}` : who,
+        mode !== "given" && t.created_by_name ? `From ${t.created_by_name}` : "", t.details].filter(Boolean).map(esc).join(" · ");
+    let side = "";
+    let extra = "";
+    let tone = "";
+    if (t.status === "open") {
+        tone = t.overdue ? "red" : t.priority === "urgent" ? "amber" : "";
+        side = (t.overdue ? pill(lateLabel(t.minutes_late), "red") : "") + (t.priority === "urgent" ? pill("Urgent", "amber") : "");
+        extra = mode === "given"
+            ? `<button type="button" class="mw-done" data-mw-task-edit="${t.id}">Change</button><button type="button" class="mw-done" data-mw-task-cancel="${t.id}">Cancel</button>`
+            : `<button type="button" class="mw-done" data-mw-task-done="${t.id}">Done</button>`;
+    } else if (t.status === "done") {
+        side = pill(`✓ ${esc(t.completed_by_name || "")} ${esc(dueLabel(t.completed_at))}`, "green");
+    } else {
+        side = pill(`Cancelled${t.cancelled_by_name ? ` by ${esc(t.cancelled_by_name)}` : ""}`);
+    }
+    const note = t.status === "done" && t.completion_note ? ` · “${esc(t.completion_note)}”` : t.status === "cancelled" && t.cancel_reason ? ` · ${esc(t.cancel_reason)}` : "";
+    return row(`k${t.id}`, t.patient_id ? `chart:${t.patient_id}` : "none", {
+        tone, lead: `<div class="mw-time">${esc(dueLabel(t.due_at))}</div>`, title: esc(t.title), meta: meta + note, side, extra,
+    });
+}
+
+function otherRows(s) {
+    return (s.tasks?.items || []).map((t) => t.type === "handover"
+        ? row(`t-h${t.admission_id}`, `chart:${t.patient_id}`, { tone: "amber", title: esc(t.title), meta: esc(t.detail), side: pill("Hand-over", "amber") })
+        : row(`t-r${t.id}`, t.patient_id ? `chart:${t.patient_id}` : "tab:messaging:Messages", {
+            tone: t.overdue ? "red" : t.priority === "high" ? "amber" : "", title: esc(t.title),
+            meta: [t.patient_name, t.detail, t.due_date ? (t.overdue ? `was due ${t.due_date}` : "due today") : ""].filter(Boolean).map(esc).join(" · "),
+            side: pill("Reminder") + (t.priority === "high" ? pill("High", "amber") : "") + (t.overdue ? pill("Overdue", "red") : ""),
+            extra: `<button type="button" class="mw-done" data-mw-done="${t.id}">Done</button>`,
+        })).join("");
+}
+
+function tasksCard(s) {
+    const w = s.work_tasks || { items: [], done: [], assigned: [], count: 0 };
+    const others = otherRows(s);
+    const tab = (v, label) => `<button type="button" class="mw-tab" role="tab" data-mw-tview="${v}" aria-selected="${taskView === v}">${label}</button>`;
+    let body;
+    if (taskView === "given") {
+        body = w.assigned.map((t) => taskRow(t, "given")).join("") || empty("You haven't given any tasks in the last day.");
+    } else if (taskView === "done") {
+        body = w.done.map((t) => taskRow(t, "done")).join("") || empty("Nothing done in the last 12 hours.");
+    } else {
+        const mine = w.items.map((t) => taskRow(t, "mine")).join("");
+        body = mine + (others ? (mine ? `<div class="mw-sep">Hand-overs &amp; reminders</div>` : "") + others : "") || empty("No tasks for you right now.");
+    }
+    const openGiven = w.assigned.filter((t) => t.status === "open").length;
+    return `<section class="mw-card" id="mw-tasks" aria-labelledby="mw-tasks-h">
+        <div class="mw-card-head"><h2 id="mw-tasks-h">Tasks<span class="mw-count">${w.count + (s.tasks?.count || 0)}</span></h2>
+            <button type="button" class="mw-new" data-mw-task-new>+ New task</button></div>
+        <div class="mw-tabs" role="tablist" aria-label="Tasks">
+            ${tab("mine", `For me${w.count ? ` (${w.count})` : ""}`)}${tab("given", `I gave${openGiven ? ` (${openGiven} open)` : ""}`)}${tab("done", `Done${w.done.length ? ` (${w.done.length})` : ""}`)}
+        </div>
+        <div class="mw-list">${body}</div></section>`;
+}
+
+function findTask(id) {
+    const w = data.sections.work_tasks || {};
+    return [...(w.items || []), ...(w.assigned || []), ...(w.done || [])].find((t) => t.id === id);
+}
+
+/** A note / reason box under the row; Enter confirms, Escape closes. */
+function inlineBox(rowEl, { label, placeholder, button, required, onSubmit }) {
+    rowEl.parentElement.querySelectorAll(".mw-inline").forEach((x) => x.remove());
+    rowEl.insertAdjacentHTML("afterend", `<div class="mw-inline"><input type="text" maxlength="300" aria-label="${esc(label)}" placeholder="${esc(placeholder)}">
+        <button type="button" class="mw-done primary">${esc(button)}</button><button type="button" class="mw-done" data-x>Close</button><div class="mw-err" role="alert"></div></div>`);
+    const box = rowEl.nextElementSibling;
+    const input = box.querySelector("input");
+    const go = async () => {
+        const v = input.value.trim();
+        if (required && !v) {
+            input.setAttribute("aria-invalid", "true");
+            box.querySelector(".mw-err").textContent = `${label} is required.`;
+            input.focus();
+            return;
+        }
+        box.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        const err = await onSubmit(v);
+        box.querySelectorAll("button").forEach((b) => (b.disabled = false));
+        if (err) {
+            box.querySelector(".mw-err").textContent = err;
+            input.focus();
+        }
+    };
+    box.querySelector(".primary").onclick = go;
+    box.querySelector("[data-x]").onclick = () => {
+        box.remove();
+        rowEl.focus();
+    };
+    input.onkeydown = (e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") go();
+        if (e.key === "Escape") box.querySelector("[data-x]").click();
+    };
+    input.focus();
+}
+
+async function newTask(task = null) {
+    const { openTaskForm } = await import("../tasks/task-form.js?v=1");
+    openTaskForm({ task, onSaved: () => load(true) });
+}
+
 function render(root) {
     const s = data.sections;
     const shift = data.shift?.name ? ` · ${esc(data.shift.name)} shift ${esc(data.shift.start || "")}–${esc(data.shift.end || "")}` : "";
@@ -323,14 +457,14 @@ function render(root) {
     else if (data.view === "doctor") body = doctorSections(s);
     else if (data.view === "pharmacy") {
         const p = pharmacySections(s);
-        body = `<div class="mw-tiles">${p.tiles}</div><div class="mw-grid">${p.cards}</div>`;
+        body = `<div class="mw-tiles">${p.tiles}${tasksTile(s)}</div><div class="mw-grid">${p.cards}${tasksCard(s)}</div>`;
     } else if (data.view === "lab") {
         const l = labSections(s);
-        body = `<div class="mw-tiles">${l.tiles}</div><div class="mw-grid">${l.cards}</div>`;
+        body = `<div class="mw-tiles">${l.tiles}${tasksTile(s)}</div><div class="mw-grid">${l.cards}${tasksCard(s)}</div>`;
     } else if (data.view === "admin") {
         const p = pharmacySections(s);
         const l = labSections(s);
-        body = `<div class="mw-tiles">${p.tiles}${l.tiles}</div><div class="mw-grid">${p.cards}${l.cards}</div>`;
+        body = `<div class="mw-tiles">${p.tiles}${l.tiles}${tasksTile(s)}</div><div class="mw-grid">${p.cards}${l.cards}${tasksCard(s)}</div>`;
     } else {
         body = empty("My Work isn't set up for your role.");
     }
@@ -342,7 +476,7 @@ function render(root) {
     root.querySelector("[data-mw-refresh]").onclick = () => load();
     root.onclick = onClick;
     root.onkeydown = (e) => {
-        if ((e.key === "Enter" || e.key === " ") && e.target.matches(".mw-row")) {
+        if ((e.key === "Enter" || e.key === " ") && e.target.matches(".mw-row") && !e.target.closest(".mw-inline")) {
             e.preventDefault();
             act(e.target.dataset.mwAct);
         }
@@ -366,6 +500,37 @@ async function onClick(e) {
         load(true);
         return;
     }
+    const tv = e.target.closest("[data-mw-tview]");
+    if (tv) {
+        taskView = tv.dataset.mwTview;
+        const card = document.getElementById("mw-tasks");
+        card.outerHTML = tasksCard(data.sections);
+        document.querySelector(`#mw-tasks [data-mw-tview="${taskView}"]`)?.focus();
+        return;
+    }
+    if (e.target.closest("[data-mw-task-new]")) {
+        newTask();
+        return;
+    }
+    const tEdit = e.target.closest("[data-mw-task-edit]");
+    if (tEdit) {
+        e.stopPropagation();
+        newTask(findTask(Number(tEdit.dataset.mwTaskEdit)));
+        return;
+    }
+    const tDone = e.target.closest("[data-mw-task-done]");
+    const tCancel = e.target.closest("[data-mw-task-cancel]");
+    if (tDone || tCancel) {
+        e.stopPropagation();
+        const id = Number((tDone || tCancel).dataset[tDone ? "mwTaskDone" : "mwTaskCancel"]);
+        inlineBox((tDone || tCancel).closest(".mw-row"), tDone
+            ? { label: "Note", placeholder: "Note (optional), e.g. dressing changed, wound clean", button: "Mark done",
+                onSubmit: (note) => taskCall("/tasks/complete", { id, note }) }
+            : { label: "Reason", placeholder: "Why is it cancelled?", button: "Cancel task", required: true,
+                onSubmit: (reason) => taskCall("/tasks/cancel", { id, reason }) });
+        return;
+    }
+    if (e.target.closest(".mw-inline")) return;
     const go = e.target.closest("[data-mw-go]");
     if (go) {
         const el = document.getElementById(`mw-${go.dataset.mwGo}`);
@@ -380,6 +545,14 @@ async function onClick(e) {
     }
     const r = e.target.closest(".mw-row");
     if (r) act(r.dataset.mwAct);
+}
+
+async function taskCall(url, body) {
+    const res = await api(url, { method: "POST", body: JSON.stringify(body) }).catch(() => null);
+    if (!res?.success) return res?.message || "Could not save. Try again.";
+    showToast(res.message, "success");
+    await load(true);
+    return null;
 }
 
 async function act(a) {

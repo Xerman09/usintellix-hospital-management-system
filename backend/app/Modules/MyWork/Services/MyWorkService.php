@@ -65,6 +65,13 @@ class MyWorkService
                 $s = ['verify' => $this->toVerify(), 'restock' => $this->restock()] + $this->lab($db);
                 break;
         }
+        if ($view) {
+            // Tasks for everyone: tasks given to me (or my role / as the patient's nurse), and reminders due.
+            $s['work_tasks'] = (new TaskService())->forUser($user);
+            if (!isset($s['tasks'])) {
+                $s['tasks'] = $this->tasks($user, []);
+            }
+        }
         $out['sections'] = $s;
         return $out;
     }

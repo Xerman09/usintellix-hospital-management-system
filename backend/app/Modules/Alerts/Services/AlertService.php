@@ -209,6 +209,12 @@ class AlertService
         } catch (\Throwable $e) {
             error_log('MAR late-dose check failed: ' . $e->getMessage());
         }
+        // Tasks past their due time (My Work): alert whoever the task is for (at most every minute).
+        try {
+            (new \App\Modules\MyWork\Services\TaskService())->runOverdue();
+        } catch (\Throwable $e) {
+            error_log('Task overdue check failed: ' . $e->getMessage());
+        }
         // Results not reviewed in time: flag them to the doctor (at most every 5 minutes, whoever polls).
         try {
             (new \App\Modules\ResultsInbox\Services\ResultReviewService())->runOverdue();

@@ -2,7 +2,7 @@ console.log("auth.js loaded");
 import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, logout, acknowledgeNpp } from "./auth.service.js?v=5";
 import { saveUser, clearSession } from "../../core/session.js";
 import { markResultsInboxLogin } from "../results-inbox/results-inbox.js?v=3";
-import { markMyWorkLogin } from "../my-work/my-work.js?v=1";
+import { markMyWorkLogin } from "../my-work/my-work.js?v=2";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
 import { resetInactivityTimer, stopInactivityGuard } from "../../core/inactivity-guard.js?v=1";
