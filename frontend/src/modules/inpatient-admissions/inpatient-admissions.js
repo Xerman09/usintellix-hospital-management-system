@@ -12,7 +12,7 @@ import {
     createBed
 } from './inpatient-admissions.service.js?v=2';
 import { showToast } from '../../core/toast.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=14';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=15';
 import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
@@ -720,11 +720,17 @@ function renderBedCard(bed) {
             <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Discharge
             </button>
+            <button class="bed-action-btn" style="width:100%;justify-content:center;background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">
+                Code Blue
+            </button>
         `;
     } else if (bed.status === 'Pending Discharge') {
         actionsHtml = `
             <button class="bed-action-btn btn-act-discharge" style="width: 100%; justify-content: center; padding: 7px;" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Complete Discharge Orders
+            </button>
+            <button class="bed-action-btn" style="width:100%;justify-content:center;background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">
+                Code Blue
             </button>
         `;
     } else if (bed.status === 'Dirty / Turnover') {
@@ -785,10 +791,12 @@ function renderTable(beds) {
                 <div style="display: flex; gap: 4px;">
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
+                    <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button>
                 </div>
             `;
         } else if (bed.status === 'Pending Discharge') {
-            actionBtns = `<button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>`;
+            actionBtns = `<div style="display: flex; gap: 4px;"><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
+                <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button></div>`;
         } else if (bed.status === 'Dirty / Turnover') {
             actionBtns = `<button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">Sanitize</button>`;
         } else {
@@ -871,6 +879,11 @@ function attachBedCardListeners(container) {
     });
 
     // Admit Action
+    container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            import('../code-blue/code-blue.js?v=1').then((m) => m.openCallCodeBlue({ admission_id: Number(btn.dataset.admId), from: 'census' }));
+        });
+    });
     container.querySelectorAll('[data-act="admit"]').forEach(btn => {
         btn.onclick = () => {
             const bedId = btn.getAttribute('data-bed-id');

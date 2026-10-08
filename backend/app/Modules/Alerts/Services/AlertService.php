@@ -234,7 +234,9 @@ class AlertService
         $unread = (int) $stmt->fetchColumn();
 
         // Urgent / critical still waiting for someone to acknowledge.
-        $popups = $this->fetch($db, $user, "{$where} AND a.requires_ack = 1 AND a.acknowledged_at IS NULL AND a.resolved_at IS NULL", $params,
+        // A Code Blue stays open until the code ends; each person's pop-up closes once they answer it (responding or not).
+        $popups = $this->fetch($db, $user, "{$where} AND a.requires_ack = 1 AND a.acknowledged_at IS NULL AND a.resolved_at IS NULL
+            AND NOT (a.alert_type = 'code_blue' AND r.acknowledged_at IS NOT NULL)", $params,
             "FIELD(a.urgency, 'critical', 'urgent', 'info'), a.id DESC", 20);
         $latest = $this->fetch($db, $user, $where, $params, 'a.id DESC', 8);
 
@@ -390,6 +392,10 @@ class AlertService
         $type = $db->prepare("SELECT alert_type, acknowledged_at FROM alerts WHERE id = :id");
         $type->execute(['id' => $id]);
         $t = $type->fetch(PDO::FETCH_ASSOC);
+        if ($t && $t['alert_type'] === 'code_blue') {
+            return ['success' => false, 'code_blue' => true,
+                'message' => 'Answer a Code Blue with "Responding" or "Not responding"; it closes when the code ends.'];
+        }
         if ($t && $t['alert_type'] === 'critical_lab' && !$readBack && !$t['acknowledged_at']) {
             return ['success' => false, 'needs_readback' => true,
                 'message' => 'A critical lab result is acknowledged with its read-back: who was told, when, and what was done.'];
@@ -558,6 +564,8 @@ class AlertService
             'resolved_at' => $a['resolved_at'],
             'resolve_note' => $a['resolve_note'],
             'created_at' => $a['created_at'],
+            'source_type' => $a['source_type'] ?? null,
+            'source_id' => isset($a['source_id']) ? (int) $a['source_id'] : null,
             'created_by_name' => $a['created_by'] !== null ? $a['created_by_name'] : 'System',
             'escalation_level' => (int) ($a['escalation_level'] ?? 0),
             'last_escalated_at' => $a['last_escalated_at'] ?? null,

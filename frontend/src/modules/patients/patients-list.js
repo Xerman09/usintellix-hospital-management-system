@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=84";
+import { PatientChartView } from "./patients-list.view.js?v=85";
 import { initGeneralHistory } from "./patient-general-history.js?v=2";
 import { initFamilyHistory } from "./patient-family-history.js?v=2";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
@@ -2728,7 +2728,9 @@ export async function initPatientChartTab(patient)
     loadDashboardInpatientVitals(patient);
     loadDashboardInpatientOrders(patient);
     // Red mark for critical lab results (not acknowledged / acknowledged lately).
-    import("../lab-ranges/critical-banner.js?v=3").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
+    import("../lab-ranges/critical-banner.js?v=4").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
+    // Code Blue button: the location comes from the patient's bed.
+    import("../code-blue/code-blue.js?v=1").then((m) => m.mountChartCodeBlue(patient)).catch(() => {});
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {

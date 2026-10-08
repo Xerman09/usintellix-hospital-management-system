@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { esc, ago, fmtDateTime } from "../alerts/alert-bell.js?v=10";
+import { esc, ago, fmtDateTime } from "../alerts/alert-bell.js?v=11";
 
 /*
  * Results inbox: the "!" in the top bar. New lab and radiology results for your patients

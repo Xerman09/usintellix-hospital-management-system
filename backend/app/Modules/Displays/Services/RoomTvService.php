@@ -92,38 +92,13 @@ class RoomTvService
         ];
     }
 
-    /** The newest Code Blue still open, called on this ward (or with no known place). */
-    public function codeBlue(?int $wardId, ?int $bedId = null): ?array
+    /**
+     * The newest Code Blue on now (module 10): on this ward or in a public place for a room TV,
+     * anywhere for a nurse station TV.
+     */
+    public function codeBlue(?int $wardId, ?int $bedId = null, bool $anyWard = false): ?array
     {
-        $db = Database::connection();
-        $rows = $db->query(
-            "SELECT a.id, a.title, a.patient_id, a.created_at FROM alerts a
-             WHERE a.alert_type = 'code_blue' AND a.resolved_at IS NULL AND a.created_at >= NOW() - INTERVAL " . self::CODE_BLUE_MINUTES . " MINUTE
-             ORDER BY a.id DESC LIMIT 10"
-        )->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as $r) {
-            $loc = null;
-            if ($r['patient_id']) {
-                $s = $db->prepare(
-                    "SELECT a.ward_id, a.bed_id, w.ward_name, b.room_number, b.bed_number FROM inpatient_admissions a
-                     JOIN hospital_wards w ON w.id = a.ward_id JOIN hospital_beds b ON b.id = a.bed_id
-                     WHERE a.patient_id = :p AND a.status IN ('Admitted', 'Pending Discharge') ORDER BY a.id DESC LIMIT 1"
-                );
-                $s->execute(['p' => $r['patient_id']]);
-                $loc = $s->fetch(PDO::FETCH_ASSOC) ?: null;
-            }
-            if ($loc && $wardId && (int) $loc['ward_id'] !== $wardId) {
-                continue;   // another ward's code
-            }
-            return [
-                'id' => (int) $r['id'], 'called_at' => $r['created_at'],
-                // A patient's code: the place only. No patient: the place written in the alert.
-                'location' => $loc ? trim("{$loc['ward_name']} · {$loc['room_number']} · Bed {$loc['bed_number']}")
-                    : ($r['patient_id'] ? 'Code Blue called' : self::placeFromTitle($r['title'])),
-                'here' => $loc && $bedId && (int) $loc['bed_id'] === $bedId,
-            ];
-        }
-        return null;
+        return (new \App\Modules\CodeBlue\Services\CodeBlueService())->forTv($wardId, $bedId, $anyWard);
     }
 
     private function vitalsOut(array $v, ?array $prev): array
@@ -137,12 +112,5 @@ class RoomTvService
             }
         }
         return $out;
-    }
-
-    /** "CODE BLUE — Main lobby" -> "Main lobby" (a code with no patient: the alert names the place). */
-    private static function placeFromTitle(?string $title): string
-    {
-        $t = trim((string) preg_replace('/^\s*code\s*blue\s*[:—–-]*\s*/iu', '', (string) $title));
-        return $t !== '' ? mb_substr($t, 0, 120) : 'Code Blue called';
     }
 }

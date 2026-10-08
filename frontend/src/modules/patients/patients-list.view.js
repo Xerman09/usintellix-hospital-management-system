@@ -7587,6 +7587,7 @@ textarea.pd-sdoh-readonly {
                 </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                <div id="pdCodeBlueBtn"></div>
                 <div id="pdCriticalLabBadge"></div>
                 <div id="pdConfidentialCommBadgeContainer" style="display:flex;align-items:center;gap:8px;"></div>
             </div>

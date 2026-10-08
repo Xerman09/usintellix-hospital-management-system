@@ -87,7 +87,8 @@ class DisplayService
             },
             // A Code Blue on the ward: takes over the room TV, flashes at the top of the nurse station TV.
             'code_blue' => in_array($d['kind'], ['room', 'nurse_station'], true)
-                ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null) : null,
+                ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null,
+                    $d['kind'] === 'nurse_station') : null,
         ];
     }
 

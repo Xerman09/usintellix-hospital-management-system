@@ -23,10 +23,10 @@ import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=84";
-import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=108";
+import { PatientsListView } from "../patients/patients-list.view.js?v=85";
+import { initPatientsList, restorePatientChartTab, triggerCreateVisit, triggerCurrentVisit, triggerVisitHistory, triggerRecordsHistory, triggerRecordsRequest, triggerFeeSheet, triggerCheckout } from "../patients/patients-list.js?v=109";
 import { BillingManagerView } from "../billing-manager/billing-manager.view.js?v=2";
-import { initBillingManager } from "../billing-manager/billing-manager.js?v=28";
+import { initBillingManager } from "../billing-manager/billing-manager.js?v=29";
 import { BatchPaymentsView } from "../batch-payments/batch-payments.view.js";
 import { initBatchPayments } from "../batch-payments/batch-payments.js";
 import { EobPostingView } from "../eob-posting/eob-posting.view.js";
@@ -76,7 +76,7 @@ import { initWarehouses } from "../warehouses/warehouses.js?v=3";
 import { DestroyedDrugsView } from "../destroyed-drugs/destroyed-drugs.view.js";
 import { initDestroyedDrugs } from "../destroyed-drugs/destroyed-drugs.js";
 import { PatientFinderView } from "../patients/patient-finder.view.js";
-import { initPatientFinder } from "../patients/patient-finder.js?v=32";
+import { initPatientFinder } from "../patients/patient-finder.js?v=33";
 import { ManageModulesView } from "../manage-modules/manage-modules.view.js?v=103";
 import { initManageModules } from "../manage-modules/manage-modules.js?v=103";
 import { CareCoordinationView } from "../care-coordination/care-coordination.view.js?v=105";
@@ -131,7 +131,7 @@ import { initBatchResults } from "../batch-results/batch-results.js";
 import { ProcedureReportsView } from "../procedure-reports/procedure-reports.view.js";
 import { initProcedureReports } from "../procedure-reports/procedure-reports.js";
 import { PatientResultsView } from "../patient-results/patient-results.view.js?v=3";
-import { initPatientResults } from "../patient-results/patient-results.js?v=3";
+import { initPatientResults } from "../patient-results/patient-results.js?v=4";
 import { LabsTrendView } from "../labs-trend/labs-trend.view.js";
 import { initLabsTrend } from "../labs-trend/labs-trend.js?v=2";
 import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=3";
@@ -201,7 +201,7 @@ import { initPharmacies } from "../pharmacies/pharmacies.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
 import { PatientFlowView } from "../patient-flow/patient-flow.view.js";
-import { initPatientFlow } from "../patient-flow/patient-flow.js?v=27";
+import { initPatientFlow } from "../patient-flow/patient-flow.js?v=28";
 import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
@@ -273,26 +273,27 @@ import { initAlertsLog } from "../reports/alerts-log.js";
 import { AlertsLogView } from "../reports/alerts-log.view.js";
 import { initIncidentLog } from "../reports/incident-log.js";
 import { IncidentLogView } from "../reports/incident-log.view.js";
-import { initCriticalTAT } from "../reports/critical-tat.js?v=5";
+import { initCriticalTAT } from "../reports/critical-tat.js?v=6";
 import { CriticalTATView } from "../reports/critical-tat.view.js?v=2";
 import { initHAISSI } from "../reports/hai-ssi.js";
 import { HAISSIView } from "../reports/hai-ssi.view.js";
 import { initReadmissionMortality } from "../reports/readmission-mortality.js";
 import { ReadmissionMortalityView } from "../reports/readmission-mortality.view.js";
-import { initSurgicalSafety } from "../reports/surgical-safety.js?v=15";
+import { initSurgicalSafety } from "../reports/surgical-safety.js?v=16";
 import { SurgicalSafetyView } from "../reports/surgical-safety.view.js?v=2";
-import { initOrManagement } from "../or-management/or-management.js?v=20";
+import { initOrManagement } from "../or-management/or-management.js?v=21";
 import { OrManagementView } from "../or-management/or-management.view.js?v=3";
 import { OrScheduleView } from "../or-schedule/or-schedule.view.js?v=2";
 import { initOrSchedule } from "../or-schedule/or-schedule.js?v=6";
 import { OrBoardView } from "../or-board/or-board.view.js?v=2";
 import { initOrBoard } from "../or-board/or-board.js?v=4";
 import { AlertsView } from "../alerts/alerts.view.js?v=4";
-import { initAlerts } from "../alerts/alerts.js?v=12";
-import { initAlertBell } from "../alerts/alert-bell.js?v=10";
-import { initResultsInbox } from "../results-inbox/results-inbox.js?v=3";
-import { MyWorkView, initMyWork, MY_WORK_ROLES, takeMyWorkLogin } from "../my-work/my-work.js?v=2";
+import { initAlerts } from "../alerts/alerts.js?v=13";
+import { initAlertBell } from "../alerts/alert-bell.js?v=11";
+import { initResultsInbox } from "../results-inbox/results-inbox.js?v=4";
+import { MyWorkView, initMyWork, MY_WORK_ROLES, takeMyWorkLogin } from "../my-work/my-work.js?v=3";
 import { DisplayDevicesView, initDisplayDevices } from "../display-devices/display-devices.js?v=2";
+import { CodeBlueView, initCodeBlue, initCodeBlueButton } from "../code-blue/code-blue.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { NurseAssignmentsView } from "../nurse-assignments/nurse-assignments.view.js?v=1";
@@ -309,7 +310,7 @@ import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
 import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
 import { initSurgeryRequests } from "../surgery-requests/surgery-requests.js?v=1";
-import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=15";
+import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=16";
 import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=2";
 import { initRoomManagement } from "../room-management/room-management.js?v=2";
 import { RoomManagementView } from "../room-management/room-management.view.js?v=2";
@@ -1602,6 +1603,11 @@ export function Dashboard()
                 setTimeout(initNurseAssignments, 0);
                 return NurseAssignmentsView();
             }, activate);
+        } else if (tabId === 'code_blue') {
+            tabManager.openTab(tabId, 'Code Blue', () => {
+                setTimeout(initCodeBlue, 0);
+                return CodeBlueView();
+            }, activate);
         } else if (tabId === 'display_devices') {
             tabManager.openTab(tabId, 'TV Displays', () => {
                 setTimeout(initDisplayDevices, 0);
@@ -1703,6 +1709,8 @@ export function Dashboard()
     initAlertBell(user);
     // Results inbox "!": new lab and radiology results for my patients until I open each one.
     initResultsInbox(user);
+    // Code Blue button in the top bar (every staff screen; the nurse station's way to call one).
+    initCodeBlueButton(user);
 
     // Top navbar "Search by any demographic..." box -- pressing Enter hands
     // the typed term off to the Finder tab (same one-shot localStorage

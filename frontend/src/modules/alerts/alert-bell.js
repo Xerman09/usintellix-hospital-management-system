@@ -7,10 +7,11 @@ import { showToast } from "../../core/toast.js";
  * New info alerts show a notice at the top right for a few seconds (and stay in the bell).
  * Critical (and urgent) alerts must be acknowledged: critical ones open a pop-up
  * with a sound that stays until someone acknowledges; urgent ones sit in a
- * corner card with a softer sound. Polls the server every 20 seconds.
+ * corner card with a softer sound. Polls the server every 10 seconds; a Code Blue has its own
+ * siren that repeats until the person answers it (Responding / Not responding).
  */
 
-const POLL_MS = 20000;
+const POLL_MS = 10000;   // a Code Blue reaches everyone within ~10 s
 const REPEAT_SOUND_MS = 60000;   // a critical alert still open beeps again every minute
 
 let started = false;
@@ -71,7 +72,7 @@ export async function openAlertLink(a) {
         return true;
     }
     if (link.result) {
-        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=3");
+        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=4");
         openResultByOrder(Number(link.result));
         return true;
     }
@@ -304,6 +305,7 @@ async function poll() {
             }
             firstPoll = false;
             const critical = d.popups.some((a) => a.urgency === "critical");
+            codeBlueSiren();
             // New urgent/critical alerts beep, and an open critical beeps again every minute; a new info alert chimes once.
             if (fresh.length || (critical && Date.now() - lastBeep > REPEAT_SOUND_MS)) {
                 beep(critical ? "critical" : "urgent");
@@ -316,9 +318,50 @@ async function poll() {
     if (started) pollTimer = setTimeout(poll, POLL_MS);
 }
 
+let codeSiren = null;
+function codeBlueSiren() {
+    const waiting = state.popups.some((a) => a.type === "code_blue");
+    if (!waiting) {
+        clearInterval(codeSiren);
+        codeSiren = null;
+        return;
+    }
+    if (!codeSiren) {
+        beep("code");
+        codeSiren = setInterval(() => {
+            if (!state.popups.some((a) => a.type === "code_blue")) {
+                clearInterval(codeSiren);
+                codeSiren = null;
+                return;
+            }
+            beep("code");
+        }, 8000);
+    }
+}
+
 function beep(level) {
     if (!audioCtx || audioCtx.state !== "running") return;
     lastBeep = Date.now();
+    if (level === "code") {
+        // A rising-falling siren, three times.
+        [0, 0.7, 1.4].forEach((at) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = "square";
+            const t = audioCtx.currentTime + at;
+            osc.frequency.setValueAtTime(600, t);
+            osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+            osc.frequency.linearRampToValueAtTime(600, t + 0.6);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.18, t + 0.03);
+            gain.gain.setValueAtTime(0.18, t + 0.55);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.62);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.65);
+        });
+        return;
+    }
     const tones = level === "critical" ? [[880, 0], [660, .22], [880, .44], [660, .66]] : level === "urgent" ? [[660, 0], [880, .2]] : [[784, 0]];
     tones.forEach(([freq, at]) => {
         const osc = audioCtx.createOscillator();
@@ -517,7 +560,8 @@ function renderPopup() {
     // Pop-ups list at most 20 open alerts; one opened from the Alerts page may be further down.
     const stillOpen = forced && (state.popups.some((a) => a.id === forced.id) || !state.serverTime || state.popups.length >= 20);
     if (forced && !stillOpen) forced = null;
-    const a = forced || critical[0];
+    // A Code Blue comes before any other critical alert.
+    const a = forced || critical.find((x) => x.type === "code_blue") || critical[0];
     if (!a) {
         overlay.classList.remove("open");
         modal.dataset.id = "";
@@ -532,6 +576,12 @@ function renderPopup() {
     }
     const others = critical.filter((x) => x.id !== a.id).length;
     modal.dataset.id = String(a.id);
+    if (a.type === "code_blue") {
+        renderCodeBluePopup(modal, a, others);
+        overlay.classList.add("open");
+        markAlertsSeen([a.id]).catch(() => {});
+        return;
+    }
     modal.style.borderTopColor = a.urgency === "critical" ? "#dc2626" : a.urgency === "urgent" ? "#f59e0b" : "var(--accent)";
     modal.innerHTML = `
         <div class="alb-modal-body">
@@ -556,6 +606,50 @@ function renderPopup() {
     overlay.classList.add("open");
     markAlertsSeen([a.id]).catch(() => {});
     setTimeout(() => modal.querySelector('[data-alb-pop="ack"]')?.focus(), 0);
+}
+
+/** Code Blue: answered with "Responding" / "Not responding" (it closes for everyone when the code ends). */
+function renderCodeBluePopup(modal, a, others) {
+    modal.style.borderTopColor = "#1d4ed8";
+    modal.innerHTML = `
+        <div class="alb-modal-body">
+            <span class="alb-pill" style="background:#1d4ed8;color:#fff">Code Blue</span><span class="alb-meta">${esc(fmtDateTime(a.created_at))}</span>
+            <h2 id="albModalTitle" style="color:#1d4ed8;font-size:22px">${esc(a.title)}</h2>
+            ${a.patient_name ? `<div class="alb-meta">Patient: ${esc(a.patient_name)}</div>` : ""}
+            ${a.body ? `<p>${esc(a.body)}</p>` : ""}
+        </div>
+        <div class="alb-actions">
+            <span class="alb-more">${others ? `${others} more critical` : ""}</span>
+            <button type="button" class="alb-b" data-cb="0">Not responding</button>
+            <button type="button" class="alb-b" data-cb="open">Open Code Blue</button>
+            <button type="button" class="alb-b" style="background:#1d4ed8;border-color:#1d4ed8;color:#fff" data-cb="1">Responding</button>
+        </div>`;
+    modal.onclick = async (e) => {
+        const b = e.target.closest("[data-cb]");
+        if (!b) return;
+        if (b.dataset.cb === "open") {
+            document.getElementById("albOverlay")?.classList.remove("open");
+            modal.dataset.id = "";
+            forced = null;
+            openAlertLink(a);
+            return;
+        }
+        modal.querySelectorAll("button").forEach((x) => (x.disabled = true));
+        const { api } = await import("../../core/api.js?v=5");
+        const r = await api("/code-blue/respond", { method: "POST", body: JSON.stringify({ id: a.source_id, responding: b.dataset.cb }) }).catch(() => null);
+        modal.querySelectorAll("button").forEach((x) => (x.disabled = false));
+        if (!r?.success) {
+            showToast(r?.message || "Could not save. Try again.", "error");
+            if (r?.message && /ended/.test(r.message)) poll();
+            return;
+        }
+        showToast(r.message, "success");
+        document.getElementById("albOverlay")?.classList.remove("open");
+        modal.dataset.id = "";
+        forced = null;
+        poll();
+    };
+    setTimeout(() => modal.querySelector('[data-cb="1"]')?.focus(), 0);
 }
 
 async function onPopupClick(e, a) {

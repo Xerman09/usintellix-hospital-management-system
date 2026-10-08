@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { esc, ago } from "../alerts/alert-bell.js?v=10";
+import { esc, ago } from "../alerts/alert-bell.js?v=11";
 
 /*
  * My Work: the first screen after login -- what is assigned to me today.
@@ -564,7 +564,7 @@ async function act(a) {
         const { openMar } = await import("../mar/mar.js?v=6");
         openMar(Number(arg));
     } else if (kind === "result") {
-        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=3");
+        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=4");
         openResultByOrder(Number(arg));
     } else if (kind === "or") {
         const { openOrCase } = await import("../or-board/or-case-panel.js?v=4");
