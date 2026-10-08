@@ -54,7 +54,7 @@ class DisplayService
             ->execute(['ip' => mb_substr($ip, 0, 45), 'ua' => mb_substr($userAgent, 0, 255), 'id' => $d['id']]);
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
         $refresh = (int) $d['refresh_seconds'];
-        if ($d['kind'] === 'room') {
+        if (in_array($d['kind'], ['room', 'nurse_station'], true)) {
             $refresh = min($refresh, self::CODE_BLUE_REFRESH);
         }
         $base = [
@@ -77,9 +77,14 @@ class DisplayService
                 'location' => $loc['label'] ?? null, 'location_note' => $d['location_note']],
             'hospital' => ['name' => $biz['name'] ?? 'Hospital', 'logo' => $biz['logo'] ?? null],
             // What this kind of TV shows (room: Phase 2; nurse station, waiting room, OR: later phases).
-            'content' => $d['kind'] === 'room' ? (new RoomTvService())->content($d) : null,
-            // A Code Blue takes over the room TV.
-            'code_blue' => $d['kind'] === 'room' ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null) : null,
+            'content' => match ($d['kind']) {
+                'room' => (new RoomTvService())->content($d),
+                'nurse_station' => (new NurseStationTvService())->content($d),
+                default => null,
+            },
+            // A Code Blue on the ward: takes over the room TV, flashes at the top of the nurse station TV.
+            'code_blue' => in_array($d['kind'], ['room', 'nurse_station'], true)
+                ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null) : null,
         ];
     }
 

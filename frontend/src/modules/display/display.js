@@ -16,6 +16,9 @@ import { API_URL } from "../../core/api.js?v=5";
  * Room TV (Phase 2): vital signs instead of demographics (latest set, trend arrows, overdue
  * warning), the nurse and CNA this shift, pain medicine (last given, next allowed; no drug
  * names), allergy and fall-risk icons. A Code Blue called on the ward takes over the screen.
+ * Nurse station TV (Phase 3): every patient on the ward on one line (room, initials, nurse,
+ * NEWS2, critical labs, medicines overdue, alerts); a Code Blue and critical alerts flash at the
+ * top. More patients than fit: the list pages by itself.
  * Other kinds show the hospital, the place and the time until their phases.
  */
 
@@ -100,6 +103,45 @@ const CSS = `
 .rm-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; text-align: center; }
 .rm-empty .big { font-size: clamp(40px, 7vw, 140px); font-weight: 800; }
 .rm-empty .sub { color: var(--muted); font-size: clamp(18px, 2.2vw, 40px); }
+
+/* Nurse station TV */
+.ns { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto 1fr auto; gap: clamp(8px, 1vw, 16px); padding: clamp(12px, 1.6vw, 28px); box-sizing: border-box; }
+.ns-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.ns-title { font-size: clamp(20px, 2.4vw, 44px); font-weight: 800; line-height: 1.1; }
+.ns-title small { display: block; font-size: .5em; color: var(--muted); font-weight: 600; }
+.ns-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.ns-chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: clamp(12px, 1.1vw, 20px); color: var(--muted); font-weight: 600; white-space: nowrap; }
+.ns-chip b { color: var(--text); font-size: 1.15em; margin-right: 4px; }
+.ns-chip.hot { border-color: #ef4444; color: #fecaca; } .ns-chip.hot b { color: #fff; }
+.ns-banners { display: grid; gap: 8px; }
+.ns-banners:empty { display: none; }
+.ns-cb { background: #1d4ed8; color: #fff; border-radius: 12px; padding: clamp(10px, 1.2vw, 20px) clamp(14px, 1.6vw, 26px); font-size: clamp(20px, 2.6vw, 48px); font-weight: 900;
+    display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: baseline; animation: ns-flash-b 1s steps(2, jump-none) infinite; }
+.ns-cb span { font-size: .55em; font-weight: 700; opacity: .9; }
+.ns-crit { display: flex; flex-wrap: wrap; gap: 8px; }
+.ns-crit div { background: #b91c1c; color: #fff; border-radius: 10px; padding: 8px 14px; font-size: clamp(14px, 1.5vw, 28px); font-weight: 800; animation: ns-flash-r 1.2s steps(2, jump-none) infinite; }
+.ns-crit div span { font-weight: 600; opacity: .9; }
+@keyframes ns-flash-b { 0% { background: #1d4ed8; } 100% { background: #1e3a8a; } }
+@keyframes ns-flash-r { 0% { background: #b91c1c; } 100% { background: #7f1d1d; } }
+@media (prefers-reduced-motion: reduce) { .ns-cb, .ns-crit div { animation: none; } }
+.ns-wrap { min-height: 0; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+.ns-table { width: 100%; border-collapse: collapse; font-size: clamp(13px, 1.15vw, 22px); }
+.ns-table th { text-align: left; color: var(--muted); font-weight: 700; font-size: .72em; text-transform: uppercase; letter-spacing: .05em; padding: .5em .7em; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+.ns-table td { padding: .45em .7em; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ns-table th.c, .ns-table td.c { text-align: center; }
+.ns-table tr.hot td:first-child { box-shadow: inset 6px 0 0 #ef4444; }
+.ns-room { font-weight: 800; }
+.ns-room small { color: var(--muted); font-weight: 600; margin-left: .4em; }
+.ns-init { font-weight: 800; letter-spacing: .04em; }
+.ns-nurse { color: var(--muted); max-width: 14em; overflow: hidden; text-overflow: ellipsis; }
+.ns-dim { color: #334155; }
+.ns-b { display: inline-block; min-width: 1.8em; text-align: center; padding: .1em .5em; border-radius: .5em; font-weight: 800; }
+.ns-b.red { background: #b91c1c; color: #fff; } .ns-b.amber { background: #b45309; color: #fff; } .ns-b.yellow { background: #854d0e; color: #fef08a; } .ns-b.green { background: #14532d; color: #bbf7d0; }
+.ns-b.grey { background: #1e293b; color: var(--muted); }
+.ns-flags { display: inline-flex; gap: .3em; }
+.ns-flags .ns-b { font-size: .7em; }
+.ns-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: clamp(11px, 1vw, 18px); }
+.ns-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: clamp(20px, 2.4vw, 44px); }
 
 /* Code Blue */
 .cb { position: fixed; inset: 0; background: #1d4ed8; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3vh; padding: 5vw;
@@ -266,6 +308,11 @@ function render() {
     }
     const dev = d.device;
     document.title = dev.name;
+    if (dev.kind === "nurse_station" && d.content) {
+        renderStation(d);
+        renderStatus();
+        return;
+    }
     if (d.code_blue) {
         renderCodeBlue(d.code_blue);
         return;
@@ -385,6 +432,106 @@ function renderRoom(d) {
         </main></div>`;
     drawClock();
 }
+
+/* ---------------- nurse station TV ---------------- */
+
+const STATION_PAGE_MS = 15000;
+let stationPage = 0;
+let stationTimer = null;
+let stationTurnAt = 0;      // when the page turns (kept across refreshes, which re-draw the list)
+
+function minutesSince(s) {
+    return Math.max(0, Math.round((hospitalNow().getTime() - serverMs(s)) / 60000));
+}
+
+function news2Badge(n) {
+    if (!n) return `<span class="ns-dim">—</span>`;
+    const tone = n.score >= 7 ? "red" : n.score >= 5 ? "amber" : n.score >= 1 ? "yellow" : "green";
+    return `<span class="ns-b ${tone}">${n.score}</span>`;
+}
+
+const count = (n, tone) => (n ? `<span class="ns-b ${tone}">${n}</span>` : `<span class="ns-dim">—</span>`);
+const VITALS_NS = { overdue: ["Overdue", "red"], due: ["Due", "amber"], due_soon: ["Soon", "grey"] };
+
+function renderStation(d) {
+    const c = d.content;
+    const t = c.totals;
+    const chip = (n, label, hot) => `<span class="ns-chip${hot && n ? " hot" : ""}"><b>${n}</b>${esc(label)}</span>`;
+    const banners = [
+        d.code_blue ? `<div class="ns-cb" role="alert">CODE BLUE <span>${esc(d.code_blue.location)} · called ${esc(t12(d.code_blue.called_at))}</span></div>` : "",
+        c.banner.length ? `<div class="ns-crit" role="alert">${c.banner.map((b) => `<div>${esc(b.label)} <span>· ${esc([b.room, b.bed].filter(Boolean).join(" "))} · ${esc(b.initials)} · ${minutesSince(b.since)} min</span></div>`).join("")}</div>` : "",
+    ].join("");
+    const rows = c.patients.map((p) => {
+        const hot = (p.news2?.score ?? 0) >= 7 || p.critical_labs > 0 || p.alerts_critical > 0;
+        const v = VITALS_NS[p.vitals];
+        const flags = [
+            p.fall_risk === "high" ? `<span class="ns-b amber" title="High fall risk">FALL</span>` : "",
+            p.isolation ? `<span class="ns-b grey" title="Isolation">${esc(p.isolation.slice(0, 4).toUpperCase())}</span>` : "",
+            p.pending_discharge ? `<span class="ns-b green" title="Pending discharge">D/C</span>` : "",
+        ].join("");
+        return `<tr class="${hot ? "hot" : ""}">
+            <td class="ns-room">${esc(p.room || "")}<small>${esc(p.bed || "")}</small></td>
+            <td class="ns-init">${esc(p.initials)}</td>
+            <td class="ns-nurse">${esc(p.nurse || "—")}</td>
+            <td class="c">${news2Badge(p.news2)}</td>
+            <td class="c">${v ? `<span class="ns-b ${v[1]}">${v[0]}</span>` : `<span class="ns-dim">—</span>`}</td>
+            <td class="c">${count(p.critical_labs, "red")}</td>
+            <td class="c">${count(p.meds_overdue, p.meds_high_alert_late ? "red" : "amber")}</td>
+            <td class="c">${count(p.alerts, p.alerts_critical ? "red" : "amber")}</td>
+            <td><span class="ns-flags">${flags}</span></td></tr>`;
+    });
+    root.innerHTML = `<div class="ns">
+        <header class="ns-top">
+            <div class="ns-title">${esc(c.ward || d.device.name)}<small>Nurse station</small></div>
+            <div class="ns-chips">
+                ${chip(t.patients, "patients")}${chip(t.news2_high, "NEWS2 7+", true)}${chip(t.critical_labs, "critical labs", true)}
+                ${chip(t.meds_overdue, "meds overdue", true)}${chip(t.vitals_overdue, "vitals overdue", true)}${chip(t.alerts, "alerts", true)}
+            </div>
+            <div class="rm-clock"><div class="t" data-clock></div><div class="d" data-date></div><div class="d" data-status data-quiet></div></div>
+        </header>
+        <div class="ns-banners">${banners}</div>
+        <div class="ns-wrap">${rows.length ? `<table class="ns-table"><thead><tr>
+            <th>Room</th><th>Patient</th><th>Nurse</th><th class="c">NEWS2</th><th class="c">Vitals</th><th class="c">Critical labs</th><th class="c">Meds overdue</th><th class="c">Alerts</th><th></th>
+        </tr></thead><tbody>${rows.join("")}</tbody></table>` : `<div class="ns-empty">No patients on the ward.</div>`}</div>
+        <footer class="ns-foot"><span data-page></span><span>${esc(d.device.name)}</span></footer>
+    </div>`;
+    drawClock();
+    pageStation();
+}
+
+/** Show as many rows as fit; more than that: pages that turn by themselves. */
+function pageStation() {
+    clearTimeout(stationTimer);
+    const wrap = root.querySelector(".ns-wrap");
+    const body = root.querySelector(".ns-table tbody");
+    const label = root.querySelector("[data-page]");
+    if (!wrap || !body) return;
+    const rows = [...body.rows];
+    rows.forEach((r) => (r.hidden = false));
+    const head = root.querySelector(".ns-table thead").getBoundingClientRect().height;
+    const rowH = rows[0]?.getBoundingClientRect().height || 1;
+    const per = Math.max(1, Math.floor((wrap.clientHeight - head) / rowH));
+    const pages = Math.ceil(rows.length / per);
+    if (pages <= 1) {
+        label.textContent = "";
+        stationPage = 0;
+        stationTurnAt = 0;
+        return;
+    }
+    stationPage %= pages;
+    rows.forEach((r, i) => (r.hidden = Math.floor(i / per) !== stationPage));
+    label.textContent = `Page ${stationPage + 1} of ${pages} · ${rows.length} patients`;
+    if (!stationTurnAt || stationTurnAt < Date.now()) stationTurnAt = Date.now() + STATION_PAGE_MS;
+    stationTimer = setTimeout(() => {
+        stationPage = (stationPage + 1) % pages;
+        stationTurnAt = Date.now() + STATION_PAGE_MS;
+        pageStation();
+    }, stationTurnAt - Date.now());
+}
+
+window.addEventListener("resize", () => {
+    if (root.querySelector(".ns-table")) pageStation();
+});
 
 function renderCodeBlue(cb) {
     document.title = "CODE BLUE";
