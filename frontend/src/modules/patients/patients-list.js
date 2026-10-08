@@ -7017,7 +7017,7 @@ async function loadDashboardInpatientVitals(patient)
     setButtons(false);
     try {
         const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=2");
-        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=8");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=9");
         const result = await fetchPatientVitals(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {

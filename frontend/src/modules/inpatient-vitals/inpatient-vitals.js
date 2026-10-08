@@ -1,4 +1,5 @@
 import { fetchVitalsBoard, fetchVitalsHistory, recordVitals, voidVitals, setVitalsSchedule, setSpo2Scale } from "./inpatient-vitals.service.js?v=2";
+import { openFallRisk, fallBadge } from "./fall-risk.js?v=1";
 import { getUser } from "../../core/session.js?v=2";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
@@ -628,6 +629,7 @@ function renderBoard() {
     const role = getUser()?.role;
     const canSchedule = ["admin", "doctor", "nurse", "charge_nurse"].includes(role);
     const canOrders = ["admin", "doctor", "nurse", "charge_nurse", "clinician", "pharmacist"].includes(role);
+    const canFall = ["doctor", "nurse", "charge_nurse", "clinician"].includes(role);
     // Highest NEWS2 first, then the most overdue.
     const order = { overdue: 0, due: 1, due_soon: 2, ok: 3 };
     const risk = { high: 0, medium: 1, low_medium: 2, low: 3 };
@@ -638,7 +640,7 @@ function renderBoard() {
         <tbody>${rows.map((p) => `
             <tr data-adm="${p.admission_id}">
                 <td><div class="ivb-bed">${esc(p.room)} · ${esc(p.bed)}</div></td>
-                <td><strong>${esc(p.patient_name)}</strong><div class="ivb-sub">${esc([p.nurse_name ? `RN ${p.nurse_name}` : "", p.cna_name ? `CNA ${p.cna_name}` : ""].filter(Boolean).join(" · ") || "No nurse assigned")}</div></td>
+                <td><strong>${esc(p.patient_name)}</strong>${fallBadge(p.fall_risk)}<div class="ivb-sub">${esc([p.nurse_name ? `RN ${p.nurse_name}` : "", p.cna_name ? `CNA ${p.cna_name}` : ""].filter(Boolean).join(" · ") || "No nurse assigned")}</div></td>
                 <td>${p.news2 ? news2Badge(p.news2) : `<span class="ivb-sub">—</span>`}</td>
                 <td>${statusBadge(p.status)}${p.schedule_too_slow ? `<div class="ivx-warn">NEWS2: every ${p.news2_hours} h${canSchedule ? ` <button type="button" class="ivx-btn" data-act="apply" title="Set the schedule to every ${p.news2_hours} h">Apply</button>` : ""}</div>` : ""}</td>
                 <td>${valuesLine(p.latest)}${p.latest ? `<div class="ivb-sub">${esc(fmtTime(p.latest.taken_at))} · ${esc(p.latest.recorded_by_name || "")}</div>` : ""}</td>
@@ -649,6 +651,7 @@ function renderBoard() {
                     ${canOrders ? `<button type="button" class="ivx-btn" data-act="orders" aria-label="Medicine orders for ${esc(p.patient_name)}">Orders</button>` : ""}
                     ${canOrders ? `<button type="button" class="ivx-btn" data-act="mar" aria-label="Medicine administration record for ${esc(p.patient_name)}">MAR</button>` : ""}
                     ${canSchedule ? `<button type="button" class="ivx-btn" data-act="schedule" aria-label="Schedule for ${esc(p.patient_name)}">Schedule</button>` : ""}
+                    ${canFall ? `<button type="button" class="ivx-btn" data-act="fall" aria-label="Fall risk for ${esc(p.patient_name)}">Fall risk</button>` : ""}
                 </div></td>
             </tr>`).join("")}</tbody></table>
         <p class="ivb-sub" style="margin:8px 12px">★ = schedule set for this patient (otherwise the ward default).</p>`;
@@ -664,6 +667,7 @@ function onBoardClick(e) {
     else if (act === "orders") import("../med-orders/med-orders.js?v=6").then((m) => m.openMedOrders(adm));
     else if (act === "mar") import("../mar/mar.js?v=6").then((m) => m.openMar(adm));
     else if (act === "schedule") openVitalsSchedule(p, { onSaved: loadBoard });
+    else if (act === "fall") openFallRisk(adm, { onSaved: loadBoard });
     else if (act === "apply") {
         setVitalsSchedule(adm, p.news2_hours, `NEWS2 ${p.news2.score} (${p.news2.risk_label})`).then((r) => {
             showToast(r?.message || "Could not change the schedule.", r?.success ? "success" : "error");

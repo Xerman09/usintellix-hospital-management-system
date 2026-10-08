@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\InpatientVitals\Controllers\InpatientVitalsController;
+use App\Modules\InpatientVitals\Controllers\FallRiskController;
 
 /** @var \App\Core\Router $router */
 
@@ -19,3 +20,7 @@ $router->post('/inpatient-vitals', [InpatientVitalsController::class, 'record'],
 $router->post('/inpatient-vitals/void', [InpatientVitalsController::class, 'void'], [AuthMiddleware::class, [RoleMiddleware::class, $vitalsReadRoles]]);
 $router->post('/inpatient-vitals/schedule', [InpatientVitalsController::class, 'schedule'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse']]]);
 $router->post('/inpatient-vitals/scale', [InpatientVitalsController::class, 'scale'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'doctor']]]);
+
+// Fall risk (Morse Fall Scale): the room TV's icon and the ward boards.
+$router->get('/fall-risk', [FallRiskController::class, 'show'], [AuthMiddleware::class, [RoleMiddleware::class, $vitalsReadRoles]]);
+$router->post('/fall-risk', [FallRiskController::class, 'assess'], [AuthMiddleware::class, [RoleMiddleware::class, ['nurse', 'charge_nurse', 'doctor', 'clinician']]]);

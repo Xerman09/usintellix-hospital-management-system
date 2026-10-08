@@ -89,6 +89,7 @@ class InpatientVitalsService
         $in = implode(',', array_map('intval', $admissionIds));
         $adms = $db->query(
             "SELECT a.id, a.patient_id, a.patient_name, a.patient_mrn, a.patient_age, a.gender, a.admission_date, a.status, a.isolation_precautions,
+                    a.fall_risk, a.fall_risk_score,
                     a.ward_id, w.ward_name, w.ward_type, b.room_number, b.bed_number, s.every_hours, s.reason AS schedule_reason,
                     COALESCE(ns.spo2_scale, 1) AS spo2_scale, ns.reason AS scale_reason
              FROM inpatient_admissions a
@@ -141,6 +142,7 @@ class InpatientVitalsService
                 'age' => $a['patient_age'] !== null ? (int) $a['patient_age'] : null, 'sex' => $a['gender'],
                 'admission_status' => $a['status'],
                 'isolation' => $a['isolation_precautions'] !== 'Standard' ? $a['isolation_precautions'] : null,
+                'fall_risk' => $a['fall_risk'], 'fall_risk_score' => $a['fall_risk_score'] !== null ? (int) $a['fall_risk_score'] : null,
                 'ward_id' => (int) $a['ward_id'], 'ward' => $a['ward_name'], 'room' => $a['room_number'], 'bed' => $a['bed_number'],
                 'schedule' => ['every_hours' => $every, 'is_default' => $a['every_hours'] === null, 'reason' => $a['schedule_reason']],
                 'latest' => $last ? $this->shape($last) : null,

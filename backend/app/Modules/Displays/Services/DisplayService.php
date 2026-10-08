@@ -27,6 +27,8 @@ class DisplayService
     ];
     public const MIN_REFRESH = 10;
     public const MAX_REFRESH = 600;
+    /** TVs that show a Code Blue check at least this often (seconds), whatever their refresh is set to. */
+    public const CODE_BLUE_REFRESH = 15;
     /** A TV not heard from in this many refresh periods (at least 2 minutes) is offline. */
     private const OFFLINE_PERIODS = 3;
 
@@ -51,8 +53,12 @@ class DisplayService
         $db->prepare("UPDATE display_devices SET last_seen_at = NOW(), last_ip = :ip, last_user_agent = :ua WHERE id = :id")
             ->execute(['ip' => mb_substr($ip, 0, 45), 'ua' => mb_substr($userAgent, 0, 255), 'id' => $d['id']]);
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
+        $refresh = (int) $d['refresh_seconds'];
+        if ($d['kind'] === 'room') {
+            $refresh = min($refresh, self::CODE_BLUE_REFRESH);
+        }
         $base = [
-            'now' => $now, 'refresh_seconds' => (int) $d['refresh_seconds'],
+            'now' => $now, 'refresh_seconds' => $refresh,
             // The TV reloads its page when this changes (the admin's "Reload").
             'reload_token' => $d['reload_requested_at'],
         ];
@@ -70,8 +76,10 @@ class DisplayService
             'device' => ['id' => (int) $d['id'], 'name' => $d['name'], 'kind' => $d['kind'], 'kind_label' => self::KINDS[$d['kind']] ?? $d['kind'],
                 'location' => $loc['label'] ?? null, 'location_note' => $d['location_note']],
             'hospital' => ['name' => $biz['name'] ?? 'Hospital', 'logo' => $biz['logo'] ?? null],
-            // Filled in by the later phases (room TV, nurse station board, waiting room, OR).
-            'content' => null,
+            // What this kind of TV shows (room: Phase 2; nurse station, waiting room, OR: later phases).
+            'content' => $d['kind'] === 'room' ? (new RoomTvService())->content($d) : null,
+            // A Code Blue takes over the room TV.
+            'code_blue' => $d['kind'] === 'room' ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null) : null,
         ];
     }
 

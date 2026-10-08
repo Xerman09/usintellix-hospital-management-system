@@ -12,7 +12,7 @@ import {
     createBed
 } from './inpatient-admissions.service.js?v=2';
 import { showToast } from '../../core/toast.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=13';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=14';
 import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;
