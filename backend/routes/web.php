@@ -183,5 +183,6 @@ require_once __DIR__ . '/../app/Modules/InpatientOrders/routes.php';
 require_once __DIR__ . '/../app/Modules/LabRanges/routes.php';
 require_once __DIR__ . '/../app/Modules/ResultsInbox/routes.php';
 require_once __DIR__ . '/../app/Modules/MyWork/routes.php';
+require_once __DIR__ . '/../app/Modules/Displays/routes.php';
 
 return $router;

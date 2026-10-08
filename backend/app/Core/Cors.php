@@ -15,7 +15,8 @@ class Cors
 
         header("Access-Control-Allow-Credentials: true");
 
-        header("Access-Control-Allow-Headers: Content-Type");
+        // X-Display-Key: the TV displays' device key (module 9).
+        header("Access-Control-Allow-Headers: Content-Type, X-Display-Key");
 
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 

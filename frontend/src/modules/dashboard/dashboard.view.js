@@ -235,6 +235,7 @@ function staffNavLinks(role)
                 ` : ""}
                 <a data-tab="employees">Users</a>
                 ${role === "admin" ? `<a data-tab="nursing_staff">Nursing Staff &amp; Wards</a>` : ""}
+                ${role === "admin" ? `<a data-tab="display_devices">TV Displays</a>` : ""}
                 ${role === "admin" ? `<a data-tab="general_settings">Two Factor Authentication</a>` : ""}
                 <a data-tab="admin_address_book">Address Book</a>
                 ${role === "admin" ? `
