@@ -182,5 +182,6 @@ require_once __DIR__ . '/../app/Modules/InpatientVitals/routes.php';
 require_once __DIR__ . '/../app/Modules/InpatientOrders/routes.php';
 require_once __DIR__ . '/../app/Modules/LabRanges/routes.php';
 require_once __DIR__ . '/../app/Modules/ResultsInbox/routes.php';
+require_once __DIR__ . '/../app/Modules/MyWork/routes.php';
 
 return $router;

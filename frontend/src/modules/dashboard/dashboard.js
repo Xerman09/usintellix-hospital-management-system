@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=150";
+import { getNavLinks } from "./dashboard.view.js?v=151";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -291,6 +291,7 @@ import { AlertsView } from "../alerts/alerts.view.js?v=4";
 import { initAlerts } from "../alerts/alerts.js?v=12";
 import { initAlertBell } from "../alerts/alert-bell.js?v=10";
 import { initResultsInbox } from "../results-inbox/results-inbox.js?v=3";
+import { MyWorkView, initMyWork, MY_WORK_ROLES, takeMyWorkLogin } from "../my-work/my-work.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { NurseAssignmentsView } from "../nurse-assignments/nurse-assignments.view.js?v=1";
@@ -1605,6 +1606,11 @@ export function Dashboard()
                 setTimeout(initNursingStaff, 0);
                 return NursingStaffView();
             }, activate);
+        } else if (tabId === 'my_work') {
+            tabManager.openTab(tabId, 'My Work', () => {
+                setTimeout(initMyWork, 0);
+                return MyWorkView();
+            }, activate);
         } else if (tabId === 'alerts') {
             tabManager.openTab(tabId, 'Alerts', () => {
                 setTimeout(initAlerts, 0);
@@ -1911,6 +1917,9 @@ export function Dashboard()
     // straight to the Patients tab so its own init can consume it.
     if (hasPendingPatientView()) {
         openDashboardTab('patients', 'Patients');
+    } else if (takeMyWorkLogin() && MY_WORK_ROLES.includes(user.role)) {
+        // Just signed in: start on My Work (what is assigned to me today).
+        openDashboardTab('my_work', 'My Work');
     }
 
     setupPasswordExpirationBanner(user, openDashboardTab);

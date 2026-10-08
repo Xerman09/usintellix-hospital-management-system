@@ -767,7 +767,16 @@ const CNA_NAV_LINKS = `
     <a data-tab="messaging">Messages</a>
 `;
 
+// My Work (what is assigned to me today) comes first for the clinical, pharmacy and lab roles.
+const MY_WORK_LINK_ROLES = ["nurse", "charge_nurse", "cna", "doctor", "clinician", "pharmacist", "lab_technician", "admin"];
+
 export function getNavLinks(role)
+{
+    const links = navLinksFor(role);
+    return MY_WORK_LINK_ROLES.includes(role) ? `<a data-tab="my_work">My Work</a>${links}` : links;
+}
+
+function navLinksFor(role)
 {
     if (role === "patient") return PATIENT_NAV_LINKS;
     if (role === "doctor") return DOCTOR_NAV_LINKS;
