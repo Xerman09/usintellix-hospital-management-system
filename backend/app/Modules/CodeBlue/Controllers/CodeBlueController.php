@@ -5,7 +5,10 @@ namespace App\Modules\CodeBlue\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\BusinessSettings\Services\BusinessSettingService;
+use App\Modules\CodeBlue\Services\CodeBlueCartService;
 use App\Modules\CodeBlue\Services\CodeBlueRecordService;
+use App\Modules\CodeBlue\Services\CodeBlueReportService;
 use App\Modules\CodeBlue\Services\CodeBlueService;
 
 class CodeBlueController extends Controller
@@ -71,6 +74,88 @@ class CodeBlueController extends Controller
     public function outcome(): void
     {
         $this->respond((new CodeBlueRecordService())->outcome((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    // ---- Phase 3: the code sheet, the report, crash carts
+
+    /** Query: id. Everything the printed code sheet needs (for the chart). */
+    public function sheet(): void
+    {
+        $id = (int) (new Request())->input('id');
+        $e = $this->service->show($id, true);
+        if (!$e) {
+            $this->json(['success' => false, 'message' => 'Code Blue not found.'], 404);
+            return;
+        }
+        $db = \App\Core\Database::connection();
+        $patient = null;
+        if ($e['patient_id']) {
+            $st = $db->prepare(
+                "SELECT p.patient_no, p.first_name, p.middle_name, p.last_name, p.sex, p.birthdate, TIMESTAMPDIFF(YEAR, p.birthdate, CURDATE()) AS age,
+                        a.admission_number, a.attending_physician
+                 FROM patients p LEFT JOIN inpatient_admissions a ON a.id = :a WHERE p.id = :p"
+            );
+            $st->execute(['a' => $e['admission_id'], 'p' => $e['patient_id']]);
+            $patient = $st->fetch(\PDO::FETCH_ASSOC) ?: null;
+        }
+        try {
+            $biz = (new BusinessSettingService())->get();
+        } catch (\Throwable $ex) {
+            $biz = [];
+        }
+        $this->success($e + [
+            'metrics' => (new CodeBlueReportService())->metrics($id), 'patient' => $patient,
+            'hospital' => ['name' => $biz['name'] ?? 'Hospital'], 'printed_at' => (string) $db->query("SELECT NOW()")->fetchColumn(),
+            'printed_by' => Session::get('user')['username'] ?? null,
+        ], 'Retrieved.');
+    }
+
+    /** Query: patient_id. The patient's codes (the chart's code sheets). */
+    public function patient(): void
+    {
+        $this->success((new CodeBlueReportService())->forPatient((int) (new Request())->input('patient_id')), 'Retrieved.');
+    }
+
+    /** Query: from?, to?, ward_id? */
+    public function report(): void
+    {
+        $this->success((new CodeBlueReportService())->report((new Request())->all()), 'Retrieved.');
+    }
+
+    /** Body: id, warehouse_id (blank = none). The crash cart used at this code. */
+    public function cart(): void
+    {
+        $request = new Request();
+        $id = (int) $request->input('id');
+        $user = Session::get('user') ?? [];
+        if (!(new CodeBlueRecordService())->canRecord($id, $user)) {
+            $this->json(['success' => false, 'message' => 'Only the people at the code can change its crash cart.'], 403);
+            return;
+        }
+        $this->respond((new CodeBlueCartService())->setCart($id, (int) $request->input('warehouse_id') ?: null));
+    }
+
+    public function carts(): void
+    {
+        $this->success((new CodeBlueCartService())->setup(), 'Retrieved.');
+    }
+
+    /** Body: warehouse_id, ward_id?, label? */
+    public function saveCart(): void
+    {
+        $this->respond((new CodeBlueCartService())->saveCart((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: warehouse_id */
+    public function removeCart(): void
+    {
+        $this->respond((new CodeBlueCartService())->removeCart((int) (new Request())->input('warehouse_id')));
+    }
+
+    /** Body: links [{key, drug_id, amount_per_unit}] */
+    public function saveCartDrugs(): void
+    {
+        $this->respond((new CodeBlueCartService())->saveLinks((new Request())->all(), Session::get('user') ?? []));
     }
 
     /** Body: admission_id? | patient_id?, ward_id?, location?, detail?, from? */

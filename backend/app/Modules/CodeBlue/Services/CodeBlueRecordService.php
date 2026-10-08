@@ -53,7 +53,11 @@ class CodeBlueRecordService
     // Recording
     // ------------------------------------------------------------------
 
-    /** data: id, kind, value?, dose?, unit?, route?, energy?, note?, time? (HH:MM[:SS], blank = now) */
+    /**
+     * data: id, kind, value?, dose?, unit?, route?, energy?, note?, time? (HH:MM[:SS], blank = now);
+     * for "Other drug" taken from the crash cart: stock_drug_id + stock_qty (stock units).
+     * A drug entry comes off the code's crash cart (CodeBlueCartService::take).
+     */
     public function add(array $data, array $actor): array
     {
         $db = Database::connection();
@@ -109,6 +113,13 @@ class CodeBlueRecordService
                     $errors['route'] = 'Choose the route.';
                 }
                 $row = ['value' => $value, 'dose' => is_numeric($dose) ? round((float) $dose, 3) : null, 'unit' => $data['unit'] ?? null, 'route' => $data['route'] ?? null, 'energy_j' => null];
+                if ((int) ($data['stock_drug_id'] ?? 0)) {
+                    $q = $data['stock_qty'] ?? '';
+                    if (!is_numeric($q) || (float) $q <= 0 || (float) $q > 1000) {
+                        $errors['stock_qty'] = 'How many were taken from the cart?';
+                    }
+                    $stock = ['drug_id' => (int) $data['stock_drug_id'], 'qty' => (float) $q];
+                }
                 break;
             case 'note':
                 if ($note === '') {
@@ -140,13 +151,32 @@ class CodeBlueRecordService
                 return ['success' => true, 'message' => 'Already recorded.', 'data' => $this->forEvent((int) $e['id'])];
             }
         }
-        $db->prepare(
-            "INSERT INTO code_blue_record (event_id, kind, value, dose, unit, route, energy_j, note, event_at, recorded_by, recorded_at)
-             VALUES (:e, :k, :v, :d, :un, :r, :j, :n, :at, :u, NOW())"
-        )->execute(['e' => $e['id'], 'k' => $kind, 'v' => $row['value'], 'd' => $row['dose'], 'un' => $row['unit'], 'r' => $row['route'],
-            'j' => $row['energy_j'], 'n' => $note !== '' ? $note : null, 'at' => $at, 'u' => (int) $actor['id']]);
+        $owns = !$db->inTransaction();
+        $owns ? $db->beginTransaction() : $db->exec('SAVEPOINT cb_rec');
+        try {
+            $db->prepare(
+                "INSERT INTO code_blue_record (event_id, kind, value, dose, unit, route, energy_j, note, event_at, recorded_by, recorded_at)
+                 VALUES (:e, :k, :v, :d, :un, :r, :j, :n, :at, :u, NOW())"
+            )->execute(['e' => $e['id'], 'k' => $kind, 'v' => $row['value'], 'd' => $row['dose'], 'un' => $row['unit'], 'r' => $row['route'],
+                'j' => $row['energy_j'], 'n' => $note !== '' ? $note : null, 'at' => $at, 'u' => (int) $actor['id']]);
+            $recordId = (int) $db->lastInsertId();
+            if ($kind === 'drug') {
+                (new CodeBlueCartService())->take($db, $recordId, $e, $row, $stock ?? null, (int) $actor['id']);
+            }
+            $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT cb_rec');
+        } catch (\Throwable $ex) {
+            $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT cb_rec');
+            throw $ex;
+        }
         $entry = ['kind' => $kind] + $row + ['note' => $note];
-        return ['success' => true, 'message' => self::label($entry) . ' — ' . substr($at, 11, 8), 'data' => $this->forEvent((int) $e['id'])];
+        $msg = self::label($entry) . ' — ' . substr($at, 11, 8);
+        $taken = $db->query("SELECT stock_qty, stock_short FROM code_blue_record WHERE id = {$recordId}")->fetch(PDO::FETCH_ASSOC);
+        if ($taken && $taken['stock_qty'] !== null) {
+            $msg .= $taken['stock_short'] !== null
+                ? '. Not enough in the crash cart: ' . CodeBlueCartService::num((float) $taken['stock_short']) . ' short (tell the pharmacy).'
+                : '. Taken from the crash cart: ' . CodeBlueCartService::num((float) $taken['stock_qty']) . '.';
+        }
+        return ['success' => true, 'message' => $msg, 'data' => $this->forEvent((int) $e['id'])];
     }
 
     /** data: entry_id, and either time (HH:MM[:SS]) or remove (1) + reason? */
@@ -169,9 +199,19 @@ class CodeBlueRecordService
         $uid = (int) $actor['id'];
         if (!empty($data['remove']) && (string) $data['remove'] !== '0') {
             $reason = trim((string) ($data['reason'] ?? ''));
-            $db->prepare("UPDATE code_blue_record SET voided_at = NOW(), voided_by = :u, void_reason = :why WHERE id = :id")
-                ->execute(['u' => $uid, 'why' => $reason !== '' ? mb_substr($reason, 0, 200) : null, 'id' => $r['id']]);
-            return ['success' => true, 'message' => 'Struck out: ' . self::label($r) . '.', 'data' => $this->forEvent((int) $e['id'])];
+            $owns = !$db->inTransaction();
+            $owns ? $db->beginTransaction() : $db->exec('SAVEPOINT cb_rec');
+            try {
+                $db->prepare("UPDATE code_blue_record SET voided_at = NOW(), voided_by = :u, void_reason = :why WHERE id = :id")
+                    ->execute(['u' => $uid, 'why' => $reason !== '' ? mb_substr($reason, 0, 200) : null, 'id' => $r['id']]);
+                // Taken from the crash cart: it goes back.
+                (new CodeBlueCartService())->putBack($db, (int) $r['id'], "CODE-{$e['id']}", $uid);
+                $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT cb_rec');
+            } catch (\Throwable $ex) {
+                $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT cb_rec');
+                throw $ex;
+            }
+            return ['success' => true, 'message' => 'Struck out: ' . self::label($r) . ($r['stock_qty'] !== null ? ' (back in the crash cart)' : '') . '.', 'data' => $this->forEvent((int) $e['id'])];
         }
         $t = trim((string) ($data['time'] ?? ''));
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
@@ -245,8 +285,10 @@ class CodeBlueRecordService
         }
         $stmt = $db->prepare(
             "SELECT r.*, TIMESTAMPDIFF(SECOND, :c, r.event_at) AS offset_s, TIMESTAMPDIFF(SECOND, r.event_at, COALESCE(:end, NOW())) AS ago_s,
-                    " . self::nameSql('r.recorded_by') . " AS by_name, " . self::nameSql('r.voided_by') . " AS voided_by_name
-             FROM code_blue_record r WHERE r.event_id = :e ORDER BY r.event_at, r.id"
+                    " . self::nameSql('r.recorded_by') . " AS by_name, " . self::nameSql('r.voided_by') . " AS voided_by_name,
+                    sd.name AS stock_drug_name, du.name AS stock_unit
+             FROM code_blue_record r LEFT JOIN drugs sd ON sd.id = r.stock_drug_id LEFT JOIN amount_units du ON du.id = sd.dispensing_unit_id
+             WHERE r.event_id = :e ORDER BY r.event_at, r.id"
         );
         $stmt->execute(['c' => $e['called_at'], 'end' => $e['ended_at'], 'e' => $eventId]);
         $entries = [];
@@ -265,6 +307,9 @@ class CodeBlueRecordService
                 'late' => strtotime($r['recorded_at']) - strtotime($r['event_at']) > 120,
                 'original_event_at' => $r['original_event_at'],
                 'voided' => $void, 'voided_by_name' => $void ? $r['voided_by_name'] : null, 'void_reason' => $r['void_reason'],
+                // Taken from the crash cart (Phase 3).
+                'stock' => $r['stock_qty'] !== null ? ['drug_name' => $r['stock_drug_name'], 'unit_name' => $r['stock_unit'] ?: 'unit',
+                    'quantity' => (float) $r['stock_qty'], 'short' => $r['stock_short'] !== null ? (float) $r['stock_short'] : null] : null,
             ];
             if ($void) {
                 continue;

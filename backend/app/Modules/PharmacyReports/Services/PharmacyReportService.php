@@ -353,13 +353,15 @@ class PharmacyReportService
                 'date' => $m['movement_date'],
                 'recorded_at' => $m['created_at'],
                 'type' => $m['movement_type'],
-                'type_label' => $m['or_case_number'] !== null
+                'type_label' => $m['source_type'] === 'code_blue_record_lots'
+                    ? ($m['movement_type'] === 'dispensed' ? 'Used at a Code Blue (crash cart)' : 'Back in the crash cart')
+                    : ($m['or_case_number'] !== null
                     ? ($m['movement_type'] === 'dispensed' ? 'Used in surgery' : 'Surgery use undone')
                     : ($m['ward_admission_number'] !== null
                         ? ($m['source_type'] === 'cabinet_withdrawal_lots'
                             ? ($m['movement_type'] === 'dispensed' ? 'Taken from ward cabinet' : 'Returned to ward cabinet')
                             : ($m['movement_type'] === 'dispensed' ? 'Given on the ward' : 'Ward dose undone'))
-                        : (StockLedgerService::TYPES[$m['movement_type']] ?? $m['movement_type'])),
+                        : (StockLedgerService::TYPES[$m['movement_type']] ?? $m['movement_type']))),
                 'reference_no' => $m['reference_no'],
                 // Received from (supplier / location) or given to (patient).
                 'counterparty' => $isDispense ? self::personName($m) : $m['counterparty'],

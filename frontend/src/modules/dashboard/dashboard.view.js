@@ -74,6 +74,8 @@ function staffNavLinks(role)
                 <a data-tab="ward_cabinet">Ward Cabinets</a>
                 <a data-tab="restock_queue">Cabinet Restock Requests</a>
                 <a data-tab="ward_stock_report">Ward Stock Report</a>
+                <a data-tab="code_blue">Code Blue</a>
+                ${["admin", "clinician"].includes(role) ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
                 <a data-tab="room_management">Room &amp; Bed Management</a>
             </div>
         </div>
@@ -647,6 +649,8 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
             <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
             <a data-tab="mar">Medicine Rounds (MAR)</a>
+            <a data-tab="code_blue">Code Blue</a>
+            <a data-tab="code_blue_report">Code Blue Report</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
@@ -730,6 +734,7 @@ function nurseNavLinks(role)
     <a data-tab="ward_cabinet">Ward Cabinet</a>
     <a data-tab="dd_register">DD Register</a>
     ${role === "charge_nurse" ? `<a data-tab="ward_stock_report">Ward Stock Report</a>` : ""}
+    ${role === "charge_nurse" ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
     <a data-tab="nurse_assignments">Shift Assignments</a>
     <a data-tab="patient_flow">Flow</a>
     <div class="nav-dropdown">

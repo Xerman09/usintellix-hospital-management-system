@@ -489,6 +489,8 @@ class LotTraceService
                     $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'or_case_item_lots' => 'Surgery use undone',
                     $m['movement_type'] === 'dispensed' && $m['source_type'] === 'inpatient_med_admin_lots' => 'Given on the ward',
                     $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'inpatient_med_admin_lots' => 'Ward dose undone',
+                    $m['movement_type'] === 'dispensed' && $m['source_type'] === 'code_blue_record_lots' => 'Used at a Code Blue (crash cart)',
+                    $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'code_blue_record_lots' => 'Back in the crash cart',
                     $m['movement_type'] === 'dispensed' && $m['source_type'] === 'cabinet_withdrawal_lots' => 'Taken from ward cabinet',
                     $m['movement_type'] === 'dispense_voided' && $m['source_type'] === 'cabinet_withdrawal_lots' => 'Returned to ward cabinet',
                     $m['movement_type'] === 'dispensed' => 'Dispensed to patient',

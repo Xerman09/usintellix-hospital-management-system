@@ -2730,7 +2730,7 @@ export async function initPatientChartTab(patient)
     // Red mark for critical lab results (not acknowledged / acknowledged lately).
     import("../lab-ranges/critical-banner.js?v=4").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
     // Code Blue button: the location comes from the patient's bed.
-    import("../code-blue/code-blue.js?v=2").then((m) => m.mountChartCodeBlue(patient)).catch(() => {});
+    import("../code-blue/code-blue.js?v=3").then((m) => m.mountChartCodeBlue(patient)).catch(() => {});
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {

@@ -124,10 +124,10 @@ class CodeBlueService
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
         $from = in_array($data['from'] ?? '', ['chart', 'census', 'station'], true) ? $data['from'] : 'station';
         $db->prepare(
-            "INSERT INTO code_blue_events (status, patient_id, admission_id, ward_id, bed_id, location, location_detail, called_from, called_by, called_at)
-             VALUES ('active', :p, :a, :w, :b, :loc, :det, :f, :u, :t)"
-        )->execute(['p' => $patientId, 'a' => $admissionId, 'w' => $wardId, 'b' => $bedId, 'loc' => mb_substr($location, 0, 200),
-            'det' => $detail !== '' ? $detail : null, 'f' => $from, 'u' => (int) $actor['id'], 't' => $now]);
+            "INSERT INTO code_blue_events (status, patient_id, admission_id, ward_id, bed_id, cart_warehouse_id, location, location_detail, called_from, called_by, called_at)
+             VALUES ('active', :p, :a, :w, :b, :cart, :loc, :det, :f, :u, :t)"
+        )->execute(['p' => $patientId, 'a' => $admissionId, 'w' => $wardId, 'b' => $bedId, 'cart' => (new CodeBlueCartService())->defaultCart($wardId),
+            'loc' => mb_substr($location, 0, 200), 'det' => $detail !== '' ? $detail : null, 'f' => $from, 'u' => (int) $actor['id'], 't' => $now]);
         $id = (int) $db->lastInsertId();
 
         $res = AlertService::raise([
@@ -210,6 +210,12 @@ class CodeBlueService
                 ->execute(['e' => $id, 'at' => $stopAt, 'u' => $uid, 'now' => $now]);
         }
         AlertService::resolveByKey("codeblue:{$id}", $uid, $false ? 'False alarm' : 'Code ended');
+        // Crash-cart medicines used: the pharmacy restocks the cart.
+        try {
+            (new CodeBlueCartService())->restockNotice($id, $e['location'], $uid);
+        } catch (\Throwable $ex) {
+            error_log('crash cart restock notice failed: ' . $ex->getMessage());
+        }
         $msg = $false ? 'Code Blue cancelled (false alarm).' : 'Code Blue ended: ' . CodeBlueRecordService::OUTCOMES[$outcome] . ', ' . substr($outcomeAt, 11, 5) . '.';
         return ['success' => true, 'message' => $msg, 'data' => $this->show($id, true)];
     }
@@ -264,12 +270,14 @@ class CodeBlueService
             'ward_id' => $e['ward_id'] !== null ? (int) $e['ward_id'] : null, 'bed_id' => $e['bed_id'] !== null ? (int) $e['bed_id'] : null,
             'called_from' => $e['called_from'], 'called_by' => (int) $e['called_by'], 'called_by_name' => $e['called_by_name'], 'called_at' => $e['called_at'],
             'alert_id' => $e['alert_id'] !== null ? (int) $e['alert_id'] : null,
+            'cart_warehouse_id' => $e['cart_warehouse_id'] !== null ? (int) $e['cart_warehouse_id'] : null,
             'ended_at' => $e['ended_at'], 'ended_by_name' => $e['ended_at'] ? $e['ended_by_name'] : null, 'end_note' => $e['end_note'],
             'outcome' => $e['outcome'], 'outcome_label' => $e['outcome'] ? (CodeBlueRecordService::OUTCOMES[$e['outcome']] ?? $e['outcome']) : null,
             'outcome_at' => $e['outcome_at'], 'outcome_by_name' => $e['outcome_by'] ? $e['outcome_by_name'] : null,
             'seconds' => (int) $e['seconds'],
             'responders' => $people, 'responding_count' => count(array_filter($people, fn($p) => $p['response'] === 'responding')),
-        ] + ($record ? ['record' => (new CodeBlueRecordService())->forEvent($id)] : []);
+        ] + ($record ? ['record' => (new CodeBlueRecordService())->forEvent($id), 'cart' => (new CodeBlueCartService())->forCode($e['cart_warehouse_id'] !== null ? (int) $e['cart_warehouse_id'] : null),
+            'cart_used' => (new CodeBlueCartService())->used($id)] : []);
     }
 
     /** For the TVs: the newest code on now, on this ward (room TV) or anywhere (nurse station). */
