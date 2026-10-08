@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=155";
+import { getNavLinks } from "./dashboard.view.js?v=156";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -296,6 +296,7 @@ import { DisplayDevicesView, initDisplayDevices } from "../display-devices/displ
 import { CodeBlueView, initCodeBlue, initCodeBlueButton } from "../code-blue/code-blue.js?v=3";
 import { CodeBlueReportView, initCodeBlueReport } from "../code-blue/code-blue-report.js?v=2";
 import { CensusView, initCensus } from "../census/census.js?v=2";
+import { ErView, initEr } from "../er/er.js?v=1";
 import { CensusReportView, initCensusReport } from "../census/census-report.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
@@ -1610,6 +1611,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Code Blue', () => {
                 setTimeout(initCodeBlue, 0);
                 return CodeBlueView();
+            }, activate);
+        } else if (tabId === 'er') {
+            tabManager.openTab(tabId, 'Emergency Room', () => {
+                setTimeout(initEr, 0);
+                return ErView();
             }, activate);
         } else if (tabId === 'census_report') {
             tabManager.openTab(tabId, 'Census Reports', () => {

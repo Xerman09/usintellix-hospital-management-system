@@ -125,32 +125,7 @@ class PatientMergeService
 
         try {
             $pdo->beginTransaction();
-
-            foreach (self::DISCARD_SOFT_DELETE as $table) {
-                $stmt = $pdo->prepare("UPDATE {$table} SET deleted_at = ?, deleted_by = ? WHERE patient_id = ? AND deleted_at IS NULL");
-                $stmt->execute([$now, $userId, $sourceId]);
-            }
-
-            foreach (self::MERGE_SIMPLE as $table) {
-                $stmt = $pdo->prepare("UPDATE {$table} SET patient_id = ? WHERE patient_id = ?");
-                $stmt->execute([$targetId, $sourceId]);
-            }
-
-            $encountersDeduped = $this->mergeEncounters($pdo, $targetId, $sourceId, $dedupeEncounters, $now, $userId);
-
-            foreach (self::MERGE_KEYED as $table => $keyColumn) {
-                $this->reassignKeyedTable($pdo, $table, $keyColumn, $targetId, $sourceId, $now, $userId);
-            }
-
-            $softDelete = $pdo->prepare("UPDATE patients SET deleted_at = ?, deleted_by = ? WHERE id = ?");
-            $softDelete->execute([$now, $userId, $sourceId]);
-
-            $log = $pdo->prepare(
-                "INSERT INTO patient_merges (target_patient_id, source_patient_id, dedupe_encounters, encounters_deduped, performed_at, performed_by)
-                 VALUES (?, ?, ?, ?, ?, ?)"
-            );
-            $log->execute([$targetId, $sourceId, $dedupeEncounters ? 1 : 0, $encountersDeduped, $now, $userId]);
-
+            $encountersDeduped = $this->mergeCore($pdo, $targetId, $sourceId, $dedupeEncounters, $userId, $now, false);
             $pdo->commit();
         } catch (Throwable $e) {
             $pdo->rollBack();
@@ -162,6 +137,55 @@ class PatientMergeService
             'message' => 'Patients merged successfully.',
             'data' => ['target_patient_id' => $targetId, 'source_patient_id' => $sourceId, 'encounters_deduped' => $encountersDeduped]
         ];
+    }
+
+    /**
+     * The merge itself, inside the caller's transaction. The ER uses it (with $sweepAll) to merge a
+     * temporary "unknown patient" chart into the patient's real chart: no birth-date check there
+     * (the temporary chart's was only estimated), and every other table that holds a patient_id
+     * (ER visits, admissions, alerts, tasks, ...) is moved too -- a row that would clash with a
+     * unique key on the target is left behind on the (deleted) temporary chart.
+     * Returns the number of encounters de-duplicated.
+     */
+    public function mergeCore(PDO $pdo, int $targetId, int $sourceId, bool $dedupeEncounters, int $userId, ?string $now = null, bool $sweepAll = false): int
+    {
+        $now ??= date('Y-m-d H:i:s');
+        foreach (self::DISCARD_SOFT_DELETE as $table) {
+            $stmt = $pdo->prepare("UPDATE {$table} SET deleted_at = ?, deleted_by = ? WHERE patient_id = ? AND deleted_at IS NULL");
+            $stmt->execute([$now, $userId, $sourceId]);
+        }
+
+        foreach (self::MERGE_SIMPLE as $table) {
+            $stmt = $pdo->prepare("UPDATE {$table} SET patient_id = ? WHERE patient_id = ?");
+            $stmt->execute([$targetId, $sourceId]);
+        }
+
+        $encountersDeduped = $this->mergeEncounters($pdo, $targetId, $sourceId, $dedupeEncounters, $now, $userId);
+
+        foreach (self::MERGE_KEYED as $table => $keyColumn) {
+            $this->reassignKeyedTable($pdo, $table, $keyColumn, $targetId, $sourceId, $now, $userId);
+        }
+
+        if ($sweepAll) {
+            $skip = array_merge(self::DISCARD_SOFT_DELETE, self::DISCARD_LEAVE_ORPHANED, self::MERGE_SIMPLE, array_keys(self::MERGE_KEYED), ['encounters', 'patients', 'patient_merges']);
+            $tables = $pdo->query(
+                "SELECT c.table_name FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+                 WHERE c.table_schema = DATABASE() AND c.column_name = 'patient_id' AND t.table_type = 'BASE TABLE'"
+            )->fetchAll(PDO::FETCH_COLUMN);
+            foreach (array_diff($tables, $skip) as $table) {
+                $pdo->prepare("UPDATE IGNORE `{$table}` SET patient_id = ? WHERE patient_id = ?")->execute([$targetId, $sourceId]);
+            }
+        }
+
+        $softDelete = $pdo->prepare("UPDATE patients SET deleted_at = ?, deleted_by = ? WHERE id = ?");
+        $softDelete->execute([$now, $userId, $sourceId]);
+
+        $log = $pdo->prepare(
+            "INSERT INTO patient_merges (target_patient_id, source_patient_id, dedupe_encounters, encounters_deduped, performed_at, performed_by)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $log->execute([$targetId, $sourceId, $dedupeEncounters ? 1 : 0, $encountersDeduped, $now, $userId]);
+        return $encountersDeduped;
     }
 
     /**

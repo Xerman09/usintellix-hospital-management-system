@@ -205,6 +205,10 @@ class PatientService
             'updated_by'   => $updatedBy
         ], $id);
 
+        // A full edit completes an ER quick (or unknown-patient) registration.
+        Database::connection()->prepare("UPDATE patients SET registration_status = 'complete', dob_estimated = 0 WHERE id = :id AND registration_status <> 'complete'")
+            ->execute(['id' => $id]);
+
         $hasRestrictions = $this->determineHasRestrictions($data, $patient);
         $prevRestrictions = (bool) ($patient['has_confidential_restrictions'] ?? 0);
         $this->logConfidentialPreferencesChange($id, array_merge($patient, $data, ['has_confidential_restrictions' => $hasRestrictions]), $updatedBy);
