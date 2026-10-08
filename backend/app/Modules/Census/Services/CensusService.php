@@ -16,6 +16,9 @@ use PDO;
  *     rewrite history. ensureSaved() saves yesterday (and any day missed in the last 31) -- run by
  *     the nightly job and, as a fallback, by the bell's poll at most every 10 minutes.
  *   * read($date) -- a saved day; today (or a day not saved yet) is computed live and marked so.
+ *   * Phase 2: sheet($date) -- the printable daily census sheet: per ward the patients at midnight
+ *     and the day's movements (saved with the day: census_patients / census_movements).
+ *     CensusReportService has the monthly reports.
  *
  * A patient's ward at any moment: the ward of the last transfer before it, else the admitting ward
  * (the first transfer's "from" ward, or the admission's ward when never transferred).
@@ -44,7 +47,8 @@ class CensusService
         $end = date('Y-m-d', strtotime("{$date} +1 day")) . ' 00:00:00';
 
         $st = $db->prepare(
-            "SELECT id, ward_id, status, admission_date, discharge_date, discharge_disposition, attending_physician
+            "SELECT id, ward_id, bed_id, status, admission_date, discharge_date, discharge_disposition, attending_physician,
+                    patient_name, patient_mrn, patient_age, gender, admitting_diagnosis
              FROM inpatient_admissions
              WHERE admission_date < :end AND (discharge_date IS NULL OR discharge_date >= :start)"
         );
@@ -55,7 +59,7 @@ class CensusService
         if ($adms) {
             $in = implode(',', array_map(fn($a) => (int) $a['id'], $adms));
             foreach ($db->query(
-                "SELECT admission_id, from_ward_id, to_ward_id, transfer_time FROM inpatient_transfers
+                "SELECT admission_id, from_ward_id, from_bed_id, to_ward_id, to_bed_id, transfer_time FROM inpatient_transfers
                  WHERE admission_id IN ({$in}) ORDER BY transfer_time, id"
             )->fetchAll(PDO::FETCH_ASSOC) as $t) {
                 $moves[(int) $t['admission_id']][] = $t;
@@ -68,6 +72,13 @@ class CensusService
                 'start_count' => 0, 'admitted' => 0, 'transferred_in' => 0, 'transferred_out' => 0, 'discharged' => 0, 'died' => 0, 'midnight_count' => 0];
         }
         $doctors = [];
+        $patients = [];
+        $movements = [];
+        $beds = [];
+        foreach ($db->query("SELECT id, room_number, bed_number FROM hospital_beds")->fetchAll(PDO::FETCH_ASSOC) as $b) {
+            $beds[(int) $b['id']] = trim(($b['room_number'] !== null && $b['room_number'] !== '' ? "{$b['room_number']} · " : '') . "Bed {$b['bed_number']}");
+        }
+        $wardName = fn(int $w) => $wards[$w]['ward_name'] ?? "Ward {$w}";
         $bump = function (int $ward, string $field) use (&$wards) {
             if (isset($wards[$ward])) {
                 $wards[$ward][$field]++;
@@ -78,39 +89,57 @@ class CensusService
             $id = (int) $a['id'];
             $m = $moves[$id] ?? [];
             $first = $m ? (int) $m[0]['from_ward_id'] : (int) $a['ward_id'];
-            $wardAt = function (string $t, bool $before) use ($m, $first): int {
-                $w = $first;
+            $firstBed = $m ? (int) $m[0]['from_bed_id'] : (int) $a['bed_id'];
+            // [ward, bed] at a moment.
+            $placeAt = function (string $t, bool $before) use ($m, $first, $firstBed): array {
+                $p = [$first, $firstBed];
                 foreach ($m as $x) {
                     if ($before ? $x['transfer_time'] < $t : $x['transfer_time'] <= $t) {
-                        $w = (int) $x['to_ward_id'];
+                        $p = [(int) $x['to_ward_id'], (int) $x['to_bed_id']];
                     }
                 }
-                return $w;
+                return $p;
             };
+            $wardAt = fn(string $t, bool $before): int => $placeAt($t, $before)[0];
+            $who = ['admission_id' => $id, 'patient_name' => $a['patient_name'], 'patient_no' => $a['patient_mrn']];
             $admittedToday = $a['admission_date'] >= $start;
             $left = $a['discharge_date'] !== null && $a['discharge_date'] < $end;
             $died = $left && ($a['status'] === 'Deceased' || preg_match(self::DIED, (string) $a['discharge_disposition']));
             $atMidnight = !$left;
 
+            $doc = $this->doctor((string) $a['attending_physician']);
             if (!$admittedToday) {
                 $bump($wardAt($start, true), 'start_count');
             } else {
                 $bump($first, 'admitted');
+                $movements[] = ['ward_id' => $first, 'event' => 'admitted', 'event_at' => $a['admission_date'], 'other_ward' => null, 'detail' => null,
+                    'bed_label' => $beds[$firstBed] ?? null] + $who;
             }
             foreach ($m as $x) {
                 if ($x['transfer_time'] >= $start && $x['transfer_time'] < $end && (int) $x['from_ward_id'] !== (int) $x['to_ward_id']) {
                     $bump((int) $x['from_ward_id'], 'transferred_out');
                     $bump((int) $x['to_ward_id'], 'transferred_in');
+                    $movements[] = ['ward_id' => (int) $x['from_ward_id'], 'event' => 'transferred_out', 'event_at' => $x['transfer_time'],
+                        'other_ward' => $wardName((int) $x['to_ward_id']), 'detail' => null, 'bed_label' => $beds[(int) $x['from_bed_id']] ?? null] + $who;
+                    $movements[] = ['ward_id' => (int) $x['to_ward_id'], 'event' => 'transferred_in', 'event_at' => $x['transfer_time'],
+                        'other_ward' => $wardName((int) $x['from_ward_id']), 'detail' => null, 'bed_label' => $beds[(int) $x['to_bed_id']] ?? null] + $who;
                 }
             }
             if ($left) {
-                $bump($wardAt($a['discharge_date'], false), $died ? 'died' : 'discharged');
+                [$lw, $lb] = $placeAt($a['discharge_date'], false);
+                $bump($lw, $died ? 'died' : 'discharged');
+                $movements[] = ['ward_id' => $lw, 'event' => $died ? 'died' : 'discharged', 'event_at' => $a['discharge_date'], 'other_ward' => null,
+                    'detail' => $a['discharge_disposition'] ? mb_substr($a['discharge_disposition'], 0, 150) : null, 'bed_label' => $beds[$lb] ?? null] + $who;
             } else {
-                $bump($wardAt($end, true), 'midnight_count');
+                [$mw, $mb] = $placeAt($end, true);
+                $bump($mw, 'midnight_count');
+                $patients[] = ['ward_id' => $mw, 'bed_label' => $beds[$mb] ?? null, 'age' => $a['patient_age'] !== null ? (int) $a['patient_age'] : null,
+                    'gender' => $a['gender'], 'admission_date' => $a['admission_date'],
+                    'stay_day' => (int) round((strtotime($date) - strtotime(substr($a['admission_date'], 0, 10))) / 86400) + 1,
+                    'doctor_name' => $doc['doctor_name'], 'diagnosis' => $a['admitting_diagnosis'] ? mb_substr($a['admitting_diagnosis'], 0, 255) : null] + $who;
             }
 
             // By doctor.
-            $doc = $this->doctor((string) $a['attending_physician']);
             $doctors[$doc['doctor_key']] ??= $doc + ['patients' => 0, 'admitted' => 0, 'discharged' => 0, 'died' => 0];
             $d = &$doctors[$doc['doctor_key']];
             if ($atMidnight) {
@@ -148,7 +177,9 @@ class CensusService
             $out[] = self::beds($w);
         }
         uasort($doctors, fn($x, $y) => $y['patients'] <=> $x['patients'] ?: strcmp($x['doctor_name'], $y['doctor_name']));
-        return ['date' => $date, 'wards' => $out, 'doctors' => array_values($doctors)];
+        usort($patients, fn($x, $y) => strnatcmp((string) $x['bed_label'], (string) $y['bed_label']));
+        usort($movements, fn($x, $y) => strcmp($x['event_at'], $y['event_at']));
+        return ['date' => $date, 'wards' => $out, 'doctors' => array_values($doctors), 'patients' => $patients, 'movements' => $movements];
     }
 
     /** available = total − patients at midnight − out of service; occupancy = patients at midnight / total beds. */
@@ -185,6 +216,24 @@ class CensusService
         try {
             $db->prepare("DELETE FROM census_wards WHERE census_date = :d")->execute(['d' => $date]);
             $db->prepare("DELETE FROM census_doctors WHERE census_date = :d")->execute(['d' => $date]);
+            $db->prepare("DELETE FROM census_patients WHERE census_date = :d")->execute(['d' => $date]);
+            $db->prepare("DELETE FROM census_movements WHERE census_date = :d")->execute(['d' => $date]);
+            $ip = $db->prepare(
+                "INSERT INTO census_patients (census_date, ward_id, admission_id, bed_label, patient_name, patient_no, age, gender, admission_date, stay_day, doctor_name, diagnosis)
+                 VALUES (:d, :w, :a, :b, :n, :no, :age, :g, :ad, :sd, :doc, :dx)"
+            );
+            foreach ($c['patients'] as $p) {
+                $ip->execute(['d' => $date, 'w' => $p['ward_id'], 'a' => $p['admission_id'], 'b' => $p['bed_label'], 'n' => $p['patient_name'], 'no' => $p['patient_no'],
+                    'age' => $p['age'], 'g' => $p['gender'], 'ad' => $p['admission_date'], 'sd' => $p['stay_day'], 'doc' => $p['doctor_name'], 'dx' => $p['diagnosis']]);
+            }
+            $im = $db->prepare(
+                "INSERT INTO census_movements (census_date, ward_id, admission_id, event, event_at, other_ward, detail, bed_label, patient_name, patient_no)
+                 VALUES (:d, :w, :a, :e, :at, :o, :det, :b, :n, :no)"
+            );
+            foreach ($c['movements'] as $mv) {
+                $im->execute(['d' => $date, 'w' => $mv['ward_id'], 'a' => $mv['admission_id'], 'e' => $mv['event'], 'at' => $mv['event_at'], 'o' => $mv['other_ward'],
+                    'det' => $mv['detail'], 'b' => $mv['bed_label'], 'n' => $mv['patient_name'], 'no' => $mv['patient_no']]);
+            }
             $iw = $db->prepare(
                 "INSERT INTO census_wards (census_date, ward_id, ward_name, ward_type, start_count, admitted, transferred_in, transferred_out, discharged, died,
                                            midnight_count, total_beds, out_of_service_beds, available_beds, occupancy_pct)
@@ -208,8 +257,8 @@ class CensusService
                     'pt' => $d['patients'], 'a' => $d['admitted'], 'dis' => $d['discharged'], 'died' => $d['died']]);
             }
             $db->prepare(
-                "INSERT INTO census_days (census_date, source, saved_at, saved_by, note) VALUES (:d, :s, NOW(), :u, :n)
-                 ON DUPLICATE KEY UPDATE source = VALUES(source), saved_at = NOW(), saved_by = VALUES(saved_by), note = VALUES(note)"
+                "INSERT INTO census_days (census_date, source, saved_at, saved_by, note, has_sheet) VALUES (:d, :s, NOW(), :u, :n, 1)
+                 ON DUPLICATE KEY UPDATE source = VALUES(source), saved_at = NOW(), saved_by = VALUES(saved_by), note = VALUES(note), has_sheet = 1"
             )->execute(['d' => $date, 's' => $source, 'u' => $userId, 'n' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 255) : null]);
             $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT census_save');
         } catch (\Throwable $e) {
@@ -291,6 +340,50 @@ class CensusService
             'trend' => $this->trend($date, 14),
             'prev' => date('Y-m-d', strtotime("{$date} -1 day")), 'next' => $date < $today ? date('Y-m-d', strtotime("{$date} +1 day")) : null,
         ];
+    }
+
+    /**
+     * The printable daily census sheet: per ward the counts, the patients at midnight (bed, name,
+     * patient no., age / sex, admitted, day of stay, doctor, diagnosis) and the day's movements.
+     * From what was saved with the day; a day saved before the sheet existed (or not saved) from the records.
+     */
+    public function sheet(string $date): array
+    {
+        $db = Database::connection();
+        $d = $this->read($date);
+        $date = $d['date'];
+        $st = $db->prepare("SELECT has_sheet FROM census_days WHERE census_date = :d");
+        $st->execute(['d' => $date]);
+        $fromSaved = (bool) $st->fetchColumn();
+        if ($fromSaved) {
+            $p = $db->prepare("SELECT * FROM census_patients WHERE census_date = :d");
+            $p->execute(['d' => $date]);
+            $patients = $p->fetchAll(PDO::FETCH_ASSOC);
+            usort($patients, fn($x, $y) => strnatcmp((string) $x['bed_label'], (string) $y['bed_label']));
+            $m = $db->prepare("SELECT * FROM census_movements WHERE census_date = :d ORDER BY event_at, id");
+            $m->execute(['d' => $date]);
+            $movements = $m->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $c = $this->compute($date);
+            $patients = $c['patients'];
+            $movements = $c['movements'];
+        }
+        $wards = [];
+        foreach ($d['wards'] as $w) {
+            $wid = (int) $w['ward_id'];
+            $wards[] = $w + [
+                'patients' => array_values(array_map(fn($x) => [
+                    'bed_label' => $x['bed_label'], 'patient_name' => $x['patient_name'], 'patient_no' => $x['patient_no'],
+                    'age' => $x['age'] !== null ? (int) $x['age'] : null, 'gender' => $x['gender'], 'admission_date' => $x['admission_date'],
+                    'stay_day' => (int) $x['stay_day'], 'doctor_name' => $x['doctor_name'], 'diagnosis' => $x['diagnosis'],
+                ], array_filter($patients, fn($x) => (int) $x['ward_id'] === $wid))),
+                'movements' => array_values(array_map(fn($x) => [
+                    'event' => $x['event'], 'event_at' => $x['event_at'], 'other_ward' => $x['other_ward'], 'detail' => $x['detail'],
+                    'bed_label' => $x['bed_label'], 'patient_name' => $x['patient_name'], 'patient_no' => $x['patient_no'],
+                ], array_filter($movements, fn($x) => (int) $x['ward_id'] === $wid))),
+            ];
+        }
+        return ['date' => $date, 'is_today' => $d['is_today'], 'saved' => $d['saved'], 'from_records' => !$fromSaved, 'totals' => $d['totals'], 'wards' => $wards];
     }
 
     /** The saved days up to $date (oldest first): totals per day. */

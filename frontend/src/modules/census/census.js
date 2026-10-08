@@ -6,6 +6,8 @@ import { showToast } from "../../core/toast.js";
  * admitted, transferred in / out, discharged, died, patients at midnight, beds), by doctor and by
  * specialization, saved each day. Today is shown live ("so far"); past days come from the saved
  * census. The admin can recalculate a past day (e.g. after a late discharge was entered). Printable.
+ * Phase 2: the printable daily census sheet (printCensusSheet: patients per ward and the day's
+ * movements) and a link to the census reports (census-report.js).
  */
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -121,7 +123,9 @@ function render(root, d) {
                 <label class="muted" for="cenDate" style="font-size:12px">Day</label><input type="date" id="cenDate" value="${esc(d.date)}" max="${esc(d.today)}">
                 <button type="button" class="cen-b" data-go="${esc(d.next || "")}" ${d.next ? "" : "disabled"} aria-label="Next day">Next ›</button>
                 ${d.is_today ? "" : `<button type="button" class="cen-b" data-go="${esc(d.today)}">Today</button>`}
-                <button type="button" class="cen-b" data-print>Print</button>
+                <button type="button" class="cen-b go" data-sheet>Census sheet</button>
+                <button type="button" class="cen-b" data-print>Print summary</button>
+                <button type="button" class="cen-b" data-reports>Reports</button>
                 ${d.can_save && !d.is_today ? `<button type="button" class="cen-b" data-recalc>Recalculate…</button>` : ""}
             </div>
         </div>
@@ -166,6 +170,8 @@ function render(root, d) {
         const go = ev.target.closest("[data-go]");
         if (go && go.dataset.go) return load(go.dataset.go);
         if (ev.target.closest("[data-print]")) return printCensus(d);
+        if (ev.target.closest("[data-sheet]")) return printCensusSheet(d.date);
+        if (ev.target.closest("[data-reports]")) return window.__openDashboardTab?.("census_report", "Census Reports");
         if (ev.target.closest("[data-recalc]")) {
             root.querySelector(".cen-inline")?.remove();
             root.querySelector(".cen-status").insertAdjacentHTML("beforeend", `<div class="cen-inline">
@@ -228,4 +234,79 @@ ${d.specializations.map((x) => `<tr><td>${esc(x.specialization || "Not set")}</t
 <footer><span>Census ${esc(d.date)}</span><span>Confidential — for hospital use</span></footer>
 </body></html>`);
     win.document.close();
+}
+
+/* ---------------- the daily census sheet (Phase 2) ---------------- */
+
+const EVENT = { admitted: "Admitted", transferred_in: "Transferred in", transferred_out: "Transferred out", discharged: "Discharged", died: "Died" };
+
+/** The printable daily census sheet: per ward the patients at midnight and the day's movements. */
+export async function printCensusSheet(date) {
+    const win = window.open("", "_blank");
+    if (!win) {
+        showToast("Pop-up blocked. Allow pop-ups for this site to print.", "error");
+        return;
+    }
+    win.document.write(`<p style="font-family:Arial;padding:20px;">Preparing the census sheet…</p>`);
+    const r = await api(`/census/sheet?date=${encodeURIComponent(date)}`).catch(() => null);
+    if (!r?.success) {
+        win.close();
+        showToast(r?.message || "Couldn't load the census sheet.", "error");
+        return;
+    }
+    win.document.open();
+    win.document.write(censusSheetHtml(r.data));
+    win.document.close();
+}
+
+export function censusSheetHtml(d) {
+    const t = d.totals;
+    const now = d.is_today ? "now" : "at midnight";
+    const hm = (dt) => esc(String(dt || "").slice(11, 16));
+    const used = d.wards.filter((w) => w.patients.length || w.movements.length);
+    const wardPage = (w) => `<section class="w">
+        <h2>${esc(w.ward_name)}</h2>
+        <div class="cnt">Start of day <b>${w.start_count}</b> · Admitted <b>${w.admitted}</b> · Transferred in <b>${w.transferred_in}</b> · Transferred out <b>${w.transferred_out}</b>
+            · Discharged <b>${w.discharged}</b> · Died <b>${w.died}</b> · Patients ${now} <b>${w.midnight_count}</b> · Beds <b>${w.total_beds}</b> · Available <b>${w.available_beds}</b>
+            · Occupancy <b>${pct(w.occupancy_pct)}</b></div>
+        <h3>Patients ${now} (${w.patients.length})</h3>
+        ${w.patients.length ? `<table><thead><tr><th>#</th><th>Bed</th><th>Patient</th><th>Patient no.</th><th>Age / sex</th><th>Admitted</th><th class="n">Day</th><th>Attending</th><th>Admitting diagnosis</th></tr></thead><tbody>
+            ${w.patients.map((p, i) => `<tr><td class="n">${i + 1}</td><td class="nw">${esc(p.bed_label || "—")}</td><td><b>${esc(p.patient_name)}</b></td><td>${esc(p.patient_no || "—")}</td>
+                <td>${p.age ?? "—"} / ${esc((p.gender || "—").slice(0, 1))}</td><td class="nw">${esc(String(p.admission_date).slice(0, 10))}</td><td class="n">${p.stay_day}</td>
+                <td>${esc(p.doctor_name || "—")}</td><td>${esc(p.diagnosis || "")}</td></tr>`).join("")}</tbody></table>` : `<p class="none">No patients.</p>`}
+        <h3>Movements (${w.movements.length})</h3>
+        ${w.movements.length ? `<table><thead><tr><th>Time</th><th>Event</th><th>Patient</th><th>Patient no.</th><th>Bed</th><th>From / to · details</th></tr></thead><tbody>
+            ${w.movements.map((m) => `<tr class="${m.event}"><td class="nw">${hm(m.event_at)}</td><td><b>${esc(EVENT[m.event] || m.event)}</b></td><td>${esc(m.patient_name)}</td><td>${esc(m.patient_no || "—")}</td>
+                <td class="nw">${esc(m.bed_label || "—")}</td><td>${m.other_ward ? `${m.event === "transferred_in" ? "from" : "to"} ${esc(m.other_ward)}` : esc(m.detail || "")}</td></tr>`).join("")}</tbody></table>` : `<p class="none">No admissions, transfers, discharges or deaths.</p>`}
+        <div class="sig"><div>Prepared by (nurse on duty)</div><div>Checked by (charge nurse)</div></div>
+    </section>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><title>Census sheet ${esc(d.date)}</title>
+<style>
+    @page { size: A4 landscape; margin: 11mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 9.5pt; }
+    header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 8px; }
+    h1 { margin: 0; font-size: 16pt; letter-spacing: .02em; } h2 { font-size: 13pt; margin: 0 0 3px; } h3 { font-size: 9.5pt; margin: 10px 0 3px; text-transform: uppercase; letter-spacing: .03em; }
+    .sub { color: #444; font-size: 9pt; } .cnt { font-size: 9pt; color: #222; border: 1px solid #999; padding: 4px 8px; }
+    table { width: 100%; border-collapse: collapse; } th { text-align: left; font-size: 7.5pt; text-transform: uppercase; border-bottom: 1.5px solid #111; padding: 3px 4px; }
+    td { border-bottom: 1px solid #bbb; padding: 3px 4px; vertical-align: top; } tr { page-break-inside: avoid; } .n { text-align: right; } .nw { white-space: nowrap; }
+    tfoot td { font-weight: bold; border-top: 1.5px solid #111; } tr.died td { font-weight: bold; }
+    .w { page-break-before: always; } .none { color: #555; margin: 2px 0; }
+    .sig { margin-top: 22px; display: flex; gap: 40px; page-break-inside: avoid; } .sig div { flex: 1; border-top: 1px solid #111; padding-top: 3px; font-size: 8.5pt; }
+    footer { margin-top: 10px; font-size: 8pt; color: #555; display: flex; justify-content: space-between; }
+    .bar { margin: 0 0 12px; } .bar button { font: inherit; padding: 6px 14px; } @media print { .bar { display: none; } }
+</style></head><body>
+<div class="bar"><button type="button" onclick="window.print()">Print</button></div>
+<header><div><div class="sub">${esc(d.hospital?.name || "")}</div><h1>DAILY CENSUS SHEET</h1></div>
+    <div class="sub" style="text-align:right"><b>${esc(longDate(d.date))}</b><br>${d.is_today ? "Today so far (live — not the midnight census yet)" : d.saved ? `${esc(sourceText(d.saved))} ${esc(String(d.saved.saved_at).slice(0, 16))}` : "Not saved"}
+    ${d.from_records && !d.is_today ? "<br>Patient lists rebuilt from the records" : ""}</div></header>
+<table><thead><tr><th>Ward</th><th class="n">Start</th><th class="n">Admitted</th><th class="n">Trf in</th><th class="n">Trf out</th><th class="n">Discharged</th><th class="n">Died</th>
+    <th class="n">${d.is_today ? "Now" : "Midnight"}</th><th class="n">Beds</th><th class="n">Available</th><th class="n">Occupancy</th></tr></thead><tbody>
+${d.wards.map((w) => `<tr><td>${esc(w.ward_name)}</td><td class="n">${w.start_count}</td><td class="n">${w.admitted}</td><td class="n">${w.transferred_in}</td><td class="n">${w.transferred_out}</td>
+    <td class="n">${w.discharged}</td><td class="n">${w.died}</td><td class="n"><b>${w.midnight_count}</b></td><td class="n">${w.total_beds}</td><td class="n">${w.available_beds}</td><td class="n">${pct(w.occupancy_pct)}</td></tr>`).join("")}
+</tbody><tfoot><tr><td>All wards</td><td class="n">${t.start_count}</td><td class="n">${t.admitted}</td><td class="n">${t.transferred_in}</td><td class="n">${t.transferred_out}</td><td class="n">${t.discharged}</td>
+    <td class="n">${t.died}</td><td class="n">${t.midnight_count}</td><td class="n">${t.total_beds}</td><td class="n">${t.available_beds}</td><td class="n">${pct(t.occupancy_pct)}</td></tr></tfoot></table>
+<div class="sig"><div>Prepared by (admitting / records)</div><div>Noted by (chief nurse)</div></div>
+${used.map(wardPage).join("")}
+<footer><span>Printed ${esc(String(d.printed_at || "").slice(0, 16))}${d.printed_by ? ` by ${esc(d.printed_by)}` : ""}</span><span>Confidential patient information</span></footer>
+</body></html>`;
 }

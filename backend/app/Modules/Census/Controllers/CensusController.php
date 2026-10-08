@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\BusinessSettings\Services\BusinessSettingService;
+use App\Modules\Census\Services\CensusReportService;
 use App\Modules\Census\Services\CensusService;
 
 class CensusController extends Controller
@@ -33,6 +34,26 @@ class CensusController extends Controller
             $biz = [];
         }
         $this->success($data + ['hospital' => ['name' => $biz['name'] ?? 'Hospital'], 'can_save' => in_array(Session::get('user')['role'] ?? '', CensusService::SAVE_ROLES, true)], 'Retrieved.');
+    }
+
+    /** Query: date. The printable daily census sheet (patients per ward and the day's movements). */
+    public function sheet(): void
+    {
+        $data = $this->service->sheet((string) ((new Request())->input('date') ?? ''));
+        try {
+            $biz = (new BusinessSettingService())->get();
+        } catch (\Throwable $e) {
+            $biz = [];
+        }
+        $user = Session::get('user') ?? [];
+        $this->success($data + ['hospital' => ['name' => $biz['name'] ?? 'Hospital'], 'printed_by' => $user['username'] ?? null,
+            'printed_at' => (string) \App\Core\Database::connection()->query("SELECT NOW()")->fetchColumn()], 'Retrieved.');
+    }
+
+    /** Query: from?, to? (YYYY-MM), ward_id?, group? (month | day) */
+    public function report(): void
+    {
+        $this->success((new CensusReportService())->report((new Request())->all()), 'Retrieved.');
     }
 
     /** Body: date, note? -- recalculate and save a finished day (admin). */

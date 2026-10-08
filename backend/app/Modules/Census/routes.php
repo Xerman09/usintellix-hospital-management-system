@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Census\Controllers\CensusController;
+use App\Modules\Census\Services\CensusReportService;
 use App\Modules\Census\Services\CensusService;
 
 /** @var \App\Core\Router $router */
@@ -12,3 +13,5 @@ use App\Modules\Census\Services\CensusService;
 
 $router->get('/census', [CensusController::class, 'index'], [AuthMiddleware::class, [RoleMiddleware::class, CensusService::VIEW_ROLES]]);
 $router->post('/census/save', [CensusController::class, 'save'], [AuthMiddleware::class, [RoleMiddleware::class, CensusService::SAVE_ROLES]]);
+$router->get('/census/sheet', [CensusController::class, 'sheet'], [AuthMiddleware::class, [RoleMiddleware::class, CensusService::VIEW_ROLES]]);
+$router->get('/census/report', [CensusController::class, 'report'], [AuthMiddleware::class, [RoleMiddleware::class, CensusReportService::ROLES]]);

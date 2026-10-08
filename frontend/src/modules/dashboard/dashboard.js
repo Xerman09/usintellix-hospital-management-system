@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=154";
+import { getNavLinks } from "./dashboard.view.js?v=155";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -295,7 +295,8 @@ import { MyWorkView, initMyWork, MY_WORK_ROLES, takeMyWorkLogin } from "../my-wo
 import { DisplayDevicesView, initDisplayDevices } from "../display-devices/display-devices.js?v=2";
 import { CodeBlueView, initCodeBlue, initCodeBlueButton } from "../code-blue/code-blue.js?v=3";
 import { CodeBlueReportView, initCodeBlueReport } from "../code-blue/code-blue-report.js?v=2";
-import { CensusView, initCensus } from "../census/census.js?v=1";
+import { CensusView, initCensus } from "../census/census.js?v=2";
+import { CensusReportView, initCensusReport } from "../census/census-report.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { NurseAssignmentsView } from "../nurse-assignments/nurse-assignments.view.js?v=1";
@@ -1609,6 +1610,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Code Blue', () => {
                 setTimeout(initCodeBlue, 0);
                 return CodeBlueView();
+            }, activate);
+        } else if (tabId === 'census_report') {
+            tabManager.openTab(tabId, 'Census Reports', () => {
+                setTimeout(initCensusReport, 0);
+                return CensusReportView();
             }, activate);
         } else if (tabId === 'census') {
             tabManager.openTab(tabId, 'Daily Census', () => {
