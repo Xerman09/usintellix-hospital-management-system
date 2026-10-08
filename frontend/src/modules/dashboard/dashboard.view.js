@@ -17,6 +17,7 @@ function staffNavLinks(role)
             <div class="dropdown-content">
                 <a data-tab="patients">New/Search</a>
                 <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+                <a data-tab="census">Daily Census</a>
                 <a data-tab="room_management">Room &amp; Bed Management</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
@@ -529,6 +530,7 @@ const RECEPTIONIST_NAV_LINKS = `
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
             <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+            <a data-tab="census">Daily Census</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
             <div class="dropdown-submenu patient-dependent-nav">
@@ -647,6 +649,7 @@ const DOCTOR_NAV_LINKS = `
         <div class="dropdown-content">
             <a data-tab="patients">New/Search</a>
             <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+            <a data-tab="census">Daily Census</a>
             <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
             <a data-tab="mar">Medicine Rounds (MAR)</a>
             <a data-tab="code_blue">Code Blue</a>
@@ -724,6 +727,7 @@ function nurseNavLinks(role)
             <a data-tab="patients">Search</a>
             <a data-tab="patient_finder">Dashboard</a>
             <a data-tab="inpatient_admissions">Inpatient (ADT)</a>
+            <a data-tab="census">Daily Census</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
             <a data-tab="patient_flow">Flow</a>
         </div>

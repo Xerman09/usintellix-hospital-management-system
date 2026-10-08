@@ -221,6 +221,12 @@ class AlertService
         } catch (\Throwable $e) {
             error_log('Result review check failed: ' . $e->getMessage());
         }
+        // Yesterday's midnight census not saved yet (no nightly job): save it (at most every 10 minutes).
+        try {
+            (new \App\Modules\Census\Services\CensusService())->ensureSaved();
+        } catch (\Throwable $e) {
+            error_log('Daily census save failed: ' . $e->getMessage());
+        }
         $db = Database::connection();
         [$where, $params] = $this->visibleWhere($db, $user);
         $uid = (int) $user['id'];
