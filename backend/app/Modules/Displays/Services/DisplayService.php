@@ -23,7 +23,7 @@ use PDO;
 class DisplayService
 {
     public const KINDS = [
-        'room' => 'Patient room', 'nurse_station' => 'Nurse station', 'waiting_room' => 'Waiting room', 'or' => 'Operating room', 'other' => 'Other',
+        'room' => 'Patient room', 'nurse_station' => 'Nurse station', 'waiting_room' => 'Waiting room', 'or' => 'Operating room', 'er' => 'ER tracking board', 'other' => 'Other',
     ];
     public const MIN_REFRESH = 10;
     public const MAX_REFRESH = 600;
@@ -54,7 +54,7 @@ class DisplayService
             ->execute(['ip' => mb_substr($ip, 0, 45), 'ua' => mb_substr($userAgent, 0, 255), 'id' => $d['id']]);
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
         $refresh = (int) $d['refresh_seconds'];
-        if (in_array($d['kind'], ['room', 'nurse_station'], true)) {
+        if (in_array($d['kind'], ['room', 'nurse_station', 'er'], true)) {
             $refresh = min($refresh, self::CODE_BLUE_REFRESH);
         }
         $base = [
@@ -83,12 +83,14 @@ class DisplayService
                 // Waiting room: the family board; OR: the day's list (one room, or all of them).
                 'waiting_room' => (new FamilyBoardService())->content(),
                 'or' => (new \App\Modules\OrManagement\Services\OrListService())->forDate(null, $d['or_suite_id'] !== null ? (int) $d['or_suite_id'] : null),
+                // The ER tracking board: beds and the waiting room (initials only).
+                'er' => (new \App\Modules\Er\Services\ErBoardService())->tv(),
                 default => null,
             },
             // A Code Blue on the ward: takes over the room TV, flashes at the top of the nurse station TV.
-            'code_blue' => in_array($d['kind'], ['room', 'nurse_station'], true)
+            'code_blue' => in_array($d['kind'], ['room', 'nurse_station', 'er'], true)
                 ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null,
-                    $d['kind'] === 'nurse_station') : null,
+                    $d['kind'] !== 'room') : null,
         ];
     }
 
@@ -356,6 +358,7 @@ class DisplayService
                 'room' => trim(($ward ? "{$ward} · " : '') . ($bed ? trim("{$bed['room_number']} · Bed {$bed['bed_number']}") : '')),
                 'nurse_station' => $ward ? "{$ward} nurse station" : null,
                 'or' => $suite ?: 'All operating rooms',
+                'er' => 'Emergency Room',
                 default => $d['location_note'],
             };
             $out[(int) $d['id']] = ['label' => $label ?: ($d['location_note'] ?: null), 'ward' => $ward, 'room' => $bed['room_number'] ?? null,

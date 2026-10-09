@@ -18,6 +18,7 @@ use PDO;
  *   * identify() -- an unknown patient: fill in the real details on the temporary chart, or merge the
  *     temporary chart into the patient's existing chart (everything on it moves over).
  *   * close() -- left without being seen, or registered in error.
+ * Phase 2 (the tracking board: beds, doctor, nurse, waiting times and alerts, labs / imaging, the TV) is ErBoardService.
  */
 class ErService
 {
@@ -52,7 +53,8 @@ class ErService
             "SELECT v.id FROM er_visits v WHERE v.status IN ('left', 'cancelled') AND v.closed_at >= NOW() - INTERVAL 12 HOUR ORDER BY v.closed_at DESC LIMIT 30"
         )->fetchAll(PDO::FETCH_COLUMN);
         $visits = array_map(fn($id) => $this->show((int) $id), $open);
-        $counts = ['waiting' => 0, 'triaged' => 0, 'by_acuity' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0], 'unidentified' => 0, 'over_target' => 0];
+        $counts = ['waiting' => 0, 'triaged' => 0, 'by_acuity' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0], 'unidentified' => 0, 'over_target' => 0,
+            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0];
         foreach ($visits as $v) {
             $counts[$v['status']]++;
             if ($v['acuity']) {
@@ -61,17 +63,26 @@ class ErService
             if ($v['patient']['registration_status'] === 'unidentified') {
                 $counts['unidentified']++;
             }
-            if ($v['status'] === 'waiting' && $v['minutes_waiting'] > self::TRIAGE_TARGET_MIN) {
+            if ($v['wait']['over'] && $v['wait']['stage'] !== 'seen') {
                 $counts['over_target']++;
+                $counts[$v['wait']['stage'] === 'triage' ? 'triage_over' : 'doctor_over']++;
+            }
+            if ($v['status'] === 'triaged' && !$v['doctor_user_id']) {
+                $counts['no_doctor']++;
+            }
+            if ($v['er_bed_id']) {
+                $counts['in_beds']++;
             }
         }
         return ['visits' => $visits, 'closed' => array_map(fn($id) => $this->show((int) $id), $closed), 'counts' => $counts,
+            'beds' => (new ErBoardService())->beds(),
             'server_time' => (string) $db->query("SELECT NOW()")->fetchColumn()];
     }
 
     public static function options(): array
     {
-        return ['arrival_modes' => self::ARRIVAL_MODES, 'acuity' => self::ACUITY, 'triage_target_min' => self::TRIAGE_TARGET_MIN];
+        return ['arrival_modes' => self::ARRIVAL_MODES, 'acuity' => self::ACUITY, 'triage_target_min' => ErBoardService::targets()[0],
+            'targets' => ErBoardService::targets(), 'areas' => ErBoardService::AREAS];
     }
 
     /** Find a chart: name, patient no. (and birth date "YYYY-MM-DD"). */
@@ -363,6 +374,7 @@ class ErService
         $db->prepare("UPDATE er_visits SET status = 'triaged', acuity = :a, triaged_at = COALESCE(triaged_at, :now) WHERE id = :id")
             ->execute(['a' => $acuity, 'now' => $now, 'id' => $v['id']]);
         $retriage = $v['status'] === 'triaged';
+        (new ErBoardService())->closeAlerts($db, (int) $v['id']);
         return ['success' => true, 'message' => ($retriage ? 'Re-triaged' : 'Triaged') . ": level {$acuity} — " . self::ACUITY[$acuity]['label'] . '.', 'data' => $this->show((int) $v['id'])];
     }
 
@@ -503,6 +515,7 @@ class ErService
         }
         $db->prepare("UPDATE er_visits SET status = :s, closed_at = NOW(), closed_by = :u, close_reason = :n WHERE id = :id")
             ->execute(['s' => $reason, 'u' => (int) $actor['id'], 'n' => $note !== '' ? mb_substr($note, 0, 255) : ($reason === 'left' ? 'Left without being seen' : null), 'id' => $v['id']]);
+        (new ErBoardService())->closeAlerts($db, (int) $v['id']);
         return ['success' => true, 'message' => $reason === 'left' ? 'Marked as left without being seen.' : 'Registration cancelled.', 'data' => $this->show((int) $v['id'])];
     }
 
@@ -516,8 +529,10 @@ class ErService
         $st = $db->prepare(
             "SELECT v.*, TIMESTAMPDIFF(MINUTE, v.arrived_at, COALESCE(v.triaged_at, v.closed_at, NOW())) AS minutes_waiting,
                     TIMESTAMPDIFF(MINUTE, v.arrived_at, COALESCE(v.closed_at, NOW())) AS minutes_in_er,
-                    " . self::nameSql('v.registered_by') . " AS registered_by_name, " . self::nameSql('v.identified_by') . " AS identified_by_name
-             FROM er_visits v WHERE v.id = :id"
+                    TIMESTAMPDIFF(MINUTE, v.arrived_at, NOW()) AS minutes_since_arrival, TIMESTAMPDIFF(MINUTE, v.arrived_at, v.doctor_at) AS minutes_to_doctor,
+                    " . self::nameSql('v.registered_by') . " AS registered_by_name, " . self::nameSql('v.identified_by') . " AS identified_by_name,
+                    " . self::nameSql('v.doctor_user_id') . " AS doctor_name, " . self::nameSql('v.nurse_user_id') . " AS nurse_name, b.name AS bed_name, b.area AS bed_area
+             FROM er_visits v LEFT JOIN er_beds b ON b.id = v.er_bed_id WHERE v.id = :id"
         );
         $st->execute(['id' => $id]);
         $v = $st->fetch(PDO::FETCH_ASSOC);
@@ -542,6 +557,13 @@ class ErService
             'minutes_waiting' => (int) $v['minutes_waiting'], 'minutes_in_er' => (int) $v['minutes_in_er'],
             'registered_at' => $v['registered_at'], 'registered_by_name' => $v['registered_by_name'],
             'closed_at' => $v['closed_at'], 'close_reason' => $v['close_reason'],
+            // Phase 2: bed, doctor (the first one = seen), nurse, the wait against the target, labs and imaging.
+            'er_bed_id' => $v['er_bed_id'] !== null ? (int) $v['er_bed_id'] : null, 'bed_name' => $v['bed_name'], 'bed_at' => $v['bed_at'],
+            'doctor_user_id' => $v['doctor_user_id'] !== null ? (int) $v['doctor_user_id'] : null, 'doctor_name' => $v['doctor_user_id'] ? $v['doctor_name'] : null,
+            'doctor_at' => $v['doctor_at'], 'nurse_user_id' => $v['nurse_user_id'] !== null ? (int) $v['nurse_user_id'] : null,
+            'nurse_name' => $v['nurse_user_id'] ? $v['nurse_name'] : null,
+            'wait' => ErBoardService::wait($v),
+            'orders' => (new ErBoardService())->orders([(int) $v['id']])[(int) $v['id']] ?? ['lab_pending' => 0, 'lab_done' => 0, 'imaging_pending' => 0, 'imaging_done' => 0],
             'patient' => $p ? self::patientShape($p) : null,
             'allergies' => $al->fetchAll(PDO::FETCH_ASSOC),
             'triage' => $triages[0] ?? null, 'triage_history' => array_slice($triages, 1),

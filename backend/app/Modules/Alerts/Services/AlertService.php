@@ -39,6 +39,7 @@ class AlertService
         'assignment'   => 'Patient assignment',
         'early_warning' => 'Early warning score (NEWS2)',
         'result_review' => 'Result to review',
+        'er_wait'      => 'ER waiting time',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */
@@ -220,6 +221,12 @@ class AlertService
             (new \App\Modules\ResultsInbox\Services\ResultReviewService())->runOverdue();
         } catch (\Throwable $e) {
             error_log('Result review check failed: ' . $e->getMessage());
+        }
+        // ER patients waiting past the target for their acuity: alert the ER team (at most every minute).
+        try {
+            (new \App\Modules\Er\Services\ErBoardService())->runWaits();
+        } catch (\Throwable $e) {
+            error_log('ER wait check failed: ' . $e->getMessage());
         }
         // Yesterday's midnight census not saved yet (no nightly job): save it (at most every 10 minutes).
         try {

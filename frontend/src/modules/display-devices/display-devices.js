@@ -279,6 +279,7 @@ async function openForm(d = null) {
             ${options.or_suites.map((s) => `<option value="${s.id}" ${Number(d?.or_suite_id) === Number(s.id) ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
             <div class="dd-err" data-err="or_suite_id"></div><div class="dd-muted">Shows today's OR list: time, room, surgeon, anesthesiologist, specialization.</div></div>
         <div data-for="waiting_room" class="dd-muted">Shows the family board: today's surgeries by case code and initials, and where each patient is.</div>
+        <div data-for="er" class="dd-muted">Shows the ER tracking board: each ER bed and the waiting room — initials, level, time waiting against the target, doctor, nurse, labs and imaging pending. Flashes a Code Blue.</div>
         <div><label for="ddNote">Location note <span style="font-weight:400">(optional)</span></label><input id="ddNote" maxlength="200" value="${esc(d?.location_note || "")}" placeholder="e.g. Main lobby, east wall">
             <div class="dd-err" data-err="location_note"></div></div>
         <div><label for="ddRefresh">Refresh every (seconds)</label><input id="ddRefresh" type="number" min="${options.refresh.min}" max="${options.refresh.max}" value="${d?.refresh_seconds || options.refresh.default}">

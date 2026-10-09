@@ -118,6 +118,8 @@ const CSS = `
 .ns-chip.hot { border-color: #ef4444; color: #fecaca; } .ns-chip.hot b { color: #fff; }
 .ns-banners { display: grid; gap: 8px; }
 .ns-banners:empty { display: none; }
+/* Fixed rows: an empty (hidden) banner row must not move the table into it. */
+.ns-top { grid-row: 1; } .ns-banners { grid-row: 2; } .ns-wrap { grid-row: 3; } .ns-foot { grid-row: 4; }
 .ns-cb { background: #1d4ed8; color: #fff; border-radius: 12px; padding: clamp(10px, 1.2vw, 20px) clamp(14px, 1.6vw, 26px); font-size: clamp(20px, 2.6vw, 48px); font-weight: 900;
     display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: baseline; animation: ns-flash-b 1s steps(2, jump-none) infinite; }
 .ns-cb span { font-size: .55em; font-weight: 700; opacity: .9; }
@@ -141,6 +143,11 @@ const CSS = `
 .ns-b { display: inline-block; min-width: 1.8em; text-align: center; padding: .1em .5em; border-radius: .5em; font-weight: 800; }
 .ns-b.red { background: #b91c1c; color: #fff; } .ns-b.amber { background: #b45309; color: #fff; } .ns-b.yellow { background: #854d0e; color: #fef08a; } .ns-b.green { background: #14532d; color: #bbf7d0; }
 .ns-b.grey { background: #1e293b; color: var(--muted); }
+.er-lv { display: inline-block; min-width: 1.6em; text-align: center; padding: .1em .45em; border-radius: .45em; font-weight: 900; }
+.er-lv.l1 { background: #dc2626; color: #fff; } .er-lv.l2 { background: #ea580c; color: #fff; } .er-lv.l3 { background: #facc15; color: #422006; }
+.er-lv.l4 { background: #16a34a; color: #fff; } .er-lv.l5 { background: #2563eb; color: #fff; } .er-lv.l0 { background: #334155; color: #e2e8f0; }
+.er-free td { color: var(--muted); }
+.er-wait.over { color: #fca5a5; font-weight: 800; }
 .ns-flags { display: inline-flex; gap: .3em; }
 .ns-flags .ns-b { font-size: .7em; }
 .ns-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: clamp(11px, 1vw, 18px); }
@@ -340,6 +347,11 @@ function render() {
     }
     if (dev.kind === "or" && d.content) {
         renderOrList(d);
+        renderStatus();
+        return;
+    }
+    if (dev.kind === "er" && d.content) {
+        renderEr(d);
         renderStatus();
         return;
     }
@@ -621,6 +633,48 @@ function renderOrList(d) {
         chip(c.counts.total, "cases") + chip(c.counts.in_room, "in progress") + chip(c.counts.done, "done") + (c.counts.cancelled ? chip(c.counts.cancelled, "cancelled") : ""),
         rows.length ? `<table class="ns-table or-table" data-noun="cases"><thead><tr><th>Time</th>${c.suite ? "" : "<th>Room</th>"}<th>Surgeon</th><th>Anesthesiologist</th><th>Specialization</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
             : `<div class="ns-empty">No cases scheduled today.</div>`);
+    drawClock();
+    pageStation();
+}
+
+/* ---------------- ER tracking board ---------------- */
+
+function renderEr(d) {
+    const c = d.content;
+    const n = c.counts;
+    const chip = (v, label, hot) => `<span class="ns-chip${hot && v ? " hot" : ""}"><b>${v}</b>${esc(label)}</span>`;
+    const dur = (m) => (m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`);
+    const wait = (w) => {
+        if (!w || w.stage === "closed") return "";
+        const what = { triage: "triage", doctor: "doctor", seen: "seen" }[w.stage];
+        const tgt = w.target === 0 ? "now" : `${w.target}m`;
+        return `<span class="er-wait ${w.over && w.stage !== "seen" ? "over" : ""}">${w.stage === "seen" ? `seen ${dur(w.minutes)}` : `${dur(w.minutes)} → ${what}`}</span><small>target ${tgt}</small>`;
+    };
+    const orders = (o, kind) => {
+        const p = o?.[`${kind}_pending`] || 0;
+        const dn = o?.[`${kind}_done`] || 0;
+        return p ? `<span class="ns-b amber">${p}</span>${dn ? ` <span class="ns-dim">+${dn}✓</span>` : ""}` : dn ? `<span class="ns-b green">${dn}✓</span>` : `<span class="ns-dim">—</span>`;
+    };
+    const row = (place, area, p) => {
+        if (!p) return `<tr class="er-free"><td class="ns-room">${esc(place)}<small>${esc(area || "")}</small></td><td colspan="8">Free</td></tr>`;
+        const hot = p.wait?.over && p.wait.stage !== "seen";
+        return `<tr class="${hot ? "hot" : ""}"><td class="ns-room">${esc(place)}<small>${esc(area || "")}</small></td>
+            <td class="ns-init">${esc(p.initials)}<small>${p.age ?? "?"} ${esc(p.sex || "")}</small></td>
+            <td class="c"><span class="er-lv l${p.acuity || 0}">${p.acuity || "—"}</span></td>
+            <td class="c">${dur(p.minutes_in_er)}</td>
+            <td class="ns-room">${wait(p.wait)}</td>
+            <td class="ns-nurse">${esc(p.doctor || "—")}</td><td class="ns-nurse">${esc(p.nurse || "—")}</td>
+            <td class="c">${orders(p.orders, "lab")}</td><td class="c">${orders(p.orders, "imaging")}</td></tr>`;
+    };
+    const rows = [...c.beds.map((b) => row(b.name, b.area, b.patient)), ...c.waiting.map((p) => row("Waiting", p.status === "waiting" ? "for triage" : "room", p))];
+    const banner = d.code_blue ? `<div class="ns-cb" role="alert">CODE BLUE <span>${esc(d.code_blue.location)} · called ${esc(t12(d.code_blue.called_at))}</span></div>` : "";
+    root.innerHTML = boardFrame(d, "Emergency Room", "Tracking board",
+        chip(n.waiting + n.triaged, "patients") + chip(n.waiting, "to triage", true) + chip(n.no_doctor, "need a doctor", true) + chip(n.over_target, "over target", true)
+            + chip(n.free_beds, "free beds") + [1, 2, 3, 4, 5].map((a) => `<span class="ns-chip"><b>${n.by_acuity[a]}</b><span class="er-lv l${a}">${a}</span></span>`).join(""),
+        rows.length ? `<table class="ns-table" data-noun="places"><thead><tr><th>Bed</th><th>Patient</th><th class="c">Level</th><th class="c">In ER</th><th>Waiting</th>
+            <th>Doctor</th><th>Nurse</th><th class="c">Labs</th><th class="c">Imaging</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+            : `<div class="ns-empty">No ER beds set up and nobody waiting.</div>`);
+    if (banner) root.querySelector(".ns-banners").innerHTML = banner;
     drawClock();
     pageStation();
 }

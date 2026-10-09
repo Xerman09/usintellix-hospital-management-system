@@ -5,6 +5,7 @@ namespace App\Modules\Er\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Er\Services\ErBoardService;
 use App\Modules\Er\Services\ErService;
 
 class ErController extends Controller
@@ -20,8 +21,16 @@ class ErController extends Controller
     public function index(): void
     {
         $role = Session::get('user')['role'] ?? '';
+        $board = new ErBoardService();
+        try {
+            $board->runWaits();
+        } catch (\Throwable $e) {
+            error_log('ER wait check failed: ' . $e->getMessage());
+        }
         $this->success($this->service->board() + ['options' => ErService::options(),
-            'can_register' => in_array($role, ErService::REGISTER_ROLES, true), 'can_triage' => in_array($role, ErService::TRIAGE_ROLES, true)], 'Retrieved.');
+            'can_register' => in_array($role, ErService::REGISTER_ROLES, true), 'can_triage' => in_array($role, ErService::TRIAGE_ROLES, true),
+            'can_assign' => in_array($role, ErBoardService::ASSIGN_ROLES, true), 'staff' => in_array($role, ErBoardService::ASSIGN_ROLES, true) ? $board->staffOptions() : [],
+            'settings' => $role === 'admin' ? $board->settings() : null], 'Retrieved.');
     }
 
     /** Query: q */
@@ -59,6 +68,31 @@ class ErController extends Controller
     public function close(): void
     {
         $this->respond($this->service->close((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: id, er_bed_id?, doctor_user_id?, nurse_user_id?, me? (doctor | nurse) */
+    public function assign(): void
+    {
+        $this->respond((new ErBoardService())->assign((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Admin. Body: targets {0..5: minutes} */
+    public function targets(): void
+    {
+        $this->respond((new ErBoardService())->saveTargets((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Admin. Body: id?, name, area, sort_order?, is_active? | prefix, count, area */
+    public function bed(): void
+    {
+        $this->respond((new ErBoardService())->saveBed((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Admin. Body: user_id, on (1 | 0) */
+    public function team(): void
+    {
+        $r = new Request();
+        $this->respond((new ErBoardService())->setTeam((int) $r->input('user_id'), (string) $r->input('on') !== '0', Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

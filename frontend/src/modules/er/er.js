@@ -1,5 +1,6 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { getUser } from "../../core/session.js";
 
 /*
  * ER (module 12, Phase 1; tab "er"): the ER board, quick registration and triage.
@@ -8,6 +9,9 @@ import { showToast } from "../../core/toast.js";
  *   * Triage: acuity 1-5, chief complaint, vital signs; danger-zone vitals suggest level 2.
  *   * Identify an unknown patient: fill in the details, or merge into their existing chart.
  *   * Close: left without being seen, or registered in error.
+ * Phase 2, the tracking board: ER beds with the patient, level, time waiting against the target for
+ * that level, doctor, nurse, labs and imaging pending (Board view; List view = the tables). Assign
+ * bed / doctor / nurse ("I'll see this patient"). Admin: ER beds, waiting-time targets, the ER team.
  */
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -90,6 +94,29 @@ const CSS = `
 :root[data-theme="dark"] .erx-note.warn { background: #451a03; color: #fde68a; border-color: #92400e; }
 :root[data-theme="dark"] .erx-note.bad { background: #450a0a; color: #fecaca; border-color: #7f1d1d; }
 .erx-err { color: #dc2626; font-size: 12.5px; min-height: 1em; margin-right: auto; }
+.erp-views { display: inline-flex; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+.erp-views button { border: 0; background: var(--bg-surface); color: var(--text-primary); padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.erp-views button[aria-pressed="true"] { background: #1d4ed8; color: #fff; }
+.erp-area { margin: 14px 0 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.erp-beds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 10px; }
+.erp-bed { border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-surface); padding: 10px 12px; display: grid; gap: 5px; font-size: 13px; min-width: 0; }
+.erp-bed.over { border-color: #f59e0b; box-shadow: inset 4px 0 0 #f59e0b; }
+.erp-bed.l1 { box-shadow: inset 4px 0 0 #b91c1c; }
+.erp-bed.free { border-style: dashed; color: var(--text-muted); }
+.erp-bed-h { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.erp-bed-h b { font-size: 14px; }
+.erp-bed .who { font-weight: 700; overflow-wrap: anywhere; }
+.erp-ord { display: flex; flex-wrap: wrap; gap: 4px; }
+.erp-ord span { font-size: 11.5px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface-alt); }
+.erp-ord span.pend { border-color: #f59e0b; background: #fffbeb; color: #78350f; }
+:root[data-theme="dark"] .erp-ord span.pend { background: #451a03; color: #fde68a; border-color: #92400e; }
+.erp-set { margin-top: 22px; border: 1px solid var(--border-color); border-radius: 12px; padding: 0 14px; background: var(--bg-surface); }
+.erp-set summary { cursor: pointer; font-weight: 700; padding: 12px 0; }
+.erp-set h3 { font-size: 14px; margin: 14px 0 6px; }
+.erp-set .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 8px 0; }
+.erp-set .row > div { min-width: 0; }
+.erp-set label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; }
+.erp-set input, .erp-set select { border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 8px; font: inherit; background: var(--bg-surface); color: var(--text-primary); max-width: 100%; }
 .erx-chk { display: inline-flex !important; gap: 6px; align-items: center; color: var(--text-primary) !important; font-weight: 600; margin-top: 4px; }
 `;
 
@@ -115,7 +142,8 @@ export function initEr() {
     load();
     timer = setInterval(() => {
         if (!document.getElementById("erBoard")) return clearInterval(timer);
-        if (!document.hidden && !document.querySelector(".erx-ov") && !document.querySelector("#erBoard .erp-inline")) load();
+        const typing = document.activeElement?.closest?.("#erBoard") && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+        if (!document.hidden && !document.querySelector(".erx-ov") && !document.querySelector("#erBoard [data-closebox]") && !typing && !settingsDirty) load();
     }, 20000);
 }
 
@@ -135,6 +163,28 @@ async function load() {
 
 const lvl = (a) => (a ? `<span class="er-lvl l${a}">${a} · ${esc(data?.options?.acuity?.[a]?.label || "")}</span>` : "");
 const ageSex = (p) => `${p.age ?? "?"}${p.dob_estimated ? " (est.)" : ""} y · ${esc((p.sex || "").charAt(0).toUpperCase())}`;
+let view = "board";
+try {
+    view = localStorage.getItem("erView") || "board";
+} catch (e) {}
+let settingsOpen = false;
+let settingsDirty = false;
+
+/** "Waiting for a doctor 42 min — target 30 min (over)". */
+function waitText(w) {
+    if (!w || w.stage === "closed") return "";
+    const tgt = w.target === 0 ? "at once" : `${w.target} min`;
+    if (w.stage === "seen") return `<span class="muted">Seen after ${mins(w.minutes)} (target ${tgt})</span>`;
+    const what = w.stage === "triage" ? "Waiting for triage" : "Waiting for a doctor";
+    return `<span class="${w.over ? "erp-late" : "muted"}">${what} ${mins(w.minutes)} — target ${tgt}${w.over ? " · over" : ""}</span>`;
+}
+
+function ordersHtml(o) {
+    if (!o) return "";
+    const one = (label, p, d) => (p || d ? `<span class="${p ? "pend" : ""}">${label}: ${p ? `${p} pending` : ""}${p && d ? ", " : ""}${d ? `${d} done` : ""}</span>` : "");
+    const h = one("Labs", o.lab_pending, o.lab_done) + one("Imaging", o.imaging_pending, o.imaging_done);
+    return h ? `<div class="erp-ord">${h}</div>` : "";
+}
 
 function patientCell(v) {
     const p = v.patient;
@@ -162,76 +212,171 @@ function vitals(t) {
     return `<div class="er-vit">${parts.join(" · ") || `<span class="muted">No vital signs (level 1)</span>`}</div>`;
 }
 
+function careTeam(v) {
+    const role = getUser()?.role;
+    const meDoc = data.can_assign && !v.doctor_user_id && ["doctor", "clinician"].includes(role) && v.status === "triaged";
+    const meNurse = data.can_assign && !v.nurse_user_id && ["nurse", "charge_nurse"].includes(role);
+    return `<div>Doctor: ${v.doctor_name ? `<b>${esc(v.doctor_name)}</b>` : `<span class="muted">none</span>`}${meDoc ? ` <button type="button" class="erp-b sm blue" data-me="doctor" data-id="${v.id}">I'll see this patient</button>` : ""}</div>
+        <div>Nurse: ${v.nurse_name ? esc(v.nurse_name) : `<span class="muted">none</span>`}${meNurse ? ` <button type="button" class="erp-b sm" data-me="nurse" data-id="${v.id}">I'm the nurse</button>` : ""}</div>`;
+}
+
 function actions(v) {
     const unk = v.patient.registration_status === "unidentified";
     return `<div class="acts">
         ${data.can_triage ? `<button type="button" class="erp-b sm ${v.status === "waiting" ? "go" : ""}" data-triage="${v.id}">${v.status === "waiting" ? "Triage" : "Re-triage"}</button>` : ""}
+        ${data.can_assign ? `<button type="button" class="erp-b sm" data-assign="${v.id}">Bed / staff…</button>` : ""}
         ${unk && data.can_register ? `<button type="button" class="erp-b sm blue" data-identify="${v.id}">Identify</button>` : ""}
         <button type="button" class="erp-b sm" data-chart="${v.patient.id}">Chart</button>
         ${data.can_register ? `<button type="button" class="erp-b sm" data-close="${v.id}" aria-label="Close ${esc(v.visit_no)}">Close…</button>` : ""}
     </div>`;
 }
 
+function bedCard(b, v) {
+    if (!v) {
+        const waiting = data.visits.filter((x) => !x.er_bed_id);
+        return `<div class="erp-bed free" data-bed="${b.id}"><div class="erp-bed-h"><b>${esc(b.name)}</b><span>Free</span></div>
+            ${data.can_assign && waiting.length ? `<div class="erp-inline" style="margin:0"><select data-putin aria-label="Put a patient in ${esc(b.name)}"><option value="">Put a patient here…</option>
+                ${waiting.map((x) => `<option value="${x.id}">${x.acuity ? `L${x.acuity} · ` : ""}${esc(x.patient.name)}</option>`).join("")}</select></div>` : ""}</div>`;
+    }
+    const over = v.wait.over && v.wait.stage !== "seen";
+    return `<div class="erp-bed ${over ? "over" : ""} ${v.acuity === 1 ? "l1" : ""}" data-row="${v.id}">
+        <div class="erp-bed-h"><b>${esc(b.name)}</b>${v.acuity ? lvl(v.acuity) : `<span class="er-tag">Not triaged</span>`}</div>
+        <div class="who">${esc(v.patient.name)}${v.patient.registration_status === "unidentified" ? `<span class="er-tag unk">Unidentified</span>` : ""} <span class="muted" style="font-weight:400">${ageSex(v.patient)}</span></div>
+        ${v.triage?.chief_complaint || v.chief_complaint ? `<div>${esc(v.triage?.chief_complaint || v.chief_complaint)}</div>` : ""}
+        ${v.allergies?.length ? `<div style="font-size:12px;color:#b91c1c;font-weight:700">Allergies: ${esc(v.allergies.map((a) => a.name).join(", "))}</div>` : ""}
+        <div>${waitText(v.wait)} <span class="muted">· in ER ${mins(v.minutes_in_er)}</span></div>
+        ${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
+}
+
 function render(root) {
     const c = data.counts;
-    const T = data.options.triage_target_min;
-    const waiting = data.visits.filter((v) => v.status === "waiting");
-    const triaged = data.visits.filter((v) => v.status === "triaged");
-    root.innerHTML = `
-        <div class="erp-head"><div><h1>Emergency Room</h1><div class="erp-sub">Triage within ${T} minutes of arrival. Refreshes every 20 seconds.</div></div>
-            ${data.can_register ? `<button type="button" class="erp-b go" data-register>+ Register patient</button>` : ""}</div>
+    const T = data.options.targets;
+    const waitingRoom = data.visits.filter((v) => !v.er_bed_id);
+    const byId = Object.fromEntries(data.visits.map((v) => [v.id, v]));
+    const areas = {};
+    data.beds.forEach((b) => (areas[b.area] ??= []).push(b));
+    const free = data.beds.filter((b) => !b.visit_id).length;
+    const head = `
+        <div class="erp-head"><div><h1>Emergency Room</h1><div class="erp-sub">Targets: triage ${T[0]} min; doctor by level — ${[1, 2, 3, 4, 5].map((a) => `${a}: ${T[a] === 0 ? "at once" : T[a] + " min"}`).join(", ")}. Refreshes every 20 seconds.</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <div class="erp-views" role="group" aria-label="View"><button type="button" data-view="board" aria-pressed="${view === "board"}">Board</button><button type="button" data-view="list" aria-pressed="${view === "list"}">List</button></div>
+                ${data.can_register ? `<button type="button" class="erp-b go" data-register>+ Register patient</button>` : ""}</div></div>
         <div class="erp-counts" role="list">
-            <div class="erp-count ${c.over_target ? "warn" : ""}" role="listitem"><b>${c.waiting}</b>waiting for triage${c.over_target ? ` · ${c.over_target} over ${T} min` : ""}</div>
+            <div class="erp-count ${c.triage_over ? "warn" : ""}" role="listitem"><b>${c.waiting}</b>waiting for triage${c.triage_over ? ` · ${c.triage_over} over target` : ""}</div>
+            <div class="erp-count ${c.doctor_over ? "warn" : ""}" role="listitem"><b>${c.no_doctor}</b>need a doctor${c.doctor_over ? ` · ${c.doctor_over} over target` : ""}</div>
             ${[1, 2, 3, 4, 5].map((a) => `<div class="erp-count" role="listitem"><b>${c.by_acuity[a]}</b>${lvl(a)}</div>`).join("")}
+            <div class="erp-count" role="listitem"><b>${free}</b>free bed${free === 1 ? "" : "s"} of ${data.beds.length}</div>
             ${c.unidentified ? `<div class="erp-count warn" role="listitem"><b>${c.unidentified}</b>unidentified</div>` : ""}
-        </div>
-        <h2>Waiting for triage (${waiting.length})</h2>
-        ${waiting.length ? `<div class="erp-wrap"><table><thead><tr><th>Arrived</th><th>Patient</th><th>How they came</th><th>Complaint</th><th></th></tr></thead><tbody>
-            ${waiting.map((v) => `<tr data-row="${v.id}"><td class="nw">${esc(hm(v.arrived_at))}<div class="${v.minutes_waiting > T ? "erp-late" : "muted"}">${mins(v.minutes_waiting)}${v.minutes_waiting > T ? ` — over ${T} min` : ""}</div></td>
-                <td>${patientCell(v)}</td><td>${esc(v.arrival_mode)}${v.brought_by ? `<div class="muted">${esc(v.brought_by)}</div>` : ""}</td>
-                <td>${esc(v.chief_complaint || "—")}</td><td>${actions(v)}</td></tr>`).join("")}</tbody></table></div>`
-            : `<div class="erp-empty">Nobody waiting for triage.</div>`}
-        <h2>Triaged (${triaged.length})</h2>
-        ${triaged.length ? `<div class="erp-wrap"><table><thead><tr><th>Level</th><th>Patient</th><th>Chief complaint</th><th>Vital signs</th><th>Triaged</th><th>In ER</th><th></th></tr></thead><tbody>
-            ${triaged.map((v) => `<tr data-row="${v.id}"><td>${lvl(v.acuity)}</td><td>${patientCell(v)}</td>
-                <td>${esc(v.triage?.chief_complaint || "")}${v.triage?.undertriage_reason ? `<div class="muted" style="font-size:12px">Level kept: ${esc(v.triage.undertriage_reason)}</div>` : ""}</td>
-                <td>${vitals(v.triage)}</td>
-                <td class="nw">${esc(hm(v.triage?.triaged_at))}<div class="muted">${esc(v.triage?.triaged_by_name || "")}</div><div class="muted">${mins(v.minutes_waiting)} after arrival</div></td>
-                <td class="nw">${mins(v.minutes_in_er)}</td><td>${actions(v)}</td></tr>`).join("")}</tbody></table></div>`
-            : `<div class="erp-empty">No triaged patients.</div>`}
-        ${data.closed.length ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Closed in the last 12 hours (${data.closed.length})</summary>
+        </div>`;
+    const wrTable = (list, title) => `<h2>${title} (${list.length})</h2>
+        ${list.length ? `<div class="erp-wrap"><table><thead><tr><th>Arrived</th><th>Patient</th><th>Level</th><th>Complaint</th><th>Waiting</th><th>Care team</th>${view === "list" ? "<th>Bed</th><th>Vital signs</th>" : ""}<th></th></tr></thead><tbody>
+            ${list.map((v) => `<tr data-row="${v.id}"><td class="nw">${esc(hm(v.arrived_at))}<div class="muted">${esc(v.arrival_mode)}</div></td>
+                <td>${patientCell(v)}</td><td>${v.acuity ? lvl(v.acuity) : `<span class="er-tag">Not triaged</span>`}</td>
+                <td>${esc(v.triage?.chief_complaint || v.chief_complaint || "—")}${v.triage?.undertriage_reason ? `<div class="muted" style="font-size:12px">Level kept: ${esc(v.triage.undertriage_reason)}</div>` : ""}</td>
+                <td>${waitText(v.wait)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
+                ${view === "list" ? `<td>${esc(v.bed_name || "Waiting room")}</td><td>${vitals(v.triage)}</td>` : ""}<td>${actions(v)}</td></tr>`).join("")}</tbody></table></div>`
+            : `<div class="erp-empty">Nobody here.</div>`}`;
+    const board = `
+        ${data.beds.length ? Object.entries(areas).map(([a, beds]) => `<div class="erp-area">${esc(data.options.areas[a] || a)}</div>
+            <div class="erp-beds">${beds.map((b) => bedCard(b, b.visit_id ? byId[b.visit_id] : null)).join("")}</div>`).join("")
+            : `<div class="erp-empty">No ER beds set up yet.${data.settings ? " Add them under ER settings below." : " Ask the admin to add them."}</div>`}
+        ${wrTable(waitingRoom, "Waiting room (no bed)")}`;
+    root.innerHTML = head + (view === "board" ? board : wrTable(data.visits, "All patients in the ER"))
+        + (data.closed.length ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Closed in the last 12 hours (${data.closed.length})</summary>
             <div class="erp-wrap" style="margin-top:8px"><table><thead><tr><th>Arrived</th><th>Patient</th><th>Closed</th><th>Why</th></tr></thead><tbody>
             ${data.closed.map((v) => `<tr><td class="nw">${esc(hm(v.arrived_at))} · ${esc(v.visit_no)}</td><td>${esc(v.patient.name)}</td><td class="nw">${esc(hm(v.closed_at))}</td>
-                <td>${v.status === "left" ? "Left without being seen" : "Registered in error"}${v.close_reason && v.status === "cancelled" ? ` — ${esc(v.close_reason)}` : ""}</td></tr>`).join("")}</tbody></table></div></details>` : ""}`;
+                <td>${v.status === "left" ? "Left without being seen" : "Registered in error"}${v.close_reason && v.status === "cancelled" ? ` — ${esc(v.close_reason)}` : ""}</td></tr>`).join("")}</tbody></table></div></details>` : "")
+        + (data.settings ? settingsHtml(data.settings) : "");
     root.onclick = onBoardClick;
+    root.querySelectorAll("[data-putin]").forEach((sel) => sel.addEventListener("change", async () => {
+        if (!sel.value) return;
+        sel.disabled = true;
+        const r = await post("/er/assign", { id: Number(sel.value), er_bed_id: Number(sel.closest("[data-bed]").dataset.bed) });
+        showToast(r?.message || "Could not save.", r?.success ? "success" : "error");
+        load();
+    }));
+    const set = root.querySelector(".erp-set");
+    if (set) {
+        set.addEventListener("toggle", () => {
+            settingsOpen = set.open;
+            if (!set.open) settingsDirty = false;
+        });
+        set.addEventListener("input", () => (settingsDirty = true));
+    }
+}
+
+/* ---------------- settings (admin) ---------------- */
+
+function settingsHtml(st) {
+    const inTeam = new Set(st.team.map((t) => Number(t.user_id)));
+    return `<details class="erp-set" ${settingsOpen ? "open" : ""}><summary>ER settings (admin): beds, waiting-time targets, ER team</summary>
+        <h3>ER beds</h3>
+        ${st.beds.length ? `<div class="erp-wrap"><table><thead><tr><th>Bed</th><th>Area</th><th>Status</th><th></th></tr></thead><tbody>
+            ${st.beds.map((b) => `<tr><td><b>${esc(b.name)}</b></td><td>${esc(b.area_label)}</td><td>${b.is_active ? (b.visit_id ? "In use" : "Free") : `<span class="muted">Switched off</span>`}</td>
+                <td style="text-align:right"><button type="button" class="erp-b sm" data-bedtoggle="${b.id}" data-name="${esc(b.name)}" data-area="${esc(b.area)}" data-on="${b.is_active ? 0 : 1}">${b.is_active ? "Switch off" : "Switch on"}</button></td></tr>`).join("")}
+            </tbody></table></div>` : `<div class="erp-empty">No beds yet.</div>`}
+        <div class="row"><div><label for="erbPrefix">Add beds named</label><input id="erbPrefix" maxlength="30" placeholder="e.g. Bay" size="10"></div>
+            <div><label for="erbCount">How many</label><input id="erbCount" type="number" min="1" max="50" value="1" style="width:80px"></div>
+            <div><label for="erbArea">Area</label><select id="erbArea">${Object.entries(st.areas).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("")}</select></div>
+            <button type="button" class="erp-b" data-bedadd>Add</button></div>
+        <div class="muted" style="font-size:12px">“Bay” × 3 adds Bay 1, Bay 2, Bay 3 (numbering continues after the beds already there).</div>
+        <h3>Waiting-time targets (minutes from arrival)</h3>
+        <div class="row">
+            <div><label for="ert0">Triage</label><input id="ert0" type="number" min="0" max="1440" value="${st.targets[0]}" style="width:80px"></div>
+            ${[1, 2, 3, 4, 5].map((a) => `<div><label for="ert${a}">Doctor, level ${a}</label><input id="ert${a}" type="number" min="0" max="1440" value="${st.targets[a]}" style="width:80px"></div>`).join("")}
+            <button type="button" class="erp-b" data-targets>Save targets</button></div>
+        <div class="muted" style="font-size:12px">Past the target, the ER team gets an alert (level 1: critical; 2–3: urgent; 4–5: information). 0 = at once.</div>
+        <h3>ER team <span class="muted" style="font-weight:400">(gets the waiting-time alerts; nobody on it: charge nurses, and all doctors for patients waiting for one)</span></h3>
+        ${st.team.length ? `<div class="erp-wrap"><table><tbody>${st.team.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${esc(String(t.role || "").replace("_", " "))}</td>
+            <td style="text-align:right"><button type="button" class="erp-b sm" data-team="${t.user_id}" data-on="0">Remove</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="erp-empty">Nobody on the ER team.</div>`}
+        <div class="row"><div><label for="erTeamAdd">Add</label><select id="erTeamAdd"><option value="">Choose a doctor or nurse…</option>
+            ${st.staff.filter((s) => !inTeam.has(s.id)).map((s) => `<option value="${s.id}">${esc(s.name)} (${esc(s.role.replace("_", " "))})</option>`).join("")}</select></div>
+            <button type="button" class="erp-b" data-teamadd>Add to ER team</button></div>
+        <div style="height:12px"></div></details>`;
 }
 
 async function onBoardClick(e) {
     const t = e.target;
+    const vb = t.closest("[data-view]");
+    if (vb) {
+        view = vb.dataset.view;
+        try {
+            localStorage.setItem("erView", view);
+        } catch (err) {}
+        return render(document.getElementById("erBoard"));
+    }
     if (t.closest("[data-register]")) return openRegister();
     const tri = t.closest("[data-triage]");
     if (tri) return openTriage(Number(tri.dataset.triage));
+    const as = t.closest("[data-assign]");
+    if (as) return openAssign(Number(as.dataset.assign));
+    const me = t.closest("[data-me]");
+    if (me) {
+        me.disabled = true;
+        const r = await post("/er/assign", { id: Number(me.dataset.id), me: me.dataset.me });
+        showToast(r?.message || "Could not save.", r?.success ? "success" : "error");
+        return load();
+    }
     const idf = t.closest("[data-identify]");
     if (idf) return openIdentify(Number(idf.dataset.identify));
     const ch = t.closest("[data-chart]");
     if (ch) return window.__openPatientChartFromReport?.(ch.dataset.chart);
     const cl = t.closest("[data-close]");
     if (cl) {
-        const row = cl.closest("tr");
-        document.querySelector("#erBoard .erp-inline")?.remove();
-        cl.closest("td").insertAdjacentHTML("beforeend", `<div class="erp-inline">
+        document.querySelector("#erBoard .erp-inline:not(:has([data-putin]))")?.remove();
+        cl.closest(".acts").insertAdjacentHTML("afterend", `<div class="erp-inline" data-closebox="${cl.dataset.close}">
             <button type="button" class="erp-b sm" data-closego="left">Left without being seen</button>
             <input type="text" maxlength="255" data-closenote aria-label="What was wrong (registered in error)" placeholder="Registered in error: what was wrong">
             <button type="button" class="erp-b sm" data-closego="cancelled">Registered in error</button>
             <button type="button" class="erp-b sm" data-closeback>Back</button></div>`);
-        row.querySelector("[data-closego]").focus();
+        cl.closest(".acts").nextElementSibling.querySelector("[data-closego]").focus();
         return;
     }
     if (t.closest("[data-closeback]")) return t.closest(".erp-inline").remove();
     const go = t.closest("[data-closego]");
     if (go) {
         const box = go.closest(".erp-inline");
-        const id = Number(box.closest("tr").dataset.row);
+        const id = Number(box.dataset.closebox);
         const note = box.querySelector("[data-closenote]").value.trim();
         if (go.dataset.closego === "cancelled" && !note) {
             box.querySelector("[data-closenote]").setAttribute("aria-invalid", "true");
@@ -243,7 +388,62 @@ async function onBoardClick(e) {
         go.disabled = false;
         showToast(r?.message || "Could not save.", r?.success ? "success" : "error");
         if (r?.success) load();
+        return;
     }
+    // Settings (admin)
+    const after = (r) => {
+        showToast(r?.message || "Could not save.", r?.success ? "success" : "error");
+        if (r?.success) {
+            settingsDirty = false;
+            load();
+        }
+    };
+    const bt = t.closest("[data-bedtoggle]");
+    if (bt) return after(await post("/er/beds", { id: Number(bt.dataset.bedtoggle), name: bt.dataset.name, area: bt.dataset.area, is_active: Number(bt.dataset.on) }));
+    if (t.closest("[data-bedadd]")) {
+        const prefix = document.getElementById("erbPrefix").value.trim();
+        if (!prefix) return document.getElementById("erbPrefix").focus();
+        return after(await post("/er/beds", { prefix, count: Number(document.getElementById("erbCount").value || 1), area: document.getElementById("erbArea").value }));
+    }
+    if (t.closest("[data-targets]")) return after(await post("/er/targets", { targets: [0, 1, 2, 3, 4, 5].map((a) => document.getElementById(`ert${a}`).value.trim()) }));
+    const tm = t.closest("[data-team]");
+    if (tm) return after(await post("/er/team", { user_id: Number(tm.dataset.team), on: 0 }));
+    if (t.closest("[data-teamadd]")) {
+        const id = document.getElementById("erTeamAdd").value;
+        if (!id) return document.getElementById("erTeamAdd").focus();
+        return after(await post("/er/team", { user_id: Number(id), on: 1 }));
+    }
+}
+
+/* ---------------- bed / doctor / nurse ---------------- */
+
+async function openAssign(id) {
+    const r = await api(`/er/show?id=${id}`).catch(() => null);
+    if (!r?.success) return showToast(r?.message || "Could not open the visit.", "error");
+    const v = r.data;
+    const freeBeds = data.beds.filter((b) => !b.visit_id || b.id === v.er_bed_id);
+    const staff = (roles) => data.staff.filter((s) => roles.includes(s.role));
+    const opt = (s, cur) => `<option value="${s.id}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}${s.er_team ? " · ER team" : ""}</option>`;
+    const m = modal(`Bed and care team — ${esc(v.patient.name)}`, `${esc(v.visit_no)}${v.acuity ? ` · level ${v.acuity}` : " · not triaged yet"}`, `
+        <div class="erx-grid two">
+            <div><label for="erABed">Bed</label><select id="erABed" name="er_bed_id"><option value="">Waiting room (no bed)</option>
+                ${freeBeds.map((b) => `<option value="${b.id}" ${b.id === v.er_bed_id ? "selected" : ""}>${esc(b.name)} · ${esc(b.area_label)}</option>`).join("")}</select></div>
+            <div><label for="erADoc">Doctor</label><select id="erADoc" name="doctor_user_id"><option value="">None yet</option>${staff(["doctor", "clinician"]).map((s) => opt(s, v.doctor_user_id)).join("")}</select></div>
+            <div><label for="erANurse">Nurse</label><select id="erANurse" name="nurse_user_id"><option value="">None yet</option>${staff(["nurse", "charge_nurse"]).map((s) => opt(s, v.nurse_user_id)).join("")}</select></div>
+        </div>
+        <div class="erx-note">${v.doctor_at ? `Seen by a doctor at ${esc(hm(v.doctor_at))} (${mins(v.wait.minutes)} after arrival). Changing the doctor keeps that time.`
+            : "The first doctor assigned counts as the patient being seen: the waiting time stops and the waiting alert closes."}</div>`,
+        `<button type="button" class="erp-b" data-x>Cancel</button><button type="button" class="erp-b blue" data-save>Save</button>`);
+    m.$("#erABed").focus();
+    m.$("[data-save]").onclick = async (ev) => {
+        ev.target.disabled = true;
+        const res = await post("/er/assign", { id, er_bed_id: m.$("#erABed").value, doctor_user_id: m.$("#erADoc").value, nurse_user_id: m.$("#erANurse").value });
+        ev.target.disabled = false;
+        if (!res?.success) return m.err(res?.message || "Could not save.", res?.errors);
+        m.close();
+        showToast(res.message, "success");
+        load();
+    };
 }
 
 const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) }).catch(() => null);
