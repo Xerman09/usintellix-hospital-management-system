@@ -1,7 +1,8 @@
 <?php
 /**
  * ER waiting times: patients past the target for their acuity (not triaged in time, or not seen
- * by a doctor in time) -> alert the ER team.
+ * by a doctor in time) -> alert the ER team. Also the protocol timers (chest pain ECG, stroke CT,
+ * sepsis antibiotics...): a step past its target -> alert the patient's doctor.
  *
  * The bell's poll and the ER screen already run this every minute while anyone is logged in.
  * Schedule it every minute as well, so the alerts go out when nobody has the app open:

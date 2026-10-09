@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Er\Services\ErBoardService;
+use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
 
 class ErController extends Controller
@@ -93,6 +94,31 @@ class ErController extends Controller
     {
         $r = new Request();
         $this->respond((new ErBoardService())->setTeam((int) $r->input('user_id'), (string) $r->input('on') !== '0', Session::get('user') ?? []));
+    }
+
+    /** Body: id (visit), protocol (chest_pain | stroke | sepsis) */
+    public function protocolStart(): void
+    {
+        $r = new Request();
+        $this->respond((new ErProtocolService())->start((int) $r->input('id'), (string) $r->input('protocol'), Session::get('user') ?? []));
+    }
+
+    /** Body: protocol_id, step, action (done | na | undo), value?, time? */
+    public function protocolStep(): void
+    {
+        $this->respond((new ErProtocolService())->step((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: protocol_id, reason */
+    public function protocolStop(): void
+    {
+        $this->respond((new ErProtocolService())->stop((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Admin. Body: targets {protocol: {step: minutes}} */
+    public function protocolTargets(): void
+    {
+        $this->respond((new ErProtocolService())->saveTargets((new Request())->all(), Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

@@ -2,6 +2,7 @@
 
 use App\Modules\Er\Controllers\ErController;
 use App\Modules\Er\Services\ErBoardService;
+use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
 
 /** @var \App\Core\Router $router */
@@ -25,3 +26,9 @@ $erAdmin = [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]];
 $router->post('/er/targets', [ErController::class, 'targets'], $erAdmin);
 $router->post('/er/beds', [ErController::class, 'bed'], $erAdmin);
 $router->post('/er/team', [ErController::class, 'team'], $erAdmin);
+// Phase 3: chest pain / stroke / sepsis protocols -- start, record a step, stop; step targets (admin).
+$erProto = [AuthMiddleware::class, [RoleMiddleware::class, ErProtocolService::ROLES]];
+$router->post('/er/protocol/start', [ErController::class, 'protocolStart'], $erProto);
+$router->post('/er/protocol/step', [ErController::class, 'protocolStep'], $erProto);
+$router->post('/er/protocol/stop', [ErController::class, 'protocolStop'], $erProto);
+$router->post('/er/protocol-targets', [ErController::class, 'protocolTargets'], $erAdmin);

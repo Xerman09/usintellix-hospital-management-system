@@ -296,7 +296,8 @@ class ErBoardService
         foreach ($db->query("SELECT DISTINCT source_id FROM alerts WHERE alert_type = 'er_wait' AND resolved_at IS NULL")->fetchAll(PDO::FETCH_COLUMN) as $id) {
             $this->closeAlerts($db, (int) $id);
         }
-        return $sent;
+        // Phase 3: protocol steps past their target (ECG, CT, antibiotics...).
+        return array_merge($sent, (new ErProtocolService())->runTimers());
     }
 
     /** Close a visit's waiting-time alerts that no longer apply. */
@@ -331,6 +332,7 @@ class ErBoardService
                  LEFT JOIN roles r ON r.id = u.role_id ORDER BY r.name, name"
             )->fetchAll(PDO::FETCH_ASSOC),
             'staff' => $this->staffOptions(),
+            'protocols' => ErProtocolService::options(),
         ];
     }
 
@@ -441,6 +443,8 @@ class ErBoardService
                 'unidentified' => $v['patient']['registration_status'] === 'unidentified',
                 'acuity' => $v['acuity'], 'status' => $v['status'], 'minutes_in_er' => $v['minutes_in_er'],
                 'wait' => $v['wait'], 'doctor' => $v['doctor_name'], 'nurse' => $v['nurse_name'], 'orders' => $v['orders'],
+                // Late protocol steps (a count only: the protocol would say what is wrong with the patient).
+                'protocol_late' => array_sum(array_map(fn($p) => $p['status'] === 'active' ? $p['late'] : 0, $v['protocols'])),
             ];
             if ($v['er_bed_id']) {
                 $byBed[$v['er_bed_id']] = $row;

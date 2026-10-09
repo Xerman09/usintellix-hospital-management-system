@@ -40,6 +40,7 @@ class AlertService
         'early_warning' => 'Early warning score (NEWS2)',
         'result_review' => 'Result to review',
         'er_wait'      => 'ER waiting time',
+        'er_protocol'  => 'ER protocol step late',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

@@ -12,6 +12,9 @@ import { getUser } from "../../core/session.js";
  * Phase 2, the tracking board: ER beds with the patient, level, time waiting against the target for
  * that level, doctor, nurse, labs and imaging pending (Board view; List view = the tables). Assign
  * bed / doctor / nurse ("I'll see this patient"). Admin: ER beds, waiting-time targets, the ER team.
+ * Phase 3, protocols: chest pain, stroke, sepsis -- started at triage (ticked from the complaint and
+ * vital signs) or from the board; a timed checklist per patient (Protocols dialog), late steps alert the
+ * doctor. Admin: the step targets.
  */
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -118,6 +121,44 @@ const CSS = `
 .erp-set label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; }
 .erp-set input, .erp-set select { border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 8px; font: inherit; background: var(--bg-surface); color: var(--text-primary); max-width: 100%; }
 .erx-chk { display: inline-flex !important; gap: 6px; align-items: center; color: var(--text-primary) !important; font-weight: 600; margin-top: 4px; }
+.erp-pr { display: flex; flex-wrap: wrap; gap: 4px; }
+.erp-pr button { font: inherit; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; cursor: pointer; border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; text-align: left; }
+.erp-pr button.late { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.erp-pr button.done { border-color: var(--border-color); background: var(--bg-surface-alt); color: var(--text-muted); }
+.erp-pr button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 1px; }
+:root[data-theme="dark"] .erp-pr button { background: #172554; color: #bfdbfe; border-color: #1e40af; }
+:root[data-theme="dark"] .erp-pr button.late { background: #450a0a; color: #fecaca; border-color: #7f1d1d; }
+:root[data-theme="dark"] .erp-pr button.done { background: var(--bg-surface-alt); color: var(--text-muted); border-color: var(--border-color); }
+.erp-count.bad { border-color: #fca5a5; background: #fef2f2; color: #7f1d1d; }
+:root[data-theme="dark"] .erp-count.bad { background: #450a0a; color: #fecaca; border-color: #7f1d1d; }
+.erx.wide { max-width: 860px; }
+.erq { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+.erq-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: baseline; padding: 10px 12px; background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); }
+.erq-h h3 { margin: 0; font-size: 15px; }
+.erq-about { font-size: 12.5px; color: var(--text-muted); padding: 8px 12px 0; }
+.erq-step { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 4px 8px; padding: 9px 12px; border-top: 1px solid var(--border-color); }
+.erq-step:first-of-type { border-top: 0; }
+.erq-ico { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; border: 2px solid var(--border-color); color: var(--text-muted); }
+.erq-step.done .erq-ico { background: #15803d; border-color: #15803d; color: #fff; }
+.erq-step.na .erq-ico { background: var(--bg-surface-alt); }
+.erq-step.late .erq-ico { border-color: #b91c1c; color: #b91c1c; }
+.erq-step.late { background: #fef2f2; }
+:root[data-theme="dark"] .erq-step.late { background: #2a0a0a; }
+.erq-lbl { font-weight: 700; }
+.erq-meta { font-size: 12.5px; color: var(--text-muted); }
+.erq-meta .bad { color: #b91c1c; font-weight: 700; }
+:root[data-theme="dark"] .erq-meta .bad { color: #fca5a5; }
+.erq-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.erq-ctl input { border: 1px solid var(--border-color); border-radius: 8px; padding: 5px 7px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--text-primary); }
+.erq-ctl input[type=time] { width: 110px; }
+.erq-ctl input[type=number] { width: 100px; }
+.erq-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--border-color); }
+.erq-foot input { flex: 1 1 220px; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--text-primary); }
+.erx-protos { display: grid; gap: 6px; }
+.erx-protos label { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; margin: 0; cursor: pointer; color: var(--text-primary); font-weight: 600; }
+.erx-protos label:has(input:checked) { border-color: #1d4ed8; background: #eff6ff; }
+:root[data-theme="dark"] .erx-protos label:has(input:checked) { background: #172554; }
+.erx-protos small { display: block; font-weight: 400; color: var(--text-muted); font-size: 12px; }
 `;
 
 let data = null;
@@ -220,9 +261,29 @@ function careTeam(v) {
         <div>Nurse: ${v.nurse_name ? esc(v.nurse_name) : `<span class="muted">none</span>`}${meNurse ? ` <button type="button" class="erp-b sm" data-me="nurse" data-id="${v.id}">I'm the nurse</button>` : ""}</div>`;
 }
 
+/* ---------------- protocols (Phase 3) ---------------- */
+
+/** "ECG 4 min left" / "ECG 3 min late". */
+function dueText(n) {
+    if (!n) return "";
+    return n.remaining > 0 ? `${esc(shortStep(n.label))} in ${mins(n.remaining)}` : `${esc(shortStep(n.label))} ${mins(-n.remaining)} late`;
+}
+const shortStep = (l) => String(l).split(/ (?:—|done|sent|measured|checked|taken|given|recorded|scored|started|read by)/)[0];
+
+function protocolChips(v) {
+    const list = (v.protocols || []).filter((p) => p.status !== "stopped");
+    if (!list.length) return "";
+    return `<div class="erp-pr">${list.map((p) => {
+        const cls = p.status === "complete" ? "done" : p.late ? "late" : "";
+        const txt = p.status === "complete" ? "done ✓" : p.late ? `${p.late} late · ${dueText(p.next)}` : p.next ? dueText(p.next) : `${p.done}/${p.total}`;
+        return `<button type="button" class="${cls}" data-proto="${v.id}" aria-label="${esc(p.label)} protocol: ${esc(txt)}. Open the checklist">⏱ ${esc(p.label)} · ${txt}</button>`;
+    }).join("")}</div>`;
+}
+
 function actions(v) {
     const unk = v.patient.registration_status === "unidentified";
     return `<div class="acts">
+        ${data.can_triage ? `<button type="button" class="erp-b sm" data-proto="${v.id}">Protocols…</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm ${v.status === "waiting" ? "go" : ""}" data-triage="${v.id}">${v.status === "waiting" ? "Triage" : "Re-triage"}</button>` : ""}
         ${data.can_assign ? `<button type="button" class="erp-b sm" data-assign="${v.id}">Bed / staff…</button>` : ""}
         ${unk && data.can_register ? `<button type="button" class="erp-b sm blue" data-identify="${v.id}">Identify</button>` : ""}
@@ -245,7 +306,7 @@ function bedCard(b, v) {
         ${v.triage?.chief_complaint || v.chief_complaint ? `<div>${esc(v.triage?.chief_complaint || v.chief_complaint)}</div>` : ""}
         ${v.allergies?.length ? `<div style="font-size:12px;color:#b91c1c;font-weight:700">Allergies: ${esc(v.allergies.map((a) => a.name).join(", "))}</div>` : ""}
         <div>${waitText(v.wait)} <span class="muted">· in ER ${mins(v.minutes_in_er)}</span></div>
-        ${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
+        ${protocolChips(v)}${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
 }
 
 function render(root) {
@@ -267,13 +328,14 @@ function render(root) {
             ${[1, 2, 3, 4, 5].map((a) => `<div class="erp-count" role="listitem"><b>${c.by_acuity[a]}</b>${lvl(a)}</div>`).join("")}
             <div class="erp-count" role="listitem"><b>${free}</b>free bed${free === 1 ? "" : "s"} of ${data.beds.length}</div>
             ${c.unidentified ? `<div class="erp-count warn" role="listitem"><b>${c.unidentified}</b>unidentified</div>` : ""}
+            ${c.protocols ? `<div class="erp-count ${c.protocol_late ? "bad" : ""}" role="listitem"><b>${c.protocols}</b>protocol${c.protocols === 1 ? "" : "s"} running${c.protocol_late ? ` · ${c.protocol_late} step${c.protocol_late === 1 ? "" : "s"} late` : ""}</div>` : ""}
         </div>`;
     const wrTable = (list, title) => `<h2>${title} (${list.length})</h2>
         ${list.length ? `<div class="erp-wrap"><table><thead><tr><th>Arrived</th><th>Patient</th><th>Level</th><th>Complaint</th><th>Waiting</th><th>Care team</th>${view === "list" ? "<th>Bed</th><th>Vital signs</th>" : ""}<th></th></tr></thead><tbody>
             ${list.map((v) => `<tr data-row="${v.id}"><td class="nw">${esc(hm(v.arrived_at))}<div class="muted">${esc(v.arrival_mode)}</div></td>
                 <td>${patientCell(v)}</td><td>${v.acuity ? lvl(v.acuity) : `<span class="er-tag">Not triaged</span>`}</td>
                 <td>${esc(v.triage?.chief_complaint || v.chief_complaint || "—")}${v.triage?.undertriage_reason ? `<div class="muted" style="font-size:12px">Level kept: ${esc(v.triage.undertriage_reason)}</div>` : ""}</td>
-                <td>${waitText(v.wait)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
+                <td>${waitText(v.wait)}${protocolChips(v)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
                 ${view === "list" ? `<td>${esc(v.bed_name || "Waiting room")}</td><td>${vitals(v.triage)}</td>` : ""}<td>${actions(v)}</td></tr>`).join("")}</tbody></table></div>`
             : `<div class="erp-empty">Nobody here.</div>`}`;
     const board = `
@@ -326,6 +388,11 @@ function settingsHtml(st) {
             ${[1, 2, 3, 4, 5].map((a) => `<div><label for="ert${a}">Doctor, level ${a}</label><input id="ert${a}" type="number" min="0" max="1440" value="${st.targets[a]}" style="width:80px"></div>`).join("")}
             <button type="button" class="erp-b" data-targets>Save targets</button></div>
         <div class="muted" style="font-size:12px">Past the target, the ER team gets an alert (level 1: critical; 2–3: urgent; 4–5: information). 0 = at once.</div>
+        <h3>Protocol timers (minutes)</h3>
+        <div class="row">${Object.entries(st.protocols).map(([k, p]) => Object.entries(p.steps).filter(([, s]) => s.target !== null).map(([sk, s]) =>
+            `<div><label for="erpt_${k}_${sk}">${esc(p.label)}: ${esc(shortStep(s.label))}</label><input id="erpt_${k}_${sk}" data-pt="${k}" data-ps="${sk}" type="number" min="1" max="1440" value="${s.target}" style="width:80px" title="Built-in: ${s.default_target} min"></div>`).join("")).join("")}
+            <button type="button" class="erp-b" data-ptsave>Save protocol timers</button></div>
+        <div class="muted" style="font-size:12px">Chest pain and stroke count from arrival; sepsis from when it is recognised (triage, or when started later). A step past its time alerts the patient's doctor (no doctor yet: the ER team's doctors, otherwise all doctors) and nurse.</div>
         <h3>ER team <span class="muted" style="font-weight:400">(gets the waiting-time alerts; nobody on it: charge nurses, and all doctors for patients waiting for one)</span></h3>
         ${st.team.length ? `<div class="erp-wrap"><table><tbody>${st.team.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${esc(String(t.role || "").replace("_", " "))}</td>
             <td style="text-align:right"><button type="button" class="erp-b sm" data-team="${t.user_id}" data-on="0">Remove</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="erp-empty">Nobody on the ER team.</div>`}
@@ -350,6 +417,8 @@ async function onBoardClick(e) {
     if (tri) return openTriage(Number(tri.dataset.triage));
     const as = t.closest("[data-assign]");
     if (as) return openAssign(Number(as.dataset.assign));
+    const pr = t.closest("[data-proto]");
+    if (pr) return openProtocols(Number(pr.dataset.proto));
     const me = t.closest("[data-me]");
     if (me) {
         me.disabled = true;
@@ -404,6 +473,11 @@ async function onBoardClick(e) {
         const prefix = document.getElementById("erbPrefix").value.trim();
         if (!prefix) return document.getElementById("erbPrefix").focus();
         return after(await post("/er/beds", { prefix, count: Number(document.getElementById("erbCount").value || 1), area: document.getElementById("erbArea").value }));
+    }
+    if (t.closest("[data-ptsave]")) {
+        const targets = {};
+        document.querySelectorAll("#erBoard [data-pt]").forEach((i) => ((targets[i.dataset.pt] ??= {})[i.dataset.ps] = i.value.trim()));
+        return after(await post("/er/protocol-targets", { targets }));
     }
     if (t.closest("[data-targets]")) return after(await post("/er/targets", { targets: [0, 1, 2, 3, 4, 5].map((a) => document.getElementById(`ert${a}`).value.trim()) }));
     const tm = t.closest("[data-team]");
@@ -619,6 +693,7 @@ export async function openTriage(id) {
     const o = data.options;
     const prev = v.triage;
     const ageMonths = (p.age ?? 30) * 12;
+    const running = new Set((v.protocols || []).filter((x) => x.status !== "stopped").map((x) => x.protocol));
     const num = (name, label, attrs = "") => `<div><label for="erT_${name}">${label}</label><input type="number" id="erT_${name}" name="${name}" ${attrs} inputmode="decimal"></div>`;
     const m = modal(`${prev ? "Re-triage" : "Triage"} — ${esc(p.name)}`, `${esc(v.visit_no)} · ${ageSex(p)} · arrived ${esc(hm(v.arrived_at))} (${esc(v.arrival_mode)})`, `
         ${v.allergies.length ? `<div class="erx-note bad"><b>Allergies on the chart:</b> ${esc(v.allergies.map((a) => a.name + (a.reaction ? ` (${a.reaction})` : "")).join("; "))}</div>`
@@ -637,6 +712,11 @@ export async function openTriage(id) {
             ${p.sex === "female" ? `<div><label for="erT_preg">Pregnant</label><select id="erT_preg" name="pregnant"><option value="">—</option><option value="no">No</option><option value="yes">Yes</option><option value="unknown">Unknown</option></select></div>` : ""}
         </div></div>
         <div data-danger hidden class="erx-note warn" role="status"></div>
+        <div><span class="lbl" id="erProtoL">Protocols <span style="font-weight:400">(ticked from the complaint and vital signs — untick if they don't apply)</span></span>
+            <div class="erx-protos" role="group" aria-labelledby="erProtoL">${Object.entries(o.protocols).map(([k, pr]) => {
+                const on = running.has(k);
+                return `<label><input type="checkbox" name="proto" value="${k}" ${on ? "checked disabled" : ""}><span>${esc(pr.label)}${on ? " — running" : ""}<small data-why-${k}>${esc(pr.about)}</small></span></label>`;
+            }).join("")}</div></div>
         <div data-why hidden><label for="erT_why">Why level <span data-lv></span> and not 2?</label><input type="text" id="erT_why" name="undertriage_reason" maxlength="255" placeholder="e.g. HR 110 from fever, settled; seen by ER doctor" autocomplete="off"></div>
         <div class="erx-grid two">
             <div><label for="erT_al">Allergies (as told)</label><input type="text" id="erT_al" name="allergies_note" maxlength="255" placeholder="e.g. penicillin — rash; none known" autocomplete="off"></div>
@@ -651,15 +731,25 @@ export async function openTriage(id) {
         box.innerHTML = d.length ? `<b>Danger-zone vital signs:</b> ${esc(d.join(", "))} — consider level 2.` : "";
         m.$("[data-why]").hidden = !(d.length && a >= 3);
         m.$("[data-lv]").textContent = a || "";
+        const sug = suggestProtocols(val("chief_complaint"), { temperature_c: val("temperature_c"), heart_rate: val("heart_rate"), resp_rate: val("resp_rate"), bp_systolic: val("bp_systolic"), gcs: val("gcs") });
+        m.ov.querySelectorAll('input[name="proto"]:not(:disabled)').forEach((cb) => {
+            if (!cb.dataset.touched) cb.checked = !!sug[cb.value];
+            const why = m.$(`[data-why-${cb.value}]`);
+            why.textContent = sug[cb.value] ? `Suggested: ${sug[cb.value]}.` : o.protocols[cb.value].about;
+        });
     };
+    // A box the user ticked or unticked is theirs: the suggestion no longer changes it.
+    m.ov.querySelectorAll('input[name="proto"]').forEach((cb) => ["input", "change"].forEach((ev) => cb.addEventListener(ev, () => (cb.dataset.touched = "1"))));
     m.ov.addEventListener("input", check);
     m.ov.addEventListener("change", check);
+    check();
     (m.ov.querySelector('input[name="acuity"]:checked') || m.ov.querySelector('input[name="acuity"]')).focus();
     m.$("[data-save]").onclick = async (ev) => {
         const body = { id };
         ["acuity", "chief_complaint", "bp_systolic", "bp_diastolic", "heart_rate", "resp_rate", "spo2", "temperature_c", "pain_score", "gcs", "blood_glucose", "weight_kg", "pregnant",
             "allergies_note", "notes", "undertriage_reason"].forEach((k) => (body[k] = k === "acuity" ? (m.ov.querySelector('input[name="acuity"]:checked')?.value || "") : val(k)));
         body.on_oxygen = m.ov.querySelector('[name="on_oxygen"]').checked ? 1 : 0;
+        body.protocols = [...m.ov.querySelectorAll('input[name="proto"]:checked:not(:disabled)')].map((x) => x.value);
         if (!body.acuity) return m.err("Choose the acuity level (1–5).", { acuity: 1 });
         ev.target.disabled = true;
         const res = await post("/er/triage", body);
@@ -723,4 +813,141 @@ export async function openIdentify(id) {
         showToast(res.message, "success", 6000);
         load();
     };
+}
+
+/* ---------------- protocols: suggestion (same rules as the server) ---------------- */
+
+function suggestProtocols(complaint, vs) {
+    const P = data.options.protocols;
+    const c = ` ${String(complaint || "").toLowerCase()} `;
+    const hit = (k) => P[k].keywords.find((w) => new RegExp(`(?<![a-z])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z])`).test(c));
+    const out = {};
+    ["chest_pain", "stroke"].forEach((k) => {
+        const w = hit(k);
+        if (w) out[k] = `“${w}” in the complaint`;
+    });
+    const n = (x) => (x === "" || x === null || x === undefined ? null : Number(x));
+    const [t, hr, rr, sbp, gcs] = [n(vs.temperature_c), n(vs.heart_rate), n(vs.resp_rate), n(vs.bp_systolic), n(vs.gcs)];
+    const word = hit("sepsis");
+    const infection = !!word || (t !== null && (t >= 38.3 || t < 36));
+    const sirs = (t !== null && (t > 38 || t < 36)) + (hr !== null && hr > 90) + (rr !== null && rr > 20);
+    const qsofa = (rr !== null && rr >= 22) + (sbp !== null && sbp <= 100) + (gcs !== null && gcs < 15);
+    if (infection && (sirs >= 2 || qsofa >= 2)) out.sepsis = `${word ? `“${word}”` : `temperature ${t}°`}${qsofa >= 2 ? ` and qSOFA ${qsofa}` : ` and ${sirs} SIRS signs`}`;
+    return out;
+}
+
+/* ---------------- protocols: the checklist dialog ---------------- */
+
+export async function openProtocols(visitId) {
+    const r = await api(`/er/show?id=${visitId}`).catch(() => null);
+    if (!r?.success) return showToast(r?.message || "Could not open the visit.", "error");
+    let v = r.data;
+    let changed = false;
+    const can = data.can_triage;
+    const open = ["waiting", "triaged"].includes(v.status);
+    const m = modal(`Protocols — ${esc(v.patient.name)}`, `${esc(v.visit_no)} · ${ageSex(v.patient)} · arrived ${esc(hm(v.arrived_at))}${v.acuity ? ` · level ${v.acuity}` : ""}`, "", `<button type="button" class="erp-b" data-x>Close</button>`);
+    m.ov.querySelector(".erx").classList.add("wide");
+    const body = m.$(".erx-body");
+    const closeBtn = m.ov.querySelectorAll("[data-x]");
+    closeBtn.forEach((b) => b.addEventListener("click", () => changed && load()));
+
+    const stepMeta = (p, s) => {
+        const due = s.target !== null ? `target ${s.target === 0 ? "at once" : `${s.target} min`} (by ${esc(hm(s.due_at))})` : "";
+        if (s.status === "done") {
+            const who = s.auto ? "filled in automatically" : s.recorded_by_name ? `by ${esc(s.recorded_by_name)}` : "";
+            // Last known well: the time (with the date when it isn't the day it was recorded).
+            const lkw = (x) => (x.slice(0, 10) === String(s.done_at).slice(0, 10) ? `last known well ${hm(x + ":00")}` : `last known well ${x.slice(0, 10)} ${hm(x + ":00")}`);
+            const val = s.value ? ` · <b>${esc(s.input === "lkw" && s.value !== "Unknown" ? lkw(s.value) : s.value)}${s.number ? ` ${esc(s.number.unit)}` : ""}</b>` : "";
+            const win = s.window_end ? ` · thrombolysis window ${s.window_left > 0 ? `until ${esc(hm(s.window_end))} (${mins(s.window_left)} left)` : `<span class="bad">passed at ${esc(hm(s.window_end))}</span>`}` : "";
+            return `Done ${esc(hm(s.done_at))}${s.target !== null ? ` — ${s.done_late ? `<span class="bad">${mins(s.minutes)}, over the ${s.target} min target</span>` : `${mins(s.minutes)}, within ${s.target} min`}` : ""}${val} · ${who}${win}`;
+        }
+        if (s.status === "na") return `${esc(s.na || "Not needed")}${s.recorded_by_name ? ` · ${esc(s.recorded_by_name)}` : ""}`;
+        if (s.late) return `<span class="bad">${mins(-s.remaining)} late</span> — ${due}${s.alerted ? " · doctor alerted" : ""}`;
+        if (s.remaining !== null && p.status === "active" && open) return `${mins(s.remaining)} left — ${due}`;
+        return due || "No time target";
+    };
+    const ctl = (p, s) => {
+        const id = `${p.id}_${s.key}`;
+        if (!can || p.status === "stopped") return "";
+        if (s.status !== "pending") return `<div class="erq-ctl"><button type="button" class="erp-b sm" data-undo="${p.id}" data-step="${s.key}">Undo</button></div>`;
+        const time = s.input === "lkw" ? "" : `<label class="muted" for="erqT_${id}" style="font-size:12px">at</label><input type="time" id="erqT_${id}" data-time aria-label="Time it was done (blank = now)" title="Blank = now">`;
+        let main;
+        if (s.result) main = s.result.map((x) => `<button type="button" class="erp-b sm blue" data-done="${p.id}" data-step="${s.key}" data-value="${esc(x)}">${esc(x)}</button>`).join("");
+        else if (s.number) main = `<input type="number" data-val min="${s.number.min}" max="${s.number.max}" step="${s.number.decimals ? "0.1" : "1"}" aria-label="${esc(s.label)} (${esc(s.number.unit)})" placeholder="${esc(s.number.unit)}"><button type="button" class="erp-b sm blue" data-done="${p.id}" data-step="${s.key}">Done</button>`;
+        else if (s.input === "lkw") main = `<input type="datetime-local" data-val aria-label="Last known well"><button type="button" class="erp-b sm blue" data-done="${p.id}" data-step="${s.key}">Save</button><button type="button" class="erp-b sm" data-done="${p.id}" data-step="${s.key}" data-value="unknown">Unknown</button>`;
+        else main = `<button type="button" class="erp-b sm blue" data-done="${p.id}" data-step="${s.key}">Done</button>`;
+        return `<div class="erq-ctl">${main}${time}${s.na ? `<button type="button" class="erp-b sm" data-na="${p.id}" data-step="${s.key}" title="${esc(s.na)}">${esc(s.na.split(" (")[0])}</button>` : ""}</div>`;
+    };
+    const card = (p) => `<section class="erq" data-p="${p.id}" aria-label="${esc(p.label)} protocol">
+        <div class="erq-h"><h3>⏱ ${esc(p.label)} ${p.status === "complete" ? `<span class="er-tag">Complete</span>` : p.status === "stopped" ? `<span class="er-tag">Stopped</span>` : p.late ? `<span class="er-tag unk">${p.late} late</span>` : ""}</h3>
+            <span class="erq-meta">Started ${esc(hm(p.started_at))}${p.started_via === "triage" ? " at triage" : ""}${p.started_by_name ? ` by ${esc(p.started_by_name)}` : ""} · clock from ${p.clock === "arrival" ? "arrival" : "recognition"} ${esc(hm(p.clock_at))}${p.status === "active" && open ? ` · ${mins(Math.max(0, p.elapsed))} so far` : ""}</span></div>
+        ${p.status === "stopped" ? `<div class="erq-about">Stopped ${esc(hm(p.stopped_at))}${p.stopped_by_name ? ` by ${esc(p.stopped_by_name)}` : ""}: ${esc(p.stop_reason)}</div>` : `<div class="erq-about">${esc(p.about)}</div>`}
+        <div style="margin-top:6px">${p.steps.map((s) => `<div class="erq-step ${s.status} ${s.late ? "late" : ""}">
+            <span class="erq-ico" aria-hidden="true">${s.status === "done" ? "✓" : s.status === "na" ? "–" : s.late ? "!" : ""}</span>
+            <div><div class="erq-lbl">${esc(s.label)}<span class="sr-only"> — ${s.status === "pending" ? (s.late ? "late" : "to do") : s.status === "done" ? "done" : "not needed"}</span></div>
+                <div class="erq-meta">${stepMeta(p, s)}</div>
+                ${s.hint && s.status === "pending" ? `<div class="erq-meta">${esc(s.hint)}</div>` : ""}
+                ${s.orders?.length ? `<div class="erq-meta">Orders: ${s.orders.map((o) => `${esc(o.name)} (${esc(o.status)})`).join(", ")}</div>` : ""}
+                ${ctl(p, s)}</div></div>`).join("")}</div>
+        ${can && p.status !== "stopped" ? `<div class="erq-foot"><input type="text" maxlength="255" data-reason aria-label="Why stop the ${esc(p.label)} protocol" placeholder="Stop: why (e.g. ruled out, other diagnosis)"><button type="button" class="erp-b sm" data-stop="${p.id}">Stop protocol</button></div>` : ""}
+    </section>`;
+    const render = () => {
+        const live = v.protocols.filter((p) => p.status !== "stopped");
+        const stopped = v.protocols.filter((p) => p.status === "stopped");
+        const running = new Set(live.map((p) => p.protocol));
+        const startable = Object.entries(data.options.protocols).filter(([k]) => !running.has(k));
+        body.innerHTML = `${!open ? `<div class="erx-note">This ER visit is closed.</div>` : ""}
+            ${live.length ? live.map(card).join("") : `<div class="erp-empty">No protocol running for this patient.</div>`}
+            ${can && open && startable.length ? `<div><span class="lbl">Start a protocol</span><div class="erp-inline" style="margin-top:0">${startable.map(([k, pr]) => `<button type="button" class="erp-b" data-start="${k}" title="${esc(pr.about)}">Start ${esc(pr.label)}</button>`).join("")}</div></div>` : ""}
+            ${stopped.length ? `<details><summary style="cursor:pointer;font-weight:600">Stopped (${stopped.length})</summary><div style="display:grid;gap:10px;margin-top:8px">${stopped.map(card).join("")}</div></details>` : ""}`;
+    };
+    const run = async (btn, path, payload) => {
+        btn.disabled = true;
+        const res = await post(path, payload);
+        btn.disabled = false;
+        if (!res?.success) {
+            m.err(res?.message || "Could not save.");
+            return false;
+        }
+        m.err("");
+        changed = true;
+        v = res.data;
+        const focusKey = btn.dataset.step ? `[data-p="${btn.dataset.done || btn.dataset.na || btn.dataset.undo}"]` : null;
+        render();
+        showToast(res.message, "success");
+        // Next: the first step still to do in the same protocol.
+        (focusKey && (body.querySelector(`${focusKey} .erq-step.pending button, ${focusKey} .erq-step.pending input`) || body.querySelector(`${focusKey} .erq-step button`))
+            || body.querySelector("button"))?.focus?.();
+        return true;
+    };
+    body.addEventListener("click", async (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        const row = b.closest(".erq-step");
+        const time = row?.querySelector("[data-time]")?.value || "";
+        if (b.dataset.start) return run(b, "/er/protocol/start", { id: v.id, protocol: b.dataset.start });
+        if (b.dataset.done) {
+            let value = b.dataset.value ?? row.querySelector("[data-val]")?.value?.trim() ?? "";
+            const inp = row.querySelector("[data-val]");
+            if (b.dataset.value === undefined && inp && !value) {
+                inp.setAttribute("aria-invalid", "true");
+                inp.focus();
+                return m.err("Enter the value first.");
+            }
+            return run(b, "/er/protocol/step", { protocol_id: Number(b.dataset.done), step: b.dataset.step, action: "done", value, time });
+        }
+        if (b.dataset.na) return run(b, "/er/protocol/step", { protocol_id: Number(b.dataset.na), step: b.dataset.step, action: "na", time });
+        if (b.dataset.undo) return run(b, "/er/protocol/step", { protocol_id: Number(b.dataset.undo), step: b.dataset.step, action: "undo" });
+        if (b.dataset.stop) {
+            const reason = b.closest(".erq-foot").querySelector("[data-reason]");
+            if (!reason.value.trim()) {
+                reason.setAttribute("aria-invalid", "true");
+                reason.focus();
+                return m.err("Say why the protocol is stopped.");
+            }
+            return run(b, "/er/protocol/stop", { protocol_id: Number(b.dataset.stop), reason: reason.value.trim() });
+        }
+    });
+    render();
+    (body.querySelector(".erq-step.late button, .erq-step.pending button") || body.querySelector("button") || m.$("[data-x]")).focus();
 }

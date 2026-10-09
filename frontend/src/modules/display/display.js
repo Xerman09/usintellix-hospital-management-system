@@ -662,7 +662,7 @@ function renderEr(d) {
             <td class="ns-init">${esc(p.initials)}<small>${p.age ?? "?"} ${esc(p.sex || "")}</small></td>
             <td class="c"><span class="er-lv l${p.acuity || 0}">${p.acuity || "—"}</span></td>
             <td class="c">${dur(p.minutes_in_er)}</td>
-            <td class="ns-room">${wait(p.wait)}</td>
+            <td class="ns-room">${wait(p.wait)}${p.protocol_late ? `<small><span class="ns-b red">⏱ ${p.protocol_late} late</span></small>` : ""}</td>
             <td class="ns-nurse">${esc(p.doctor || "—")}</td><td class="ns-nurse">${esc(p.nurse || "—")}</td>
             <td class="c">${orders(p.orders, "lab")}</td><td class="c">${orders(p.orders, "imaging")}</td></tr>`;
     };

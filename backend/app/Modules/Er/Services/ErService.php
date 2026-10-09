@@ -19,6 +19,8 @@ use PDO;
  *     temporary chart into the patient's existing chart (everything on it moves over).
  *   * close() -- left without being seen, or registered in error.
  * Phase 2 (the tracking board: beds, doctor, nurse, waiting times and alerts, labs / imaging, the TV) is ErBoardService.
+ * Phase 3 (chest pain, stroke and sepsis protocols: timers, checklists, late alerts) is ErProtocolService;
+ * triage starts the ones asked for (no list sent: the ones the complaint and vital signs suggest).
  */
 class ErService
 {
@@ -54,7 +56,7 @@ class ErService
         )->fetchAll(PDO::FETCH_COLUMN);
         $visits = array_map(fn($id) => $this->show((int) $id), $open);
         $counts = ['waiting' => 0, 'triaged' => 0, 'by_acuity' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0], 'unidentified' => 0, 'over_target' => 0,
-            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0];
+            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0, 'protocols' => 0, 'protocol_late' => 0];
         foreach ($visits as $v) {
             $counts[$v['status']]++;
             if ($v['acuity']) {
@@ -73,6 +75,12 @@ class ErService
             if ($v['er_bed_id']) {
                 $counts['in_beds']++;
             }
+            foreach ($v['protocols'] as $p) {
+                if ($p['status'] === 'active') {
+                    $counts['protocols']++;
+                    $counts['protocol_late'] += $p['late'];
+                }
+            }
         }
         return ['visits' => $visits, 'closed' => array_map(fn($id) => $this->show((int) $id), $closed), 'counts' => $counts,
             'beds' => (new ErBoardService())->beds(),
@@ -82,7 +90,7 @@ class ErService
     public static function options(): array
     {
         return ['arrival_modes' => self::ARRIVAL_MODES, 'acuity' => self::ACUITY, 'triage_target_min' => ErBoardService::targets()[0],
-            'targets' => ErBoardService::targets(), 'areas' => ErBoardService::AREAS];
+            'targets' => ErBoardService::targets(), 'areas' => ErBoardService::AREAS, 'protocols' => ErProtocolService::options()];
     }
 
     /** Find a chart: name, patient no. (and birth date "YYYY-MM-DD"). */
@@ -375,7 +383,19 @@ class ErService
             ->execute(['a' => $acuity, 'now' => $now, 'id' => $v['id']]);
         $retriage = $v['status'] === 'triaged';
         (new ErBoardService())->closeAlerts($db, (int) $v['id']);
-        return ['success' => true, 'message' => ($retriage ? 'Re-triaged' : 'Triaged') . ": level {$acuity} — " . self::ACUITY[$acuity]['label'] . '.', 'data' => $this->show((int) $v['id'])];
+        // Protocols: the ones ticked (no list sent: the ones the complaint and vital signs suggest). Already running ones stay as they are.
+        $wanted = array_key_exists('protocols', $data)
+            ? (is_array($data['protocols']) ? $data['protocols'] : array_filter(explode(',', (string) $data['protocols'])))
+            : array_keys(ErProtocolService::suggest($complaint, $vs));
+        $started = [];
+        $proto = new ErProtocolService();
+        foreach (array_unique(array_map('strval', $wanted)) as $k) {
+            if (isset(ErProtocolService::PROTOCOLS[$k]) && $proto->start((int) $v['id'], $k, $actor, 'triage', $now)['success']) {
+                $started[] = ErProtocolService::PROTOCOLS[$k]['label'];
+            }
+        }
+        return ['success' => true, 'message' => ($retriage ? 'Re-triaged' : 'Triaged') . ": level {$acuity} — " . self::ACUITY[$acuity]['label'] . '.'
+            . ($started ? ' Protocol started: ' . implode(', ', $started) . '.' : ''), 'data' => $this->show((int) $v['id'])];
     }
 
     /**
@@ -516,6 +536,7 @@ class ErService
         $db->prepare("UPDATE er_visits SET status = :s, closed_at = NOW(), closed_by = :u, close_reason = :n WHERE id = :id")
             ->execute(['s' => $reason, 'u' => (int) $actor['id'], 'n' => $note !== '' ? mb_substr($note, 0, 255) : ($reason === 'left' ? 'Left without being seen' : null), 'id' => $v['id']]);
         (new ErBoardService())->closeAlerts($db, (int) $v['id']);
+        (new ErProtocolService())->closeVisitAlerts($db, (int) $v['id']);
         return ['success' => true, 'message' => $reason === 'left' ? 'Marked as left without being seen.' : 'Registration cancelled.', 'data' => $this->show((int) $v['id'])];
     }
 
@@ -567,6 +588,8 @@ class ErService
             'patient' => $p ? self::patientShape($p) : null,
             'allergies' => $al->fetchAll(PDO::FETCH_ASSOC),
             'triage' => $triages[0] ?? null, 'triage_history' => array_slice($triages, 1),
+            // Phase 3: chest pain / stroke / sepsis protocols with their checklists and timers.
+            'protocols' => (new ErProtocolService())->forVisit($v),
         ];
     }
 

@@ -296,7 +296,7 @@ import { DisplayDevicesView, initDisplayDevices } from "../display-devices/displ
 import { CodeBlueView, initCodeBlue, initCodeBlueButton } from "../code-blue/code-blue.js?v=3";
 import { CodeBlueReportView, initCodeBlueReport } from "../code-blue/code-blue-report.js?v=2";
 import { CensusView, initCensus } from "../census/census.js?v=2";
-import { ErView, initEr } from "../er/er.js?v=2";
+import { ErView, initEr } from "../er/er.js?v=3";
 import { CensusReportView, initCensusReport } from "../census/census-report.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
