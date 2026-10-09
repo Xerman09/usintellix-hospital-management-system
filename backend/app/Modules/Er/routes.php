@@ -2,6 +2,8 @@
 
 use App\Modules\Er\Controllers\ErController;
 use App\Modules\Er\Services\ErBoardService;
+use App\Modules\Er\Services\ErDispositionService;
+use App\Modules\Er\Services\ErReportService;
 use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
 
@@ -32,3 +34,8 @@ $router->post('/er/protocol/start', [ErController::class, 'protocolStart'], $erP
 $router->post('/er/protocol/step', [ErController::class, 'protocolStep'], $erProto);
 $router->post('/er/protocol/stop', [ErController::class, 'protocolStop'], $erProto);
 $router->post('/er/protocol-targets', [ErController::class, 'protocolTargets'], $erAdmin);
+// Phase 4: disposition (home, admit -> Inpatient Admissions + bed, transfer, OR -> Surgery Requests, died) and the ER report.
+$router->get('/er/disposition/options', [ErController::class, 'dispositionOptions'], [AuthMiddleware::class, [RoleMiddleware::class, ErDispositionService::BED_ROLES]]);
+$router->post('/er/disposition', [ErController::class, 'disposition'], [AuthMiddleware::class, [RoleMiddleware::class, ErDispositionService::DECIDE_ROLES]]);
+$router->post('/er/admit-bed', [ErController::class, 'admitToBed'], [AuthMiddleware::class, [RoleMiddleware::class, ErDispositionService::BED_ROLES]]);
+$router->get('/er/report', [ErController::class, 'report'], [AuthMiddleware::class, [RoleMiddleware::class, ErReportService::ROLES]]);

@@ -56,7 +56,7 @@ import {
 } from "../patient-surgeries/patient-surgeries.service.js";
 import { fetchSurgeries } from "../surgeries/surgeries.service.js";
 import { fetchPatientSurgeries as fetchSurgeryDashboardData } from "../surgery-requests/surgery-requests.service.js?v=1";
-import { openSurgeryRequestForm, openSurgeryRequest, ensureRoot as ensureSurgeryRequestUi, statusBadge as surgeryStatusBadge, priorityBadge as surgeryPriorityBadge } from "../surgery-requests/surgery-request-panel.js?v=1";
+import { openSurgeryRequestForm, openSurgeryRequest, ensureRoot as ensureSurgeryRequestUi, statusBadge as surgeryStatusBadge, priorityBadge as surgeryPriorityBadge } from "../surgery-requests/surgery-request-panel.js?v=2";
 import {
     fetchPatientDentalIssues,
     addPatientDentalIssue,

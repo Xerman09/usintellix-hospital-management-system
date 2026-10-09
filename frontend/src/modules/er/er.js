@@ -1,6 +1,7 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
+import { openSurgeryRequestForm } from "../surgery-requests/surgery-request-panel.js?v=2";
 
 /*
  * ER (module 12, Phase 1; tab "er"): the ER board, quick registration and triage.
@@ -15,6 +16,9 @@ import { getUser } from "../../core/session.js";
  * Phase 3, protocols: chest pain, stroke, sepsis -- started at triage (ticked from the complaint and
  * vital signs) or from the board; a timed checklist per patient (Protocols dialog), late steps alert the
  * doctor. Admin: the step targets.
+ * Phase 4, disposition (doctor): home, admit (Inpatient Admissions + a ward bed -- or, no bed free,
+ * the patient waits in the ER until "Admit to bed"), transfer, OR (a surgery request), died. The ER
+ * report is er-report.js.
  */
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -132,6 +136,9 @@ const CSS = `
 .erp-count.bad { border-color: #fca5a5; background: #fef2f2; color: #7f1d1d; }
 :root[data-theme="dark"] .erp-count.bad { background: #450a0a; color: #fecaca; border-color: #7f1d1d; }
 .erx.wide { max-width: 860px; }
+.erp-boarding { border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; border-radius: 8px; padding: 5px 8px; font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+:root[data-theme="dark"] .erp-boarding { background: #172554; color: #bfdbfe; border-color: #1e40af; }
+.erx [data-k][hidden] { display: none; }
 .erq { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
 .erq-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: baseline; padding: 10px 12px; background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); }
 .erq-h h3 { margin: 0; font-size: 15px; }
@@ -286,6 +293,7 @@ function actions(v) {
         ${data.can_triage ? `<button type="button" class="erp-b sm" data-proto="${v.id}">Protocols…</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm ${v.status === "waiting" ? "go" : ""}" data-triage="${v.id}">${v.status === "waiting" ? "Triage" : "Re-triage"}</button>` : ""}
         ${data.can_assign ? `<button type="button" class="erp-b sm" data-assign="${v.id}">Bed / staff…</button>` : ""}
+        ${data.can_dispose && v.status === "triaged" ? `<button type="button" class="erp-b sm blue" data-dispo="${v.id}">${v.disposition?.boarding ? "Change disposition…" : "Disposition…"}</button>` : ""}
         ${unk && data.can_register ? `<button type="button" class="erp-b sm blue" data-identify="${v.id}">Identify</button>` : ""}
         <button type="button" class="erp-b sm" data-chart="${v.patient.id}">Chart</button>
         ${data.can_register ? `<button type="button" class="erp-b sm" data-close="${v.id}" aria-label="Close ${esc(v.visit_no)}">Close…</button>` : ""}
@@ -306,7 +314,7 @@ function bedCard(b, v) {
         ${v.triage?.chief_complaint || v.chief_complaint ? `<div>${esc(v.triage?.chief_complaint || v.chief_complaint)}</div>` : ""}
         ${v.allergies?.length ? `<div style="font-size:12px;color:#b91c1c;font-weight:700">Allergies: ${esc(v.allergies.map((a) => a.name).join(", "))}</div>` : ""}
         <div>${waitText(v.wait)} <span class="muted">· in ER ${mins(v.minutes_in_er)}</span></div>
-        ${protocolChips(v)}${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
+        ${boardingHtml(v)}${protocolChips(v)}${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
 }
 
 function render(root) {
@@ -321,6 +329,7 @@ function render(root) {
         <div class="erp-head"><div><h1>Emergency Room</h1><div class="erp-sub">Targets: triage ${T[0]} min; doctor by level — ${[1, 2, 3, 4, 5].map((a) => `${a}: ${T[a] === 0 ? "at once" : T[a] + " min"}`).join(", ")}. Refreshes every 20 seconds.</div></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <div class="erp-views" role="group" aria-label="View"><button type="button" data-view="board" aria-pressed="${view === "board"}">Board</button><button type="button" data-view="list" aria-pressed="${view === "list"}">List</button></div>
+                ${data.can_report ? `<button type="button" class="erp-b" data-report>ER report</button>` : ""}
                 ${data.can_register ? `<button type="button" class="erp-b go" data-register>+ Register patient</button>` : ""}</div></div>
         <div class="erp-counts" role="list">
             <div class="erp-count ${c.triage_over ? "warn" : ""}" role="listitem"><b>${c.waiting}</b>waiting for triage${c.triage_over ? ` · ${c.triage_over} over target` : ""}</div>
@@ -328,6 +337,7 @@ function render(root) {
             ${[1, 2, 3, 4, 5].map((a) => `<div class="erp-count" role="listitem"><b>${c.by_acuity[a]}</b>${lvl(a)}</div>`).join("")}
             <div class="erp-count" role="listitem"><b>${free}</b>free bed${free === 1 ? "" : "s"} of ${data.beds.length}</div>
             ${c.unidentified ? `<div class="erp-count warn" role="listitem"><b>${c.unidentified}</b>unidentified</div>` : ""}
+            ${c.boarding ? `<div class="erp-count warn" role="listitem"><b>${c.boarding}</b>admitted, waiting for a ward bed</div>` : ""}
             ${c.protocols ? `<div class="erp-count ${c.protocol_late ? "bad" : ""}" role="listitem"><b>${c.protocols}</b>protocol${c.protocols === 1 ? "" : "s"} running${c.protocol_late ? ` · ${c.protocol_late} step${c.protocol_late === 1 ? "" : "s"} late` : ""}</div>` : ""}
         </div>`;
     const wrTable = (list, title) => `<h2>${title} (${list.length})</h2>
@@ -335,7 +345,7 @@ function render(root) {
             ${list.map((v) => `<tr data-row="${v.id}"><td class="nw">${esc(hm(v.arrived_at))}<div class="muted">${esc(v.arrival_mode)}</div></td>
                 <td>${patientCell(v)}</td><td>${v.acuity ? lvl(v.acuity) : `<span class="er-tag">Not triaged</span>`}</td>
                 <td>${esc(v.triage?.chief_complaint || v.chief_complaint || "—")}${v.triage?.undertriage_reason ? `<div class="muted" style="font-size:12px">Level kept: ${esc(v.triage.undertriage_reason)}</div>` : ""}</td>
-                <td>${waitText(v.wait)}${protocolChips(v)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
+                <td>${waitText(v.wait)}${boardingHtml(v)}${protocolChips(v)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
                 ${view === "list" ? `<td>${esc(v.bed_name || "Waiting room")}</td><td>${vitals(v.triage)}</td>` : ""}<td>${actions(v)}</td></tr>`).join("")}</tbody></table></div>`
             : `<div class="erp-empty">Nobody here.</div>`}`;
     const board = `
@@ -345,9 +355,9 @@ function render(root) {
         ${wrTable(waitingRoom, "Waiting room (no bed)")}`;
     root.innerHTML = head + (view === "board" ? board : wrTable(data.visits, "All patients in the ER"))
         + (data.closed.length ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Closed in the last 12 hours (${data.closed.length})</summary>
-            <div class="erp-wrap" style="margin-top:8px"><table><thead><tr><th>Arrived</th><th>Patient</th><th>Closed</th><th>Why</th></tr></thead><tbody>
-            ${data.closed.map((v) => `<tr><td class="nw">${esc(hm(v.arrived_at))} · ${esc(v.visit_no)}</td><td>${esc(v.patient.name)}</td><td class="nw">${esc(hm(v.closed_at))}</td>
-                <td>${v.status === "left" ? "Left without being seen" : "Registered in error"}${v.close_reason && v.status === "cancelled" ? ` — ${esc(v.close_reason)}` : ""}</td></tr>`).join("")}</tbody></table></div></details>` : "")
+            <div class="erp-wrap" style="margin-top:8px"><table><thead><tr><th>Arrived</th><th>Patient</th><th>Left the ER</th><th>Where to</th></tr></thead><tbody>
+            ${data.closed.map((v) => `<tr><td class="nw">${esc(hm(v.arrived_at))} · ${esc(v.visit_no)}</td><td>${esc(v.patient.name)}</td><td class="nw">${esc(hm(v.closed_at))} <span class="muted">(${mins(v.minutes_in_er)} in ER)</span></td>
+                <td>${dispositionText(v)}</td></tr>`).join("")}</tbody></table></div></details>` : "")
         + (data.settings ? settingsHtml(data.settings) : "");
     root.onclick = onBoardClick;
     root.querySelectorAll("[data-putin]").forEach((sel) => sel.addEventListener("change", async () => {
@@ -419,6 +429,11 @@ async function onBoardClick(e) {
     if (as) return openAssign(Number(as.dataset.assign));
     const pr = t.closest("[data-proto]");
     if (pr) return openProtocols(Number(pr.dataset.proto));
+    const dp = t.closest("[data-dispo]");
+    if (dp) return openDisposition(Number(dp.dataset.dispo));
+    const ab = t.closest("[data-admitbed]");
+    if (ab) return openAdmitBed(Number(ab.dataset.admitbed));
+    if (t.closest("[data-report]")) return window.__openDashboardTab?.("er_report", "ER Report");
     const me = t.closest("[data-me]");
     if (me) {
         me.disabled = true;
@@ -950,4 +965,150 @@ export async function openProtocols(visitId) {
     });
     render();
     (body.querySelector(".erq-step.late button, .erq-step.pending button") || body.querySelector("button") || m.$("[data-x]")).focus();
+}
+
+/* ---------------- disposition (Phase 4) ---------------- */
+
+/** "Admitted ADM-2026-0012, MED-W bed 4 — Pneumonia" etc. */
+function dispositionText(v) {
+    const d = v.disposition || {};
+    if (!d.kind) return v.status === "left" ? "Left without being seen" : v.status === "cancelled" ? `Registered in error${v.close_reason ? ` — ${esc(v.close_reason)}` : ""}` : "";
+    const dx = d.diagnosis ? ` — ${esc(d.diagnosis)}` : "";
+    switch (d.kind) {
+        case "home": return `Discharged home${dx}${d.follow_up ? ` · follow-up: ${esc(d.follow_up)}` : ""}`;
+        case "admit": return d.boarding ? `Admit to ${esc(d.admit_ward)} — waiting for a bed ${mins(d.boarding_minutes || 0)}${dx}`
+            : `Admitted ${esc(d.admission_number || "")}${d.admitted_bed ? `, ${esc(d.admitted_bed)}` : ""}${dx}`;
+        case "transfer": return `Transferred to ${esc(d.transfer_facility)}${dx}`;
+        case "or": return `To the OR — ${esc(d.surgery_request_number || "")}${dx}`;
+        case "died": return `Died in the ER at ${esc(hm(d.died_at))}`;
+        default: return "";
+    }
+}
+
+function boardingHtml(v) {
+    if (!v.disposition?.boarding) return "";
+    return `<div class="erp-boarding">🛏 ${dispositionText(v)}${data.can_bed ? ` <button type="button" class="erp-b sm blue" data-admitbed="${v.id}">Admit to bed…</button>` : ""}</div>`;
+}
+
+const bedOptions = (o, selected, wardFirst = null) => {
+    const wards = [...o.wards].sort((a, b) => (b.id === wardFirst) - (a.id === wardFirst));
+    return wards.filter((w) => o.beds.some((b) => b.ward_id === w.id)).map((w) => `<optgroup label="${esc(w.name)} (${w.free} free)">
+        ${o.beds.filter((b) => b.ward_id === w.id).map((b) => `<option value="${b.id}" ${b.id === selected ? "selected" : ""}>${esc(w.code)} bed ${esc(b.bed)} · ${esc(b.room)} · ${esc(b.type)}</option>`).join("")}</optgroup>`).join("");
+};
+
+/** preset: values to start from (after making a surgery request: {kind: "or", surgery_request_id, diagnosis, notes}). */
+export async function openDisposition(id, preset = {}) {
+    const [r, o] = await Promise.all([api(`/er/show?id=${id}`).catch(() => null), api(`/er/disposition/options?id=${id}`).catch(() => null)]);
+    if (!r?.success || !o?.success) return showToast(r?.message || o?.message || "Could not open the visit.", "error");
+    const v = r.data;
+    const opt = o.data;
+    const d = v.disposition || {};
+    const me = getUser() || {};
+    const kind0 = preset.kind || d.kind || "home";
+    const attending = d.attending_user_id || (["doctor", "clinician"].includes(me.role) ? Number(me.id) : v.doctor_user_id);
+    const canSr = ["admin", "doctor"].includes(me.role);
+    const m = modal(`Disposition — ${esc(v.patient.name)}`, `${esc(v.visit_no)} · ${ageSex(v.patient)}${v.acuity ? ` · level ${v.acuity}` : ""} · in the ER ${mins(v.minutes_in_er)}`, `
+        <div><span class="lbl" id="erDL">Where does the patient go?</span><div class="erx-seg" role="radiogroup" aria-labelledby="erDL">
+            ${Object.entries(data.options.dispositions).map(([k, l]) => `<label><input type="radio" name="disposition" value="${k}" ${k === kind0 ? "checked" : ""}> ${esc(l)}</label>`).join("")}</div></div>
+        <div data-k="home admit transfer or"><label for="erDDx">ER diagnosis</label><input type="text" id="erDDx" name="diagnosis" maxlength="255" autocomplete="off"
+            value="${esc(preset.diagnosis ?? d.diagnosis ?? "")}" placeholder="e.g. Community-acquired pneumonia"></div>
+        <div data-k="home"><label for="erDFu">Follow-up <span style="font-weight:400">(optional)</span></label><input type="text" id="erDFu" name="follow_up" maxlength="255" autocomplete="off" value="${esc(d.follow_up || "")}" placeholder="e.g. OPD Internal Medicine in 1 week; return if worse"></div>
+        <div data-k="admit" class="erx-grid two">
+            <div><label for="erDBed">Ward bed</label><select id="erDBed" name="bed_id"><option value="">No bed free yet — wait in the ER for one</option>${bedOptions(opt, preset.bed_id, d.admit_ward_id)}</select></div>
+            <div data-noward><label for="erDWard">Ward to wait for</label><select id="erDWard" name="ward_id"><option value="">Choose…</option>
+                ${opt.wards.map((w) => `<option value="${w.id}" ${w.id === d.admit_ward_id ? "selected" : ""}>${esc(w.name)} (${w.free} free)</option>`).join("")}</select></div>
+            <div><label for="erDType">Admission</label><select id="erDType" name="admission_type">${opt.admission_types.map((t) => `<option ${t === d.admission_type ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+            <div><label for="erDAtt">Attending doctor</label><select id="erDAtt" name="attending_user_id"><option value="">Choose…</option>
+                ${opt.doctors.map((x) => `<option value="${x.id}" ${Number(x.id) === Number(attending) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div>
+            <div><label for="erDIso">Isolation</label><select id="erDIso" name="isolation">${opt.isolation.map((t) => `<option ${t === (d.isolation || "Standard") ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+        </div>
+        <div data-k="admit" class="erx-note">The admission is made in Inpatient Admissions (source: Emergency Room). With no bed free, the patient stays on the ER board as “waiting for a bed” until someone admits them to one.</div>
+        <div data-k="transfer" class="erx-grid two">
+            <div><label for="erDFac">To which facility</label><input type="text" id="erDFac" name="facility" maxlength="150" autocomplete="off"></div>
+            <div><label for="erDWhy">Why</label><input type="text" id="erDWhy" name="reason" maxlength="255" autocomplete="off" placeholder="e.g. needs cardiac surgery; no ICU bed"></div>
+            <div><label for="erDMode">How</label><select id="erDMode" name="mode"><option value="">Choose…</option>${opt.transfer_modes.map((t) => `<option>${esc(t)}</option>`).join("")}</select></div>
+            <div><label for="erDAcc">Accepting doctor <span style="font-weight:400">(optional)</span></label><input type="text" id="erDAcc" name="accepting_doctor" maxlength="150" autocomplete="off"></div>
+        </div>
+        <div data-k="or"><span class="lbl" id="erDSrL">Surgery request</span>
+            ${opt.surgery_requests.length ? `<div class="erx-res" role="radiogroup" aria-labelledby="erDSrL">${opt.surgery_requests.map((x) => `<label><input type="radio" name="surgery_request_id" value="${x.id}" ${Number(x.id) === Number(preset.surgery_request_id) || opt.surgery_requests.length === 1 ? "checked" : ""}>
+                <span><b>${esc(x.request_number)}</b> ${esc(x.procedure_name)} <span class="muted">· ${esc(x.priority)} · ${esc(x.status)}</span></span></label>`).join("")}</div>`
+                : `<div class="erx-note">No open surgery request for this patient.</div>`}
+            ${canSr ? `<div class="erp-inline"><button type="button" class="erp-b sm" data-newsr>New surgery request…</button><span class="muted" style="font-size:12px">Opens the Surgery Requests form (Emergency priority); you come back here after saving.</span></div>`
+                : `<div class="muted" style="font-size:12px">A doctor makes the surgery request (Surgery Requests).</div>`}</div>
+        <div data-k="died"><label for="erDTime">Time of death</label><input type="time" id="erDTime" name="time" style="max-width:160px"></div>
+        <div><label for="erDNotes" data-noteslbl>Notes</label><textarea id="erDNotes" name="notes" maxlength="1000">${esc(preset.notes ?? d.notes ?? "")}</textarea></div>`,
+        `<button type="button" class="erp-b" data-x>Cancel</button><button type="button" class="erp-b blue" data-save>Save</button>`);
+    m.ov.querySelector(".erx").classList.add("wide");
+    const kind = () => m.ov.querySelector('input[name="disposition"]:checked').value;
+    const NOTES = { home: "Instructions for the patient", admit: "Notes for the ward", transfer: "Notes (condition, what was given)", or: "Notes", died: "Cause and notes" };
+    const SAVE = { home: "Discharge home", admit: "Admit", transfer: "Transfer", or: "To the OR", died: "Record death" };
+    const sync = () => {
+        const k = kind();
+        m.ov.querySelectorAll("[data-k]").forEach((s) => (s.hidden = !s.dataset.k.split(" ").includes(k)));
+        m.$("[data-noward]").hidden = !!m.$("#erDBed").value;
+        m.$("[data-noteslbl]").innerHTML = `${NOTES[k]} <span style="font-weight:400">(optional)</span>`;
+        m.$("[data-save]").textContent = k === "admit" && !m.$("#erDBed").value ? "Admit — wait for a bed" : SAVE[k];
+    };
+    m.ov.querySelectorAll('input[name="disposition"]').forEach((x) => x.addEventListener("change", sync));
+    m.$("#erDBed").addEventListener("change", sync);
+    sync();
+    (m.ov.querySelector('input[name="disposition"]:checked')).focus();
+    const val = (n) => m.ov.querySelector(`[name="${n}"]`)?.value.trim() ?? "";
+    const body = () => {
+        const k = kind();
+        const b = { id, disposition: k, diagnosis: val("diagnosis"), notes: val("notes") };
+        if (k === "home") b.follow_up = val("follow_up");
+        if (k === "admit") Object.assign(b, { bed_id: val("bed_id"), ward_id: val("bed_id") ? "" : val("ward_id"), admission_type: val("admission_type"), attending_user_id: val("attending_user_id"), isolation: val("isolation") });
+        if (k === "transfer") Object.assign(b, { facility: val("facility"), reason: val("reason"), mode: val("mode"), accepting_doctor: val("accepting_doctor") });
+        if (k === "or") b.surgery_request_id = m.ov.querySelector('input[name="surgery_request_id"]:checked')?.value || "";
+        if (k === "died") b.time = val("time");
+        return b;
+    };
+    m.$("[data-newsr]")?.addEventListener("click", () => {
+        const keep = { kind: "or", diagnosis: val("diagnosis"), notes: val("notes") };
+        m.close();
+        openSurgeryRequestForm({
+            patient: { id: v.patient.id, name: v.patient.name }, openDetail: false,
+            defaults: { priority: "Emergency / STAT", notes: `From the ER (${v.visit_no}).${keep.diagnosis ? ` ER diagnosis: ${keep.diagnosis}.` : ""}` },
+            onSaved: (res) => openDisposition(id, { ...keep, surgery_request_id: res?.data?.id }),
+        });
+    });
+    m.$("[data-save]").onclick = async (ev) => {
+        const b = body();
+        if (b.disposition === "died" && ev.target.dataset.sure !== "1") {
+            ev.target.dataset.sure = "1";
+            ev.target.textContent = "Press again to record the death";
+            return m.err("This closes the ER visit as died.");
+        }
+        ev.target.disabled = true;
+        const res = await post("/er/disposition", b);
+        ev.target.disabled = false;
+        if (!res?.success) return m.err(res?.message || "Could not save.", res?.errors);
+        m.close();
+        showToast(res.message, "success", 6000);
+        load();
+    };
+}
+
+export async function openAdmitBed(id) {
+    const [r, o] = await Promise.all([api(`/er/show?id=${id}`).catch(() => null), api(`/er/disposition/options?id=${id}`).catch(() => null)]);
+    if (!r?.success || !o?.success) return showToast(r?.message || o?.message || "Could not open the visit.", "error");
+    const v = r.data;
+    const d = v.disposition;
+    const m = modal(`Admit to bed — ${esc(v.patient.name)}`, `${esc(v.visit_no)} · admission decided ${esc(hm(d.at))}${d.by_name ? ` by ${esc(d.by_name)}` : ""} · waiting ${mins(d.boarding_minutes || 0)}`, `
+        <div class="erx-note">${esc(d.admit_ward || "")} · ${esc(d.admission_type || "")} · attending ${esc(d.attending || "")}${d.diagnosis ? ` · ${esc(d.diagnosis)}` : ""}</div>
+        ${o.data.beds.length ? `<div><label for="erABd">Ward bed</label><select id="erABd" name="bed_id"><option value="">Choose a free bed…</option>${bedOptions(o.data, null, d.admit_ward_id)}</select></div>`
+            : `<div class="erx-note warn">No ward bed is free right now.</div>`}`,
+        `<button type="button" class="erp-b" data-x>Cancel</button>${o.data.beds.length ? `<button type="button" class="erp-b blue" data-save>Admit</button>` : ""}`);
+    (m.$("#erABd") || m.$("[data-x]")).focus();
+    m.$("[data-save]")?.addEventListener("click", async (ev) => {
+        if (!m.$("#erABd").value) return m.err("Choose the bed.", { bed_id: 1 });
+        ev.target.disabled = true;
+        const res = await post("/er/admit-bed", { id, bed_id: m.$("#erABd").value });
+        ev.target.disabled = false;
+        if (!res?.success) return m.err(res?.message || "Could not save.", res?.errors);
+        m.close();
+        showToast(res.message, "success", 6000);
+        load();
+    });
 }

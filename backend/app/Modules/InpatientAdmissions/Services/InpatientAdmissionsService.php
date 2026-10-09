@@ -307,7 +307,9 @@ class InpatientAdmissionsService
     public function admitPatient(array $data, ?int $userId = null): array
     {
         $db = Database::connection();
-        $db->beginTransaction();
+        // Inside a caller's transaction (e.g. the ER's disposition) a savepoint stands in for our own.
+        $owns = !$db->inTransaction();
+        $owns ? $db->beginTransaction() : $db->exec('SAVEPOINT admit_patient');
 
         try {
             $bedId = (int) ($data['bed_id'] ?? 0);
@@ -420,11 +422,11 @@ class InpatientAdmissionsService
             ");
             $updBed->execute(['adm_id' => $newAdmId, 'bed_id' => $bedId]);
 
-            $db->commit();
+            $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT admit_patient');
 
             return $this->getAdmissionDetails($newAdmId);
         } catch (Exception $e) {
-            $db->rollBack();
+            $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT admit_patient');
             throw $e;
         }
     }

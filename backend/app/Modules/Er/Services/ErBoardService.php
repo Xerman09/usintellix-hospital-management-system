@@ -445,6 +445,8 @@ class ErBoardService
                 'wait' => $v['wait'], 'doctor' => $v['doctor_name'], 'nurse' => $v['nurse_name'], 'orders' => $v['orders'],
                 // Late protocol steps (a count only: the protocol would say what is wrong with the patient).
                 'protocol_late' => array_sum(array_map(fn($p) => $p['status'] === 'active' ? $p['late'] : 0, $v['protocols'])),
+                // Admitted, waiting for a ward bed: the ward and for how long.
+                'boarding' => $v['disposition']['boarding'] ? ['ward' => $v['disposition']['admit_ward'], 'minutes' => $v['disposition']['boarding_minutes']] : null,
             ];
             if ($v['er_bed_id']) {
                 $byBed[$v['er_bed_id']] = $row;

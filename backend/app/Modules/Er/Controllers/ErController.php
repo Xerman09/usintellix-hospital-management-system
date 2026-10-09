@@ -6,6 +6,8 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Er\Services\ErBoardService;
+use App\Modules\Er\Services\ErDispositionService;
+use App\Modules\Er\Services\ErReportService;
 use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
 
@@ -30,7 +32,9 @@ class ErController extends Controller
         }
         $this->success($this->service->board() + ['options' => ErService::options(),
             'can_register' => in_array($role, ErService::REGISTER_ROLES, true), 'can_triage' => in_array($role, ErService::TRIAGE_ROLES, true),
-            'can_assign' => in_array($role, ErBoardService::ASSIGN_ROLES, true), 'staff' => in_array($role, ErBoardService::ASSIGN_ROLES, true) ? $board->staffOptions() : [],
+            'can_assign' => in_array($role, ErBoardService::ASSIGN_ROLES, true),
+            'can_dispose' => in_array($role, ErDispositionService::DECIDE_ROLES, true), 'can_bed' => in_array($role, ErDispositionService::BED_ROLES, true),
+            'can_report' => in_array($role, ErReportService::ROLES, true), 'staff' => in_array($role, ErBoardService::ASSIGN_ROLES, true) ? $board->staffOptions() : [],
             'settings' => $role === 'admin' ? $board->settings() : null], 'Retrieved.');
     }
 
@@ -119,6 +123,36 @@ class ErController extends Controller
     public function protocolTargets(): void
     {
         $this->respond((new ErProtocolService())->saveTargets((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Query: id -- free ward beds, wards, doctors, the patient's surgery requests. */
+    public function dispositionOptions(): void
+    {
+        $o = (new ErDispositionService())->options((int) (new Request())->input('id'));
+        if ($o === null) {
+            $this->json(['success' => false, 'message' => 'ER visit not found.'], 404);
+            return;
+        }
+        $this->success($o, 'Retrieved.');
+    }
+
+    /** Body: id, disposition, diagnosis, notes?, and the fields of that disposition. */
+    public function disposition(): void
+    {
+        $this->respond((new ErDispositionService())->decide((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: id, bed_id -- a patient waiting for an inpatient bed gets one. */
+    public function admitToBed(): void
+    {
+        $this->respond((new ErDispositionService())->admitToBed((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Query: from, to (YYYY-MM-DD) */
+    public function report(): void
+    {
+        $r = new Request();
+        $this->success((new ErReportService())->report((string) ($r->input('from') ?? ''), (string) ($r->input('to') ?? '')), 'Retrieved.');
     }
 
     private function respond(array $r): void

@@ -1,7 +1,7 @@
 /**
  * Surgery request dialogs, shared by the patient chart (Surgeries widget)
  * and the Surgery Requests worklist:
- *   * openSurgeryRequestForm({ patient, encounterId?, requestId?, onSaved? })
+ *   * openSurgeryRequestForm({ patient, encounterId?, requestId?, onSaved?, defaults?, openDetail? })
  *   * openSurgeryRequest(id, { onChange? }) -- details + readiness checklist
  * The dialogs live in their own container on <body>.
  */
@@ -143,13 +143,15 @@ const canRequest = () => REQUEST_ROLES.includes(getUser()?.role);
  * Request form (new / edit)
  * ------------------------------------------------------------- */
 
-let form = { options: null, patient: null, request: null, onSaved: null, icdTimer: null };
+let form = { options: null, patient: null, request: null, onSaved: null, icdTimer: null, openDetail: true };
 
 /**
  * patient: {id, name}; encounterId: the visit it's requested from (optional);
  * requestId: edit that request instead; onSaved(result) after saving.
+ * defaults: starting values of a new request (e.g. {priority, notes} from the ER);
+ * openDetail: false = don't open the request after saving (the caller carries on, e.g. the ER).
  */
-export async function openSurgeryRequestForm({ patient, encounterId = null, requestId = null, onSaved = null }) {
+export async function openSurgeryRequestForm({ patient, encounterId = null, requestId = null, onSaved = null, defaults = {}, openDetail = true }) {
     ensureRoot();
     if (!canRequest()) {
         showToast("Only doctors can request surgery.", "error");
@@ -166,10 +168,10 @@ export async function openSurgeryRequestForm({ patient, encounterId = null, requ
 
     const o = await fetchSurgeryRequestOptions(patient.id);
     if (!o?.success) return showToast(o?.message || "Couldn't load the form.", "error");
-    form = { options: o.data, patient, request, onSaved, icdTimer: null };
+    form = { options: o.data, patient, request, onSaved, icdTimer: null, openDetail };
 
     const opts = o.data;
-    const r = request || {};
+    const r = request || defaults;
     $("srFormModal").innerHTML = `
         <div class="sr-head"><div><h2 id="srFormTitle">${request ? `Edit ${esc(request.request_number)}` : "Request surgery"}</h2>
             <div class="sr-sub">${esc(patient.name || "")}</div></div><button type="button" class="sr-x" data-sr-close="srFormOverlay" aria-label="Close">&times;</button></div>
@@ -370,7 +372,7 @@ async function submitForm(event) {
     showToast(result.message, "success");
     const id = form.request?.id || result.data?.id;
     if (form.onSaved) await form.onSaved(result);
-    if (id) openSurgeryRequest(id, { onChange: form.onSaved });
+    if (id && form.openDetail) openSurgeryRequest(id, { onChange: form.onSaved });
 }
 
 /* ---------------------------------------------------------------

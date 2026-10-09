@@ -21,6 +21,7 @@ use PDO;
  * Phase 2 (the tracking board: beds, doctor, nurse, waiting times and alerts, labs / imaging, the TV) is ErBoardService.
  * Phase 3 (chest pain, stroke and sepsis protocols: timers, checklists, late alerts) is ErProtocolService;
  * triage starts the ones asked for (no list sent: the ones the complaint and vital signs suggest).
+ * Phase 4 (disposition: home, admit, transfer, OR, died) is ErDispositionService; the report ErReportService.
  */
 class ErService
 {
@@ -52,11 +53,11 @@ class ErService
              ORDER BY v.status = 'triaged', COALESCE(v.acuity, 9), v.arrived_at"
         )->fetchAll(PDO::FETCH_COLUMN);
         $closed = $db->query(
-            "SELECT v.id FROM er_visits v WHERE v.status IN ('left', 'cancelled') AND v.closed_at >= NOW() - INTERVAL 12 HOUR ORDER BY v.closed_at DESC LIMIT 30"
+            "SELECT v.id FROM er_visits v WHERE v.status NOT IN ('waiting', 'triaged') AND v.closed_at >= NOW() - INTERVAL 12 HOUR ORDER BY v.closed_at DESC LIMIT 30"
         )->fetchAll(PDO::FETCH_COLUMN);
         $visits = array_map(fn($id) => $this->show((int) $id), $open);
         $counts = ['waiting' => 0, 'triaged' => 0, 'by_acuity' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0], 'unidentified' => 0, 'over_target' => 0,
-            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0, 'protocols' => 0, 'protocol_late' => 0];
+            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0, 'protocols' => 0, 'protocol_late' => 0, 'boarding' => 0];
         foreach ($visits as $v) {
             $counts[$v['status']]++;
             if ($v['acuity']) {
@@ -75,6 +76,9 @@ class ErService
             if ($v['er_bed_id']) {
                 $counts['in_beds']++;
             }
+            if ($v['disposition']['boarding']) {
+                $counts['boarding']++;
+            }
             foreach ($v['protocols'] as $p) {
                 if ($p['status'] === 'active') {
                     $counts['protocols']++;
@@ -90,7 +94,8 @@ class ErService
     public static function options(): array
     {
         return ['arrival_modes' => self::ARRIVAL_MODES, 'acuity' => self::ACUITY, 'triage_target_min' => ErBoardService::targets()[0],
-            'targets' => ErBoardService::targets(), 'areas' => ErBoardService::AREAS, 'protocols' => ErProtocolService::options()];
+            'targets' => ErBoardService::targets(), 'areas' => ErBoardService::AREAS, 'protocols' => ErProtocolService::options(),
+            'dispositions' => array_map(fn($k) => $k['label'], ErDispositionService::KINDS)];
     }
 
     /** Find a chart: name, patient no. (and birth date "YYYY-MM-DD"). */
@@ -552,8 +557,13 @@ class ErService
                     TIMESTAMPDIFF(MINUTE, v.arrived_at, COALESCE(v.closed_at, NOW())) AS minutes_in_er,
                     TIMESTAMPDIFF(MINUTE, v.arrived_at, NOW()) AS minutes_since_arrival, TIMESTAMPDIFF(MINUTE, v.arrived_at, v.doctor_at) AS minutes_to_doctor,
                     " . self::nameSql('v.registered_by') . " AS registered_by_name, " . self::nameSql('v.identified_by') . " AS identified_by_name,
-                    " . self::nameSql('v.doctor_user_id') . " AS doctor_name, " . self::nameSql('v.nurse_user_id') . " AS nurse_name, b.name AS bed_name, b.area AS bed_area
-             FROM er_visits v LEFT JOIN er_beds b ON b.id = v.er_bed_id WHERE v.id = :id"
+                    " . self::nameSql('v.doctor_user_id') . " AS doctor_name, " . self::nameSql('v.nurse_user_id') . " AS nurse_name, b.name AS bed_name, b.area AS bed_area,
+                    " . self::nameSql('v.disposition_by') . " AS disposition_by_name, hw.ward_name AS admit_ward_name, ia.admission_number,
+                    CONCAT(hw2.ward_code, ' bed ', hb.bed_number) AS admitted_bed, sr.request_number AS surgery_request_number,
+                    IF(v.disposition = 'admit', TIMESTAMPDIFF(MINUTE, v.disposition_at, COALESCE(v.admitted_at, v.closed_at, NOW())), NULL) AS boarding_minutes
+             FROM er_visits v LEFT JOIN er_beds b ON b.id = v.er_bed_id LEFT JOIN hospital_wards hw ON hw.id = v.admit_ward_id
+             LEFT JOIN inpatient_admissions ia ON ia.id = v.admission_id LEFT JOIN hospital_beds hb ON hb.id = ia.bed_id LEFT JOIN hospital_wards hw2 ON hw2.id = hb.ward_id
+             LEFT JOIN surgery_requests sr ON sr.id = v.surgery_request_id WHERE v.id = :id"
         );
         $st->execute(['id' => $id]);
         $v = $st->fetch(PDO::FETCH_ASSOC);
@@ -590,6 +600,8 @@ class ErService
             'triage' => $triages[0] ?? null, 'triage_history' => array_slice($triages, 1),
             // Phase 3: chest pain / stroke / sepsis protocols with their checklists and timers.
             'protocols' => (new ErProtocolService())->forVisit($v),
+            // Phase 4: where the patient went (or, admitted without a bed yet, is waiting to go).
+            'disposition' => ErDispositionService::shape($v),
         ];
     }
 
