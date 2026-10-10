@@ -72,6 +72,7 @@ function staffNavLinks(role)
                 <a data-tab="inpatient_admissions">Inpatient Bed Management (ADT)</a>
                 <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
                 <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+                <a data-tab="icu">ICU Flowsheet</a>
                 <a data-tab="med_verification">Medicine Order Verification</a>
                 <a data-tab="mar">Medicine Rounds (MAR)</a>
                 <a data-tab="dd_register">DD Register</a>
@@ -660,6 +661,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="census">Daily Census</a>
             <a data-tab="census_report">Census Reports</a>
             <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
+            <a data-tab="icu">ICU Flowsheet</a>
             <a data-tab="mar">Medicine Rounds (MAR)</a>
             <a data-tab="code_blue">Code Blue</a>
             <a data-tab="code_blue_report">Code Blue Report</a>
@@ -746,6 +748,7 @@ function nurseNavLinks(role)
     </div>
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="inpatient_vitals">Vital Signs</a>
+    <a data-tab="icu">ICU Flowsheet</a>
     <a data-tab="mar">Medicine Rounds</a>
     <a data-tab="ward_cabinet">Ward Cabinet</a>
     <a data-tab="dd_register">DD Register</a>
@@ -785,6 +788,7 @@ const CNA_NAV_LINKS = `
     <a data-tab="er">ER</a>
     <a data-tab="nurse_assignments">My Patients</a>
     <a data-tab="inpatient_vitals">Vital Signs</a>
+    <a data-tab="icu">ICU Flowsheet</a>
     <a data-tab="room_management">Rooms &amp; Beds</a>
     <a data-tab="patient_flow">Flow</a>
     <a data-tab="messaging">Messages</a>
