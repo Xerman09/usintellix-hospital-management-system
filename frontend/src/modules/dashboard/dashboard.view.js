@@ -9,6 +9,7 @@ function staffNavLinks(role)
     return `
         ${appointmentsLink}
         ${role === "lab_technician" ? `<a data-tab="lab_worklist">Lab Worklist</a><a data-tab="lab_report">Lab Report</a>` : ""}
+        ${role === "radiologic_technologist" ? `<a data-tab="rad_worklist">Radiology Worklist</a>` : ""}
         <a data-tab="patient_finder">Finder</a>
         <a data-tab="patient_flow">Flow</a>
         <a data-tab="recalls">Recalls</a>
@@ -77,6 +78,7 @@ function staffNavLinks(role)
                 ${["admin", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="icu_report">ICU Report</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="lab_worklist">Lab Worklist</a>` : ""}
                 ${role === "admin" ? `<a data-tab="lab_report">Lab Report</a>` : ""}
+                ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_worklist">Radiology Worklist</a>` : ""}
                 <a data-tab="med_verification">Medicine Order Verification</a>
                 <a data-tab="mar">Medicine Rounds (MAR)</a>
                 <a data-tab="dd_register">DD Register</a>
@@ -669,6 +671,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="icu_report">ICU Report</a>
             <a data-tab="lab_worklist">Lab Worklist</a>
             <a data-tab="lab_report">Lab Report</a>
+            <a data-tab="rad_worklist">Radiology Worklist</a>
             <a data-tab="mar">Medicine Rounds (MAR)</a>
             <a data-tab="code_blue">Code Blue</a>
             <a data-tab="code_blue_report">Code Blue Report</a>
@@ -758,6 +761,7 @@ function nurseNavLinks(role)
     <a data-tab="icu">ICU Flowsheet</a>
     ${role === "charge_nurse" ? `<a data-tab="icu_report">ICU Report</a>` : ""}
     <a data-tab="lab_worklist">Lab Worklist</a>
+    <a data-tab="rad_worklist">Radiology Worklist</a>
     <a data-tab="mar">Medicine Rounds</a>
     <a data-tab="ward_cabinet">Ward Cabinet</a>
     <a data-tab="dd_register">DD Register</a>

@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=160";
+import { getNavLinks } from "./dashboard.view.js?v=161";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -296,13 +296,14 @@ import { DisplayDevicesView, initDisplayDevices } from "../display-devices/displ
 import { CodeBlueView, initCodeBlue, initCodeBlueButton } from "../code-blue/code-blue.js?v=3";
 import { CodeBlueReportView, initCodeBlueReport } from "../code-blue/code-blue-report.js?v=2";
 import { CensusView, initCensus } from "../census/census.js?v=2";
-import { ErView, initEr } from "../er/er.js?v=7";
+import { ErView, initEr } from "../er/er.js?v=8";
 import { CensusReportView, initCensusReport } from "../census/census-report.js?v=1";
 import { ErReportView, initErReport } from "../er/er-report.js?v=1";
-import { IcuView, initIcu } from "../icu/icu.js?v=6";
+import { IcuView, initIcu } from "../icu/icu.js?v=7";
 import { IcuReportView, initIcuReport } from "../icu/icu-report.js?v=2";
 import { LabWorklistView, initLabWorklist } from "../lab/lab-worklist.js?v=4";
 import { LabReportView, initLabReport } from "../lab/lab-report.js?v=1";
+import { RadWorklistView, initRadWorklist } from "../radiology/rad-worklist.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { NurseAssignmentsView } from "../nurse-assignments/nurse-assignments.view.js?v=1";
@@ -319,7 +320,7 @@ import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
 import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
 import { initSurgeryRequests } from "../surgery-requests/surgery-requests.js?v=2";
-import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=22";
+import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=23";
 import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=2";
 import { initRoomManagement } from "../room-management/room-management.js?v=2";
 import { RoomManagementView } from "../room-management/room-management.view.js?v=2";
@@ -1631,6 +1632,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Lab Worklist', () => {
                 setTimeout(initLabWorklist, 0);
                 return LabWorklistView();
+            }, activate);
+        } else if (tabId === 'rad_worklist') {
+            tabManager.openTab(tabId, 'Radiology Worklist', () => {
+                setTimeout(initRadWorklist, 0);
+                return RadWorklistView();
             }, activate);
         } else if (tabId === 'lab_report') {
             tabManager.openTab(tabId, 'Lab Report', () => {

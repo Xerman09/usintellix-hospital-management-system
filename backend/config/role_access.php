@@ -103,7 +103,8 @@ return [
     'labels' => [
         'admin' => 'Admin', 'receptionist' => 'Receptionist', 'doctor' => 'Doctor', 'nurse' => 'Nurse',
         'charge_nurse' => 'Charge Nurse', 'cna' => 'CNA', 'pharmacist' => 'Pharmacist', 'accountant' => 'Accountant',
-        'clinician' => 'Clinician', 'lab_technician' => 'Lab Technician', 'staff' => 'Staff', 'patient' => 'Patient',
+        'clinician' => 'Clinician', 'lab_technician' => 'Lab Technician', 'radiologic_technologist' => 'Radiologic Technologist',
+        'staff' => 'Staff', 'patient' => 'Patient',
     ],
 
     // The roles that make up nursing staff (linked to wards).
