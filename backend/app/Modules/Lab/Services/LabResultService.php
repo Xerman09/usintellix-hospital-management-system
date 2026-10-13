@@ -22,6 +22,8 @@ use PDO;
  *     its release replaces the results (the inbox marks them corrected; an unacknowledged critical alert that no
  *     longer applies is closed).
  *   * staff() / saveStaff() -- which lab users are medical technologists (admin).
+ *   * Releasing also charges the test to the patient's ledger once, at the price on the catalog
+ *     (LabChargeService::postForRelease; Phase 3).
  */
 class LabResultService
 {
@@ -317,13 +319,17 @@ class LabResultService
             }
             $db->prepare("UPDATE lab_result_sets SET status = 'superseded' WHERE order_id = :o AND status = 'released'")->execute(['o' => $s['order_id']]);
             $db->prepare("UPDATE lab_result_sets SET status = 'released', verified_by = :u, verified_at = NOW() WHERE id = :id")->execute(['u' => (int) $actor['id'], 'id' => $setId]);
+            // Phase 3: the test is charged to the patient's ledger once, on its first release.
+            $charge = LabChargeService::postForRelease($db, (int) $s['order_id'], $setId, (int) $actor['id']);
             $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT lab_verify');
         } catch (\Throwable $e) {
             $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT lab_verify');
             throw $e;
         }
         $what = (int) $s['version'] > 1 ? 'Corrected result released' : 'Released';
-        return ['success' => true, 'message' => "{$o['name']}: {$what}. " . preg_replace('/^Results saved\.\s*/', '', $r['message']), 'data' => $r['data'] ?? null];
+        $billed = $charge['charged'] ? ' Charged ₱' . number_format($charge['net'], 2) . ' to the patient\'s ledger.'
+            : ($charge['no_price'] ? ' Not charged: this test has no price yet (an admin sets it under Test prices).' : '');
+        return ['success' => true, 'message' => "{$o['name']}: {$what}. " . preg_replace('/^Results saved\.\s*/', '', $r['message']) . $billed, 'data' => $r['data'] ?? null];
     }
 
     /** Send results back to the bench (re-run, check the sample ...). */

@@ -1,8 +1,9 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
-import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabels } from "./lab-ui.js?v=2";
-import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=3";
+import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabels } from "./lab-ui.js?v=3";
+import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=4";
+import { loadCharges, chargesHtml, onChargesClick } from "./lab-charges.js?v=1";
 
 /*
  * Lab worklist (module 14, Phase 1; tab "lab_worklist"): lab requests from the clinic, the ER, the wards and the ICU
@@ -10,12 +11,13 @@ import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=3";
  * in the last 24 hours. Collect: check the patient's identity, tick the tests taken now (grouped into tubes in the
  * order of draw), who took them and when; each tube gets an accession number and a barcode label to print.
  * Phase 2 (lab staff): "To result", "To verify", "Released" -- lab-results.js.
+ * Phase 3: "Charges" (what each released test cost the patient, test prices) -- lab-charges.js -- and the Lab Report.
  */
 
 const RESULT_VIEWS = ["enter", "verify", "released"];
 const LAB_ROLES = ["admin", "lab_technician"];
 
-let state = { view: "collect", source: "", q: "", section: "" };
+let state = { view: "collect", source: "", q: "", section: "", only: "" };
 let data = null;
 let timer = null;
 
@@ -31,7 +33,7 @@ export function initLabWorklist() {
     load();
     timer = setInterval(() => {
         if (!document.getElementById("labRoot")) return clearInterval(timer);
-        if (document.hidden || document.querySelector(".lbx-ov")) return;
+        if (document.hidden || state.view === "charges" || document.querySelector(".lbx-ov")) return;
         load(true);
     }, 30000);
 }
@@ -39,8 +41,8 @@ export function initLabWorklist() {
 async function load(quiet = false) {
     const root = document.getElementById("labRoot");
     if (!root) return;
-    if (RESULT_VIEWS.includes(state.view)) {
-        const d = await loadResults(root, state, load);
+    if (RESULT_VIEWS.includes(state.view) || state.view === "charges") {
+        const d = state.view === "charges" ? await loadCharges(root, state, load) : await loadResults(root, state, load);
         if (d.error) {
             if (!quiet) root.innerHTML = `<div class="lab-empty">${esc(d.error)}</div>`;
             return;
@@ -95,13 +97,24 @@ function render(root) {
     const c = data.counts;
     const focus = document.activeElement?.id;
     const results = RESULT_VIEWS.includes(state.view);
+    const charges = state.view === "charges";
     const lab = LAB_ROLES.includes(getUser()?.role);
+    const admin = getUser()?.role === "admin";
     const tab = (v, l) => `<button type="button" data-view="${v}" aria-pressed="${state.view === v}">${l}</button>`;
+    const peso = (v) => `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     root.innerHTML = `
-        <div class="lab-head"><div><h1>Lab worklist</h1><div class="lab-sub">${results ? "Results: typed by the lab, verified and released by a medical technologist. Released results reach the chart, the critical value alerts and the results inbox."
-            : "Lab requests from the clinic, the ER, the wards and the ICU. STAT first, then by the time they're due."} Refreshes every 30 seconds.</div></div>
-            ${results && data.is_admin ? `<button type="button" class="lab-b" data-staff>Lab staff…</button>` : ""}</div>
-        <div class="lab-counts" role="list">${results ? `
+        <div class="lab-head"><div><h1>Lab worklist</h1><div class="lab-sub">${charges ? "What the lab work cost each patient: a test is charged to the patient's ledger when its result is released, at the price on the catalog."
+            : results ? "Results: typed by the lab, verified and released by a medical technologist. Released results reach the chart, the critical value alerts and the results inbox."
+            : "Lab requests from the clinic, the ER, the wards and the ICU. STAT first, then by the time they're due."}${charges ? "" : " Refreshes every 30 seconds."}</div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${charges && admin ? `<button type="button" class="lab-b" data-prices>Test prices…</button>` : ""}
+            ${results && data.is_admin ? `<button type="button" class="lab-b" data-staff>Lab staff…</button>` : ""}
+            ${lab ? `<button type="button" class="lab-b" data-report>Lab report</button>` : ""}</div></div>
+        <div class="lab-counts" role="list">${charges ? `
+            <div role="listitem"><b>${data.counts.charges_today}</b>charges today</div>
+            <div role="listitem"><b>${esc(peso(data.counts.amount_today))}</b>charged today</div>
+            <div role="listitem" class="${data.counts.to_charge ? "bad" : ""}"><b>${data.counts.to_charge}</b>released but not charged</div>
+            <div role="listitem"><b>${data.counts.voided_week}</b>voided this week</div>
+            <div role="listitem" class="${data.counts.tests_without_price ? "bad" : ""}"><b>${data.counts.tests_without_price}</b>tests with no price</div>` : results ? `
             <div role="listitem"><b>${c.to_enter}</b>tests to result</div>
             <div role="listitem"><b>${c.to_verify}</b>to verify</div>
             <div role="listitem" class="${c.critical ? "bad" : ""}"><b>${c.critical}</b>critical waiting for verification</div>
@@ -113,12 +126,13 @@ function render(root) {
             <div role="listitem"><b>${c.collected_today}</b>specimens collected today</div>`}
         </div>
         <div class="lab-tools">
-            <span class="lab-tabs" role="group" aria-label="Show">${tab("collect", "To collect")}${tab("collected", "Collected (last 24 h)")}${lab ? tab("enter", "To result") + tab("verify", "To verify") + tab("released", "Released") : ""}</span>
-            ${results ? `<select id="labSec" aria-label="Lab section"><option value="">All sections</option>${Object.entries(data.sections).map(([k, l]) => `<option value="${k}" ${state.section === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`
+            <span class="lab-tabs" role="group" aria-label="Show">${tab("collect", "To collect")}${tab("collected", "Collected (last 24 h)")}${lab ? tab("enter", "To result") + tab("verify", "To verify") + tab("released", "Released") + tab("charges", "Charges") : ""}</span>
+            ${charges ? `<label class="lbx-chk" style="margin:0"><input type="checkbox" id="labOnly" ${state.only ? "checked" : ""}> Not charged yet only</label>`
+                : results ? `<select id="labSec" aria-label="Lab section"><option value="">All sections</option>${Object.entries(data.sections).map(([k, l]) => `<option value="${k}" ${state.section === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`
                 : `<select id="labSrc" aria-label="From where"><option value="">From everywhere</option>${Object.entries(data.options.sources).map(([k, l]) => `<option value="${k}" ${state.source === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`}
-            <input type="search" id="labQ" value="${esc(state.q)}" placeholder="Patient, MRN, request or accession no." aria-label="Search">
+            <input type="search" id="labQ" value="${esc(state.q)}" placeholder="${charges ? "Patient, MRN, test or accession no." : "Patient, MRN, request or accession no."}" aria-label="Search">
         </div>
-        ${results ? resultsHtml(data) : data.requests.length ? `<div class="lab-list">${data.requests.map(row).join("")}</div>`
+        ${charges ? chargesHtml(data) : results ? resultsHtml(data) : data.requests.length ? `<div class="lab-list">${data.requests.map(row).join("")}</div>`
             : `<div class="lab-empty">${data.view === "collect" ? "Nothing to collect." : "No specimens collected in the last 24 hours."}</div>`}`;
     if (focus === "labQ") {
         const q = root.querySelector("#labQ");
@@ -130,6 +144,13 @@ function render(root) {
     if (src) {
         src.onchange = (e) => {
             state.source = e.target.value;
+            load();
+        };
+    }
+    const only = root.querySelector("#labOnly");
+    if (only) {
+        only.onchange = (e) => {
+            state.only = e.target.checked ? "unbilled" : "";
             load();
         };
     }
@@ -156,7 +177,12 @@ async function onClick(e) {
         state.view = v.dataset.view;
         return load();
     }
-    if (RESULT_VIEWS.includes(state.view) && (await onResultsClick(e))) return;
+    if (e.target.closest("[data-report]")) return window.__openDashboardTab?.("lab_report", "Lab Report");
+    if (state.view === "charges") {
+        if (await onChargesClick(e)) return;
+    } else if (RESULT_VIEWS.includes(state.view) && (await onResultsClick(e))) {
+        return;
+    }
     const c = e.target.closest("[data-collect]");
     if (c) return openCollect(Number(c.dataset.collect));
     const l = e.target.closest("[data-labels]");

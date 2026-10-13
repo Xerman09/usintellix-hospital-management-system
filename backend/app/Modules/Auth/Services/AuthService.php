@@ -551,7 +551,8 @@ class AuthService
             'role'                   => $resolvedRole,
             'first_name'             => $name['first_name'],
             'last_name'              => $name['last_name'],
-            'avatar'                 => $user['avatar'] ?? null,
+            'avatar'                 => $this->resolveAvatar($user, $employee),
+            'photo'                  => $this->resolveAvatar($user, $employee),
             'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
             'password_changed_at'    => $user['password_changed_at'] ?? null,
             'password_expiring_soon' => $expStatus['expiring_soon'],
@@ -580,7 +581,8 @@ class AuthService
             'role'                   => $resolvedRole,
             'first_name'             => $name['first_name'],
             'last_name'              => $name['last_name'],
-            'avatar'                 => $user['avatar'] ?? null,
+            'avatar'                 => $this->resolveAvatar($user, $employee),
+            'photo'                  => $this->resolveAvatar($user, $employee),
             'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
             'password_changed_at'    => $user['password_changed_at'] ?? null,
             'password_expiring_soon' => $expStatus['expiring_soon'],
@@ -740,6 +742,23 @@ class AuthService
             'first_name' => null,
             'last_name'  => null
         ];
+    }
+
+    /**
+     * Resolve the logged-in user's avatar image path from user or patient photo.
+     */
+    private function resolveAvatar(array $user, ?array $employee): ?string
+    {
+        if (!empty($user['avatar'])) {
+            return $user['avatar'];
+        }
+
+        $patient = (new Patient())->where('user_id', $user['id'])->first();
+        if ($patient && !empty($patient['photo'])) {
+            return $patient['photo'];
+        }
+
+        return null;
     }
 
     /**

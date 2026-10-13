@@ -120,6 +120,14 @@ const CSS = `
 .lab-res .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; }
 .lab-res .acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
 .lbx.wide { max-width: 1040px; }
+/* charges (Phase 3) */
+.lab-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 10px; }
+.lab-tbl { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg-surface); }
+.lab-tbl th { text-align: left; font-size: 11.5px; text-transform: uppercase; color: var(--text-muted); padding: 8px 10px; background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.lab-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+.lab-tbl td.n, .lab-tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lab-tbl td.acts { white-space: nowrap; text-align: right; }
+.lab-tbl td.acts .lab-b { margin-left: 4px; }
 .lbx-test { border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
 .lbx-test h3 { margin: 0; font-size: 14px; }
 `;

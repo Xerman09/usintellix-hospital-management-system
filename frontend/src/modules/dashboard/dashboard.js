@@ -296,12 +296,13 @@ import { DisplayDevicesView, initDisplayDevices } from "../display-devices/displ
 import { CodeBlueView, initCodeBlue, initCodeBlueButton } from "../code-blue/code-blue.js?v=3";
 import { CodeBlueReportView, initCodeBlueReport } from "../code-blue/code-blue-report.js?v=2";
 import { CensusView, initCensus } from "../census/census.js?v=2";
-import { ErView, initEr } from "../er/er.js?v=6";
+import { ErView, initEr } from "../er/er.js?v=7";
 import { CensusReportView, initCensusReport } from "../census/census-report.js?v=1";
 import { ErReportView, initErReport } from "../er/er-report.js?v=1";
-import { IcuView, initIcu } from "../icu/icu.js?v=5";
+import { IcuView, initIcu } from "../icu/icu.js?v=6";
 import { IcuReportView, initIcuReport } from "../icu/icu-report.js?v=2";
-import { LabWorklistView, initLabWorklist } from "../lab/lab-worklist.js?v=3";
+import { LabWorklistView, initLabWorklist } from "../lab/lab-worklist.js?v=4";
+import { LabReportView, initLabReport } from "../lab/lab-report.js?v=1";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { NurseAssignmentsView } from "../nurse-assignments/nurse-assignments.view.js?v=1";
@@ -318,7 +319,7 @@ import { OrReportsView } from "../or-reports/or-reports.view.js?v=2";
 import { initOrReports } from "../or-reports/or-reports.js?v=2";
 import { SurgeryRequestsView } from "../surgery-requests/surgery-requests.view.js?v=1";
 import { initSurgeryRequests } from "../surgery-requests/surgery-requests.js?v=2";
-import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=21";
+import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admissions.js?v=22";
 import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=2";
 import { initRoomManagement } from "../room-management/room-management.js?v=2";
 import { RoomManagementView } from "../room-management/room-management.view.js?v=2";
@@ -1630,6 +1631,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Lab Worklist', () => {
                 setTimeout(initLabWorklist, 0);
                 return LabWorklistView();
+            }, activate);
+        } else if (tabId === 'lab_report') {
+            tabManager.openTab(tabId, 'Lab Report', () => {
+                setTimeout(initLabReport, 0);
+                return LabReportView();
             }, activate);
         } else if (tabId === 'icu_report') {
             tabManager.openTab(tabId, 'ICU Report', () => {

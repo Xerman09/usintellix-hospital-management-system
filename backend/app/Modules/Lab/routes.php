@@ -1,6 +1,8 @@
 <?php
 
 use App\Modules\Lab\Controllers\LabController;
+use App\Modules\Lab\Services\LabChargeService;
+use App\Modules\Lab\Services\LabReportService;
 use App\Modules\Lab\Services\LabResultService;
 use App\Modules\Lab\Services\LabService;
 
@@ -31,3 +33,14 @@ $router->post('/lab/results/verify', [LabController::class, 'resultVerify'], $la
 $router->post('/lab/results/return', [LabController::class, 'resultReturn'], $labResults);
 $router->get('/lab/staff', [LabController::class, 'staff'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
 $router->post('/lab/staff', [LabController::class, 'staffSave'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
+// Phase 3: turnaround & workload report; lab charges to the patient ledger (prices and posting: admin).
+$labReport = [AuthMiddleware::class, [RoleMiddleware::class, LabReportService::ROLES]];
+$labCharges = [AuthMiddleware::class, [RoleMiddleware::class, LabChargeService::VIEW_ROLES]];
+$labBill = [AuthMiddleware::class, [RoleMiddleware::class, LabChargeService::BILL_ROLES]];
+$router->get('/lab/report', [LabController::class, 'report'], $labReport);
+$router->get('/lab/charges', [LabController::class, 'charges'], $labCharges);
+$router->post('/lab/charges/post', [LabController::class, 'chargePost'], $labBill);
+$router->post('/lab/charges/void', [LabController::class, 'chargeVoid'], $labBill);
+$router->post('/lab/charges/discount', [LabController::class, 'chargeDiscount'], $labBill);
+$router->get('/lab/prices', [LabController::class, 'prices'], $labCharges);
+$router->post('/lab/prices', [LabController::class, 'pricesSave'], $labBill);

@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { esc, modal, dtl } from "./lab-ui.js?v=2";
+import { esc, modal, dtl } from "./lab-ui.js?v=3";
 
 /*
  * Order lab tests (module 14, Phase 1) from the ER, a ward bed or the ICU: openLabOrder({ er_visit_id | admission_id | patient_id }).

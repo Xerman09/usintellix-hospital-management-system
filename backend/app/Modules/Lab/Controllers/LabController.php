@@ -5,6 +5,8 @@ namespace App\Modules\Lab\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Lab\Services\LabChargeService;
+use App\Modules\Lab\Services\LabReportService;
 use App\Modules\Lab\Services\LabResultService;
 use App\Modules\Lab\Services\LabService;
 
@@ -114,6 +116,55 @@ class LabController extends Controller
     public function staffSave(): void
     {
         $this->respond((new LabResultService())->saveStaff((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    // ---- Phase 3: turnaround & reports, charges
+
+    /** Query: from, to, section */
+    public function report(): void
+    {
+        $r = new Request();
+        $this->success((new LabReportService())->report((string) ($r->input('from') ?? '') ?: null, (string) ($r->input('to') ?? '') ?: null,
+            (string) ($r->input('section') ?? '') ?: null), 'Retrieved.');
+    }
+
+    /** Query: q, only (unbilled) -- the lab tests released in the last 7 days and their charges. */
+    public function charges(): void
+    {
+        $r = new Request();
+        $this->success((new LabChargeService())->queue($r->all(), Session::get('user') ?? []) + [
+            'sections' => LabService::SECTIONS, 'priorities' => LabService::PRIORITIES], 'Retrieved.');
+    }
+
+    /** Body: order_ids */
+    public function chargePost(): void
+    {
+        $this->respond((new LabChargeService())->postMissing((array) ((new Request())->input('order_ids') ?? []), Session::get('user') ?? []));
+    }
+
+    /** Body: id, reason */
+    public function chargeVoid(): void
+    {
+        $r = new Request();
+        $this->respond((new LabChargeService())->voidCharge((int) $r->input('id'), (string) ($r->input('reason') ?? ''), Session::get('user') ?? []));
+    }
+
+    /** Body: id, discount_type, discount_id_no, discount_rate, discount_reason */
+    public function chargeDiscount(): void
+    {
+        $r = new Request();
+        $this->respond((new LabChargeService())->setDiscount((int) $r->input('id'), $r->all(), Session::get('user') ?? []));
+    }
+
+    public function prices(): void
+    {
+        $this->success(['tests' => (new LabChargeService())->prices(), 'sections' => LabService::SECTIONS], 'Retrieved.');
+    }
+
+    /** Body: prices [{id, price}] */
+    public function pricesSave(): void
+    {
+        $this->respond((new LabChargeService())->savePrices((new Request())->all(), Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

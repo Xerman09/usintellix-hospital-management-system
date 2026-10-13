@@ -890,7 +890,7 @@ function attachBedCardListeners(container) {
     });
     container.querySelectorAll('[data-act="labs"]').forEach(btn => {
         btn.addEventListener('click', () => {
-            import('../lab/lab-order.js?v=2').then((m) => m.openLabOrder({ admission_id: Number(btn.dataset.admId) }));
+            import('../lab/lab-order.js?v=3').then((m) => m.openLabOrder({ admission_id: Number(btn.dataset.admId) }));
         });
     });
     container.querySelectorAll('[data-act="admit"]').forEach(btn => {

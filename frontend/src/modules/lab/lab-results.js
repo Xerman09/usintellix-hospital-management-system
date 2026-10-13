@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { esc, when, waited, tube, modal } from "./lab-ui.js?v=2";
+import { esc, when, waited, tube, modal } from "./lab-ui.js?v=3";
 
 /*
  * Lab results (module 14, Phase 2) inside the Lab Worklist: "To result" (collected specimens: type the results of
