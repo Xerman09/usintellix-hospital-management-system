@@ -2,6 +2,7 @@ import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
 import { openSurgeryRequestForm } from "../surgery-requests/surgery-request-panel.js?v=2";
+const LAB_ORDER_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse"];
 
 /*
  * ER (module 12, Phase 1; tab "er"): the ER board, quick registration and triage.
@@ -293,6 +294,7 @@ function actions(v) {
         ${data.can_triage ? `<button type="button" class="erp-b sm" data-proto="${v.id}">Protocols…</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm ${v.status === "waiting" ? "go" : ""}" data-triage="${v.id}">${v.status === "waiting" ? "Triage" : "Re-triage"}</button>` : ""}
         ${data.can_assign ? `<button type="button" class="erp-b sm" data-assign="${v.id}">Bed / staff…</button>` : ""}
+        ${LAB_ORDER_ROLES.includes(getUser()?.role) && ["waiting", "triaged"].includes(v.status) ? `<button type="button" class="erp-b sm" data-labs="${v.id}">Labs…</button>` : ""}
         ${data.can_dispose && v.status === "triaged" ? `<button type="button" class="erp-b sm blue" data-dispo="${v.id}">${v.disposition?.boarding ? "Change disposition…" : "Disposition…"}</button>` : ""}
         ${unk && data.can_register ? `<button type="button" class="erp-b sm blue" data-identify="${v.id}">Identify</button>` : ""}
         <button type="button" class="erp-b sm" data-chart="${v.patient.id}">Chart</button>
@@ -431,6 +433,8 @@ async function onBoardClick(e) {
     if (pr) return openProtocols(Number(pr.dataset.proto));
     const dp = t.closest("[data-dispo]");
     if (dp) return openDisposition(Number(dp.dataset.dispo));
+    const lb = t.closest("[data-labs]");
+    if (lb) return import("../lab/lab-order.js?v=1").then((m) => m.openLabOrder({ er_visit_id: Number(lb.dataset.labs) }, () => load()));
     const ab = t.closest("[data-admitbed]");
     if (ab) return openAdmitBed(Number(ab.dataset.admitbed));
     if (t.closest("[data-report]")) return window.__openDashboardTab?.("er_report", "ER Report");

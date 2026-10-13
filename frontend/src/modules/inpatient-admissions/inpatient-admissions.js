@@ -14,6 +14,8 @@ import {
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=18';
 import { systemNow } from "../../core/timezone.js";
+import { getUser } from "../../core/session.js";
+const LAB_ORDER_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse"];
 
 let currentUser = null;
 let currentCensusData = {
@@ -720,6 +722,7 @@ function renderBedCard(bed) {
             <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Discharge
             </button>
+            ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}" aria-label="Order lab tests for this patient">🧪 Labs</button>` : ''}
             <button class="bed-action-btn" style="width:100%;justify-content:center;background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">
                 Code Blue
             </button>
@@ -791,6 +794,7 @@ function renderTable(beds) {
                 <div style="display: flex; gap: 4px;">
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
+                    ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}">Labs</button>` : ''}
                     <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button>
                 </div>
             `;
@@ -882,6 +886,11 @@ function attachBedCardListeners(container) {
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
         btn.addEventListener('click', () => {
             import('../code-blue/code-blue.js?v=3').then((m) => m.openCallCodeBlue({ admission_id: Number(btn.dataset.admId), from: 'census' }));
+        });
+    });
+    container.querySelectorAll('[data-act="labs"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            import('../lab/lab-order.js?v=1').then((m) => m.openLabOrder({ admission_id: Number(btn.dataset.admId) }));
         });
     });
     container.querySelectorAll('[data-act="admit"]').forEach(btn => {

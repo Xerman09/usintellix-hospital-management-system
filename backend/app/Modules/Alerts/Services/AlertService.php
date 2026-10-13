@@ -41,6 +41,7 @@ class AlertService
         'result_review' => 'Result to review',
         'er_wait'      => 'ER waiting time',
         'er_protocol'  => 'ER protocol step late',
+        'lab_stat'     => 'STAT lab to collect',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

@@ -1,5 +1,7 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
+import { getUser } from "../../core/session.js";
+const LAB_ORDER_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse"];
 
 /*
  * ICU (module 13, Phase 1; tab "icu"): the ICU board (patients in ICU wards) and each patient's
@@ -501,6 +503,7 @@ function renderSheet(root) {
             ${s.can_io && a.active ? `<button type="button" class="icu-b" data-io>+ Intake / output</button>` : ""}
             ${canChart ? `<button type="button" class="icu-b" data-dripnew>+ Start drip</button>` : ""}
             ${canChart ? `<button type="button" class="icu-b" data-lineadd>+ Line / tube / drain</button>` : ""}
+            ${a.active && LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button type="button" class="icu-b" data-laborder>+ Lab tests</button>` : ""}
         </div>
         <div class="icu-sum" role="list">
             <div role="listitem"><b>${ml(t.in)}</b>mL in</div><div role="listitem"><b>${ml(t.out)}</b>mL out</div>
@@ -563,6 +566,7 @@ async function onSheetClick(e) {
     const dr = t.closest("[data-drip]");
     if (dr) return openDrip(Number(dr.dataset.drip));
     if (t.closest("[data-lineadd]")) return openLine();
+    if (t.closest("[data-laborder]")) return import("../lab/lab-order.js?v=1").then((m) => m.openLabOrder({ admission_id: sheet.admission.id }));
     const lo = t.closest("[data-lineout]");
     if (lo) return openLineRemove(Number(lo.dataset.lineout));
     const ap = t.closest("[data-apache]");
