@@ -2,6 +2,8 @@
 
 use App\Modules\Icu\Controllers\IcuController;
 use App\Modules\Icu\Services\IcuBoardService;
+use App\Modules\Icu\Services\IcuReportService;
+use App\Modules\Icu\Services\IcuScoreService;
 use App\Modules\Icu\Services\IcuService;
 
 /** @var \App\Core\Router $router */
@@ -30,3 +32,10 @@ $router->get('/icu/incoming', [IcuController::class, 'incoming'], $icuTransfer);
 $router->post('/icu/transfer-in', [IcuController::class, 'transferIn'], $icuTransfer);
 $router->get('/icu/out-options', [IcuController::class, 'outOptions'], $icuTransfer);
 $router->post('/icu/transfer-out', [IcuController::class, 'transferOut'], $icuTransfer);
+// Phase 3: lines, tubes and drains; the APACHE II answers; the ICU report; device days for the HAI/SSI form.
+$router->post('/icu/line', [IcuController::class, 'lineInsert'], $icuRecord);
+$router->post('/icu/line/remove', [IcuController::class, 'lineRemove'], $icuRecord);
+$router->post('/icu/line/void', [IcuController::class, 'lineVoid'], $icuRecord);
+$router->post('/icu/apache', [IcuController::class, 'apacheAnswers'], [AuthMiddleware::class, [RoleMiddleware::class, IcuScoreService::ANSWER_ROLES]]);
+$router->get('/icu/report', [IcuController::class, 'report'], [AuthMiddleware::class, [RoleMiddleware::class, IcuReportService::ROLES]]);
+$router->get('/icu/device-days', [IcuController::class, 'deviceDays'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'clinician', 'charge_nurse']]]);

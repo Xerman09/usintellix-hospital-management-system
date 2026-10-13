@@ -66,6 +66,20 @@ export function HAISSIView() {
     background: #e2e8f0;
 }
 
+/* ICU device days (ICU Phase 3) */
+.hai-icu { border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px; background: var(--bg-surface, #fff); padding: 12px 14px; margin: 0 0 16px; font-size: 13px; }
+.hai-icu h3 { margin: 0 0 2px; font-size: 14px; }
+.hai-icu .hai-icu-sub { color: var(--text-muted, #64748b); font-size: 12px; margin-bottom: 8px; }
+.hai-icu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 8px; }
+.hai-icu-grid > div { border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 7px 10px; }
+.hai-icu-grid small { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted, #64748b); }
+.hai-icu-grid b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.hai-icu-grid span { display: block; font-size: 12px; color: var(--text-muted, #64748b); }
+.hai-icu-grid .rate { color: #b91c1c; }
+:root[data-theme="dark"] .hai-icu-grid .rate { color: #fca5a5; }
+.hai-devfill { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; }
+.hai-devfill span { color: var(--text-muted, #64748b); }
+
 /* KPI Cards */
 .hai-kpi-grid {
     display: grid;
@@ -482,6 +496,8 @@ export function HAISSIView() {
         </div>
     </div>
 
+    <div class="hai-icu" id="haiIcuDevices" aria-live="polite"></div>
+
     <div class="hai-filter-row">
         <input type="date" id="haiDateFrom" title="Date From" />
         <input type="date" id="haiDateTo" title="Date To" />
@@ -697,6 +713,10 @@ export function HAISSIView() {
                     <div class="hai-form-group">
                         <label>Device Days</label>
                         <input type="number" id="haiFDeviceDays" min="0" placeholder="Days in place" />
+                    </div>
+                    <div class="hai-form-group hai-devfill" style="grid-column: 1 / -1;">
+                        <button type="button" class="hai-btn-secondary" id="haiFDeviceFill">Count device days from the ICU records</button>
+                        <span id="haiFDeviceHint" aria-live="polite">CLABSI, CAUTI or VAP: choose the patient and the onset date first.</span>
                     </div>
                     <div class="hai-form-group">
                         <label>Isolation Precautions</label>

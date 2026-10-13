@@ -3319,6 +3319,8 @@ class ReportService
             'records'     => $records,
             'kpis'        => $kpis,
             'departments' => $depts,
+            // ICU device days (ventilator, central line, urinary catheter) and CLABSI / CAUTI / VAP per 1,000 device days.
+            'icu_devices' => (new \App\Modules\Icu\Services\IcuReportService())->devices($filters['date_from'] ?? null, $filters['date_to'] ?? null),
         ];
     }
 

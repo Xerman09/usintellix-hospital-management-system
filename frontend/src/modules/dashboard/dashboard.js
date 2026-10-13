@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=2";
 import { TabManager } from "../../core/tabs.js?v=3";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=158";
+import { getNavLinks } from "./dashboard.view.js?v=159";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -275,8 +275,8 @@ import { initIncidentLog } from "../reports/incident-log.js";
 import { IncidentLogView } from "../reports/incident-log.view.js";
 import { initCriticalTAT } from "../reports/critical-tat.js?v=9";
 import { CriticalTATView } from "../reports/critical-tat.view.js?v=2";
-import { initHAISSI } from "../reports/hai-ssi.js";
-import { HAISSIView } from "../reports/hai-ssi.view.js";
+import { initHAISSI } from "../reports/hai-ssi.js?v=2";
+import { HAISSIView } from "../reports/hai-ssi.view.js?v=2";
 import { initReadmissionMortality } from "../reports/readmission-mortality.js";
 import { ReadmissionMortalityView } from "../reports/readmission-mortality.view.js";
 import { initSurgicalSafety } from "../reports/surgical-safety.js?v=19";
@@ -299,7 +299,8 @@ import { CensusView, initCensus } from "../census/census.js?v=2";
 import { ErView, initEr } from "../er/er.js?v=4";
 import { CensusReportView, initCensusReport } from "../census/census-report.js?v=1";
 import { ErReportView, initErReport } from "../er/er-report.js?v=1";
-import { IcuView, initIcu } from "../icu/icu.js?v=2";
+import { IcuView, initIcu } from "../icu/icu.js?v=3";
+import { IcuReportView, initIcuReport } from "../icu/icu-report.js?v=2";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=1";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=1";
 import { NurseAssignmentsView } from "../nurse-assignments/nurse-assignments.view.js?v=1";
@@ -1623,6 +1624,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'ICU Flowsheet', () => {
                 setTimeout(initIcu, 0);
                 return IcuView();
+            }, activate);
+        } else if (tabId === 'icu_report') {
+            tabManager.openTab(tabId, 'ICU Report', () => {
+                setTimeout(initIcuReport, 0);
+                return IcuReportView();
             }, activate);
         } else if (tabId === 'er_report') {
             tabManager.openTab(tabId, 'ER Report', () => {

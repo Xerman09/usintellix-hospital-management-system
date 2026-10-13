@@ -13,6 +13,9 @@ import { showToast } from "../../core/toast.js";
  * Phase 2, the ICU board: every ICU bed with severity (bedside SOFA), drips (vasopressors flagged),
  * breathing support, open alerts; transfers in (ER, OR recovery, another ward) and out (to a ward,
  * with a handover). The TV version is the display kind "icu" (display.js).
+ * Phase 3: lines, tubes and drains (put in / taken out; days in place feed the device days of the ICU
+ * report and the HAI/SSI report), SOFA saved for every ICU day, APACHE II for the first 24 h (the doctor
+ * answers chronic health, type of admission, acute kidney failure). The ICU report is icu-report.js.
  */
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -144,6 +147,18 @@ const CSS = `
 .icx-res { display: grid; gap: 4px; max-height: 260px; overflow: auto; }
 .icx-res label { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; margin: 0; cursor: pointer; color: var(--text-primary); font-weight: 400; }
 .icx-res label:has(input:checked) { border-color: #1d4ed8; background: #eff6ff; }
+.icu-sc { display: grid; gap: 10px; }
+.icu-sc .stay { font-size: 12.5px; font-weight: 700; color: var(--text-muted); }
+.icu-sc td.c, .icu-sc th.c { text-align: center; }
+.icu-ap { border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface); padding: 10px 12px; display: grid; gap: 8px; font-size: 13px; }
+.icu-ap .big { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.icu-ap .row { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
+.icu-ap table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.icu-ap td { padding: 3px 6px; border-bottom: 1px solid var(--border-color); }
+.icu-ap td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.icu-ap .miss td { color: var(--text-muted); }
+.icu-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 12px; align-items: start; }
+.icx input[type=datetime-local] { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 8px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
 :root[data-theme="dark"] .icx-res label:has(input:checked) { background: #172554; }
 `;
 
@@ -224,7 +239,8 @@ function bedCard(x) {
         <div class="top"><b>${esc(x.bed)}</b><span class="muted">ICU day ${p.icu_day}${p.source ? ` · from ${esc(p.source.label)}${p.source.ref ? ` (${esc(p.source.ref)})` : ""}` : ""}</span></div>
         <div class="who">${esc(p.name)} <span class="muted" style="font-weight:400">${esc(p.age ?? "?")} y · ${esc(String(p.sex || "").charAt(0).toUpperCase())}</span></div>
         ${p.diagnosis ? `<div class="muted">${esc(p.diagnosis)}</div>` : ""}
-        <details><summary>${sevChip(s)} <span class="muted" style="font-size:12px">${s.organs_scored} of 6 organs scored${p.news2 !== null ? ` · NEWS2 ${p.news2}` : ""} ▾</span></summary>
+        <details><summary>${sevChip(s)}${p.apache ? ` <span class="icu-chip" title="APACHE II, first 24 h in the ICU${p.apache.missing ? ` (${p.apache.missing} measurements missing)` : ""}">APACHE II ${p.apache.score}${p.apache.complete ? ` · ${p.apache.predicted}%` : " so far"}</span>` : ""}
+            <span class="muted" style="font-size:12px">${s.organs_scored} of 6 organs scored${p.news2 !== null ? ` · NEWS2 ${p.news2}` : ""} ▾</span></summary>
             <div class="icu-organs">${Object.entries(ORGANS).map(([k, label]) => {
                 const o = s.organs[k];
                 return o.score === null ? `<span class="na">${label}</span><span class="na">— ${esc(o.how)}</span>` : `<span>${label}</span><span><b>${o.score}</b> · ${esc(o.value)}</span>`;
@@ -232,6 +248,7 @@ function bedCard(x) {
             <div class="muted" style="font-size:11.5px;margin-top:3px">Worst values of the last 24 h. Organs without data aren't counted.</div></details>
         <div>${breath}</div>
         ${p.drips.length ? `<div>${p.drips.map((d) => `<span class="icu-chip ${d.pressor && !d.paused ? "pressor" : ""}">${esc(d.drug)} ${d.dose !== null ? `${num(d.dose, 3)} ${esc(d.dose_unit)}` : `${num(d.rate)} mL/h`}${d.paused ? " (paused)" : ""}</span>`).join("")}</div>` : ""}
+        ${p.lines?.length ? `<div>${p.lines.map((l) => `<span class="icu-chip ${l.review ? "warn" : ""}" title="${esc(l.where || "")}${l.review ? " · in a long time: still needed?" : ""}">${esc(l.short)} · day ${l.day}</span>`).join("")}</div>` : ""}
         ${p.alerts.length ? `<div>${p.alerts.slice(0, 3).map((a) => `<div class="icu-alert ${esc(a.urgency)}">⚠ ${esc(a.title)}${a.acknowledged ? ` <span class="muted">(seen)</span>` : ""}</div>`).join("")}${p.alerts.length > 3 ? `<div class="muted" style="font-size:12px">+${p.alerts.length - 3} more</div>` : ""}</div>` : ""}
         <div>${l ? `Charted <b>${esc(hm(l.hour_at))}</b>${l.heart_rate ? ` · HR ${l.heart_rate}` : ""}${l.map ? ` · MAP ${l.map}` : ""}${l.spo2 ? ` · SpO₂ ${l.spo2}%` : ""}` : `<span class="muted">Nothing charted yet</span>`}
             ${!charted && minute >= 15 ? ` <span class="icu-chip warn">This hour not charted</span>` : ""}</div>
@@ -250,6 +267,7 @@ function renderBoard(root) {
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
                 ${b.wards.length > 1 ? `<div><label class="muted" for="icuWard" style="font-size:12px;display:block">Ward</label><select id="icuWard" class="icu-b"><option value="">All ICU wards</option>
                     ${b.wards.map((w) => `<option value="${w.id}" ${Number(b.ward_id) === Number(w.id) ? "selected" : ""}>${esc(w.ward_name)}</option>`).join("")}</select></div>` : ""}
+                ${b.can_report ? `<button type="button" class="icu-b" data-report>ICU report</button>` : ""}
                 ${b.can_transfer ? `<button type="button" class="icu-b blue" data-in="">+ Transfer in</button>` : ""}</div></div>
         <div class="icu-counts" role="list">
             <div role="listitem"><b>${c.occupied}</b>of ${c.beds} beds in use</div><div role="listitem"><b>${c.free}</b>free</div>
@@ -268,6 +286,7 @@ function renderBoard(root) {
         if (i) return openTransferIn(i.dataset.in ? Number(i.dataset.in) : null);
         const t = e.target.closest("[data-out]");
         if (t) return openTransferOut(Number(t.dataset.out));
+        if (e.target.closest("[data-report]")) window.__openDashboardTab?.("icu_report", "ICU Report");
     };
     root.querySelector("#icuWard")?.addEventListener("change", (e) => {
         board.ward_id = e.target.value || null;
@@ -349,6 +368,7 @@ async function openTransferOut(admissionId) {
     const m = modal(`Transfer out of the ICU — ${esc(o.admission.name)}`, `ICU bed ${esc(o.admission.bed)}`, `
         ${o.running_drips.length ? `<div class="icx-note warn"><b>Drips still running:</b> ${esc(o.running_drips.join(", "))}. Stop them on the flowsheet (or change them to medicine orders) before the patient leaves.</div>` : ""}
         ${vent ? `<div class="icx-note warn">The last chart (${esc(hm(o.breathing.hour_at))}) says the patient is on a ventilator.</div>` : ""}
+        ${o.lines?.length ? `<div class="icx-note"><b>Lines still in:</b> ${esc(o.lines.map((l) => `${l.short}${l.where ? ` ${l.where}` : ""} (day ${l.day})`).join(", "))}. Put them in the handover, or chart their removal on the flowsheet first.</div>` : ""}
         <div class="icx-grid wide">
             <div><label for="icoBed">Ward bed</label><select id="icoBed" name="bed_id"><option value="">Choose a free bed…</option>
                 ${Object.entries(wards).map(([w, beds]) => `<optgroup label="${esc(w)}">${beds.map((x) => `<option value="${x.id}">${esc(x.bed)}${x.type ? ` · ${esc(x.type)}` : ""}</option>`).join("")}</optgroup>`).join("")}</select></div>
@@ -480,6 +500,7 @@ function renderSheet(root) {
             ${canChart && s.is_today ? `<button type="button" class="icu-b blue" data-hour="${esc((H.find((h) => h.current) || {}).at || "")}">Chart this hour</button>` : ""}
             ${s.can_io && a.active ? `<button type="button" class="icu-b" data-io>+ Intake / output</button>` : ""}
             ${canChart ? `<button type="button" class="icu-b" data-dripnew>+ Start drip</button>` : ""}
+            ${canChart ? `<button type="button" class="icu-b" data-lineadd>+ Line / tube / drain</button>` : ""}
         </div>
         <div class="icu-sum" role="list">
             <div role="listitem"><b>${ml(t.in)}</b>mL in</div><div role="listitem"><b>${ml(t.out)}</b>mL out</div>
@@ -500,6 +521,10 @@ function renderSheet(root) {
                 ${notesRow}
             </tbody></table></div>
         <div class="muted" style="font-size:12px;margin-top:6px">Pupils: B brisk, S sluggish, F fixed. CAM-ICU: − negative, + delirium, UTA unable to assess. Red: outside the usual range. Drip volumes are worked out from the rates.</div>
+        <h2>Lines, tubes and drains</h2>
+        ${linesHtml(s)}
+        <h2>Severity scores</h2>
+        ${scoresHtml(s)}
         <h2>Intake and output entries</h2>
         ${s.io.length ? `<div class="icu-list"><table><thead><tr><th>Time</th><th>In / out</th><th>Type</th><th>mL</th><th>By</th><th></th></tr></thead><tbody>
             ${s.io.map((x) => `<tr class="${x.voided_at ? "void" : ""}"><td>${esc(hm(x.at))}</td><td>${x.kind === "in" ? "Intake" : "Output"}</td><td>${esc(x.category_label)}${x.label ? ` — ${esc(x.label)}` : ""}</td>
@@ -537,6 +562,28 @@ async function onSheetClick(e) {
     if (t.closest("[data-dripnew]")) return openDripStart();
     const dr = t.closest("[data-drip]");
     if (dr) return openDrip(Number(dr.dataset.drip));
+    if (t.closest("[data-lineadd]")) return openLine();
+    const lo = t.closest("[data-lineout]");
+    if (lo) return openLineRemove(Number(lo.dataset.lineout));
+    const ap = t.closest("[data-apache]");
+    if (ap) return openApache(Number(ap.dataset.apache));
+    const lv = t.closest("[data-linevoid]");
+    if (lv) {
+        const td = lv.closest("td");
+        td.innerHTML = `<input type="text" maxlength="255" data-why placeholder="Why void?" aria-label="Why void this line" style="border:1px solid var(--border-color);border-radius:6px;padding:4px 6px;background:var(--bg-surface);color:var(--text-primary)">
+            <button type="button" class="icu-b sm" data-linevoidgo="${lv.dataset.linevoid}">Void</button>`;
+        td.querySelector("[data-why]").focus();
+        return;
+    }
+    const lg = t.closest("[data-linevoidgo]");
+    if (lg) {
+        const why = lg.closest("td").querySelector("[data-why]");
+        if (!why.value.trim()) return why.focus();
+        const r = await post("/icu/line/void", { id: Number(lg.dataset.linevoidgo), reason: why.value.trim() });
+        showToast(r?.message || "Could not save.", r?.success ? "success" : "error");
+        if (r?.success) loadSheet(true);
+        return;
+    }
     const v = t.closest("[data-iovoid]");
     if (v) {
         const tr = v.closest("tr");
@@ -553,6 +600,167 @@ async function onSheetClick(e) {
         showToast(r?.message || "Could not save.", r?.success ? "success" : "error");
         if (r?.success) loadSheet(true);
     }
+}
+
+/* ---------------- lines, tubes and drains ---------------- */
+
+const dtl = (dt) => String(dt || "").slice(0, 16).replace(" ", "T");
+const when = (dt) => String(dt || "").slice(5, 16);
+
+function linesHtml(s) {
+    const can = s.can_record && s.admission.active;
+    if (!s.lines.length) return `<div class="icu-empty">No lines, tubes or drains charted.${can ? " Use “+ Line / tube / drain”." : ""}</div>`;
+    return `<div class="icu-list"><table><thead><tr><th>What</th><th>Where</th><th>Put in</th><th>Days</th><th>Taken out</th><th></th></tr></thead><tbody>
+        ${s.lines.map((l) => `<tr class="${l.voided ? "void" : ""}">
+            <td><b>${esc(l.label)}</b>${l.size ? ` <span class="muted">${esc(l.size)}</span>` : ""}${l.notes ? `<div class="muted" style="font-size:12px">${esc(l.notes)}</div>` : ""}</td>
+            <td>${esc(l.site_text || "—")}</td>
+            <td>${esc(when(l.inserted_at))} · ${esc(l.inserted_where_label)}${l.inserted_by_name ? ` · ${esc(l.inserted_by_name)}` : ""}${l.bundle !== null ? `<div class="muted" style="font-size:12px">Insertion bundle: ${l.bundle ? "followed" : "<b>not followed</b>"}</div>` : ""}</td>
+            <td>${l.voided ? "" : `${l.in_place ? `<b>day ${l.day}</b>` : `${l.day}`}${l.review ? ` <span class="icu-chip warn">still needed?</span>` : ""}`}</td>
+            <td>${l.voided ? `voided: ${esc(l.void_reason || "")}` : l.removed_at ? `${esc(when(l.removed_at))} · ${esc(l.removed_reason_label || "")}${l.removed_note ? ` — ${esc(l.removed_note)}` : ""}` : `<span class="muted">in place</span>`}</td>
+            <td class="acts">${can && l.in_place ? `<button type="button" class="icu-b sm" data-lineout="${l.id}">Taken out…</button> <button type="button" class="icu-b sm" data-linevoid="${l.id}">Void…</button>` : ""}</td></tr>`).join("")}
+        </tbody></table></div>
+        <div class="muted" style="font-size:12px;margin-top:4px">Days count like CDC device days: the day it went in is day 1. Central lines from day 7 and urinary catheters from day 3 ask “still needed?”.</div>`;
+}
+
+function openLine() {
+    const s = sheet;
+    const lo = s.line_options;
+    const groups = { central: "Central lines", arterial: "Arterial", urinary: "Urinary", airway: "Airway", drain: "Drains", tube: "Tubes", other: "Other" };
+    const m = modal(`Line, tube or drain — ${esc(s.admission.name)}`, esc(s.admission.bed), `
+        <div class="icx-grid wide">
+            <div><label for="icl_k">What</label><select id="icl_k" name="kind"><option value="">Choose…</option>
+                ${Object.entries(groups).map(([g, gl]) => `<optgroup label="${gl}">${Object.entries(lo.kinds).filter(([, k]) => k[2] === g).map(([k, x]) => `<option value="${k}">${esc(x[0])}</option>`).join("")}</optgroup>`).join("")}</select></div>
+            <div data-other hidden><label for="icl_l">Name</label><input type="text" id="icl_l" name="label" maxlength="80" autocomplete="off"></div>
+            <div><label for="icl_s">Site</label><input type="text" id="icl_s" name="site" maxlength="60" list="icl_sites" autocomplete="off"><datalist id="icl_sites"></datalist></div>
+            <div><label for="icl_sd">Side</label><select id="icl_sd" name="side"><option value="">—</option><option value="left">Left</option><option value="right">Right</option></select></div>
+            <div><label for="icl_z">Size <span style="font-weight:400">(optional)</span></label><input type="text" id="icl_z" name="size" maxlength="30" placeholder="e.g. 7 Fr triple lumen" autocomplete="off"></div>
+        </div>
+        <div class="icx-grid wide">
+            <div><label for="icl_t">Put in <span style="font-weight:400">(blank = now)</span></label><input type="datetime-local" id="icl_t" name="inserted_at" max="${esc(dtl(s.now))}"></div>
+            <div><label for="icl_w">Where</label><select id="icl_w" name="inserted_where">${Object.entries(lo.where).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("")}</select></div>
+            <div><label for="icl_b">Put in by <span style="font-weight:400">(optional)</span></label><input type="text" id="icl_b" name="inserted_by_name" maxlength="150" autocomplete="off"></div>
+        </div>
+        <fieldset data-bundle hidden><legend>Central line insertion bundle</legend>
+            <div class="muted" style="font-size:12.5px;margin-bottom:6px">Hand hygiene, full barrier precautions, chlorhexidine skin prep, best site (avoid femoral), checklist with an observer.</div>
+            <div class="icx-seg" role="radiogroup" aria-label="Insertion bundle followed"><label><input type="radio" name="bundle" value="1"> All followed</label><label><input type="radio" name="bundle" value="0"> Not all followed</label></div>
+        </fieldset>
+        <div><label for="icl_n">Notes <span style="font-weight:400">(optional)</span></label><input type="text" id="icl_n" name="notes" maxlength="500" placeholder="e.g. tip confirmed on X-ray, 16 cm at the skin" autocomplete="off"></div>`,
+        `<button type="button" class="icu-b" data-x>Cancel</button><button type="button" class="icu-b blue" data-save>Save</button>`);
+    const sync = () => {
+        const k = lo.kinds[m.val("kind")];
+        m.$("[data-other]").hidden = m.val("kind") !== "other";
+        m.$("#icl_sites").innerHTML = (k?.[3] || []).map((x) => `<option value="${esc(x)}">`).join("");
+        m.$("[data-bundle]").hidden = !(k && k[2] === "central" && m.val("inserted_where") === "icu");
+    };
+    m.ov.addEventListener("change", sync);
+    sync();
+    m.$("#icl_k").focus();
+    m.$("[data-save]").onclick = async (ev) => {
+        const b = m.ov.querySelector('input[name="bundle"]:checked');
+        const body = { admission_id: s.admission.id, bundle: m.$("[data-bundle]").hidden ? "" : b ? b.value : "" };
+        ["kind", "label", "site", "side", "size", "inserted_at", "inserted_where", "inserted_by_name", "notes"].forEach((k) => (body[k] = m.val(k)));
+        ev.target.disabled = true;
+        const r = await post("/icu/line", body);
+        ev.target.disabled = false;
+        if (!r?.success) return m.err(r?.message || "Could not save.", r?.errors);
+        m.close();
+        showToast(r.message, "success");
+        loadSheet(true);
+    };
+}
+
+function openLineRemove(id) {
+    const l = sheet.lines.find((x) => x.id === id);
+    if (!l) return;
+    const lo = sheet.line_options;
+    const m = modal(`Taken out — ${esc(l.label)}`, `${esc(l.site_text || "")}${l.site_text ? " · " : ""}put in ${esc(when(l.inserted_at))} · day ${l.day}`, `
+        <div class="icx-grid wide">
+            <div><label for="ilr_t">Taken out <span style="font-weight:400">(blank = now)</span></label><input type="datetime-local" id="ilr_t" name="removed_at" min="${esc(dtl(l.inserted_at))}" max="${esc(dtl(sheet.now))}"></div>
+            <div><label for="ilr_r">Why</label><select id="ilr_r" name="reason"><option value="">Choose…</option>${Object.entries(lo.remove_reasons).map(([k, x]) => `<option value="${k}">${esc(x)}</option>`).join("")}</select></div>
+        </div>
+        <div><label for="ilr_n">Note <span style="font-weight:400">(optional; needed for “Other”)</span></label><input type="text" id="ilr_n" name="note" maxlength="255" placeholder="e.g. tip sent for culture" autocomplete="off"></div>`,
+        `<button type="button" class="icu-b" data-x>Cancel</button><button type="button" class="icu-b blue" data-save>Save</button>`);
+    m.$("#ilr_r").focus();
+    m.$("[data-save]").onclick = async (ev) => {
+        ev.target.disabled = true;
+        const r = await post("/icu/line/remove", { id, removed_at: m.val("removed_at"), reason: m.val("reason"), note: m.val("note") });
+        ev.target.disabled = false;
+        if (!r?.success) return m.err(r?.message || "Could not save.", r?.errors);
+        m.close();
+        showToast(r.message, "success");
+        loadSheet(true);
+    };
+}
+
+/* ---------------- severity scores ---------------- */
+
+const ORGAN_ROWS = [["respiration", "Breathing"], ["circulation", "Circulation"], ["brain", "Brain (GCS)"], ["kidneys", "Kidneys"], ["liver", "Liver"], ["clotting", "Clotting"]];
+const BAND_LABEL = { low: "Low", moderate: "Moderate", high: "High", very_high: "Very high" };
+
+function scoresHtml(s) {
+    const sc = s.scores?.stays || [];
+    if (!sc.length) return `<div class="icu-empty">No ICU stay yet.</div>`;
+    return `<div class="icu-sc">${sc.map((st) => {
+        const cols = [...st.sofa.map((x, i) => ({ ...x, head: `Day ${i + 1}`, sub: `to ${when(x.window_end)}` })), ...(st.sofa_live ? [{ ...st.sofa_live, head: "Now", sub: "last 24 h" }] : [])];
+        const sofa = cols.length ? `<div class="icu-list"><table aria-label="SOFA per ICU day"><thead><tr><th>SOFA</th>${cols.map((c) => `<th class="c">${esc(c.head)}<div style="font-weight:400;text-transform:none">${esc(c.sub)}</div></th>`).join("")}</tr></thead><tbody>
+            <tr><td><b>Total</b></td>${cols.map((c) => `<td class="c">${c.score === null ? `<span class="muted">—</span>` : `<span class="icu-sev ${esc(c.band)}" title="${esc(BAND_LABEL[c.band] || "")} · ${c.organs} of 6 organs scored">${c.score}</span>`}</td>`).join("")}</tr>
+            ${ORGAN_ROWS.map(([k, label]) => `<tr><td>${label}</td>${cols.map((c) => {
+                const o = c.detail?.[k];
+                return `<td class="c">${o && o.score !== null && o.score !== undefined ? `<span title="${esc(o.value || "")}">${o.score}</span>` : `<span class="muted" title="${esc(o?.how || "")}">–</span>`}</td>`;
+            }).join("")}</tr>`).join("")}</tbody></table></div>` : `<div class="icu-empty">No ICU day finished yet.</div>`;
+        const a = st.apache;
+        const ans = a.answers;
+        const yn = (v) => (v === null || v === undefined ? `<span class="muted">not answered</span>` : v ? "Yes" : "No");
+        const apache = `<div class="icu-ap">
+            <div class="row"><span class="big">${a.score}</span><span><b>APACHE II</b>${a.complete ? "" : " · so far (the first 24 h aren't over)"}<br><span class="muted">first 24 h: ${esc(when(a.window[0]))} → ${esc(when(a.window[1]))}</span></span>
+                <span><b>${a.predicted_mortality}%</b> predicted hospital mortality</span></div>
+            <table><tbody>
+                ${Object.values(a.params).map((x) => `<tr class="${x.missing ? "miss" : ""}"><td>${esc(x.label)}</td><td>${x.missing ? "not measured" : esc(x.value)}</td><td class="n">${x.points}</td></tr>`).join("")}
+                <tr><td>Age</td><td>${a.age ?? "?"} years</td><td class="n">${a.age_points}</td></tr>
+                <tr><td>Chronic health</td><td>${ans.chronic === 1 ? esc(a.admit_type_label) : ans.chronic === 0 ? "None" : `<span class="muted">not answered</span>`}</td><td class="n">${a.chronic_points}</td></tr>
+            </tbody></table>
+            ${a.missing.length ? `<div class="muted" style="font-size:12px">Not measured (scored 0): ${esc(a.missing.join(", "))}.</div>` : ""}
+            <div style="font-size:12.5px">Type: <b>${esc(a.admit_type_label)}</b>${ans.admit_type_guessed ? ` <span class="muted">(guessed from where the patient came from)</span>` : ""} · Chronic organ failure / immunocompromised: ${yn(ans.chronic)} · Acute kidney failure: ${yn(ans.arf)}
+                ${ans.by ? `<span class="muted"> · answered by ${esc(ans.by)}</span>` : ""}</div>
+            ${st.can_answer ? `<div><button type="button" class="icu-b sm" data-apache="${st.stay_id}">${ans.chronic === null ? "Answer the APACHE II questions…" : "Change the answers…"}</button></div>` : ""}
+            <div class="muted" style="font-size:11.5px">Worst value of each measurement in the first 24 h. Predicted mortality is from the APACHE II equation without the diagnosis weight: a guide for the unit's figures, not one patient's prognosis.</div>
+        </div>`;
+        return `${sc.length > 1 ? `<div class="stay">ICU stay ${esc(when(st.in_at))} → ${st.out_at ? esc(when(st.out_at)) : "now"}</div>` : ""}<div class="icu-two"><div>${sofa}</div>${apache}</div>`;
+    }).join("")}</div>`;
+}
+
+function openApache(stayId) {
+    const st = sheet.scores.stays.find((x) => x.stay_id === stayId);
+    if (!st) return;
+    const ans = st.apache.answers;
+    const radio = (name, v, label, cur) => `<label><input type="radio" name="${name}" value="${v}" ${String(cur) === String(v) ? "checked" : ""}> ${label}</label>`;
+    const m = modal(`APACHE II questions — ${esc(sheet.admission.name)}`, `ICU stay from ${esc(when(st.in_at))}`, `
+        <fieldset><legend>Chronic organ failure or immunocompromised (before this admission)</legend>
+            <div class="muted" style="font-size:12.5px;margin-bottom:6px">Cirrhosis with portal hypertension or past liver failure; NYHA class IV heart failure; severe chronic lung disease (home oxygen, pulmonary hypertension); on long-term dialysis; or immune suppression (chemotherapy, radiotherapy, long-term or high-dose steroids, leukaemia, lymphoma, AIDS).</div>
+            <div class="icx-seg" role="radiogroup" aria-label="Chronic organ failure">${radio("chronic", 1, "Yes", ans.chronic)}${radio("chronic", 0, "No", ans.chronic)}</div></fieldset>
+        <fieldset><legend>Type of admission</legend>
+            <div class="icx-seg" role="radiogroup" aria-label="Type of admission">${Object.entries(sheet.scores.admit_types).map(([k, l]) => radio("admit_type", k, esc(l), ans.admit_type_guessed && ans.chronic === null ? "" : ans.admit_type)).join("")}</div>
+            ${ans.admit_type_guessed ? `<div class="muted" style="font-size:12px;margin-top:6px">Guessed now: ${esc(st.apache.admit_type_label)}.</div>` : ""}</fieldset>
+        <fieldset><legend>Acute kidney failure (creatinine points doubled)</legend>
+            <div class="icx-seg" role="radiogroup" aria-label="Acute kidney failure">${radio("arf", 1, "Yes", ans.arf)}${radio("arf", 0, "No", ans.arf)}</div></fieldset>`,
+        `<button type="button" class="icu-b" data-x>Cancel</button><button type="button" class="icu-b blue" data-save>Save</button>`);
+    m.ov.querySelector('input[name="chronic"]').focus();
+    const pick = (n) => m.ov.querySelector(`input[name="${n}"]:checked`)?.value ?? "";
+    m.$("[data-save]").onclick = async (ev) => {
+        ev.target.disabled = true;
+        const r = await post("/icu/apache", { stay_id: stayId, chronic: pick("chronic"), admit_type: pick("admit_type"), arf: pick("arf") });
+        ev.target.disabled = false;
+        if (!r?.success) {
+            const e = r?.errors || {};
+            m.err(r?.message || "Could not save.");
+            const first = Object.keys(e)[0];
+            if (first) m.ov.querySelector(`input[name="${first}"]`)?.focus();
+            return;
+        }
+        m.close();
+        showToast(r.message, "success");
+        loadSheet(true);
+    };
 }
 
 /* ---------------- modal helper ---------------- */

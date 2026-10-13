@@ -21,6 +21,8 @@ use PDO;
  *     (released from recovery to an ICU bed) or another ward; transferOut() -- to a ward bed, with a
  *     handover. Each ICU stay is logged in icu_stays.
  *   * tv() -- the ICU board TV: initials only, no drug names or diagnoses.
+ * Phase 3: sofa() also scores a past ICU day (window ending at $now: entries, drips and labs up to then);
+ * the board shows lines in place and the APACHE II of the stay.
  */
 class IcuBoardService
 {
@@ -32,6 +34,10 @@ class IcuBoardService
     private const PRESSORS = ['norepinephrine' => '/nor-?epinephrine|noradrenaline|levophed/i', 'epinephrine' => '/(?<!nor)(?<!nor-)epinephrine|(?<!nor)adrenaline/i',
         'dopamine' => '/dopamine/i', 'dobutamine' => '/dobutamine/i', 'vasopressin' => '/vasopressin/i', 'phenylephrine' => '/phenylephrine/i'];
     private const ACTIVE = "('Admitted', 'Pending Discharge')";
+    /** Lab results of urine and other fluids (urine creatinine, urine pH ...) are not blood values. */
+    public const NOT_BLOOD = '/urine|urinary|\\bcsf\\b|fluid|stool|sputum|dipstick/i';
+    /** Same rule as the census: status Deceased, or a discharge disposition saying so. */
+    public const DIED = '/expired|deceased|died|death/i';
 
     // ------------------------------------------------------------------
     // The board
@@ -42,6 +48,8 @@ class IcuBoardService
         $db = Database::connection();
         $this->syncStays($db);
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
+        $scores = new IcuScoreService();
+        $lines = new IcuLinesService();
         $wards = $db->query("SELECT id, ward_name, ward_code FROM hospital_wards WHERE is_active = 1 AND ward_type = 'ICU' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
         $ids = array_map(fn($w) => (int) $w['id'], $wards);
         if ($wardId && in_array($wardId, $ids, true)) {
@@ -70,6 +78,8 @@ class IcuBoardService
             }
             $counts['occupied']++;
             $p = $this->patient($db, $b, $icu, $now);
+            $p['lines'] = $lines->inPlace($db, (int) $b['admission_id'], $now);
+            $p['apache'] = $p['stay_id'] ? $scores->apacheBrief($db, $p['stay_id'], $now) : null;
             $counts['ventilated'] += (int) ($p['breathing']['device'] === 'ventilator');
             $counts['pressors'] += (int) (bool) array_filter($p['drips'], fn($d) => $d['pressor']);
             $counts['alerts'] += count($p['alerts']);
@@ -99,7 +109,7 @@ class IcuBoardService
         $flow = $icu->flowsheet($aid);
         $inAt = $stay['in_at'] ?? $b['admission_date'];
         return [
-            'admission_id' => $aid, 'patient_id' => (int) $b['patient_id'], 'name' => $b['patient_name'], 'mrn' => $b['patient_mrn'], 'age' => $b['patient_age'],
+            'admission_id' => $aid, 'stay_id' => $stay ? (int) $stay['id'] : null, 'patient_id' => (int) $b['patient_id'], 'name' => $b['patient_name'], 'mrn' => $b['patient_mrn'], 'age' => $b['patient_age'],
             'sex' => $b['gender'], 'diagnosis' => $b['admitting_diagnosis'], 'attending' => $b['attending_physician'], 'admission_status' => $b['admission_status'],
             'in_icu_since' => $inAt, 'icu_day' => max(1, intdiv(self::ts($now) - self::ts($inAt), 86400) + 1),
             'source' => $stay ? ['kind' => $stay['source'], 'label' => self::SOURCES[$stay['source']] ?? $stay['source'], 'ref' => $stay['source_ref']] : null,
@@ -127,7 +137,7 @@ class IcuBoardService
     {
         $since = gmdate('Y-m-d H:i:s', self::ts($now) - 86400);
         $day = array_filter($entries, fn($e) => $e['hour_at'] >= $since);
-        $labs = $this->labs($db, (int) $b['patient_id']);
+        $labs = $this->labs($db, (int) $b['patient_id'], $now);
         $organs = [];
 
         // Respiration: PaO2/FiO2 with a blood gas, else SpO2/FiO2 (only while SpO2 <= 97%).
@@ -208,12 +218,18 @@ class IcuBoardService
         $first->execute(['a' => $b['admission_id'], 'a2' => $b['admission_id']]);
         $charted = (string) $first->fetchColumn();
         if (self::ts($now) - self::ts($inAt) >= 86400 && $charted !== '9999-12-31' && self::ts($charted) <= self::ts($now) - 23 * 3600) {
-            $u = $db->prepare("SELECT COALESCE(SUM(volume_ml), 0) FROM icu_io WHERE admission_id = :a AND kind = 'out' AND category = 'urine' AND voided_at IS NULL AND at >= :s");
-            $u->execute(['a' => $b['admission_id'], 's' => $since]);
-            $uo = (float) $u->fetchColumn();
-            $us = $uo < 200 ? 4 : ($uo < 500 ? 3 : 0);
-            if (!$renal || $us > $renal['score']) {
-                $renal = ['score' => $us, 'value' => 'Urine ' . round($uo) . ' mL / 24 h', 'how' => 'Urine output'];
+            $u = $db->prepare("SELECT COUNT(*), COALESCE(SUM(volume_ml), 0) FROM icu_io WHERE admission_id = :a AND kind = 'out' AND category = 'urine' AND voided_at IS NULL AND at >= :s AND at <= :n");
+            $u->execute(['a' => $b['admission_id'], 's' => $since, 'n' => $now]);
+            [$entries, $uo] = $u->fetch(PDO::FETCH_NUM);
+            // No urine charted counts as none only with a urinary catheter in (else it may just not be measured).
+            $cath = $db->prepare("SELECT COUNT(*) FROM icu_lines WHERE admission_id = :a AND kind = 'urinary' AND voided_at IS NULL AND inserted_at <= :s AND (removed_at IS NULL OR removed_at >= :n)");
+            $cath->execute(['a' => $b['admission_id'], 's' => $since, 'n' => $now]);
+            if ((int) $entries > 0 || (int) $cath->fetchColumn() > 0) {
+                $uo = (float) $uo;
+                $us = $uo < 200 ? 4 : ($uo < 500 ? 3 : 0);
+                if (!$renal || $us > $renal['score']) {
+                    $renal = ['score' => $us, 'value' => 'Urine ' . round($uo) . ' mL / 24 h', 'how' => (int) $entries > 0 ? 'Urine output' : 'Urinary catheter in, no urine charted'];
+                }
             }
         }
         $organs['kidneys'] = $renal ?? ['score' => null, 'value' => null, 'how' => 'Needs a creatinine, or a full day of ICU charting (urine)'];
@@ -252,7 +268,7 @@ class IcuBoardService
     }
 
     /** FiO2 of an hourly entry: charted, or room air 21%, or nasal cannula ~21 + 4 per L/min. */
-    private static function fio2(array $e): ?float
+    public static function fio2(array $e): ?float
     {
         if ($e['fio2'] !== null) {
             return (float) $e['fio2'];
@@ -266,19 +282,22 @@ class IcuBoardService
         return null;
     }
 
-    /** Latest PaO2, creatinine, bilirubin, platelets of the last 2 days (lab results, by name). */
-    private function labs(PDO $db, int $patientId): array
+    /** Latest PaO2, creatinine, bilirubin, platelets of the 2 days up to $now (lab results, by name; not urine or other fluids). */
+    private function labs(PDO $db, int $patientId, string $now): array
     {
         $st = $db->prepare(
             "SELECT r.name, r.value, r.units, r.result_date FROM patient_procedure_results r JOIN patient_procedure_orders o ON o.id = r.patient_procedure_order_id
-             WHERE o.patient_id = :p AND r.deleted_at IS NULL AND o.deleted_at IS NULL AND r.result_date >= CURDATE() - INTERVAL 1 DAY
+             WHERE o.patient_id = :p AND r.deleted_at IS NULL AND o.deleted_at IS NULL AND r.result_date >= DATE(:n) - INTERVAL 1 DAY AND r.result_date <= DATE(:n2)
              ORDER BY r.result_date DESC, r.id DESC"
         );
-        $st->execute(['p' => $patientId]);
+        $st->execute(['p' => $patientId, 'n' => $now, 'n2' => $now]);
         $out = [];
         $match = ['pao2' => '/\b(pao2|po2|pa ?o2|partial pressure of oxygen)\b/i', 'creatinine' => '/creatinine/i', 'bilirubin' => '/bilirubin(?!.*(direct|indirect))/i',
             'platelets' => '/platelet|\bplt\b/i'];
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (preg_match(self::NOT_BLOOD, $r['name'])) {
+                continue;
+            }
             foreach ($match as $k => $re) {
                 if (isset($out[$k]) || !preg_match($re, $r['name']) || !preg_match('/-?\d+(\.\d+)?/', (string) $r['value'], $m)) {
                     continue;
@@ -302,16 +321,16 @@ class IcuBoardService
     // Pieces of the board
     // ------------------------------------------------------------------
 
-    /** Hourly entries of the last 24 h, newest first (with the vital signs). */
-    private function entries(PDO $db, int $admissionId, string $now): array
+    /** Hourly entries of the 3 days up to $now, newest first (with the vital signs). */
+    public function entries(PDO $db, int $admissionId, string $now): array
     {
         $st = $db->prepare(
             "SELECT h.hour_at, h.gcs_e, h.gcs_v, h.gcs_m, h.gcs_intubated, h.rass, h.o2_device, h.o2_flow, h.fio2, h.vent_mode, h.peep, h.pressure_support,
                     v.bp_systolic, v.bp_diastolic, v.heart_rate, v.spo2, v.news2_score
              FROM icu_hourly h LEFT JOIN inpatient_vitals v ON v.id = h.vitals_id AND v.voided_at IS NULL
-             WHERE h.admission_id = :a AND h.voided_at IS NULL AND h.hour_at >= :s ORDER BY h.hour_at DESC"
+             WHERE h.admission_id = :a AND h.voided_at IS NULL AND h.hour_at >= :s AND h.hour_at <= :n ORDER BY h.hour_at DESC"
         );
-        $st->execute(['a' => $admissionId, 's' => gmdate('Y-m-d H:i:s', self::ts($now) - 3 * 86400)]);
+        $st->execute(['a' => $admissionId, 's' => gmdate('Y-m-d H:i:s', self::ts($now) - 3 * 86400), 'n' => $now]);
         return array_map(function ($e) {
             foreach (['gcs_e', 'gcs_v', 'gcs_m', 'rass', 'fio2', 'bp_systolic', 'bp_diastolic', 'heart_rate', 'spo2', 'news2_score'] as $k) {
                 $e[$k] = $e[$k] !== null ? (int) $e[$k] : null;
@@ -389,6 +408,43 @@ class IcuBoardService
                 'dose' => $cur && $cur['dose'] !== null ? round((float) $cur['dose'], 3) : null, 'dose_unit' => $d['dose_unit'],
                 'pressor' => $pressor, 'per_kg_min' => $d['dose_unit'] === 'mcg/kg/min', 'max_24h' => $d['dose_unit'] === 'mcg/kg/min' ? $max : null,
                 'paused' => $cur && (float) $cur['rate_ml_h'] == 0.0];
+        }
+        return $out;
+    }
+
+    /**
+     * Drips that ran at some time between $from and $to (for a past ICU day's SOFA): the highest dose in that time
+     * (the rate running at $from and every change up to $to), vasopressor or not. Same shape as runningDrips().
+     */
+    public function dripsWindow(PDO $db, int $admissionId, string $from, string $to): array
+    {
+        $st = $db->prepare("SELECT * FROM icu_drips WHERE admission_id = :a AND started_at <= :t AND (stopped_at IS NULL OR stopped_at > :f) ORDER BY started_at");
+        $st->execute(['a' => $admissionId, 't' => $to, 'f' => $from]);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $d) {
+            $r = $db->prepare("SELECT rate_ml_h, dose, changed_at FROM icu_drip_rates WHERE drip_id = :d AND voided_at IS NULL AND changed_at <= :t ORDER BY changed_at DESC, id DESC");
+            $r->execute(['d' => $d['id'], 't' => $to]);
+            $max = 0.0;
+            $rate = 0.0;
+            foreach ($r->fetchAll(PDO::FETCH_ASSOC) as $x) {
+                $max = max($max, (float) $x['dose']);
+                $rate = max($rate, (float) $x['rate_ml_h']);
+                if ($x['changed_at'] <= $from) {
+                    break;
+                }
+            }
+            if ($rate <= 0) {
+                continue; // paused the whole time
+            }
+            $pressor = null;
+            foreach (self::PRESSORS as $k => $re) {
+                if (preg_match($re, $d['drug_name'])) {
+                    $pressor = $k;
+                    break;
+                }
+            }
+            $out[] = ['id' => (int) $d['id'], 'drug' => $d['drug_name'], 'rate' => null, 'dose' => null, 'dose_unit' => $d['dose_unit'], 'pressor' => $pressor,
+                'per_kg_min' => $d['dose_unit'] === 'mcg/kg/min', 'max_24h' => $d['dose_unit'] === 'mcg/kg/min' ? $max : null, 'paused' => false];
         }
         return $out;
     }
@@ -543,7 +599,8 @@ class IcuBoardService
         $last = $db->prepare("SELECT o2_device, vent_mode, hour_at FROM icu_hourly WHERE admission_id = :a AND voided_at IS NULL AND o2_device IS NOT NULL ORDER BY hour_at DESC LIMIT 1");
         $last->execute(['a' => $admissionId]);
         return ['admission' => ['id' => (int) $a['id'], 'name' => $a['patient_name'], 'bed' => $a['bed_number']], 'beds' => $this->freeBeds($db, false),
-            'running_drips' => $running->fetchAll(PDO::FETCH_COLUMN), 'breathing' => $last->fetch(PDO::FETCH_ASSOC) ?: null];
+            'running_drips' => $running->fetchAll(PDO::FETCH_COLUMN), 'breathing' => $last->fetch(PDO::FETCH_ASSOC) ?: null,
+            'lines' => (new IcuLinesService())->inPlace($db, $admissionId, (string) $db->query("SELECT NOW()")->fetchColumn())];
     }
 
     /**
@@ -666,7 +723,7 @@ class IcuBoardService
      * screen: from the latest transfer into the ICU ward, else the admission); a stay whose patient left the
      * ICU by another screen (ward transfer, discharge) is closed.
      */
-    private function syncStays(PDO $db): void
+    public function syncStays(PDO $db): void
     {
         $missing = $db->query(
             "SELECT a.*, w.ward_type FROM inpatient_admissions a JOIN hospital_wards w ON w.id = a.ward_id AND w.ward_type = 'ICU'
@@ -676,7 +733,7 @@ class IcuBoardService
             $this->ensureStay($db, $a);
         }
         $stale = $db->query(
-            "SELECT s.id, s.admission_id, a.status, a.discharge_date, w.ward_type, a.ward_id, a.bed_id FROM icu_stays s JOIN inpatient_admissions a ON a.id = s.admission_id
+            "SELECT s.id, s.admission_id, a.status, a.discharge_date, a.discharge_disposition, w.ward_type, a.ward_id, a.bed_id FROM icu_stays s JOIN inpatient_admissions a ON a.id = s.admission_id
              JOIN hospital_wards w ON w.id = a.ward_id WHERE s.out_at IS NULL AND (a.status NOT IN " . self::ACTIVE . " OR w.ward_type <> 'ICU')"
         )->fetchAll(PDO::FETCH_ASSOC);
         foreach ($stale as $s) {
@@ -687,7 +744,8 @@ class IcuBoardService
                     ->execute(['t' => $t->fetchColumn() ?: null, 'w' => $s['ward_id'], 'b' => $s['bed_id'], 'id' => $s['id']]);
             } else {
                 $db->prepare("UPDATE icu_stays SET out_at = COALESCE(:t, NOW()), out_to = :o, out_reason = :r WHERE id = :id")
-                    ->execute(['t' => $s['discharge_date'], 'o' => $s['status'] === 'Deceased' ? 'other' : 'discharged', 'r' => $s['status'], 'id' => $s['id']]);
+                    ->execute(['t' => $s['discharge_date'], 'o' => self::died($s) ? 'died' : 'discharged',
+                        'r' => mb_substr((string) ($s['discharge_disposition'] ?: $s['status']), 0, 255), 'id' => $s['id']]);
             }
         }
     }
@@ -767,6 +825,12 @@ class IcuBoardService
         $st = $db->prepare("SELECT " . IcuService::nameSql(':id'));
         $st->execute(['id' => $id]);
         return (string) ($st->fetchColumn() ?: 'ICU');
+    }
+
+    /** An admission row that ended in death. */
+    public static function died(array $a): bool
+    {
+        return ($a['status'] ?? '') === 'Deceased' || (in_array($a['status'] ?? '', ['Discharged', 'Transferred'], true) && preg_match(self::DIED, (string) ($a['discharge_disposition'] ?? '')));
     }
 
     private static function ts(string $dt): int

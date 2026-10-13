@@ -8,7 +8,65 @@ let currentRecords = [];
 export async function initHAISSI() {
     setupEventListeners();
     setupPatientPicker();
+    setupDeviceFill();
     await fetchHAI();
+}
+
+const escH = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** ICU device days (ventilator, central line, urinary catheter) and CLABSI / CAUTI / VAP per 1,000 device days (ICU Phase 3). */
+function renderIcuDevices(d) {
+    const box = document.getElementById('haiIcuDevices');
+    if (!box) return;
+    if (!d) {
+        box.hidden = true;
+        return;
+    }
+    box.hidden = false;
+    const inf = Object.fromEntries((d.infections || []).map((x) => [x.type, x]));
+    const tile = (label, days, ratio, type) => {
+        const x = inf[type];
+        return `<div><small>${label}</small><b>${days}</b><span>${ratio !== null && ratio !== undefined ? `utilisation ${ratio}` : ''}</span>
+            <span>${escH(type)}: ${x ? x.count : 0} case${x && x.count === 1 ? '' : 's'}${x && x.rate !== null ? ` · <b class="rate">${x.rate}</b> per 1,000 days` : ''}</span></div>`;
+    };
+    box.innerHTML = `<h3>ICU device days ${escH(d.from)} to ${escH(d.to)}</h3>
+        <div class="hai-icu-sub">From the ICU flowsheet and lines (CDC/NHSN counting). Infections: onset in the ICU or the day after leaving it, patient chosen on the case.${d.unlinked ? ` ${d.unlinked} device case${d.unlinked === 1 ? '' : 's'} without a patient can't be counted.` : ''}</div>
+        <div class="hai-icu-grid">
+            <div><small>Patient days</small><b>${d.patient_days}</b><span>${d.patients} ICU patient${d.patients === 1 ? '' : 's'}</span></div>
+            ${tile('Central line days', d.central_days, d.central_ratio, 'CLABSI')}
+            ${tile('Urinary catheter days', d.urinary_days, d.urinary_ratio, 'CAUTI')}
+            ${tile('Ventilator days', d.ventilator_days, d.ventilator_ratio, 'VAP')}
+        </div>`;
+}
+
+/** The add form: device type and days from the ICU records (lines / ventilator hours) up to the onset. */
+function setupDeviceFill() {
+    const btn = document.getElementById('haiFDeviceFill');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        const hint = document.getElementById('haiFDeviceHint');
+        const type = document.getElementById('haiFType')?.value;
+        const pid = document.getElementById('haiFPatientId')?.value;
+        const onset = document.getElementById('haiFOnsetDate')?.value;
+        if (!['CLABSI', 'CAUTI', 'VAP'].includes(type) || !pid || !onset) {
+            hint.textContent = 'Choose CLABSI, CAUTI or VAP, the patient from the patient list, and the onset date first.';
+            return;
+        }
+        btn.disabled = true;
+        const res = await api(`/icu/device-days?patient_id=${encodeURIComponent(pid)}&type=${encodeURIComponent(type)}&onset_date=${encodeURIComponent(onset)}`).catch(() => null);
+        btn.disabled = false;
+        const r = res?.data;
+        if (!res?.success || !r) {
+            hint.textContent = res?.message || 'Could not look it up.';
+            return;
+        }
+        hint.textContent = r.message;
+        if (r.found) {
+            document.getElementById('haiFDeviceAssoc').value = r.eligible ? '1' : '0';
+            document.getElementById('haiFDeviceType').value = r.device_type;
+            document.getElementById('haiFDeviceDays').value = r.device_days;
+        }
+    });
 }
 
 function setupPatientPicker() {
@@ -113,6 +171,7 @@ async function fetchHAI() {
         if (res.success && res.data) {
             currentRecords = res.data.records || [];
             updateKpis(res.data.kpis);
+            renderIcuDevices(res.data.icu_devices);
             populateDeptSelect(res.data.departments || []);
             renderTable(currentRecords);
             logReportRun('HAI & SSI Infection Report', 'hai_ssi', {

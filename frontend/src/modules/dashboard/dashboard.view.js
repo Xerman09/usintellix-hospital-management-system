@@ -73,6 +73,7 @@ function staffNavLinks(role)
                 <a data-tab="nurse_assignments">Nursing Shift Assignments</a>
                 <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
                 <a data-tab="icu">ICU Flowsheet</a>
+                ${["admin", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="icu_report">ICU Report</a>` : ""}
                 <a data-tab="med_verification">Medicine Order Verification</a>
                 <a data-tab="mar">Medicine Rounds (MAR)</a>
                 <a data-tab="dd_register">DD Register</a>
@@ -662,6 +663,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="census_report">Census Reports</a>
             <a data-tab="inpatient_vitals">Inpatient Vital Signs</a>
             <a data-tab="icu">ICU Flowsheet</a>
+            <a data-tab="icu_report">ICU Report</a>
             <a data-tab="mar">Medicine Rounds (MAR)</a>
             <a data-tab="code_blue">Code Blue</a>
             <a data-tab="code_blue_report">Code Blue Report</a>
@@ -749,6 +751,7 @@ function nurseNavLinks(role)
     <a data-tab="inpatient_admissions">Wards</a>
     <a data-tab="inpatient_vitals">Vital Signs</a>
     <a data-tab="icu">ICU Flowsheet</a>
+    ${role === "charge_nurse" ? `<a data-tab="icu_report">ICU Report</a>` : ""}
     <a data-tab="mar">Medicine Rounds</a>
     <a data-tab="ward_cabinet">Ward Cabinet</a>
     <a data-tab="dd_register">DD Register</a>
