@@ -437,7 +437,9 @@ class InpatientAdmissionsService
     public function transferPatient(int $admissionId, array $data, ?int $userId = null): array
     {
         $db = Database::connection();
-        $db->beginTransaction();
+        // Inside a caller's transaction (e.g. the ICU board's transfer) a savepoint stands in for our own.
+        $owns = !$db->inTransaction();
+        $owns ? $db->beginTransaction() : $db->exec('SAVEPOINT transfer_patient');
 
         try {
             // Load admission
@@ -525,10 +527,10 @@ class InpatientAdmissionsService
                 'adm_id'  => $admissionId,
             ]);
 
-            $db->commit();
+            $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT transfer_patient');
             return $this->getAdmissionDetails($admissionId);
         } catch (Exception $e) {
-            $db->rollBack();
+            $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT transfer_patient');
             throw $e;
         }
     }

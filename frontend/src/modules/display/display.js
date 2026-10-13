@@ -148,6 +148,10 @@ const CSS = `
 .er-lv.l4 { background: #16a34a; color: #fff; } .er-lv.l5 { background: #2563eb; color: #fff; } .er-lv.l0 { background: #334155; color: #e2e8f0; }
 .er-free td { color: var(--muted); }
 .er-wait.over { color: #fca5a5; font-weight: 800; }
+.icu-sv { display: inline-block; min-width: 2.2em; text-align: center; padding: .1em .45em; border-radius: .45em; font-weight: 900; background: #334155; color: #e2e8f0; }
+.icu-sv.low { background: #16a34a; color: #fff; } .icu-sv.moderate { background: #facc15; color: #422006; }
+.icu-sv.high { background: #ea580c; color: #fff; } .icu-sv.very_high { background: #dc2626; color: #fff; }
+.icu-s { display: block; color: var(--muted); font-size: .72em; font-weight: 600; }
 .ns-flags { display: inline-flex; gap: .3em; }
 .ns-flags .ns-b { font-size: .7em; }
 .ns-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: clamp(11px, 1vw, 18px); }
@@ -352,6 +356,11 @@ function render() {
     }
     if (dev.kind === "er" && d.content) {
         renderEr(d);
+        renderStatus();
+        return;
+    }
+    if (dev.kind === "icu" && d.content) {
+        renderIcu(d);
         renderStatus();
         return;
     }
@@ -638,6 +647,36 @@ function renderOrList(d) {
 }
 
 /* ---------------- ER tracking board ---------------- */
+
+/* ---------------- ICU board ---------------- */
+
+function renderIcu(d) {
+    const c = d.content;
+    const n = c.counts;
+    const chip = (v, label, hot) => `<span class="ns-chip${hot && v ? " hot" : ""}"><b>${v}</b>${esc(label)}</span>`;
+    const ago = (m) => (m === null || m === undefined ? "—" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`);
+    const row = (b) => {
+        const p = b.patient;
+        if (!p) return `<tr class="er-free"><td class="ns-room">${esc(b.bed)}<small class="icu-s">${esc(b.ward)}</small></td><td colspan="7">${b.status === "Available" ? "Free" : esc(b.status)}</td></tr>`;
+        return `<tr class="${p.critical ? "hot" : ""}"><td class="ns-room">${esc(b.bed)}<small class="icu-s">${esc(b.ward)}</small></td>
+            <td class="ns-init">${esc(p.initials)}<small class="icu-s">${p.age ?? "?"} ${esc(p.sex || "")} · day ${p.icu_day}</small></td>
+            <td class="c">${p.sofa !== null ? `<span class="icu-sv ${esc(p.band)}">${p.sofa}</span><small class="icu-s">${p.organs}/6</small>` : `<span class="ns-dim">—</span>`}</td>
+            <td class="ns-room">${p.breathing ? `${p.ventilator ? `<span class="ns-b amber">VENT</span> ` : ""}${esc(p.breathing)}${p.ventilated_hours !== null ? `<small class="icu-s">${p.ventilated_hours} h on the ventilator</small>` : ""}` : `<span class="ns-dim">—</span>`}</td>
+            <td class="c">${p.pressors ? `<span class="ns-b red">PRESSORS</span>` : ""}${p.drips ? `<small class="icu-s">${p.drips} drip${p.drips === 1 ? "" : "s"}</small>` : p.pressors ? "" : `<span class="ns-dim">—</span>`}</td>
+            <td class="c">${p.alerts ? `<span class="ns-b ${p.critical ? "red" : "amber"}">${p.alerts}</span>` : `<span class="ns-dim">—</span>`}</td>
+            <td class="c">${p.charted ? `<span class="ns-b green">✓</span>` : `<span class="er-wait over">${esc(ago(p.minutes_since_last))}</span>`}</td></tr>`;
+    };
+    const banner = d.code_blue ? `<div class="ns-cb" role="alert">CODE BLUE <span>${esc(d.code_blue.location)} · called ${esc(t12(d.code_blue.called_at))}</span></div>` : "";
+    root.innerHTML = boardFrame(d, c.ward || "ICU", "ICU board",
+        chip(n.occupied, `of ${n.beds} beds`) + chip(n.free, "free") + chip(n.ventilated, "ventilated") + chip(n.pressors, "on pressors", true)
+            + chip(n.severe, "SOFA 10+", true) + chip(n.critical_alerts, "critical alerts", true) + chip(n.not_charted, "not charted this hour", true),
+        c.beds.length ? `<table class="ns-table" data-noun="beds"><thead><tr><th>Bed</th><th>Patient</th><th class="c">SOFA</th><th>Breathing</th><th class="c">Drips</th>
+            <th class="c">Alerts</th><th class="c">Charted</th></tr></thead><tbody>${c.beds.map(row).join("")}</tbody></table>`
+            : `<div class="ns-empty">No ICU beds set up.</div>`);
+    if (banner) root.querySelector(".ns-banners").innerHTML = banner;
+    drawClock();
+    pageStation();
+}
 
 function renderEr(d) {
     const c = d.content;

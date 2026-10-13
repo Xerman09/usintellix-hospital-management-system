@@ -23,7 +23,7 @@ use PDO;
 class DisplayService
 {
     public const KINDS = [
-        'room' => 'Patient room', 'nurse_station' => 'Nurse station', 'waiting_room' => 'Waiting room', 'or' => 'Operating room', 'er' => 'ER tracking board', 'other' => 'Other',
+        'room' => 'Patient room', 'nurse_station' => 'Nurse station', 'waiting_room' => 'Waiting room', 'or' => 'Operating room', 'er' => 'ER tracking board', 'icu' => 'ICU board', 'other' => 'Other',
     ];
     public const MIN_REFRESH = 10;
     public const MAX_REFRESH = 600;
@@ -54,7 +54,7 @@ class DisplayService
             ->execute(['ip' => mb_substr($ip, 0, 45), 'ua' => mb_substr($userAgent, 0, 255), 'id' => $d['id']]);
         $now = (string) $db->query("SELECT NOW()")->fetchColumn();
         $refresh = (int) $d['refresh_seconds'];
-        if (in_array($d['kind'], ['room', 'nurse_station', 'er'], true)) {
+        if (in_array($d['kind'], ['room', 'nurse_station', 'er', 'icu'], true)) {
             $refresh = min($refresh, self::CODE_BLUE_REFRESH);
         }
         $base = [
@@ -85,10 +85,12 @@ class DisplayService
                 'or' => (new \App\Modules\OrManagement\Services\OrListService())->forDate(null, $d['or_suite_id'] !== null ? (int) $d['or_suite_id'] : null),
                 // The ER tracking board: beds and the waiting room (initials only).
                 'er' => (new \App\Modules\Er\Services\ErBoardService())->tv(),
+                // The ICU board: every ICU bed (one ICU ward, or all), initials only.
+                'icu' => (new \App\Modules\Icu\Services\IcuBoardService())->tv($d['ward_id'] !== null ? (int) $d['ward_id'] : null),
                 default => null,
             },
             // A Code Blue on the ward: takes over the room TV, flashes at the top of the nurse station TV.
-            'code_blue' => in_array($d['kind'], ['room', 'nurse_station', 'er'], true)
+            'code_blue' => in_array($d['kind'], ['room', 'nurse_station', 'er', 'icu'], true)
                 ? (new RoomTvService())->codeBlue($d['ward_id'] !== null ? (int) $d['ward_id'] : null, $d['bed_id'] !== null ? (int) $d['bed_id'] : null,
                     $d['kind'] !== 'room') : null,
         ];
@@ -118,7 +120,7 @@ class DisplayService
         $db = Database::connection();
         return [
             'kinds' => self::KINDS,
-            'wards' => $db->query("SELECT id, ward_name AS name FROM hospital_wards WHERE is_active = 1 ORDER BY ward_name")->fetchAll(PDO::FETCH_ASSOC),
+            'wards' => $db->query("SELECT id, ward_name AS name, ward_type FROM hospital_wards WHERE is_active = 1 ORDER BY ward_name")->fetchAll(PDO::FETCH_ASSOC),
             'beds' => $db->query("SELECT id, ward_id, room_number, bed_number FROM hospital_beds WHERE is_active = 1 ORDER BY ward_id, room_number, bed_number")->fetchAll(PDO::FETCH_ASSOC),
             'or_suites' => $db->query("SELECT id, suite_name AS name FROM or_suites WHERE is_active = 1 ORDER BY suite_name")->fetchAll(PDO::FETCH_ASSOC),
             'refresh' => ['min' => self::MIN_REFRESH, 'max' => self::MAX_REFRESH, 'default' => 30],
@@ -195,6 +197,16 @@ class DisplayService
         } elseif ($kind === 'or') {
             // One operating room's list, or (no room chosen) every room's.
             $bedId = $wardId = null;
+        } elseif ($kind === 'icu') {
+            // One ICU ward's beds, or (no ward chosen) all ICU wards.
+            $bedId = $suiteId = null;
+            if ($wardId) {
+                $w = $db->prepare("SELECT ward_type FROM hospital_wards WHERE id = :id");
+                $w->execute(['id' => $wardId]);
+                if ($w->fetchColumn() !== 'ICU') {
+                    $errors['ward_id'] = 'Choose an ICU ward (or none for all ICU wards).';
+                }
+            }
         } else {
             $bedId = $suiteId = null;
         }
@@ -359,6 +371,7 @@ class DisplayService
                 'nurse_station' => $ward ? "{$ward} nurse station" : null,
                 'or' => $suite ?: 'All operating rooms',
                 'er' => 'Emergency Room',
+                'icu' => $ward ? "{$ward} (ICU board)" : 'All ICU wards',
                 default => $d['location_note'],
             };
             $out[(int) $d['id']] = ['label' => $label ?: ($d['location_note'] ?: null), 'ward' => $ward, 'room' => $bed['room_number'] ?? null,

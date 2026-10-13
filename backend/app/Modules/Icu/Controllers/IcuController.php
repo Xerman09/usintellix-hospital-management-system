@@ -5,6 +5,7 @@ namespace App\Modules\Icu\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Icu\Services\IcuBoardService;
 use App\Modules\Icu\Services\IcuService;
 
 class IcuController extends Controller
@@ -16,12 +17,42 @@ class IcuController extends Controller
         $this->service = new IcuService();
     }
 
-    /** Query: ward_id? -- ICU patients now. */
+    /** Query: ward_id? -- every ICU bed: patient, severity, drips, breathing, alerts (Phase 2). */
     public function board(): void
     {
         $role = Session::get('user')['role'] ?? '';
-        $this->success($this->service->board(['ward_id' => (new Request())->input('ward_id')]) + ['options' => IcuService::options(),
-            'can_record' => in_array($role, IcuService::RECORD_ROLES, true), 'can_io' => in_array($role, IcuService::IO_ROLES, true)], 'Retrieved.');
+        $this->success((new IcuBoardService())->board((int) (new Request())->input('ward_id') ?: null) + ['options' => IcuService::options(),
+            'can_record' => in_array($role, IcuService::RECORD_ROLES, true), 'can_io' => in_array($role, IcuService::IO_ROLES, true),
+            'can_transfer' => in_array($role, IcuBoardService::TRANSFER_ROLES, true)], 'Retrieved.');
+    }
+
+    /** Who could come into the ICU (ER, recovery, other wards) and the free ICU beds. */
+    public function incoming(): void
+    {
+        $this->success((new IcuBoardService())->incoming(), 'Retrieved.');
+    }
+
+    /** Body: source (er | or | ward), id, bed_id, reason, ... */
+    public function transferIn(): void
+    {
+        $this->respond((new IcuBoardService())->transferIn((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Query: admission_id -- free ward beds, drips still running, the last breathing support. */
+    public function outOptions(): void
+    {
+        $o = (new IcuBoardService())->outOptions((int) (new Request())->input('admission_id'));
+        if (!$o) {
+            $this->json(['success' => false, 'message' => 'This patient is not in the ICU.'], 404);
+            return;
+        }
+        $this->success($o, 'Retrieved.');
+    }
+
+    /** Body: admission_id, bed_id, reason, note, confirm? */
+    public function transferOut(): void
+    {
+        $this->respond((new IcuBoardService())->transferOut((new Request())->all(), Session::get('user') ?? []));
     }
 
     /** Query: admission_id, day? (YYYY-MM-DD) */
@@ -35,6 +66,7 @@ class IcuController extends Controller
             return;
         }
         $this->success($f + ['options' => IcuService::options(), 'iv_orders' => $this->service->ivOrders((int) $r->input('admission_id')),
+            'stays' => (new IcuBoardService())->stays((int) $r->input('admission_id')),
             'can_record' => in_array($role, IcuService::RECORD_ROLES, true), 'can_io' => in_array($role, IcuService::IO_ROLES, true)], 'Retrieved.');
     }
 
@@ -81,7 +113,8 @@ class IcuController extends Controller
     {
         if (!$r['success']) {
             $code = !empty($r['not_found']) ? 404 : (!empty($r['forbidden']) ? 403 : 422);
-            $this->json(['success' => false, 'message' => $r['message'], 'errors' => $r['errors'] ?? null, 'needs_reason' => $r['needs_reason'] ?? null], $code);
+            $this->json(['success' => false, 'message' => $r['message'], 'errors' => $r['errors'] ?? null, 'needs_reason' => $r['needs_reason'] ?? null,
+                'needs_confirm' => $r['needs_confirm'] ?? null, 'unmet' => $r['unmet'] ?? null, 'running_drips' => $r['running_drips'] ?? null], $code);
             return;
         }
         $this->success($r['data'] ?? null, $r['message']);

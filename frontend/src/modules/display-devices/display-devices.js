@@ -272,13 +272,14 @@ async function openForm(d = null) {
         <div data-for="room"><label for="ddBed">Bed it faces</label><select id="ddBed"><option value="">Choose…</option>
             ${options.beds.map((b) => `<option value="${b.id}" ${Number(d?.bed_id) === Number(b.id) ? "selected" : ""}>${esc(bedLabel(b))}</option>`).join("")}</select>
             <div class="dd-err" data-err="bed_id"></div></div>
-        <div data-for="nurse_station"><label for="ddWard">Ward</label><select id="ddWard"><option value="">Choose…</option>
-            ${options.wards.map((w) => `<option value="${w.id}" ${Number(d?.ward_id) === Number(w.id) ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select>
+        <div data-for="nurse_station icu"><label for="ddWard">Ward</label><select id="ddWard"><option value="" data-blank>Choose…</option>
+            ${options.wards.map((w) => `<option value="${w.id}" data-type="${esc(w.ward_type || "")}" ${Number(d?.ward_id) === Number(w.id) ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select>
             <div class="dd-err" data-err="ward_id"></div></div>
         <div data-for="or"><label for="ddSuite">Operating room</label><select id="ddSuite"><option value="">All operating rooms (today's full list)</option>
             ${options.or_suites.map((s) => `<option value="${s.id}" ${Number(d?.or_suite_id) === Number(s.id) ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
             <div class="dd-err" data-err="or_suite_id"></div><div class="dd-muted">Shows today's OR list: time, room, surgeon, anesthesiologist, specialization.</div></div>
         <div data-for="waiting_room" class="dd-muted">Shows the family board: today's surgeries by case code and initials, and where each patient is.</div>
+        <div data-for="icu" class="dd-muted">Shows the ICU board: every ICU bed — initials, SOFA severity, ventilator, vasopressors running, open alerts, whether this hour is charted. No names, drugs or diagnoses. Flashes a Code Blue. Leave the ward blank for all ICU wards.</div>
         <div data-for="er" class="dd-muted">Shows the ER tracking board: each ER bed and the waiting room — initials, level, time waiting against the target, doctor, nurse, labs and imaging pending. Flashes a Code Blue.</div>
         <div><label for="ddNote">Location note <span style="font-weight:400">(optional)</span></label><input id="ddNote" maxlength="200" value="${esc(d?.location_note || "")}" placeholder="e.g. Main lobby, east wall">
             <div class="dd-err" data-err="location_note"></div></div>
@@ -315,7 +316,12 @@ async function openForm(d = null) {
         }]]);
     const sync = () => {
         const k = m.querySelector("#ddKind").value;
-        m.querySelectorAll("[data-for]").forEach((x) => (x.hidden = x.dataset.for !== k));
+        m.querySelectorAll("[data-for]").forEach((x) => (x.hidden = !x.dataset.for.split(" ").includes(k)));
+        // ICU board: ICU wards only, blank = all of them.
+        const ward = m.querySelector("#ddWard");
+        ward.querySelector("[data-blank]").textContent = k === "icu" ? "All ICU wards" : "Choose…";
+        ward.querySelectorAll("option[data-type]").forEach((o) => (o.hidden = k === "icu" && o.dataset.type !== "ICU"));
+        if (ward.selectedOptions[0]?.hidden) ward.value = "";
     };
     m.querySelector("#ddKind").onchange = sync;
     sync();

@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Icu\Controllers\IcuController;
+use App\Modules\Icu\Services\IcuBoardService;
 use App\Modules\Icu\Services\IcuService;
 
 /** @var \App\Core\Router $router */
@@ -23,3 +24,9 @@ $router->post('/icu/io/void', [IcuController::class, 'voidIo'], $icuIo);
 $router->post('/icu/drip/start', [IcuController::class, 'dripStart'], $icuRecord);
 $router->post('/icu/drip/rate', [IcuController::class, 'dripRate'], $icuRecord);
 $router->post('/icu/drip/stop', [IcuController::class, 'dripStop'], $icuRecord);
+// Phase 2: the ICU board -- transfers in (ER, OR, another ward) and out (to a ward).
+$icuTransfer = [AuthMiddleware::class, [RoleMiddleware::class, IcuBoardService::TRANSFER_ROLES]];
+$router->get('/icu/incoming', [IcuController::class, 'incoming'], $icuTransfer);
+$router->post('/icu/transfer-in', [IcuController::class, 'transferIn'], $icuTransfer);
+$router->get('/icu/out-options', [IcuController::class, 'outOptions'], $icuTransfer);
+$router->post('/icu/transfer-out', [IcuController::class, 'transferOut'], $icuTransfer);
