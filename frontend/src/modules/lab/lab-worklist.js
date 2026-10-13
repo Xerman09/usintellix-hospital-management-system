@@ -1,16 +1,21 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
-import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabels } from "./lab-ui.js?v=1";
+import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabels } from "./lab-ui.js?v=2";
+import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=3";
 
 /*
  * Lab worklist (module 14, Phase 1; tab "lab_worklist"): lab requests from the clinic, the ER, the wards and the ICU
  * still to collect -- STAT first, then by the time they are due, overdue ones flagged -- and the specimens collected
  * in the last 24 hours. Collect: check the patient's identity, tick the tests taken now (grouped into tubes in the
  * order of draw), who took them and when; each tube gets an accession number and a barcode label to print.
+ * Phase 2 (lab staff): "To result", "To verify", "Released" -- lab-results.js.
  */
 
-let state = { view: "collect", source: "", q: "" };
+const RESULT_VIEWS = ["enter", "verify", "released"];
+const LAB_ROLES = ["admin", "lab_technician"];
+
+let state = { view: "collect", source: "", q: "", section: "" };
 let data = null;
 let timer = null;
 
@@ -34,7 +39,16 @@ export function initLabWorklist() {
 async function load(quiet = false) {
     const root = document.getElementById("labRoot");
     if (!root) return;
-    const q = new URLSearchParams(Object.entries(state).filter(([, v]) => v));
+    if (RESULT_VIEWS.includes(state.view)) {
+        const d = await loadResults(root, state, load);
+        if (d.error) {
+            if (!quiet) root.innerHTML = `<div class="lab-empty">${esc(d.error)}</div>`;
+            return;
+        }
+        data = d;
+        return render(root);
+    }
+    const q = new URLSearchParams(Object.entries({ view: state.view, source: state.source, q: state.q }).filter(([, v]) => v));
     const r = await api(`/lab/worklist?${q}`).catch(() => null);
     if (!r?.success) {
         if (!quiet) root.innerHTML = `<div class="lab-empty">${esc(r?.message || "Could not load the worklist.")}</div>`;
@@ -80,20 +94,31 @@ function row(x) {
 function render(root) {
     const c = data.counts;
     const focus = document.activeElement?.id;
+    const results = RESULT_VIEWS.includes(state.view);
+    const lab = LAB_ROLES.includes(getUser()?.role);
+    const tab = (v, l) => `<button type="button" data-view="${v}" aria-pressed="${state.view === v}">${l}</button>`;
     root.innerHTML = `
-        <div class="lab-head"><div><h1>Lab worklist</h1><div class="lab-sub">Lab requests from the clinic, the ER, the wards and the ICU. STAT first, then by the time they're due. Refreshes every 30 seconds.</div></div></div>
-        <div class="lab-counts" role="list">
+        <div class="lab-head"><div><h1>Lab worklist</h1><div class="lab-sub">${results ? "Results: typed by the lab, verified and released by a medical technologist. Released results reach the chart, the critical value alerts and the results inbox."
+            : "Lab requests from the clinic, the ER, the wards and the ICU. STAT first, then by the time they're due."} Refreshes every 30 seconds.</div></div>
+            ${results && data.is_admin ? `<button type="button" class="lab-b" data-staff>Lab staff…</button>` : ""}</div>
+        <div class="lab-counts" role="list">${results ? `
+            <div role="listitem"><b>${c.to_enter}</b>tests to result</div>
+            <div role="listitem"><b>${c.to_verify}</b>to verify</div>
+            <div role="listitem" class="${c.critical ? "bad" : ""}"><b>${c.critical}</b>critical waiting for verification</div>
+            <div role="listitem" class="${c.returned ? "bad" : ""}"><b>${c.returned}</b>returned to the bench</div>
+            <div role="listitem"><b>${c.released_today}</b>released today</div>` : `
             <div role="listitem"><b>${c.to_collect}</b>to collect</div><div role="listitem"><b>${c.due}</b>due now</div>
             <div role="listitem" class="${c.stat ? "bad" : ""}"><b>${c.stat}</b>STAT</div>
             <div role="listitem" class="${c.overdue ? "bad" : ""}"><b>${c.overdue}</b>overdue</div>
-            <div role="listitem"><b>${c.collected_today}</b>specimens collected today</div>
+            <div role="listitem"><b>${c.collected_today}</b>specimens collected today</div>`}
         </div>
         <div class="lab-tools">
-            <span class="lab-tabs" role="group" aria-label="Show"><button type="button" data-view="collect" aria-pressed="${data.view === "collect"}">To collect</button><button type="button" data-view="collected" aria-pressed="${data.view === "collected"}">Collected (last 24 h)</button></span>
-            <select id="labSrc" aria-label="From where"><option value="">From everywhere</option>${Object.entries(data.options.sources).map(([k, l]) => `<option value="${k}" ${state.source === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+            <span class="lab-tabs" role="group" aria-label="Show">${tab("collect", "To collect")}${tab("collected", "Collected (last 24 h)")}${lab ? tab("enter", "To result") + tab("verify", "To verify") + tab("released", "Released") : ""}</span>
+            ${results ? `<select id="labSec" aria-label="Lab section"><option value="">All sections</option>${Object.entries(data.sections).map(([k, l]) => `<option value="${k}" ${state.section === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`
+                : `<select id="labSrc" aria-label="From where"><option value="">From everywhere</option>${Object.entries(data.options.sources).map(([k, l]) => `<option value="${k}" ${state.source === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`}
             <input type="search" id="labQ" value="${esc(state.q)}" placeholder="Patient, MRN, request or accession no." aria-label="Search">
         </div>
-        ${data.requests.length ? `<div class="lab-list">${data.requests.map(row).join("")}</div>`
+        ${results ? resultsHtml(data) : data.requests.length ? `<div class="lab-list">${data.requests.map(row).join("")}</div>`
             : `<div class="lab-empty">${data.view === "collect" ? "Nothing to collect." : "No specimens collected in the last 24 hours."}</div>`}`;
     if (focus === "labQ") {
         const q = root.querySelector("#labQ");
@@ -101,10 +126,20 @@ function render(root) {
         q.setSelectionRange(q.value.length, q.value.length);
     }
     root.onclick = onClick;
-    root.querySelector("#labSrc").onchange = (e) => {
-        state.source = e.target.value;
-        load();
-    };
+    const src = root.querySelector("#labSrc");
+    if (src) {
+        src.onchange = (e) => {
+            state.source = e.target.value;
+            load();
+        };
+    }
+    const sec = root.querySelector("#labSec");
+    if (sec) {
+        sec.onchange = (e) => {
+            state.section = e.target.value;
+            load();
+        };
+    }
     let t = null;
     root.querySelector("#labQ").oninput = (e) => {
         clearTimeout(t);
@@ -121,6 +156,7 @@ async function onClick(e) {
         state.view = v.dataset.view;
         return load();
     }
+    if (RESULT_VIEWS.includes(state.view) && (await onResultsClick(e))) return;
     const c = e.target.closest("[data-collect]");
     if (c) return openCollect(Number(c.dataset.collect));
     const l = e.target.closest("[data-labels]");

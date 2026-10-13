@@ -76,7 +76,7 @@ class PatientProcedureResultService
         }
 
         $pdo = Database::connection();
-        $now = date('Y-m-d H:i:s');
+        $now = (string) $pdo->query("SELECT NOW()")->fetchColumn();   // the database clock (PHP runs in another time zone)
         $flags = [];
         $owns = !$pdo->inTransaction();
 

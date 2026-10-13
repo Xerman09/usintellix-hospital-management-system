@@ -434,7 +434,7 @@ async function onBoardClick(e) {
     const dp = t.closest("[data-dispo]");
     if (dp) return openDisposition(Number(dp.dataset.dispo));
     const lb = t.closest("[data-labs]");
-    if (lb) return import("../lab/lab-order.js?v=1").then((m) => m.openLabOrder({ er_visit_id: Number(lb.dataset.labs) }, () => load()));
+    if (lb) return import("../lab/lab-order.js?v=2").then((m) => m.openLabOrder({ er_visit_id: Number(lb.dataset.labs) }, () => load()));
     const ab = t.closest("[data-admitbed]");
     if (ab) return openAdmitBed(Number(ab.dataset.admitbed));
     if (t.closest("[data-report]")) return window.__openDashboardTab?.("er_report", "ER Report");

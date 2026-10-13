@@ -94,6 +94,15 @@ class LabFlagService
                 return $out('abnormal', "Not a normal result ({$value})", $rid);
             }
             return $manual ? $out('abnormal', 'Marked abnormal', $rid) : $out('normal', null, $rid);
+        } elseif ($num === null && ($expected = trim((string) ($row['reference_range'] ?? ''))) !== '' && !preg_match('/\d/', $expected)) {
+            // A text result against its own word reference ("Negative", "No growth", "Non-reactive"): anything else is abnormal.
+            $same = self::norm($value) === self::norm($expected) || str_starts_with(self::norm($value), self::norm($expected))
+                || (in_array(self::norm($expected), ['negative', 'non reactive', 'nonreactive', 'not seen', 'none seen', 'not detected'], true)
+                    && in_array(self::norm($value), ['neg', 'negative', 'nil', 'none', 'not seen', 'none seen', 'non reactive', 'nonreactive', 'not detected', '-'], true));
+            if (!$same) {
+                return $out('abnormal', "Expected {$expected}", $rid);
+            }
+            return $manual ? $out('abnormal', 'Marked abnormal', $rid) : $out('normal', null, $rid);
         }
         return $manual ? $out('abnormal', 'Marked abnormal', $rid) : $out(null, null, $rid);
     }

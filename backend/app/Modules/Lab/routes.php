@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Lab\Controllers\LabController;
+use App\Modules\Lab\Services\LabResultService;
 use App\Modules\Lab\Services\LabService;
 
 /** @var \App\Core\Router $router */
@@ -21,3 +22,12 @@ $router->post('/lab/cancel-test', [LabController::class, 'cancelTest'], $labOrde
 $router->post('/lab/collect', [LabController::class, 'collect'], $labCollect);
 $router->post('/lab/specimen/void', [LabController::class, 'voidSpecimen'], $labCollect);
 $router->post('/lab/labels', [LabController::class, 'labels'], $labView);
+// Phase 2: result entry (lab), verification and release (medical technologists), lab staff (admin).
+$labResults = [AuthMiddleware::class, [RoleMiddleware::class, LabResultService::ENTER_ROLES]];
+$router->get('/lab/results', [LabController::class, 'results'], $labResults);
+$router->get('/lab/results/form', [LabController::class, 'resultForm'], $labResults);
+$router->post('/lab/results/save', [LabController::class, 'resultSave'], $labResults);
+$router->post('/lab/results/verify', [LabController::class, 'resultVerify'], $labResults);
+$router->post('/lab/results/return', [LabController::class, 'resultReturn'], $labResults);
+$router->get('/lab/staff', [LabController::class, 'staff'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
+$router->post('/lab/staff', [LabController::class, 'staffSave'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);

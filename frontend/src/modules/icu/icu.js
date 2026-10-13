@@ -566,7 +566,7 @@ async function onSheetClick(e) {
     const dr = t.closest("[data-drip]");
     if (dr) return openDrip(Number(dr.dataset.drip));
     if (t.closest("[data-lineadd]")) return openLine();
-    if (t.closest("[data-laborder]")) return import("../lab/lab-order.js?v=1").then((m) => m.openLabOrder({ admission_id: sheet.admission.id }));
+    if (t.closest("[data-laborder]")) return import("../lab/lab-order.js?v=2").then((m) => m.openLabOrder({ admission_id: sheet.admission.id }));
     const lo = t.closest("[data-lineout]");
     if (lo) return openLineRemove(Number(lo.dataset.lineout));
     const ap = t.closest("[data-apache]");

@@ -5,6 +5,7 @@ namespace App\Modules\Lab\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Lab\Services\LabResultService;
 use App\Modules\Lab\Services\LabService;
 
 class LabController extends Controller
@@ -65,6 +66,54 @@ class LabController extends Controller
     public function labels(): void
     {
         $this->respond($this->service->labels((array) ((new Request())->input('ids') ?? []), Session::get('user') ?? []));
+    }
+
+    // ---- Phase 2: results
+
+    /** Query: view (enter | verify | released), section, q */
+    public function results(): void
+    {
+        $r = new Request();
+        $this->success((new LabResultService())->queue((string) ($r->input('view') ?? 'enter'), $r->all(), Session::get('user') ?? []) + [
+            'sections' => LabService::SECTIONS, 'containers' => LabService::CONTAINERS, 'priorities' => LabService::PRIORITIES,
+            'is_admin' => (Session::get('user')['role'] ?? '') === 'admin'], 'Retrieved.');
+    }
+
+    /** Query: order_ids (comma separated), correct (1) */
+    public function resultForm(): void
+    {
+        $r = new Request();
+        $this->respond((new LabResultService())->form(explode(',', (string) $r->input('order_ids')), (bool) $r->input('correct'), Session::get('user') ?? []));
+    }
+
+    /** Body: tests [{order_id, values, comment, correction_reason}], submit */
+    public function resultSave(): void
+    {
+        $this->respond((new LabResultService())->save((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Body: id (result set) */
+    public function resultVerify(): void
+    {
+        $this->respond((new LabResultService())->verify((int) (new Request())->input('id'), Session::get('user') ?? []));
+    }
+
+    /** Body: id, reason */
+    public function resultReturn(): void
+    {
+        $r = new Request();
+        $this->respond((new LabResultService())->returnSet((int) $r->input('id'), (string) ($r->input('reason') ?? ''), Session::get('user') ?? []));
+    }
+
+    public function staff(): void
+    {
+        $this->success((new LabResultService())->staff(), 'Retrieved.');
+    }
+
+    /** Body: user_id, med_tech, license_no */
+    public function staffSave(): void
+    {
+        $this->respond((new LabResultService())->saveStaff((new Request())->all(), Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

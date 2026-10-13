@@ -69,6 +69,12 @@ class PatientProcedureResultController extends Controller
 
         PhiAccessGuard::assertPatientAccess($user, (int) $order['patient_id'], true);
 
+        // Tests sent to the lab (module 14) are resulted and verified on the Lab Worklist, not typed here.
+        if (!empty($order['lab_request_id'])) {
+            $this->error('This test was sent to the lab: its results are entered and verified on the Lab Worklist.', 422);
+            return;
+        }
+
         $result = $this->service->saveForOrder($orderId, $rows, (int) $user['id']);
 
         if (!$result['success']) {
@@ -96,6 +102,12 @@ class PatientProcedureResultController extends Controller
         }
 
         PhiAccessGuard::assertPatientAccess($user, (int) $order['patient_id'], true);
+
+        // Tests sent to the lab (module 14) are resulted and verified on the Lab Worklist, not typed here.
+        if (!empty($order['lab_request_id'])) {
+            $this->error('This test was sent to the lab: its results are entered and verified on the Lab Worklist.', 422);
+            return;
+        }
 
         $result = $this->service->importForOrder($orderId, $request->files()['file'] ?? [], (int) $user['id']);
         if (!$result['success']) {
