@@ -1,13 +1,20 @@
 import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
-import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=1";
+import { getUser } from "../../core/session.js";
+import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=3";
+import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=2";
 
 /*
  * Radiology worklist (module 15, Phase 1; tab "rad_worklist"): the imaging requests waiting to be scheduled -- STAT
  * first, overdue flagged, with the safety answers and the patient's preparation -- and the day per machine, where
  * radiology books a study into a free slot, marks the patient as arrived, moves a booking or cancels it.
+ * Phase 2: radiology records the study as done and uploads its images (opened in the DICOM viewer), and the
+ * radiologist reports it -- the views "To report" and "Reported" come from rad-report.js.
  */
+
+const REPORT_VIEWS = ["read", "reported"];
+const REPORT_ROLES = ["admin", "doctor", "clinician", "radiologic_technologist"];
 
 const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) }).catch(() => null);
 
@@ -34,6 +41,15 @@ export function initRadWorklist() {
 async function load(quiet = false) {
     const root = document.getElementById("radRoot");
     if (!root) return;
+    if (REPORT_VIEWS.includes(state.view)) {
+        const d = await loadReports(root, state, load);
+        if (d.error) {
+            if (!quiet) root.innerHTML = `<div class="rad-empty">${esc(d.error)}</div>`;
+            return;
+        }
+        data = { ...d, rooms: data?.rooms || [], options: { priorities: d.priorities, modalities: d.modalities } };
+        return render(root);
+    }
     const q = new URLSearchParams(Object.entries(state).filter(([, v]) => v));
     const r = await api(`/radiology/worklist?${q}`).catch(() => null);
     if (!r?.success) {
@@ -95,9 +111,14 @@ function bookingRow(b) {
                 ${b.prep_given ? `<span class="muted" style="font-size:12px">prep given</span>` : `<span class="rad-flag">prep not given</span>`}</div>
             ${b.note ? `<div class="muted" style="font-size:12px">${esc(b.note)}</div>` : ""}
             ${b.status === "arrived" ? `<div style="font-size:12px"><b>In the department</b> since ${esc(hm(b.arrived_at))}</div>` : ""}
+            ${b.status === "performed" ? `<div style="font-size:12px"><b>Done</b> ${esc(when(b.performed_at))}${b.technique ? ` · ${esc(b.technique)}` : ""}
+                · ${b.images} image${b.images === 1 ? "" : "s"}${b.report_status === "signed" ? " · <b>reported</b>" : b.report_status === "draft" ? " · report in draft" : " · waiting for the radiologist"}</div>` : ""}
             <div class="muted" style="font-size:12px">${esc(b.request_no)}${b.booked_by ? ` · booked by ${esc(b.booked_by)}` : ""}</div></div>
-        <div class="acts">${data.can_schedule ? `${b.status === "booked" ? `<button type="button" class="rad-b sm" data-arrived="${b.id}">Arrived</button>` : ""}
+        <div class="acts">${data.can_schedule && b.status !== "performed" ? `${b.status === "booked" ? `<button type="button" class="rad-b sm" data-arrived="${b.id}">Arrived</button>` : ""}
+            <button type="button" class="rad-b blue sm" data-perform="${b.id}">Done…</button>
             <button type="button" class="rad-b sm" data-move="${b.id}">Move…</button><button type="button" class="rad-b sm" data-unbook="${b.id}">Cancel…</button>` : ""}
+            ${b.status === "performed" && data.can_schedule ? `<button type="button" class="rad-b sm" data-images="${b.order_id}">Images…</button>` : ""}
+            ${b.status === "performed" && b.images ? `<button type="button" class="rad-b sm" data-viewer="${b.order_id}">Open images</button>` : ""}
             <button type="button" class="rad-b sm" data-prep="${b.request_id}">Prep sheet</button></div></div>`;
 }
 
@@ -105,26 +126,36 @@ function render(root) {
     const c = data.counts;
     const focus = document.activeElement?.id;
     const booked = data.view === "booked";
+    const reports = REPORT_VIEWS.includes(data.view);
+    const canReport = REPORT_ROLES.includes(getUser()?.role);
     const tab = (v, l) => `<button type="button" data-view="${v}" aria-pressed="${data.view === v}">${l}</button>`;
     root.innerHTML = `
-        <div class="rad-head"><div><h1>Radiology worklist</h1><div class="rad-sub">${booked
-            ? "The day on each machine. Book a study into a free slot, mark the patient as arrived, move it or cancel it."
-            : "Imaging requests from the clinic, the ER, the wards and the ICU, waiting to be scheduled. STAT first, then by when they are needed."} Refreshes every 30 seconds.</div></div></div>
-        <div class="rad-counts" role="list">
+        <div class="rad-head"><div><h1>Radiology worklist</h1><div class="rad-sub">${reports
+            ? "Studies done, waiting for the radiologist. A signed report goes to the chart and the results inbox, and a critical finding alerts the doctor at once."
+            : booked ? "The day on each machine. Book a study into a free slot, mark the patient as arrived, record it as done, move it or cancel it."
+            : "Imaging requests from the clinic, the ER, the wards and the ICU, waiting to be scheduled. STAT first, then by when they are needed."} Refreshes every 30 seconds.</div></div>
+            ${reports && data.is_admin ? `<button type="button" class="rad-b" data-radiologists>Radiologists…</button>` : ""}</div>
+        <div class="rad-counts" role="list">${reports ? `
+            <div role="listitem"><b>${c.to_report}</b>to report</div>
+            <div role="listitem" class="${c.stat ? "bad" : ""}"><b>${c.stat}</b>STAT</div>
+            <div role="listitem" class="${c.overdue ? "bad" : ""}"><b>${c.overdue}</b>overdue</div>
+            <div role="listitem"><b>${c.drafts}</b>in draft</div>
+            <div role="listitem"><b>${c.signed_today}</b>signed today</div>
+            <div role="listitem" class="${c.critical_week ? "bad" : ""}"><b>${c.critical_week}</b>critical this week</div>` : `
             <div role="listitem"><b>${c.to_schedule}</b>studies to schedule</div>
             <div role="listitem" class="${c.stat ? "bad" : ""}"><b>${c.stat}</b>STAT</div>
             <div role="listitem" class="${c.overdue ? "bad" : ""}"><b>${c.overdue}</b>overdue</div>
             <div role="listitem"><b>${c.booked_today}</b>booked today</div>
-            <div role="listitem"><b>${c.waiting_in_department}</b>in the department</div>
+            <div role="listitem"><b>${c.waiting_in_department}</b>in the department</div>`}
         </div>
         <div class="rad-tools">
-            <span class="rad-tabs" role="group" aria-label="Show">${tab("schedule", "To schedule")}${tab("booked", "Day per machine")}</span>
+            <span class="rad-tabs" role="group" aria-label="Show">${tab("schedule", "To schedule")}${tab("booked", "Day per machine")}${canReport ? tab("read", "To report") + tab("reported", "Reported") : ""}</span>
             ${booked ? `<input type="date" id="radDate" value="${esc(data.date)}" aria-label="Day">
                 <select id="radRoom" aria-label="Machine"><option value="">All machines</option>${data.rooms.map((r) => `<option value="${r.id}" ${Number(state.room_id) === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
             <select id="radMod" aria-label="Modality"><option value="">All imaging</option>${Object.entries(data.options.modalities).map(([k, l]) => `<option value="${k}" ${state.modality === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
             <input type="search" id="radQ" value="${esc(state.q)}" placeholder="Patient, MRN, request no. or study" aria-label="Search">
         </div>
-        ${booked ? dayHtml() : data.requests.length ? `<div class="rad-list">${data.requests.map(requestRow).join("")}</div>`
+        ${reports ? reportsHtml(data) : booked ? dayHtml() : data.requests.length ? `<div class="rad-list">${data.requests.map(requestRow).join("")}</div>`
             : `<div class="rad-empty">Nothing waiting to be scheduled.</div>`}`;
     if (focus === "radQ") {
         const q = root.querySelector("#radQ");
@@ -173,6 +204,16 @@ async function onClick(e) {
         state.view = v.dataset.view;
         return load();
     }
+    if (REPORT_VIEWS.includes(state.view) && (await onReportsClick(e))) return;
+    const pf = e.target.closest("[data-perform]");
+    if (pf) {
+        const b = findBooking(Number(pf.dataset.perform));
+        return b && openPerform(b, data.now, load);
+    }
+    const im = e.target.closest("[data-images]");
+    if (im) return openImages(Number(im.dataset.images), load);
+    const vw = e.target.closest("[data-viewer]");
+    if (vw) return openViewer(Number(vw.dataset.viewer));
     const s = e.target.closest("[data-sched]");
     if (s) return openSchedule(Number(s.dataset.sched));
     const pr = e.target.closest("[data-prep]");

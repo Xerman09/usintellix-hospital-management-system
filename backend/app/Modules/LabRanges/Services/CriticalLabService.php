@@ -35,9 +35,10 @@ class CriticalLabService
 
     /**
      * After an order's results were saved. flags: [{result_id, name, value, units, flag, detail}].
-     * Returns the alerts raised.
+     * kind: 'lab' (the default) or 'imaging' -- a radiologist's critical finding (module 15, Phase 2), which
+     * says so in the alert and counts as Radiology in the Critical TAT report. Returns the alerts raised.
      */
-    public function notify(int $orderId, array $flags, int $actorId): array
+    public function notify(int $orderId, array $flags, int $actorId, string $kind = 'lab'): array
     {
         $db = Database::connection();
         $o = $this->order($db, $orderId);
@@ -59,11 +60,13 @@ class CriticalLabService
             }
             $value = trim(($f['value'] ?? '') . ' ' . ($f['units'] ?? ''));
             $where = $o['admission_id'] ? " ({$o['ward_name']} {$o['bed_number']})" : '';
+            $imaging = $kind === 'imaging';
             $res = AlertService::raise([
                 'type' => 'critical_lab', 'urgency' => 'critical',
-                'title' => "CRITICAL LAB: {$f['name']} {$value} — {$o['patient_name']}{$where}",
-                'body' => "{$f['detail']}. " . ($o['test_name'] ? "Test: {$o['test_name']}. " : '')
-                    . 'Resulted by ' . ($this->userName($db, $actorId) ?: 'the lab') . '. Acknowledge that you have seen it and act on it.',
+                'title' => ($imaging ? 'CRITICAL IMAGING: ' : 'CRITICAL LAB: ') . trim("{$f['name']} {$value}") . " — {$o['patient_name']}{$where}",
+                'body' => "{$f['detail']}. " . ($o['test_name'] ? ($imaging ? "Study: {$o['test_name']}. " : "Test: {$o['test_name']}. ") : '')
+                    . ($imaging ? 'Reported by ' : 'Resulted by ') . ($this->userName($db, $actorId) ?: ($imaging ? 'the radiologist' : 'the lab'))
+                    . '. Acknowledge that you have seen it and act on it.',
                 'patient_id' => $o['patient_id'], 'link' => ['patient_id' => $o['patient_id']],
                 'targets' => $this->targets($db, $o), 'source_type' => 'patient_procedure_results',
                 'source_id' => (int) ($f['result_id'] ?? 0) ?: null, 'dedupe_key' => $key,
@@ -71,7 +74,7 @@ class CriticalLabService
             if (!empty($res['success'])) {
                 $raised[] = ['key' => $key, 'name' => $f['name'], 'value' => $value];
                 try {
-                    $this->openTat($db, (int) $res['data']['id'], $o, $f, $actorId);
+                    $this->openTat($db, (int) $res['data']['id'], $o, $f, $actorId, $kind);
                 } catch (\Throwable $e) {
                     error_log('critical TAT row failed: ' . $e->getMessage());
                 }
@@ -88,7 +91,8 @@ class CriticalLabService
                 $db->prepare(
                     "UPDATE critical_result_turnaround t JOIN alerts a ON a.id = t.alert_id SET t.notes = CONCAT(COALESCE(CONCAT(t.notes, ' '), ''), :n), t.updated_at = NOW()
                      WHERE a.dedupe_key = :k AND t.acknowledged_at IS NULL"
-                )->execute(['n' => 'Result corrected by the lab before it was acknowledged; alert closed.', 'k' => $k]);
+                )->execute(['n' => ($kind === 'imaging' ? 'Report corrected by the radiologist' : 'Result corrected by the lab')
+                    . ' before it was acknowledged; alert closed.', 'k' => $k]);
             }
         }
         return $raised;
@@ -230,7 +234,7 @@ class CriticalLabService
     }
 
     /** The report row for a new alert: result time, first notification (the EHR alert), who it went to. */
-    private function openTat(PDO $db, int $alertId, array $o, array $f, int $actorId): void
+    private function openTat(PDO $db, int $alertId, array $o, array $f, int $actorId, string $kind = 'lab'): void
     {
         $a = $db->prepare("SELECT created_at FROM alerts WHERE id = :id");
         $a->execute(['id' => $alertId]);
@@ -255,14 +259,14 @@ class CriticalLabService
         $row = (new \App\Modules\Reports\Services\ReportService())->createCriticalTATRecord([
             'result_date' => $at, 'result_available_at' => $at, 'first_call_at' => $at, 'first_call_method' => 'EHR Alert',
             'first_call_to' => mb_substr((string) $to->fetchColumn(), 0, 200),
-            'test_type' => preg_match('/culture|gram stain/i', (string) $f['name']) ? 'Microbiology' : 'Laboratory',
+            'test_type' => $kind === 'imaging' ? 'Radiology' : (preg_match('/culture|gram stain/i', (string) $f['name']) ? 'Microbiology' : 'Laboratory'),
             'test_name' => mb_substr($f['name'] . ($o['test_name'] ? " ({$o['test_name']})" : ''), 0, 255),
             'critical_value' => mb_substr(trim(($f['value'] ?? '') . ' ' . ($f['units'] ?? '')) . ' — ' . $f['detail'], 0, 500),
             'normal_range' => $range ?? ($f['reference_range'] ?? null),
             'ordering_department' => $o['ward_name'] ?: 'Outpatient',
             'patient_id' => $o['patient_id'], 'patient_name' => $o['patient_name'], 'patient_mrn' => $o['patient_no'] ?? null,
             'patient_location' => $o['admission_id'] ? trim("{$o['ward_name']} {$o['bed_number']}") : 'Outpatient',
-            'reported_by' => $this->userName($db, $actorId) ?: 'Laboratory', 'reported_by_role' => self::roleLabel((string) $actor->fetchColumn()),
+            'reported_by' => $this->userName($db, $actorId) ?: ($kind === 'imaging' ? 'Radiology' : 'Laboratory'), 'reported_by_role' => self::roleLabel((string) $actor->fetchColumn()),
             'policy_limit_minutes' => self::POLICY_MINUTES,
         ]);
         $db->prepare("UPDATE critical_result_turnaround SET source = 'auto', alert_id = :a WHERE id = :id")->execute(['a' => $alertId, 'id' => $row['id']]);
@@ -271,7 +275,8 @@ class CriticalLabService
     private static function roleLabel(string $role): string
     {
         return ['lab_technician' => 'Laboratory Technologist', 'charge_nurse' => 'Charge Nurse', 'nurse' => 'Nurse', 'doctor' => 'Physician',
-            'admin' => 'Administrator', 'clinician' => 'Clinician', 'cna' => 'Nursing Assistant'][$role] ?? ucwords(str_replace('_', ' ', $role));
+            'admin' => 'Administrator', 'clinician' => 'Clinician', 'cna' => 'Nursing Assistant',
+            'radiologic_technologist' => 'Radiologic Technologist'][$role] ?? ucwords(str_replace('_', ' ', $role));
     }
 
     // ------------------------------------------------------------------

@@ -56,7 +56,7 @@ class PatientProcedureResultService
      * transaction, matching the screenshot's single "Save" button that
      * commits the whole "Results and Recommendations" table at once.
      */
-    public function saveForOrder(int $orderId, array $rows, int $userId): array
+    public function saveForOrder(int $orderId, array $rows, int $userId, string $kind = 'lab'): array
     {
         $order = (new PatientProcedureOrder())->where('id', $orderId)->first();
 
@@ -94,10 +94,14 @@ class PatientProcedureResultService
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
 
-            // Each result flagged Normal / Abnormal / Critical against the admin's ranges.
+            // Each result flagged Normal / Abnormal / Critical against the admin's ranges -- except a radiologist's
+            // report (kind 'imaging'), where the flag is the conclusion the radiologist chose (module 15, Phase 2).
             $flagger = new LabFlagService();
             foreach ($rows as $row) {
-                $f = $flagger->flag($row);
+                $f = $kind !== 'lab' && array_key_exists('flag', $row)
+                    ? ['flag' => $row['flag'], 'detail' => isset($row['flag_detail']) ? mb_substr((string) $row['flag_detail'], 0, 150) : null, 'range_id' => null,
+                        'is_abnormal' => in_array($row['flag'], ['abnormal', 'critical'], true) ? 1 : (int) !empty($row['is_abnormal'])]
+                    : $flagger->flag($row);
                 $insert->execute([
                     $orderId,
                     $row['code'] ?? null,
@@ -135,7 +139,7 @@ class PatientProcedureResultService
         // Critical results: alert the ordering doctor and the patient's nurse now.
         $alerted = [];
         try {
-            $alerted = (new CriticalLabService())->notify($orderId, $flags, $userId);
+            $alerted = (new CriticalLabService())->notify($orderId, $flags, $userId, $kind);
         } catch (Throwable $e) {
             error_log('critical lab alert failed: ' . $e->getMessage());
         }
@@ -145,7 +149,7 @@ class PatientProcedureResultService
         } catch (Throwable $e) {
             error_log('results inbox failed: ' . $e->getMessage());
         }
-        $message = 'Results saved.';
+        $message = $kind === 'imaging' ? 'Report filed.' : 'Results saved.';
         if ($critical) {
             $message .= ' ' . count($critical) . ' CRITICAL: ' . implode('; ', array_map(fn($c) => trim("{$c['name']} {$c['value']} {$c['units']}") . " — {$c['detail']}", $critical)) . '.';
             if ($alerted) {

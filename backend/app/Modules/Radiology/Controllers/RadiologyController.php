@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\Radiology\Services\RadiologyService;
+use App\Modules\Radiology\Services\RadReportService;
 
 class RadiologyController extends Controller
 {
@@ -86,6 +87,71 @@ class RadiologyController extends Controller
     public function prepSheet(): void
     {
         $this->respond($this->service->prepSheet((int) (new Request())->input('request_id'), Session::get('user') ?? []));
+    }
+
+    // ---- Phase 2: performing the study, the images and the radiologist's report
+
+    /** Body: id (booking), performed_at, technique, contrast_given, contrast_detail, dose */
+    public function perform(): void
+    {
+        $this->respond((new RadReportService())->perform((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Multipart body: order_id, series_desc, is_key, notes + file */
+    public function uploadImage(): void
+    {
+        $r = new Request();
+        $this->respond((new RadReportService())->uploadImage($r->only(['order_id', 'series_desc', 'is_key', 'notes']),
+            $r->files()['file'] ?? [], Session::get('user') ?? []));
+    }
+
+    /** Query: order_id -- the study's images (what the DICOM viewer is handed). */
+    public function images(): void
+    {
+        $this->respond((new RadReportService())->images((int) (new Request())->input('order_id'), Session::get('user') ?? []));
+    }
+
+    /** Body: id, reason */
+    public function deleteImage(): void
+    {
+        $this->respond((new RadReportService())->deleteImage((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Query: view (read | reported), modality, q */
+    public function reports(): void
+    {
+        $r = new Request();
+        $this->success((new RadReportService())->queue((string) ($r->input('view') ?? 'read'), $r->all(), Session::get('user') ?? []), 'Retrieved.');
+    }
+
+    /** Query: order_id, amend (1) */
+    public function reportForm(): void
+    {
+        $r = new Request();
+        $this->respond((new RadReportService())->form((int) $r->input('order_id'), (bool) $r->input('amend'), Session::get('user') ?? []));
+    }
+
+    /** Body: order_id, technique, comparison, findings, impression, recommendation, conclusion, critical_note, change_reason, is_addendum, sign */
+    public function reportSave(): void
+    {
+        $this->respond((new RadReportService())->save((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** Query: order_id -- the signed report (with its earlier versions). */
+    public function report(): void
+    {
+        $this->respond((new RadReportService())->report((int) (new Request())->input('order_id'), Session::get('user') ?? []));
+    }
+
+    public function radiologists(): void
+    {
+        $this->success((new RadReportService())->staff(), 'Retrieved.');
+    }
+
+    /** Body: user_id, radiologist, license_no */
+    public function radiologistsSave(): void
+    {
+        $this->respond((new RadReportService())->saveStaff((new Request())->all(), Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

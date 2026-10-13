@@ -97,7 +97,8 @@ class ResultsInboxService
         $res = fn(string $cond) => "(SELECT COUNT(*) FROM patient_procedure_results r WHERE r.patient_procedure_order_id = o.id AND r.deleted_at IS NULL{$cond})";
         $stmt = $db->prepare(
             "SELECT i.id, o.id AS order_id, o.patient_id, i.reason, i.summary, i.is_corrected, i.opened_at,
-                    COALESCE(i.kind, CASE WHEN COALESCE(c.order_test_type, pc.order_test_type) = 'Imaging' OR COALESCE(c.order_from, pc.order_from) = 'Radiology Department' THEN 'radiology' ELSE 'lab' END) AS kind,
+                    COALESCE(i.kind, CASE WHEN o.rad_request_id IS NOT NULL OR COALESCE(c.order_test_type, pc.order_test_type) IN ('Imaging', 'Radiology')
+                        OR COALESCE(c.order_from, pc.order_from) = 'Radiology Department' THEN 'radiology' ELSE 'lab' END) AS kind,
                     COALESCE(i.is_critical, {$res(" AND r.flag = 'critical'")} > 0) AS is_critical,
                     COALESCE(i.abnormal_count, {$res(" AND (r.flag = 'abnormal' OR (r.flag IS NULL AND r.is_abnormal = 1))")}) AS abnormal_count,
                     COALESCE(i.result_count, {$res('')}) AS result_count,
@@ -259,7 +260,8 @@ class ResultsInboxService
             "SELECT o.id, o.patient_id, o.provider_id AS order_provider_id, o.order_date, o.status, o.reported_at, o.specimen,
                     c.name AS test_name, p.patient_no, p.provider_id AS patient_provider_id,
                     TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) AS patient_name,
-                    CASE WHEN COALESCE(c.order_test_type, pc.order_test_type) = 'Imaging' OR COALESCE(c.order_from, pc.order_from) = 'Radiology Department'
+                    CASE WHEN o.rad_request_id IS NOT NULL OR COALESCE(c.order_test_type, pc.order_test_type) IN ('Imaging', 'Radiology')
+                              OR COALESCE(c.order_from, pc.order_from) = 'Radiology Department'
                          THEN 'radiology' ELSE 'lab' END AS kind,
                     NULLIF(TRIM(CONCAT(COALESCE(pe.first_name, ''), ' ', COALESCE(pe.last_name, ''))), '') AS ordering_doctor,
                     (SELECT COALESCE(NULLIF(TRIM(CONCAT(COALESCE(ne.first_name, ''), ' ', COALESCE(ne.last_name, ''))), ''), nu.username)

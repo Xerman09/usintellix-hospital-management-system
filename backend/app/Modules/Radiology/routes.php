@@ -2,6 +2,7 @@
 
 use App\Modules\Radiology\Controllers\RadiologyController;
 use App\Modules\Radiology\Services\RadiologyService;
+use App\Modules\Radiology\Services\RadReportService;
 
 /** @var \App\Core\Router $router */
 
@@ -27,3 +28,18 @@ $router->post('/radiology/reschedule', [RadiologyController::class, 'reschedule'
 $router->post('/radiology/booking/cancel', [RadiologyController::class, 'cancelBooking'], $radSchedule);
 $router->post('/radiology/booking/arrived', [RadiologyController::class, 'arrived'], $radSchedule);
 $router->post('/radiology/booking/prep', [RadiologyController::class, 'markPrep'], $radPrep);
+
+// Phase 2: the study as performed, its images (opened in the DICOM viewer) and the radiologist's report.
+$radPerform = [AuthMiddleware::class, [RoleMiddleware::class, RadReportService::PERFORM_ROLES]];
+$radReport = [AuthMiddleware::class, [RoleMiddleware::class, RadReportService::REPORT_ROLES]];
+$radAdmin = [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]];
+$router->post('/radiology/perform', [RadiologyController::class, 'perform'], $radPerform);
+$router->post('/radiology/images', [RadiologyController::class, 'uploadImage'], $radPerform);
+$router->post('/radiology/images/delete', [RadiologyController::class, 'deleteImage'], $radPerform);
+$router->get('/radiology/images', [RadiologyController::class, 'images'], $radView);
+$router->get('/radiology/reports', [RadiologyController::class, 'reports'], $radView);
+$router->get('/radiology/report', [RadiologyController::class, 'report'], $radView);
+$router->get('/radiology/report/form', [RadiologyController::class, 'reportForm'], $radReport);
+$router->post('/radiology/report/save', [RadiologyController::class, 'reportSave'], $radReport);
+$router->get('/radiology/radiologists', [RadiologyController::class, 'radiologists'], $radAdmin);
+$router->post('/radiology/radiologists', [RadiologyController::class, 'radiologistsSave'], $radAdmin);

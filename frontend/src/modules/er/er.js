@@ -437,7 +437,7 @@ async function onBoardClick(e) {
     const lb = t.closest("[data-labs]");
     if (lb) return import("../lab/lab-order.js?v=3").then((m) => m.openLabOrder({ er_visit_id: Number(lb.dataset.labs) }, () => load()));
     const im = t.closest("[data-imaging]");
-    if (im) return import("../radiology/rad-order.js?v=1").then((m) => m.openRadOrder({ er_visit_id: Number(im.dataset.imaging) }, () => load()));
+    if (im) return import("../radiology/rad-order.js?v=2").then((m) => m.openRadOrder({ er_visit_id: Number(im.dataset.imaging) }, () => load()));
     const ab = t.closest("[data-admitbed]");
     if (ab) return openAdmitBed(Number(ab.dataset.admitbed));
     if (t.closest("[data-report]")) return window.__openDashboardTab?.("er_report", "ER Report");

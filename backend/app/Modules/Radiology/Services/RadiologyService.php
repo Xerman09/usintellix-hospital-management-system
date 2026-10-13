@@ -43,7 +43,8 @@ class RadiologyService
     public const ANSWERS = ['no' => 'No', 'yes' => 'Yes', 'unknown' => 'Not known'];
     /** Studies with X-rays: pregnancy must be asked. */
     public const IONISING = ['xray', 'ct', 'fluoroscopy', 'mammography'];
-    public const BOOKING_LIVE = "('booked', 'arrived')";
+    /** A booking that holds its slot: still to do, or already done (Phase 2) -- only a cancellation frees the time. */
+    public const BOOKING_LIVE = "('booked', 'arrived', 'performed')";
     private const OPEN_ER = "('waiting', 'triaged')";
     private const ACTIVE_ADM = "('Admitted', 'Pending Discharge')";
 
@@ -496,6 +497,8 @@ class RadiologyService
             }
             $st = $db->prepare(
                 "SELECT b.*, c.name AS study_name, c.identifying_code, c.rad_modality, c.rad_contrast, o.status AS order_status,
+                        (SELECT COUNT(*) FROM rad_images i WHERE i.order_id = o.id AND i.deleted_at IS NULL) AS images,
+                        (SELECT r.status FROM rad_reports r WHERE r.order_id = o.id ORDER BY r.version DESC LIMIT 1) AS report_status,
                         r.request_no, r.priority, r.indication, r.location, r.transport, r.isolation, r.sedation, r.pregnancy, r.implants, r.contrast_allergy,
                         p.patient_no, p.first_name, p.middle_name, p.last_name, p.sex, p.birthdate,
                         " . self::nameSql('b.booked_by') . " AS booked_by_name
@@ -525,6 +528,8 @@ class RadiologyService
                     'transport' => $b['transport'] ? (self::TRANSPORT[$b['transport']] ?? $b['transport']) : null, 'isolation' => $b['isolation'],
                     'sedation' => (bool) $b['sedation'], 'pregnancy' => $b['pregnancy'], 'implants' => $b['implants'], 'contrast_allergy' => $b['contrast_allergy'],
                     'prep_given' => (bool) $b['prep_given'], 'note' => $b['note'], 'booked_by' => $b['booked_by_name'], 'arrived_at' => $b['arrived_at'],
+                    'performed_at' => $b['performed_at'], 'technique' => $b['technique'], 'contrast_given' => (bool) $b['contrast_given'],
+                    'images' => (int) $b['images'], 'report_status' => $b['report_status'],
                     'patient' => $patient, 'late' => $b['status'] === 'booked' && $b['start_at'] < $now,
                 ];
             }

@@ -120,6 +120,28 @@ const CSS = `
 .rbx-prep h4 { margin: 0 0 2px; font-size: 13px; }
 .rbx-prep ul { margin: 2px 0 8px; padding-left: 18px; }
 .rbx-prep li { margin-bottom: 2px; }
+/* reports and images (Phase 2) */
+.rad-req.crit { box-shadow: inset 4px 0 0 #b91c1c; }
+.rad-flag.ok { border-color: var(--border-color); background: var(--bg-surface-alt); color: var(--text-muted); }
+.rad-state { font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: var(--bg-surface-alt); border: 1px solid var(--border-color); margin-right: 4px; }
+.rad-state.draft { background: #fef3c7; color: #78350f; border-color: #f59e0b; }
+:root[data-theme="dark"] .rad-state.draft { background: #451a03; color: #fde68a; }
+.rad-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.rad-thumbs figure { margin: 0; width: 160px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #0f172a; }
+.rad-thumbs.small figure { width: 110px; }
+.rad-thumbs img { display: block; width: 100%; height: 110px; object-fit: contain; background: #000; }
+.rad-thumbs.small img { height: 76px; }
+.rad-thumbs .file { height: 110px; display: flex; align-items: center; justify-content: center; color: #93c5fd; font-weight: 800; font-size: 13px; background: #0f172a; }
+.rad-thumbs.small .file { height: 76px; }
+.rad-thumbs figcaption { padding: 4px 6px; font-size: 11.5px; background: var(--bg-surface); color: var(--text-primary); display: grid; gap: 2px; }
+.rad-rep { border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; font-size: 13px; }
+.rad-rep.old { opacity: .75; }
+.rad-text { white-space: pre-wrap; margin-top: 2px; }
+.rad-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rad-tbl th { text-align: left; font-size: 11.5px; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border-color); }
+.rad-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+.rad-tbl input[type=text] { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 6px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
+.rbx input[type=file] { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 8px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
 `;
 
 export function ensureCss() {

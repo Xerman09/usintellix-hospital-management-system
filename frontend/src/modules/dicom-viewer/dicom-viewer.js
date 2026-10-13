@@ -30,12 +30,75 @@ let rightStartY = 0;
 let measurements = []; // [{ type: "ruler", p1, p2 }, { type: "angle", p1, p2, p3 }, { type: "roi", p1, p2 }]
 let currentMeasure = null;
 
+// A study sent here from the Radiology Worklist ("Open images"): its files are listed under Series and the key
+// image is shown straight away (module 15, Phase 2). Kept in sessionStorage so a reload shows the same study.
+let radStudy = null;
+const RAD_STUDY_KEY = "rad_viewer_study";
+const RAD_STUDY_MINUTES = 15;
+// Our modality names as the DICOM codes the viewer's overlay expects.
+const RAD_MODALITY_CODE = { xray: "DX", ultrasound: "US", ct: "CT", mri: "MR", fluoroscopy: "RF", mammography: "MG" };
+
 export async function initDicomViewer() {
     setupViewport();
     setupToolbar();
     setupDropZone();
     setupModalsAndPopovers();
     await resolveActivePatient();
+    await loadRadiologyStudy();
+}
+
+/**
+ * The study the Radiology Worklist asked to open: its images are the series list and the key image is shown.
+ */
+async function loadRadiologyStudy() {
+    let study = null;
+    try {
+        study = JSON.parse(sessionStorage.getItem(RAD_STUDY_KEY) || "null");
+    } catch (e) {
+        study = null;
+    }
+    if (!study || !Array.isArray(study.images) || !study.images.length) return false;
+    if (study.at && Date.now() - study.at > RAD_STUDY_MINUTES * 60000) return false;
+
+    radStudy = study;
+    const label = document.getElementById("popActivePatientLabel");
+    if (label) {
+        label.textContent = `👤 ${study.patient?.name || "Patient"} (${study.patient?.mrn || "—"}) · ${study.study}`;
+    }
+    loadPatientSeriesList();
+    const key = study.images.find((i) => i.is_key) || study.images[0];
+    await openRadiologyImage(key);
+    showToast(`${study.study} — ${study.images.length} image${study.images.length === 1 ? "" : "s"} from the radiology worklist.`, "success");
+    return true;
+}
+
+/** One file of the radiology study: a DICOM file is parsed, anything else is shown as an image. */
+async function openRadiologyImage(image) {
+    if (!radStudy || !image) return;
+    const base = radStudy.api_url || "";
+    const url = `${base}${image.file_path}`;
+    const meta = {
+        patientName: radStudy.patient?.name || "Patient",
+        patientId: radStudy.patient?.mrn || "",
+        modality: RAD_MODALITY_CODE[radStudy.modality] || (radStudy.modality || "").toUpperCase(),
+        studyDescription: `${radStudy.study}${image.series_desc ? ` — ${image.series_desc}` : ""}`,
+        institution: "Intellix Health System"
+    };
+    if (image.is_dicom) {
+        try {
+            const buffer = await fetch(url, { credentials: "include" }).then((r) => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.arrayBuffer();
+            });
+            const parsed = parseDicomBuffer(buffer);
+            currentDicomData = parsed;
+            displayDicomStudy(parsed, image.original_filename || image.file_path.split("/").pop());
+            return;
+        } catch (e) {
+            showToast("That DICOM file could not be read; showing it as an image instead.", "error");
+        }
+    }
+    loadImageFromUrl(url, meta);
 }
 
 /**
@@ -496,6 +559,28 @@ async function loadActivePatientImaging() {
 async function loadPatientSeriesList() {
     const listEl = document.getElementById("dicomSeriesList");
     if (!listEl) return;
+
+    // A study opened from the Radiology Worklist: list its own files.
+    if (radStudy) {
+        const p = radStudy.patient || {};
+        listEl.innerHTML = `
+            <div style="padding: 10px; background: #334155; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
+                <div style="font-weight: 600; color: #38bdf8;">${escapeHtml(p.name || "Patient")} (${escapeHtml(p.mrn || "—")})</div>
+                <div style="color: #e2e8f0;">${escapeHtml(radStudy.study || "")}</div>
+                <div style="color: #94a3b8; font-size: 11px;">${escapeHtml(radStudy.modality_label || "")}${radStudy.performed_at ? ` · ${escapeHtml(String(radStudy.performed_at).slice(0, 16))}` : ""} · ${radStudy.images.length} file(s)</div>
+            </div>
+            ${radStudy.images.map((i, n) => `<button type="button" class="dicom-popover-btn" data-rad-image="${n}">
+                <span>${i.is_key ? "⭐ " : "🩻 "}${escapeHtml(i.series_desc || i.original_filename || `Image ${i.instance_no}`)}${i.is_dicom ? " (DICOM)" : ""}</span>
+            </button>`).join("")}`;
+        listEl.querySelectorAll("[data-rad-image]").forEach((btn) => {
+            btn.onclick = () => {
+                openRadiologyImage(radStudy.images[Number(btn.dataset.radImage)]);
+                const pop = document.getElementById("popoverSeries");
+                if (pop) pop.style.display = "none";
+            };
+        });
+        return;
+    }
 
     if (!activePatient) {
         listEl.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Open a patient chart to view their imaging series list.</div>`;
