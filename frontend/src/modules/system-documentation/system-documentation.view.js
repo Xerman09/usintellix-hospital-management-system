@@ -605,8 +605,8 @@ export function SystemDocumentationView(options = {}) {
                             </tr>
                             <tr>
                                 <td><strong>§ 164.308(a)(5)(ii)(D)</strong></td>
-                                <td>Password Expiration &amp; History</td>
-                                <td>90-day mandatory expiration, restriction of last 5 passwords, 7-day advance reminder banner.</td>
+                                <td>Password Expiration, History &amp; Breached Defense</td>
+                                <td>90-day mandatory expiration, restriction of last 5 passwords, NIST SP 800-63B breached password verification (k-Anonymity live lookup + local cache), login quarantine, and 7-day reminder banner.</td>
                             </tr>
                             <tr>
                                 <td><strong>§ 164.312(b) &amp; (c)(1)</strong></td>
@@ -741,21 +741,24 @@ export function SystemDocumentationView(options = {}) {
                     <div class="sysdoc-section-header">
                         <h2 class="sysdoc-section-title">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                            Password Expiration &amp; History Restriction (HIPAA § 164.308(a)(5)(ii)(D))
+                            Password Security, Expiration &amp; Breached Credential Defense (§ 164.308(a)(5)(ii)(D) &amp; NIST SP 800-63B)
                         </h2>
                         <span class="sysdoc-badge sysdoc-badge-green">Administrative Safeguard</span>
                     </div>
                     <p>
-                        Prevents stale or compromised credentials by enforcing regular rotation, strict complexity standards, and prohibiting password reuse:
+                        Prevents stale, weak, or compromised credentials by enforcing regular rotation, strict complexity standards, prohibiting password reuse, and actively screening against known public data breaches pursuant to NIST SP 800-63B § 5.1.1.2:
                     </p>
                     <div class="sysdoc-rule-box">
-                        <div class="sysdoc-rule-title">Password Security Policy Rules</div>
+                        <div class="sysdoc-rule-title">Password Security Policy Rules &amp; Compromised Credential Protection</div>
                         <ul style="margin: 4px 0 0 18px; padding: 0;">
                             <li><strong>90-Day Expiration:</strong> Passwords older than 90 days are blocked on login. The user is presented with a forced password renewal dialog.</li>
                             <li><strong>Last 5 Passwords Restriction:</strong> Users cannot reuse their current password or any of their previous 5 passwords stored in <code>user_password_history</code>.</li>
+                            <li><strong>Breached Password Protection (NIST SP 800-63B):</strong> Two-tier defense combining local high-frequency breach lists and live SHA-1 k-Anonymity API queries against Have I Been Pwned. Candidate passwords matching breach corpuses are strictly forbidden.</li>
+                            <li><strong>Login Breach Quarantine:</strong> When an active user logs in with an exposed credential, <code>password_breached</code> is flagged, entry is blocked with HTTP 401, and an impassable quarantine modal forces an immediate password change.</li>
+                            <li><strong>Real-Time Input Alerts:</strong> Interactive form validation dynamically tests password inputs and renders a prominent red alert box before form submission.</li>
                             <li><strong>7-Day Advance Notice Banner:</strong> If a password will expire within 7 days, an amber warning banner appears across the top of the dashboard with an "Update Password" button.</li>
                             <li><strong>Complexity Rules:</strong> Minimum 8 characters, at least one uppercase letter, one lowercase letter, one number, and one special character.</li>
-                            <li><strong>Unified Engine:</strong> Enforced across Login Renewal, First-Login Setup, and Self-Service Profile changes.</li>
+                            <li><strong>Unified Engine &amp; Audit Logging:</strong> Enforced across Login Renewal, First-Login Setup, and Self-Service Profile changes, with tamper-evident HMAC-SHA-256 audit events (<code>PASSWORD_BREACH_DETECTED</code>, <code>PASSWORD_BREACH_REMEDIATED</code>).</li>
                         </ul>
                     </div>
                 </section>
@@ -1480,8 +1483,8 @@ tamper_hash = SHA256(prev_hash | user_id | role | patient_id | category | action
                             </tr>
                             <tr>
                                 <td><strong>§ 164.308(a)(5)(ii)(D)</strong></td>
-                                <td>Password Expiration &amp; History</td>
-                                <td>90-day mandatory credential rotation, previous 5 passwords restriction, 7-day warning banner.</td>
+                                <td>Password Expiration, History &amp; Breached Defense</td>
+                                <td>90-day mandatory credential rotation, previous 5 passwords restriction, NIST SP 800-63B breached credential verification (k-Anonymity lookup + local cache), login breach quarantine, and 7-day warning banner.</td>
                                 <td><span class="sysdoc-badge sysdoc-badge-green">✓ Implemented</span></td>
                             </tr>
                             <tr>

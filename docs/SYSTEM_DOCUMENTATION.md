@@ -65,7 +65,7 @@ The system enforces strict compliance with 45 CFR Parts 160 & 164 across all fun
 | **§ 164.316(b)(2)(i)** | 6-Year Retention & Compliance Export | Immutable 6-year retention locked by MariaDB triggers (`trg_hipaa_audit_logs_retention_guard` & `trg_hipaa_audit_logs_immutability_guard`); one-click CSV and print-ready PDF compliance reports. |
 | **§ 164.312(a)(2)(iv)** | Field-Level Database Encryption at Rest | NIST SP 800-38D AES-256-GCM authenticated cipher encrypting SSN, national IDs, credit cards, SOAP clinical notes, and segregated psychiatric notes (`enc:v1:` envelopes). |
 | **§ 164.312(e)(1)** | Transmission Security & Anti-Caching | Global HTTP headers: `Cache-Control: no-store`, `Pragma: no-cache`, `X-Frame-Options: SAMEORIGIN`, `nosniff`. |
-| **§ 164.308(a)(5)(ii)(D)** | Password Expiration & History | 90-day mandatory expiration, previous 5 passwords restriction, 7-day advance notice banner, complexity rules. |
+| **§ 164.308(a)(5)(ii)(D)** | Password Expiration, History & Breached Credential Defense | 90-day mandatory expiration, previous 5 passwords restriction, 7-day advance notice banner, NIST SP 800-63B breached password verification (k-Anonymity live lookup + local cache), and login breach quarantine. |
 | **§ 164.308(a)(4)** | Role-Based Access Control (RBAC) | Granular roles (Admin, Physician, Nurse, Receptionist, Biller, Patient) and dynamic ACL permission groups. |
 | **§ 164.502(b) & § 164.514(d)** | Minimum Necessary PHI Access Control | Server-side restriction of clinical charts/labs for non-clinical staff, doctor patient-assignment boundaries, dashboard summary redaction, and Break-Glass modal. |
 | **§ 164.528** | Accounting of Disclosures Log | Dedicated submodule (`Miscellaneous &rarr; Accounting of Disclosures`) tracking all non-TPO PHI releases (subpoenas, public health, law enforcement, HIE); captures full statutory fields (§ 164.528(b)(2)), 6-year retention lookback, printable formal patient accounting statement, regulatory CSV export, and chained audit trails. |
@@ -231,6 +231,16 @@ USIntellix implements strict Role-Based Access Control (RBAC):
 ### Administration & Security Governance
 - **Employee & Role Directory**: User credential provisioning, status locking, department assignment.
 - **ACL Permissions**: Fine-grained capability toggles per functional group.
+- **Compromised Credential Defense & Breached Password Protection (NIST SP 800-63B & HIPAA § 164.308(a)(5)(ii)(D))**:
+  - *Statutory & Industry Standards*: Implements NIST SP 800-63B § 5.1.1.2 (Memorized Secret Verifiers) and HIPAA Security Rule § 164.308(a)(5)(ii)(D) procedures, prohibiting passwords exposed in public breach corpuses or known compromised credential dumps.
+  - *Two-Tier Verification Engine (`PasswordSecurity::checkBreached`)*:
+    1. *High-Frequency Local Dictionary*: Evaluates candidate passwords against high-frequency breached lists locally for instantaneous rejection without network overhead.
+    2. *SHA-1 k-Anonymity API Verification*: Computes the SHA-1 hash of candidate passwords and transmits strictly the first 5 hexadecimal characters (prefix) over secure HTTPS to the Have I Been Pwned Pwned Passwords API. Full plaintext passwords and hashes are never transmitted. The server searches returned hash suffixes (35 characters) to determine exact breach exposure counts.
+    3. *High-Performance MySQL Breach Cache (`breached_passwords_list`)*: Identified breach hashes, occurrence counts, and sources are cached in MariaDB/MySQL (`schema/286_breached_passwords_protection.sql`) for zero-latency subsequent checks.
+  - *Login Interception & Mandatory Quarantine*: If an active account authenticates with a breached credential, `AuthService::login()` sets `users.password_breached = 1`, halts session establishment, returns HTTP 401 with `password_breached: true`, and presents the forced `#breachedPasswordForm` quarantine modal preventing application access until remediated.
+  - *Proactive Password Change Enforcement*: `PasswordSecurity::validateComplexity()` and `ProfileService::changePassword()` reject any attempt to update, renew, or set a password found in the breach list with a clear, informative compliance violation notice.
+  - *Real-Time Debounced Client-Side Validation*: Interactive input listeners in both profile password change modals and authentication views dynamically warn users of compromised passwords before form submission.
+  - *Tamper-Evident Chained Audit Logging*: Emits immutable SHA-256 HMAC audit events (`ACTION_PASSWORD_BREACH_DETECTED`, `ACTION_PASSWORD_BREACH_REMEDIATED`) to `hipaa_audit_logs`.
 - **HIPAA Audit Log Console & Cryptographic Integrity (§ 164.312(b) & (c)(1))**: Append-only event stream with sequential SHA-256 HMAC hash chaining and real-time mathematical integrity verification to detect unauthorized database tampering.
 - **Audit Trail 6-Year Retention & Compliance Export (§ 164.316(b)(2)(i))**:
   - *Database-Level Retention Triggers*: MariaDB engine triggers (`trg_hipaa_audit_logs_retention_guard` and `trg_hipaa_audit_logs_immutability_guard`) prevent deletion of records within 6 years of creation and block all record updates.

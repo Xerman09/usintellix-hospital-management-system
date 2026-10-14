@@ -277,10 +277,10 @@ At the presentation layer, sensitive identifiers are masked by default:
 
 ## 3. HIPAA Security Rule: Administrative Safeguards (§ 164.308)
 
-### Password Expiration & History Restriction (§ 164.308(a)(5)(ii)(D))
+### Password Management, Expiration & Breached Credential Defense (§ 164.308(a)(5)(ii)(D) & NIST SP 800-63B)
 
 #### Requirements
-Establish password management procedures to ensure regular rotation of credentials, prevent password reuse, and maintain strong complexity requirements.
+Establish password management procedures to ensure regular rotation of credentials, prevent password reuse, maintain strong complexity requirements, and actively prevent the use of credentials compromised in known data breaches pursuant to NIST SP 800-63B § 5.1.1.2.
 
 #### System Implementation
 1. **Mandatory 90-Day Password Expiration**:
@@ -302,16 +302,34 @@ Establish password management procedures to ensure regular rotation of credentia
      - At least one lowercase English letter (`a-z`)
      - At least one numeric digit (`0-9`)
      - At least one special character (`!@#$%^&*()-_=+[]{}|;:,.<>?/`)
-4. **7-Day Advance Expiration Reminder Banner**:
+4. **Compromised Credential & Breached Password Protection (NIST SP 800-63B § 5.1.1.2)**:
+   - **Two-Tier Verification Engine (`PasswordSecurity::checkBreached()`)**:
+     - *Tier 1 (Instant Local Dictionary)*: Rapidly tests candidate passwords against common breached and dictionary passwords without network overhead.
+     - *Tier 2 (Live k-Anonymity HIBP Lookups)*: Calculates the 40-character SHA-1 hash of the password. Transmits only the first 5 hexadecimal characters (`prefix`) over secure HTTPS to the Have I Been Pwned Pwned Passwords API. Receives a list of matching hash suffixes; if the candidate's 35-character suffix matches, the password is confirmed breached. The plaintext password and full hash are never transmitted over the network.
+     - *Database Breach Cache (`breached_passwords_list`)*: Identified breach hashes, occurrence counts, and timestamps are cached locally in MariaDB/MySQL (`schema/286_breached_passwords_protection.sql`) for zero-latency lookups.
+   - **Login-Time Credential Quarantine**:
+     - During user login, `AuthService::login()` performs a breach check on the authenticated credential.
+     - If exposed in a breach, the user's account is flagged (`users.password_breached = 1`), login session establishment is denied, HTTP 401 is returned with `password_breached: true`, and the UI presents `#breachedPasswordForm` requiring immediate remediation before accessing clinical modules.
+   - **Proactive Password Change Prohibition**:
+     - `PasswordSecurity::validateComplexity()` and `ProfileService::changePassword()` reject any proposed password present in breach corpuses with:
+       *"This password has appeared in a known data breach (compromised credential). For HIPAA and NIST SP 800-63B compliance, please choose a different, secure password."*
+   - **Real-Time Interactive Presentation Alerts**:
+     - Client-side input handlers in profile password update modals and auth views debounce input to proactively verify and display high-visibility warning notices if a proposed credential has been breached.
+     - An impassable red dashboard warning banner (`#dashBreachAlertBanner`) alerts any logged-in user flagged with `password_breached = 1`.
+   - **Tamper-Evident Chained Audit Logging**:
+     - Logs `ACTION_PASSWORD_BREACH_DETECTED` when an active credential matches a known breach.
+     - Logs `ACTION_PASSWORD_BREACH_REMEDIATED` when the user successfully changes to a secure, unbreached password.
+5. **7-Day Advance Expiration Reminder Banner**:
    - For users whose passwords expire in $\le 7$ days, session metadata sets `password_expiring_soon = true` and `days_until_expiration`.
    - The clinical dashboard displays a prominent, non-blocking amber notice:
      *"HIPAA Security Notice (§ 164.308(a)(5)(ii)(D)): Your password will expire in X day(s). [Update Password]"*
    - Clicking the action navigates directly to the profile credential modal.
-5. **Unified Enforcement Vectors**:
-   - Identical complexity, history restriction, and audit logging apply uniformly to:
+6. **Unified Enforcement Vectors**:
+   - Identical complexity, history restriction, breached credential verification, and audit logging apply uniformly to:
      - **Login Expiration Renewal** (`PUT /auth/expired-password`)
      - **First-Login Credential Setup** (`PUT /auth/first-login`)
      - **Self-Service Profile Password Change** (`PUT /profile/password`)
+     - **Login Breach Remediation** (`PUT /profile/password` or `/auth/expired-password`)
 
 ---
 
@@ -652,7 +670,7 @@ This section documents the technical and operational compliance posture required
 | **§ 164.312(b) & (c)** | Audit Controls & Integrity | HMAC-SHA-256 sequential chained audit logs with CLI/web verifier | **Implemented** | Low |
 | **§ 164.316(b)(2)(i)** | 6-Year Immutable Retention | Database triggers blocking record deletion & modification < 6 years | **Implemented** | Low |
 | **§ 164.312(e)(1)** | Transmission Security Headers | Anti-caching (`no-store`, `no-cache`), clickjacking & MIME defense | **Implemented** | Low |
-| **§ 164.308(a)(5)(ii)(D)**| Password Expiration & History | 90-day expiration, previous 5 passwords restricted, complexity rules | **Implemented** | Low |
+| **§ 164.308(a)(5)(ii)(D)**| Password Expiration, History & Breached Credential Defense | 90-day expiration, previous 5 passwords restricted, NIST SP 800-63B breached password verification (k-Anonymity lookup + local cache), login breach quarantine | **Implemented** | Low |
 | **§ 164.308(a)(4)** | Role-Based Access Control | Granular 6-tier RBAC and dynamic ACL groups | **Implemented** | Low |
 | **§ 164.502(b) / § 164.514(d)** | Minimum Necessary PHI | Clinical masking for non-clinical staff; physician assignment boundaries | **Implemented** | Low |
 | **§ 164.520** | Notice of Privacy Practices (NPP) | First-portal e-signature gating, in-clinic check-in console, audit ledger | **Implemented** | Low |
