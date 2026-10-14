@@ -207,15 +207,15 @@ function renderMedications() {
         let refillText = "";
         if (isRx) {
             if (med.is_closed) {
-                refillText = `<span style="color:#94a3b8;">Prescription closed by pharmacy</span>`;
+                refillText = `<span style="color:var(--text-muted, #94a3b8);">Prescription closed by pharmacy</span>`;
             } else if (med.refills_allowed > 0) {
                 const remaining = med.refills_remaining ?? med.refills_allowed;
                 refillText = `<span><strong>${remaining}</strong> of ${med.refills_allowed} refills remaining</span>`;
                 if (med.refill_until) {
-                    refillText += ` · <span style="font-size:12px; color:#64748b;">Valid until ${formatDate(med.refill_until)}</span>`;
+                    refillText += ` · <span style="font-size:12px; color:var(--text-muted, #64748b);">Valid until ${formatDate(med.refill_until)}</span>`;
                 }
             } else {
-                refillText = `<span>No refills remaining</span>`;
+                refillText = `<span style="color:var(--text-muted, #64748b);">No refills remaining</span>`;
             }
         }
 
@@ -392,9 +392,6 @@ function attachCardActions() {
 }
 
 function setupEventListeners() {
-    if (isInitialized) return;
-    isInitialized = true;
-
     // Filter Buttons
     const filterTabs = document.getElementById("pmedFilterTabs");
     if (filterTabs) {
@@ -592,56 +589,60 @@ function openDetailsModal(med) {
 
     content.innerHTML = `
         <div style="margin-bottom:16px;">
-            <h4 style="margin:0 0 6px 0; font-size:17px; color:#0f172a;">${escapeHtml(med.title)}</h4>
-            <span class="pmed-badge ${med.status === 'active' ? 'pmed-badge-active' : 'pmed-badge-completed'}">${escapeHtml(med.status.toUpperCase())}</span>
-            <span class="pmed-badge ${med.record_type === 'prescription' ? 'pmed-badge-rx' : 'pmed-badge-otc'}">${med.record_type === 'prescription' ? 'Prescription' : 'Home / OTC'}</span>
+            <h4 class="pmed-card-titles" style="margin:0 0 8px 0; font-size:17px;">
+                <span class="val">${escapeHtml(med.title)}</span>
+            </h4>
+            <div class="pmed-badges-row">
+                <span class="pmed-badge ${med.status === 'active' ? 'pmed-badge-active' : 'pmed-badge-completed'}">${escapeHtml(med.status.toUpperCase())}</span>
+                <span class="pmed-badge ${med.record_type === 'prescription' ? 'pmed-badge-rx' : 'pmed-badge-otc'}">${med.record_type === 'prescription' ? 'Prescription' : 'Home / OTC'}</span>
+            </div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; font-size:13px; margin-bottom:16px;">
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Dosage</label>
-                <div style="font-weight:500;">${escapeHtml(med.dosage || "-")}</div>
+        <div class="pmed-details-grid" style="margin-bottom:16px;">
+            <div class="pmed-details-item">
+                <label>Dosage</label>
+                <div class="val">${escapeHtml(med.dosage || "-")}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Frequency</label>
-                <div style="font-weight:500;">${escapeHtml(med.frequency || "As directed")}</div>
+            <div class="pmed-details-item">
+                <label>Frequency</label>
+                <div class="val">${escapeHtml(med.frequency || "As directed")}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Prescriber</label>
-                <div style="font-weight:500;">${escapeHtml(prescriber)}</div>
+            <div class="pmed-details-item">
+                <label>Prescriber</label>
+                <div class="val">${escapeHtml(prescriber)}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Rx Number</label>
-                <div style="font-weight:500;">${escapeHtml(med.rx_number || "N/A")}</div>
+            <div class="pmed-details-item">
+                <label>Rx Number</label>
+                <div class="val">${escapeHtml(med.rx_number || "N/A")}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Quantity</label>
-                <div style="font-weight:500;">${escapeHtml(med.quantity || "-")}</div>
+            <div class="pmed-details-item">
+                <label>Quantity</label>
+                <div class="val">${escapeHtml(med.quantity || "-")}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Refills</label>
-                <div style="font-weight:500;">${med.record_type === 'prescription' ? `${remaining} of ${med.refills_allowed} remaining` : 'N/A'}</div>
+            <div class="pmed-details-item">
+                <label>Refills</label>
+                <div class="val">${med.record_type === 'prescription' ? `${remaining} of ${med.refills_allowed} remaining` : 'N/A'}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Start Date</label>
-                <div style="font-weight:500;">${formatDate(med.begin_date)}</div>
+            <div class="pmed-details-item">
+                <label>Start Date</label>
+                <div class="val">${formatDate(med.begin_date)}</div>
             </div>
-            <div>
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">End Date</label>
-                <div style="font-weight:500;">${formatDate(med.end_date)}</div>
+            <div class="pmed-details-item">
+                <label>End Date</label>
+                <div class="val">${formatDate(med.end_date)}</div>
             </div>
             ${med.pharmacy ? `
-            <div style="grid-column: 1 / -1;">
-                <label style="font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase;">Dispensing Pharmacy</label>
-                <div style="font-weight:500;">${escapeHtml(med.pharmacy)}</div>
+            <div class="pmed-details-item" style="grid-column: 1 / -1;">
+                <label>Dispensing Pharmacy</label>
+                <div class="val">${escapeHtml(med.pharmacy)}</div>
             </div>
             ` : ""}
         </div>
 
         ${med.directions ? `
-        <div style="background:#f8fafc; border-left:3px solid #0284c7; padding:12px; border-radius:0 6px 6px 0; font-size:13px; line-height:1.5;">
-            <strong style="color:#0f172a;">Instructions:</strong><br>
-            ${escapeHtml(med.directions)}
+        <div class="pmed-directions">
+            <strong>Instructions:</strong><br>
+            <span>${escapeHtml(med.directions)}</span>
         </div>
         ` : ""}
     `;
