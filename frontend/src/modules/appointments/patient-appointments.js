@@ -84,7 +84,7 @@ function setupViewSwitch()
 
 function setupCalendarNav()
 {
-    document.getElementById("apptCalPrev").addEventListener("click", () => {
+    document.getElementById("apptCalPrev")?.addEventListener("click", () => {
         calendarMonth -= 1;
 
         if (calendarMonth < 0) {
@@ -95,7 +95,7 @@ function setupCalendarNav()
         renderCalendar();
     });
 
-    document.getElementById("apptCalNext").addEventListener("click", () => {
+    document.getElementById("apptCalNext")?.addEventListener("click", () => {
         calendarMonth += 1;
 
         if (calendarMonth > 11) {
@@ -104,6 +104,19 @@ function setupCalendarNav()
         }
 
         renderCalendar();
+    });
+
+    document.getElementById("apptCalToday")?.addEventListener("click", () => {
+        const now = systemNow();
+        calendarYear = now.getFullYear();
+        calendarMonth = now.getMonth();
+        selectedDate = toDateStr(now);
+        renderCalendar();
+        const appointmentsByDate = {};
+        allAppointments.forEach((appt) => {
+            (appointmentsByDate[appt.appointment_date] ||= []).push(appt);
+        });
+        renderCalendarDayDetail(appointmentsByDate[selectedDate] || []);
     });
 }
 
@@ -383,34 +396,90 @@ function renderCalendar()
 
     label.textContent = formatMonthLabel(calendarYear, calendarMonth);
 
+    const monthCountBadge = document.getElementById("apptCalMonthCount");
     const todayStr = toDateStr(systemNow());
     const appointmentsByDate = {};
 
+    let currentMonthApptCount = 0;
     allAppointments.forEach((appt) => {
         (appointmentsByDate[appt.appointment_date] ||= []).push(appt);
+        if (appt.appointment_date) {
+            const [y, m] = appt.appointment_date.split("-").map(Number);
+            if (y === calendarYear && m === calendarMonth + 1) {
+                currentMonthApptCount++;
+            }
+        }
     });
+
+    if (monthCountBadge) {
+        monthCountBadge.textContent = currentMonthApptCount === 1
+            ? "1 appointment"
+            : `${currentMonthApptCount} appointments`;
+    }
 
     const firstDayOfWeek = new Date(calendarYear, calendarMonth, 1).getDay();
     const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    const prevMonthDays = new Date(calendarYear, calendarMonth, 0).getDate();
 
-    let html = DOW_LABELS.map((dow) => `<div class="appt-month-dow">${dow}</div>`).join("");
+    let html = "";
 
+    // 1. DOW Ribbon Row
+    html += `<div class="appt-month-dow-row">`;
+    DOW_LABELS.forEach((dow) => {
+        html += `<div class="appt-month-dow">${dow}</div>`;
+    });
+    html += `</div>`;
+
+    // 2. Day cells grid
+    html += `<div class="appt-month-cells-grid">`;
+
+    // Previous month padding days
     for (let i = 0; i < firstDayOfWeek; i++) {
-        html += `<div class="appt-month-day empty"></div>`;
+        const prevDay = prevMonthDays - firstDayOfWeek + i + 1;
+        const prevMonth = calendarMonth === 0 ? 11 : calendarMonth - 1;
+        const prevYear = calendarMonth === 0 ? calendarYear - 1 : calendarYear;
+        const prevDateStr = monthDateStr(prevYear, prevMonth, prevDay);
+        const prevAppts = (appointmentsByDate[prevDateStr] || []).slice().sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+
+        html += `
+            <div class="appt-month-day other-month" data-date="${prevDateStr}">
+                <div class="appt-month-day-header">
+                    <span class="appt-month-daynum">${prevDay}</span>
+                    ${prevAppts.length ? `<span class="appt-day-dot"></span>` : ""}
+                </div>
+                <div class="appt-month-chips">
+                    ${prevAppts.slice(0, 2).map((appt) => `
+                        <div class="appt-month-chip other-month-chip">
+                            <span class="appt-chip-time">${formatApptTime(appt.appointment_time)}</span>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
     }
 
+    // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = monthDateStr(calendarYear, calendarMonth, day);
         const dayAppointments = (appointmentsByDate[dateStr] || []).slice().sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
         const classes = ["appt-month-day"];
 
-        if (dateStr === todayStr) classes.push("today");
-        if (dateStr === selectedDate) classes.push("selected");
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === selectedDate;
+
+        if (isToday) classes.push("today");
+        if (isSelected) classes.push("selected");
 
         const visibleChips = dayAppointments.slice(0, MAX_CHIPS_PER_DAY).map((appt) => {
             const providerName = [appt.provider_first_name, appt.provider_last_name].filter(Boolean).join(" ");
 
-            return `<div class="appt-month-chip ${appt.status}">${formatApptTime(appt.appointment_time)} ${escapeHtml(providerName || "Provider TBD")}</div>`;
+            return `
+                <div class="appt-month-chip ${appt.status}" title="${formatApptTime(appt.appointment_time)} - Dr. ${escapeHtml(providerName || 'Provider')}">
+                    <span class="appt-chip-dot"></span>
+                    <span class="appt-chip-time">${formatApptTime(appt.appointment_time)}</span>
+                    <span class="appt-chip-name">${providerName ? `Dr. ${escapeHtml(providerName)}` : "Provider TBD"}</span>
+                </div>
+            `;
         }).join("");
 
         const overflow = dayAppointments.length > MAX_CHIPS_PER_DAY
@@ -419,17 +488,55 @@ function renderCalendar()
 
         html += `
             <div class="${classes.join(" ")}" data-date="${dateStr}">
-                <span class="appt-month-daynum">${day}</span>
+                <div class="appt-month-day-header">
+                    <span class="appt-month-daynum ${isToday ? 'today-pill' : ''}">${day}</span>
+                    ${dayAppointments.length > 0 ? `<span class="appt-day-badge">${dayAppointments.length}</span>` : ""}
+                </div>
                 <div class="appt-month-chips">${visibleChips}${overflow}</div>
             </div>
         `;
     }
+
+    // Next month padding days to complete last row of 7
+    const totalRendered = firstDayOfWeek + daysInMonth;
+    const remainder = totalRendered % 7;
+    const nextDaysNeeded = remainder === 0 ? 0 : 7 - remainder;
+
+    for (let nextDay = 1; nextDay <= nextDaysNeeded; nextDay++) {
+        const nextMonth = calendarMonth === 11 ? 0 : calendarMonth + 1;
+        const nextYear = calendarMonth === 11 ? calendarYear + 1 : calendarYear;
+        const nextDateStr = monthDateStr(nextYear, nextMonth, nextDay);
+        const nextAppts = (appointmentsByDate[nextDateStr] || []).slice().sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+
+        html += `
+            <div class="appt-month-day other-month" data-date="${nextDateStr}">
+                <div class="appt-month-day-header">
+                    <span class="appt-month-daynum">${nextDay}</span>
+                    ${nextAppts.length ? `<span class="appt-day-dot"></span>` : ""}
+                </div>
+                <div class="appt-month-chips">
+                    ${nextAppts.slice(0, 2).map((appt) => `
+                        <div class="appt-month-chip other-month-chip">
+                            <span class="appt-chip-time">${formatApptTime(appt.appointment_time)}</span>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+    }
+
+    html += `</div>`; // close appt-month-cells-grid
 
     grid.innerHTML = html;
 
     grid.querySelectorAll(".appt-month-day[data-date]").forEach((cell) => {
         cell.addEventListener("click", () => {
             selectedDate = cell.getAttribute("data-date");
+            const [y, m] = selectedDate.split("-").map(Number);
+            if (y !== calendarYear || m - 1 !== calendarMonth) {
+                calendarYear = y;
+                calendarMonth = m - 1;
+            }
             renderCalendar();
             renderCalendarDayDetail(appointmentsByDate[selectedDate] || []);
         });
@@ -445,16 +552,71 @@ function renderCalendarDayDetail(dayAppointments)
         return;
     }
 
+    if (!selectedDate) {
+        title.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Select a date
+        `;
+        list.innerHTML = `<div class="appt-empty">Click any date on the calendar to view its appointments.</div>`;
+        return;
+    }
+
     const todayStr = toDateStr(systemNow());
     const isPast = selectedDate < todayStr;
 
-    title.textContent = formatDayHeading(selectedDate);
+    title.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        ${escapeHtml(formatDayHeading(selectedDate))}
+        ${selectedDate === todayStr ? `<span class="pt-cal-month-badge" style="background:#e0f2fe; color:#0284c7; border-color:#bae6fd;">Today</span>` : ''}
+    `;
 
     const sorted = dayAppointments.slice().sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
 
-    list.innerHTML = sorted.length
-        ? sorted.map((appt) => apptCard(appt, isPast)).join("")
-        : `<div class="appt-empty">No appointments on this date.</div>`;
+    if (sorted.length > 0) {
+        list.innerHTML = sorted.map((appt) => apptCard(appt, isPast)).join("");
+    } else {
+        list.innerHTML = `
+            <div class="appt-empty-agenda">
+                <div class="appt-empty-agenda-left">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span>No appointments scheduled for this date.</span>
+                </div>
+                ${!isPast ? `
+                    <button type="button" class="pt-appt-request-btn" style="height:32px; font-size:12.5px; padding:0 14px;" id="btnBookSelectedDate">
+                        + Request for this day
+                    </button>
+                ` : ''}
+            </div>
+        `;
+
+        document.getElementById("btnBookSelectedDate")?.addEventListener("click", () => {
+            const openModalBtn = document.getElementById("apptRequestBtn");
+            if (openModalBtn) {
+                openModalBtn.click();
+                setTimeout(() => {
+                    const dateInput = document.getElementById("apptReqDate");
+                    if (dateInput) {
+                        dateInput.value = selectedDate;
+                        dateInput.dispatchEvent(new Event("change"));
+                    }
+                }, 50);
+            }
+        });
+    }
 }
 
 function formatDayHeading(dateStr)

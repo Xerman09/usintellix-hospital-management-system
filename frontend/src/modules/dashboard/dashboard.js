@@ -182,8 +182,8 @@ import { AppointmentsListView } from "../appointments/appointments-list.view.js?
 import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
-import { PatientAppointmentsView } from "../appointments/patient-appointments.view.js";
-import { initPatientAppointments } from "../appointments/patient-appointments.js";
+import { PatientAppointmentsView } from "../appointments/patient-appointments.view.js?v=12";
+import { initPatientAppointments } from "../appointments/patient-appointments.js?v=12";
 import { HealthSummaryView } from "../health-records/health-summary.view.js?v=2";
 import { initHealthSummary } from "../health-records/health-summary.js?v=5";
 import { DocumentsView } from "../documents/documents.view.js";
