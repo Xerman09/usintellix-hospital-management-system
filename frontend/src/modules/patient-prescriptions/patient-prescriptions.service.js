@@ -18,13 +18,13 @@ export async function cancelRefillRequest(requestId)
     );
 }
 
-export async function requestPrescriptionRefill(prescriptionId)
+export async function requestPrescriptionRefill(prescriptionId, notes = null)
 {
     return await api(
         "/patient-prescriptions/refill-request",
         {
             method: "POST",
-            body: JSON.stringify({ prescription_id: prescriptionId })
+            body: JSON.stringify({ prescription_id: prescriptionId, notes })
         }
     );
 }

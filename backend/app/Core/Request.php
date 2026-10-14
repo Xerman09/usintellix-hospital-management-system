@@ -16,20 +16,23 @@ class Request
      */
     private function parseRequest(): void
     {
-        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $contentType = strtolower($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '');
+        $rawInput = file_get_contents('php://input');
 
-        if (str_contains($contentType, 'application/json')) {
+        if (str_contains($contentType, 'application/json') || (!empty($rawInput) && in_array($_SERVER['REQUEST_METHOD'] ?? '', ['PUT', 'PATCH']))) {
+            $body = json_decode($rawInput, true);
+            if (is_array($body)) {
+                $this->data = array_merge($_GET, $body);
+                return;
+            }
+        }
 
-            $json = file_get_contents('php://input');
-
-            $body = json_decode($json, true) ?? [];
-
-            $this->data = array_merge($_GET, $body);
-
-        } else {
-
-            $this->data = array_merge($_GET, $_POST);
-
+        $this->data = array_merge($_GET, $_POST);
+        if (empty($_POST) && !empty($rawInput)) {
+            $body = json_decode($rawInput, true);
+            if (is_array($body)) {
+                $this->data = array_merge($this->data, $body);
+            }
         }
     }
 

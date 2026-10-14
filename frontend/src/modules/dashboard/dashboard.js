@@ -12,8 +12,8 @@ import { showToast } from "../../core/toast.js";
 import { initDashboardHome } from "./dashboard-home.js";
 import { HelpView } from "../help/help.view.js?v=6";
 import { initHelp } from "../help/help.js?v=4";
-import { PatientMedicationsView } from "../patient-medications/patient-medications.view.js";
-import { initPatientMedications } from "../patient-medications/patient-medications.js";
+import { PatientMedicationsView } from "../patient-medications/patient-medications.view.js?v=10";
+import { initPatientMedications } from "../patient-medications/patient-medications.js?v=10";
 import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
 import { initPatientRecalls } from "../patient-recalls/patient-recalls.js";
 import { HealthRemindersView } from "../health-reminders/health-reminders.view.js";
@@ -192,6 +192,8 @@ import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
 import { ProfileView } from "../profile/profile.view.js";
 import { initProfile } from "../profile/profile.js";
+import { ChangePasswordView } from "../profile/change-password.view.js";
+import { initChangePassword } from "../profile/change-password.js";
 import { BusinessSettingsView } from "../business-settings/business-settings.view.js?v=2";
 import { initBusinessSettings } from "../business-settings/business-settings.js?v=2";
 import { GeneralSettingsView } from "../general-settings/general-settings.view.js?v=4";
@@ -1244,6 +1246,11 @@ export function Dashboard()
                 setTimeout(initProfile, 0);
                 return ProfileView();
             }, activate);
+        } else if (tabId === 'change_password') {
+            tabManager.openTab(tabId, title || 'Change Password', () => {
+                setTimeout(initChangePassword, 0);
+                return ChangePasswordView();
+            }, activate);
         } else if (tabId === 'business_settings' && user.role === 'admin') {
             tabManager.openTab(tabId, title, () => {
                 setTimeout(() => initBusinessSettings('general'), 0);
@@ -2041,7 +2048,7 @@ function setupPasswordExpirationBanner(user, openDashboardTab) {
     const updateBtn = document.getElementById('btnBannerUpdatePassword');
     if (updateBtn) {
         updateBtn.addEventListener('click', () => {
-            openDashboardTab('profile', 'Profile');
+            openDashboardTab('change_password', 'Change Password');
         });
     }
 

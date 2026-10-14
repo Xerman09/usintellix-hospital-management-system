@@ -11,15 +11,15 @@ $router->get('/patient-medications', [PatientMedicationController::class, 'index
 
 $router->post('/patient-medications', [PatientMedicationController::class, 'store'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->put('/patient-medications', [PatientMedicationController::class, 'update'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);
 
 $router->delete('/patient-medications', [PatientMedicationController::class, 'destroy'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'patient']]
 ]);

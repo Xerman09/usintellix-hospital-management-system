@@ -33,9 +33,13 @@ class PatientPrescriptionService
                     pp.occurrence, pp.outcome, pp.classification_type, pp.verification_status,
                     pp.referred_by, pp.destination, pp.created_at, pp.updated_at,
                     d.name AS drug_name, d.strength AS drug_strength, du.name AS drug_unit_name,
-                    pp.prescription_id, pp.line_no, rx.rx_number, rx.prescribed_date, rx.status AS prescription_status
+                    pp.prescription_id, pp.line_no, rx.rx_number, rx.prescribed_date, rx.status AS prescription_status,
+                    rx.refill_until, rx.valid_until,
+                    CONCAT_WS(' ', pe.first_name, pe.last_name) AS prescriber_name
              FROM patient_prescriptions pp
              LEFT JOIN prescriptions rx ON rx.id = pp.prescription_id
+             LEFT JOIN users pu ON pu.id = rx.prescriber_user_id
+             LEFT JOIN employees pe ON pe.user_id = pu.id
              LEFT JOIN drugs d ON d.id = pp.drug_id
              LEFT JOIN amount_units du ON du.id = d.dispensing_unit_id
              WHERE pp.patient_id = :patient_id AND pp.deleted_at IS NULL

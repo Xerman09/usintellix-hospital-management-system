@@ -218,9 +218,13 @@ function setupChangePasswordModal()
         form.reset();
     };
 
-    document.getElementById("openChangePasswordModal").addEventListener("click", openModal);
-    document.getElementById("closeChangePasswordModal").addEventListener("click", closeModal);
-    document.getElementById("cancelChangePassword").addEventListener("click", closeModal);
+    const openBtn = document.getElementById("openChangePasswordModal");
+    const closeBtn = document.getElementById("closeChangePasswordModal");
+    const cancelBtn = document.getElementById("cancelChangePassword");
+
+    if (openBtn) openBtn.addEventListener("click", openModal);
+    if (closeBtn) closeBtn.addEventListener("click", closeModal);
+    if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
 
     modalOverlay.addEventListener("click", (event) => {
         if (event.target === modalOverlay) {
@@ -249,11 +253,15 @@ function setupChangePasswordModal()
 
         if (!result.success) {
             showAlert("passwordFormAlert", result.message || "Failed to change password.", "error");
+            showToast(result.message || "Failed to change password.", "error");
             return;
         }
 
         closeModal();
         showToast("Password changed successfully.", "success");
+        const banner = document.getElementById("passwordExpirationBanner");
+        if (banner) banner.style.display = "none";
+        sessionStorage.setItem("pw_exp_banner_dismissed", "1");
     });
 }
 
@@ -264,6 +272,10 @@ function setupAvatarMenu()
     const chooseBtn = document.getElementById("chooseAvatarBtn");
     const removeBtn = document.getElementById("removeAvatarBtn");
     const input = document.getElementById("avatarFileInput");
+
+    if (!menuWrap || !trigger || !chooseBtn || !removeBtn || !input) {
+        return;
+    }
 
     const closeMenu = () => menuWrap.classList.remove("open");
 

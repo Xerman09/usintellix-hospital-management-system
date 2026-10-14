@@ -92,7 +92,11 @@ function layoutNav() {
     const available = limit - more.getBoundingClientRect().width;
     const firstHidden = visible.findIndex((item) => item.getBoundingClientRect().right > available);
 
-    visible.slice(Math.max(firstHidden, 0)).forEach((item) => menu.appendChild(item));
+    if (firstHidden === -1) {
+        visible.slice(-1).forEach((item) => menu.appendChild(item));
+    } else {
+        visible.slice(firstHidden).forEach((item) => menu.appendChild(item));
+    }
 
     more.classList.toggle("has-active", Boolean(menu.querySelector("a.active")));
 }

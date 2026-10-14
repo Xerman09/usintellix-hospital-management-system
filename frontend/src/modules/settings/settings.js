@@ -1,6 +1,7 @@
 import { api } from "../../core/api.js?v=5";
 import { getUser } from "../../core/session.js";
 import { showToast } from "../../core/toast.js";
+import { changePassword } from "../profile/profile.service.js";
 
 export function initSettings() {
     const btnDigitalSignature = document.getElementById("btnDigitalSignature");
@@ -75,14 +76,39 @@ function setupLoginCredentialsModal(openBtn) {
     }
     
     if (saveBtn) {
-        saveBtn.addEventListener("click", () => {
+        saveBtn.addEventListener("click", async () => {
             const currentPass = document.getElementById("settingsCurrentPassword").value;
+            const newPass = document.getElementById("settingsChangePassword").value;
+            const confirmPass = document.getElementById("settingsConfirmPassword").value;
+
             if (!currentPass) {
                 if (typeof showToast === 'function') showToast("Current password is required to save changes.", "error");
                 return;
             }
+
+            if (newPass || confirmPass) {
+                if (newPass !== confirmPass) {
+                    if (typeof showToast === 'function') showToast("New password and confirm password do not match.", "error");
+                    return;
+                }
+
+                saveBtn.disabled = true;
+                const result = await changePassword({
+                    current_password: currentPass,
+                    new_password: newPass
+                });
+                saveBtn.disabled = false;
+
+                if (!result.success) {
+                    if (typeof showToast === 'function') showToast(result.message || "Failed to update password.", "error");
+                    return;
+                }
+
+                const banner = document.getElementById("passwordExpirationBanner");
+                if (banner) banner.style.display = "none";
+                sessionStorage.setItem("pw_exp_banner_dismissed", "1");
+            }
             
-            // Simulate saving
             if (typeof showToast === 'function') showToast("Login credentials updated successfully.", "success");
             overlay.classList.remove("open");
         });

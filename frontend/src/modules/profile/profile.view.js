@@ -155,10 +155,16 @@ export function ProfileView()
     <div class="prof-card-modern">
         <div class="prof-header-modern">
             <h1>Profile From Medical Records</h1>
-            <button type="button" class="prof-btn-edit-modern" id="openEditProfileModal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
-                Edit Profile
-            </button>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="prof-btn-edit-modern" id="openChangePasswordModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    Change Password
+                </button>
+                <button type="button" class="prof-btn-edit-modern" id="openEditProfileModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                    Edit Profile
+                </button>
+            </div>
         </div>
         
         <div id="formAlert"></div>

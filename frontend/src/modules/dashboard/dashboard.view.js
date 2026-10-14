@@ -521,7 +521,6 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="messaging">Messaging</a>
     <a data-tab="recalls">Recalls</a>
     <a data-tab="health_reminders">Health Reminders</a>
-
     <a data-tab="medications">Medications</a>
     <a data-tab="billing">Billing</a>
     <a data-tab="reports">Medical Reports</a>
@@ -865,6 +864,7 @@ export function DashboardView()
                     </div>
                     <hr>
                     <a data-tab="profile" style="cursor: pointer;">Profile</a>
+                    <a data-tab="change_password" style="cursor: pointer;">Change Password</a>
                     <a data-tab="appearance" style="cursor: pointer;">Appearance</a>
                     <a data-tab="settings" style="cursor: pointer;">Settings</a>
                     <div class="profile-docs-accordion" id="profileDocsAccordion">

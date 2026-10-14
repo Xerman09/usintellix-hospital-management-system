@@ -28,7 +28,7 @@ class PatientMedicationService
             "SELECT id, patient_id, medication_id, title, begin_date, end_date,
                     medication_usage, request_intent, is_primary_record, comments, coding,
                     occurrence, outcome, classification_type, verification_status,
-                    referred_by, destination, created_at
+                    referred_by, destination, created_at, updated_at
              FROM patient_medications
              WHERE patient_id = :patient_id AND deleted_at IS NULL
              ORDER BY title"
@@ -37,6 +37,111 @@ class PatientMedicationService
         $stmt->execute(['patient_id' => $patientId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * List all patient medications and prescriptions unified for the patient portal,
+     * including full dosage, frequency, route, refills, and prescriber data.
+     */
+    public function listAllForPatient(int $patientId): array
+    {
+        $db = Database::connection();
+
+        // 1. Clinical and self-reported medications
+        $stmtMed = $db->prepare(
+            "SELECT id, patient_id, medication_id, title, begin_date, end_date,
+                    medication_usage, request_intent, is_primary_record, comments, coding,
+                    occurrence, outcome, classification_type, verification_status,
+                    referred_by, destination, created_at, updated_at
+             FROM patient_medications
+             WHERE patient_id = :patient_id AND deleted_at IS NULL
+             ORDER BY is_primary_record DESC, begin_date DESC, title"
+        );
+        $stmtMed->execute(['patient_id' => $patientId]);
+        $medRows = $stmtMed->fetchAll(PDO::FETCH_ASSOC);
+
+        $unified = [];
+
+        foreach ($medRows as $m) {
+            $isEnded = !empty($m['end_date']) && $m['end_date'] < date('Y-m-d');
+            $unified[] = [
+                'id' => (int) $m['id'],
+                'record_type' => 'medication',
+                'title' => $m['title'],
+                'begin_date' => $m['begin_date'],
+                'end_date' => $m['end_date'],
+                'dosage' => $m['medication_usage'] ?: null,
+                'frequency' => null,
+                'route' => null,
+                'quantity' => null,
+                'directions' => $m['comments'],
+                'refills' => null,
+                'refills_allowed' => 0,
+                'refills_remaining' => 0,
+                'refill_until' => null,
+                'can_request_refill' => false,
+                'is_closed' => false,
+                'refill_request' => null,
+                'pharmacy' => null,
+                'rx_number' => null,
+                'prescribed_date' => null,
+                'prescriber_name' => $m['referred_by'] ?: null,
+                'comments' => $m['comments'],
+                'verification_status' => $m['verification_status'] ?: 'Confirmed',
+                'status' => $isEnded ? 'completed' : 'active',
+                'created_at' => $m['created_at'],
+                'updated_at' => $m['updated_at'] ?? $m['created_at']
+            ];
+        }
+
+        // 2. Prescriptions written by doctors/providers
+        $rxService = new \App\Modules\PatientPrescriptions\Services\PatientPrescriptionService();
+        $rxRows = $rxService->list($patientId);
+
+        foreach ($rxRows as $rx) {
+            $isCancelled = ($rx['prescription_status'] ?? '') === 'cancelled';
+            $isEnded = !empty($rx['end_date']) && $rx['end_date'] < date('Y-m-d');
+            $status = $isCancelled ? 'cancelled' : ($isEnded ? 'completed' : 'active');
+
+            $unified[] = [
+                'id' => (int) $rx['id'],
+                'prescription_id' => $rx['prescription_id'] ?? null,
+                'record_type' => 'prescription',
+                'title' => $rx['title'],
+                'begin_date' => $rx['begin_date'],
+                'end_date' => $rx['end_date'],
+                'dosage' => $rx['dosage'] ?: ($rx['drug_strength'] ?? null),
+                'frequency' => $rx['frequency'],
+                'route' => $rx['route'],
+                'quantity' => $rx['quantity'],
+                'directions' => $rx['directions'],
+                'refills' => $rx['refills'],
+                'refills_allowed' => (int) ($rx['refills_allowed'] ?? ($rx['refills'] ?? 0)),
+                'refills_remaining' => $rx['refills_remaining'] ?? null,
+                'refill_until' => $rx['refill_until'] ?? null,
+                'can_request_refill' => (bool) ($rx['can_request_refill'] ?? true),
+                'is_closed' => (bool) ($rx['is_closed'] ?? false),
+                'refill_request' => $rx['refill_request'] ?? null,
+                'pharmacy' => $rx['pharmacy'],
+                'rx_number' => $rx['rx_number'] ?? null,
+                'prescribed_date' => $rx['prescribed_date'] ?? null,
+                'prescriber_name' => $rx['prescriber_name'] ?? null,
+                'comments' => $rx['comments'],
+                'verification_status' => $rx['verification_status'] ?: 'Confirmed',
+                'status' => $status,
+                'created_at' => $rx['created_at'],
+                'updated_at' => $rx['updated_at'] ?? $rx['created_at']
+            ];
+        }
+
+        // Sort: Active first, then by begin_date DESC
+        usort($unified, function ($a, $b) {
+            if ($a['status'] === 'active' && $b['status'] !== 'active') return -1;
+            if ($a['status'] !== 'active' && $b['status'] === 'active') return 1;
+            return strcmp($b['begin_date'] ?? '', $a['begin_date'] ?? '');
+        });
+
+        return $unified;
     }
 
     /**

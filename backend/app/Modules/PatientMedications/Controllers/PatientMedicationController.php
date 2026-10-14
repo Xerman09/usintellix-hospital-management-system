@@ -56,31 +56,40 @@ class PatientMedicationController extends Controller
             }
         }
 
-        $medications = $this->patientMedicationService->list($patientId);
+        $medications = $this->patientMedicationService->listAllForPatient($patientId);
 
         $this->success($medications, 'Patient medications retrieved successfully.');
     }
 
     /**
-     * Record a medication for a patient (admin, receptionist, or the assigned doctor).
+     * Record a medication for a patient (admin, receptionist, assigned doctor, or the patient).
      */
     public function store(): void
     {
         $request = new Request();
         $user = Session::get('user');
 
-        $patientId = (int) $request->input('patient_id');
-        $medicationIdRaw = $request->input('medication_id');
-        $medicationId = ($medicationIdRaw !== null && $medicationIdRaw !== '') ? (int) $medicationIdRaw : null;
+        if (($user['role'] ?? '') === 'patient') {
+            $patient = $this->patientAccessService->resolveEffectivePatient($user);
 
-        if (!$patientId) {
-            $this->error('Patient is required.', 422);
-            return;
-        }
+            if (!$patient) {
+                $this->error('Patient record not found.', 404);
+                return;
+            }
 
-        if (!$this->ownsPatient($user, $patientId)) {
-            $this->error('Patient not found.', 404);
-            return;
+            $patientId = (int) $patient['id'];
+        } else {
+            $patientId = (int) $request->input('patient_id');
+
+            if (!$patientId) {
+                $this->error('Patient is required.', 422);
+                return;
+            }
+
+            if (!$this->ownsPatient($user, $patientId)) {
+                $this->error('Patient not found.', 404);
+                return;
+            }
         }
 
         $result = $this->patientMedicationService->store(
@@ -165,6 +174,11 @@ class PatientMedicationController extends Controller
 
         if (!$patient || $patient['deleted_at'] !== null) {
             return false;
+        }
+
+        if (($user['role'] ?? '') === 'patient') {
+            $effective = $this->patientAccessService->resolveEffectivePatient($user);
+            return $effective && (int) $effective['id'] === $patientId;
         }
 
         if (($user['role'] ?? '') !== 'doctor') {
