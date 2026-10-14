@@ -1,4 +1,5 @@
 import { changePassword } from "./profile.service.js";
+import { checkPasswordBreach } from "../auth/auth.service.js?v=6";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js";
 
@@ -12,8 +13,15 @@ export function initChangePassword() {
     const confirmPassInput = document.getElementById("cpConfirmPassword");
     const alertEl = document.getElementById("cpAlert");
     const submitBtn = document.getElementById("cpSubmitBtn");
+    const breachWarningBox = document.getElementById("cpBreachWarningBox");
+    const breachedCriticalNotice = document.getElementById("cpBreachedCriticalNotice");
 
     if (!form || !currentPassInput || !newPassInput || !confirmPassInput) return;
+
+    const user = getUser();
+    if (user?.password_breached && breachedCriticalNotice) {
+        breachedCriticalNotice.style.display = "block";
+    }
 
     // Setup password toggle buttons
     const toggleBtns = form.querySelectorAll(".cp-toggle-btn");
@@ -30,6 +38,9 @@ export function initChangePassword() {
         });
     });
 
+    let breachDebounce = null;
+    let isBreached = false;
+
     // Setup live rules validator
     const updateRules = () => {
         const val = newPassInput.value;
@@ -41,6 +52,7 @@ export function initChangePassword() {
         const ruleNumber = document.getElementById("ruleNumber");
         const ruleSpecial = document.getElementById("ruleSpecial");
         const ruleMatch = document.getElementById("ruleMatch");
+        const ruleNotBreached = document.getElementById("ruleNotBreached");
 
         if (ruleMinLength) ruleMinLength.classList.toggle("valid", val.length >= 8);
         if (ruleUppercase) ruleUppercase.classList.toggle("valid", /[A-Z]/.test(val));
@@ -48,6 +60,50 @@ export function initChangePassword() {
         if (ruleNumber) ruleNumber.classList.toggle("valid", /[0-9]/.test(val));
         if (ruleSpecial) ruleSpecial.classList.toggle("valid", /[^A-Za-z0-9]/.test(val));
         if (ruleMatch) ruleMatch.classList.toggle("valid", Boolean(val && confirmVal && val === confirmVal));
+
+        clearTimeout(breachDebounce);
+        if (!val || val.length < 6) {
+            isBreached = false;
+            if (ruleNotBreached) ruleNotBreached.classList.remove("valid");
+            if (breachWarningBox) {
+                breachWarningBox.style.display = "none";
+                breachWarningBox.innerHTML = "";
+            }
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+        }
+
+        breachDebounce = setTimeout(async () => {
+            try {
+                const res = await checkPasswordBreach(val);
+                if (res?.data?.breached) {
+                    isBreached = true;
+                    if (ruleNotBreached) ruleNotBreached.classList.remove("valid");
+                    if (breachWarningBox) {
+                        const cnt = res.data.count ? Number(res.data.count).toLocaleString() : "";
+                        breachWarningBox.innerHTML = `
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <strong>Breached Password Detected:</strong>
+                            </div>
+                            <div>This password has appeared in known public data breaches ${cnt ? `(${cnt} times)` : ""} and is compromised. You cannot use this password. Please choose a unique, secure password.</div>
+                        `;
+                        breachWarningBox.style.display = "block";
+                    }
+                    if (submitBtn) submitBtn.disabled = true;
+                } else {
+                    isBreached = false;
+                    if (ruleNotBreached) ruleNotBreached.classList.add("valid");
+                    if (breachWarningBox) {
+                        breachWarningBox.style.display = "none";
+                        breachWarningBox.innerHTML = "";
+                    }
+                    if (submitBtn) submitBtn.disabled = false;
+                }
+            } catch (err) {
+                // If network/offline error, don't crash
+            }
+        }, 350);
     };
 
     newPassInput.addEventListener("input", updateRules);
@@ -114,6 +170,16 @@ export function initChangePassword() {
 
         if (hasError) return;
 
+        if (isBreached) {
+            const errEl = document.getElementById("errCpNewPassword");
+            if (errEl) {
+                errEl.textContent = "This password was found in a known data breach list. The system will not allow you to use this password.";
+                errEl.style.display = "block";
+            }
+            showToast("Cannot use a breached password. Please choose a secure password.", "error");
+            return;
+        }
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = `
             <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s linear infinite;">
@@ -174,12 +240,16 @@ export function initChangePassword() {
             if (banner) {
                 banner.style.display = "none";
             }
+            if (breachedCriticalNotice) {
+                breachedCriticalNotice.style.display = "none";
+            }
             sessionStorage.setItem("pw_exp_banner_dismissed", "1");
 
             // Update user in session if available
             const user = getUser();
             if (user) {
                 user.password_expiring_soon = false;
+                user.password_breached = false;
                 user.days_until_expiration = 90;
             }
         } catch (err) {

@@ -12,4 +12,6 @@ $router->get('/auth/me', [AuthController::class, 'me'], [AuthMiddleware::class])
 $router->post('/logout', [AuthController::class, 'logout'], [AuthMiddleware::class]);
 $router->put('/auth/first-login', [AuthController::class, 'completeFirstLogin'], [AuthMiddleware::class]);
 $router->put('/auth/expired-password', [AuthController::class, 'updateExpiredPassword']);
+$router->put('/auth/breached-password', [AuthController::class, 'updateBreachedPassword']);
+$router->post('/auth/check-password-breach', [AuthController::class, 'checkPasswordBreach']);
 $router->post('/auth/npp-acknowledge', [AuthController::class, 'acknowledgeNpp'], [AuthMiddleware::class]);

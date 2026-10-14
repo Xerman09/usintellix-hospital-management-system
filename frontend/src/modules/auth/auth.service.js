@@ -86,3 +86,25 @@ export async function acknowledgeNpp(data)
         }
     );
 }
+
+export async function updateBreachedPassword(data)
+{
+    return await api(
+        "/auth/breached-password",
+        {
+            method: "PUT",
+            body: JSON.stringify(data)
+        }
+    );
+}
+
+export async function checkPasswordBreach(password)
+{
+    return await api(
+        "/auth/check-password-breach",
+        {
+            method: "POST",
+            body: JSON.stringify({ password })
+        }
+    );
+}

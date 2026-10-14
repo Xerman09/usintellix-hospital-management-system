@@ -1,5 +1,5 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, logout, acknowledgeNpp } from "./auth.service.js?v=5";
+import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, updateBreachedPassword, checkPasswordBreach, logout, acknowledgeNpp } from "./auth.service.js?v=6";
 import { saveUser, clearSession } from "../../core/session.js";
 import { markResultsInboxLogin } from "../results-inbox/results-inbox.js?v=4";
 import { markMyWorkLogin } from "../my-work/my-work.js?v=3";
@@ -111,6 +111,11 @@ export function initLogin()
 
             if(!result.success)
             {
+                if (result.password_breached) {
+                    showBreachedPasswordStep(result);
+                    return;
+                }
+
                 if (result.password_expired) {
                     showExpiredPasswordStep(result);
                     return;
@@ -357,6 +362,103 @@ export function initLogin()
         });
     }
 
+    const breachedPasswordForm = document.getElementById("breachedPasswordForm");
+    if (breachedPasswordForm) {
+        let breachDebounce = null;
+        const newPassInput = document.getElementById("brch_new_password");
+        const warnBox = document.getElementById("brch_password_breach_warning");
+        const submitBtn = document.getElementById("breachedPasswordSubmitBtn");
+
+        newPassInput?.addEventListener("input", () => {
+            clearTimeout(breachDebounce);
+            const val = newPassInput.value;
+            if (val.length < 6) {
+                if (warnBox) { warnBox.style.display = "none"; warnBox.textContent = ""; }
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+            }
+            breachDebounce = setTimeout(async () => {
+                try {
+                    const check = await checkPasswordBreach(val);
+                    if (check?.data?.breached) {
+                        if (warnBox) {
+                            const cnt = check.data.count ? Number(check.data.count).toLocaleString() : "";
+                            warnBox.innerHTML = `<strong>Breached Password Detected:</strong> This password has appeared in public breaches ${cnt ? `(${cnt} times)` : ""} and is unsafe. You cannot use this password.`;
+                            warnBox.style.display = "block";
+                        }
+                        if (submitBtn) submitBtn.disabled = true;
+                    } else {
+                        if (warnBox) { warnBox.style.display = "none"; warnBox.textContent = ""; }
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                } catch (err) {
+                    // ignore network errors
+                }
+            }, 350);
+        });
+
+        breachedPasswordForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            clearBreachedPasswordErrors();
+
+            const userId = parseInt(document.getElementById("brch_user_id").value, 10);
+            const username = document.getElementById("brch_username").value.trim();
+            const currentPassword = document.getElementById("brch_current_password").value;
+            const newPassword = document.getElementById("brch_new_password").value;
+            const confirmPassword = document.getElementById("brch_confirm_password").value;
+
+            if (!currentPassword) {
+                document.getElementById("err-brch_current_password").textContent = "Current password is required.";
+                return;
+            }
+            if (!newPassword) {
+                document.getElementById("err-brch_new_password").textContent = "New password is required.";
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                document.getElementById("err-brch_confirm_password").textContent = "Passwords do not match.";
+                return;
+            }
+
+            setButtonLoading(submitBtn, true, "Updating Compromised Password...");
+
+            let result;
+            try {
+                result = await updateBreachedPassword({
+                    user_id: userId,
+                    username: username,
+                    current_password: currentPassword,
+                    new_password: newPassword,
+                    confirm_password: confirmPassword
+                });
+            } finally {
+                setButtonLoading(submitBtn, false);
+            }
+
+            if (!result.success) {
+                showAlert(result.message, "error");
+                if (result.errors) {
+                    Object.entries(result.errors).forEach(([field, message]) => {
+                        const errorEl = document.getElementById(`err-brch_${field}`);
+                        if (errorEl) {
+                            errorEl.textContent = message;
+                        }
+                    });
+                }
+                return;
+            }
+
+            proceedAfterAuthentication(result.data.user);
+        });
+    }
+
+    const breachedCancelBtn = document.getElementById("breachedPasswordCancelBtn");
+    if (breachedCancelBtn) {
+        breachedCancelBtn.addEventListener("click", () => {
+            showLoginStep();
+        });
+    }
+
     const nppConsentForm = document.getElementById("nppConsentForm");
     if (nppConsentForm) {
         nppConsentForm.addEventListener("submit", async (event) => {
@@ -464,6 +566,8 @@ function showFirstLoginStep(user)
     document.getElementById("twoFactorForm").style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");
     if (expForm) expForm.style.display = "none";
+    const brchForm = document.getElementById("breachedPasswordForm");
+    if (brchForm) brchForm.style.display = "none";
     document.getElementById("firstLoginForm").style.display = "";
 
     document.getElementById("fl_account_name").value = user.username;
@@ -489,11 +593,73 @@ function clearFirstLoginErrors()
     });
 }
 
+function showBreachedPasswordStep(data)
+{
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("twoFactorForm").style.display = "none";
+    document.getElementById("firstLoginForm").style.display = "none";
+    const expForm = document.getElementById("expiredPasswordForm");
+    if (expForm) expForm.style.display = "none";
+    const nppForm = document.getElementById("nppConsentForm");
+    if (nppForm) nppForm.style.display = "none";
+
+    const brchForm = document.getElementById("breachedPasswordForm");
+    if (brchForm) {
+        brchForm.style.display = "";
+    }
+
+    const idEl = document.getElementById("brch_user_id");
+    if (idEl) idEl.value = data.user_id || "";
+
+    const userEl = document.getElementById("brch_username");
+    if (userEl) userEl.value = data.username || "";
+
+    const curEl = document.getElementById("brch_current_password");
+    if (curEl) curEl.value = "";
+
+    const newEl = document.getElementById("brch_new_password");
+    if (newEl) newEl.value = "";
+
+    const confEl = document.getElementById("brch_confirm_password");
+    if (confEl) confEl.value = "";
+
+    const msgEl = document.getElementById("breachedAlertMsg");
+    if (msgEl) {
+        const cnt = data.breach_count ? Number(data.breach_count).toLocaleString() : "many";
+        msgEl.innerHTML = `Your current password was detected in a list of known data breaches (appeared <strong>${cnt}</strong> times). For your security and HIPAA compliance (§ 164.308), access has been blocked until you change it right away. The system will strictly not allow any password included in that breach list.`;
+    }
+
+    clearBreachedPasswordErrors();
+    const alertEl = document.getElementById("formAlert");
+    if (alertEl) {
+        alertEl.innerHTML = "";
+    }
+}
+
+const BREACHED_FIELDS = ["current_password", "new_password", "confirm_password"];
+
+function clearBreachedPasswordErrors()
+{
+    BREACHED_FIELDS.forEach((field) => {
+        const errorEl = document.getElementById(`err-brch_${field}`);
+        if (errorEl) {
+            errorEl.textContent = "";
+        }
+    });
+    const warnBox = document.getElementById("brch_password_breach_warning");
+    if (warnBox) {
+        warnBox.style.display = "none";
+        warnBox.textContent = "";
+    }
+}
+
 function showExpiredPasswordStep(data)
 {
     document.getElementById("loginForm").style.display = "none";
     document.getElementById("twoFactorForm").style.display = "none";
     document.getElementById("firstLoginForm").style.display = "none";
+    const brchForm = document.getElementById("breachedPasswordForm");
+    if (brchForm) brchForm.style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");
     if (expForm) {
         expForm.style.display = "";
@@ -538,6 +704,8 @@ function showTwoFactorStep(data)
     document.getElementById("loginForm").style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");
     if (expForm) expForm.style.display = "none";
+    const brchForm = document.getElementById("breachedPasswordForm");
+    if (brchForm) brchForm.style.display = "none";
     document.getElementById("twoFactorForm").style.display = "";
 
     const destination = data.destination || "your " + (data.method === "email" ? "email" : "phone");
@@ -649,12 +817,15 @@ function showLoginStep()
     document.getElementById("firstLoginForm").style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");
     if (expForm) expForm.style.display = "none";
+    const brchForm = document.getElementById("breachedPasswordForm");
+    if (brchForm) brchForm.style.display = "none";
     const nppForm = document.getElementById("nppConsentForm");
     if (nppForm) nppForm.style.display = "none";
     document.getElementById("loginForm").style.display = "";
     document.getElementById("password").value = "";
     clearErrors();
     clearExpiredPasswordErrors();
+    clearBreachedPasswordErrors();
     clearNppErrors();
 }
 
@@ -666,6 +837,8 @@ function showNppConsentStep(user)
     document.getElementById("firstLoginForm").style.display = "none";
     const expForm = document.getElementById("expiredPasswordForm");
     if (expForm) expForm.style.display = "none";
+    const brchForm = document.getElementById("breachedPasswordForm");
+    if (brchForm) brchForm.style.display = "none";
 
     const nppForm = document.getElementById("nppConsentForm");
     if (nppForm) {

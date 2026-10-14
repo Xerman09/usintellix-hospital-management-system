@@ -188,6 +188,34 @@ class AuthService
             ], (int) $user['id']);
         }
 
+        // Check if the user's password has appeared in known data breaches (NIST SP 800-63B / HIBP)
+        $breachCheck = PasswordSecurity::checkBreached($password);
+        if ($breachCheck['breached'] || !empty($user['password_breached'])) {
+            $breachCount = $breachCheck['count'] > 0 ? $breachCheck['count'] : 1;
+            (new User())->update([
+                'password_breached'    => 1,
+                'must_change_password' => 1
+            ], (int) $user['id']);
+
+            AuditLogger::log(
+                AuditLogger::CATEGORY_SECURITY,
+                'PASSWORD_BREACH_DETECTED',
+                "Compromised password detected on login for user '{$username}' (ID: {$user['id']}). Password matched known breach list ({$breachCount} occurrences). Immediate credential change required (§ 164.308).",
+                null,
+                (int) $user['id'],
+                $user['role_id'] ? 'user' : 'patient'
+            );
+
+            return [
+                'success'           => false,
+                'password_breached' => true,
+                'user_id'           => (int) $user['id'],
+                'username'          => $user['username'],
+                'breach_count'      => $breachCount,
+                'message'           => "SECURITY WARNING: Your current password was found in a list of known data breaches (" . number_format($breachCount) . " occurrences). For your security and HIPAA compliance, you must change your password right away to continue."
+            ];
+        }
+
         // Check 90-day password expiration (HIPAA § 164.308(a)(5)(ii)(D))
         $expStatus = PasswordSecurity::checkExpirationStatus($user);
         if ($expStatus['expired']) {
@@ -517,6 +545,90 @@ class AuthService
         return $this->grantSession($updatedUser, $employee);
     }
 
+    /**
+     * Update a compromised/breached password and complete login (HIPAA § 164.308 & NIST SP 800-63B).
+     */
+    public function updateBreachedPassword(
+        int $userId,
+        string $currentPassword,
+        string $newPassword,
+        string $confirmPassword
+    ): array {
+        $errors = [];
+
+        if (empty($currentPassword)) {
+            $errors['current_password'] = 'Current password is required.';
+        }
+
+        if (empty($newPassword)) {
+            $errors['new_password'] = 'New password is required.';
+        }
+
+        if (empty($confirmPassword)) {
+            $errors['confirm_password'] = 'Password confirmation is required.';
+        }
+
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'message' => 'Please fill in all required fields.',
+                'errors' => $errors
+            ];
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            return [
+                'success' => false,
+                'message' => 'Passwords do not match.',
+                'errors' => ['confirm_password' => 'Passwords do not match.']
+            ];
+        }
+
+        $user = (new User())->where('id', $userId)->first();
+        if (!$user || !User::verifyPassword($currentPassword, $user['password'])) {
+            return [
+                'success' => false,
+                'message' => 'Current password is incorrect.',
+                'errors' => ['current_password' => 'Current password is incorrect.']
+            ];
+        }
+
+        $complexity = PasswordSecurity::validateComplexity($newPassword, true);
+        if (!$complexity['valid']) {
+            return [
+                'success' => false,
+                'message' => $complexity['message'],
+                'errors' => ['new_password' => $complexity['message']]
+            ];
+        }
+
+        $history = PasswordSecurity::checkHistory($userId, $newPassword);
+        if (!$history['allowed']) {
+            return [
+                'success' => false,
+                'message' => $history['message'],
+                'errors' => ['new_password' => $history['message']]
+            ];
+        }
+
+        PasswordSecurity::recordPasswordChange($userId, $newPassword, $userId, 'Breached credential remediation');
+
+        $updatedUser = (new User())->where('id', $userId)->first();
+        $employee = (new Employee())->where('user_id', $userId)->first();
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_SECURITY,
+            'PASSWORD_BREACH_REMEDIATED',
+            "User '{$user['username']}' (ID: {$userId}) successfully replaced compromised password with secure credentials (§ 164.308).",
+            null,
+            $userId,
+            $user['role_id'] ? 'user' : 'patient'
+        );
+
+        Session::regenerate();
+        return $this->grantSession($updatedUser, $employee);
+    }
+
     private function isStrongPassword(string $password): bool
     {
         return strlen($password) >= 8
@@ -584,6 +696,7 @@ class AuthService
             'avatar'                 => $this->resolveAvatar($user, $employee),
             'photo'                  => $this->resolveAvatar($user, $employee),
             'must_change_password'   => (bool) ($user['must_change_password'] ?? false),
+            'password_breached'      => (bool) ($user['password_breached'] ?? false),
             'password_changed_at'    => $user['password_changed_at'] ?? null,
             'password_expiring_soon' => $expStatus['expiring_soon'],
             'days_until_expiration'  => $expStatus['days_remaining'],

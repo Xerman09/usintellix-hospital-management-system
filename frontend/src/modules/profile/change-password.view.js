@@ -337,6 +337,20 @@ export function ChangePasswordView() {
         </div>
 
         <div class="cp-card-body">
+            <div id="cpBreachedCriticalNotice" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <strong style="color: #b91c1c; font-size: 14px;">Urgent: Your Current Password Was Breached</strong>
+                </div>
+                <div style="color: #991b1b; font-size: 13px; line-height: 1.45;">
+                    Your current password has appeared in a public data breach. To safeguard patient privacy and hospital security (§ 164.308), you must update your password right away. The system will strictly prevent choosing any password that appears on the breached list.
+                </div>
+            </div>
+
             <div class="cp-notice-box">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"></circle>
@@ -344,7 +358,7 @@ export function ChangePasswordView() {
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
                 <div class="cp-notice-content">
-                    <strong>HIPAA Security Notice:</strong> Passwords expire regularly to protect patient and clinical data. You cannot reuse your current password or any of your last 5 previous passwords.
+                    <strong>HIPAA Security Notice:</strong> Passwords expire regularly to protect patient and clinical data. You cannot reuse your current password, any of your last 5 previous passwords, or any password found in known public data breach lists (NIST SP 800-63B).
                 </div>
             </div>
 
@@ -371,10 +385,11 @@ export function ChangePasswordView() {
                         </button>
                     </div>
                     <div id="errCpNewPassword" class="cp-error-msg"></div>
+                    <div id="cpBreachWarningBox" style="display:none; margin-top:8px; padding:10px 12px; border-radius:8px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; font-size:12.5px; line-height:1.45;"></div>
                 </div>
 
                 <div class="cp-rules-panel">
-                    <div class="cp-rules-title">Password Complexity Requirements</div>
+                    <div class="cp-rules-title">Password Complexity &amp; Security Requirements</div>
                     <ul class="cp-rules-list">
                         <li class="cp-rule-item" id="ruleMinLength">
                             <span class="cp-rule-dot"></span>
@@ -399,6 +414,10 @@ export function ChangePasswordView() {
                         <li class="cp-rule-item" id="ruleMatch">
                             <span class="cp-rule-dot"></span>
                             Passwords match
+                        </li>
+                        <li class="cp-rule-item" id="ruleNotBreached">
+                            <span class="cp-rule-dot"></span>
+                            Not on breached passwords list
                         </li>
                     </ul>
                 </div>

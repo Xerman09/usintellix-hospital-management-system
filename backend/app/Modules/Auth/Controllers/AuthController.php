@@ -41,6 +41,13 @@ class AuthController extends Controller
                 $payload['remaining_minutes'] = $result['remaining_minutes'] ?? 30;
             }
 
+            if (!empty($result['password_breached'])) {
+                $payload['password_breached'] = true;
+                $payload['user_id']           = $result['user_id'] ?? null;
+                $payload['username']          = $result['username'] ?? $username;
+                $payload['breach_count']      = $result['breach_count'] ?? 1;
+            }
+
             if (!empty($result['password_expired'])) {
                 $payload['password_expired'] = true;
                 $payload['user_id']          = $result['user_id'] ?? null;
@@ -203,6 +210,68 @@ class AuthController extends Controller
             'user' => $result['user'],
             'role' => $result['role']
         ], 'Password successfully updated. You are now logged in.');
+    }
+
+    /**
+     * Update a compromised/breached password and complete login (HIPAA § 164.308 & NIST SP 800-63B).
+     */
+    public function updateBreachedPassword(): void
+    {
+        $request = new Request();
+        $userId = (int) $request->input('user_id', 0);
+        $username = trim((string) $request->input('username', ''));
+
+        if ($userId <= 0 && !empty($username)) {
+            $user = (new User())->where('username', $username)->first();
+            if ($user) {
+                $userId = (int) $user['id'];
+            }
+        }
+
+        if ($userId <= 0) {
+            $sessionUser = Session::get('user');
+            if (!empty($sessionUser['id'])) {
+                $userId = (int) $sessionUser['id'];
+            }
+        }
+
+        $result = $this->authService->updateBreachedPassword(
+            $userId,
+            (string) $request->input('current_password', ''),
+            (string) $request->input('new_password', ''),
+            (string) $request->input('confirm_password', '')
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success([
+            'user' => $result['user'],
+            'role' => $result['role']
+        ], 'Compromised password successfully updated. You are now logged in.');
+    }
+
+    /**
+     * Real-time password breach evaluation endpoint (k-Anonymity & local lists).
+     */
+    public function checkPasswordBreach(): void
+    {
+        $request = new Request();
+        $password = (string) $request->input('password', '');
+
+        if ($password === '') {
+            $this->success([
+                'breached' => false,
+                'count'    => 0,
+                'message'  => 'No password provided.'
+            ]);
+            return;
+        }
+
+        $result = \App\Core\PasswordSecurity::checkBreached($password);
+        $this->success($result);
     }
 
     /**

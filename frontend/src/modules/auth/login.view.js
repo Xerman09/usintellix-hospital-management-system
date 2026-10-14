@@ -233,6 +233,75 @@ export function LoginView()
 
         </form>
 
+        <form id="breachedPasswordForm" style="display:none;">
+
+            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(185, 28, 28, 0.06)); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <strong style="color: #b91c1c; font-size: 14px;">Compromised Password Alert</strong>
+                </div>
+                <p style="margin: 0; font-size: 12.5px; line-height: 1.5; color: #7f1d1d;" id="breachedAlertMsg">
+                    Your password was identified in a list of known data breaches. For your security and HIPAA compliance (§ 164.308), access has been blocked until you change your password right away. The system will not allow any password found in the breach list.
+                </p>
+            </div>
+
+            <input type="hidden" id="brch_user_id">
+
+            <div class="form-group">
+                <label class="login-field-label" for="brch_username">Username</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21c0-3.87-3.58-7-8-7s-8 3.13-8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                    </span>
+                    <input id="brch_username" class="form-input" disabled>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="brch_current_password">Current (Compromised) Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="brch_current_password" type="password" class="form-input" autocomplete="current-password" placeholder="Enter current password">
+                </div>
+                <span class="form-error" id="err-brch_current_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="brch_new_password">New Secure Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="brch_new_password" type="password" class="form-input" placeholder="Min 8 chars, uppercase, lowercase, number & special char" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-brch_new_password"></span>
+                <div id="brch_password_breach_warning" style="display:none; margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11.5px; color: #dc2626; line-height: 1.4;"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="login-field-label" for="brch_confirm_password">Confirm New Password</label>
+                <div class="input-icon-group">
+                    <span class="input-icon">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="brch_confirm_password" type="password" class="form-input" placeholder="Re-enter new secure password" autocomplete="new-password">
+                </div>
+                <span class="form-error" id="err-brch_confirm_password"></span>
+            </div>
+
+            <div class="login-btn-row">
+                <button class="login-btn-outline" type="button" id="breachedPasswordCancelBtn">Cancel</button>
+                <button class="login-btn" type="submit" id="breachedPasswordSubmitBtn" style="background:#dc2626; border-color:#dc2626;">Change Password &amp; Log In</button>
+            </div>
+
+        </form>
+
         <form id="nppConsentForm" style="display:none;">
 
             <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(5, 150, 105, 0.04)); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;">

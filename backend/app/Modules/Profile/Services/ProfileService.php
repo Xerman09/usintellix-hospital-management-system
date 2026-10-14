@@ -294,6 +294,7 @@ class ProfileService
         if ($sessionUser && (int) ($sessionUser['id'] ?? 0) === $userId) {
             $sessionUser['password_changed_at'] = date('Y-m-d H:i:s');
             $sessionUser['password_expiring_soon'] = false;
+            $sessionUser['password_breached'] = false;
             $sessionUser['days_until_expiration'] = 90;
             Session::put('user', $sessionUser);
         }

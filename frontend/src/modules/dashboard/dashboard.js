@@ -192,8 +192,8 @@ import { AppearanceView } from "../appearance/appearance.view.js";
 import { initAppearance } from "../appearance/appearance.js";
 import { ProfileView } from "../profile/profile.view.js";
 import { initProfile } from "../profile/profile.js";
-import { ChangePasswordView } from "../profile/change-password.view.js";
-import { initChangePassword } from "../profile/change-password.js";
+import { ChangePasswordView } from "../profile/change-password.view.js?v=12";
+import { initChangePassword } from "../profile/change-password.js?v=12";
 import { BusinessSettingsView } from "../business-settings/business-settings.view.js?v=2";
 import { initBusinessSettings } from "../business-settings/business-settings.js?v=2";
 import { GeneralSettingsView } from "../general-settings/general-settings.view.js?v=4";
@@ -2013,16 +2013,47 @@ export function Dashboard()
 }
 
 function setupPasswordExpirationBanner(user, openDashboardTab) {
-    if (!user || !user.password_expiring_soon) {
+    if (!user) return;
+
+    const bannerEl = document.getElementById('passwordExpirationBanner');
+    if (!bannerEl) return;
+
+    // Highest priority: Breached Password Alert
+    if (user.password_breached) {
+        bannerEl.innerHTML = `
+            <div class="password-breached-critical-banner" style="display: flex; align-items: center; justify-content: space-between; background: #fef2f2; border-bottom: 2px solid #ef4444; color: #991b1b; padding: 12px 24px; font-size: 13.5px; z-index: 100; position: relative; box-shadow: 0 4px 6px -1px rgba(239,68,68,0.15);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span><strong style="color:#b91c1c;">CRITICAL SECURITY ALERT (§ 164.308):</strong> Your password was found in a list of known data breaches. You must change your password right away to prevent unauthorized access. The system will not allow any password on that list.</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                    <button type="button" id="btnBannerUpdatePassword" style="background: #dc2626; color: #ffffff; border: none; padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 4px rgba(220,38,38,0.3);">Change Password Right Away</button>
+                </div>
+            </div>
+        `;
+        bannerEl.style.display = 'block';
+
+        const updateBtn = document.getElementById('btnBannerUpdatePassword');
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => {
+                openDashboardTab('change_password', 'Change Password');
+            });
+        }
+        return;
+    }
+
+    // Secondary priority: 90-day Password Expiration Notice
+    if (!user.password_expiring_soon) {
         return;
     }
 
     if (sessionStorage.getItem('pw_exp_banner_dismissed') === '1') {
         return;
     }
-
-    const bannerEl = document.getElementById('passwordExpirationBanner');
-    if (!bannerEl) return;
 
     const days = user.days_until_expiration ?? 7;
     const dayText = days === 1 ? '1 day' : `${days} days`;
