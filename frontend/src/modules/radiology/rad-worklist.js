@@ -2,8 +2,9 @@ import { api } from "../../core/api.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 import { getUser } from "../../core/session.js";
-import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=3";
-import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=2";
+import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=4";
+import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=3";
+import { loadCharges, chargesHtml, onChargesClick } from "./rad-charges.js?v=2";
 
 /*
  * Radiology worklist (module 15, Phase 1; tab "rad_worklist"): the imaging requests waiting to be scheduled -- STAT
@@ -11,14 +12,17 @@ import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, open
  * radiology books a study into a free slot, marks the patient as arrived, moves a booking or cancels it.
  * Phase 2: radiology records the study as done and uploads its images (opened in the DICOM viewer), and the
  * radiologist reports it -- the views "To report" and "Reported" come from rad-report.js.
+ * Phase 3: "Charges" (what each reported study cost the patient, study prices) -- rad-charges.js -- and the
+ * Radiology Report (turnaround and volume per machine).
  */
 
 const REPORT_VIEWS = ["read", "reported"];
 const REPORT_ROLES = ["admin", "doctor", "clinician", "radiologic_technologist"];
+const CHARGE_ROLES = ["admin", "radiologic_technologist"];
 
 const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) }).catch(() => null);
 
-let state = { view: "schedule", date: "", room_id: "", modality: "", q: "" };
+let state = { view: "schedule", date: "", room_id: "", modality: "", q: "", only: "" };
 let data = null;
 let timer = null;
 
@@ -33,7 +37,7 @@ export function initRadWorklist() {
     load();
     timer = setInterval(() => {
         if (!document.getElementById("radRoot")) return clearInterval(timer);
-        if (document.hidden || document.querySelector(".rbx-ov")) return;
+        if (document.hidden || state.view === "charges" || document.querySelector(".rbx-ov")) return;
         load(true);
     }, 30000);
 }
@@ -41,8 +45,8 @@ export function initRadWorklist() {
 async function load(quiet = false) {
     const root = document.getElementById("radRoot");
     if (!root) return;
-    if (REPORT_VIEWS.includes(state.view)) {
-        const d = await loadReports(root, state, load);
+    if (REPORT_VIEWS.includes(state.view) || state.view === "charges") {
+        const d = state.view === "charges" ? await loadCharges(root, state, load) : await loadReports(root, state, load);
         if (d.error) {
             if (!quiet) root.innerHTML = `<div class="rad-empty">${esc(d.error)}</div>`;
             return;
@@ -127,15 +131,27 @@ function render(root) {
     const focus = document.activeElement?.id;
     const booked = data.view === "booked";
     const reports = REPORT_VIEWS.includes(data.view);
+    const charges = state.view === "charges";
     const canReport = REPORT_ROLES.includes(getUser()?.role);
+    const canCharge = CHARGE_ROLES.includes(getUser()?.role);
+    const admin = getUser()?.role === "admin";
+    const peso = (v) => `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const tab = (v, l) => `<button type="button" data-view="${v}" aria-pressed="${data.view === v}">${l}</button>`;
     root.innerHTML = `
-        <div class="rad-head"><div><h1>Radiology worklist</h1><div class="rad-sub">${reports
-            ? "Studies done, waiting for the radiologist. A signed report goes to the chart and the results inbox, and a critical finding alerts the doctor at once."
+        <div class="rad-head"><div><h1>Radiology worklist</h1><div class="rad-sub">${charges
+            ? "What the imaging cost each patient: a study is charged to the patient's ledger when its report is signed, at the price on the catalog."
+            : reports ? "Studies done, waiting for the radiologist. A signed report goes to the chart and the results inbox, and a critical finding alerts the doctor at once."
             : booked ? "The day on each machine. Book a study into a free slot, mark the patient as arrived, record it as done, move it or cancel it."
-            : "Imaging requests from the clinic, the ER, the wards and the ICU, waiting to be scheduled. STAT first, then by when they are needed."} Refreshes every 30 seconds.</div></div>
-            ${reports && data.is_admin ? `<button type="button" class="rad-b" data-radiologists>Radiologists…</button>` : ""}</div>
-        <div class="rad-counts" role="list">${reports ? `
+            : "Imaging requests from the clinic, the ER, the wards and the ICU, waiting to be scheduled. STAT first, then by when they are needed."}${charges ? "" : " Refreshes every 30 seconds."}</div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${charges && admin ? `<button type="button" class="rad-b" data-prices>Study prices…</button>` : ""}
+            ${reports && data.is_admin ? `<button type="button" class="rad-b" data-radiologists>Radiologists…</button>` : ""}
+            ${canReport ? `<button type="button" class="rad-b" data-stats>Radiology report</button>` : ""}</div></div>
+        <div class="rad-counts" role="list">${charges ? `
+            <div role="listitem"><b>${c.charges_today}</b>charges today</div>
+            <div role="listitem"><b>${esc(peso(c.amount_today))}</b>charged today</div>
+            <div role="listitem" class="${c.to_charge ? "bad" : ""}"><b>${c.to_charge}</b>reported but not charged</div>
+            <div role="listitem"><b>${c.voided_week}</b>voided this week</div>
+            <div role="listitem" class="${c.studies_without_price ? "bad" : ""}"><b>${c.studies_without_price}</b>studies with no price</div>` : reports ? `
             <div role="listitem"><b>${c.to_report}</b>to report</div>
             <div role="listitem" class="${c.stat ? "bad" : ""}"><b>${c.stat}</b>STAT</div>
             <div role="listitem" class="${c.overdue ? "bad" : ""}"><b>${c.overdue}</b>overdue</div>
@@ -149,13 +165,14 @@ function render(root) {
             <div role="listitem"><b>${c.waiting_in_department}</b>in the department</div>`}
         </div>
         <div class="rad-tools">
-            <span class="rad-tabs" role="group" aria-label="Show">${tab("schedule", "To schedule")}${tab("booked", "Day per machine")}${canReport ? tab("read", "To report") + tab("reported", "Reported") : ""}</span>
+            <span class="rad-tabs" role="group" aria-label="Show">${tab("schedule", "To schedule")}${tab("booked", "Day per machine")}${canReport ? tab("read", "To report") + tab("reported", "Reported") : ""}${canCharge ? tab("charges", "Charges") : ""}</span>
+            ${charges ? `<label class="rbx-chk" style="margin:0"><input type="checkbox" id="radOnly" ${state.only ? "checked" : ""}> Not charged yet only</label>` : ""}
             ${booked ? `<input type="date" id="radDate" value="${esc(data.date)}" aria-label="Day">
                 <select id="radRoom" aria-label="Machine"><option value="">All machines</option>${data.rooms.map((r) => `<option value="${r.id}" ${Number(state.room_id) === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
-            <select id="radMod" aria-label="Modality"><option value="">All imaging</option>${Object.entries(data.options.modalities).map(([k, l]) => `<option value="${k}" ${state.modality === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+            ${charges ? "" : `<select id="radMod" aria-label="Modality"><option value="">All imaging</option>${Object.entries(data.options.modalities || {}).map(([k, l]) => `<option value="${k}" ${state.modality === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`}
             <input type="search" id="radQ" value="${esc(state.q)}" placeholder="Patient, MRN, request no. or study" aria-label="Search">
         </div>
-        ${reports ? reportsHtml(data) : booked ? dayHtml() : data.requests.length ? `<div class="rad-list">${data.requests.map(requestRow).join("")}</div>`
+        ${charges ? chargesHtml(data) : reports ? reportsHtml(data) : booked ? dayHtml() : data.requests.length ? `<div class="rad-list">${data.requests.map(requestRow).join("")}</div>`
             : `<div class="rad-empty">Nothing waiting to be scheduled.</div>`}`;
     if (focus === "radQ") {
         const q = root.querySelector("#radQ");
@@ -175,6 +192,13 @@ function render(root) {
     bind("#radDate", "date");
     bind("#radRoom", "room_id");
     bind("#radMod", "modality");
+    const only = root.querySelector("#radOnly");
+    if (only) {
+        only.onchange = (e) => {
+            state.only = e.target.checked ? "unbilled" : "";
+            load();
+        };
+    }
     let t = null;
     root.querySelector("#radQ").oninput = (e) => {
         clearTimeout(t);
@@ -204,7 +228,12 @@ async function onClick(e) {
         state.view = v.dataset.view;
         return load();
     }
-    if (REPORT_VIEWS.includes(state.view) && (await onReportsClick(e))) return;
+    if (e.target.closest("[data-stats]")) return window.__openDashboardTab?.("rad_report", "Radiology Report");
+    if (state.view === "charges") {
+        if (await onChargesClick(e)) return;
+    } else if (REPORT_VIEWS.includes(state.view) && (await onReportsClick(e))) {
+        return;
+    }
     const pf = e.target.closest("[data-perform]");
     if (pf) {
         const b = findBooking(Number(pf.dataset.perform));

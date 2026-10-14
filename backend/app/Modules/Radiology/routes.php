@@ -2,7 +2,9 @@
 
 use App\Modules\Radiology\Controllers\RadiologyController;
 use App\Modules\Radiology\Services\RadiologyService;
+use App\Modules\Radiology\Services\RadChargeService;
 use App\Modules\Radiology\Services\RadReportService;
+use App\Modules\Radiology\Services\RadStatsService;
 
 /** @var \App\Core\Router $router */
 
@@ -43,3 +45,15 @@ $router->get('/radiology/report/form', [RadiologyController::class, 'reportForm'
 $router->post('/radiology/report/save', [RadiologyController::class, 'reportSave'], $radReport);
 $router->get('/radiology/radiologists', [RadiologyController::class, 'radiologists'], $radAdmin);
 $router->post('/radiology/radiologists', [RadiologyController::class, 'radiologistsSave'], $radAdmin);
+
+// Phase 3: imaging charges to the patient ledger, and the turnaround / volume report per machine.
+$radStats = [AuthMiddleware::class, [RoleMiddleware::class, RadStatsService::ROLES]];
+$radCharges = [AuthMiddleware::class, [RoleMiddleware::class, RadChargeService::VIEW_ROLES]];
+$radBill = [AuthMiddleware::class, [RoleMiddleware::class, RadChargeService::BILL_ROLES]];
+$router->get('/radiology/stats', [RadiologyController::class, 'stats'], $radStats);
+$router->get('/radiology/charges', [RadiologyController::class, 'charges'], $radCharges);
+$router->post('/radiology/charges/post', [RadiologyController::class, 'chargePost'], $radBill);
+$router->post('/radiology/charges/void', [RadiologyController::class, 'chargeVoid'], $radBill);
+$router->post('/radiology/charges/discount', [RadiologyController::class, 'chargeDiscount'], $radBill);
+$router->get('/radiology/prices', [RadiologyController::class, 'prices'], $radCharges);
+$router->post('/radiology/prices', [RadiologyController::class, 'pricesSave'], $radBill);

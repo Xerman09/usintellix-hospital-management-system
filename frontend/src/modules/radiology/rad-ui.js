@@ -142,6 +142,14 @@ const CSS = `
 .rad-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
 .rad-tbl input[type=text] { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 6px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
 .rbx input[type=file] { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 8px; font: inherit; background: var(--bg-surface); color: var(--text-primary); }
+/* charges (Phase 3) */
+.rad-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 10px; }
+.rad-tbl.big { background: var(--bg-surface); }
+.rad-tbl.big th { padding: 8px 10px; background: var(--bg-surface-alt); white-space: nowrap; }
+.rad-tbl.big td { padding: 7px 10px; vertical-align: top; }
+.rad-tbl td.n, .rad-tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rad-tbl td.acts { white-space: nowrap; text-align: right; }
+.rad-tbl td.acts .rad-b { margin-left: 4px; }
 `;
 
 export function ensureCss() {

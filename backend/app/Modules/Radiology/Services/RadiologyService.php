@@ -992,6 +992,12 @@ class RadiologyService
         return $room['around_the_clock'] || str_contains($room['open_days'], (string) ((int) date('N', strtotime($date))));
     }
 
+    /** The minutes a machine works on a date (0 when it does not work that day). Used by the radiology report. */
+    public function openMinutesOn(array $room, string $date): int
+    {
+        return $this->openMinutes($room, $date);
+    }
+
     private function openMinutes(array $room, string $date): int
     {
         if (!$this->worksOn($room, $date)) {

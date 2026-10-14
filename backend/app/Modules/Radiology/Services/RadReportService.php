@@ -23,6 +23,8 @@ use PDO;
  *   * A signed report can be given an addendum or a correction: a new version, signed again; the inbox marks it
  *     corrected and an unacknowledged critical alert that no longer applies is closed.
  *   * staff() / saveStaff() -- which doctors are radiologists (admin). Only a radiologist may sign.
+ *   * Signing also charges the study to the patient's ledger once, at the price on the catalog
+ *     (RadChargeService::postForReport; Phase 3).
  */
 class RadReportService
 {
@@ -465,6 +467,8 @@ class RadReportService
                 ->execute(['o' => $o['id'], 'id' => $rid]);
             $db->prepare("UPDATE rad_reports SET status = 'signed', signed_by = :u, signed_at = NOW() WHERE id = :id")
                 ->execute(['u' => (int) $actor['id'], 'id' => $rid]);
+            // Phase 3: the study is charged to the patient's ledger once, when its report is first signed.
+            $charge = RadChargeService::postForReport($db, (int) $o['id'], $rid, (int) $actor['id']);
             $this->closeRequest($db, (int) $o['rad_request_id']);
             $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT rad_report');
         } catch (\Throwable $e) {
@@ -472,8 +476,10 @@ class RadReportService
             throw $e;
         }
         $what = $amending ? (!empty($data['is_addendum']) ? 'Addendum signed' : 'Corrected report signed') : 'Report signed';
+        $billed = $charge['charged'] ? ' Charged ₱' . number_format($charge['net'], 2) . ' to the patient\'s ledger.'
+            : ($charge['no_price'] ? ' Not charged: this study has no price yet (an admin sets it under Study prices).' : '');
         return ['success' => true, 'message' => "{$o['name']}: {$what}. " . preg_replace('/^Report filed\.\s*/', '', $res['message'])
-            . ' It is in the chart and in the results inbox.', 'data' => ($res['data'] ?? []) + ['order_id' => (int) $o['id']]];
+            . ' It is in the chart and in the results inbox.' . $billed, 'data' => ($res['data'] ?? []) + ['order_id' => (int) $o['id']]];
     }
 
     /** The signed report (and its earlier versions) for reading or printing. */

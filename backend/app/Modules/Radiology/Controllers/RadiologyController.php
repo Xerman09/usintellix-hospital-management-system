@@ -5,8 +5,10 @@ namespace App\Modules\Radiology\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Radiology\Services\RadChargeService;
 use App\Modules\Radiology\Services\RadiologyService;
 use App\Modules\Radiology\Services\RadReportService;
+use App\Modules\Radiology\Services\RadStatsService;
 
 class RadiologyController extends Controller
 {
@@ -152,6 +154,55 @@ class RadiologyController extends Controller
     public function radiologistsSave(): void
     {
         $this->respond((new RadReportService())->saveStaff((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    // ---- Phase 3: imaging charges, and the turnaround / volume report
+
+    /** Query: from, to, modality, room_id */
+    public function stats(): void
+    {
+        $r = new Request();
+        $this->success((new RadStatsService())->report((string) ($r->input('from') ?? '') ?: null, (string) ($r->input('to') ?? '') ?: null,
+            (string) ($r->input('modality') ?? '') ?: null, (int) $r->input('room_id') ?: null), 'Retrieved.');
+    }
+
+    /** Query: q, only (unbilled) -- the studies reported in the last 7 days and their charges. */
+    public function charges(): void
+    {
+        $r = new Request();
+        $this->success((new RadChargeService())->queue($r->all(), Session::get('user') ?? []) + [
+            'modalities' => RadiologyService::MODALITIES, 'priorities' => RadiologyService::PRIORITIES], 'Retrieved.');
+    }
+
+    /** Body: order_ids */
+    public function chargePost(): void
+    {
+        $this->respond((new RadChargeService())->postMissing((array) ((new Request())->input('order_ids') ?? []), Session::get('user') ?? []));
+    }
+
+    /** Body: id, reason */
+    public function chargeVoid(): void
+    {
+        $r = new Request();
+        $this->respond((new RadChargeService())->voidCharge((int) $r->input('id'), (string) ($r->input('reason') ?? ''), Session::get('user') ?? []));
+    }
+
+    /** Body: id, discount_type, discount_id_no, discount_rate, discount_reason */
+    public function chargeDiscount(): void
+    {
+        $r = new Request();
+        $this->respond((new RadChargeService())->setDiscount((int) $r->input('id'), $r->all(), Session::get('user') ?? []));
+    }
+
+    public function prices(): void
+    {
+        $this->success(['studies' => (new RadChargeService())->prices(), 'modalities' => RadiologyService::MODALITIES], 'Retrieved.');
+    }
+
+    /** Body: prices [{id, price}] */
+    public function pricesSave(): void
+    {
+        $this->respond((new RadChargeService())->savePrices((new Request())->all(), Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

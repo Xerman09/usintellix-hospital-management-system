@@ -21,7 +21,8 @@ class PatientLedgerService
     public function getLedger(int $patientId, string $from, string $to): array
     {
         $charges = array_merge($this->listCharges($patientId, $from, $to), $this->listPharmacyCharges($patientId, $from, $to), $this->listSurgeryCharges($patientId, $from, $to),
-            $this->listInpatientMedCharges($patientId, $from, $to), $this->listLabCharges($patientId, $from, $to));
+            $this->listInpatientMedCharges($patientId, $from, $to), $this->listLabCharges($patientId, $from, $to),
+            $this->listImagingCharges($patientId, $from, $to));
         $payments = $this->listPayments($patientId, $from, $to);
 
         $rows = array_merge($charges, $payments);
@@ -212,6 +213,37 @@ class PatientLedgerService
             'billed_date' => $row['charge_date'],
             'payor' => null,
             'type' => 'Laboratory',
+            'units' => 1,
+            'charge' => round((float) $row['net_amount'], 2),
+            'payment' => 0.0,
+            'adjustment' => 0.0,
+            'entry_date' => $row['created_at'] ?: $row['charge_date'],
+            'encounter_id' => null
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** Imaging studies whose report was signed (module 15, Phase 3): one row per study, not voided. */
+    private function listImagingCharges(int $patientId, string $from, string $to): array
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT ch.id, ch.description, ch.net_amount, ch.discount_amount, ch.discount_type, ch.charge_date, ch.created_at, r.request_no
+             FROM rad_charges ch
+             LEFT JOIN rad_requests r ON r.id = ch.request_id
+             WHERE ch.patient_id = :patient_id AND ch.status = 'charged'
+               AND ch.charge_date >= :from AND ch.charge_date <= :to
+             ORDER BY ch.charge_date ASC, ch.id ASC"
+        );
+        $stmt->execute(['patient_id' => $patientId, 'from' => $from, 'to' => $to]);
+
+        return array_map(fn(array $row) => [
+            'row_type' => 'charge',
+            'id' => 'x' . $row['id'],
+            'code' => $row['request_no'],
+            'description' => $row['description'] . ((float) $row['discount_amount'] > 0
+                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+            'billed_date' => $row['charge_date'],
+            'payor' => null,
+            'type' => 'Imaging',
             'units' => 1,
             'charge' => round((float) $row['net_amount'], 2),
             'payment' => 0.0,

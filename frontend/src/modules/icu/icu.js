@@ -568,7 +568,7 @@ async function onSheetClick(e) {
     if (dr) return openDrip(Number(dr.dataset.drip));
     if (t.closest("[data-lineadd]")) return openLine();
     if (t.closest("[data-laborder]")) return import("../lab/lab-order.js?v=3").then((m) => m.openLabOrder({ admission_id: sheet.admission.id }));
-    if (t.closest("[data-radorder]")) return import("../radiology/rad-order.js?v=2").then((m) => m.openRadOrder({ admission_id: sheet.admission.id }));
+    if (t.closest("[data-radorder]")) return import("../radiology/rad-order.js?v=3").then((m) => m.openRadOrder({ admission_id: sheet.admission.id }));
     const lo = t.closest("[data-lineout]");
     if (lo) return openLineRemove(Number(lo.dataset.lineout));
     const ap = t.closest("[data-apache]");
