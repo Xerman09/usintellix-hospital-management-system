@@ -1,5 +1,5 @@
 import { fetchHealthSummary } from "./health-records.service.js";
-import { HRS_SECTIONS } from "./health-summary.view.js?v=2";
+import { HRS_SECTIONS } from "./health-summary.view.js?v=3";
 import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js";
 import { todayISO } from "../../core/timezone.js";
 import { requestPrescriptionRefill, cancelRefillRequest } from "../patient-prescriptions/patient-prescriptions.service.js?v=5";
@@ -69,6 +69,8 @@ function renderAboutContact(d)
     const sex = d.sex ? d.sex.charAt(0).toUpperCase() + d.sex.slice(1) : "-";
     const civilStatus = d.civil_status ? d.civil_status.charAt(0).toUpperCase() + d.civil_status.slice(1) : "-";
     const address = [d.address_line, d.city, d.province, d.zip_code].filter(Boolean).join(", ") || "-";
+    const height = d.height ? `${d.height} cm` : "-";
+    const weight = d.weight ? `${d.weight} kg` : "-";
 
     container.innerHTML = `
         <div>
@@ -78,8 +80,8 @@ function renderAboutContact(d)
                 <div class="form-group"><label>Civil Status</label><p>${civilStatus}</p></div>
                 <div class="form-group"><label>Birthdate</label><p>${formatDate(d.birthdate) || "-"}</p></div>
                 <div class="form-group"><label>Blood Type</label><p>${d.blood_type ?? "-"}</p></div>
-                <div class="form-group"><label>Height</label><p>${d.height ?? "-"} cm</p></div>
-                <div class="form-group"><label>Weight</label><p>${d.weight ?? "-"} kg</p></div>
+                <div class="form-group"><label>Height</label><p>${height}</p></div>
+                <div class="form-group"><label>Weight</label><p>${weight}</p></div>
                 <div class="form-group"><label>Race</label><p>${d.race ?? "-"}</p></div>
                 <div class="form-group"><label>Ethnicity</label><p>${d.ethnicity ?? "-"}</p></div>
                 <div class="form-group"><label>Religion</label><p>${d.religion ?? "-"}</p></div>
@@ -238,14 +240,14 @@ function refillAction(rx)
     const request = rx.refill_request;
 
     if (request?.status === "pending") {
-        return `<span style="font-size:12px;">Refill requested ${formatDate(String(request.created_at).slice(0, 10))}</span><br>
+        return `<span class="hrs-muted" style="font-size:12px;">Refill requested ${formatDate(String(request.created_at).slice(0, 10))}</span><br>
             <button type="button" class="hrs-refill-btn" style="margin-top:4px;" data-refill-cancel="${request.id}">Cancel request</button>`;
     }
 
     const ended = rx.end_date && String(rx.end_date).slice(0, 10) < todayISO();
     const declined = request?.status === "declined"
-        ? `<span style="font-size:12px;color:#b91c1c;">Last refill request declined${request.decline_reason ? `: ${escapeHtml(request.decline_reason)}` : ""}</span><br>`
-        : request?.status === "dispensed" ? `<span style="font-size:12px;">Last refill given ${formatDate(String(request.decided_at || "").slice(0, 10))}</span><br>` : "";
+        ? `<span class="hrs-status-declined">Last refill request declined${request.decline_reason ? `: ${escapeHtml(request.decline_reason)}` : ""}</span><br>`
+        : request?.status === "dispensed" ? `<span class="hrs-muted" style="font-size:12px;">Last refill given ${formatDate(String(request.decided_at || "").slice(0, 10))}</span><br>` : "";
 
     if (ended && !rx.can_request_refill) return declined;
     return `${declined}<button type="button" class="hrs-refill-btn" data-rx-id="${rx.id}">Request Refill</button>`;

@@ -483,6 +483,10 @@
     color: var(--text-muted);
 }
 
+:root[data-theme="dark"] .form-group p {
+    color: var(--text-primary);
+}
+
 :root[data-theme="dark"] .form-input {
     background: var(--bg-surface-alt);
     border-color: var(--border-color);
@@ -2830,6 +2834,33 @@ body {
     gap: 2px;
     overflow-x: auto;
     border-bottom: 1px solid #e2e5ea;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.tab-bar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tab-bar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.tab-bar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+:root[data-theme="dark"] .tab-bar {
+    scrollbar-color: #334155 transparent;
+}
+
+:root[data-theme="dark"] .tab-bar::-webkit-scrollbar-thumb {
+    background: #334155;
 }
 
 .tab-item {
@@ -3998,12 +4029,47 @@ select.form-input {
     font-size: 13px;
     color: #25324b;
     margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+.hrs-widget .form-group {
+    margin-bottom: 10px;
+}
+
+.hrs-widget .form-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 3px;
+}
+
+.hrs-widget .form-group p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.4;
+    word-break: break-word;
 }
 
 .hrs-about-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
+}
+
+.hrs-muted {
+    color: #64748b;
+}
+
+.hrs-status-declined {
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .hrs-refill-btn {
@@ -4016,6 +4082,7 @@ select.form-input {
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    transition: all 0.15s ease;
 }
 
 .hrs-refill-btn:hover {
@@ -4044,15 +4111,6 @@ select.form-input {
     white-space: nowrap;
 }
 
-:root[data-theme="dark"] .hrs-result-abnormal {
-    background: rgba(220, 38, 38, .12);
-}
-
-:root[data-theme="dark"] .hrs-abnormal-flag {
-    background: rgba(220, 38, 38, .25);
-    color: #fca5a5;
-}
-
 @media (max-width: 860px) {
     .hrs-widget-grid { grid-template-columns: 1fr; }
 }
@@ -4063,14 +4121,123 @@ select.form-input {
     }
 }
 
-:root[data-theme="dark"] .hrs-topbar { border-bottom-color: var(--border-color); }
-:root[data-theme="dark"] .hrs-topbar h2 { color: var(--text-primary); }
-:root[data-theme="dark"] .hrs-topbar p { color: var(--text-muted); }
-:root[data-theme="dark"] .hrs-widget { background: var(--bg-surface); border-color: var(--border-color); }
-:root[data-theme="dark"] .hrs-widget-header { border-bottom-color: var(--border-color); }
-:root[data-theme="dark"] .hrs-widget-body .data-table th { background: var(--bg-surface-alt); }
-:root[data-theme="dark"] .hrs-widget-empty-text { color: var(--text-muted); }
-:root[data-theme="dark"] .hrs-subcard-label { color: var(--text-primary); }
+/* ========================================================
+   HEALTH RECORDS SUMMARY - COMPREHENSIVE DARK MODE SUPPORT
+   ======================================================== */
+:root[data-theme="dark"] .hrs-page {
+    color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .hrs-topbar {
+    background: var(--bg-surface);
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .hrs-topbar h2 {
+    color: #f8fafc;
+}
+
+:root[data-theme="dark"] .hrs-topbar p {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .hrs-topbar-avatar {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme="dark"] .hrs-widget {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme="dark"] .hrs-widget-header {
+    background: #172033;
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .hrs-widget-header-title svg {
+    color: #60a5fa;
+}
+
+:root[data-theme="dark"] .hrs-widget-header h3 {
+    color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .hrs-subcard-label {
+    color: #f8fafc;
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .hrs-widget .form-group label {
+    color: #94a3b8;
+}
+
+:root[data-theme="dark"] .hrs-widget .form-group p {
+    color: #f1f5f9 !important;
+}
+
+:root[data-theme="dark"] .hrs-widget-body .data-table {
+    border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .hrs-widget-body .data-table th {
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .hrs-widget-body .data-table td {
+    color: var(--text-primary);
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .hrs-widget-body .data-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.035);
+}
+
+:root[data-theme="dark"] .hrs-widget-empty-text {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .hrs-muted {
+    color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .hrs-status-declined {
+    color: #f87171;
+}
+
+:root[data-theme="dark"] .hrs-refill-btn {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #93c5fd;
+}
+
+:root[data-theme="dark"] .hrs-refill-btn:hover {
+    background: rgba(59, 130, 246, 0.32);
+    border-color: rgba(59, 130, 246, 0.6);
+    color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .hrs-refill-btn:disabled {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color);
+    color: #64748b;
+}
+
+:root[data-theme="dark"] .hrs-result-abnormal {
+    background: rgba(220, 38, 38, .12);
+}
+
+:root[data-theme="dark"] .hrs-abnormal-flag {
+    background: rgba(220, 38, 38, .25);
+    color: #fca5a5;
+    border: 1px solid rgba(220, 38, 38, .35);
+}
 
 /* =========================
    APPOINTMENTS CALENDAR
