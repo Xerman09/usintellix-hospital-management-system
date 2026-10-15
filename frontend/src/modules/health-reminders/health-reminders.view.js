@@ -502,5 +502,88 @@ export function HealthRemindersView()
         </div>
     </div>
 </div>
+
+<!-- Modal for Scheduling Appointment with Auto-Fill -->
+<div class="modal-overlay" id="hrApptModalOverlay">
+    <div class="modal-box" style="max-width: 620px;">
+        <div class="modal-header">
+            <div>
+                <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a;" id="hrModalTitle">Schedule Clinical Visit</h2>
+                <p style="margin: 3px 0 0; font-size: 12.5px; color: #64748b;">Request an appointment for your preventive care or screening item</p>
+            </div>
+            <button type="button" class="modal-close" id="hrModalCloseBtn">&times;</button>
+        </div>
+
+        <div id="hrModalReminderBanner" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px; margin: 16px 0 20px 0; display: flex; align-items: center; gap: 12px;">
+            <div style="font-size: 24px; flex-shrink: 0;" id="hrModalBannerIcon">🩺</div>
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                    <span style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: #dbeafe; color: #1d4ed8;" id="hrModalBannerCategory">ASSESSMENT</span>
+                    <span style="font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 9999px;" id="hrModalBannerUrgency">Action Due</span>
+                </div>
+                <strong style="font-size: 14px; color: #0f172a;" id="hrModalBannerItem">Assessment - Coumadin Management INR Monitoring</strong>
+            </div>
+        </div>
+
+        <div id="hrModalAlert"></div>
+
+        <form id="hrModalForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Preferred Provider <span style="color: #ef4444;">*</span></label>
+                    <select id="hrModalProvider" class="form-input">
+                        <option value="">Select healthcare provider</option>
+                    </select>
+                    <span class="form-error" id="hr-err-provider_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Facility Location</label>
+                    <select id="hrModalFacility" class="form-input">
+                        <option value="">Any available facility</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Preferred Date <span style="color: #ef4444;">*</span></label>
+                    <input type="date" id="hrModalDate" class="form-input">
+                    <span class="form-error" id="hr-err-appointment_date"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Available Times <span style="color: #ef4444;">*</span></label>
+                    <div class="appt-slot-picker" id="hrModalSlotPicker">
+                        <div class="appt-slot-empty">Choose a provider and date to see open appointment times.</div>
+                    </div>
+                    <span class="form-error" id="hr-err-appointment_time"></span>
+                </div>
+
+                <div class="form-group full">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label style="margin: 0;">Reason for Visit <span style="color: #ef4444;">*</span></label>
+                        <span style="font-size: 11px; color: #0284c7; font-weight: 600;">✨ Auto-filled from Health Reminder</span>
+                    </div>
+                    <input type="text" id="hrModalReason" class="form-input" style="background: #f8fafc; font-weight: 500;" placeholder="e.g. Assessment - Coumadin Management INR Monitoring">
+                    <span class="form-error" id="hr-err-reason"></span>
+                </div>
+
+                <div class="form-group full">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label style="margin: 0;">Additional Clinical Notes</label>
+                        <span style="font-size: 11px; color: #0284c7; font-weight: 600;">✨ Auto-filled Details</span>
+                    </div>
+                    <textarea id="hrModalNotes" class="form-input" style="height: 68px; background: #f8fafc; font-size: 12.5px; line-height: 1.4;" placeholder="Optional clinical background or patient symptoms..."></textarea>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-secondary" id="hrModalCancelBtn">Cancel</button>
+                <button class="login-btn" type="submit" id="hrModalSubmitBtn" style="padding: 0 20px;">
+                    Confirm &amp; Request Visit &rarr;
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 `;
 }

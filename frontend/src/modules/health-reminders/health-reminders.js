@@ -1,8 +1,16 @@
 import { fetchMyReminders } from "../patient-reminders/patient-reminders.service.js";
-import { escapeHtml } from "../appointments/appointment-format.js";
+import { fetchProviders } from "../providers/providers.service.js";
+import { fetchFacilities } from "../facilities/facilities.service.js";
+import { createAppointment, fetchAvailableSlots } from "../appointments/appointments.service.js";
+import { formatApptTime, escapeHtml, toDateStr } from "../appointments/appointment-format.js";
+import { showToast } from "../../core/toast.js";
+import { systemNow } from "../../core/timezone.js";
 
 let allRemindersData = [];
 let activeFilter = "all";
+let providersLoaded = false;
+let selectedModalSlotTime = null;
+let currentSchedulingReminder = null;
 
 export async function initHealthReminders()
 {
@@ -13,10 +21,13 @@ export async function initHealthReminders()
         return;
     }
 
+    // Setup modal listeners
+    setupHealthReminderModal();
+
     // Attach global schedule button
     const globalScheduleBtn = document.getElementById("hrBtnScheduleGlobal");
     if (globalScheduleBtn) {
-        globalScheduleBtn.addEventListener("click", () => navigateToAppointments());
+        globalScheduleBtn.addEventListener("click", () => openScheduleModal(null));
     }
 
     // Attach filter buttons
@@ -110,8 +121,9 @@ function applyFilterAndRender()
     // Attach card schedule buttons
     document.querySelectorAll(".hr-btn-card-schedule").forEach(btn => {
         btn.addEventListener("click", () => {
-            const itemTitle = btn.getAttribute("data-item") || "";
-            navigateToAppointments(itemTitle);
+            const reminderId = btn.getAttribute("data-reminder-id");
+            const reminder = allRemindersData.find(r => String(r.id) === String(reminderId));
+            openScheduleModal(reminder);
         });
     });
 }
@@ -147,7 +159,7 @@ function reminderCard(reminder)
         badgeHtml = `<span class="hr-badge hr-badge-sent"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Sent / Handled</span>`;
     }
 
-    // Parse category & title from item_label (e.g. "Assessment - Coumadin Management INR Monitoring")
+    // Parse category & title from item_label
     const rawLabel = reminder.item_label || "Health Reminder";
     let category = "Clinical Assessment";
     let title = rawLabel;
@@ -204,7 +216,7 @@ function reminderCard(reminder)
     const formattedDate = formatDate(dateValue);
 
     return `
-        <div class="hr-card ${cardVariant}">
+        <div class="hr-card ${cardVariant}" data-reminder-id="${reminder.id}">
             <div class="hr-card-main">
                 <div class="hr-card-icon-box" style="background: ${iconBg};">
                     ${iconSvg}
@@ -229,8 +241,8 @@ function reminderCard(reminder)
 
             <div class="hr-card-actions">
                 ${badgeHtml}
-                <button type="button" class="hr-btn-schedule hr-btn-card-schedule" data-item="${escapeHtml(title)}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <button type="button" class="hr-btn-schedule hr-btn-card-schedule" data-reminder-id="${reminder.id}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                     Schedule Visit
                 </button>
             </div>
@@ -238,22 +250,320 @@ function reminderCard(reminder)
     `;
 }
 
-function navigateToAppointments(contextItem = "")
+function getIconEmojiForTitle(title)
 {
-    if (typeof window.__openDashboardTab === "function") {
-        window.__openDashboardTab("appointments", "Appointments");
+    const t = (title || "").toLowerCase();
+    if (t.includes("coumadin") || t.includes("inr") || t.includes("blood") || t.includes("heart")) return "🩸";
+    if (t.includes("diabetes") || t.includes("a1c") || t.includes("glucose") || t.includes("microalbumin")) return "🧪";
+    if (t.includes("allergy") || t.includes("penicillin")) return "🛡️";
+    if (t.includes("eye") || t.includes("vision")) return "👁️";
+    if (t.includes("foot") || t.includes("podiatry")) return "🦶";
+    if (t.includes("social security") || t.includes("number") || t.includes("data entry")) return "📋";
+    return "🩺";
+}
+
+export async function openScheduleModal(reminder = null)
+{
+    currentSchedulingReminder = reminder;
+    const overlay = document.getElementById("hrApptModalOverlay");
+    if (!overlay) return;
+
+    clearModalErrors();
+    const alertEl = document.getElementById("hrModalAlert");
+    if (alertEl) alertEl.innerHTML = "";
+
+    // Load providers & facilities
+    if (!providersLoaded) {
+        providersLoaded = true;
+        await loadModalPickers();
+    }
+
+    const today = toDateStr(systemNow());
+    const dateInput = document.getElementById("hrModalDate");
+    if (dateInput) {
+        dateInput.min = today;
+        if (!dateInput.value) dateInput.value = today;
+    }
+
+    // Auto-fill Reminder Details
+    const banner = document.getElementById("hrModalReminderBanner");
+    const bannerCategory = document.getElementById("hrModalBannerCategory");
+    const bannerItem = document.getElementById("hrModalBannerItem");
+    const bannerUrgency = document.getElementById("hrModalBannerUrgency");
+    const bannerIcon = document.getElementById("hrModalBannerIcon");
+
+    const reasonInput = document.getElementById("hrModalReason");
+    const notesInput = document.getElementById("hrModalNotes");
+    const titleEl = document.getElementById("hrModalTitle");
+
+    if (reminder) {
+        if (banner) banner.style.display = "flex";
+        const rawLabel = reminder.item_label || "Health Reminder";
+        const isPastDue = !reminder.date_sent && reminder.due_status === "past_due";
+        const formattedDate = formatDate(reminder.date_sent || reminder.date_created);
+
+        let category = "Clinical Assessment";
+        let cleanTitle = rawLabel;
+        if (rawLabel.includes(" - ")) {
+            const parts = rawLabel.split(" - ");
+            category = parts[0].trim();
+            cleanTitle = parts.slice(1).join(" - ").trim();
+        }
+
+        if (titleEl) titleEl.textContent = `Schedule Visit: ${cleanTitle}`;
+        if (bannerCategory) bannerCategory.textContent = category.toUpperCase();
+        if (bannerItem) bannerItem.textContent = rawLabel;
+        if (bannerUrgency) {
+            bannerUrgency.textContent = isPastDue ? "⚠️ Past Due" : "⏱️ Action Due";
+            bannerUrgency.style.background = isPastDue ? "#fef2f2" : "#eff6ff";
+            bannerUrgency.style.color = isPastDue ? "#dc2626" : "#2563eb";
+        }
+        if (bannerIcon) bannerIcon.textContent = getIconEmojiForTitle(cleanTitle);
+
+        // AUTO-FILL Reason for Visit
+        if (reasonInput) {
+            reasonInput.value = `Health Reminder: ${rawLabel}`;
+        }
+
+        // AUTO-FILL Additional Notes
+        if (notesInput) {
+            notesInput.value = `Scheduled in response to clinical reminder: ${rawLabel} (${isPastDue ? 'Past Due' : 'Due Now'}). Identified on ${formattedDate}.`;
+        }
+
+    } else {
+        if (banner) banner.style.display = "none";
+        if (titleEl) titleEl.textContent = "Schedule General Clinical Visit";
+        if (reasonInput) reasonInput.value = "General Preventive Health Checkup";
+        if (notesInput) notesInput.value = "Routine health maintenance and clinical assessments review.";
+    }
+
+    // Auto-select first provider if none selected
+    const providerSelect = document.getElementById("hrModalProvider");
+    if (providerSelect && providerSelect.options.length > 1 && !providerSelect.value) {
+        providerSelect.selectedIndex = 1;
+    }
+
+    // Load available slots
+    loadModalSlots();
+
+    overlay.classList.add("open");
+}
+
+function setupHealthReminderModal()
+{
+    const overlay = document.getElementById("hrApptModalOverlay");
+    const closeBtn = document.getElementById("hrModalCloseBtn");
+    const cancelBtn = document.getElementById("hrModalCancelBtn");
+    const form = document.getElementById("hrModalForm");
+    const providerSelect = document.getElementById("hrModalProvider");
+    const facilitySelect = document.getElementById("hrModalFacility");
+    const dateInput = document.getElementById("hrModalDate");
+
+    if (!overlay || !form) return;
+
+    const closeModal = () => {
+        overlay.classList.remove("open");
+        selectedModalSlotTime = null;
+        currentSchedulingReminder = null;
+    };
+
+    closeBtn?.addEventListener("click", closeModal);
+    cancelBtn?.addEventListener("click", closeModal);
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeModal();
+    });
+
+    providerSelect?.addEventListener("change", loadModalSlots);
+    dateInput?.addEventListener("change", loadModalSlots);
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        clearModalErrors();
+        const alertEl = document.getElementById("hrModalAlert");
+        if (alertEl) alertEl.innerHTML = "";
+
+        const providerId = providerSelect?.value;
+        const date = dateInput?.value;
+        const reason = document.getElementById("hrModalReason")?.value.trim() || "";
+        const notes = document.getElementById("hrModalNotes")?.value.trim() || "";
+        const facilityId = facilitySelect?.value || null;
+
+        let hasError = false;
+        if (!providerId) {
+            showModalError("provider_id", "Please select a provider.");
+            hasError = true;
+        }
+        if (!date) {
+            showModalError("appointment_date", "Please select a date.");
+            hasError = true;
+        }
+        if (!selectedModalSlotTime) {
+            showModalError("appointment_time", "Please choose an available appointment time slot.");
+            hasError = true;
+        }
+        if (!reason) {
+            showModalError("reason", "Please provide a reason for the visit.");
+            hasError = true;
+        }
+
+        if (hasError) return;
+
+        const submitBtn = document.getElementById("hrModalSubmitBtn");
+        const originalLabel = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Requesting Appointment...";
+
+        try {
+            const result = await createAppointment({
+                provider_id: providerId,
+                facility_id: facilityId || null,
+                appointment_date: date,
+                appointment_time: selectedModalSlotTime,
+                reason: reason,
+                notes: notes || null
+            });
+
+            if (!result.success) {
+                if (alertEl) alertEl.innerHTML = `<div class="form-alert error" style="background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fecaca; font-size: 13px;">${escapeHtml(result.message || "Failed to schedule appointment.")}</div>`;
+                return;
+            }
+
+            if (typeof showToast === "function") {
+                showToast("Appointment successfully requested! Added to your schedule.", "success");
+            }
+
+            // Visually mark the reminder card
+            if (currentSchedulingReminder) {
+                const card = document.querySelector(`[data-reminder-id="${currentSchedulingReminder.id}"]`);
+                if (card) {
+                    const actionWrap = card.querySelector(".hr-card-actions");
+                    if (actionWrap) {
+                        actionWrap.innerHTML = `<span class="hr-badge hr-badge-sent" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 600;">✓ Appointment Requested</span>`;
+                    }
+                }
+            }
+
+            closeModal();
+
+        } catch (err) {
+            console.error("Failed to request appointment from reminder", err);
+            if (alertEl) alertEl.innerHTML = `<div class="form-alert error" style="background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fecaca; font-size: 13px;">${escapeHtml(err.message || "Unable to submit appointment request.")}</div>`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalLabel;
+        }
+    });
+}
+
+async function loadModalPickers()
+{
+    const providerSelect = document.getElementById("hrModalProvider");
+    const facilitySelect = document.getElementById("hrModalFacility");
+
+    try {
+        const result = await fetchProviders();
+        if (result.success && providerSelect) {
+            providerSelect.innerHTML = `<option value="">Select healthcare provider</option>`;
+            (result.data || []).forEach((provider) => {
+                const name = [provider.first_name, provider.last_name].filter(Boolean).join(" ");
+                const option = document.createElement("option");
+                option.value = provider.id;
+                option.textContent = provider.specialty ? `Dr. ${name} — ${provider.specialty}` : `Dr. ${name}`;
+                providerSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error("Failed to load providers", error);
+    }
+
+    try {
+        const result = await fetchFacilities();
+        if (result.success && facilitySelect) {
+            facilitySelect.innerHTML = `<option value="">Any available facility</option>`;
+            (result.data || []).forEach((facility) => {
+                const option = document.createElement("option");
+                option.value = facility.id;
+                option.textContent = facility.name;
+                facilitySelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error("Failed to load facilities", error);
+    }
+}
+
+async function loadModalSlots()
+{
+    const providerSelect = document.getElementById("hrModalProvider");
+    const dateInput = document.getElementById("hrModalDate");
+    const picker = document.getElementById("hrModalSlotPicker");
+
+    if (!providerSelect || !dateInput || !picker) return;
+
+    const providerId = providerSelect.value;
+    const date = dateInput.value;
+    selectedModalSlotTime = null;
+
+    if (!providerId || !date) {
+        picker.innerHTML = `<div class="appt-slot-empty">Choose a provider and date to see open appointment times.</div>`;
         return;
     }
 
-    const apptLink = document.querySelector('a[data-tab="appointments"]');
-    if (apptLink) {
-        apptLink.click();
-        return;
-    }
+    picker.innerHTML = `<div class="appt-slot-empty">Loading available times...</div>`;
 
-    if (window.tabManager && typeof window.tabManager.openTab === "function") {
-        window.tabManager.openTab("appointments", "Appointments");
+    try {
+        const result = await fetchAvailableSlots({ provider_id: providerId, start_date: date, days: 1 });
+
+        if (!result.success || !result.data?.length) {
+            picker.innerHTML = `<div class="appt-slot-empty">Unable to load available times.</div>`;
+            return;
+        }
+
+        const slots = result.data[0]?.slots || [];
+
+        if (!slots.length) {
+            picker.innerHTML = `<div class="appt-slot-empty">No times found for this date.</div>`;
+            return;
+        }
+
+        if (!slots.some((slot) => slot.available)) {
+            picker.innerHTML = `<div class="appt-slot-empty">This provider is fully booked on this date. Try another date.</div>`;
+            return;
+        }
+
+        picker.innerHTML = `<div class="appt-slot-grid">${slots.map((slot) => `
+            <button type="button" class="appt-slot-btn ${slot.available ? "" : "unavailable"}" data-time="${slot.time}" ${slot.available ? "" : "disabled"}>${formatApptTime(slot.time)}</button>
+        `).join("")}</div>`;
+
+        picker.querySelectorAll(".appt-slot-btn:not(.unavailable)").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                picker.querySelectorAll(".appt-slot-btn").forEach((b) => b.classList.remove("selected"));
+                btn.classList.add("selected");
+                selectedModalSlotTime = btn.getAttribute("data-time");
+                clearModalErrors();
+            });
+        });
+    } catch (error) {
+        console.error("Failed to load available slots", error);
+        picker.innerHTML = `<div class="appt-slot-empty">Unable to load available times.</div>`;
     }
+}
+
+function showModalError(field, message)
+{
+    const errorEl = document.getElementById(`hr-err-${field}`);
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = "block";
+    }
+}
+
+function clearModalErrors()
+{
+    document.querySelectorAll('[id^="hr-err-"]').forEach((el) => {
+        el.textContent = "";
+        el.style.display = "none";
+    });
 }
 
 function formatDate(value)

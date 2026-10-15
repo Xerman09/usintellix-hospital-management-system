@@ -16,8 +16,8 @@ import { PatientMedicationsView } from "../patient-medications/patient-medicatio
 import { initPatientMedications } from "../patient-medications/patient-medications.js?v=11";
 import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
 import { initPatientRecalls } from "../patient-recalls/patient-recalls.js";
-import { HealthRemindersView } from "../health-reminders/health-reminders.view.js?v=2";
-import { initHealthReminders } from "../health-reminders/health-reminders.js?v=2";
+import { HealthRemindersView } from "../health-reminders/health-reminders.view.js?v=3";
+import { initHealthReminders } from "../health-reminders/health-reminders.js?v=3";
 import { fetchAccessiblePatients, switchPatient } from "../proxy-access/proxy-access.service.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
