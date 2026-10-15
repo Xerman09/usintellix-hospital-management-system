@@ -16,8 +16,8 @@ import { PatientMedicationsView } from "../patient-medications/patient-medicatio
 import { initPatientMedications } from "../patient-medications/patient-medications.js?v=11";
 import { PatientRecallsView } from "../patient-recalls/patient-recalls.view.js";
 import { initPatientRecalls } from "../patient-recalls/patient-recalls.js";
-import { HealthRemindersView } from "../health-reminders/health-reminders.view.js";
-import { initHealthReminders } from "../health-reminders/health-reminders.js";
+import { HealthRemindersView } from "../health-reminders/health-reminders.view.js?v=2";
+import { initHealthReminders } from "../health-reminders/health-reminders.js?v=2";
 import { fetchAccessiblePatients, switchPatient } from "../proxy-access/proxy-access.service.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js";
 import { initAddEmployee } from "../employees/add-employee.js";
@@ -208,7 +208,7 @@ import { hasPendingPatientView } from "../../core/pending-patient-view.js";
 import { BillingView } from "../billing/billing.view.js";
 import { initBilling } from "../billing/billing.js";
 import { ReportsView } from "../reports/reports.view.js?v=3";
-import { initReports } from "../reports/reports.js?v=2";
+import { initReports } from "../reports/reports.js?v=3";
 import { ClientsListView } from "../reports/clients-list.view.js";
 import { initClientsList } from "../reports/clients-list.js";
 import { Icd10DiagnosesView } from "../icd10-diagnoses/icd10-diagnoses.view.js";
@@ -441,8 +441,8 @@ import { BackupRecoveryView } from "../backup-recovery/backup-recovery.view.js?v
 import { initBackupRecovery } from "../backup-recovery/backup-recovery.js?v=1";
 import { WorkforceGovernanceView } from "../workforce-governance/workforce-governance.view.js?v=1";
 import { initWorkforceGovernance } from "../workforce-governance/workforce-governance.js?v=1";
-import { SafeHarborView } from "../safe-harbor/safe-harbor.view.js?v=2";
-import { initSafeHarbor } from "../safe-harbor/safe-harbor.js?v=2";
+import { SafeHarborView } from "../safe-harbor/safe-harbor.view.js?v=3";
+import { initSafeHarbor } from "../safe-harbor/safe-harbor.js?v=3";
 
 function renderPlaceholderTab(title) {
     return `

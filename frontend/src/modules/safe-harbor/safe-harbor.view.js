@@ -583,7 +583,6 @@ export function SafeHarborView() {
                             <th>Dataset Domain</th>
                             <th>Purpose & Recipient</th>
                             <th>Records</th>
-                            <th>SHA-256 Checksum</th>
                             <th>Attestation Officer</th>
                             <th>Attested At</th>
                             <th style="text-align: right;">Statutory Actions</th>
@@ -591,7 +590,7 @@ export function SafeHarborView() {
                     </thead>
                     <tbody id="deidLedgerTbody">
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 32px; color: #64748b;">
+                            <td colspan="7" style="text-align: center; padding: 32px; color: #64748b;">
                                 Loading Safe Harbor export ledger...
                             </td>
                         </tr>

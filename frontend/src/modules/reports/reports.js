@@ -16,12 +16,19 @@ export function initReports() {
     const btnLaunchSafeHarbor = document.getElementById("btnLaunchSafeHarbor");
     const btnOpenSafeHarborConsole = document.getElementById("btnOpenSafeHarborConsole");
 
-    const navigateToSafeHarbor = () => {
+    const navigateToSafeHarbor = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (typeof window.__openDashboardTab === 'function') {
+            window.__openDashboardTab('safe_harbor', 'Safe Harbor De-Identification (§ 164.514)');
+            return;
+        }
         const navBtn = document.querySelector('[data-tab="safe_harbor"]');
         if (navBtn) {
             navBtn.click();
-        } else {
-            window.location.hash = '#dashboard?tab=safe_harbor';
+            return;
+        }
+        if (window.tabManager && typeof window.tabManager.openTab === 'function') {
+            window.tabManager.openTab('safe_harbor', 'Safe Harbor De-Identification (§ 164.514)');
         }
     };
 

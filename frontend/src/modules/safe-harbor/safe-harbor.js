@@ -95,7 +95,7 @@ async function loadExportsTable() {
         if (exports.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 36px; color: #64748b;">
+                    <td colspan="7" style="text-align: center; padding: 36px; color: #64748b;">
                         <div style="font-size: 28px; margin-bottom: 8px;">🔒</div>
                         <strong>No Safe Harbor exports found matching criteria.</strong>
                         <p style="margin: 4px 0 0 0; font-size: 12px;">Click "+ Generate Safe Harbor Dataset" to create your first HIPAA § 164.514 research cohort.</p>
@@ -106,7 +106,6 @@ async function loadExportsTable() {
         }
 
         tbody.innerHTML = exports.map(e => {
-            const shortChecksum = (e.sha256_dataset_checksum || "").substring(0, 16) + "...";
             const typeLabel = (e.dataset_type || "").replace(/_/g, " ").toUpperCase();
             const purposeLabel = (e.purpose_of_use || "").replace(/_/g, " ").toUpperCase();
 
@@ -125,9 +124,6 @@ async function loadExportsTable() {
                     <td>
                         <strong style="color: #047857;">${(parseInt(e.records_count) || 0).toLocaleString()}</strong>
                         <span style="font-size: 11px; color: #64748b;"> records</span>
-                    </td>
-                    <td>
-                        <span class="deid-hash-mono" title="${escapeHtml(e.sha256_dataset_checksum)}">${escapeHtml(shortChecksum)}</span>
                     </td>
                     <td>
                         <div style="font-weight: 500;">${escapeHtml(e.attestation_officer_name)}</div>
@@ -164,7 +160,7 @@ async function loadExportsTable() {
     } catch (e) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" style="text-align: center; padding: 24px; color: #ef4444;">
+                <td colspan="7" style="text-align: center; padding: 24px; color: #ef4444;">
                     Error loading export ledger: ${escapeHtml(e.message || "Network error")}
                 </td>
             </tr>
