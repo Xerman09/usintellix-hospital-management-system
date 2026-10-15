@@ -5,76 +5,205 @@ export function SettingsView() {
     width: 100%;
     font-family: 'Inter', system-ui, sans-serif;
 }
+
 .settings-header {
-    background-color: #0f172a;
-    color: white;
-    padding: 12px 16px;
-    font-size: 20px;
-    font-weight: 500;
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
+.settings-header-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.settings-header-text h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.settings-header-text p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.settings-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
 .settings-list {
     display: flex;
     flex-direction: column;
 }
+
 .settings-item {
     display: flex;
     align-items: center;
-    padding: 24px 16px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 18px 22px;
+    border-bottom: 1px solid #f1f5f9;
     background-color: #ffffff;
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 0.2s;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    gap: 16px;
 }
+
+.settings-item:last-child {
+    border-bottom: none;
+}
+
 .settings-item:hover {
     background-color: #f8fafc;
 }
-.settings-icon {
-    width: 24px;
-    height: 24px;
-    color: #2563eb;
-    margin-right: 12px;
-}
-.settings-text {
-    font-size: 22px;
-    color: #2563eb;
-    font-weight: 400;
+
+.settings-item-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
-:root[data-theme="dark"] .settings-item { background: var(--bg-surface); border-bottom-color: var(--border-color); }
-:root[data-theme="dark"] .settings-item:hover { background: var(--bg-surface-alt); }
-:root[data-theme="dark"] .settings-icon,
-:root[data-theme="dark"] .settings-text { color: var(--accent-text); }
+.settings-item-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.settings-title {
+    font-size: 15px;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.settings-desc {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.settings-item-arrow {
+    color: #94a3b8;
+    font-size: 18px;
+    font-weight: 600;
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.settings-item:hover .settings-item-arrow {
+    color: #2563eb;
+    transform: translateX(3px);
+}
+
+:root[data-theme="dark"] .settings-header {
+    background: var(--bg-surface-alt, #172033);
+    border-color: var(--border-color, #334155);
+    box-shadow: none;
+}
+:root[data-theme="dark"] .settings-header-icon {
+    background: rgba(37, 99, 235, 0.18);
+    color: #60a5fa;
+}
+:root[data-theme="dark"] .settings-header-text h1 {
+    color: var(--text-primary, #f8fafc);
+}
+:root[data-theme="dark"] .settings-header-text p {
+    color: var(--text-muted, #94a3b8);
+}
+:root[data-theme="dark"] .settings-card {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+:root[data-theme="dark"] .settings-item {
+    background: var(--bg-surface);
+    border-bottom-color: var(--border-color);
+}
+:root[data-theme="dark"] .settings-item:hover {
+    background: var(--bg-surface-alt);
+}
+:root[data-theme="dark"] .settings-title {
+    color: var(--text-primary, #f8fafc);
+}
+:root[data-theme="dark"] .settings-desc {
+    color: var(--text-muted, #94a3b8);
+}
+:root[data-theme="dark"] .settings-item-arrow {
+    color: var(--text-muted, #94a3b8);
+}
+:root[data-theme="dark"] .settings-item:hover .settings-item-arrow {
+    color: #60a5fa;
+}
 </style>
 
 <div class="settings-page">
     <div class="settings-header">
-        Settings
+        <div class="settings-header-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <div class="settings-header-text">
+            <h1>Account Settings</h1>
+            <p>Manage your patient portal preferences, authentication credentials, and theme</p>
+        </div>
     </div>
     
-    <div class="settings-list">
-        <a href="#/dashboard" class="settings-item" id="btnDigitalSignature">
-            <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                <path d="M2,22 L10,22 L10,24 L2,24 L2,22 Z M18.5,12 C20.4329966,12 22,13.5670034 22,15.5 C22,17.4329966 20.4329966,19 18.5,19 C17.3826065,19 16.3860492,18.475476 15.7508608,17.6534575 L12.5960012,19.3496924 C12.8553258,19.7891784 13,20.3101569 13,20.85 C13,22.5896968 11.5896968,24 9.85,24 C8.11030324,24 6.7,22.5896968 6.7,20.85 C6.7,19.1103032 8.11030324,17.7 9.85,17.7 C10.4901358,17.7 11.0858062,17.8911048 11.5866164,18.2144365 L14.7358763,16.5204481 C14.5828472,16.2084654 14.5,15.8624131 14.5,15.5 C14.5,13.5670034 16.0670034,12 18.5,12 Z" fill="currentColor"/>
-            </svg>
-            <span class="settings-text">Default Digital Signature</span>
-        </a>
-        
-        <a href="#/dashboard" class="settings-item" id="btnManageLogin">
-            <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-            </svg>
-            <span class="settings-text">Manage Login Credentials</span>
-        </a>
-        
-        <a href="#/dashboard" class="settings-item" id="btnSelectTheme">
-            <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-            </svg>
-            <span class="settings-text">Select Theme</span>
-        </a>
+    <div class="settings-card">
+        <div class="settings-list">
+            <a href="#/dashboard" class="settings-item" id="btnDigitalSignature">
+                <div class="settings-item-icon-wrap" style="background: #eff6ff; color: #2563eb;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                </div>
+                <div class="settings-item-body">
+                    <span class="settings-title">Default Digital Signature</span>
+                    <span class="settings-desc">Draw and store your authorized electronic signature for rapid document completion</span>
+                </div>
+                <div class="settings-item-arrow">&rarr;</div>
+            </a>
+            
+            <a href="#/dashboard" class="settings-item" id="btnManageLogin">
+                <div class="settings-item-icon-wrap" style="background: #f0fdf4; color: #16a34a;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <div class="settings-item-body">
+                    <span class="settings-title">Manage Login Credentials</span>
+                    <span class="settings-desc">Update your portal username, password, and view patient identifiers</span>
+                </div>
+                <div class="settings-item-arrow">&rarr;</div>
+            </a>
+            
+            <a href="#/dashboard" class="settings-item" id="btnSelectTheme">
+                <div class="settings-item-icon-wrap" style="background: #faf5ff; color: #9333ea;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                </div>
+                <div class="settings-item-body">
+                    <span class="settings-title">Select Theme</span>
+                    <span class="settings-desc">Toggle between Light and Dark interface modes according to your preference</span>
+                </div>
+                <div class="settings-item-arrow">&rarr;</div>
+            </a>
+        </div>
     </div>
 </div>
 

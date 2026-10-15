@@ -3923,16 +3923,17 @@ select.form-input {
 
 .hrs-topbar-avatar {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: var(--accent);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 13px;
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
 }
 
 .hrs-topbar h2 {
@@ -3979,29 +3980,29 @@ select.form-input {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 9px 12px;
-    background: var(--accent-dark);
-    border-bottom: 1px solid var(--accent-dark);
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .hrs-widget-header-title {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
 }
 
 .hrs-widget-header-title svg {
-    width: 14px;
-    height: 14px;
-    color: white;
+    width: 15px;
+    height: 15px;
+    color: #2563eb;
     flex-shrink: 0;
 }
 
 .hrs-widget-header h3 {
     margin: 0;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
-    color: white;
+    color: #0f172a;
 }
 
 .hrs-widget-body {
@@ -5377,6 +5378,20 @@ select.form-input {
 
 .docs-form-dropdown {
     background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.docs-form-dropdown-header {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
 }
 
 .docs-form-option {
@@ -5394,6 +5409,7 @@ select.form-input {
 :root[data-theme="dark"] .docs-editing-bar { background: var(--bg-surface-alt); border-color: var(--border-color); }
 :root[data-theme="dark"] .docs-editing-label { color: var(--text-primary); }
 :root[data-theme="dark"] .docs-form-dropdown { background: var(--bg-surface); border-color: var(--border-color); }
+:root[data-theme="dark"] .docs-form-dropdown-header { background: var(--bg-surface-alt); color: var(--text-muted); border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .docs-form-option { color: var(--text-primary); border-bottom-color: var(--border-color) !important; }
 :root[data-theme="dark"] .docs-form-option:hover { background: var(--bg-surface-alt); }
 

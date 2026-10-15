@@ -10,13 +10,41 @@ export function ReportsView() {
 }
 
 .reports-header-bar {
-    background-color: #0f172a;
-    color: white;
-    padding: 16px 24px;
-    font-size: 18px;
-    font-weight: 500;
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 24px;
     margin-bottom: 24px;
-    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.reports-header-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.reports-header-text h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.reports-header-text p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #64748b;
 }
 
 .reports-grid {
@@ -48,7 +76,7 @@ export function ReportsView() {
 .report-icon {
     width: 64px;
     height: 64px;
-    color: #0f172a;
+    color: #2563eb;
     margin-bottom: 24px;
 }
 
@@ -72,7 +100,13 @@ export function ReportsView() {
 
 <div class="reports-page">
     <div class="reports-header-bar">
-        Medical Reports
+        <div class="reports-header-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="reports-header-text">
+            <h1>Medical Reports</h1>
+            <p>Access your health summaries, clinical history records, and HIPAA Safe Harbor tools</p>
+        </div>
     </div>
 
     <!-- Safe Harbor De-Identification Banner -->
@@ -316,8 +350,12 @@ export function ReportsView() {
 }
 
 :root[data-theme="dark"] .reports-page { color: var(--text-primary); }
+:root[data-theme="dark"] .reports-header-bar { background: var(--bg-surface-alt, #172033); border-color: var(--border-color, #334155); box-shadow: none; }
+:root[data-theme="dark"] .reports-header-icon { background: rgba(37, 99, 235, 0.18); color: #60a5fa; }
+:root[data-theme="dark"] .reports-header-text h1 { color: var(--text-primary, #f8fafc); }
+:root[data-theme="dark"] .reports-header-text p { color: var(--text-muted, #94a3b8); }
 :root[data-theme="dark"] .report-card { background: var(--bg-surface); border-color: var(--border-color); }
-:root[data-theme="dark"] .report-icon { color: var(--text-muted); }
+:root[data-theme="dark"] .report-icon { color: #60a5fa; }
 :root[data-theme="dark"] .prof-card-modern { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-primary); }
 :root[data-theme="dark"] .custom-section-header { color: var(--text-primary); border-bottom-color: var(--border-color); }
 :root[data-theme="dark"] .custom-item-row { border-bottom-color: var(--border-color); }

@@ -41,7 +41,7 @@ export function DocumentsView()
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-left: 6px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div id="docsSelectFormDropdown" class="docs-form-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); min-width: 100%; z-index: 50; margin-top: 4px;">
-                <div style="background: #0f172a; color: white; padding: 8px 12px; font-weight: 600; font-size: 14px; text-align: center;">General</div>
+                <div class="docs-form-dropdown-header">General</div>
                 <a href="#" class="docs-form-option" data-form="hipaa" style="display: block; padding: 10px 16px; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Hipaa Document</a>
                 <a href="#" class="docs-form-option" data-form="insurance" style="display: block; padding: 10px 16px; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Insurance Info</a>
                 <a href="#" class="docs-form-option" data-form="medical" style="display: block; padding: 10px 16px; text-decoration: none; font-size: 14px; border-bottom: 1px solid #f1f5f9;">Medical History</a>
