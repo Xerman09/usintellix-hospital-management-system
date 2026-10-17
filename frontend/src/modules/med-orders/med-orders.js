@@ -1,8 +1,8 @@
 import {
     fetchOrderOptions, searchOrderDrugs, checkOrder, createOrder, fetchAdmissionOrders, fetchVerificationQueue,
     verifyOrder, rejectOrder, discontinueOrder,
-} from "./med-orders.service.js?v=1";
-import { getUser } from "../../core/session.js?v=2";
+} from "./med-orders.service.js?v=4";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
 
@@ -224,7 +224,7 @@ function renderOrders() {
     m.querySelector("[data-mar]").onclick = () => {
         const id = current.admissionId;
         close();
-        import("../mar/mar.js?v=6").then((x) => x.openMar(id));
+        import("../mar/mar.js?v=8").then((x) => x.openMar(id));
     };
     if ($("moxNew")) $("moxNew").onclick = () => showForm();
     m.onclick = (e) => {

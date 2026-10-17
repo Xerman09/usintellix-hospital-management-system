@@ -1,5 +1,5 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { api, API_URL } from "../../core/api.js?v=5";
+import { api, API_URL } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 
 let categoriesList = [];

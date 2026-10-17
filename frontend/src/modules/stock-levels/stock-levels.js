@@ -1,8 +1,8 @@
-import { fetchStockLevelOptions, fetchLocationLevels, saveLocationLevels, copyLocationLevels, fetchLowStock } from "./stock-levels.service.js?v=1";
-import { formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+import { fetchStockLevelOptions, fetchLocationLevels, saveLocationLevels, copyLocationLevels, fetchLowStock } from "./stock-levels.service.js?v=4";
+import { formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 
 const STATUS = {
     out: ["Out of stock", "out"], low: ["Low", "low"], ok: ["OK", "ok"], over: ["Over max", "over"], no_level: ["No level set", "no_level"]

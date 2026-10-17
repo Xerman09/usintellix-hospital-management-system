@@ -1,6 +1,6 @@
-import { getUser } from "../../core/session.js";
-import { createPatient } from "./patients.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { getUser } from "../../core/session.js?v=5";
+import { createPatient } from "./patients.service.js?v=9";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { todayISO } from "../../core/timezone.js";
 

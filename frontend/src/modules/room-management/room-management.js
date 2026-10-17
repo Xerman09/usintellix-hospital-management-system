@@ -14,7 +14,7 @@ import {
     updateBed,
     updateBedStatus,
     deleteBed
-} from "./room-management.service.js?v=2";
+} from "./room-management.service.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 let state = {

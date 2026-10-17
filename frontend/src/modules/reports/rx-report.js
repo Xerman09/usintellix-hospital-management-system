@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 
 async function loadRxFacilities() {

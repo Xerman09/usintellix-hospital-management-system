@@ -1,4 +1,4 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 
 function staffNavLinks(role)
 {
@@ -249,6 +249,7 @@ function staffNavLinks(role)
                 </div>
                 ` : ""}
                 <a data-tab="employees">Users</a>
+                ${role === "admin" ? `<a data-tab="role_management">Roles &amp; Permissions (RBAC)</a>` : ""}
                 ${role === "admin" ? `<a data-tab="nursing_staff">Nursing Staff &amp; Wards</a>` : ""}
                 ${role === "admin" ? `<a data-tab="display_devices">TV Displays</a>` : ""}
                 ${role === "admin" ? `<a data-tab="general_settings">Two Factor Authentication</a>` : ""}
@@ -867,6 +868,7 @@ export function DashboardView()
                     <a data-tab="change_password" style="cursor: pointer;">Change Password</a>
                     <a data-tab="appearance" style="cursor: pointer;">Appearance</a>
                     <a data-tab="settings" style="cursor: pointer;">Settings</a>
+                    ${user?.role === "admin" ? `<a data-tab="role_management" style="cursor: pointer;">Roles &amp; Permissions (RBAC)</a>` : ""}
                     <div class="profile-docs-accordion" id="profileDocsAccordion">
                         <div class="profile-docs-trigger" id="profileDocsTrigger" role="button" tabindex="0">
                             <span class="profile-docs-title">

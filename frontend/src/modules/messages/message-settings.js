@@ -1,4 +1,4 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import {
     fetchMessageTypes, createMessageType, updateMessageType, deleteMessageType,
     fetchMessageStatuses, createMessageStatus, updateMessageStatus, deleteMessageStatus

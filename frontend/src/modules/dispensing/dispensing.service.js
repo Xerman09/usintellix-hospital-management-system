@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 
 const query = (filters) => {
     const q = new URLSearchParams(Object.entries(filters).filter(([, v]) => v !== "" && v != null)).toString();

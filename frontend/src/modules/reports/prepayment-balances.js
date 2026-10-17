@@ -1,5 +1,5 @@
 import { fetchPrepaymentBalances } from "./prepayment-balances.service.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { logReportRun } from "./report-history.js";
 
 const SERVICE_LABELS = {

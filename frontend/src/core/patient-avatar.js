@@ -1,4 +1,4 @@
-import { API_URL } from "./api.js";
+import { API_URL } from "./api.js?v=10";
 
 /**
  * Build the markup for a patient's avatar circle: their uploaded photo if

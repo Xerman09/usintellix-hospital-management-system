@@ -1,4 +1,4 @@
-import { fetchNursingStaff, saveNurseWards, fetchNurseWardHistory } from "./nursing-staff.service.js?v=1";
+import { fetchNursingStaff, saveNurseWards, fetchNurseWardHistory } from "./nursing-staff.service.js?v=4";
 import { showToast } from "../../core/toast.js";
 
 const $ = (id) => document.getElementById(id);

@@ -1,7 +1,7 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { logReportRun } from "./report-history.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
 
 async function fetchAppointments() {

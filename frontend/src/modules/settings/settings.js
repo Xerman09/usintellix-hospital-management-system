@@ -1,5 +1,5 @@
-import { api } from "../../core/api.js?v=5";
-import { getUser } from "../../core/session.js";
+import { api } from "../../core/api.js?v=10";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { changePassword } from "../profile/profile.service.js";
 

@@ -1,4 +1,4 @@
-import { formatApptTime, escapeHtml } from "./appointment-format.js?v=2";
+import { formatApptTime, escapeHtml } from "./appointment-format.js?v=4";
 
 const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MAX_CHIPS_PER_DAY = 3;

@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 
 /** filters: warehouse_id? */
 export async function fetchPharmacyDashboard(filters = {}) {

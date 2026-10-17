@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 
 export async function fetchSuppliers(showInactive = false) {
     return api(`/suppliers${showInactive ? "?show_inactive=1" : ""}`);

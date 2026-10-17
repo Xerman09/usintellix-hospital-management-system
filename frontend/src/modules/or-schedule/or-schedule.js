@@ -1,12 +1,12 @@
 import {
     fetchOrSchedule, fetchOrCase, fetchOrOptions, fetchOrSuites, checkOrBooking, bookOrRequest, rescheduleOrCase, cancelOrCase,
     fetchOrBlocks, saveOrBlock, removeOrBlock, setOrTurnover
-} from "./or-schedule.service.js?v=1";
-import { getUser } from "../../core/session.js";
+} from "./or-schedule.service.js?v=4";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
-import { openOrCase } from "../or-board/or-case-panel.js?v=4";
-import { printOrList } from "./or-list-print.js?v=1";
+import { openOrCase } from "../or-board/or-case-panel.js?v=7";
+import { printOrList } from "./or-list-print.js?v=4";
 
 const DAY_START = 7 * 60;
 const DAY_END = 21 * 60;

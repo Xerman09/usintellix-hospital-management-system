@@ -1,7 +1,7 @@
 import { showToast } from "../../core/toast.js";
 import { fetchDocumentTemplates, uploadDocumentTemplate, deleteDocumentTemplate } from "../document-templates/document-templates.service.js";
-import { API_URL } from "../../core/api.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { API_URL } from "../../core/api.js?v=10";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import {
     fetchTemplateCategories, createTemplateCategory, updateTemplateCategory, deleteTemplateCategory,
     fetchTemplateGroups, createTemplateGroup, updateTemplateGroup, deleteTemplateGroup,

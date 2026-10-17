@@ -8,8 +8,8 @@ import {
     denyDrsRequest,
     fetchDrsBundle,
     getDrsRegistryExportCsvUrl
-} from "./drs-requests.service.js?v=1";
-import { fetchPatients } from "../patients/patients.service.js?v=2";
+} from "./drs-requests.service.js?v=4";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { todayISO } from "../../core/timezone.js";
 
 let currentFilters = {

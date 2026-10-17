@@ -1,5 +1,5 @@
 import { fetchDashboardStats } from "./dashboard-home.service.js";
-import { fetchPatientDashboardSummary, fetchAiHealthAssessment } from "../patients/patients.service.js";
+import { fetchPatientDashboardSummary, fetchAiHealthAssessment } from "../patients/patients.service.js?v=9";
 import { fetchActiveAnnouncements, getAnnouncementImageUrl } from "../announcements/announcements.service.js";
 import { systemNow } from "../../core/timezone.js";
 

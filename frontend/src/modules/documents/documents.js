@@ -1,7 +1,7 @@
 import { fetchPatientDocuments, uploadPatientDocument } from "../patient-documents/patient-documents.service.js";
-import { escapeHtml } from "../appointments/appointment-format.js";
-import { api, API_URL } from "../../core/api.js?v=5";
-import { getUser } from "../../core/session.js";
+import { escapeHtml } from "../appointments/appointment-format.js?v=4";
+import { api, API_URL } from "../../core/api.js?v=10";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { systemNow, todayISO } from "../../core/timezone.js";
 

@@ -1,9 +1,9 @@
 import {
     fetchWarehouses, fetchWarehouseOptions, fetchStockCheck, saveStockLevel, removeStockLevel,
     createWarehouse, updateWarehouse, deleteWarehouse
-} from "./warehouses.service.js?v=2";
+} from "./warehouses.service.js?v=4";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 
 // Adding / editing locations and their stock levels is admin-only (the
 // server enforces it); everyone else can look and run the stock check.

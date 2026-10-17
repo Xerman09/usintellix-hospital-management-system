@@ -1,17 +1,17 @@
-import { LoginView } from "../modules/auth/login.view.js?v=108";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=182";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=313";
-import { initLogin } from "../modules/auth/auth.js?v=113";
-import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=102";
-import { initAddEmployee } from "../modules/employees/add-employee.js?v=102";
-import { AddPatientView } from "../modules/patients/add-patient.view.js?v=102";
-import { initAddPatient } from "../modules/patients/add-patient.js?v=102";
-import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=2";
-import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=2";
-import { TermsConditionsView } from "../modules/terms-conditions/terms-conditions.view.js?v=1";
-import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=1";
-import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=18";
-import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=4";
+import { LoginView } from "../modules/auth/login.view.js?v=110";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=185";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=316";
+import { initLogin } from "../modules/auth/auth.js?v=115";
+import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=104";
+import { initAddEmployee } from "../modules/employees/add-employee.js?v=104";
+import { AddPatientView } from "../modules/patients/add-patient.view.js?v=104";
+import { initAddPatient } from "../modules/patients/add-patient.js?v=104";
+import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=4";
+import { initPrivacyPolicy } from "../modules/privacy-policy/privacy-policy.js?v=5";
+import { TermsConditionsView } from "../modules/terms-conditions/terms-conditions.view.js?v=3";
+import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=3";
+import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=20";
+import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=7";
 
 
 const app = document.getElementById("app");

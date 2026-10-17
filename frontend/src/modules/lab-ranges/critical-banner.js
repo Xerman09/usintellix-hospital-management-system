@@ -1,7 +1,7 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { onAlertsChanged } from "../alerts/alert-bell.js?v=11";
-import { readBackFormHtml, bindReadBack, submitReadBack } from "./readback.js?v=1";
+import { onAlertsChanged } from "../alerts/alert-bell.js?v=14";
+import { readBackFormHtml, bindReadBack, submitReadBack } from "./readback.js?v=4";
 
 /*
  * The red mark on the patient's chart for critical lab results: a badge next to the name and

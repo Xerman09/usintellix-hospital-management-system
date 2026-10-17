@@ -1,4 +1,4 @@
-import { fetchWardStockReport, reviewOverride, resolveDdCount } from "./ward-cabinet.service.js?v=3";
+import { fetchWardStockReport, reviewOverride, resolveDdCount } from "./ward-cabinet.service.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 /*

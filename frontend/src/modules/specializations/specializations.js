@@ -1,5 +1,5 @@
-import { fetchSpecializations, saveSpecialization, setSpecializationActive } from "./specializations.service.js?v=1";
-import { escapeHtml } from "../appointments/appointment-format.js";
+import { fetchSpecializations, saveSpecialization, setSpecializationActive } from "./specializations.service.js?v=4";
+import { escapeHtml } from "../appointments/appointment-format.js?v=4";
 import { showToast } from "../../core/toast.js";
 
 let rows = [];

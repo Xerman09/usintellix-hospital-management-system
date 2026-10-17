@@ -1,8 +1,8 @@
 import {
     fetchStockTransfers, fetchStockTransfer, fetchStockTransferOptions,
     createStockTransfer, updateStockTransfer, deleteStockTransfer, stockTransferAction
-} from "./stock-transfers.service.js?v=1";
-import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+} from "./stock-transfers.service.js?v=4";
+import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 import { custodianHint } from "../../core/custodian.js";

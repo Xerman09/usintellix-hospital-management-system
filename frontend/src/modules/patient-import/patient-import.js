@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { updatePatient } from "../patients/patients.service.js";
+import { updatePatient } from "../patients/patients.service.js?v=9";
 import { PatientImportModalMarkup } from "./patient-import.view.js";
 import { showToast } from "../../core/toast.js";
 

@@ -1,7 +1,7 @@
-import { fetchSupplierPrices, fetchSupplierPriceOptions } from "./supplier-prices.service.js?v=2";
+import { fetchSupplierPrices, fetchSupplierPriceOptions } from "./supplier-prices.service.js?v=5";
 import {
     createSupplierPriceForm, renderDiscountTag, formatMoney, formatQty, formatDate, escapeHtml
-} from "./supplier-price-form.js?v=3";
+} from "./supplier-price-form.js?v=5";
 
 let listings = [];
 let priceForm = null;

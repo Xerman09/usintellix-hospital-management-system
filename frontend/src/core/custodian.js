@@ -1,4 +1,4 @@
-import { getUser } from "./session.js";
+import { getUser } from "./session.js?v=5";
 
 /**
  * Who answers for a storage location's stock, and whether that's the

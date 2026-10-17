@@ -1,5 +1,5 @@
 import { fetchMyRecalls } from "../recalls/recalls.service.js";
-import { formatApptDate, statusLabel, escapeHtml, toDateStr } from "../appointments/appointment-format.js";
+import { formatApptDate, statusLabel, escapeHtml, toDateStr } from "../appointments/appointment-format.js?v=4";
 import { systemNow } from "../../core/timezone.js";
 
 export async function initPatientRecalls()

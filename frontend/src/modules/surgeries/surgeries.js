@@ -1,7 +1,7 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { escapeHtml } from "../appointments/appointment-format.js";
-import { fetchSurgeryCatalog, fetchSurgery, fetchSurgeryOptions, createSurgery, updateSurgery, deleteSurgery } from "./surgeries.service.js?v=2";
+import { escapeHtml } from "../appointments/appointment-format.js?v=4";
+import { fetchSurgeryCatalog, fetchSurgery, fetchSurgeryOptions, createSurgery, updateSurgery, deleteSurgery } from "./surgeries.service.js?v=5";
 
 let rows = [];
 let options = { specializations: [], categories: [], anesthesia_types: [], wound_classes: [], item_types: [], drugs: [] };

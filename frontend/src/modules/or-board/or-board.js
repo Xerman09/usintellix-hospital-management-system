@@ -1,7 +1,7 @@
-import { fetchOrBoard, setOrSuiteStatus } from "./or-board.service.js?v=3";
+import { fetchOrBoard, setOrSuiteStatus } from "./or-board.service.js?v=6";
 import {
     openOrCase, advanceStage, ensureOrCaseRoot, esc, parseDT, fmtTime, fmtTimeOfDay, fmtDate, fmtMin, minutesSince, STAGE_SHORT, GATES, PHASE_LABELS
-} from "./or-case-panel.js?v=4";
+} from "./or-case-panel.js?v=7";
 import { showToast } from "../../core/toast.js";
 import { systemNow, todayISO } from "../../core/timezone.js";
 

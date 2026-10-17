@@ -2,9 +2,9 @@ import {
     fetchSuppliers, fetchSupplier, fetchSupplierOptions, createSupplier, updateSupplier, deleteSupplier, importSuppliers
 } from "./suppliers.service.js";
 import { showToast } from "../../core/toast.js";
-import { createCsvImport } from "../../core/csv-import.js?v=1";
-import { fetchSupplierPrices, deleteSupplierPrice } from "../supplier-prices/supplier-prices.service.js?v=2";
-import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=3";
+import { createCsvImport } from "../../core/csv-import.js?v=3";
+import { fetchSupplierPrices, deleteSupplierPrice } from "../supplier-prices/supplier-prices.service.js?v=5";
+import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=5";
 import { systemNow, toDateInput } from "../../core/timezone.js";
 
 const IMPORT_COLUMNS = [

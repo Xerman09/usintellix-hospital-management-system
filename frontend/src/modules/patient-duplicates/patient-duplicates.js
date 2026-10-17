@@ -1,4 +1,4 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { fetchDuplicateGroups, dismissDuplicateGroup } from "./patient-duplicates.service.js";
 import { mergePatients } from "../patient-merge/patient-merge.service.js";

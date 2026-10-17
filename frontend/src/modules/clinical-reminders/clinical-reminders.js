@@ -1,6 +1,6 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { fetchRemindersForPatient } from "./clinical-reminders.service.js";
 import { fetchReminderActions, addReminderAction } from "../patient-reminders/patient-reminders.service.js";
 import { showToast } from "../../core/toast.js";

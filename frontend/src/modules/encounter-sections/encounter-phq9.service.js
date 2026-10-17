@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 
 /**
  * Fetch PHQ-9 record for an encounter.

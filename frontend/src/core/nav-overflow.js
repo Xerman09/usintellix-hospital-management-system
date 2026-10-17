@@ -1,28 +1,31 @@
 /**
- * Keeps the dashboard's top navbar usable no matter how many menus a
- * role has:
+ * Enterprise Navbar Dropdown & Priority+ Overflow Engine
  *
- *  1. "Priority+" overflow -- top-level items that don't fit between the
- *     logo and the search/profile block are moved (as live DOM nodes, so
- *     their click listeners keep working) into a "More" dropdown at the
- *     end of #navbarLinks, and moved back when there's room again.
- *  2. Menu positioning -- every time a dropdown or flyout opens, it is
- *     measured and, if needed, split into columns (too tall for the
- *     screen), opened to the other side (would run off the left/right
- *     edge), or nudged upward (a flyout running off the bottom).
- *
- * The "More" menu lives inside #navbarLinks, so any code that queries
- * `#navbarLinks a[data-tab]` still finds every link.
+ * Keeps the dashboard top navbar usable and rock-solid:
+ *  1. Priority+ Overflow: Top-level items that exceed available width are moved into a "More" dropdown.
+ *  2. Scroll-Safe Dropdowns: Long menus (Modules, Pharmacy, Admin, Reports) scroll smoothly without
+ *     closing or jumping. Wheel events are contained so the background page never scrolls under them.
+ *  3. Hover Grace Period & Click-to-Lock: Prevents dropdowns from closing abruptly when scrolling or
+ *     moving the mouse diagonally. Users can also click any dropdown to lock it open while browsing.
+ *  4. Submenu Positioning: Flyout submenus use fixed coordinate positioning so they are never clipped
+ *     by parent scroll containers and automatically adjust if near the viewport edges.
  */
 
 const EDGE_MARGIN = 8;
-const MAX_COLUMNS = 4;
-
 const CHEVRON = `<svg class="nav-more-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>`;
 
 let observedNavbar = null;
 let resizeObserver = null;
 let layoutQueued = false;
+
+// Dropdown State
+let activeDropdown = null;
+let lockedDropdown = null;
+let dropdownCloseTimer = null;
+
+// Submenu State
+let activeSubmenu = null;
+let submenuCloseTimer = null;
 
 export function initNavOverflow() {
     const links = document.getElementById("navbarLinks");
@@ -39,9 +42,7 @@ export function initNavOverflow() {
         resizeObserver.observe(navbar);
         observedNavbar = navbar;
 
-        // mouseenter doesn't bubble, but it does run in the capture phase
-        // for every element the pointer enters inside the navbar.
-        navbar.addEventListener("mouseenter", onMenuEnter, true);
+        setupDropdownInteractions(navbar);
     }
 }
 
@@ -101,66 +102,279 @@ function layoutNav() {
     more.classList.toggle("has-active", Boolean(menu.querySelector("a.active")));
 }
 
-function onMenuEnter(event) {
-    const owner = event.target;
+/* -------------------------------------------------------------------------- */
+/* Dropdown & Submenu Robust Interaction Engine                                */
+/* -------------------------------------------------------------------------- */
 
-    if (!(owner instanceof Element) || !owner.matches(".nav-dropdown:not(.nav-profile), .dropdown-submenu")) return;
+function setupDropdownInteractions(navbar) {
+    // 1. Mouseenter on navbar (capture phase for fast response)
+    navbar.addEventListener("mouseenter", (e) => {
+        const dropdown = e.target.closest?.(".nav-dropdown:not(.nav-profile)");
+        if (dropdown) {
+            clearTimeout(dropdownCloseTimer);
+            if (activeDropdown && activeDropdown !== dropdown && lockedDropdown !== activeDropdown) {
+                closeDropdown(activeDropdown);
+            }
+            if (!lockedDropdown || lockedDropdown === dropdown) {
+                openDropdown(dropdown, false);
+            }
+        }
+    }, true);
 
-    const menu = owner.querySelector(":scope > .dropdown-content, :scope > .dropdown-submenu-content");
+    // 2. Mouseleave on dropdowns (with 320ms grace period so scrolling or moving doesn't close it)
+    navbar.addEventListener("mouseleave", (e) => {
+        const dropdown = e.target.closest?.(".nav-dropdown:not(.nav-profile)");
+        if (dropdown && dropdown === activeDropdown) {
+            scheduleCloseDropdown(dropdown, 320);
+        }
+    }, true);
 
-    if (!menu) return;
+    // 3. Click to toggle / lock open
+    navbar.addEventListener("click", (e) => {
+        // Did the user click a tab link? Close everything!
+        if (e.target.closest("a[data-tab]")) {
+            closeAllMenus();
+            return;
+        }
 
-    positionMenu(owner, menu);
+        // Did the user click a dropdown trigger span?
+        const triggerSpan = e.target.closest(".nav-dropdown:not(.nav-profile) > span");
+        if (triggerSpan) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropdown = triggerSpan.closest(".nav-dropdown");
+            if (lockedDropdown === dropdown) {
+                // Unlock and close
+                lockedDropdown = null;
+                closeDropdown(dropdown);
+            } else {
+                // Lock this dropdown open
+                if (lockedDropdown && lockedDropdown !== dropdown) {
+                    closeDropdown(lockedDropdown);
+                }
+                openDropdown(dropdown, true);
+            }
+            return;
+        }
+
+        // Submenu trigger click
+        const submenuTrigger = e.target.closest(".dropdown-submenu-trigger");
+        if (submenuTrigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            const submenu = submenuTrigger.closest(".dropdown-submenu");
+            if (submenu) {
+                if (activeSubmenu === submenu) {
+                    closeSubmenu(submenu);
+                } else {
+                    openSubmenu(submenu);
+                }
+            }
+        }
+    });
+
+    // 4. Submenu mouseenter / mouseleave
+    navbar.addEventListener("mouseover", (e) => {
+        const submenu = e.target.closest?.(".dropdown-submenu");
+        if (submenu) {
+            clearTimeout(submenuCloseTimer);
+            if (activeSubmenu && activeSubmenu !== submenu) {
+                closeSubmenu(activeSubmenu);
+            }
+            openSubmenu(submenu);
+        }
+    });
+
+    navbar.addEventListener("mouseout", (e) => {
+        const submenu = e.target.closest?.(".dropdown-submenu");
+        if (submenu && !submenu.contains(e.relatedTarget)) {
+            scheduleCloseSubmenu(submenu, 250);
+        }
+    });
+
+    // 5. Wheel scroll containment: scrolling over dropdowns scrolls the menu smoothly, never the page!
+    navbar.addEventListener("wheel", (e) => {
+        const scrollMenu = e.target.closest(".dropdown-content, .dropdown-submenu-content");
+        if (scrollMenu) {
+            const hasScroll = scrollMenu.scrollHeight > scrollMenu.clientHeight;
+            if (hasScroll) {
+                const delta = e.deltaY;
+                const atTop = scrollMenu.scrollTop <= 0 && delta < 0;
+                const atBottom = Math.ceil(scrollMenu.scrollTop + scrollMenu.clientHeight) >= scrollMenu.scrollHeight && delta > 0;
+                // If hitting the limits, prevent bubbling so the background page never scrolls/jumps!
+                if (atTop || atBottom) {
+                    e.preventDefault();
+                }
+            } else {
+                e.preventDefault();
+            }
+        }
+    }, { passive: false });
+
+    // 6. Outside click closes all menus
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".nav-dropdown") && !e.target.closest(".dropdown-submenu-content")) {
+            closeAllMenus();
+        }
+    });
+
+    // 7. Escape key closes menus
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            closeAllMenus();
+        }
+    });
 }
 
-function positionMenu(owner, menu) {
-    menu.classList.remove("nav-mega", "nav-scroll", "nav-open-left", "nav-open-right");
-    menu.style.columnCount = "";
-    menu.style.maxHeight = "";
-    menu.style.top = "";
+function openDropdown(dropdown, isClick = false) {
+    clearTimeout(dropdownCloseTimer);
+    activeDropdown = dropdown;
 
-    if (!menu.getClientRects().length) return;
+    if (isClick) {
+        lockedDropdown = dropdown;
+        dropdown.classList.add("nav-locked");
+    }
 
-    const isFlyout = menu.classList.contains("dropdown-submenu-content") || Boolean(owner.closest(".nav-more-menu"));
-    const navBottom = owner.closest(".top-navbar")?.getBoundingClientRect().bottom ?? 0;
+    dropdown.classList.add("nav-open");
+
+    const menu = dropdown.querySelector(":scope > .dropdown-content");
+    if (menu) {
+        positionDropdown(dropdown, menu);
+    }
+}
+
+function scheduleCloseDropdown(dropdown, delay = 320) {
+    if (lockedDropdown === dropdown) return; // Keep locked menus open while browsing
+
+    clearTimeout(dropdownCloseTimer);
+    dropdownCloseTimer = setTimeout(() => {
+        if (activeDropdown === dropdown && lockedDropdown !== dropdown) {
+            closeDropdown(dropdown);
+        }
+    }, delay);
+}
+
+function closeDropdown(dropdown) {
+    if (!dropdown) return;
+    dropdown.classList.remove("nav-open", "nav-locked");
+    if (activeDropdown === dropdown) activeDropdown = null;
+    if (lockedDropdown === dropdown) lockedDropdown = null;
+
+    if (activeSubmenu && dropdown.contains(activeSubmenu)) {
+        closeSubmenu(activeSubmenu);
+    }
+
+    const menu = dropdown.querySelector(":scope > .dropdown-content");
+    if (menu) {
+        menu.classList.remove("nav-open-left", "nav-open-right");
+    }
+}
+
+function openSubmenu(submenu) {
+    clearTimeout(submenuCloseTimer);
+    activeSubmenu = submenu;
+    submenu.classList.add("nav-open");
+
+    const menu = submenu.querySelector(":scope > .dropdown-submenu-content");
+    const trigger = submenu.querySelector(":scope > .dropdown-submenu-trigger");
+    if (menu && trigger) {
+        positionSubmenu(trigger, menu);
+    }
+}
+
+function scheduleCloseSubmenu(submenu, delay = 250) {
+    clearTimeout(submenuCloseTimer);
+    submenuCloseTimer = setTimeout(() => {
+        if (activeSubmenu === submenu) {
+            closeSubmenu(submenu);
+        }
+    }, delay);
+}
+
+function closeSubmenu(submenu) {
+    if (!submenu) return;
+    submenu.classList.remove("nav-open");
+    if (activeSubmenu === submenu) activeSubmenu = null;
+
+    const menu = submenu.querySelector(":scope > .dropdown-submenu-content");
+    if (menu) {
+        menu.style.top = "";
+        menu.style.left = "";
+        menu.style.right = "";
+    }
+}
+
+function closeAllMenus() {
+    clearTimeout(dropdownCloseTimer);
+    clearTimeout(submenuCloseTimer);
+
+    if (activeSubmenu) closeSubmenu(activeSubmenu);
+    if (activeDropdown) closeDropdown(activeDropdown);
+    if (lockedDropdown) closeDropdown(lockedDropdown);
+
+    document.querySelectorAll(".nav-dropdown.nav-open, .nav-dropdown.nav-locked").forEach(d => {
+        d.classList.remove("nav-open", "nav-locked");
+    });
+    document.querySelectorAll(".dropdown-submenu.nav-open").forEach(s => {
+        s.classList.remove("nav-open");
+    });
+}
+
+function positionDropdown(owner, menu) {
+    const isFlyout = Boolean(owner.closest(".nav-more-menu"));
+    const navBottom = owner.closest(".top-navbar")?.getBoundingClientRect().bottom ?? 56;
     const viewportH = window.innerHeight;
     const viewportW = document.documentElement.clientWidth;
 
-    // 1. Too tall: spread into columns, and only scroll as a last resort
-    //    (a scrolling menu clips its own flyouts).
-    let rect = menu.getBoundingClientRect();
+    menu.classList.remove("nav-open-left", "nav-open-right");
+
+    // Dynamic Max Height so it always stays within viewport and scrolls vertically
     const availableH = isFlyout
         ? viewportH - navBottom - EDGE_MARGIN * 2
-        : viewportH - rect.top - EDGE_MARGIN;
+        : viewportH - navBottom - EDGE_MARGIN;
 
-    if (rect.height > availableH) {
-        menu.classList.add("nav-mega");
-        menu.style.columnCount = String(Math.min(MAX_COLUMNS, Math.ceil(rect.height / availableH)));
-        rect = menu.getBoundingClientRect();
+    menu.style.maxHeight = `${Math.floor(availableH)}px`;
+    menu.style.overflowY = "auto";
 
-        if (rect.height > availableH) {
-            menu.classList.add("nav-scroll");
-            menu.style.maxHeight = `${Math.floor(availableH)}px`;
-        }
-    }
-
-    // 2. Flyouts running off the bottom slide up (never above the navbar).
-    if (isFlyout) {
-        rect = menu.getBoundingClientRect();
-        const overflowBottom = rect.bottom - (viewportH - EDGE_MARGIN);
-
-        if (overflowBottom > 0) {
-            const room = rect.top - navBottom - EDGE_MARGIN;
-            menu.style.top = `${-Math.max(0, Math.min(overflowBottom, room))}px`;
-        }
-    }
-
-    // 3. Keep it on screen horizontally.
-    rect = menu.getBoundingClientRect();
-
+    // Horizontal Boundary Check
+    const rect = menu.getBoundingClientRect();
     if (rect.right > viewportW - EDGE_MARGIN) {
         menu.classList.add("nav-open-left");
     } else if (rect.left < EDGE_MARGIN) {
         menu.classList.add("nav-open-right");
     }
+}
+
+function positionSubmenu(trigger, menu) {
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportH = window.innerHeight;
+    const viewportW = document.documentElement.clientWidth;
+
+    // Fixed Positioning (Never clipped by parent overflow-y: auto)
+    menu.style.position = "fixed";
+
+    // Measure menu dimensions
+    menu.style.display = "flex";
+    const menuWidth = menu.offsetWidth || 210;
+    const menuHeight = menu.offsetHeight || 280;
+
+    // Horizontal placement:
+    // If opening to the right runs off-screen or if parent is right-aligned / inside nav-more-menu:
+    let left = triggerRect.right + 2;
+    if (left + menuWidth > viewportW - EDGE_MARGIN || trigger.closest(".dropdown-right") || trigger.closest(".nav-more-menu")) {
+        left = Math.max(EDGE_MARGIN, triggerRect.left - menuWidth - 2);
+    }
+
+    // Vertical placement:
+    // Align with trigger top, adjust upward if it would overflow the bottom of the screen
+    let top = triggerRect.top - 4;
+    if (top + menuHeight > viewportH - EDGE_MARGIN) {
+        top = Math.max(EDGE_MARGIN, viewportH - menuHeight - EDGE_MARGIN);
+    }
+
+    menu.style.top = `${Math.floor(top)}px`;
+    menu.style.left = `${Math.floor(left)}px`;
+    menu.style.right = "auto";
+    menu.style.maxHeight = `${Math.floor(viewportH - EDGE_MARGIN * 2)}px`;
+    menu.style.overflowY = "auto";
 }

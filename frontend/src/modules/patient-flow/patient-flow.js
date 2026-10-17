@@ -1,16 +1,16 @@
-import { fetchAppointments } from "../appointments/appointments.service.js";
+import { fetchAppointments } from "../appointments/appointments.service.js?v=4";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import {
     fetchFlow, checkInPatient, updateFlowStatusRoom, updateFlowDrugScreen, removeFlowEntry,
     getNppConsentStatus, captureNppConsent
 } from "./patient-flow.service.js";
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
-import { getUser } from "../../core/session.js";
-import { PatientsListView } from "../patients/patients-list.view.js?v=85";
-import { initPatientsList } from "../patients/patients-list.js?v=112";
+import { getUser } from "../../core/session.js?v=5";
+import { PatientsListView } from "../patients/patients-list.view.js?v=87";
+import { initPatientsList } from "../patients/patients-list.js?v=115";
 import { todayISO } from "../../core/timezone.js";
 
 const STAGES = ["waiting", "roomed", "with_provider", "checked_out"];

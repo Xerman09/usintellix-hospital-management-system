@@ -10,11 +10,11 @@ import {
     updateBedStatus,
     createWard,
     createBed
-} from './inpatient-admissions.service.js?v=2';
+} from './inpatient-admissions.service.js?v=5';
 import { showToast } from '../../core/toast.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=18';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=40';
 import { systemNow } from "../../core/timezone.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 const LAB_ORDER_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse"];
 
 let currentUser = null;
@@ -887,17 +887,17 @@ function attachBedCardListeners(container) {
     // Admit Action
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
         btn.addEventListener('click', () => {
-            import('../code-blue/code-blue.js?v=3').then((m) => m.openCallCodeBlue({ admission_id: Number(btn.dataset.admId), from: 'census' }));
+            import('../code-blue/code-blue.js?v=6').then((m) => m.openCallCodeBlue({ admission_id: Number(btn.dataset.admId), from: 'census' }));
         });
     });
     container.querySelectorAll('[data-act="labs"]').forEach(btn => {
         btn.addEventListener('click', () => {
-            import('../lab/lab-order.js?v=3').then((m) => m.openLabOrder({ admission_id: Number(btn.dataset.admId) }));
+            import('../lab/lab-order.js?v=6').then((m) => m.openLabOrder({ admission_id: Number(btn.dataset.admId) }));
         });
     });
     container.querySelectorAll('[data-act="imaging"]').forEach(btn => {
         btn.addEventListener('click', () => {
-            import('../radiology/rad-order.js?v=3').then((m) => m.openRadOrder({ admission_id: Number(btn.dataset.admId) }));
+            import('../radiology/rad-order.js?v=6').then((m) => m.openRadOrder({ admission_id: Number(btn.dataset.admId) }));
         });
     });
     container.querySelectorAll('[data-act="admit"]').forEach(btn => {

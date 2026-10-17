@@ -1,4 +1,4 @@
-import { API_URL } from "./api.js";
+import { API_URL } from "./api.js?v=10";
 import { fetchBusinessSettings } from "../modules/business-settings/business-settings.service.js";
 
 const DEFAULT_BRANDING = { name: "Intellix", logo: null };

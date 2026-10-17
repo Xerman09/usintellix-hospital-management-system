@@ -1,4 +1,4 @@
-import { initAppointmentCalendarPage } from "./appointment-calendar-page.js?v=7";
+import { initAppointmentCalendarPage } from "./appointment-calendar-page.js?v=9";
 
 export async function initAppointmentsList()
 {

@@ -1,4 +1,4 @@
-import { formatApptTime, statusLabel, escapeHtml } from "./appointment-format.js?v=2";
+import { formatApptTime, statusLabel, escapeHtml } from "./appointment-format.js?v=4";
 import { systemNow } from "../../core/timezone.js";
 
 const SLOT_MINUTES = 15;

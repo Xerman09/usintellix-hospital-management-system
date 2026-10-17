@@ -2,9 +2,13 @@
 
 namespace App\Core;
 
+use App\Core\Database;
+use PDO;
+
 /**
  * Role access beyond each route's own role list (see config/role_access.php):
  * inherited roles (a charge nurse counts as a nurse) and per-path grants.
+ * Also provides dynamic capability checking backed by the role_permissions table.
  */
 class RoleAccess
 {
@@ -12,6 +16,7 @@ class RoleAccess
     private const CLOSED_ROLE_SETS = [['admin'], ['patient']];
 
     private static ?array $config = null;
+    private static array $rolePermissionsCache = [];
 
     private static function config(): array
     {
@@ -64,6 +69,60 @@ class RoleAccess
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a role possesses a specific granular capability.
+     * Admins possess all capabilities by default.
+     */
+    public static function hasPermission(string|int $role, string $capability): bool
+    {
+        if (is_string($role) && strtolower($role) === 'admin') {
+            return true;
+        }
+
+        $perms = self::getPermissionsForRole($role);
+        return in_array($capability, $perms, true);
+    }
+
+    /**
+     * Fetch all granted capability keys for a role name or role id.
+     */
+    public static function getPermissionsForRole(string|int $role): array
+    {
+        $cacheKey = (string) $role;
+        if (isset(self::$rolePermissionsCache[$cacheKey])) {
+            return self::$rolePermissionsCache[$cacheKey];
+        }
+
+        try {
+            $pdo = Database::connection();
+            if (is_numeric($role)) {
+                $stmt = $pdo->prepare(
+                    "SELECT capability FROM role_permissions WHERE role_id = :role_id AND is_granted = 1"
+                );
+                $stmt->execute(['role_id' => (int) $role]);
+            } else {
+                $stmt = $pdo->prepare(
+                    "SELECT rp.capability 
+                     FROM role_permissions rp
+                     JOIN roles r ON r.id = rp.role_id
+                     WHERE r.name = :role_name AND rp.is_granted = 1 AND r.deleted_at IS NULL"
+                );
+                $stmt->execute(['role_name' => (string) $role]);
+            }
+            $perms = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        } catch (\Throwable $e) {
+            $perms = [];
+        }
+
+        self::$rolePermissionsCache[$cacheKey] = $perms;
+        return $perms;
+    }
+
+    public static function clearPermissionsCache(): void
+    {
+        self::$rolePermissionsCache = [];
     }
 
     public static function label(string $role): string

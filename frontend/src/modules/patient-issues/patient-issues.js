@@ -1,9 +1,9 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { PatientIssuesModalMarkup } from "./patient-issues.view.js";
 import { showToast } from "../../core/toast.js";
 
-import { fetchPatientAllergies, addPatientAllergy } from "../patient-allergies/patient-allergies.service.js";
+import { fetchPatientAllergies, addPatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=4";
 import { fetchPatientMedicalProblems, addPatientMedicalProblem } from "../patient-medical-problems/patient-medical-problems.service.js";
 import { fetchPatientMedications, addPatientMedication } from "../patient-medications/patient-medications.service.js";
 import { fetchPatientSurgeries, addPatientSurgery } from "../patient-surgeries/patient-surgeries.service.js";
@@ -13,7 +13,7 @@ import { fetchPatientHealthConcerns, addPatientHealthConcern } from "../patient-
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchMedicalProblems } from "../medical-problems/medical-problems.service.js";
 import { fetchMedications } from "../medications/medications.service.js";
-import { fetchSurgeries } from "../surgeries/surgeries.service.js";
+import { fetchSurgeries } from "../surgeries/surgeries.service.js?v=5";
 
 import { fetchPatientEncounters, linkIssueToEncounter, unlinkIssueFromEncounter } from "../encounters/encounters.service.js";
 

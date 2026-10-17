@@ -1,5 +1,5 @@
 import { showToast } from "../../core/toast.js";
-import { code128Svg } from "./barcode.js?v=1";
+import { code128Svg } from "./barcode.js?v=3";
 
 /* Shared pieces of the lab screens (module 14): styles, the dialog, tube swatches, label printing. */
 

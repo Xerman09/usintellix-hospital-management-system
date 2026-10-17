@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { esc, modal, dtl, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=4";
+import { esc, modal, dtl, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=6";
 
 /*
  * Order imaging (module 15, Phase 1) from the ER, a ward bed or the ICU: openRadOrder({ er_visit_id | admission_id | patient_id }).

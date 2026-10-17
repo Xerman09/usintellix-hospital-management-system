@@ -1,4 +1,4 @@
-import { getUser } from "./session.js";
+import { getUser } from "./session.js?v=5";
 
 /*
  * Approval limits by amount (General Settings > Approval Limits). Above

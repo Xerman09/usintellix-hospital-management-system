@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 const LAB_ORDER_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse"];
 
 /*
@@ -567,8 +567,8 @@ async function onSheetClick(e) {
     const dr = t.closest("[data-drip]");
     if (dr) return openDrip(Number(dr.dataset.drip));
     if (t.closest("[data-lineadd]")) return openLine();
-    if (t.closest("[data-laborder]")) return import("../lab/lab-order.js?v=3").then((m) => m.openLabOrder({ admission_id: sheet.admission.id }));
-    if (t.closest("[data-radorder]")) return import("../radiology/rad-order.js?v=3").then((m) => m.openRadOrder({ admission_id: sheet.admission.id }));
+    if (t.closest("[data-laborder]")) return import("../lab/lab-order.js?v=6").then((m) => m.openLabOrder({ admission_id: sheet.admission.id }));
+    if (t.closest("[data-radorder]")) return import("../radiology/rad-order.js?v=6").then((m) => m.openRadOrder({ admission_id: sheet.admission.id }));
     const lo = t.closest("[data-lineout]");
     if (lo) return openLineRemove(Number(lo.dataset.lineout));
     const ap = t.closest("[data-apache]");

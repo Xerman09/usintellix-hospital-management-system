@@ -1,7 +1,7 @@
-import { api } from "../../core/api.js";
-import { getUser } from "../../core/session.js";
+import { api } from "../../core/api.js?v=10";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { DRUG_LOOKUPS } from "./drug-lookups.view.js";
+import { DRUG_LOOKUPS } from "./drug-lookups.view.js?v=3";
 
 export async function initDrugLookup(key) {
     const user = getUser();

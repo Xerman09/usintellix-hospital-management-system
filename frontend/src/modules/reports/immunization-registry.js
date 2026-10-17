@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 
 async function loadCvxCodes() {
     const select = document.getElementById("immCvxCode");

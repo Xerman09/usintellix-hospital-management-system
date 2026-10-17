@@ -1,5 +1,5 @@
 import { fetchIndigentPatientsReport } from "./indigent-patients.service.js";
-import { fetchPatients, setPatientIndigentStatus } from "../patients/patients.service.js";
+import { fetchPatients, setPatientIndigentStatus } from "../patients/patients.service.js?v=9";
 import { showToast } from "../../core/toast.js";
 
 let allPatients = [];

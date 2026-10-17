@@ -2,7 +2,7 @@ import {
     fetchBatchPayments, fetchBatchPayment, createBatchPayment, updateBatchPayment,
     deleteBatchPayment, setBatchPaymentGlobal, allocateBatchPayment, removeBatchPaymentAllocation
 } from "./batch-payments.service.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { fetchPatientEncounters } from "../encounters/encounters.service.js";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";

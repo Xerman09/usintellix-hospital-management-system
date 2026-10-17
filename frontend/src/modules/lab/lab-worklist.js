@@ -1,9 +1,9 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
-import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabels } from "./lab-ui.js?v=3";
-import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=4";
-import { loadCharges, chargesHtml, onChargesClick } from "./lab-charges.js?v=1";
+import { getUser } from "../../core/session.js?v=5";
+import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabels } from "./lab-ui.js?v=5";
+import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=7";
+import { loadCharges, chargesHtml, onChargesClick } from "./lab-charges.js?v=4";
 
 /*
  * Lab worklist (module 14, Phase 1; tab "lab_worklist"): lab requests from the clinic, the ER, the wards and the ICU

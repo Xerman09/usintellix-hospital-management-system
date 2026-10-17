@@ -1,7 +1,7 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
-import { openSurgeryRequestForm } from "../surgery-requests/surgery-request-panel.js?v=2";
+import { getUser } from "../../core/session.js?v=5";
+import { openSurgeryRequestForm } from "../surgery-requests/surgery-request-panel.js?v=4";
 const LAB_ORDER_ROLES = ["admin", "doctor", "clinician", "nurse", "charge_nurse"];
 
 /*
@@ -435,9 +435,9 @@ async function onBoardClick(e) {
     const dp = t.closest("[data-dispo]");
     if (dp) return openDisposition(Number(dp.dataset.dispo));
     const lb = t.closest("[data-labs]");
-    if (lb) return import("../lab/lab-order.js?v=3").then((m) => m.openLabOrder({ er_visit_id: Number(lb.dataset.labs) }, () => load()));
+    if (lb) return import("../lab/lab-order.js?v=6").then((m) => m.openLabOrder({ er_visit_id: Number(lb.dataset.labs) }, () => load()));
     const im = t.closest("[data-imaging]");
-    if (im) return import("../radiology/rad-order.js?v=3").then((m) => m.openRadOrder({ er_visit_id: Number(im.dataset.imaging) }, () => load()));
+    if (im) return import("../radiology/rad-order.js?v=6").then((m) => m.openRadOrder({ er_visit_id: Number(im.dataset.imaging) }, () => load()));
     const ab = t.closest("[data-admitbed]");
     if (ab) return openAdmitBed(Number(ab.dataset.admitbed));
     if (t.closest("[data-report]")) return window.__openDashboardTab?.("er_report", "ER Report");

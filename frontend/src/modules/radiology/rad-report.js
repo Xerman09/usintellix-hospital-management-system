@@ -1,6 +1,6 @@
-import { api, API_URL } from "../../core/api.js?v=5";
+import { api, API_URL } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { esc, when, waited, dtl, modal, modalityTag } from "./rad-ui.js?v=4";
+import { esc, when, waited, dtl, modal, modalityTag } from "./rad-ui.js?v=6";
 
 /*
  * Radiology reports (module 15, Phase 2) inside the Radiology Worklist: "To report" (studies performed, STAT first,

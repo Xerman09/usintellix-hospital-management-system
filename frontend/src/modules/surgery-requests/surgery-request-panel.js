@@ -8,8 +8,8 @@
 import {
     fetchSurgeryRequest, fetchSurgeryRequestOptions, saveSurgeryRequest, saveSurgeryRequestCheck,
     readySurgeryRequestNow, cancelSurgeryRequest, searchIcd10
-} from "./surgery-requests.service.js?v=1";
-import { getUser } from "../../core/session.js";
+} from "./surgery-requests.service.js?v=3";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 

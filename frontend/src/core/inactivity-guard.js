@@ -1,5 +1,5 @@
-import { api } from "./api.js";
-import { isAuthenticated, clearSession } from "./session.js";
+import { api } from "./api.js?v=10";
+import { isAuthenticated, clearSession } from "./session.js?v=5";
 
 const TOTAL_TIMEOUT_MS = 15 * 60 * 1000;      // 15 minutes
 const WARNING_BEFORE_MS = 60 * 1000;          // Show warning 60 seconds before

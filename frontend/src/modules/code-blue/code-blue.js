@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 
 /*
  * Code Blue (module 10, Phase 1: activation).

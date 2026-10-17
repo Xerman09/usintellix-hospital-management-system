@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { esc, ago } from "../alerts/alert-bell.js?v=11";
+import { esc, ago } from "../alerts/alert-bell.js?v=14";
 
 /*
  * My Work: the first screen after login -- what is assigned to me today.
@@ -445,7 +445,7 @@ function inlineBox(rowEl, { label, placeholder, button, required, onSubmit }) {
 }
 
 async function newTask(task = null) {
-    const { openTaskForm } = await import("../tasks/task-form.js?v=1");
+    const { openTaskForm } = await import("../tasks/task-form.js?v=3");
     openTaskForm({ task, onSaved: () => load(true) });
 }
 
@@ -561,13 +561,13 @@ async function act(a) {
     if (kind === "chart" && arg && arg !== "null") {
         window.__openPatientChartFromReport?.(arg);
     } else if (kind === "mar") {
-        const { openMar } = await import("../mar/mar.js?v=6");
+        const { openMar } = await import("../mar/mar.js?v=8");
         openMar(Number(arg));
     } else if (kind === "result") {
-        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=4");
+        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=7");
         openResultByOrder(Number(arg));
     } else if (kind === "or") {
-        const { openOrCase } = await import("../or-board/or-case-panel.js?v=4");
+        const { openOrCase } = await import("../or-board/or-case-panel.js?v=7");
         openOrCase(Number(arg));
     } else if (kind === "labres") {
         // The patient's chart, then Patient Results (it shows the active chart's orders).

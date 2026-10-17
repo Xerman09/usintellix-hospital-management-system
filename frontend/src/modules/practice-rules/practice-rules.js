@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 
 const VALID_TYPES = ["Active Alert", "Passive Alert", "Patient Reminder"];

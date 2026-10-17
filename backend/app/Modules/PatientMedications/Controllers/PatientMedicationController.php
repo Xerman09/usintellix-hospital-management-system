@@ -92,6 +92,9 @@ class PatientMedicationController extends Controller
             }
         }
 
+        // The drug chosen from the catalogue (optional -- a medication may be recorded as free text).
+        $medicationId = (int) $request->input('medication_id') ?: null;
+
         $result = $this->patientMedicationService->store(
             $patientId,
             $medicationId,

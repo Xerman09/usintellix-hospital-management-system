@@ -1,7 +1,7 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { fetchPatients } from "../patients/patients.service.js";
-import { fetchPatientProcedureResultsForPatient } from "../patient-results/patient-results.service.js?v=2";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
+import { fetchPatientProcedureResultsForPatient } from "../patient-results/patient-results.service.js?v=5";
 
 let allResults = [];
 let items = []; // [{ name, count }]

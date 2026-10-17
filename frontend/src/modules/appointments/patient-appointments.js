@@ -1,6 +1,6 @@
-import { fetchAppointments, createAppointment, fetchAvailableSlots } from "./appointments.service.js";
-import { formatApptTime, statusLabel, escapeHtml, toDateStr, formatMonthLabel } from "./appointment-format.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchAppointments, createAppointment, fetchAvailableSlots } from "./appointments.service.js?v=4";
+import { formatApptTime, statusLabel, escapeHtml, toDateStr, formatMonthLabel } from "./appointment-format.js?v=4";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js";

@@ -1,6 +1,6 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { fetchLabDocuments } from "../patient-documents/patient-documents.service.js";
-import { API_URL } from "../../core/api.js";
+import { API_URL } from "../../core/api.js?v=10";
 import { systemNow } from "../../core/timezone.js";
 
 // Real data: every "Lab Result" category document uploaded for any

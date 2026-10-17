@@ -1,10 +1,10 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
-import { getUser } from "../../core/session.js";
-import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=4";
-import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=3";
-import { loadCharges, chargesHtml, onChargesClick } from "./rad-charges.js?v=2";
+import { getUser } from "../../core/session.js?v=5";
+import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=6";
+import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=6";
+import { loadCharges, chargesHtml, onChargesClick } from "./rad-charges.js?v=5";
 
 /*
  * Radiology worklist (module 15, Phase 1; tab "rad_worklist"): the imaging requests waiting to be scheduled -- STAT

@@ -1,4 +1,4 @@
-import { AppointmentCalendarView } from "./appointment-calendar.view.js?v=7";
+import { AppointmentCalendarView } from "./appointment-calendar.view.js?v=9";
 
 export function DoctorCalendarView()
 {

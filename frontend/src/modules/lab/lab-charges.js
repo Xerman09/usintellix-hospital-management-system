@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { esc, when, modal } from "./lab-ui.js?v=3";
+import { esc, when, modal } from "./lab-ui.js?v=5";
 
 /*
  * Lab charges (module 14, Phase 3) inside the Lab Worklist: the "Charges" view lists the lab tests released in the

@@ -87,4 +87,84 @@ class RoleController extends Controller
 
         $this->success(null, $result['message']);
     }
+
+    /**
+     * Get the full capability catalog, all roles, and permissions matrix.
+     */
+    public function permissionsMatrix(): void
+    {
+        $matrix = $this->roleService->getPermissionsMatrix();
+
+        $this->success($matrix, 'Permissions matrix retrieved successfully.');
+    }
+
+    /**
+     * Get granted capabilities for a specific role.
+     */
+    public function getRolePermissions(): void
+    {
+        $request = new Request();
+        $roleId = (int) $request->input('role_id', $request->query('role_id'));
+
+        if ($roleId <= 0) {
+            $this->error('Role ID is required.', 422);
+            return;
+        }
+
+        $capabilities = $this->roleService->getRolePermissions($roleId);
+
+        $this->success([
+            'role_id' => $roleId,
+            'capabilities' => $capabilities,
+        ], 'Role permissions retrieved successfully.');
+    }
+
+    /**
+     * Update permissions granted to a role.
+     */
+    public function updatePermissions(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $roleId = (int) $request->input('role_id');
+        $capabilities = $request->input('capabilities', []);
+
+        if ($roleId <= 0) {
+            $this->error('Role ID is required.', 422);
+            return;
+        }
+
+        if (!is_array($capabilities)) {
+            $capabilities = [];
+        }
+
+        $result = $this->roleService->updateRolePermissions($roleId, $capabilities, (int) $admin['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
+     * Get granted capabilities for the currently authenticated user.
+     */
+    public function userPermissions(): void
+    {
+        $user = Session::get('user');
+        if (!$user) {
+            $this->error('Unauthorized', 401);
+            return;
+        }
+
+        $capabilities = $this->roleService->getUserPermissions((string) ($user['role'] ?? ''));
+
+        $this->success([
+            'role' => $user['role'] ?? '',
+            'capabilities' => $capabilities,
+        ], 'User permissions retrieved successfully.');
+    }
 }

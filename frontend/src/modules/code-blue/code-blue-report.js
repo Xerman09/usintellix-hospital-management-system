@@ -1,5 +1,5 @@
-import { api } from "../../core/api.js?v=5";
-import { openCodeRecord, printCodeSheet } from "./code-blue.js?v=3";
+import { api } from "../../core/api.js?v=10";
+import { openCodeRecord, printCodeSheet } from "./code-blue.js?v=6";
 
 /*
  * Code Blue report (module 10, Phase 3; tab "code_blue_report"): codes per unit for a date range,

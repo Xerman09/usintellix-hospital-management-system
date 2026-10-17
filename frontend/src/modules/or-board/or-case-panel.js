@@ -9,9 +9,9 @@ import {
     fetchOrRecord, moveOrStage, undoOrStage, cancelOrCaseLive, setOrDelay, saveOrChecklist, saveOrTimes, addOrVitals, removeOrVitals,
     fetchOrStock, addOrItem, voidOrItem, addOrSpecimen, removeOrSpecimen,
     addOrPacu, removeOrPacu, releaseOrCase, saveOrReport, signOrReport, addOrAddendum, fetchOrReportPrint, postOrCharges, voidOrCharge
-} from "./or-board.service.js?v=3";
-import { API_URL } from "../../core/api.js?v=5";
-import { getUser } from "../../core/session.js";
+} from "./or-board.service.js?v=6";
+import { API_URL } from "../../core/api.js?v=10";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput, todayISO } from "../../core/timezone.js";
 

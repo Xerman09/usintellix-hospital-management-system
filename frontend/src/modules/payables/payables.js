@@ -1,11 +1,11 @@
 import {
     fetchPayablesSummary, fetchOpenBills, fetchPayableSuppliers, fetchPayments, fetchPayment, recordPayment, voidPayment, decidePayment,
     fetchAging, fetchLedger, fetchCredits, applyCredit
-} from "./payables.service.js?v=3";
-import { formatMoney, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+} from "./payables.service.js?v=6";
+import { formatMoney, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { todayISO, systemNow, toDateInput } from "../../core/timezone.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 
 const METHOD_LABELS = { check: "Check", bank_transfer: "Bank transfer", cash: "Cash", other: "Other" };
 const PAYMENT_STATUS_LABELS = { posted: "Posted", voided: "Voided", pending_approval: "Waiting for approval", rejected: "Rejected" };

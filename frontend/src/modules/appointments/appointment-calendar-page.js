@@ -1,18 +1,18 @@
-import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment, fetchAvailableSlots } from "./appointments.service.js?v=1";
+import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment, fetchAvailableSlots } from "./appointments.service.js?v=4";
 import { consumePendingAppointmentPatient } from "../../core/pending-appointment.js";
-import { fetchPatients } from "../patients/patients.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchVisitCategories } from "../visit-categories/visit-categories.service.js";
 import { fetchProviderCategories } from "../provider-categories/provider-categories.service.js";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import {
     addDays, startOfWeek, formatDayHeading, formatWeekRangeLabel, formatMonthLabel, formatApptTime
-} from "./appointment-format.js?v=2";
+} from "./appointment-format.js?v=4";
 import { renderMiniCalendar } from "./appointment-mini-calendar.js";
-import { renderTimeline } from "./appointment-timeline.js?v=3";
-import { renderWeekView } from "./appointment-week-view.js?v=2";
-import { renderMonthView } from "./appointment-month-view.js?v=2";
+import { renderTimeline } from "./appointment-timeline.js?v=5";
+import { renderWeekView } from "./appointment-week-view.js?v=4";
+import { renderMonthView } from "./appointment-month-view.js?v=4";
 import { systemNow } from "../../core/timezone.js";
 
 let monthCache = {};

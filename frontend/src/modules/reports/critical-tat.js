@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { logReportRun } from "./report-history.js";
-import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=18";
+import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=40";
 
 let currentRecords = [];
 let availableDepts = [];

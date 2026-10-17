@@ -12,8 +12,8 @@ import {
     fetchOcrExport,
     getIncidentExportCsvUrl,
     deleteIncident
-} from "./security-incidents.service.js?v=1";
-import { fetchPatients } from "../patients/patients.service.js?v=6";
+} from "./security-incidents.service.js?v=4";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 

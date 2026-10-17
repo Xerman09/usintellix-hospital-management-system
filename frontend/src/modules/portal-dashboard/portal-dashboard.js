@@ -1,6 +1,6 @@
 import { openTemplateMaintenance } from "../template-maintenance/template-maintenance.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js";
 

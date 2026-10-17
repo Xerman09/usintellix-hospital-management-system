@@ -11,9 +11,9 @@ import {
     fileStatementOfDisagreement,
     fileStatementOfRebuttal,
     getAmendmentRegistryExportCsvUrl
-} from "./amendments.service.js?v=2";
-import { fetchPatients } from "../patients/patients.service.js?v=2";
-import { AmendmentsView } from "./amendments.view.js?v=1";
+} from "./amendments.service.js?v=5";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
+import { AmendmentsView } from "./amendments.view.js?v=3";
 import { todayISO } from "../../core/timezone.js";
 
 let currentFilters = {

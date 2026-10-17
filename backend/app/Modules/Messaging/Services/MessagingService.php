@@ -365,9 +365,9 @@ class MessagingService
         $messageId = (new Message())->create([
             'conversation_id' => $conversationId,
             'sender_id' => $userId,
-            'type_id' => $extra['type_id'] ?: null,
-            'status_id' => $extra['status_id'] ?: null,
-            'patient_id' => $extra['patient_id'] ?: null,
+            'type_id' => ($extra['type_id'] ?? null) ?: null,
+            'status_id' => ($extra['status_id'] ?? null) ?: null,
+            'patient_id' => ($extra['patient_id'] ?? null) ?: null,
             'body' => $body,
             'created_at' => date('Y-m-d H:i:s'),
             'created_by' => $userId

@@ -1,4 +1,4 @@
-import { api, API_URL } from "../../core/api.js?v=5";
+import { api, API_URL } from "../../core/api.js?v=10";
 
 // ==========================================
 // Administrative Statutory Pipeline (§ 164.526)

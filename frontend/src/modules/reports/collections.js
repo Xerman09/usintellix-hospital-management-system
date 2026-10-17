@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { fetchFacilities } from "../facilities/facilities.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchInsurances } from "../insurances/insurances.service.js";
 import { showToast } from "../../core/toast.js";
 import { logReportRun } from "./report-history.js";

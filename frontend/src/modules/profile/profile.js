@@ -1,5 +1,5 @@
 import { fetchProfile, updateProfile, changePassword, uploadAvatar, removeAvatar } from "./profile.service.js";
-import { getUser, saveUser } from "../../core/session.js";
+import { getUser, saveUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { renderAvatar } from "../../core/avatar.js";

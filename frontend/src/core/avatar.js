@@ -1,4 +1,4 @@
-import { API_URL } from "./api.js";
+import { API_URL } from "./api.js?v=10";
 
 /**
  * Build the markup for a user's avatar circle: their photo if they have

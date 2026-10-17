@@ -1,4 +1,4 @@
-import { api } from '../../core/api.js?v=5';
+import { api } from '../../core/api.js?v=10';
 
 /**
  * Fetch live whiteboard census data (wards, beds, KPIs, recent transfers)

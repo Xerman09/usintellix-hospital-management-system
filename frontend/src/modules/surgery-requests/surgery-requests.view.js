@@ -1,4 +1,4 @@
-import { SURGERY_SETUP_STYLES } from "../specializations/specializations.view.js?v=1";
+import { SURGERY_SETUP_STYLES } from "../specializations/specializations.view.js?v=3";
 
 export function SurgeryRequestsView() {
     return `${SURGERY_SETUP_STYLES}

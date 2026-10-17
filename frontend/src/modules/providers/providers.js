@@ -1,9 +1,9 @@
-import { getUser } from "../../core/session.js";
-import { fetchProviders, createProvider, updateProvider, deleteProvider } from "./providers.service.js?v=2";
+import { getUser } from "../../core/session.js?v=5";
+import { fetchProviders, createProvider, updateProvider, deleteProvider } from "./providers.service.js?v=5";
 import { todayISO } from "../../core/timezone.js";
 import { fetchEmployeesByRole } from "../employees/employees.service.js";
-import { escapeHtml } from "../appointments/appointment-format.js";
-import { fetchSpecializations } from "../specializations/specializations.service.js?v=1";
+import { escapeHtml } from "../appointments/appointment-format.js?v=4";
+import { fetchSpecializations } from "../specializations/specializations.service.js?v=4";
 
 const FIELDS = ["employee_id", "license_number", "ptr_number", "ptr_date", "s2_number", "s2_expiry_date", "npi_number", "dea_number"];
 const EDIT_FIELDS = FIELDS.filter((field) => field !== "employee_id");

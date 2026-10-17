@@ -1,9 +1,9 @@
-import { fetchAppointments } from "../appointments/appointments.service.js?v=1";
-import { formatApptDate, formatApptTime, statusLabel } from "../appointments/appointment-format.js";
+import { fetchAppointments } from "../appointments/appointments.service.js?v=4";
+import { formatApptDate, formatApptTime, statusLabel } from "../appointments/appointment-format.js?v=4";
 import { fetchHealthSummary } from "../health-records/health-records.service.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
-import { fetchPatientAllergies, addPatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js";
-import { getUser } from "../../core/session.js";
+import { fetchPatientAllergies, addPatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=4";
+import { getUser } from "../../core/session.js?v=5";
 
 export function initPatientProfile(patient)
 {

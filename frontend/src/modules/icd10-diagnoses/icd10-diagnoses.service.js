@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 
 export async function fetchIcd10Diagnoses(page = 1, perPage = 50, search = "")
 {

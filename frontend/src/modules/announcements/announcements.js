@@ -8,7 +8,7 @@ import {
     getAnnouncementImageUrl
 } from "./announcements.service.js";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { systemNow } from "../../core/timezone.js";
 
 let currentUser = null;

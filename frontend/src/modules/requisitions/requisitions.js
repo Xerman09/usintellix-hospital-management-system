@@ -1,10 +1,10 @@
 import {
     fetchRequisitions, fetchRequisition, fetchRequisitionOptions, fetchLowStock, fetchOutstanding,
     createRequisition, updateRequisition, deleteRequisition, requisitionAction, convertRequisitions
-} from "./requisitions.service.js?v=1";
-import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+} from "./requisitions.service.js?v=4";
+import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { todayISO } from "../../core/timezone.js";
 
 const STATUS_LABELS = { draft: "Draft", submitted: "For approval", approved: "Approved", rejected: "Rejected", cancelled: "Cancelled", closed: "Closed" };

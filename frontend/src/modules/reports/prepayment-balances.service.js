@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 
 export async function fetchPrepaymentBalances(filters = {}) {
     const params = new URLSearchParams();

@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 
 export async function fetchRoles()
 {
@@ -36,4 +36,30 @@ export async function deleteRole(id)
             body: JSON.stringify({ id })
         }
     );
+}
+
+export async function fetchPermissionsMatrix()
+{
+    return await api("/roles/permissions");
+}
+
+export async function fetchRolePermissions(roleId)
+{
+    return await api(`/roles/role-permissions?role_id=${encodeURIComponent(roleId)}`);
+}
+
+export async function saveRolePermissions(roleId, capabilities)
+{
+    return await api(
+        "/roles/permissions",
+        {
+            method: "PUT",
+            body: JSON.stringify({ role_id: roleId, capabilities })
+        }
+    );
+}
+
+export async function fetchUserPermissions()
+{
+    return await api("/user/permissions");
 }

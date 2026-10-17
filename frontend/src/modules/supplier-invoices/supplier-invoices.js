@@ -1,11 +1,11 @@
 import {
     fetchSupplierInvoices, fetchSupplierInvoice, fetchBillableOrders, fetchOrderForBilling, checkInvoiceMatch,
     createSupplierInvoice, updateSupplierInvoice, deleteSupplierInvoice, supplierInvoiceAction
-} from "./supplier-invoices.service.js?v=1";
-import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+} from "./supplier-invoices.service.js?v=4";
+import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { limitNote, isFirstLevelOnly } from "../../core/approval-limits.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { todayISO } from "../../core/timezone.js";
 
 // Keep in step with SupplierInvoiceService::RECORDER_ROLES / APPROVER_ROLES.

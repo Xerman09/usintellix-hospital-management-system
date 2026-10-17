@@ -1,4 +1,4 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import {
     fetchPatientMedications,
@@ -9,7 +9,7 @@ import {
 import {
     requestPrescriptionRefill,
     cancelRefillRequest
-} from "../patient-prescriptions/patient-prescriptions.service.js?v=5";
+} from "../patient-prescriptions/patient-prescriptions.service.js?v=8";
 
 let allMedications = [];
 let currentFilter = "all";

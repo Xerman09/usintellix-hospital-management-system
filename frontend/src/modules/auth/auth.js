@@ -1,11 +1,11 @@
 console.log("auth.js loaded");
-import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, updateBreachedPassword, checkPasswordBreach, logout, acknowledgeNpp } from "./auth.service.js?v=6";
-import { saveUser, clearSession } from "../../core/session.js";
-import { markResultsInboxLogin } from "../results-inbox/results-inbox.js?v=4";
-import { markMyWorkLogin } from "../my-work/my-work.js?v=3";
+import { login, verifyTwoFactor, resendTwoFactor, completeFirstLogin, updateExpiredPassword, updateBreachedPassword, checkPasswordBreach, logout, acknowledgeNpp } from "./auth.service.js?v=9";
+import { saveUser, clearSession } from "../../core/session.js?v=5";
+import { markResultsInboxLogin } from "../results-inbox/results-inbox.js?v=7";
+import { markMyWorkLogin } from "../my-work/my-work.js?v=6";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { initBranding } from "../../core/branding.js";
-import { resetInactivityTimer, stopInactivityGuard } from "../../core/inactivity-guard.js?v=1";
+import { resetInactivityTimer, stopInactivityGuard } from "../../core/inactivity-guard.js?v=4";
 
 const FIELDS = ["username", "password"];
 

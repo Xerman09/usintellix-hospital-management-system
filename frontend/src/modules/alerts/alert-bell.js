@@ -1,5 +1,5 @@
-import { pollAlerts, markAlertsSeen, markAlertRead, markAllAlertsRead, acknowledgeAlert } from "./alerts.service.js?v=2";
-import { readBackFormHtml, bindReadBack, submitReadBack } from "../lab-ranges/readback.js?v=1";
+import { pollAlerts, markAlertsSeen, markAlertRead, markAllAlertsRead, acknowledgeAlert } from "./alerts.service.js?v=5";
+import { readBackFormHtml, bindReadBack, submitReadBack } from "../lab-ranges/readback.js?v=4";
 import { showToast } from "../../core/toast.js";
 
 /*
@@ -67,17 +67,17 @@ export async function openAlertLink(a) {
     const link = a.link || (a.patient_id ? { patient_id: a.patient_id } : null);
     if (!link) return false;
     if (link.or_case) {
-        const { openOrCase } = await import("../or-board/or-case-panel.js?v=4");
+        const { openOrCase } = await import("../or-board/or-case-panel.js?v=7");
         openOrCase(Number(link.or_case));
         return true;
     }
     if (link.result) {
-        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=4");
+        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=7");
         openResultByOrder(Number(link.result));
         return true;
     }
     if (link.mar) {
-        const { openMar } = await import("../mar/mar.js?v=6");
+        const { openMar } = await import("../mar/mar.js?v=8");
         openMar(Number(link.mar));
         return true;
     }
@@ -635,7 +635,7 @@ function renderCodeBluePopup(modal, a, others) {
             return;
         }
         modal.querySelectorAll("button").forEach((x) => (x.disabled = true));
-        const { api } = await import("../../core/api.js?v=5");
+        const { api } = await import("../../core/api.js?v=10");
         const r = await api("/code-blue/respond", { method: "POST", body: JSON.stringify({ id: a.source_id, responding: b.dataset.cb }) }).catch(() => null);
         modal.querySelectorAll("button").forEach((x) => (x.disabled = false));
         if (!r?.success) {

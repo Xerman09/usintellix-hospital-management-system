@@ -1,9 +1,9 @@
-import { api, API_URL } from "../../core/api.js";
+import { api, API_URL } from "../../core/api.js?v=10";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { LetterPopupMarkup, LetterView } from "./popup-letter.view.js";
 import { fetchEmployees } from "../employees/employees.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchDocumentTemplates } from "../document-templates/document-templates.service.js";
 import { savePatientLetter, updatePatientLetter } from "../patient-letters/patient-letters.service.js";
 import { showToast } from "../../core/toast.js";

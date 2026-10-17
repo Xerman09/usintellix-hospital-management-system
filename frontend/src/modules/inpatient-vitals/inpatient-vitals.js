@@ -1,6 +1,6 @@
-import { fetchVitalsBoard, fetchVitalsHistory, recordVitals, voidVitals, setVitalsSchedule, setSpo2Scale } from "./inpatient-vitals.service.js?v=2";
-import { openFallRisk, fallBadge } from "./fall-risk.js?v=1";
-import { getUser } from "../../core/session.js?v=2";
+import { fetchVitalsBoard, fetchVitalsHistory, recordVitals, voidVitals, setVitalsSchedule, setSpo2Scale } from "./inpatient-vitals.service.js?v=5";
+import { openFallRisk, fallBadge } from "./fall-risk.js?v=4";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
 
@@ -664,8 +664,8 @@ function onBoardClick(e) {
     const p = board.patients.find((x) => x.admission_id === adm);
     if (act === "record") openRecordVitals(p, { onSaved: loadBoard });
     else if (act === "graph") openVitalsGraph(adm, { onChange: loadBoard });
-    else if (act === "orders") import("../med-orders/med-orders.js?v=6").then((m) => m.openMedOrders(adm));
-    else if (act === "mar") import("../mar/mar.js?v=6").then((m) => m.openMar(adm));
+    else if (act === "orders") import("../med-orders/med-orders.js?v=8").then((m) => m.openMedOrders(adm));
+    else if (act === "mar") import("../mar/mar.js?v=8").then((m) => m.openMar(adm));
     else if (act === "schedule") openVitalsSchedule(p, { onSaved: loadBoard });
     else if (act === "fall") openFallRisk(adm, { onSaved: loadBoard });
     else if (act === "apply") {

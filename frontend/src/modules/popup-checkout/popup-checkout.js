@@ -1,4 +1,4 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { CheckoutPopupMarkup, CheckoutView } from "./popup-checkout.view.js";
 import { fetchPatientEncounters } from "../encounters/encounters.service.js";

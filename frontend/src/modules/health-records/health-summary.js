@@ -1,8 +1,8 @@
 import { fetchHealthSummary } from "./health-records.service.js";
-import { HRS_SECTIONS } from "./health-summary.view.js?v=3";
-import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js";
+import { HRS_SECTIONS } from "./health-summary.view.js?v=5";
+import { formatApptDate, formatApptTime, statusLabel, escapeHtml } from "../appointments/appointment-format.js?v=4";
 import { todayISO } from "../../core/timezone.js";
-import { requestPrescriptionRefill, cancelRefillRequest } from "../patient-prescriptions/patient-prescriptions.service.js?v=5";
+import { requestPrescriptionRefill, cancelRefillRequest } from "../patient-prescriptions/patient-prescriptions.service.js?v=8";
 import { showToast } from "../../core/toast.js";
 
 // Sections with their own detailed-table renderer, as opposed to the

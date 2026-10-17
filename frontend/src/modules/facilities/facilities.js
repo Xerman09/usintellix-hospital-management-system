@@ -1,4 +1,4 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { fetchOrganizationTypes } from "../organization-types/organization-types.service.js";
 import { fetchPosCodes } from "../pos-codes/pos-codes.service.js";

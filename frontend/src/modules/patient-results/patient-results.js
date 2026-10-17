@@ -1,8 +1,8 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { fetchPatients } from "../patients/patients.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import { ProcedureOrderConfigsView } from "../procedure-order-configs/procedure-order-configs.view.js";
 import { initProcedureOrderConfigs } from "../procedure-order-configs/procedure-order-configs.js";
@@ -13,9 +13,9 @@ import {
     fetchPatientProcedureResults,
     savePatientProcedureResults,
     importPatientProcedureResults
-} from "./patient-results.service.js?v=2";
+} from "./patient-results.service.js?v=5";
 import { todayISO } from "../../core/timezone.js";
-import { openResultByOrder } from "../results-inbox/results-inbox.js?v=4";
+import { openResultByOrder } from "../results-inbox/results-inbox.js?v=7";
 
 const REVIEW_ROLES = ["doctor", "clinician"];
 let reviewListener = null;

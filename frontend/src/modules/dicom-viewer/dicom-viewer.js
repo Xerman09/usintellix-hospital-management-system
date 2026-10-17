@@ -1,6 +1,6 @@
 import { parseDicomBuffer } from "./dicom-parser.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { api, API_URL } from "../../core/api.js?v=5";
+import { api, API_URL } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 import { todayISO } from "../../core/timezone.js";
 
@@ -527,25 +527,28 @@ async function loadActivePatientImaging() {
     try {
         // Find documents in patient_documents
         const pId = activePatient.patient_id || activePatient.id;
-        const res = await api(`/patients/documents?patient_id=${pId}`);
+        const res = await api(`/patient-documents?patient_id=${pId}`);
 
         let imagingDoc = null;
         if (res.success && Array.isArray(res.data)) {
-            imagingDoc = res.data.find(d => d.category === "Imaging" || d.category === "Lab Result" || (d.file_path && d.file_path.includes("doc_4_")));
+            imagingDoc = res.data.find(d => d.category === "Imaging" || d.category === "Lab Result");
         }
-
-        // Use the discovered real patient image or fallback to realistic study
-        const fallbackPath = "/uploads/patient_documents/doc_4_1788965016_753b1823.jpg";
-        const targetPath = imagingDoc ? imagingDoc.file_path : fallbackPath;
-        const fullUrl = `${API_URL}${targetPath}`;
 
         const fullName = `${activePatient.first_name || ""} ${activePatient.last_name || ""}`.trim();
 
-        loadImageFromUrl(fullUrl, {
+        // Nothing filed for this patient: show the sample study. It must never fall back to another
+        // patient's file -- that would put someone else's image under this patient's name.
+        if (!imagingDoc) {
+            showToast(`No imaging document is filed for ${fullName} (${activePatient.patient_no}). Showing a sample study.`, "error", 6000);
+            loadMedicalSample("chest");
+            return;
+        }
+
+        loadImageFromUrl(`${API_URL}${imagingDoc.file_path}`, {
             patientName: fullName,
             patientId: activePatient.patient_no,
             modality: "DX",
-            studyDescription: imagingDoc?.title || "Chest Radiography (Diagnostic)",
+            studyDescription: imagingDoc.title || "Imaging study",
             institution: "Intellix Health System"
         });
 

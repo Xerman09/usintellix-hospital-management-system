@@ -1,16 +1,16 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { consumePendingPatientView, setLastActivePatientChart, getLastActivePatientChart, clearLastActivePatientChart, setLastActiveChartSection, getLastActiveChartSection } from "../../core/pending-patient-view.js";
 import { recordRecentPatient } from "../../core/recent-patients.js";
 import { fetchOfficeNotes, addOfficeNote, updateOfficeNote, deleteOfficeNote } from "../office-notes/office-notes.service.js";
 import { fetchCarePreferences, addCarePreference, updateCarePreference, deleteCarePreference } from "../care-preferences/care-preferences.service.js";
 import { fetchPreferenceTypes } from "../preference-types/preference-types.service.js";
-import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js";
-import { formatApptDate, formatApptTime } from "../appointments/appointment-format.js";
+import { createAppointment, fetchAppointments } from "../appointments/appointments.service.js?v=4";
+import { formatApptDate, formatApptTime } from "../appointments/appointment-format.js?v=4";
 import { setPendingAppointmentPatient } from "../../core/pending-appointment.js";
-import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=7";
-import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
-import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
-import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
+import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=9";
+import { initAppointmentsList } from "../appointments/appointments-list.js?v=9";
+import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=9";
+import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=9";
 import { fetchPatientLedger, addLedgerPayment } from "../patient-ledger/patient-ledger.service.js";
 import {
     fetchEncounterBillingCodes, addEncounterBillingCode, updateEncounterBillingCode, removeEncounterBillingCode
@@ -21,22 +21,22 @@ import {
 import { fetchPatientDocuments, uploadPatientDocument, deletePatientDocument } from "../patient-documents/patient-documents.service.js";
 import { fetchPatientPortalCredentials, savePatientPortalCredentials } from "../patient-portal-access/patient-portal-access.service.js";
 import { openTemplateMaintenanceForPatient } from "../template-maintenance/template-maintenance.js";
-import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=3";
-import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=5";
+import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.view.js?v=5";
+import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=7";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=85";
-import { initGeneralHistory } from "./patient-general-history.js?v=2";
-import { initFamilyHistory } from "./patient-family-history.js?v=2";
-import { initRelativesHistory } from "./patient-relatives-history.js?v=2";
+import { PatientChartView } from "./patients-list.view.js?v=87";
+import { initGeneralHistory } from "./patient-general-history.js?v=4";
+import { initFamilyHistory } from "./patient-family-history.js?v=4";
+import { initRelativesHistory } from "./patient-relatives-history.js?v=4";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
-import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=2";
-import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js";
+import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=4";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js?v=9";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
-import { openBreakGlassModal } from "../../core/break-glass-modal.js?v=1";
-import { api, API_URL } from "../../core/api.js?v=5";
-import { fetchProviders } from "../providers/providers.service.js";
+import { openBreakGlassModal } from "../../core/break-glass-modal.js?v=4";
+import { api, API_URL } from "../../core/api.js?v=10";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import {
     fetchPatientTransactions,
     addPatientTransaction,
@@ -54,9 +54,9 @@ import {
     updatePatientSurgery,
     removePatientSurgery
 } from "../patient-surgeries/patient-surgeries.service.js";
-import { fetchSurgeries } from "../surgeries/surgeries.service.js";
-import { fetchPatientSurgeries as fetchSurgeryDashboardData } from "../surgery-requests/surgery-requests.service.js?v=1";
-import { openSurgeryRequestForm, openSurgeryRequest, ensureRoot as ensureSurgeryRequestUi, statusBadge as surgeryStatusBadge, priorityBadge as surgeryPriorityBadge } from "../surgery-requests/surgery-request-panel.js?v=2";
+import { fetchSurgeries } from "../surgeries/surgeries.service.js?v=5";
+import { fetchPatientSurgeries as fetchSurgeryDashboardData } from "../surgery-requests/surgery-requests.service.js?v=3";
+import { openSurgeryRequestForm, openSurgeryRequest, ensureRoot as ensureSurgeryRequestUi, statusBadge as surgeryStatusBadge, priorityBadge as surgeryPriorityBadge } from "../surgery-requests/surgery-request-panel.js?v=4";
 import {
     fetchPatientDentalIssues,
     addPatientDentalIssue,
@@ -65,7 +65,7 @@ import {
 } from "../patient-dental-issues/patient-dental-issues.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
 import { fetchAllergies } from "../allergies/allergies.service.js";
-import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=1";
+import { fetchPatientAllergies, addPatientAllergy, updatePatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=4";
 import { fetchIcd10Diagnoses } from "../icd10-diagnoses/icd10-diagnoses.service.js";
 import { fetchCvxCodes } from "../cvx-codes/cvx-codes.service.js";
 import { searchCqmValuesetCodes } from "../cqm-valuesets/cqm-valuesets.service.js";
@@ -98,7 +98,7 @@ import {
     createPrescriptionSlip,
     updatePrescriptionSlip,
     cancelPrescriptionSlip
-} from "../patient-prescriptions/patient-prescriptions.service.js?v=5";
+} from "../patient-prescriptions/patient-prescriptions.service.js?v=8";
 import {
     fetchPatientImmunizations,
     addPatientImmunization,
@@ -112,11 +112,11 @@ import {
     searchProxyCandidates, linkProxy, revokeProxy
 } from "../related-persons/related-persons.service.js";
 import { fetchCountries, fetchPhProvinces, isPhilippines } from "../related-persons/geography.service.js";
-import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure, fetchDisclosureReport } from "../disclosures/disclosures.service.js";
+import { fetchPatientDisclosures, addDisclosure, updateDisclosure, removeDisclosure, fetchDisclosureReport } from "../disclosures/disclosures.service.js?v=9";
 import {
     fetchPatientMessages, sendPatientMessage, fetchMessageTypes, fetchMessageStatuses, fetchRecipientOptions
 } from "../messages/messages.service.js";
-import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js";
+import { fetchPatientAmendments, addAmendment, updateAmendment, removeAmendment } from "../amendments/amendments.service.js?v=5";
 import {
     fetchPatientEncounters, fetchLinkableIssues, addEncounter, updateEncounter, removeEncounter,
     fetchDischargeDispositions, updateEncounterBillingNote, fetchEncounterFormOptions,
@@ -2728,9 +2728,9 @@ export async function initPatientChartTab(patient)
     loadDashboardInpatientVitals(patient);
     loadDashboardInpatientOrders(patient);
     // Red mark for critical lab results (not acknowledged / acknowledged lately).
-    import("../lab-ranges/critical-banner.js?v=4").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
+    import("../lab-ranges/critical-banner.js?v=7").then((m) => m.loadCriticalLabBanner(patient)).catch(() => {});
     // Code Blue button: the location comes from the patient's bed.
-    import("../code-blue/code-blue.js?v=3").then((m) => m.mountChartCodeBlue(patient)).catch(() => {});
+    import("../code-blue/code-blue.js?v=6").then((m) => m.mountChartCodeBlue(patient)).catch(() => {});
 
     document.querySelectorAll("#pdDemoTabs .pd-demo-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -6969,7 +6969,7 @@ async function loadDashboardNursing(patient)
     const btn = document.getElementById("pdNursingHandoverBtn");
     if (!body) return;
     try {
-        const { fetchPatientNursing } = await import("../nurse-assignments/nurse-assignments.service.js?v=1");
+        const { fetchPatientNursing } = await import("../nurse-assignments/nurse-assignments.service.js?v=4");
         const result = await fetchPatientNursing(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -6998,7 +6998,7 @@ async function loadDashboardNursing(patient)
         if (btn) {
             btn.disabled = false;
             btn.onclick = async () => {
-                const { openHandovers } = await import("../nurse-assignments/nurse-assignments.js?v=1");
+                const { openHandovers } = await import("../nurse-assignments/nurse-assignments.js?v=3");
                 openHandovers(d.admission_id, { onChange: () => loadDashboardNursing(patient) });
             };
         }
@@ -7018,8 +7018,8 @@ async function loadDashboardInpatientVitals(patient)
     const setButtons = (on) => [recordBtn, graphBtn].forEach((b) => b && (b.disabled = !on));
     setButtons(false);
     try {
-        const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=2");
-        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=9");
+        const { fetchPatientVitals } = await import("../inpatient-vitals/inpatient-vitals.service.js?v=5");
+        const ui = await import("../inpatient-vitals/inpatient-vitals.js?v=11");
         const result = await fetchPatientVitals(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7061,8 +7061,8 @@ async function loadDashboardInpatientOrders(patient)
     if (btn) btn.disabled = true;
     if (marBtn) marBtn.disabled = true;
     try {
-        const { fetchPatientOrders } = await import("../med-orders/med-orders.service.js?v=1");
-        const ui = await import("../med-orders/med-orders.js?v=6");
+        const { fetchPatientOrders } = await import("../med-orders/med-orders.service.js?v=4");
+        const ui = await import("../med-orders/med-orders.js?v=8");
         const result = await fetchPatientOrders(patient.id);
         if (currentDashboardPatient && currentDashboardPatient.id !== patient.id) return;
         if (!result.success) {
@@ -7095,7 +7095,7 @@ async function loadDashboardInpatientOrders(patient)
         }
         if (marBtn) {
             marBtn.disabled = false;
-            marBtn.onclick = () => import("../mar/mar.js?v=6").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
+            marBtn.onclick = () => import("../mar/mar.js?v=8").then((m) => m.openMar(d.admission.id, { onChange: () => loadDashboardInpatientOrders(patient) }));
         }
     } catch (error) {
         console.error("Failed to load inpatient medicine orders", error);
@@ -7241,7 +7241,7 @@ function renderDashboardSurgeries(data, patient)
 
     body.querySelectorAll("[data-or-case]").forEach((el) => {
         const open = async () => {
-            const { openOrCase } = await import("../or-board/or-case-panel.js?v=4");
+            const { openOrCase } = await import("../or-board/or-case-panel.js?v=7");
             openOrCase(Number(el.dataset.orCase), { tab: el.closest("[data-or-history]") ? "report" : null, onChange: () => loadDashboardSurgeries(patient) });
         };
         el.addEventListener("click", open);

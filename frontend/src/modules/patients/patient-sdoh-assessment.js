@@ -1,7 +1,7 @@
 import { showToast } from "../../core/toast.js";
 import { fetchSdohAssessments, addSdohAssessment, updateSdohAssessment } from "./patient-sdoh-assessment.service.js";
 import { fetchScreeningTools } from "../screening-tools/screening-tools.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { addPatientHealthConcern } from "../patient-health-concerns/patient-health-concerns.service.js";
 
 // -- Field/option catalogs -----------------------------------------------

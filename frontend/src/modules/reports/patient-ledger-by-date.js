@@ -1,7 +1,7 @@
-import { api } from "../../core/api.js";
+import { api } from "../../core/api.js?v=10";
 import { fetchFacilities } from "../facilities/facilities.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { logReportRun } from "./report-history.js";
 
 let allPatients = [];

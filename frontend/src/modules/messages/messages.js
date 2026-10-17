@@ -1,6 +1,6 @@
-import { getUser } from "../../core/session.js";
-import { fetchPatients, updatePatient } from "../patients/patients.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { getUser } from "../../core/session.js?v=5";
+import { fetchPatients, updatePatient } from "../patients/patients.service.js?v=9";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import {
     fetchMyMessages, fetchRecipientOptions, createConversation, sendMessage, deleteMessage,

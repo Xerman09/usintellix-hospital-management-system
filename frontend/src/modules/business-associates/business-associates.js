@@ -7,7 +7,7 @@ import {
     deleteVendor,
     fetchVendorDossier,
     getVendorExportCsvUrl
-} from "./business-associates.service.js?v=1";
+} from "./business-associates.service.js?v=4";
 import { showToast } from "../../core/toast.js";
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 

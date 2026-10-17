@@ -1,4 +1,4 @@
-import { api, API_URL } from "../../core/api.js?v=7";
+import { api, API_URL } from "../../core/api.js?v=10";
 
 export async function fetchHipaaOfficers() {
     return await api("/hipaa-officers");

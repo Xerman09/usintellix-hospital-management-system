@@ -1,8 +1,8 @@
-import { api } from '../../core/api.js';
-import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=18';
+import { api } from '../../core/api.js?v=10';
+import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=40';
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 import { showToast } from "../../core/toast.js";
-import { openOrCase } from "../or-board/or-case-panel.js?v=4";
+import { openOrCase } from "../or-board/or-case-panel.js?v=7";
 
 let currentScheduleData = {
     cases: [],
@@ -1319,7 +1319,7 @@ function populateDetailModal(c) {
                             Checklist #${esc(ssc.case_number)} &bull; ${compText} &bull; ${esc(ssc.status)}
                         </div>
                     </div>
-                    <button type="button" onclick="window.__openDashboardTab('surgical_safety', 'Surgical Safety Checklist')" class="or-btn-primary" style="background:#059669;font-size:11px;padding:6px 12px;">
+                    <button type="button" onclick="window.__openDashboardTab('clinic_surgical_safety', 'Surgical Safety & Time-Out')" class="or-btn-primary" style="background:#059669;font-size:11px;padding:6px 12px;">
                         Open Checklist &rarr;
                     </button>
                 </div>
@@ -1328,7 +1328,7 @@ function populateDetailModal(c) {
             safetyLinkEl.innerHTML = `
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;">
                     <div style="font-size:12px;color:#64748b;">No linked Universal Protocol Time-Out checklist yet recorded.</div>
-                    <button type="button" onclick="window.__openDashboardTab('surgical_safety', 'Surgical Safety Checklist')" class="or-btn-secondary" style="font-size:11px;padding:6px 12px;">
+                    <button type="button" onclick="window.__openDashboardTab('clinic_surgical_safety', 'Surgical Safety & Time-Out')" class="or-btn-secondary" style="font-size:11px;padding:6px 12px;">
                         + Conduct Time-Out
                     </button>
                 </div>

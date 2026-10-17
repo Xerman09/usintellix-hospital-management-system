@@ -1,6 +1,6 @@
-import { api } from "../../core/api.js?v=5";
+import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { esc, when, modal, modalityTag } from "./rad-ui.js?v=4";
+import { esc, when, modal, modalityTag } from "./rad-ui.js?v=6";
 
 /*
  * Imaging charges (module 15, Phase 3) inside the Radiology Worklist: the "Charges" view lists the studies reported

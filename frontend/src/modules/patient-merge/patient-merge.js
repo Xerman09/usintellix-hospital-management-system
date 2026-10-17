@@ -1,6 +1,6 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { fetchPatients } from "../patients/patients.service.js";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { validatePatientMerge, mergePatients } from "./patient-merge.service.js";
 
 let patients = [];

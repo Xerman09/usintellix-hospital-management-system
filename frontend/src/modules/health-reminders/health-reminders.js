@@ -1,8 +1,8 @@
 import { fetchMyReminders } from "../patient-reminders/patient-reminders.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
-import { createAppointment, fetchAvailableSlots } from "../appointments/appointments.service.js";
-import { formatApptTime, escapeHtml, toDateStr } from "../appointments/appointment-format.js";
+import { createAppointment, fetchAvailableSlots } from "../appointments/appointments.service.js?v=4";
+import { formatApptTime, escapeHtml, toDateStr } from "../appointments/appointment-format.js?v=4";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js";
 

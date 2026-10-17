@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=6";
+import { api } from "./api.js?v=10";
 import { showToast } from "./toast.js";
 
 /**

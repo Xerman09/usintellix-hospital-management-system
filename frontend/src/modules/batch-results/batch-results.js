@@ -1,4 +1,4 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { ProcedureOrderConfigsView } from "../procedure-order-configs/procedure-order-configs.view.js";
 import { initProcedureOrderConfigs } from "../procedure-order-configs/procedure-order-configs.js";
 

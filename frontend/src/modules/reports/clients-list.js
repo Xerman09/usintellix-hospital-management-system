@@ -1,5 +1,5 @@
-import { api } from "../../core/api.js?v=5";
-import { fetchProviders } from "../providers/providers.service.js";
+import { api } from "../../core/api.js?v=10";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { systemNow } from "../../core/timezone.js";
 
 let currentReportData = [];

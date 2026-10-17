@@ -1,13 +1,13 @@
-import { getUser } from "../../core/session.js";
-import { fetchPatients, updatePatient } from "../patients/patients.service.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { getUser } from "../../core/session.js?v=5";
+import { fetchPatients, updatePatient } from "../patients/patients.service.js?v=9";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import { fetchMyRecalls, createRecall, updateRecall, deleteRecall } from "./recalls.service.js";
 import { setPendingAppointmentPatient } from "../../core/pending-appointment.js";
-import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=7";
-import { initAppointmentsList } from "../appointments/appointments-list.js?v=7";
-import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=7";
-import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=7";
+import { AppointmentsListView } from "../appointments/appointments-list.view.js?v=9";
+import { initAppointmentsList } from "../appointments/appointments-list.js?v=9";
+import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=9";
+import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=9";
 import { systemNow, toDateInput } from "../../core/timezone.js";
 
 const RECALL_STATUS_LABELS = {

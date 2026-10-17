@@ -1,8 +1,8 @@
 import {
     fetchCabinet, withdrawDose, returnWithdrawal, wasteWithdrawal, saveCabinetLevels,
     fetchRestockQueue, fillRestock, receiveRestock, flagRestockUrgent, requestRestockNow, fetchDdCount, saveDdCount,
-} from "./ward-cabinet.service.js?v=3";
-import { getUser } from "../../core/session.js?v=2";
+} from "./ward-cabinet.service.js?v=5";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 /*
@@ -324,7 +324,7 @@ async function onClick(e) {
         }
         load(r.message);
     } else if (mar) {
-        const { openMar } = await import("../mar/mar.js?v=6");
+        const { openMar } = await import("../mar/mar.js?v=8");
         openMar(Number(mar), { onChange: () => load() });
     } else if (ret) {
         const btn = e.target.closest("button");

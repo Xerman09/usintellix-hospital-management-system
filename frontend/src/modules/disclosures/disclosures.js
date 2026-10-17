@@ -6,8 +6,8 @@ import {
     addDisclosure,
     updateDisclosure,
     removeDisclosure
-} from "./disclosures.service.js?v=6";
-import { fetchPatients } from "../patients/patients.service.js?v=6";
+} from "./disclosures.service.js?v=9";
+import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { showToast } from "../../core/toast.js";
 import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
 

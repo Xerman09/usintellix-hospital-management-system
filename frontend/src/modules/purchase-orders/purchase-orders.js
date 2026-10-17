@@ -2,10 +2,10 @@ import {
     fetchPurchaseOrders, fetchPurchaseOrder, fetchPurchaseOrderOptions,
     createPurchaseOrder, updatePurchaseOrder, cancelPurchaseOrder, deletePurchaseOrder,
     approvePurchaseOrder, rejectPurchaseOrder, closePurchaseOrder
-} from "./purchase-orders.service.js?v=3";
-import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+} from "./purchase-orders.service.js?v=6";
+import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { systemNow } from "../../core/timezone.js";
 import { limitNote, isFirstLevelOnly } from "../../core/approval-limits.js";
 

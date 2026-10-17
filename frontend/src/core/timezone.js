@@ -1,4 +1,4 @@
-import { API_URL } from "./api.js";
+import { API_URL } from "./api.js?v=10";
 
 /*
  * The system timezone (Administration > General Settings > System

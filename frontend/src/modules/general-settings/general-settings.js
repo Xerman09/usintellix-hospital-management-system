@@ -1,4 +1,4 @@
-import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings } from "./general-settings.service.js?v=4";
+import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings } from "./general-settings.service.js?v=7";
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
 import { setSystemTimezone, systemParts } from "../../core/timezone.js";

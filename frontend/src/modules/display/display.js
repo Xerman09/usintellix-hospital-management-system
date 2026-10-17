@@ -1,4 +1,4 @@
-import { API_URL } from "../../core/api.js?v=5";
+import { API_URL } from "../../core/api.js?v=10";
 
 /*
  * TV display page (module 9, Phase 1). Opened on the TV as display.html#key=<display key>.

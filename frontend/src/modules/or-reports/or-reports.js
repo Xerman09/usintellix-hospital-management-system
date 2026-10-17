@@ -1,5 +1,5 @@
-import { fetchOrReportOptions, fetchOrReport } from "./or-reports.service.js?v=1";
-import { openOrCase } from "../or-board/or-case-panel.js?v=4";
+import { fetchOrReportOptions, fetchOrReport } from "./or-reports.service.js?v=4";
+import { openOrCase } from "../or-board/or-case-panel.js?v=7";
 import { todayISO } from "../../core/timezone.js";
 
 let state = { report: "utilization", data: null, options: null, tables: {} };

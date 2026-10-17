@@ -1,6 +1,6 @@
-import { fetchPharmacyDashboard } from "./pharmacy-dashboard.service.js?v=1";
-import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
-import { getUser } from "../../core/session.js";
+import { fetchPharmacyDashboard } from "./pharmacy-dashboard.service.js?v=4";
+import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
+import { getUser } from "../../core/session.js?v=5";
 
 const REFRESH_MS = 5 * 60 * 1000;
 const ITEMS_PER_LOCATION = 5;

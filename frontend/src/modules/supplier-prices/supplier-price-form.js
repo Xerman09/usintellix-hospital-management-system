@@ -13,7 +13,7 @@
 
 import {
     fetchSupplierPrices, fetchSupplierPriceOptions, createSupplierPrice, updateSupplierPrice, deleteSupplierPrice
-} from "./supplier-prices.service.js?v=2";
+} from "./supplier-prices.service.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js";
 

@@ -1,5 +1,5 @@
 import { fetchBusinessSettings, updateBusinessSettings, uploadBusinessLogo, removeBusinessLogo } from "./business-settings.service.js";
-import { BusinessInfoSectionView, HipaaOfficersSectionView } from "./business-settings.view.js";
+import { BusinessInfoSectionView, HipaaOfficersSectionView } from "./business-settings.view.js?v=4";
 import { 
     fetchHipaaOfficers, 
     fetchHipaaOfficerStats, 
@@ -7,7 +7,7 @@ import {
     fetchAppointmentAttestation, 
     getHipaaOfficersExportCsvUrl 
 } from "./hipaa-officers.service.js";
-import { API_URL } from "../../core/api.js?v=5";
+import { API_URL } from "../../core/api.js?v=10";
 import { clearBrandingCache, applyBranding } from "../../core/branding.js";
 import { showToast } from "../../core/toast.js";
 import { PharmaciesView } from "../pharmacies/pharmacies.view.js";

@@ -1,5 +1,5 @@
 import { showToast } from "../../core/toast.js";
-import { API_URL } from "../../core/api.js?v=5";
+import { API_URL } from "../../core/api.js?v=10";
 import { fetchDocumentTemplates, uploadDocumentTemplate, deleteDocumentTemplate } from "./document-templates.service.js";
 
 let templates = [];

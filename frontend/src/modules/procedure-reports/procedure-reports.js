@@ -1,7 +1,7 @@
-import { getUser } from "../../core/session.js";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
-import { fetchProviders } from "../providers/providers.service.js";
+import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 
 // "Procedure Orders and Reports" backs "Electronic Reports" (system-wide,

@@ -1,8 +1,8 @@
 import {
     fetchAssignmentBoard, saveAssignments, copyPreviousShift, fetchMyPatients,
     fetchHandovers, writeHandover, receiveHandover,
-} from "./nurse-assignments.service.js?v=1";
-import { getUser } from "../../core/session.js?v=2";
+} from "./nurse-assignments.service.js?v=4";
+import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 /*

@@ -1,6 +1,6 @@
-import { fetchSurgeryRequests } from "./surgery-requests.service.js?v=1";
-import { openSurgeryRequest, priorityBadge, statusBadge, ensureRoot } from "./surgery-request-panel.js?v=2";
-import { fetchSpecializations } from "../specializations/specializations.service.js?v=1";
+import { fetchSurgeryRequests } from "./surgery-requests.service.js?v=3";
+import { openSurgeryRequest, priorityBadge, statusBadge, ensureRoot } from "./surgery-request-panel.js?v=4";
+import { fetchSpecializations } from "../specializations/specializations.service.js?v=4";
 
 let view = "open";
 let searchTimer = null;

@@ -1,8 +1,8 @@
 import {
     fetchDispensingQueue, fetchDispensingDetail, fetchDispensingOptions, dispensePrescription,
     voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip, checkDispense
-} from "./dispensing.service.js?v=4";
-import { formatQty, formatDate, formatMoney, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=3";
+} from "./dispensing.service.js?v=7";
+import { formatQty, formatDate, formatMoney, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 
 const LOCATION_KEY = "dp_location";
