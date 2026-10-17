@@ -39,6 +39,11 @@ return [
                 'label' => 'Department Management',
                 'description' => 'Manage clinical, diagnostic, and administrative hospital departments',
             ],
+            'admin_clinic_schedules' => [
+                'name' => 'admin_clinic_schedules',
+                'label' => 'Clinic Operating Schedules',
+                'description' => 'Configure department operating hours, weekly clinic timetables, slot durations, and daily capacities',
+            ],
             'admin_audit_logs' => [
                 'name' => 'admin_audit_logs',
                 'label' => 'HIPAA Security Audit Logs',

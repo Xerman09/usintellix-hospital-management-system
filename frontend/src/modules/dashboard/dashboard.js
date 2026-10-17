@@ -329,6 +329,8 @@ import { initRoomManagement } from "../room-management/room-management.js?v=4";
 import { RoomManagementView } from "../room-management/room-management.view.js?v=4";
 import { initEquipmentAssets } from "../equipment-assets/equipment-assets.js";
 import { EquipmentAssetsView } from "../equipment-assets/equipment-assets.view.js";
+import { initClinicSchedules } from "../clinic-schedules/clinic-schedules.js";
+import { ClinicSchedulesView } from "../clinic-schedules/clinic-schedules.view.js";
 import { initPrivacyPolicy } from "../privacy-policy/privacy-policy.js?v=5";
 import { PrivacyPolicyView } from "../privacy-policy/privacy-policy.view.js?v=4";
 import { initTermsConditions } from "../terms-conditions/terms-conditions.js?v=3";
@@ -1737,6 +1739,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Biomedical & Equipment Assets', () => {
                 setTimeout(() => initEquipmentAssets(user), 0);
                 return EquipmentAssetsView(user);
+            }, activate);
+        } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
+            tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {
+                setTimeout(() => initClinicSchedules(user), 0);
+                return ClinicSchedulesView(user);
             }, activate);
         } else if (tabId === 'privacy_policy') {
             tabManager.openTab(tabId, title || 'Privacy Policy & HIPAA Notice', () => {
