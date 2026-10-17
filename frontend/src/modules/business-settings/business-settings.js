@@ -113,6 +113,26 @@ function renderSettings(settings)
     document.getElementById("ro_business_address").textContent = settings.address || "-";
     document.getElementById("ro_business_phone").textContent = settings.phone || "-";
     document.getElementById("ro_business_email").textContent = settings.email || "-";
+
+    // Tax Rates & Institutional Identification
+    const taxNameEl = document.getElementById("ro_business_tax_name");
+    if (taxNameEl) {
+        taxNameEl.textContent = settings.tax_name || "VAT";
+    }
+
+    const taxRateEl = document.getElementById("ro_business_tax_rate");
+    if (taxRateEl) {
+        const rate = (settings.tax_rate_percent !== null && settings.tax_rate_percent !== undefined)
+            ? Number(settings.tax_rate_percent).toFixed(2)
+            : "12.00";
+        taxRateEl.textContent = `${rate}%`;
+    }
+
+    const taxIdEl = document.getElementById("ro_business_tax_id");
+    if (taxIdEl) {
+        taxIdEl.textContent = settings.tax_id_number || "Not Registered";
+    }
+
     document.getElementById("logoPreview").src = settings.logo ? `${API_URL}${settings.logo}` : "./assets/logo.png?v=1";
     document.getElementById("removeLogoBtn").style.display = settings.logo ? "" : "none";
 }
@@ -125,11 +145,36 @@ function setupEditBusinessModal()
     const openModal = () => {
         document.getElementById("err-edit_name").textContent = "";
         document.getElementById("err-edit_email").textContent = "";
+        const errTaxName = document.getElementById("err-edit_tax_name");
+        if (errTaxName) errTaxName.textContent = "";
+        const errTaxRate = document.getElementById("err-edit_tax_rate");
+        if (errTaxRate) errTaxRate.textContent = "";
+        const errTaxId = document.getElementById("err-edit_tax_id");
+        if (errTaxId) errTaxId.textContent = "";
+
         document.getElementById("editBusinessFormAlert").innerHTML = "";
-        document.getElementById("edit_business_name").value = currentSettings.name || "";
-        document.getElementById("edit_business_address").value = currentSettings.address || "";
-        document.getElementById("edit_business_phone").value = currentSettings.phone || "";
-        document.getElementById("edit_business_email").value = currentSettings.email || "";
+        document.getElementById("edit_business_name").value = currentSettings?.name || "";
+        document.getElementById("edit_business_address").value = currentSettings?.address || "";
+        document.getElementById("edit_business_phone").value = currentSettings?.phone || "";
+        document.getElementById("edit_business_email").value = currentSettings?.email || "";
+
+        const editTaxName = document.getElementById("edit_business_tax_name");
+        if (editTaxName) {
+            editTaxName.value = currentSettings?.tax_name || "VAT";
+        }
+
+        const editTaxRate = document.getElementById("edit_business_tax_rate");
+        if (editTaxRate) {
+            editTaxRate.value = (currentSettings?.tax_rate_percent !== null && currentSettings?.tax_rate_percent !== undefined)
+                ? Number(currentSettings.tax_rate_percent).toFixed(2)
+                : "12.00";
+        }
+
+        const editTaxId = document.getElementById("edit_business_tax_id");
+        if (editTaxId) {
+            editTaxId.value = currentSettings?.tax_id_number || "";
+        }
+
         modalOverlay.classList.add("open");
     };
 
@@ -152,16 +197,39 @@ function setupEditBusinessModal()
 
         document.getElementById("err-edit_name").textContent = "";
         document.getElementById("err-edit_email").textContent = "";
+        const errTaxName = document.getElementById("err-edit_tax_name");
+        if (errTaxName) errTaxName.textContent = "";
+        const errTaxRate = document.getElementById("err-edit_tax_rate");
+        if (errTaxRate) errTaxRate.textContent = "";
+        const errTaxId = document.getElementById("err-edit_tax_id");
+        if (errTaxId) errTaxId.textContent = "";
 
         const name = document.getElementById("edit_business_name").value.trim();
         const address = document.getElementById("edit_business_address").value.trim();
         const phone = document.getElementById("edit_business_phone").value.trim();
         const email = document.getElementById("edit_business_email").value.trim();
 
-        const result = await updateBusinessSettings({ name, address, phone, email });
+        const editTaxName = document.getElementById("edit_business_tax_name");
+        const tax_name = editTaxName ? editTaxName.value.trim() : "VAT";
+
+        const editTaxRate = document.getElementById("edit_business_tax_rate");
+        const tax_rate_percent = editTaxRate && editTaxRate.value !== "" ? parseFloat(editTaxRate.value) : 12.00;
+
+        const editTaxId = document.getElementById("edit_business_tax_id");
+        const tax_id_number = editTaxId ? editTaxId.value.trim() : "";
+
+        const result = await updateBusinessSettings({
+            name,
+            address,
+            phone,
+            email,
+            tax_name,
+            tax_rate_percent,
+            tax_id_number
+        });
 
         if (!result.success) {
-            showAlert("editBusinessFormAlert", result.message || "Failed to update business information.", "error");
+            showAlert("editBusinessFormAlert", result.message || "Failed to update business and tax information.", "error");
 
             if (result.errors) {
                 Object.entries(result.errors).forEach(([field, message]) => {
@@ -178,7 +246,7 @@ function setupEditBusinessModal()
 
         applySettingsUpdate(result.data);
         closeModal();
-        showToast("Business information updated successfully.", "success");
+        showToast("Business and tax information updated successfully.", "success");
     });
 }
 

@@ -334,15 +334,40 @@ export function BusinessInfoSectionView()
             <p id="ro_business_email">-</p>
         </div>
     </div>
+
+    <!-- Tax Rates & Institutional Identification -->
+    <div style="margin: 28px 0 16px; padding-top: 20px; border-top: 1px solid var(--border-color, #e5e9f0);">
+        <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 700; color: var(--text-primary, #14181f); display: flex; align-items: center; gap: 8px;">
+            <span>🏛️</span> Tax Rates & Institutional Identification
+        </h3>
+        <p class="form-subtitle" style="margin: 0; font-size: 12.5px; color: var(--text-muted, #64748b);">Hospital-wide institutional tax configuration applied to invoices, patient billing, and institutional reporting.</p>
+    </div>
+
+    <div class="form-grid" style="margin-top: 16px;">
+        <div class="form-group">
+            <label>Tax Name / System Type</label>
+            <p id="ro_business_tax_name">-</p>
+        </div>
+
+        <div class="form-group">
+            <label>Default Tax Rate (%)</label>
+            <p id="ro_business_tax_rate">-</p>
+        </div>
+
+        <div class="form-group full">
+            <label>Hospital Tax ID / TIN / EIN Number</label>
+            <p id="ro_business_tax_id" style="font-family: monospace; font-size: 13.5px; font-weight: 600; color: var(--text-primary, #1e293b);">-</p>
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="editBusinessModalOverlay">
     <div class="modal-box">
         <div class="modal-header">
-            <h2>Edit Business Information</h2>
+            <h2>Edit Business & Institutional Settings</h2>
             <button type="button" class="modal-close" id="closeEditBusinessModal">&times;</button>
         </div>
-        <p class="form-subtitle">Update the business name and contact information shown across the system.</p>
+        <p class="form-subtitle">Update hospital contact info, legal tax parameters, and TIN/EIN identification shown on billing statements and invoices.</p>
 
         <div id="editBusinessFormAlert"></div>
 
@@ -370,6 +395,31 @@ export function BusinessInfoSectionView()
                     <label>Email</label>
                     <input id="edit_business_email" type="email" class="form-input" placeholder="Optional">
                     <span class="form-error" id="err-edit_email"></span>
+                </div>
+
+                <!-- Institutional Tax Configuration Fields -->
+                <div class="form-group full" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color, #e5e9f0);">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-primary, #1e293b); display: flex; align-items: center; gap: 6px;">
+                        <span>🏛️</span> Institutional Tax Configuration
+                    </span>
+                </div>
+
+                <div class="form-group">
+                    <label>Tax Name (e.g. VAT, Sales Tax)</label>
+                    <input id="edit_business_tax_name" class="form-input" placeholder="VAT">
+                    <span class="form-error" id="err-edit_tax_name"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Tax Rate (%)</label>
+                    <input id="edit_business_tax_rate" type="number" step="0.01" min="0" max="100" class="form-input" placeholder="12.00">
+                    <span class="form-error" id="err-edit_tax_rate"></span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Hospital Tax ID (TIN / EIN / Hospital ID)</label>
+                    <input id="edit_business_tax_id" class="form-input" placeholder="e.g. TIN-482-901-736-000">
+                    <span class="form-error" id="err-edit_tax_id"></span>
                 </div>
             </div>
 

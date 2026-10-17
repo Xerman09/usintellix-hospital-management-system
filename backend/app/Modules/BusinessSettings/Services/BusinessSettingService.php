@@ -2,6 +2,7 @@
 
 namespace App\Modules\BusinessSettings\Services;
 
+use App\Core\AuditDiffService;
 use App\Modules\BusinessSettings\Models\BusinessSetting;
 
 class BusinessSettingService
@@ -19,20 +20,25 @@ class BusinessSettingService
         }
 
         $id = (new BusinessSetting())->create([
-            'name'       => 'Intellix',
-            'created_at' => date('Y-m-d H:i:s')
+            'name'             => 'Intellix',
+            'tax_name'         => 'VAT',
+            'tax_rate_percent' => 12.00,
+            'tax_id_number'    => 'TIN-482-901-736-000',
+            'created_at'       => date('Y-m-d H:i:s')
         ]);
 
         return (new BusinessSetting())->where('id', $id)->first();
     }
 
     /**
-     * Update the business name and contact info (admin-only).
+     * Update the business name, contact info, and tax/institutional identity (admin-only).
      */
     public function update(array $data, int $userId): array
     {
         $name = trim($data['name'] ?? '');
         $email = trim($data['email'] ?? '');
+        $taxName = trim($data['tax_name'] ?? '');
+        $taxIdNumber = trim($data['tax_id_number'] ?? '');
 
         $errors = [];
 
@@ -44,6 +50,21 @@ class BusinessSettingService
             $errors['email'] = 'Enter a valid email address.';
         }
 
+        if (isset($data['tax_rate_percent'])) {
+            $rate = $data['tax_rate_percent'];
+            if (!is_numeric($rate) || (float)$rate < 0 || (float)$rate > 100) {
+                $errors['tax_rate_percent'] = 'Tax rate percent must be a valid number between 0% and 100%.';
+            }
+        }
+
+        if ($taxName !== '' && mb_strlen($taxName) > 50) {
+            $errors['tax_name'] = 'Tax name cannot exceed 50 characters.';
+        }
+
+        if ($taxIdNumber !== '' && mb_strlen($taxIdNumber) > 50) {
+            $errors['tax_id_number'] = 'Tax ID number cannot exceed 50 characters.';
+        }
+
         if (!empty($errors)) {
             return [
                 'success' => false,
@@ -53,20 +74,51 @@ class BusinessSettingService
         }
 
         $settings = $this->get();
+        $oldSnapshot = $settings;
 
-        (new BusinessSetting())->update([
+        $updatePayload = [
             'name'       => $name,
             'address'    => trim($data['address'] ?? '') ?: null,
             'phone'      => trim($data['phone'] ?? '') ?: null,
             'email'      => $email ?: null,
             'updated_at' => date('Y-m-d H:i:s'),
             'updated_by' => $userId
-        ], $settings['id']);
+        ];
+
+        if (array_key_exists('tax_name', $data)) {
+            $updatePayload['tax_name'] = $taxName ?: 'VAT';
+        }
+
+        if (array_key_exists('tax_rate_percent', $data)) {
+            $updatePayload['tax_rate_percent'] = round((float)$data['tax_rate_percent'], 2);
+        }
+
+        if (array_key_exists('tax_id_number', $data)) {
+            $updatePayload['tax_id_number'] = $taxIdNumber ?: null;
+        }
+
+        (new BusinessSetting())->update($updatePayload, $settings['id']);
+
+        $newSettings = $this->get();
+
+        // Record granular entity change audit diff
+        try {
+            AuditDiffService::recordDiff(
+                'business_settings',
+                (int)$settings['id'],
+                'UPDATE',
+                $oldSnapshot,
+                $newSettings,
+                $userId
+            );
+        } catch (\Throwable $e) {
+            error_log('AuditDiffService error on business_settings: ' . $e->getMessage());
+        }
 
         return [
             'success' => true,
-            'message' => 'Business information updated successfully.',
-            'data' => $this->get()
+            'message' => 'Business and tax configuration updated successfully.',
+            'data' => $newSettings
         ];
     }
 
