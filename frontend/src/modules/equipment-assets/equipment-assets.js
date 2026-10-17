@@ -10,6 +10,7 @@ import {
     deleteEquipmentAsset
 } from "./equipment-assets.service.js";
 import { showToast } from "../../core/toast.js";
+import { formatCurrency, updateDomCurrencyElements } from "../../core/currency.js";
 
 let state = {
     user: null,
@@ -36,6 +37,7 @@ export async function initEquipmentAssets(user = {}) {
 
     // Attach listeners
     setupEventListeners();
+    updateDomCurrencyElements();
 
     // Initial loads
     await loadLocations();
@@ -705,7 +707,7 @@ function renderLogsTable(logs) {
                     ${l.actions_taken ? `<div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Action: ${escapeHtml(l.actions_taken)}</div>` : ''}
                 </td>
                 <td style="padding: 8px 12px; text-align: right; font-weight: 500;">
-                    ${l.cost && parseFloat(l.cost) > 0 ? `$${parseFloat(l.cost).toFixed(2)}` : '$0.00'}
+                    ${formatCurrency(l.cost)}
                 </td>
             </tr>
         `;

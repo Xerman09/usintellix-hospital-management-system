@@ -34,7 +34,11 @@ class BusinessSettingController extends Controller
         $request = new Request();
 
         $result = $this->businessSettingService->update(
-            $request->only(['name', 'address', 'phone', 'email', 'tax_name', 'tax_rate_percent', 'tax_id_number']),
+            $request->only([
+                'name', 'address', 'phone', 'email',
+                'tax_name', 'tax_rate_percent', 'tax_id_number',
+                'currency_code', 'currency_symbol', 'currency_position', 'decimal_places'
+            ]),
             (int) $user['id']
         );
 

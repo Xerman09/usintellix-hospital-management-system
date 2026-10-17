@@ -20,18 +20,22 @@ class BusinessSettingService
         }
 
         $id = (new BusinessSetting())->create([
-            'name'             => 'Intellix',
-            'tax_name'         => 'VAT',
-            'tax_rate_percent' => 12.00,
-            'tax_id_number'    => 'TIN-482-901-736-000',
-            'created_at'       => date('Y-m-d H:i:s')
+            'name'              => 'Intellix',
+            'tax_name'          => 'VAT',
+            'tax_rate_percent'  => 12.00,
+            'tax_id_number'     => 'TIN-482-901-736-000',
+            'currency_code'     => 'USD',
+            'currency_symbol'   => '$',
+            'currency_position' => 'prefix',
+            'decimal_places'    => 2,
+            'created_at'        => date('Y-m-d H:i:s')
         ]);
 
         return (new BusinessSetting())->where('id', $id)->first();
     }
 
     /**
-     * Update the business name, contact info, and tax/institutional identity (admin-only).
+     * Update the business name, contact info, tax configuration, and currency preferences (admin-only).
      */
     public function update(array $data, int $userId): array
     {
@@ -39,6 +43,10 @@ class BusinessSettingService
         $email = trim($data['email'] ?? '');
         $taxName = trim($data['tax_name'] ?? '');
         $taxIdNumber = trim($data['tax_id_number'] ?? '');
+        $currencyCode = strtoupper(trim($data['currency_code'] ?? ''));
+        $currencySymbol = trim($data['currency_symbol'] ?? '');
+        $currencyPosition = strtolower(trim($data['currency_position'] ?? ''));
+        $decimalPlaces = isset($data['decimal_places']) ? (int)$data['decimal_places'] : null;
 
         $errors = [];
 
@@ -63,6 +71,22 @@ class BusinessSettingService
 
         if ($taxIdNumber !== '' && mb_strlen($taxIdNumber) > 50) {
             $errors['tax_id_number'] = 'Tax ID number cannot exceed 50 characters.';
+        }
+
+        if ($currencyCode !== '' && (mb_strlen($currencyCode) < 1 || mb_strlen($currencyCode) > 10)) {
+            $errors['currency_code'] = 'Currency code must be between 1 and 10 characters (e.g. USD, PHP, EUR).';
+        }
+
+        if ($currencySymbol !== '' && mb_strlen($currencySymbol) > 10) {
+            $errors['currency_symbol'] = 'Currency symbol cannot exceed 10 characters (e.g. $, ₱, €).';
+        }
+
+        if ($currencyPosition !== '' && !in_array($currencyPosition, ['prefix', 'suffix'], true)) {
+            $errors['currency_position'] = 'Currency position must be either "prefix" or "suffix".';
+        }
+
+        if ($decimalPlaces !== null && ($decimalPlaces < 0 || $decimalPlaces > 4)) {
+            $errors['decimal_places'] = 'Decimal places must be between 0 and 4.';
         }
 
         if (!empty($errors)) {
@@ -97,6 +121,22 @@ class BusinessSettingService
             $updatePayload['tax_id_number'] = $taxIdNumber ?: null;
         }
 
+        if (array_key_exists('currency_code', $data)) {
+            $updatePayload['currency_code'] = $currencyCode ?: 'USD';
+        }
+
+        if (array_key_exists('currency_symbol', $data)) {
+            $updatePayload['currency_symbol'] = $currencySymbol ?: '$';
+        }
+
+        if (array_key_exists('currency_position', $data)) {
+            $updatePayload['currency_position'] = in_array($currencyPosition, ['prefix', 'suffix'], true) ? $currencyPosition : 'prefix';
+        }
+
+        if (array_key_exists('decimal_places', $data)) {
+            $updatePayload['decimal_places'] = ($decimalPlaces !== null && $decimalPlaces >= 0 && $decimalPlaces <= 4) ? $decimalPlaces : 2;
+        }
+
         (new BusinessSetting())->update($updatePayload, $settings['id']);
 
         $newSettings = $this->get();
@@ -117,7 +157,7 @@ class BusinessSettingService
 
         return [
             'success' => true,
-            'message' => 'Business and tax configuration updated successfully.',
+            'message' => 'Business, tax, and currency configuration updated successfully.',
             'data' => $newSettings
         ];
     }

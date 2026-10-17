@@ -359,6 +359,36 @@ export function BusinessInfoSectionView()
             <p id="ro_business_tax_id" style="font-family: monospace; font-size: 13.5px; font-weight: 600; color: var(--text-primary, #1e293b);">-</p>
         </div>
     </div>
+
+    <!-- Currency & Localization Preferences -->
+    <div style="margin: 28px 0 16px; padding-top: 20px; border-top: 1px solid var(--border-color, #e5e9f0);">
+        <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 700; color: var(--text-primary, #14181f); display: flex; align-items: center; gap: 8px;">
+            <span>💵</span> Currency & Localization Preferences
+        </h3>
+        <p class="form-subtitle" style="margin: 0; font-size: 12.5px; color: var(--text-muted, #64748b);">System-wide currency symbol, code, positioning, and decimal precision applied to billing, patient statements, invoices, and reports.</p>
+    </div>
+
+    <div class="form-grid" style="margin-top: 16px;">
+        <div class="form-group">
+            <label>Currency Code & Symbol</label>
+            <p id="ro_business_currency_info" style="font-weight: 600; color: var(--text-primary, #1e293b);">-</p>
+        </div>
+
+        <div class="form-group">
+            <label>Placement & Precision</label>
+            <p id="ro_business_currency_placement">-</p>
+        </div>
+
+        <div class="form-group full">
+            <label>Live Formatted Sample Output</label>
+            <div style="padding: 10px 14px; background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px; display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                <span style="font-size: 12px; color: var(--text-muted, #64748b);">Standard:</span>
+                <span id="ro_business_currency_sample" style="font-family: monospace; font-size: 14.5px; font-weight: 700; color: #16a34a;">-</span>
+                <span style="font-size: 12px; color: var(--text-muted, #64748b);">Fee Example:</span>
+                <span id="ro_business_currency_sample_fee" style="font-family: monospace; font-size: 14.5px; font-weight: 700; color: #2563eb;">-</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="editBusinessModalOverlay">
@@ -420,6 +450,62 @@ export function BusinessInfoSectionView()
                     <label>Hospital Tax ID (TIN / EIN / Hospital ID)</label>
                     <input id="edit_business_tax_id" class="form-input" placeholder="e.g. TIN-482-901-736-000">
                     <span class="form-error" id="err-edit_tax_id"></span>
+                </div>
+
+                <!-- Currency & Localization Preferences -->
+                <div class="form-group full" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color, #e5e9f0);">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-primary, #1e293b); display: flex; align-items: center; gap: 6px;">
+                        <span>💵</span> Currency & Localization Preferences
+                    </span>
+                </div>
+
+                <div class="form-group full">
+                    <label>Currency Preset Quick-Select</label>
+                    <select id="edit_business_currency_preset" class="form-input">
+                        <option value="USD">USD ($) — US Dollar</option>
+                        <option value="PHP">PHP (₱) — Philippine Peso</option>
+                        <option value="EUR">EUR (€) — Euro</option>
+                        <option value="GBP">GBP (£) — British Pound</option>
+                        <option value="AUD">AUD (A$) — Australian Dollar</option>
+                        <option value="CAD">CAD (C$) — Canadian Dollar</option>
+                        <option value="SGD">SGD (S$) — Singapore Dollar</option>
+                        <option value="JPY">JPY (¥) — Japanese Yen (0 decimals)</option>
+                        <option value="CUSTOM">Custom Configuration...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Currency Code (e.g. USD, PHP, EUR)</label>
+                    <input id="edit_business_currency_code" class="form-input" placeholder="USD" maxlength="10">
+                    <span class="form-error" id="err-edit_currency_code"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Currency Symbol (e.g. $, ₱, €, £)</label>
+                    <input id="edit_business_currency_symbol" class="form-input" placeholder="$" maxlength="10">
+                    <span class="form-error" id="err-edit_currency_symbol"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Symbol Position</label>
+                    <select id="edit_business_currency_position" class="form-input">
+                        <option value="prefix">Prefix (e.g. $1,250.00)</option>
+                        <option value="suffix">Suffix (e.g. 1,250.00 $)</option>
+                    </select>
+                    <span class="form-error" id="err-edit_currency_position"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Decimal Precision (0 - 4 places)</label>
+                    <input id="edit_business_decimal_places" type="number" min="0" max="4" class="form-input" placeholder="2">
+                    <span class="form-error" id="err-edit_decimal_places"></span>
+                </div>
+
+                <div class="form-group full" style="margin-top: 4px;">
+                    <div style="padding: 8px 12px; background: var(--bg-surface-alt, #f8fafc); border: 1px dashed var(--border-color, #cbd5e1); border-radius: 6px; font-size: 12.5px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: var(--text-muted, #64748b);">Interactive Preview:</span>
+                        <span id="edit_currency_live_preview" style="font-family: monospace; font-size: 14px; font-weight: 700; color: #16a34a;">$1,250.00</span>
+                    </div>
                 </div>
             </div>
 

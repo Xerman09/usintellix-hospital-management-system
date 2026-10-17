@@ -10,6 +10,7 @@ import {
 import { API_URL } from "../../core/api.js?v=10";
 import { clearBrandingCache, applyBranding } from "../../core/branding.js";
 import { showToast } from "../../core/toast.js";
+import { formatCurrency, setCurrencyPreference, CURRENCY_PRESETS } from "../../core/currency.js";
 import { PharmaciesView } from "../pharmacies/pharmacies.view.js";
 import { initPharmacies } from "../pharmacies/pharmacies.js";
 import { InsurancesView } from "../insurances/insurances.view.js";
@@ -133,6 +134,31 @@ function renderSettings(settings)
         taxIdEl.textContent = settings.tax_id_number || "Not Registered";
     }
 
+    // Currency & Localization Preferences
+    const currencyInfoEl = document.getElementById("ro_business_currency_info");
+    if (currencyInfoEl) {
+        const code = (settings.currency_code || "USD").toUpperCase();
+        const symbol = settings.currency_symbol || "$";
+        currencyInfoEl.textContent = `${code} (${symbol})`;
+    }
+
+    const currencyPlacementEl = document.getElementById("ro_business_currency_placement");
+    if (currencyPlacementEl) {
+        const pos = settings.currency_position === "suffix" ? "Suffix" : "Prefix";
+        const dec = Number.isInteger(settings.decimal_places) ? settings.decimal_places : 2;
+        currencyPlacementEl.textContent = `${pos} Placement · ${dec} Decimal ${dec === 1 ? 'Place' : 'Places'}`;
+    }
+
+    const sampleEl = document.getElementById("ro_business_currency_sample");
+    if (sampleEl) {
+        sampleEl.textContent = formatCurrency(1250);
+    }
+
+    const sampleFeeEl = document.getElementById("ro_business_currency_sample_fee");
+    if (sampleFeeEl) {
+        sampleFeeEl.textContent = formatCurrency(75.5);
+    }
+
     document.getElementById("logoPreview").src = settings.logo ? `${API_URL}${settings.logo}` : "./assets/logo.png?v=1";
     document.getElementById("removeLogoBtn").style.display = settings.logo ? "" : "none";
 }
@@ -141,6 +167,52 @@ function setupEditBusinessModal()
 {
     const modalOverlay = document.getElementById("editBusinessModalOverlay");
     const form = document.getElementById("editBusinessForm");
+
+    function updateModalPreview() {
+        const previewEl = document.getElementById("edit_currency_live_preview");
+        if (!previewEl) return;
+        const symbol = document.getElementById("edit_business_currency_symbol")?.value || "$";
+        const position = document.getElementById("edit_business_currency_position")?.value || "prefix";
+        const decVal = parseInt(document.getElementById("edit_business_decimal_places")?.value || "2", 10);
+        const decimals = isNaN(decVal) || decVal < 0 ? 2 : Math.min(decVal, 4);
+
+        const formattedNum = (1250.00).toLocaleString("en-US", {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+
+        previewEl.textContent = (position === "suffix") ? `${formattedNum} ${symbol}` : `${symbol}${formattedNum}`;
+    }
+
+    const presetSelect = document.getElementById("edit_business_currency_preset");
+    if (presetSelect) {
+        presetSelect.addEventListener("change", () => {
+            const chosen = presetSelect.value;
+            const preset = CURRENCY_PRESETS.find(p => p.code === chosen);
+            if (preset) {
+                if (document.getElementById("edit_business_currency_code")) document.getElementById("edit_business_currency_code").value = preset.code;
+                if (document.getElementById("edit_business_currency_symbol")) document.getElementById("edit_business_currency_symbol").value = preset.symbol;
+                if (document.getElementById("edit_business_currency_position")) document.getElementById("edit_business_currency_position").value = preset.position;
+                if (document.getElementById("edit_business_decimal_places")) document.getElementById("edit_business_decimal_places").value = preset.decimals;
+            }
+            updateModalPreview();
+        });
+    }
+
+    ["edit_business_currency_code", "edit_business_currency_symbol", "edit_business_currency_position", "edit_business_decimal_places"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener("input", () => {
+                if (presetSelect) {
+                    const curCode = document.getElementById("edit_business_currency_code")?.value.trim().toUpperCase();
+                    const match = CURRENCY_PRESETS.find(p => p.code === curCode);
+                    presetSelect.value = match ? curCode : "CUSTOM";
+                }
+                updateModalPreview();
+            });
+            el.addEventListener("change", updateModalPreview);
+        }
+    });
 
     const openModal = () => {
         document.getElementById("err-edit_name").textContent = "";
@@ -151,6 +223,14 @@ function setupEditBusinessModal()
         if (errTaxRate) errTaxRate.textContent = "";
         const errTaxId = document.getElementById("err-edit_tax_id");
         if (errTaxId) errTaxId.textContent = "";
+        const errCurrencyCode = document.getElementById("err-edit_currency_code");
+        if (errCurrencyCode) errCurrencyCode.textContent = "";
+        const errCurrencySymbol = document.getElementById("err-edit_currency_symbol");
+        if (errCurrencySymbol) errCurrencySymbol.textContent = "";
+        const errCurrencyPosition = document.getElementById("err-edit_currency_position");
+        if (errCurrencyPosition) errCurrencyPosition.textContent = "";
+        const errDecimalPlaces = document.getElementById("err-edit_decimal_places");
+        if (errDecimalPlaces) errDecimalPlaces.textContent = "";
 
         document.getElementById("editBusinessFormAlert").innerHTML = "";
         document.getElementById("edit_business_name").value = currentSettings?.name || "";
@@ -175,6 +255,31 @@ function setupEditBusinessModal()
             editTaxId.value = currentSettings?.tax_id_number || "";
         }
 
+        // Currency fields
+        const currCode = (currentSettings?.currency_code || "USD").toUpperCase();
+        const currSymbol = currentSettings?.currency_symbol || "$";
+        const currPos = currentSettings?.currency_position === "suffix" ? "suffix" : "prefix";
+        const currDec = Number.isInteger(currentSettings?.decimal_places) ? currentSettings.decimal_places : 2;
+
+        if (document.getElementById("edit_business_currency_code")) {
+            document.getElementById("edit_business_currency_code").value = currCode;
+        }
+        if (document.getElementById("edit_business_currency_symbol")) {
+            document.getElementById("edit_business_currency_symbol").value = currSymbol;
+        }
+        if (document.getElementById("edit_business_currency_position")) {
+            document.getElementById("edit_business_currency_position").value = currPos;
+        }
+        if (document.getElementById("edit_business_decimal_places")) {
+            document.getElementById("edit_business_decimal_places").value = currDec;
+        }
+
+        if (presetSelect) {
+            const match = Array.from(presetSelect.options).find(opt => opt.value === currCode);
+            presetSelect.value = match ? currCode : "CUSTOM";
+        }
+
+        updateModalPreview();
         modalOverlay.classList.add("open");
     };
 
@@ -203,6 +308,14 @@ function setupEditBusinessModal()
         if (errTaxRate) errTaxRate.textContent = "";
         const errTaxId = document.getElementById("err-edit_tax_id");
         if (errTaxId) errTaxId.textContent = "";
+        const errCurrencyCode = document.getElementById("err-edit_currency_code");
+        if (errCurrencyCode) errCurrencyCode.textContent = "";
+        const errCurrencySymbol = document.getElementById("err-edit_currency_symbol");
+        if (errCurrencySymbol) errCurrencySymbol.textContent = "";
+        const errCurrencyPosition = document.getElementById("err-edit_currency_position");
+        if (errCurrencyPosition) errCurrencyPosition.textContent = "";
+        const errDecimalPlaces = document.getElementById("err-edit_decimal_places");
+        if (errDecimalPlaces) errDecimalPlaces.textContent = "";
 
         const name = document.getElementById("edit_business_name").value.trim();
         const address = document.getElementById("edit_business_address").value.trim();
@@ -218,6 +331,18 @@ function setupEditBusinessModal()
         const editTaxId = document.getElementById("edit_business_tax_id");
         const tax_id_number = editTaxId ? editTaxId.value.trim() : "";
 
+        const editCurrencyCode = document.getElementById("edit_business_currency_code");
+        const currency_code = editCurrencyCode ? editCurrencyCode.value.trim().toUpperCase() : "USD";
+
+        const editCurrencySymbol = document.getElementById("edit_business_currency_symbol");
+        const currency_symbol = editCurrencySymbol ? editCurrencySymbol.value.trim() : "$";
+
+        const editCurrencyPosition = document.getElementById("edit_business_currency_position");
+        const currency_position = editCurrencyPosition ? editCurrencyPosition.value : "prefix";
+
+        const editDecimalPlaces = document.getElementById("edit_business_decimal_places");
+        const decimal_places = editDecimalPlaces && editDecimalPlaces.value !== "" ? parseInt(editDecimalPlaces.value, 10) : 2;
+
         const result = await updateBusinessSettings({
             name,
             address,
@@ -225,7 +350,11 @@ function setupEditBusinessModal()
             email,
             tax_name,
             tax_rate_percent,
-            tax_id_number
+            tax_id_number,
+            currency_code,
+            currency_symbol,
+            currency_position,
+            decimal_places
         });
 
         if (!result.success) {
@@ -246,7 +375,7 @@ function setupEditBusinessModal()
 
         applySettingsUpdate(result.data);
         closeModal();
-        showToast("Business and tax information updated successfully.", "success");
+        showToast("Business, tax, and currency preferences updated successfully.", "success");
     });
 }
 
@@ -326,6 +455,7 @@ function setupLogoMenu()
 function applySettingsUpdate(settings)
 {
     currentSettings = settings;
+    setCurrencyPreference(settings);
     renderSettings(settings);
 
     clearBrandingCache();

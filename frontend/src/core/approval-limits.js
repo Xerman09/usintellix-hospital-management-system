@@ -1,4 +1,5 @@
 import { getUser } from "./session.js?v=5";
+import { formatCurrency } from "./currency.js";
 
 /*
  * Approval limits by amount (General Settings > Approval Limits). Above
@@ -7,7 +8,7 @@ import { getUser } from "./session.js?v=5";
  * helpers only word it for the screens.
  */
 
-const peso = (value) => "₱" + Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatMoney = (value) => formatCurrency(value);
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function when(value) {
@@ -28,7 +29,7 @@ export function isFirstLevelOnly(doc) {
 export function limitNote(doc) {
     if (!doc?.needs_admin_approval || doc.status !== "pending_approval") return "";
 
-    const limit = `above the ${peso(doc.approval_limit)} approval limit`;
+    const limit = `above the ${formatMoney(doc.approval_limit)} approval limit`;
 
     if (doc.first_approved_at) {
         return `<span class="approval-limit-note">First approval by <strong>${esc(doc.first_approved_by_name || "an approver")}</strong> on ${esc(when(doc.first_approved_at))}${doc.first_approval_notes ? ` &mdash; &ldquo;${esc(doc.first_approval_notes)}&rdquo;` : ""}. It's ${limit}, so an administrator gives the final approval.</span>`;

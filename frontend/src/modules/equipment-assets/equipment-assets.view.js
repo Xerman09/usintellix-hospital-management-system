@@ -309,7 +309,7 @@ export function EquipmentAssetsView(user = {}) {
                             <input type="date" id="eq-form-purchase-date" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
                         </div>
                         <div>
-                            <label style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Purchase Cost ($)</label>
+                            <label style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Purchase Cost (<span data-currency-symbol>$</span>)</label>
                             <input type="number" step="0.01" min="0" id="eq-form-purchase-cost" placeholder="0.00" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
                         </div>
                         <div>
@@ -453,7 +453,7 @@ export function EquipmentAssetsView(user = {}) {
                                     <input type="date" id="eq-log-next-due" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
                                 </div>
                                 <div>
-                                    <label style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Service Cost ($)</label>
+                                    <label style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Service Cost (<span data-currency-symbol>$</span>)</label>
                                     <input type="number" step="0.01" min="0" id="eq-log-cost" placeholder="0.00" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 0.875rem; border: 1px solid #cbd5e1; border-radius: 6px;">
                                 </div>
                             </div>

@@ -6,13 +6,15 @@ import { initInactivityGuard } from "./core/inactivity-guard.js?v=4";
 import { initBreakGlassListener } from "./core/break-glass-modal.js?v=4";
 import "./core/patient-chart-helper.js?v=40";
 import { initSystemTimezone } from "./core/timezone.js";
+import { initCurrency } from "./core/currency.js";
 
 initTheme();
 
 function boot() {
-    // Refresh the system timezone in the background -- the remembered one
+    // Refresh the system timezone & currency in the background -- the remembered one
     // is used until it answers, so nothing waits on it.
     initSystemTimezone();
+    initCurrency();
     initInactivityGuard();
     initBreakGlassListener();
     router();

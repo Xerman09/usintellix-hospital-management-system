@@ -1,6 +1,8 @@
 import { API_URL } from "./api.js?v=10";
 import { fetchBusinessSettings } from "../modules/business-settings/business-settings.service.js";
 
+import { initCurrency } from "./currency.js";
+
 const DEFAULT_BRANDING = { name: "Intellix", logo: null };
 
 let cached = null;
@@ -17,6 +19,10 @@ export async function loadBranding()
     const result = await fetchBusinessSettings();
 
     cached = result.success ? result.data : DEFAULT_BRANDING;
+
+    if (result.success && result.data) {
+        initCurrency(result.data);
+    }
 
     return cached;
 }
