@@ -58,3 +58,19 @@ $router->post('/audit-diffs/record', [AuditDiffController::class, 'record'], [
     [RoleMiddleware::class, ['admin']]
 ]);
 
+// Unified System & Security Logs: Authentication & Session Governance
+$router->get('/auth-logs', [\App\Modules\Audit\Controllers\AuthLogController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->post('/auth-logs/revoke-session', [\App\Modules\Audit\Controllers\AuthLogController::class, 'revokeSession'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->get('/system-logs/summary', [\App\Modules\Audit\Controllers\AuthLogController::class, 'summary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+

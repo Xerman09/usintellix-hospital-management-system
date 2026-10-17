@@ -1762,15 +1762,20 @@ export function Dashboard()
                 setTimeout(initTermsConditions, 0);
                 return TermsConditionsView({ isTab: true });
             }, activate);
+        } else if (tabId === 'admin_system_logs' || tabId === 'system_logs') {
+            tabManager.openTab(tabId, title || 'Unified System & Security Logs', () => {
+                setTimeout(() => initHipaaAudit({ initialTab: 'auth' }), 0);
+                return HipaaAuditView({ initialTab: 'auth' });
+            }, activate);
         } else if (tabId === 'audit_trail_diffs' || tabId === 'audit_diffs') {
             tabManager.openTab(tabId, title || 'Entity Data Change History (Diffs)', () => {
                 setTimeout(() => initHipaaAudit({ initialTab: 'diffs' }), 0);
                 return HipaaAuditView({ initialTab: 'diffs' });
             }, activate);
-        } else if (tabId === 'hipaa_audit' || tabId === 'admin_system_logs' || tabId === 'admin_system_audit_log_tamper') {
+        } else if (tabId === 'hipaa_audit' || tabId === 'admin_system_audit_log_tamper') {
             tabManager.openTab(tabId, title || 'HIPAA Audit Logs & Integrity', () => {
-                setTimeout(initHipaaAudit, 0);
-                return HipaaAuditView();
+                setTimeout(() => initHipaaAudit({ initialTab: 'activity' }), 0);
+                return HipaaAuditView({ initialTab: 'activity' });
             }, activate);
         } else if (tabId === 'system_documentation' || tabId === 'system_docs') {
             tabManager.openTab(tabId, title || 'System Documentation', () => {

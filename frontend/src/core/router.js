@@ -122,6 +122,14 @@ const routes = {
     "/audit_trail_diffs": {
         view: () => HipaaAuditView({ initialTab: 'diffs' }),
         afterRender: () => initHipaaAudit({ initialTab: 'diffs' })
+    },
+    "/system-logs": {
+        view: () => HipaaAuditView({ initialTab: 'auth' }),
+        afterRender: () => initHipaaAudit({ initialTab: 'auth' })
+    },
+    "/system_logs": {
+        view: () => HipaaAuditView({ initialTab: 'auth' }),
+        afterRender: () => initHipaaAudit({ initialTab: 'auth' })
     }
 
 };

@@ -59,6 +59,11 @@ return [
                 'label' => 'Granular Entity Data Change History',
                 'description' => 'Inspect field-level before/after diffs across patients, rooms, equipment, and clinical records',
             ],
+            'admin_system_logs' => [
+                'name' => 'admin_system_logs',
+                'label' => 'Unified System & Security Logs Console',
+                'description' => 'Centralized governance of authentication logs, active sessions, data change diffs, and cryptographic HMAC audit trails',
+            ],
             'admin_settings' => [
                 'name' => 'admin_settings',
                 'label' => 'Enterprise System Settings',

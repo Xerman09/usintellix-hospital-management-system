@@ -6,35 +6,42 @@ const pageSize = 20;
 
 let currentDiffPage = 1;
 const diffPageSize = 20;
-let currentTab = 'activity';
+
+let currentAuthPage = 1;
+const authPageSize = 20;
+let currentAuthSubTab = 'events';
+
+let currentTab = 'auth';
 let distinctTablesLoaded = false;
 
 export async function initHipaaAudit(options = {})
 {
     currentPage = 1;
     currentDiffPage = 1;
+    currentAuthPage = 1;
+    currentAuthSubTab = 'events';
     distinctTablesLoaded = false;
-    currentTab = options.initialTab || (window.__initialAuditTab || 'activity');
+    currentTab = options.initialTab || (window.__initialAuditTab || 'auth');
     window.__initialAuditTab = null;
 
-    bindAuditEvents();
+    bindAuthEvents();
     bindDiffEvents();
+    bindAuditEvents();
+
+    loadUnifiedKpiMetrics();
 
     switchAuditTab(currentTab);
-
-    if (currentTab === 'activity') {
-        await loadAuditLogs();
-    } else {
-        await loadDistinctTables();
-        await loadAuditDiffs();
-    }
 }
 
 function bindAuditEvents()
 {
+    const btnTabAuth = document.getElementById("btnTabAuth");
     const btnTabActivity = document.getElementById("btnTabActivity");
     const btnTabDiffs = document.getElementById("btnTabDiffs");
 
+    if (btnTabAuth) {
+        btnTabAuth.onclick = () => switchAuditTab('auth');
+    }
     if (btnTabActivity) {
         btnTabActivity.onclick = () => switchAuditTab('activity');
     }
@@ -244,15 +251,19 @@ function bindAuditEvents()
 function switchAuditTab(tab)
 {
     currentTab = tab;
-    const btnTabActivity = document.getElementById("btnTabActivity");
+    const btnTabAuth = document.getElementById("btnTabAuth");
     const btnTabDiffs = document.getElementById("btnTabDiffs");
-    const sectionActivity = document.getElementById("hipaaActivitySection");
+    const btnTabActivity = document.getElementById("btnTabActivity");
+
+    const sectionAuth = document.getElementById("hipaaAuthSection");
     const sectionDiffs = document.getElementById("hipaaDiffsSection");
+    const sectionActivity = document.getElementById("hipaaActivitySection");
+
+    [btnTabAuth, btnTabDiffs, btnTabActivity].forEach(b => b?.classList.remove('active'));
+    [sectionAuth, sectionDiffs, sectionActivity].forEach(s => { if (s) s.style.display = 'none'; });
 
     if (tab === 'diffs') {
-        if (btnTabActivity) btnTabActivity.classList.remove('active');
         if (btnTabDiffs) btnTabDiffs.classList.add('active');
-        if (sectionActivity) sectionActivity.style.display = 'none';
         if (sectionDiffs) sectionDiffs.style.display = '';
 
         if (!distinctTablesLoaded) {
@@ -260,11 +271,426 @@ function switchAuditTab(tab)
             distinctTablesLoaded = true;
         }
         loadAuditDiffs();
-    } else {
+    } else if (tab === 'activity' || tab === 'hmac') {
         if (btnTabActivity) btnTabActivity.classList.add('active');
-        if (btnTabDiffs) btnTabDiffs.classList.remove('active');
         if (sectionActivity) sectionActivity.style.display = '';
-        if (sectionDiffs) sectionDiffs.style.display = 'none';
+        loadAuditLogs();
+    } else {
+        // default 'auth'
+        if (btnTabAuth) btnTabAuth.classList.add('active');
+        if (sectionAuth) sectionAuth.style.display = '';
+        loadAuthLogs();
+    }
+}
+
+async function loadUnifiedKpiMetrics()
+{
+    try {
+        const res = await api('/system-logs/summary');
+        if (res && res.success && res.data) {
+            const d = res.data;
+            const kpiActive = document.getElementById("kpiActiveSessions");
+            const kpiActiveSub = document.getElementById("kpiActiveSessionsSub");
+            const kpiAuthSuccess = document.getElementById("kpiAuthSuccess");
+            const kpiAuthFailed = document.getElementById("kpiAuthFailed");
+            const kpiDiffs = document.getElementById("kpiDataDiffs");
+            const kpiHmac = document.getElementById("kpiTotalHmac");
+
+            if (kpiActive) kpiActive.textContent = d.active_sessions;
+            if (kpiActiveSub) kpiActiveSub.textContent = `${d.active_sessions} concurrent user(s)`;
+            if (kpiAuthSuccess) kpiAuthSuccess.textContent = `${d.success_logins_24h} Logins`;
+            if (kpiAuthFailed) kpiAuthFailed.textContent = `${d.failed_logins_24h} failed challenge(s)`;
+            if (kpiDiffs) kpiDiffs.textContent = d.total_data_diffs;
+            if (kpiHmac) kpiHmac.textContent = d.total_hmac_logs.toLocaleString();
+        }
+    } catch (e) {
+        console.error('Failed to load system log metrics', e);
+    }
+}
+
+function bindAuthEvents()
+{
+    const btnSubTabEvents = document.getElementById("btnSubTabEvents");
+    const btnSubTabSessions = document.getElementById("btnSubTabSessions");
+    const groupAction = document.getElementById("authFilterActionGroup");
+    const groupStatus = document.getElementById("authFilterStatusGroup");
+
+    if (btnSubTabEvents) {
+        btnSubTabEvents.onclick = () => {
+            currentAuthSubTab = 'events';
+            btnSubTabEvents.classList.add('active');
+            btnSubTabSessions?.classList.remove('active');
+            if (groupAction) groupAction.style.display = '';
+            if (groupStatus) groupStatus.style.display = 'none';
+            currentAuthPage = 1;
+            loadAuthLogs();
+        };
+    }
+
+    if (btnSubTabSessions) {
+        btnSubTabSessions.onclick = () => {
+            currentAuthSubTab = 'sessions';
+            btnSubTabSessions.classList.add('active');
+            btnSubTabEvents?.classList.remove('active');
+            if (groupAction) groupAction.style.display = 'none';
+            if (groupStatus) groupStatus.style.display = '';
+            currentAuthPage = 1;
+            loadAuthLogs();
+        };
+    }
+
+    const btnFilter = document.getElementById("btnApplyAuthFilters");
+    const btnReset = document.getElementById("btnResetAuthFilters");
+    const btnPrev = document.getElementById("btnAuthPrevPage");
+    const btnNext = document.getElementById("btnAuthNextPage");
+
+    if (btnFilter) {
+        btnFilter.onclick = () => {
+            currentAuthPage = 1;
+            loadAuthLogs();
+        };
+    }
+
+    if (btnReset) {
+        btnReset.onclick = () => {
+            const actionSelect = document.getElementById("authFilterAction");
+            const statusSelect = document.getElementById("authFilterStatus");
+            const dateFromInput = document.getElementById("authFilterDateFrom");
+            const dateToInput = document.getElementById("authFilterDateTo");
+            const searchInput = document.getElementById("authFilterSearch");
+
+            if (actionSelect) actionSelect.value = "";
+            if (statusSelect) statusSelect.value = "active";
+            if (dateFromInput) dateFromInput.value = "";
+            if (dateToInput) dateToInput.value = "";
+            if (searchInput) searchInput.value = "";
+
+            currentAuthPage = 1;
+            loadAuthLogs();
+        };
+    }
+
+    if (btnPrev) {
+        btnPrev.onclick = () => {
+            if (currentAuthPage > 1) {
+                currentAuthPage--;
+                loadAuthLogs();
+            }
+        };
+    }
+
+    if (btnNext) {
+        btnNext.onclick = () => {
+            currentAuthPage++;
+            loadAuthLogs();
+        };
+    }
+}
+
+async function loadAuthLogs()
+{
+    const tbody = document.getElementById("authTableBody");
+    const thead = document.getElementById("authTableHead");
+    if (!tbody || !thead) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="7" style="text-align: center; padding: 24px; color: #64748b;">
+                <span class="spinner-border spinner-border-sm" role="status" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                Loading authentication records...
+            </td>
+        </tr>
+    `;
+
+    const action = document.getElementById("authFilterAction")?.value || "";
+    const status = document.getElementById("authFilterStatus")?.value || "";
+    const dateFrom = document.getElementById("authFilterDateFrom")?.value || "";
+    const dateTo = document.getElementById("authFilterDateTo")?.value || "";
+    const search = document.getElementById("authFilterSearch")?.value || "";
+
+    const params = new URLSearchParams({
+        subtab: currentAuthSubTab,
+        page: String(currentAuthPage),
+        limit: String(authPageSize)
+    });
+
+    if (action && currentAuthSubTab === 'events') params.append("action", action);
+    if (status && currentAuthSubTab === 'sessions') params.append("status", status);
+    if (dateFrom) params.append("date_from", dateFrom);
+    if (dateTo) params.append("date_to", dateTo);
+    if (search) params.append("search", search);
+
+    try {
+        const res = await api(`/auth-logs?${params.toString()}`);
+
+        if (!res || !res.success) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 24px; color: #ef4444;">
+                        ${escapeHtml(res?.message || "Error loading authentication records.")}
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const { records, pagination } = res.data;
+
+        if (currentAuthSubTab === 'sessions') {
+            // Render active sessions header & rows
+            thead.innerHTML = `
+                <tr>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 60px;">ID</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569;">User Account</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 140px;">Device / Client</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 130px;">IP Address</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 160px;">Login Timestamp</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 160px;">Last Activity</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 120px;">Session State</th>
+                    <th style="padding: 10px 14px; text-align: center; font-weight: 600; color: #475569; width: 110px;">Security Action</th>
+                </tr>
+            `;
+
+            if (!records || records.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 32px; color: #64748b;">
+                            No user session records match your filter criteria.
+                        </td>
+                    </tr>
+                `;
+                updateAuthPagination(pagination);
+                return;
+            }
+
+            let rowsHtml = "";
+            records.forEach(row => {
+                const isActive = (parseInt(row.is_active, 10) === 1);
+                let stateBadge = "";
+                if (isActive) {
+                    stateBadge = `<span class="auth-badge auth-badge-success"><span class="live-dot"></span> Active</span>`;
+                } else if (row.revoked_by) {
+                    stateBadge = `<span class="auth-badge auth-badge-revoked" title="${escapeHtml(row.revocation_reason || '')}">Revoked</span>`;
+                } else {
+                    stateBadge = `<span class="auth-badge auth-badge-logout">Closed</span>`;
+                }
+
+                const userDisplay = row.full_name
+                    ? `<strong>${escapeHtml(row.full_name)}</strong> <div style="font-size: 11px; color: #64748b;">${escapeHtml(row.username)} &bull; ${escapeHtml(row.role_name || 'user')}</div>`
+                    : `<strong>${escapeHtml(row.username)}</strong> <div style="font-size: 11px; color: #64748b;">${escapeHtml(row.role_name || 'user')}</div>`;
+
+                let actionHtml = "";
+                if (isActive) {
+                    actionHtml = `
+                        <button class="btn btn-sm btn-outline-danger btn-revoke-session" data-id="${row.id}" data-user="${escapeHtml(row.username)}" style="font-size: 11.5px; font-weight: 600; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            Revoke
+                        </button>
+                    `;
+                } else {
+                    actionHtml = `<span style="font-size: 11.5px; color: #94a3b8;">${row.logout_at ? 'Terminated' : 'Closed'}</span>`;
+                }
+
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 10px 14px; font-weight: 600; color: #64748b;">#${row.id}</td>
+                        <td style="padding: 10px 14px;">${userDisplay}</td>
+                        <td style="padding: 10px 14px;">
+                            <span class="diff-table-chip">${escapeHtml(row.device_type || 'Desktop')}</span>
+                        </td>
+                        <td style="padding: 10px 14px; font-family: monospace; font-size: 12px; color: #475569;">${escapeHtml(row.ip_address || '127.0.0.1')}</td>
+                        <td style="padding: 10px 14px; white-space: nowrap; color: #334155;">${escapeHtml(row.login_at)}</td>
+                        <td style="padding: 10px 14px; white-space: nowrap; color: #334155;">${escapeHtml(row.last_activity_at || row.login_at)}</td>
+                        <td style="padding: 10px 14px;">${stateBadge}</td>
+                        <td style="padding: 10px 14px; text-align: center;">${actionHtml}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = rowsHtml;
+
+            // Bind revoke button events
+            tbody.querySelectorAll(".btn-revoke-session").forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute("data-id");
+                    const user = btn.getAttribute("data-user");
+                    if (id) openRevokeModal(parseInt(id, 10), user);
+                };
+            });
+
+        } else {
+            // Render authentication events
+            thead.innerHTML = `
+                <tr>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 60px;">ID</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 160px;">Timestamp (UTC)</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 180px;">User Identity</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 160px;">Event Action</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569;">Security Narrative &amp; Details</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 130px;">IP Address</th>
+                    <th style="padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; width: 140px;">Client Device</th>
+                </tr>
+            `;
+
+            if (!records || records.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 32px; color: #64748b;">
+                            No authentication events match your filter criteria.
+                        </td>
+                    </tr>
+                `;
+                updateAuthPagination(pagination);
+                return;
+            }
+
+            let rowsHtml = "";
+            records.forEach(row => {
+                let badgeClass = "auth-badge-success";
+                if (row.action === "LOGIN_FAILED") badgeClass = "auth-badge-failed";
+                if (row.action === "ACCOUNT_LOCKED") badgeClass = "auth-badge-locked";
+                if (row.action === "2FA_OTP_VERIFIED") badgeClass = "auth-badge-2fa";
+                if (row.action === "LOGOUT") badgeClass = "auth-badge-logout";
+                if (row.action === "SESSION_REVOKED") badgeClass = "auth-badge-revoked";
+
+                const userDisplay = row.full_name
+                    ? `<strong>${escapeHtml(row.full_name)}</strong> <div style="font-size: 11px; color: #64748b;">${escapeHtml(row.username || 'unknown')} &bull; ${escapeHtml(row.user_role || 'user')}</div>`
+                    : `<strong>${escapeHtml(row.username || 'System')}</strong> <div style="font-size: 11px; color: #64748b;">${escapeHtml(row.user_role || 'user')}</div>`;
+
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 10px 14px; font-weight: 600; color: #64748b;">#${row.id}</td>
+                        <td style="padding: 10px 14px; white-space: nowrap; color: #334155;">${escapeHtml(row.created_at)}</td>
+                        <td style="padding: 10px 14px;">${userDisplay}</td>
+                        <td style="padding: 10px 14px;">
+                            <span class="auth-badge ${badgeClass}">${escapeHtml(row.action)}</span>
+                        </td>
+                        <td style="padding: 10px 14px; max-width: 320px; color: #334155;">${escapeHtml(row.description)}</td>
+                        <td style="padding: 10px 14px; font-family: monospace; font-size: 12px; color: #475569;">${escapeHtml(row.ip_address || '127.0.0.1')}</td>
+                        <td style="padding: 10px 14px; font-size: 11.5px; color: #64748b; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(row.user_agent || '')}">
+                            ${escapeHtml(row.user_agent || 'Web Client')}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = rowsHtml;
+        }
+
+        updateAuthPagination(pagination);
+
+    } catch (err) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 24px; color: #ef4444;">
+                    Failed to load authentication logs: ${escapeHtml(err.message || 'Unknown error')}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function updateAuthPagination(pagination)
+{
+    const pageInfo = document.getElementById("authPageInfo");
+    const btnPrev = document.getElementById("btnAuthPrevPage");
+    const btnNext = document.getElementById("btnAuthNextPage");
+
+    const page = pagination?.page || 1;
+    const totalPages = pagination?.total_pages || 1;
+    const total = pagination?.total || 0;
+
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${page} of ${totalPages} (${total} total record(s))`;
+    }
+
+    if (btnPrev) {
+        btnPrev.disabled = page <= 1;
+    }
+
+    if (btnNext) {
+        btnNext.disabled = page >= totalPages;
+    }
+}
+
+function openRevokeModal(sessionId, username)
+{
+    const container = document.getElementById("authRevokeModalContainer");
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="diff-modal-backdrop" id="authRevokeModal">
+            <div class="diff-modal-content" style="max-width: 480px;">
+                <div class="diff-modal-header">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        Revoke User Session #${sessionId}
+                    </h3>
+                    <button id="btnCloseRevokeModal" style="font-size: 24px; line-height: 1; border: none; background: transparent; cursor: pointer; color: #64748b;">&times;</button>
+                </div>
+                <div class="diff-modal-body">
+                    <p style="font-size: 13.5px; color: #334155; margin-bottom: 16px;">
+                        Are you sure you want to forcibly terminate the active session for user <strong>${escapeHtml(username)}</strong>? The user will be immediately logged out upon their next HTTP request.
+                    </p>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Revocation Reason / Security Audit Note</label>
+                        <input type="text" id="revokeSessionReason" class="form-control" style="width: 100%; font-size: 13px;" value="Workstation unattended / Administrator forced logoff" placeholder="Enter reason for security audit log...">
+                    </div>
+                </div>
+                <div class="diff-modal-footer">
+                    <button class="btn btn-secondary btn-sm" id="btnCancelRevoke">Cancel</button>
+                    <button class="btn btn-danger btn-sm" id="btnConfirmRevoke" style="font-weight: 600;">
+                        Confirm Revoke Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const modal = document.getElementById("authRevokeModal");
+    const btnClose = document.getElementById("btnCloseRevokeModal");
+    const btnCancel = document.getElementById("btnCancelRevoke");
+    const btnConfirm = document.getElementById("btnConfirmRevoke");
+
+    const dismiss = () => { container.innerHTML = ""; };
+
+    if (btnClose) btnClose.onclick = dismiss;
+    if (btnCancel) btnCancel.onclick = dismiss;
+    if (modal) {
+        modal.onclick = (e) => { if (e.target === modal) dismiss(); };
+    }
+
+    if (btnConfirm) {
+        btnConfirm.onclick = async () => {
+            const reason = document.getElementById("revokeSessionReason")?.value || "Administrator Revocation";
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = `
+                <span class="spinner-border spinner-border-sm" role="status" style="width: 13px; height: 13px; border-width: 2px;"></span>
+                Revoking...
+            `;
+
+            try {
+                const res = await api('/auth-logs/revoke-session', {
+                    method: 'POST',
+                    body: JSON.stringify({ id: sessionId, reason })
+                });
+
+                if (res && res.success) {
+                    showToast(res.message || "Session revoked successfully.", "success");
+                    dismiss();
+                    loadAuthLogs();
+                    loadUnifiedKpiMetrics();
+                } else {
+                    showToast(res?.message || "Failed to revoke session.", "error");
+                    btnConfirm.disabled = false;
+                    btnConfirm.textContent = "Confirm Revoke Session";
+                }
+            } catch (err) {
+                showToast("Error revoking session: " + err.message, "error");
+                btnConfirm.disabled = false;
+                btnConfirm.textContent = "Confirm Revoke Session";
+            }
+        };
     }
 }
 
