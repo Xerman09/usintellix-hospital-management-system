@@ -12,6 +12,8 @@ import { TermsConditionsView } from "../modules/terms-conditions/terms-condition
 import { initTermsConditions } from "../modules/terms-conditions/terms-conditions.js?v=3";
 import { SystemDocumentationView } from "../modules/system-documentation/system-documentation.view.js?v=20";
 import { initSystemDocumentation } from "../modules/system-documentation/system-documentation.js?v=7";
+import { EquipmentAssetsView } from "../modules/equipment-assets/equipment-assets.view.js";
+import { initEquipmentAssets } from "../modules/equipment-assets/equipment-assets.js";
 
 
 const app = document.getElementById("app");
@@ -74,6 +76,14 @@ const routes = {
     "/docs": {
         view: SystemDocumentationView,
         afterRender: initSystemDocumentation
+    },
+    "/equipment-assets": {
+        view: EquipmentAssetsView,
+        afterRender: initEquipmentAssets
+    },
+    "/equipment_assets": {
+        view: EquipmentAssetsView,
+        afterRender: initEquipmentAssets
     }
 
 };

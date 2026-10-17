@@ -25,6 +25,7 @@ function staffNavLinks(role)
                 <a data-tab="census">Daily Census</a>
                 ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
                 <a data-tab="room_management">Room &amp; Bed Management</a>
+                <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -161,6 +162,7 @@ function staffNavLinks(role)
                         <a data-tab="facilities">Facilities</a>
                         <a data-tab="room_management">Buildings &amp; Rooms</a>
                         <a data-tab="department_management">Department Management</a>
+                        <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
@@ -547,6 +549,7 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="census">Daily Census</a>
             <a data-tab="census_report">Census Reports</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
             <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
             <div class="dropdown-submenu patient-dependent-nav">
                 <span class="dropdown-submenu-trigger">
@@ -679,6 +682,7 @@ const DOCTOR_NAV_LINKS = `
             <a data-tab="code_blue">Code Blue</a>
             <a data-tab="code_blue_report">Code Blue Report</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
             <a data-tab="patient_finder">Dashboard</a>
             <div class="dropdown-submenu">
                 <span class="dropdown-submenu-trigger">
@@ -756,6 +760,7 @@ function nurseNavLinks(role)
             <a data-tab="census">Daily Census</a>
             ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
             <a data-tab="patient_flow">Flow</a>
         </div>
     </div>

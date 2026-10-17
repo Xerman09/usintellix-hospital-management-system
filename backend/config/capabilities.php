@@ -29,6 +29,11 @@ return [
                 'label' => 'Facility & Room Master Data',
                 'description' => 'Configure hospital campuses, wings, wards, and rooms',
             ],
+            'admin_equipment' => [
+                'name' => 'admin_equipment',
+                'label' => 'Biomedical Equipment Assets',
+                'description' => 'Track critical machinery, calibration due dates, and maintenance lifecycles',
+            ],
             'admin_departments' => [
                 'name' => 'admin_departments',
                 'label' => 'Department Management',

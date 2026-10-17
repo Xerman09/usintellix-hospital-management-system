@@ -327,6 +327,8 @@ import { initInpatientAdmissions } from "../inpatient-admissions/inpatient-admis
 import { InpatientAdmissionsView } from "../inpatient-admissions/inpatient-admissions.view.js?v=4";
 import { initRoomManagement } from "../room-management/room-management.js?v=4";
 import { RoomManagementView } from "../room-management/room-management.view.js?v=4";
+import { initEquipmentAssets } from "../equipment-assets/equipment-assets.js";
+import { EquipmentAssetsView } from "../equipment-assets/equipment-assets.view.js";
 import { initPrivacyPolicy } from "../privacy-policy/privacy-policy.js?v=5";
 import { PrivacyPolicyView } from "../privacy-policy/privacy-policy.view.js?v=4";
 import { initTermsConditions } from "../terms-conditions/terms-conditions.js?v=3";
@@ -1730,6 +1732,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Room & Bed Management', () => {
                 setTimeout(() => initRoomManagement(user), 0);
                 return RoomManagementView(user);
+            }, activate);
+        } else if (tabId === 'equipment_assets' || tabId === 'equipment_management') {
+            tabManager.openTab(tabId, title || 'Biomedical & Equipment Assets', () => {
+                setTimeout(() => initEquipmentAssets(user), 0);
+                return EquipmentAssetsView(user);
             }, activate);
         } else if (tabId === 'privacy_policy') {
             tabManager.openTab(tabId, title || 'Privacy Policy & HIPAA Notice', () => {
