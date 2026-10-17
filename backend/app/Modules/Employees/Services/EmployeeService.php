@@ -18,11 +18,18 @@ class EmployeeService
      */
     public function list(?string $role = null): array
     {
-        $sql = "SELECT e.*, u.username, u.role_id, u.failed_login_attempts, u.locked_until, u.is_locked, r.name AS role_name, d.name AS department_name
+        $sql = "SELECT e.*, 
+                       u.username, u.role_id, u.failed_login_attempts, u.locked_until, u.is_locked,
+                       u.status AS user_status, u.status_reason, u.status_updated_at,
+                       r.name AS role_name, 
+                       d.name AS department_name,
+                       d2.name AS secondary_department_name,
+                       (SELECT COUNT(*) FROM user_session_histories s WHERE s.user_id = u.id AND s.is_active = 1) AS active_session_count
                 FROM employees e
                 JOIN users u ON u.id = e.user_id
                 JOIN roles r ON r.id = u.role_id
                 LEFT JOIN departments d ON d.id = e.department_id
+                LEFT JOIN departments d2 ON d2.id = e.secondary_department_id
                 WHERE e.deleted_at IS NULL";
 
         $params = [];
@@ -59,38 +66,81 @@ class EmployeeService
         $db->beginTransaction();
 
         try {
-            $userId = (new User())->create([
-                'username'   => $data['username'],
-                'password'   => User::hashPassword($data['password']),
-                'role_id'    => $data['role_id'],
-                'created_at' => date('Y-m-d H:i:s'),
-                'created_by' => $createdBy
-            ]);
+            $userStatus = in_array($data['status'] ?? 'active', ['active', 'suspended', 'locked', 'decommissioned'], true) ? $data['status'] : 'active';
+            $userPayload = [
+                'username'          => $data['username'],
+                'password'          => User::hashPassword($data['password']),
+                'role_id'           => $data['role_id'],
+                'status'            => $userStatus,
+                'status_reason'     => !empty($data['status_reason']) ? $data['status_reason'] : null,
+                'status_updated_at' => date('Y-m-d H:i:s'),
+                'status_updated_by' => $createdBy,
+                'created_at'        => date('Y-m-d H:i:s'),
+                'created_by'        => $createdBy
+            ];
+
+            if ($userStatus === 'locked') {
+                $userPayload['is_locked'] = 1;
+            }
+
+            $userId = (new User())->create($userPayload);
 
             if (!$userId) {
                 throw new \RuntimeException('Failed to create user account.');
             }
 
             $employeeNo = $this->generateEmployeeNo();
+            $dutyTag = in_array($data['duty_tag'] ?? 'primary', ['primary', 'on_call', 'floater', 'consultant', 'attending', 'resident'], true) ? $data['duty_tag'] : 'primary';
+            $secDeptId = !empty($data['secondary_department_id']) ? (int) $data['secondary_department_id'] : null;
 
             $employeeId = (new Employee())->create([
-                'user_id'       => $userId,
-                'employee_no'   => $employeeNo,
-                'first_name'    => $data['first_name'],
-                'middle_name'   => $data['middle_name'] ?? null,
-                'last_name'     => $data['last_name'],
-                'suffix'        => $data['suffix'] ?? null,
-                'sex'           => $data['sex'],
-                'birthdate'     => $data['birthdate'],
-                'email'         => $data['email'],
-                'phone'         => $data['phone'],
-                'department_id' => $data['department_id'],
-                'created_at'    => date('Y-m-d H:i:s'),
-                'created_by'    => $createdBy
+                'user_id'                 => $userId,
+                'employee_no'             => $employeeNo,
+                'first_name'              => $data['first_name'],
+                'middle_name'             => $data['middle_name'] ?? null,
+                'last_name'               => $data['last_name'],
+                'suffix'                  => $data['suffix'] ?? null,
+                'sex'                     => $data['sex'],
+                'birthdate'               => $data['birthdate'],
+                'email'                   => $data['email'],
+                'phone'                   => $data['phone'],
+                'department_id'           => $data['department_id'],
+                'secondary_department_id' => $secDeptId,
+                'duty_tag'                => $dutyTag,
+                'assignment_notes'        => $data['assignment_notes'] ?? null,
+                'created_at'              => date('Y-m-d H:i:s'),
+                'created_by'              => $createdBy
             ]);
 
             if (!$employeeId) {
                 throw new \RuntimeException('Failed to create employee record.');
+            }
+
+            // Sync department assignments
+            $assignStmt = $db->prepare("
+                INSERT INTO employee_department_assignments (employee_id, department_id, assignment_type, is_primary, assigned_at, assigned_by)
+                VALUES (:emp_id, :dept_id, :type, :is_primary, NOW(), :admin_id)
+                ON DUPLICATE KEY UPDATE is_primary = VALUES(is_primary)
+            ");
+
+            // Primary unit
+            $assignStmt->execute([
+                'emp_id'     => $employeeId,
+                'dept_id'    => (int) $data['department_id'],
+                'type'       => 'primary',
+                'is_primary' => 1,
+                'admin_id'   => $createdBy
+            ]);
+
+            // Secondary clinical unit (if assigned)
+            if ($secDeptId && $secDeptId !== (int) $data['department_id']) {
+                $assignStmt->execute([
+                    'emp_id'     => $employeeId,
+                    'dept_id'    => $secDeptId,
+                    'type'       => $dutyTag === 'primary' ? 'secondary' : $dutyTag,
+                    'is_primary' => 0,
+                    'admin_id'   => $createdBy
+                ]);
             }
 
             $db->commit();
@@ -109,7 +159,7 @@ class EmployeeService
 
             return [
                 'success' => false,
-                'message' => 'Failed to register employee.'
+                'message' => 'Failed to register employee: ' . $e->getMessage()
             ];
         }
     }
@@ -157,20 +207,56 @@ class EmployeeService
                 $userUpdate['password'] = User::hashPassword($data['password']);
             }
 
+            if (isset($data['status']) && in_array($data['status'], ['active', 'suspended', 'locked', 'decommissioned'], true)) {
+                $userUpdate['status'] = $data['status'];
+                $userUpdate['status_reason'] = !empty($data['status_reason']) ? $data['status_reason'] : null;
+                $userUpdate['status_updated_at'] = date('Y-m-d H:i:s');
+                $userUpdate['status_updated_by'] = $updatedBy;
+
+                if ($data['status'] === 'locked') {
+                    $userUpdate['is_locked'] = 1;
+                } elseif ($data['status'] === 'active') {
+                    $userUpdate['is_locked'] = 0;
+                    $userUpdate['locked_until'] = null;
+                    $userUpdate['failed_login_attempts'] = 0;
+                }
+
+                // If account is suspended or decommissioned or locked, revoke all active sessions immediately
+                if (in_array($data['status'], ['suspended', 'locked', 'decommissioned'], true)) {
+                    $revStmt = $db->prepare("
+                        UPDATE user_session_histories 
+                        SET is_active = 0, logout_at = NOW(), revoked_by = :admin_id, 
+                            revocation_reason = :reason 
+                        WHERE user_id = :user_id AND is_active = 1
+                    ");
+                    $revStmt->execute([
+                        'admin_id' => $updatedBy,
+                        'reason'   => 'Account status transitioned to ' . $data['status'] . (!empty($data['status_reason']) ? (': ' . $data['status_reason']) : ''),
+                        'user_id'  => (int) $employee['user_id']
+                    ]);
+                }
+            }
+
             (new User())->update($userUpdate, (int) $employee['user_id']);
 
+            $dutyTag = in_array($data['duty_tag'] ?? 'primary', ['primary', 'on_call', 'floater', 'consultant', 'attending', 'resident'], true) ? $data['duty_tag'] : 'primary';
+            $secDeptId = !empty($data['secondary_department_id']) ? (int) $data['secondary_department_id'] : null;
+
             $empUpdate = [
-                'first_name'    => $data['first_name'],
-                'middle_name'   => $data['middle_name'] ?? null,
-                'last_name'     => $data['last_name'],
-                'suffix'        => $data['suffix'] ?? null,
-                'sex'           => $data['sex'],
-                'birthdate'     => $data['birthdate'],
-                'email'         => $data['email'],
-                'phone'         => $data['phone'],
-                'department_id' => $data['department_id'],
-                'updated_at'    => date('Y-m-d H:i:s'),
-                'updated_by'    => $updatedBy
+                'first_name'              => $data['first_name'],
+                'middle_name'             => $data['middle_name'] ?? null,
+                'last_name'               => $data['last_name'],
+                'suffix'                  => $data['suffix'] ?? null,
+                'sex'                     => $data['sex'],
+                'birthdate'               => $data['birthdate'],
+                'email'                   => $data['email'],
+                'phone'                   => $data['phone'],
+                'department_id'           => $data['department_id'],
+                'secondary_department_id' => $secDeptId,
+                'duty_tag'                => $dutyTag,
+                'assignment_notes'        => $data['assignment_notes'] ?? null,
+                'updated_at'              => date('Y-m-d H:i:s'),
+                'updated_by'              => $updatedBy
             ];
 
             if (array_key_exists('hipaa_training_status', $data)) {
@@ -197,6 +283,34 @@ class EmployeeService
 
             (new Employee())->update($empUpdate, $id);
 
+            // Sync employee_department_assignments
+            $db->prepare("DELETE FROM employee_department_assignments WHERE employee_id = :emp_id")->execute(['emp_id' => $id]);
+
+            $assignStmt = $db->prepare("
+                INSERT INTO employee_department_assignments (employee_id, department_id, assignment_type, is_primary, assigned_at, assigned_by)
+                VALUES (:emp_id, :dept_id, :type, :is_primary, NOW(), :admin_id)
+            ");
+
+            // Primary
+            $assignStmt->execute([
+                'emp_id'     => $id,
+                'dept_id'    => (int) $data['department_id'],
+                'type'       => 'primary',
+                'is_primary' => 1,
+                'admin_id'   => $updatedBy
+            ]);
+
+            // Secondary (if specified and different)
+            if ($secDeptId && $secDeptId !== (int) $data['department_id']) {
+                $assignStmt->execute([
+                    'emp_id'     => $id,
+                    'dept_id'    => $secDeptId,
+                    'type'       => $dutyTag === 'primary' ? 'secondary' : $dutyTag,
+                    'is_primary' => 0,
+                    'admin_id'   => $updatedBy
+                ]);
+            }
+
             $db->commit();
 
             return [
@@ -208,7 +322,7 @@ class EmployeeService
 
             return [
                 'success' => false,
-                'message' => 'Failed to update employee.'
+                'message' => 'Failed to update employee: ' . $e->getMessage()
             ];
         }
     }
@@ -277,6 +391,20 @@ class EmployeeService
             $errors['department_id'] = 'Selected department does not exist.';
         }
 
+        if (!empty($data['secondary_department_id'])) {
+            if (!(new Department())->find((int) $data['secondary_department_id'])) {
+                $errors['secondary_department_id'] = 'Selected secondary department does not exist.';
+            }
+        }
+
+        if (isset($data['duty_tag']) && !in_array($data['duty_tag'], ['primary', 'on_call', 'floater', 'consultant', 'attending', 'resident'], true)) {
+            $errors['duty_tag'] = 'Invalid duty tag selected.';
+        }
+
+        if (isset($data['status']) && !in_array($data['status'], ['active', 'suspended', 'locked', 'decommissioned'], true)) {
+            $errors['status'] = 'Invalid account status.';
+        }
+
         return $errors;
     }
 
@@ -295,6 +423,22 @@ class EmployeeService
      */
     public function unlockUser(int $userId, int $adminId): array
     {
+        return $this->updateStatus($userId, 'active', 'Administrator manual account unlock', $adminId);
+    }
+
+    /**
+     * Transition a user account status (active, suspended, locked, decommissioned).
+     */
+    public function updateStatus(int $userId, string $status, ?string $reason, int $adminId): array
+    {
+        $validStatuses = ['active', 'suspended', 'locked', 'decommissioned'];
+        if (!in_array($status, $validStatuses, true)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid account status specified.'
+            ];
+        }
+
         $user = (new User())->where('id', $userId)->first();
         if (!$user) {
             return [
@@ -303,27 +447,152 @@ class EmployeeService
             ];
         }
 
-        (new User())->update([
-            'failed_login_attempts' => 0,
-            'last_failed_login_at' => null,
-            'locked_until' => null,
-            'is_locked' => 0
-        ], $userId);
+        $userUpdate = [
+            'status'            => $status,
+            'status_reason'     => $reason ?: null,
+            'status_updated_at' => date('Y-m-d H:i:s'),
+            'status_updated_by' => $adminId,
+            'updated_at'        => date('Y-m-d H:i:s'),
+            'updated_by'        => $adminId
+        ];
+
+        if ($status === 'locked') {
+            $userUpdate['is_locked'] = 1;
+        } elseif ($status === 'active') {
+            $userUpdate['is_locked'] = 0;
+            $userUpdate['locked_until'] = null;
+            $userUpdate['failed_login_attempts'] = 0;
+            $userUpdate['last_failed_login_at'] = null;
+        }
+
+        (new User())->update($userUpdate, $userId);
+
+        $db = Database::connection();
+
+        // If status is not active, terminate all active sessions immediately
+        if (in_array($status, ['suspended', 'locked', 'decommissioned'], true)) {
+            $revStmt = $db->prepare("
+                UPDATE user_session_histories 
+                SET is_active = 0, logout_at = NOW(), revoked_by = :admin_id, 
+                    revocation_reason = :reason 
+                WHERE user_id = :user_id AND is_active = 1
+            ");
+            $revStmt->execute([
+                'admin_id' => $adminId,
+                'reason'   => "Account transitioned to {$status}" . ($reason ? (": {$reason}") : ''),
+                'user_id'  => $userId
+            ]);
+        }
 
         $admin = (new User())->where('id', $adminId)->first();
         $adminUsername = $admin['username'] ?? 'Administrator';
 
         AuditLogger::log(
             AuditLogger::CATEGORY_SECURITY,
-            AuditLogger::ACTION_ACCOUNT_UNLOCKED,
-            "Administrator '{$adminUsername}' manually unlocked account '{$user['username']}' (ID: {$userId}).",
+            'ACCOUNT_STATUS_CHANGE',
+            "Administrator '{$adminUsername}' changed status of account '{$user['username']}' (ID: {$userId}) to '{$status}'." . ($reason ? " Reason: {$reason}" : ""),
             null,
             $userId
         );
 
         return [
             'success' => true,
-            'message' => "Account '{$user['username']}' unlocked successfully."
+            'message' => "Account status for '{$user['username']}' updated to " . ucfirst($status) . "."
+        ];
+    }
+
+    /**
+     * Get active and recent sessions for an employee's user account.
+     */
+    public function getUserSessions(int $userId): array
+    {
+        $stmt = Database::connection()->prepare("
+            SELECT s.*, u.username as revoked_by_username
+            FROM user_session_histories s
+            LEFT JOIN users u ON u.id = s.revoked_by
+            WHERE s.user_id = :user_id
+            ORDER BY s.is_active DESC, s.login_at DESC
+            LIMIT 30
+        ");
+        $stmt->execute(['user_id' => $userId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Revoke a specific active session.
+     */
+    public function revokeSession(int $sessionId, int $adminId, ?string $reason): array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("SELECT * FROM user_session_histories WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => $sessionId]);
+        $session = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$session) {
+            return [
+                'success' => false,
+                'message' => 'Session record not found.'
+            ];
+        }
+
+        $db->prepare("
+            UPDATE user_session_histories 
+            SET is_active = 0, logout_at = NOW(), revoked_by = :admin_id, 
+                revocation_reason = :reason 
+            WHERE id = :id
+        ")->execute([
+            'admin_id' => $adminId,
+            'reason'   => $reason ?: 'Manually revoked by administrator',
+            'id'       => $sessionId
+        ]);
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_SECURITY,
+            'SESSION_REVOKED',
+            "Administrator (ID: {$adminId}) manually terminated active session ID #{$sessionId} for user ID #{$session['user_id']}.",
+            null,
+            (int) $session['user_id']
+        );
+
+        return [
+            'success' => true,
+            'message' => 'Session terminated successfully.'
+        ];
+    }
+
+    /**
+     * Revoke all active sessions for a user account.
+     */
+    public function revokeAllUserSessions(int $userId, int $adminId, ?string $reason): array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("
+            UPDATE user_session_histories 
+            SET is_active = 0, logout_at = NOW(), revoked_by = :admin_id, 
+                revocation_reason = :reason 
+            WHERE user_id = :user_id AND is_active = 1
+        ");
+        $stmt->execute([
+            'admin_id' => $adminId,
+            'reason'   => $reason ?: 'All active sessions revoked by administrator',
+            'user_id'  => $userId
+        ]);
+
+        $affected = $stmt->rowCount();
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_SECURITY,
+            'ALL_SESSIONS_REVOKED',
+            "Administrator (ID: {$adminId}) terminated all ({$affected}) active sessions for user ID #{$userId}.",
+            null,
+            $userId
+        );
+
+        return [
+            'success' => true,
+            'message' => "Terminated {$affected} active session(s)."
         ];
     }
 }
+

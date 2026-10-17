@@ -26,6 +26,15 @@ class Session
     }
 
     /**
+     * Get the current session ID.
+     */
+    public static function id(): string
+    {
+        self::start();
+        return session_id() ?: '';
+    }
+
+    /**
      * Store a value in the session.
      */
     public static function put(string $key, mixed $value): void

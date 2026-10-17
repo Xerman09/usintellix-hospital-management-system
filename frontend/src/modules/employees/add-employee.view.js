@@ -168,62 +168,41 @@ export function AddEmployeeView()
     display: flex;
 }
 
-.vc-search-clear:hover {
-    background: #e2e8f0;
-    color: #25324b;
-}
-
 .vc-table-wrap {
-    overflow-x: auto;
+    background: white;
+    border-radius: 14px;
     border: 1px solid #eef1f7;
-    border-radius: 16px;
+    overflow-x: auto;
+    box-shadow: 0 2px 8px rgba(18,38,63,.03);
 }
 
 .vc-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
-}
-
-.vc-table tbody tr {
-    animation: vc-row-in .25s ease both;
-}
-
-@keyframes vc-row-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+    font-size: 13.5px;
 }
 
 .vc-table th {
     text-align: left;
     padding: 14px 18px;
-    color: #71809b;
+    font-size: 11.5px;
     font-weight: 700;
-    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: .4px;
+    letter-spacing: .6px;
+    color: #64748b;
     background: #f8fafc;
-    border-bottom: 1px solid #eef1f7;
-    white-space: nowrap;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .vc-table td {
     padding: 14px 18px;
-    border-bottom: 1px solid #eef1f7;
-    color: #25324b;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
     vertical-align: middle;
 }
 
-.vc-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.vc-table tbody tr {
-    transition: background .12s;
-}
-
-.vc-table tbody tr:hover {
-    background: #fafbff;
+.vc-table tr:hover td {
+    background: #fcfdfe;
 }
 
 .vc-name-cell {
@@ -233,12 +212,11 @@ export function AddEmployeeView()
 }
 
 .vc-avatar {
-    flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
-    background: var(--accent-light);
-    color: var(--accent-text);
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    color: #4338ca;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -248,67 +226,126 @@ export function AddEmployeeView()
 
 .vc-name {
     font-weight: 600;
-    color: #1a2338;
+    color: #1e293b;
 }
 
 .vc-subtext {
-    color: #71809b;
-    font-size: 12.5px;
+    color: #64748b;
+    font-size: 12px;
 }
 
 .vc-role-pill {
     display: inline-flex;
-    padding: 4px 10px;
+    padding: 3px 9px;
     border-radius: 999px;
-    background: var(--accent-lighter);
-    color: var(--accent-text);
-    font-size: 12px;
-    font-weight: 700;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 11.5px;
+    font-weight: 600;
     text-transform: capitalize;
     white-space: nowrap;
 }
 
-.vc-description {
-    color: #71809b;
+.vc-dept-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #dbeafe;
 }
 
-.vc-description.empty {
-    font-style: italic;
-    color: #a2aec4;
+.vc-duty-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.duty-primary { background: #e0e7ff; color: #3730a3; }
+.duty-on_call { background: #fef3c7; color: #92400e; }
+.duty-floater { background: #fae8ff; color: #86198f; }
+.duty-consultant { background: #dcfce7; color: #166534; }
+.duty-attending { background: #cffafe; color: #155e75; }
+.duty-resident { background: #f1f5f9; color: #475569; }
+
+.vc-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.status-suspended { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.status-locked { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.status-decommissioned { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+.vc-session-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+    transition: .15s;
+    margin-top: 4px;
+}
+
+.vc-session-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.vc-session-btn.has-active {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #86efac;
 }
 
 .vc-actions {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
     justify-content: flex-end;
 }
 
-.vc-icon-btn {
+.vc-btn-action {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border: none;
-    border-radius: 8px;
-    padding: 7px 12px;
-    font-size: 12.5px;
+    gap: 4px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: .12s;
+    border: 1px solid transparent;
+    transition: .15s;
 }
 
-.vc-icon-btn svg {
-    width: 13px;
-    height: 13px;
-}
+.vc-btn-edit { background: var(--accent-lighter); color: var(--accent-text); border-color: var(--accent-border); }
+.vc-btn-edit:hover { background: var(--accent-border); }
 
-.vc-icon-btn.edit {
-    background: var(--accent-lighter);
-    color: var(--accent-text);
-}
-
-.vc-icon-btn.edit:hover {
-    background: var(--accent-border);
-}
+.vc-btn-status { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
+.vc-btn-status:hover { background: #e2e8f0; color: #0f172a; }
 
 .vc-empty-state {
     text-align: center;
@@ -368,6 +405,27 @@ export function AddEmployeeView()
     color: #71809b;
 }
 
+.section-divider {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 14px;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.section-subtitle {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
 @media (max-width: 640px) {
     .vc-header { flex-direction: column; }
     .vc-add-btn { width: 100%; justify-content: center; }
@@ -385,7 +443,7 @@ export function AddEmployeeView()
                 </div>
                 <div>
                     <h1>Employee Management</h1>
-                    <p class="form-subtitle">Create login accounts for employees and keep their records up to date.</p>
+                    <p class="form-subtitle">Create login accounts, assign clinical departments and duty tags, manage account lifecycle & active sessions.</p>
                 </div>
             </div>
             <button type="button" class="vc-add-btn" id="openAddEmployeeModal">
@@ -401,7 +459,7 @@ export function AddEmployeeView()
             </span>
             <div class="vc-search-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                <input type="text" class="vc-search-input" id="employeeSearch" placeholder="Search employees...">
+                <input type="text" class="vc-search-input" id="employeeSearch" placeholder="Search by name, employee no, email...">
                 <button type="button" class="vc-search-clear" id="employeeSearchClear" aria-label="Clear search">&times;</button>
             </div>
         </div>
@@ -411,49 +469,52 @@ export function AddEmployeeView()
                 <thead>
                     <tr>
                         <th>Employee</th>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Department</th>
+                        <th>Username & Role</th>
+                        <th>Clinical Department Mapping</th>
                         <th>Contact</th>
-                        <th>Security Status</th>
+                        <th>Account Status & Sessions</th>
                         <th>HIPAA Training</th>
-                        <th></th>
+                        <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="employeesTableBody">
-                    <tr class="vc-skeleton-row"><td colspan="8"><div class="vc-skeleton-bar" style="width: 60%;"></div></td></tr>
-                    <tr class="vc-skeleton-row"><td colspan="8"><div class="vc-skeleton-bar" style="width: 45%;"></div></td></tr>
-                    <tr class="vc-skeleton-row"><td colspan="8"><div class="vc-skeleton-bar" style="width: 70%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 60%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 45%;"></div></td></tr>
+                    <tr class="vc-skeleton-row"><td colspan="7"><div class="vc-skeleton-bar" style="width: 70%;"></div></td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- ADD / EDIT EMPLOYEE MODAL                  -->
+<!-- ========================================== -->
 <div class="modal-overlay" id="employeeModalOverlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 720px;">
         <div class="modal-header">
             <h2 id="employeeModalTitle">Add Employee</h2>
             <button type="button" class="modal-close" id="closeEmployeeModal">&times;</button>
         </div>
-        <p class="form-subtitle" id="employeeModalSubtitle">Create a login account and employee record.</p>
+        <p class="form-subtitle" id="employeeModalSubtitle">Create or update employee profile, clinical units, and access status.</p>
 
         <div id="formAlert"></div>
 
         <form id="addEmployeeForm">
             <input type="hidden" id="employee_id">
             <div class="form-grid">
+                <!-- User Credentials -->
                 <div class="form-group full">
-                    <label>Username</label>
-                    <input id="username" class="form-input" placeholder="e.g juan.delacruz">
-                    <span class="form-error" id="err-username"></span>
+                    <div class="section-title" style="color: var(--accent);">
+                        <i class="fa-solid fa-user-lock"></i>
+                        <span>Account Credentials & Role</span>
+                    </div>
                 </div>
 
-                <div class="form-group full">
-                    <label>Password</label>
-                    <input id="password" type="password" class="form-input" placeholder="••••••••">
-                    <span class="form-error" id="err-password"></span>
-                    <span class="vc-form-hint" id="passwordHint" style="display:none;">Leave blank to keep the current password.</span>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input id="username" class="form-input" placeholder="e.g. juan.delacruz">
+                    <span class="form-error" id="err-username"></span>
                 </div>
 
                 <div class="form-group">
@@ -464,12 +525,82 @@ export function AddEmployeeView()
                     <span class="form-error" id="err-role_id"></span>
                 </div>
 
+                <div class="form-group full">
+                    <label>Password</label>
+                    <input id="password" type="password" class="form-input" placeholder="••••••••">
+                    <span class="form-error" id="err-password"></span>
+                    <span class="vc-form-hint" id="passwordHint" style="display:none;">Leave blank to preserve existing password.</span>
+                </div>
+
+                <!-- Account Lifecycle Status -->
                 <div class="form-group">
-                    <label>Department</label>
+                    <label>Account Lifecycle Status</label>
+                    <select id="status" class="form-input">
+                        <option value="active">Active (Full Access Authorized)</option>
+                        <option value="suspended">Suspended (Access Temporarily Blocked)</option>
+                        <option value="locked">Locked (Administrative Lockout)</option>
+                        <option value="decommissioned">Decommissioned (Offboarded / Terminated)</option>
+                    </select>
+                    <span class="form-error" id="err-status"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Status Transition Reason</label>
+                    <input id="status_reason" class="form-input" placeholder="e.g. Administrative review, Resigned, Sabbatical">
+                    <span class="form-error" id="err-status_reason"></span>
+                </div>
+
+                <!-- Department & Clinical Unit Mapping -->
+                <div class="section-divider">
+                    <div class="section-title" style="color: #0284c7;">
+                        <i class="fa-solid fa-hospital-user"></i>
+                        <span>Department & Clinical Unit Assignment</span>
+                    </div>
+                    <div class="section-subtitle">
+                        Bind employee to primary unit and secondary duty tags (e.g. ICU, Emergency, Surgery, Pediatrics).
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Primary Medical Department <span style="color:#ef4444;">*</span></label>
                     <select id="department_id" class="form-input">
-                        <option value="">Select department</option>
+                        <option value="">Select primary unit</option>
                     </select>
                     <span class="form-error" id="err-department_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Secondary Department (Optional)</label>
+                    <select id="secondary_department_id" class="form-input">
+                        <option value="">None / Single Department</option>
+                    </select>
+                    <span class="form-error" id="err-secondary_department_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Clinical Duty Tag</label>
+                    <select id="duty_tag" class="form-input">
+                        <option value="primary">Primary Staff (Regular Unit Duty)</option>
+                        <option value="on_call">On-Call Specialist / Consultant</option>
+                        <option value="floater">Floater / Cross-Cover Nurse</option>
+                        <option value="attending">Attending Physician</option>
+                        <option value="resident">Resident / Fellow</option>
+                        <option value="consultant">Visiting Consultant</option>
+                    </select>
+                    <span class="form-error" id="err-duty_tag"></span>
+                </div>
+
+                <div class="form-group">
+                    <label>Duty Assignment Notes</label>
+                    <input id="assignment_notes" class="form-input" placeholder="e.g. Assigned to Trauma ICU on weekdays; On-call for ER">
+                </div>
+
+                <!-- Personal & Demographics -->
+                <div class="section-divider">
+                    <div class="section-title" style="color: #334155;">
+                        <i class="fa-solid fa-id-card"></i>
+                        <span>Staff Demographics & Contact</span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -514,7 +645,7 @@ export function AddEmployeeView()
 
                 <div class="form-group">
                     <label>Email</label>
-                    <input id="email" type="email" class="form-input" placeholder="name@example.com">
+                    <input id="email" type="email" class="form-input" placeholder="name@hospital.local">
                     <span class="form-error" id="err-email"></span>
                 </div>
 
@@ -524,12 +655,13 @@ export function AddEmployeeView()
                     <span class="form-error" id="err-phone"></span>
                 </div>
 
-                <div class="form-group full" style="margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 14px;">
-                    <div style="font-size: 13px; font-weight: 700; color: #4338ca; display: flex; align-items: center; gap: 6px;">
+                <!-- HIPAA Training -->
+                <div class="section-divider">
+                    <div class="section-title" style="color: #4338ca;">
                         <i class="fa-solid fa-user-shield"></i>
                         <span>HIPAA Workforce Training Certification (45 CFR § 164.308(a)(5))</span>
                     </div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    <div class="section-subtitle">
                         Initial security training is mandatory within 30 days of hire, with annual refreshers thereafter.
                     </div>
                 </div>
@@ -570,9 +702,94 @@ export function AddEmployeeView()
                 </div>
             </div>
 
-            <div class="form-actions">
+            <div class="form-actions" style="margin-top: 24px;">
                 <button type="button" class="btn-secondary" id="cancelEmployee">Cancel</button>
                 <button class="login-btn" type="submit" id="saveEmployeeBtn">Create Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ACTIVE SESSIONS & AUDIT MODAL              -->
+<!-- ========================================== -->
+<div class="modal-overlay" id="sessionHistoryModalOverlay">
+    <div class="modal-box" style="max-width: 760px;">
+        <div class="modal-header">
+            <div>
+                <h2 id="sessionModalEmployeeName" style="margin: 0; font-size: 19px; color: #0f172a;">Active Sessions & Login Audit</h2>
+                <p id="sessionModalEmployeeDetails" style="margin: 4px 0 0; font-size: 13px; color: #64748b;"></p>
+            </div>
+            <button type="button" class="modal-close" id="closeSessionModal">&times;</button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 16px; border-radius: 10px; margin: 16px 0; border: 1px solid #e2e8f0;">
+            <div style="font-size: 13px; color: #334155;">
+                <span id="sessionSummaryActiveCount" style="font-weight: 700; color: #166534;">0 active</span> sessions currently authenticated across all devices.
+            </div>
+            <button type="button" id="revokeAllSessionsBtn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                <i class="fa-solid fa-power-off"></i> Revoke All Sessions
+            </button>
+        </div>
+
+        <div style="max-height: 380px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <table class="vc-table" style="font-size: 12.5px;">
+                <thead>
+                    <tr>
+                        <th>Device / Client</th>
+                        <th>IP Address</th>
+                        <th>Login Time</th>
+                        <th>Last Activity</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="sessionHistoryTableBody">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Loading session history...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+            <button type="button" class="btn-secondary" id="closeSessionModalFooterBtn">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- QUICK STATUS TRANSITION MODAL              -->
+<!-- ========================================== -->
+<div class="modal-overlay" id="quickStatusModalOverlay">
+    <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <div>
+                <h2 style="margin: 0; font-size: 18px; color: #0f172a;">Account Lifecycle Transition</h2>
+                <p id="quickStatusTargetUser" style="margin: 4px 0 0; font-size: 12.5px; color: #64748b;"></p>
+            </div>
+            <button type="button" class="modal-close" id="closeQuickStatusModal">&times;</button>
+        </div>
+
+        <form id="quickStatusForm" style="margin-top: 16px;">
+            <input type="hidden" id="quickStatusUserId">
+
+            <div class="form-group full" style="margin-bottom: 14px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px;">New Status</label>
+                <select id="quickStatusSelect" class="form-input" style="width: 100%;">
+                    <option value="active">Active (Authorize full system access)</option>
+                    <option value="suspended">Suspended (Temporarily block access & revoke sessions)</option>
+                    <option value="locked">Locked (Administrative lock)</option>
+                    <option value="decommissioned">Decommissioned (Permanent offboarding / revoke sessions)</option>
+                </select>
+            </div>
+
+            <div class="form-group full" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px;">Audit Reason</label>
+                <textarea id="quickStatusReason" class="form-input" rows="3" style="width: 100%; resize: vertical;" placeholder="Provide audit trail rationale for this status transition (HIPAA § 164.312 requirement)..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelQuickStatus">Cancel</button>
+                <button class="login-btn" type="submit" id="saveQuickStatusBtn">Apply Transition</button>
             </div>
         </form>
     </div>

@@ -66,9 +66,52 @@ class AuthService
 
         $now = time();
 
-        // Check if account is currently locked (HIPAA § 164.312(a)(2)(i))
+        // Check account lifecycle status (HIPAA § 164.312(a)(2)(i))
         if ($user) {
-            $isLocked = !empty($user['is_locked']);
+            $userStatus = $user['status'] ?? 'active';
+
+            if ($userStatus === 'suspended') {
+                $reasonText = !empty($user['status_reason']) ? " Reason: {$user['status_reason']}." : "";
+                AuditLogger::log(
+                    AuditLogger::CATEGORY_SECURITY,
+                    AuditLogger::ACTION_LOGIN_FAILED,
+                    "Authentication rejected: account '{$username}' is suspended.{$reasonText}",
+                    null,
+                    (int) $user['id'],
+                    $user['role_id'] ? 'user' : 'patient'
+                );
+
+                return [
+                    'success' => false,
+                    'suspended' => true,
+                    'message' => "Your account has been temporarily suspended by Hospital Administration.{$reasonText} Please contact HR or IT.",
+                    'errors' => [
+                        'username' => "Account suspended.{$reasonText}"
+                    ]
+                ];
+            }
+
+            if ($userStatus === 'decommissioned') {
+                AuditLogger::log(
+                    AuditLogger::CATEGORY_SECURITY,
+                    AuditLogger::ACTION_LOGIN_FAILED,
+                    "Authentication rejected: account '{$username}' is decommissioned.",
+                    null,
+                    (int) $user['id'],
+                    $user['role_id'] ? 'user' : 'patient'
+                );
+
+                return [
+                    'success' => false,
+                    'decommissioned' => true,
+                    'message' => "This account has been decommissioned and is no longer authorized for hospital system access.",
+                    'errors' => [
+                        'username' => "Account decommissioned."
+                    ]
+                ];
+            }
+
+            $isLocked = !empty($user['is_locked']) || $userStatus === 'locked';
             $lockedUntil = !empty($user['locked_until']) ? strtotime($user['locked_until']) : null;
 
             if ($isLocked && $lockedUntil !== null && $lockedUntil > $now) {
@@ -93,15 +136,38 @@ class AuthService
                 ];
             }
 
+            // Administrative manual lock without automatic timeout
+            if ($isLocked && $lockedUntil === null) {
+                AuditLogger::log(
+                    AuditLogger::CATEGORY_SECURITY,
+                    AuditLogger::ACTION_LOGIN_FAILED,
+                    "Authentication rejected: account '{$username}' is administratively locked.",
+                    null,
+                    (int) $user['id'],
+                    $user['role_id'] ? 'user' : 'patient'
+                );
+
+                return [
+                    'success' => false,
+                    'locked' => true,
+                    'message' => "Account is administratively locked. Please contact your system administrator to restore access.",
+                    'errors' => [
+                        'username' => "Account locked administratively."
+                    ]
+                ];
+            }
+
             // If the 30-minute lockout cooldown has elapsed, auto-unlock
             if ($lockedUntil !== null && $lockedUntil <= $now) {
                 (new User())->update([
                     'is_locked' => 0,
+                    'status' => 'active',
                     'locked_until' => null,
                     'failed_login_attempts' => 0,
                     'last_failed_login_at' => null
                 ], (int) $user['id']);
                 $user['is_locked'] = 0;
+                $user['status'] = 'active';
                 $user['locked_until'] = null;
                 $user['failed_login_attempts'] = 0;
             }
@@ -365,6 +431,21 @@ class AuthService
                 (int) $user['id'],
                 $user['role']
             );
+
+            // Mark session as inactive in user_session_histories
+            $sessId = session_id();
+            if (!empty($sessId)) {
+                try {
+                    $stmt = Database::connection()->prepare(
+                        "UPDATE user_session_histories 
+                         SET is_active = 0, logout_at = NOW() 
+                         WHERE session_id = :session_id AND is_active = 1"
+                    );
+                    $stmt->execute(['session_id' => $sessId]);
+                } catch (\Throwable $e) {
+                    // Fail silently
+                }
+            }
         }
 
         Session::destroy();
@@ -704,6 +785,35 @@ class AuthService
             'npp_acknowledged_at'    => $user['npp_acknowledged_at'] ?? null,
             'npp_version'            => $user['npp_version'] ?? null,
         ]);
+
+        // Record active session history (IP, user agent, device type)
+        $sessId = session_id();
+        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        if (str_contains($ip, ',')) {
+            $ip = trim(explode(',', $ip)[0]);
+        }
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+        $deviceType = 'Desktop';
+        if (preg_match('/(iPhone|iPad|iPod|Android|webOS|BlackBerry|Windows Phone)/i', $ua)) {
+            $deviceType = preg_match('/(tablet|ipad)/i', $ua) ? 'Tablet' : 'Mobile';
+        }
+
+        try {
+            $stmt = Database::connection()->prepare(
+                "INSERT INTO user_session_histories 
+                 (user_id, session_id, ip_address, user_agent, device_type, login_at, last_activity_at, is_active)
+                 VALUES (:user_id, :session_id, :ip_address, :user_agent, :device_type, NOW(), NOW(), 1)"
+            );
+            $stmt->execute([
+                'user_id'     => $user['id'],
+                'session_id'  => $sessId,
+                'ip_address'  => substr($ip, 0, 45),
+                'user_agent'  => substr($ua, 0, 500),
+                'device_type' => $deviceType,
+            ]);
+        } catch (\Throwable $e) {
+            // Silently continue
+        }
 
         AuditLogger::log(
             AuditLogger::CATEGORY_AUTH,

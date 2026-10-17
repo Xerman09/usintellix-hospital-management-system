@@ -27,3 +27,23 @@ $router->post('/employees/unlock', [EmployeeController::class, 'unlock'], [
     [RoleMiddleware::class, ['admin']]
 ]);
 
+$router->post('/employees/status', [EmployeeController::class, 'status'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->get('/employees/sessions', [EmployeeController::class, 'sessions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->post('/employees/sessions/revoke', [EmployeeController::class, 'revokeSession'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+
+$router->post('/employees/sessions/revoke-all', [EmployeeController::class, 'revokeAllSessions'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+

@@ -52,7 +52,12 @@ class EmployeeController extends Controller
             'birthdate',
             'email',
             'phone',
-            'department_id'
+            'department_id',
+            'secondary_department_id',
+            'duty_tag',
+            'assignment_notes',
+            'status',
+            'status_reason'
         ]);
 
         $result = $this->employeeService->register(
@@ -91,6 +96,11 @@ class EmployeeController extends Controller
             'email',
             'phone',
             'department_id',
+            'secondary_department_id',
+            'duty_tag',
+            'assignment_notes',
+            'status',
+            'status_reason',
             'hipaa_initial_training_date',
             'hipaa_last_refresher_date',
             'hipaa_next_refresher_due',
@@ -130,6 +140,108 @@ class EmployeeController extends Controller
 
         if (!$result['success']) {
             $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * Transition user account status (active, suspended, locked, decommissioned).
+     */
+    public function status(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $userId = (int) $request->input('user_id');
+        $status = (string) $request->input('status');
+        $reason = $request->input('reason');
+
+        if (!$userId) {
+            $this->error('User ID is required.', 422);
+            return;
+        }
+
+        if (empty($status)) {
+            $this->error('Status is required.', 422);
+            return;
+        }
+
+        $result = $this->employeeService->updateStatus($userId, $status, $reason ?: null, (int) $admin['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * Retrieve active & historical login sessions for a user account.
+     */
+    public function sessions(): void
+    {
+        $request = new Request();
+        $userId = (int) $request->input('user_id');
+
+        if (!$userId) {
+            $this->error('User ID is required.', 422);
+            return;
+        }
+
+        $sessions = $this->employeeService->getUserSessions($userId);
+
+        $this->success($sessions, 'User sessions retrieved successfully.');
+    }
+
+    /**
+     * Terminate an individual session remotely.
+     */
+    public function revokeSession(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $sessionId = (int) $request->input('session_id');
+        $reason = $request->input('reason');
+
+        if (!$sessionId) {
+            $this->error('Session ID is required.', 422);
+            return;
+        }
+
+        $result = $this->employeeService->revokeSession($sessionId, (int) $admin['id'], $reason ?: null);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success(null, $result['message']);
+    }
+
+    /**
+     * Terminate all active sessions for a user account.
+     */
+    public function revokeAllSessions(): void
+    {
+        $admin = Session::get('user');
+        $request = new Request();
+
+        $userId = (int) $request->input('user_id');
+        $reason = $request->input('reason');
+
+        if (!$userId) {
+            $this->error('User ID is required.', 422);
+            return;
+        }
+
+        $result = $this->employeeService->revokeAllUserSessions($userId, (int) $admin['id'], $reason ?: null);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
             return;
         }
 

@@ -53,3 +53,41 @@ export async function unlockEmployee(userId)
     );
 }
 
+export async function updateEmployeeStatus(userId, status, reason = null)
+{
+    return await api(
+        "/employees/status",
+        {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId, status, reason })
+        }
+    );
+}
+
+export async function fetchEmployeeSessions(userId)
+{
+    return await api(`/employees/sessions?user_id=${encodeURIComponent(userId)}`);
+}
+
+export async function revokeSession(sessionId, reason = null)
+{
+    return await api(
+        "/employees/sessions/revoke",
+        {
+            method: "POST",
+            body: JSON.stringify({ session_id: sessionId, reason })
+        }
+    );
+}
+
+export async function revokeAllSessions(userId, reason = null)
+{
+    return await api(
+        "/employees/sessions/revoke-all",
+        {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId, reason })
+        }
+    );
+}
+
