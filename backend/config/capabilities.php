@@ -54,6 +54,11 @@ return [
                 'label' => 'HIPAA Security Audit Logs',
                 'description' => 'Inspect access logs, security events, and unauthorized access attempts',
             ],
+            'admin_audit_diffs' => [
+                'name' => 'admin_audit_diffs',
+                'label' => 'Granular Entity Data Change History',
+                'description' => 'Inspect field-level before/after diffs across patients, rooms, equipment, and clinical records',
+            ],
             'admin_settings' => [
                 'name' => 'admin_settings',
                 'label' => 'Enterprise System Settings',

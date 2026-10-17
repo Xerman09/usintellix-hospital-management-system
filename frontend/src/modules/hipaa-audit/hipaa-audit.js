@@ -4,15 +4,43 @@ import { showToast } from "../../core/toast.js";
 let currentPage = 1;
 const pageSize = 20;
 
-export async function initHipaaAudit()
+let currentDiffPage = 1;
+const diffPageSize = 20;
+let currentTab = 'activity';
+let distinctTablesLoaded = false;
+
+export async function initHipaaAudit(options = {})
 {
     currentPage = 1;
+    currentDiffPage = 1;
+    distinctTablesLoaded = false;
+    currentTab = options.initialTab || (window.__initialAuditTab || 'activity');
+    window.__initialAuditTab = null;
+
     bindAuditEvents();
-    await loadAuditLogs();
+    bindDiffEvents();
+
+    switchAuditTab(currentTab);
+
+    if (currentTab === 'activity') {
+        await loadAuditLogs();
+    } else {
+        await loadDistinctTables();
+        await loadAuditDiffs();
+    }
 }
 
 function bindAuditEvents()
 {
+    const btnTabActivity = document.getElementById("btnTabActivity");
+    const btnTabDiffs = document.getElementById("btnTabDiffs");
+
+    if (btnTabActivity) {
+        btnTabActivity.onclick = () => switchAuditTab('activity');
+    }
+    if (btnTabDiffs) {
+        btnTabDiffs.onclick = () => switchAuditTab('diffs');
+    }
     const btnFilter = document.getElementById("btnApplyHipaaFilters");
     const btnReset = document.getElementById("btnResetHipaaFilters");
     const btnVerify = document.getElementById("btnVerifyChain");
@@ -211,6 +239,522 @@ function bindAuditEvents()
             }
         };
     }
+}
+
+function switchAuditTab(tab)
+{
+    currentTab = tab;
+    const btnTabActivity = document.getElementById("btnTabActivity");
+    const btnTabDiffs = document.getElementById("btnTabDiffs");
+    const sectionActivity = document.getElementById("hipaaActivitySection");
+    const sectionDiffs = document.getElementById("hipaaDiffsSection");
+
+    if (tab === 'diffs') {
+        if (btnTabActivity) btnTabActivity.classList.remove('active');
+        if (btnTabDiffs) btnTabDiffs.classList.add('active');
+        if (sectionActivity) sectionActivity.style.display = 'none';
+        if (sectionDiffs) sectionDiffs.style.display = '';
+
+        if (!distinctTablesLoaded) {
+            loadDistinctTables();
+            distinctTablesLoaded = true;
+        }
+        loadAuditDiffs();
+    } else {
+        if (btnTabActivity) btnTabActivity.classList.add('active');
+        if (btnTabDiffs) btnTabDiffs.classList.remove('active');
+        if (sectionActivity) sectionActivity.style.display = '';
+        if (sectionDiffs) sectionDiffs.style.display = 'none';
+    }
+}
+
+function bindDiffEvents()
+{
+    const btnFilter = document.getElementById("btnApplyDiffFilters");
+    const btnReset = document.getElementById("btnResetDiffFilters");
+    const btnPrev = document.getElementById("btnDiffsPrevPage");
+    const btnNext = document.getElementById("btnDiffsNextPage");
+
+    if (btnFilter) {
+        btnFilter.onclick = () => {
+            currentDiffPage = 1;
+            loadAuditDiffs();
+        };
+    }
+
+    if (btnReset) {
+        btnReset.onclick = () => {
+            const tableSelect = document.getElementById("diffFilterTable");
+            const actionSelect = document.getElementById("diffFilterAction");
+            const dateFromInput = document.getElementById("diffFilterDateFrom");
+            const dateToInput = document.getElementById("diffFilterDateTo");
+            const searchInput = document.getElementById("diffFilterSearch");
+
+            if (tableSelect) tableSelect.value = "";
+            if (actionSelect) actionSelect.value = "";
+            if (dateFromInput) dateFromInput.value = "";
+            if (dateToInput) dateToInput.value = "";
+            if (searchInput) searchInput.value = "";
+
+            currentDiffPage = 1;
+            loadAuditDiffs();
+        };
+    }
+
+    if (btnPrev) {
+        btnPrev.onclick = () => {
+            if (currentDiffPage > 1) {
+                currentDiffPage--;
+                loadAuditDiffs();
+            }
+        };
+    }
+
+    if (btnNext) {
+        btnNext.onclick = () => {
+            currentDiffPage++;
+            loadAuditDiffs();
+        };
+    }
+}
+
+async function loadDistinctTables()
+{
+    const select = document.getElementById("diffFilterTable");
+    if (!select) return;
+
+    try {
+        const res = await api('/audit-diffs/tables');
+        if (res?.success && Array.isArray(res.data?.tables)) {
+            const currentVal = select.value;
+            let optionsHtml = '<option value="">All Audited Tables</option>';
+            res.data.tables.forEach(tbl => {
+                optionsHtml += `<option value="${escapeHtml(tbl)}">${escapeHtml(tbl)}</option>`;
+            });
+            select.innerHTML = optionsHtml;
+            if (currentVal) select.value = currentVal;
+        }
+    } catch (e) {
+        console.error('Failed to load distinct tables', e);
+    }
+}
+
+async function loadAuditDiffs()
+{
+    const tbody = document.getElementById("diffsTableBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="9" style="text-align: center; padding: 24px; color: #64748b;">
+                <span class="spinner-border spinner-border-sm" role="status" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                Loading entity data change diffs...
+            </td>
+        </tr>
+    `;
+
+    const table = document.getElementById("diffFilterTable")?.value || "";
+    const action = document.getElementById("diffFilterAction")?.value || "";
+    const dateFrom = document.getElementById("diffFilterDateFrom")?.value || "";
+    const dateTo = document.getElementById("diffFilterDateTo")?.value || "";
+    const search = document.getElementById("diffFilterSearch")?.value || "";
+
+    const params = new URLSearchParams({
+        page: String(currentDiffPage),
+        limit: String(diffPageSize)
+    });
+
+    if (table) params.append("table_name", table);
+    if (action) params.append("action", action);
+    if (dateFrom) params.append("date_from", dateFrom);
+    if (dateTo) params.append("date_to", dateTo);
+    if (search) params.append("search", search);
+
+    try {
+        const res = await api(`/audit-diffs?${params.toString()}`);
+
+        if (!res || !res.success) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 24px; color: #ef4444;">
+                        ${escapeHtml(res?.message || "Error loading audit diff records.")}
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const { diffs, pagination } = res.data;
+
+        if (!diffs || diffs.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 32px; color: #64748b;">
+                        No entity data change diffs match your filter criteria.
+                    </td>
+                </tr>
+            `;
+            updateDiffsPagination(pagination);
+            return;
+        }
+
+        let rowsHtml = "";
+        diffs.forEach(diff => {
+            let actionBadge = "";
+            if (diff.action === "CREATE") {
+                actionBadge = `<span class="diff-action-badge diff-action-create">CREATE</span>`;
+            } else if (diff.action === "DELETE") {
+                actionBadge = `<span class="diff-action-badge diff-action-delete">DELETE</span>`;
+            } else {
+                actionBadge = `<span class="diff-action-badge diff-action-update">UPDATE</span>`;
+            }
+
+            const changedFields = Array.isArray(diff.changed_fields) ? diff.changed_fields : [];
+            let fieldsDisplay = "";
+            const maxChips = 4;
+            changedFields.slice(0, maxChips).forEach(f => {
+                fieldsDisplay += `<span class="diff-field-chip">${escapeHtml(f)}</span>`;
+            });
+            if (changedFields.length > maxChips) {
+                fieldsDisplay += `<span class="diff-field-chip" style="background: #e0e7ff; color: #3730a3; font-weight: 600;">+${changedFields.length - maxChips} more</span>`;
+            }
+            if (changedFields.length === 0) {
+                fieldsDisplay = `<span style="color: #94a3b8; font-style: italic;">None</span>`;
+            }
+
+            const editor = diff.full_name
+                ? `${escapeHtml(diff.full_name)} <span style="font-size: 11px; color: #64748b;">(${escapeHtml(diff.role_name || diff.username)})</span>`
+                : (diff.username ? `${escapeHtml(diff.username)} <span style="font-size: 11px; color: #64748b;">(${escapeHtml(diff.role_name || 'user')})</span>` : '<span style="color: #94a3b8;">System</span>');
+
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px 14px; font-weight: 600; color: #64748b;">#${diff.id}</td>
+                    <td style="padding: 10px 14px; white-space: nowrap; color: #334155;">${escapeHtml(diff.created_at)}</td>
+                    <td style="padding: 10px 14px;">
+                        <span class="diff-table-chip">${escapeHtml(diff.table_name)}</span>
+                    </td>
+                    <td style="padding: 10px 14px; font-weight: 700; color: #0f172a;">#${diff.record_id}</td>
+                    <td style="padding: 10px 14px;">${actionBadge}</td>
+                    <td style="padding: 10px 14px; max-width: 280px;">${fieldsDisplay}</td>
+                    <td style="padding: 10px 14px;">${editor}</td>
+                    <td style="padding: 10px 14px; font-family: monospace; font-size: 12px; color: #475569;">${escapeHtml(diff.ip_address || '127.0.0.1')}</td>
+                    <td style="padding: 10px 14px; text-align: center;">
+                        <button class="btn btn-sm btn-outline-primary btn-view-diff" data-id="${diff.id}" style="font-size: 11.5px; font-weight: 600; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px;">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            View Diff
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = rowsHtml;
+        updateDiffsPagination(pagination);
+
+        // Bind inspection click events
+        tbody.querySelectorAll(".btn-view-diff").forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.getAttribute("data-id");
+                if (id) openDiffModal(parseInt(id, 10));
+            };
+        });
+
+    } catch (err) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 24px; color: #ef4444;">
+                    Failed to communicate with audit diff service: ${escapeHtml(err.message || 'Unknown error')}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function updateDiffsPagination(pagination)
+{
+    const pageInfo = document.getElementById("diffsPageInfo");
+    const btnPrev = document.getElementById("btnDiffsPrevPage");
+    const btnNext = document.getElementById("btnDiffsNextPage");
+
+    const page = pagination?.page || 1;
+    const totalPages = pagination?.total_pages || 1;
+    const total = pagination?.total || 0;
+
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${page} of ${totalPages} (${total} total diff entries)`;
+    }
+
+    if (btnPrev) {
+        btnPrev.disabled = page <= 1;
+    }
+
+    if (btnNext) {
+        btnNext.disabled = page >= totalPages;
+    }
+}
+
+async function openDiffModal(diffId)
+{
+    const container = document.getElementById("auditDiffModalContainer");
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="diff-modal-backdrop" id="auditDiffModal">
+            <div class="diff-modal-content" style="max-width: 600px; padding: 30px; text-align: center;">
+                <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem; margin-bottom: 12px;"></div>
+                <div style="font-weight: 600; color: #0f172a;">Retrieving granular diff snapshot #${diffId}...</div>
+            </div>
+        </div>
+    `;
+
+    try {
+        const res = await api(`/audit-diffs/show?id=${diffId}`);
+        if (!res || !res.success || !res.data) {
+            showToast("Failed to load diff record.", "error");
+            closeDiffModal();
+            return;
+        }
+
+        const diff = res.data;
+        const changedFields = Array.isArray(diff.changed_fields) ? diff.changed_fields : [];
+
+        let actionBadgeClass = "diff-action-update";
+        if (diff.action === "CREATE") actionBadgeClass = "diff-action-create";
+        if (diff.action === "DELETE") actionBadgeClass = "diff-action-delete";
+
+        const editorName = diff.full_name || diff.username || "System Administrator";
+        const editorRole = diff.role_name || "admin";
+
+        container.innerHTML = `
+            <div class="diff-modal-backdrop" id="auditDiffModal">
+                <div class="diff-modal-content">
+                    <div class="diff-modal-header">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                Entity Data Diff: <span class="diff-table-chip">${escapeHtml(diff.table_name)}</span> #<span style="color: #2563eb;">${diff.record_id}</span>
+                            </h3>
+                            <span class="diff-action-badge ${actionBadgeClass}">${escapeHtml(diff.action)}</span>
+                        </div>
+                        <button id="btnCloseDiffModal" style="font-size: 24px; line-height: 1; border: none; background: transparent; cursor: pointer; color: #64748b; padding: 0 4px;">&times;</button>
+                    </div>
+
+                    <div class="diff-modal-body">
+                        <!-- Metadata banner -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12px;">
+                            <div>
+                                <strong style="color: #64748b; display: block; text-transform: uppercase; font-size: 10px; margin-bottom: 2px;">Timestamp (UTC)</strong>
+                                <span style="font-weight: 600; color: #1e293b;">${escapeHtml(diff.created_at)}</span>
+                            </div>
+                            <div>
+                                <strong style="color: #64748b; display: block; text-transform: uppercase; font-size: 10px; margin-bottom: 2px;">Editor / Author</strong>
+                                <span style="font-weight: 600; color: #1e293b;">${escapeHtml(editorName)} <span style="color: #64748b; font-weight: normal;">(${escapeHtml(editorRole)})</span></span>
+                            </div>
+                            <div>
+                                <strong style="color: #64748b; display: block; text-transform: uppercase; font-size: 10px; margin-bottom: 2px;">Client IP Address</strong>
+                                <span style="font-family: monospace; color: #1e293b;">${escapeHtml(diff.ip_address || '127.0.0.1')}</span>
+                            </div>
+                            <div>
+                                <strong style="color: #64748b; display: block; text-transform: uppercase; font-size: 10px; margin-bottom: 2px;">Modified Attributes</strong>
+                                <span style="font-weight: 700; color: #2563eb;">${changedFields.length} field(s) altered</span>
+                            </div>
+                        </div>
+
+                        <!-- Side-by-side Visual Highlight Containers -->
+                        <div class="diff-side-by-side">
+                            <!-- RED: Original Values (Before) -->
+                            <div class="diff-box diff-box-old">
+                                <div class="diff-box-title">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                    Original Values (Before Modification)
+                                </div>
+                                ${renderSideSnapshot(diff.old_values, changedFields, 'old')}
+                            </div>
+
+                            <!-- GREEN: Updated Values (After) -->
+                            <div class="diff-box diff-box-new">
+                                <div class="diff-box-title">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                    Updated Values (After Modification)
+                                </div>
+                                ${renderSideSnapshot(diff.new_values, changedFields, 'new')}
+                            </div>
+                        </div>
+
+                        <!-- Granular Field Delta Comparison Table -->
+                        <h4 style="font-size: 13.5px; font-weight: 700; margin: 0 0 10px; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            Granular Field-by-Field Delta Comparison
+                        </h4>
+                        <table class="diff-table-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width: 200px;">Modified Attribute</th>
+                                    <th>Original Snapshot (Prior Value)</th>
+                                    <th style="width: 44px; text-align: center;">&Delta;</th>
+                                    <th>Updated Snapshot (New Value)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${renderFieldDeltas(changedFields, diff.old_values, diff.new_values)}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="diff-modal-footer">
+                        <button class="btn btn-secondary btn-sm" id="btnCloseDiffModalFooter" style="font-weight: 600; padding: 6px 18px;">
+                            Close Inspection
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Bind dismiss handlers
+        const modalBackdrop = document.getElementById("auditDiffModal");
+        const btnClose = document.getElementById("btnCloseDiffModal");
+        const btnCloseFooter = document.getElementById("btnCloseDiffModalFooter");
+
+        if (btnClose) btnClose.onclick = closeDiffModal;
+        if (btnCloseFooter) btnCloseFooter.onclick = closeDiffModal;
+        if (modalBackdrop) {
+            modalBackdrop.onclick = (e) => {
+                if (e.target === modalBackdrop) closeDiffModal();
+            };
+        }
+
+        const handleEscape = (e) => {
+            if (e.key === "Escape") {
+                closeDiffModal();
+                window.removeEventListener("keydown", handleEscape);
+            }
+        };
+        window.addEventListener("keydown", handleEscape);
+
+    } catch (err) {
+        showToast("Error displaying diff: " + err.message, "error");
+        closeDiffModal();
+    }
+}
+
+function closeDiffModal()
+{
+    const container = document.getElementById("auditDiffModalContainer");
+    if (container) {
+        container.innerHTML = "";
+    }
+}
+
+function renderSideSnapshot(values, changedFields, type)
+{
+    if (!values || typeof values !== 'object' || Object.keys(values).length === 0) {
+        const message = type === 'old' 
+            ? 'Record Created New (No prior snapshot)' 
+            : 'Record Deleted (No post snapshot)';
+        return `
+            <div style="padding: 16px; font-size: 13px; font-style: italic; color: #64748b; text-align: center; background: rgba(255, 255, 255, 0.6); border-radius: 6px;">
+                ${escapeHtml(message)}
+            </div>
+        `;
+    }
+
+    let itemsHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    Object.keys(values).forEach(key => {
+        const isChanged = changedFields.includes(key);
+        const valDisplay = formatValueDisplay(values[key]);
+
+        if (type === 'old') {
+            const bg = isChanged ? '#fee2e2' : '#ffffff';
+            const border = isChanged ? '#fca5a5' : '#e2e8f0';
+            const labelColor = isChanged ? '#991b1b' : '#64748b';
+            const valColor = isChanged ? '#7f1d1d' : '#1e293b';
+            const decoration = isChanged ? 'line-through' : 'none';
+
+            itemsHtml += `
+                <div style="padding: 8px 10px; border-radius: 6px; background: ${bg}; border: 1px solid ${border};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                        <strong style="font-size: 11px; text-transform: uppercase; color: ${labelColor}; font-family: ui-monospace, Menlo, monospace;">${escapeHtml(key)}</strong>
+                        ${isChanged ? '<span class="badge bg-danger" style="font-size: 9.5px; padding: 2px 5px;">MODIFIED</span>' : ''}
+                    </div>
+                    <div style="font-size: 13px; color: ${valColor}; text-decoration: ${decoration}; word-break: break-word;">${valDisplay}</div>
+                </div>
+            `;
+        } else {
+            const bg = isChanged ? '#dcfce7' : '#ffffff';
+            const border = isChanged ? '#86efac' : '#e2e8f0';
+            const labelColor = isChanged ? '#166534' : '#64748b';
+            const valColor = isChanged ? '#14532d' : '#1e293b';
+            const fontWeight = isChanged ? '600' : 'normal';
+
+            itemsHtml += `
+                <div style="padding: 8px 10px; border-radius: 6px; background: ${bg}; border: 1px solid ${border};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                        <strong style="font-size: 11px; text-transform: uppercase; color: ${labelColor}; font-family: ui-monospace, Menlo, monospace;">${escapeHtml(key)}</strong>
+                        ${isChanged ? '<span class="badge bg-success" style="font-size: 9.5px; padding: 2px 5px;">UPDATED</span>' : ''}
+                    </div>
+                    <div style="font-size: 13px; color: ${valColor}; font-weight: ${fontWeight}; word-break: break-word;">${valDisplay}</div>
+                </div>
+            `;
+        }
+    });
+    itemsHtml += '</div>';
+    return itemsHtml;
+}
+
+function renderFieldDeltas(changedFields, oldValues, newValues)
+{
+    if (!changedFields || changedFields.length === 0) {
+        return `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 18px; color: #64748b; font-style: italic;">
+                    No granular field deltas recorded.
+                </td>
+            </tr>
+        `;
+    }
+
+    let rows = "";
+    changedFields.forEach(field => {
+        const oldVal = (oldValues && field in oldValues) ? oldValues[field] : null;
+        const newVal = (newValues && field in newValues) ? newValues[field] : null;
+
+        rows += `
+            <tr>
+                <td style="font-weight: 700; color: #1e293b; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;">
+                    ${escapeHtml(field)}
+                </td>
+                <td class="diff-cell-old">
+                    <span style="text-decoration: line-through; opacity: 0.9;">
+                        ${formatValueDisplay(oldVal)}
+                    </span>
+                </td>
+                <td style="text-align: center; font-weight: 700; color: #64748b;">
+                    &rarr;
+                </td>
+                <td class="diff-cell-new">
+                    <strong>
+                        ${formatValueDisplay(newVal)}
+                    </strong>
+                </td>
+            </tr>
+        `;
+    });
+
+    return rows;
+}
+
+function formatValueDisplay(val)
+{
+    if (val === null || val === undefined) {
+        return '<em style="color: #94a3b8; font-weight: normal;">NULL / Empty</em>';
+    }
+    if (typeof val === 'boolean') {
+        return `<span class="badge ${val ? 'bg-success' : 'bg-secondary'}" style="font-size: 11px;">${val ? 'True' : 'False'}</span>`;
+    }
+    if (typeof val === 'object') {
+        return `<pre style="margin: 0; font-size: 11.5px; font-family: ui-monospace, Menlo, monospace; max-height: 140px; overflow-y: auto; background: rgba(0,0,0,0.03); padding: 4px 6px; border-radius: 4px;">${escapeHtml(JSON.stringify(val, null, 2))}</pre>`;
+    }
+    return escapeHtml(String(val));
 }
 
 async function loadAuditLogs()

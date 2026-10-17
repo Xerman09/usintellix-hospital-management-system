@@ -18,6 +18,8 @@ import { ClinicSchedulesView } from "../modules/clinic-schedules/clinic-schedule
 import { initClinicSchedules } from "../modules/clinic-schedules/clinic-schedules.js";
 import { DepartmentOrgView } from "../modules/department-org/department-org.view.js";
 import { initDepartmentOrg } from "../modules/department-org/department-org.js";
+import { HipaaAuditView } from "../modules/hipaa-audit/hipaa-audit.view.js";
+import { initHipaaAudit } from "../modules/hipaa-audit/hipaa-audit.js";
 
 
 const app = document.getElementById("app");
@@ -104,6 +106,22 @@ const routes = {
     "/department_org": {
         view: DepartmentOrgView,
         afterRender: initDepartmentOrg
+    },
+    "/hipaa-audit": {
+        view: () => HipaaAuditView({ initialTab: 'activity' }),
+        afterRender: () => initHipaaAudit({ initialTab: 'activity' })
+    },
+    "/hipaa_audit": {
+        view: () => HipaaAuditView({ initialTab: 'activity' }),
+        afterRender: () => initHipaaAudit({ initialTab: 'activity' })
+    },
+    "/audit-diffs": {
+        view: () => HipaaAuditView({ initialTab: 'diffs' }),
+        afterRender: () => initHipaaAudit({ initialTab: 'diffs' })
+    },
+    "/audit_trail_diffs": {
+        view: () => HipaaAuditView({ initialTab: 'diffs' }),
+        afterRender: () => initHipaaAudit({ initialTab: 'diffs' })
     }
 
 };

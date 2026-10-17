@@ -3,6 +3,7 @@
 namespace App\Modules\EquipmentAssets\Services;
 
 use App\Core\AuditLogger;
+use App\Core\AuditDiffService;
 use App\Core\Database;
 use App\Modules\EquipmentAssets\Models\EquipmentAsset;
 use App\Modules\EquipmentAssets\Models\EquipmentMaintenanceLog;
@@ -268,6 +269,15 @@ class EquipmentAssetService
                 $userId
             );
 
+            AuditDiffService::recordDiff(
+                'hospital_equipment_assets',
+                (int) $id,
+                'CREATE',
+                null,
+                $payload,
+                $userId
+            );
+
             return [
                 'success' => true,
                 'message' => "Equipment asset '{$payload['name']}' registered successfully with Tag {$tag}.",
@@ -353,6 +363,15 @@ class EquipmentAssetService
                 $userId
             );
 
+            AuditDiffService::recordDiff(
+                'hospital_equipment_assets',
+                $id,
+                'UPDATE',
+                $existing,
+                $payload,
+                $userId
+            );
+
             return [
                 'success' => true,
                 'message' => "Equipment asset '{$payload['name']}' updated successfully."
@@ -405,6 +424,15 @@ class EquipmentAssetService
             'EQUIPMENT_STATUS_CHANGE',
             "Changed equipment asset ID #{$id} ({$existing['name']}) status to '{$status}'." . ($reason ? " Reason: {$reason}" : ""),
             null,
+            $userId
+        );
+
+        AuditDiffService::recordDiff(
+            'hospital_equipment_assets',
+            $id,
+            'UPDATE',
+            ['status' => $existing['status'], 'status_reason' => $existing['status_reason']],
+            ['status' => $status, 'status_reason' => $reason],
             $userId
         );
 

@@ -238,6 +238,7 @@ function staffNavLinks(role)
                         <a data-tab="admin_system_language">Language</a>
                         <a data-tab="system_documentation">System Documentation</a>
                         <a data-tab="hipaa_audit">HIPAA Audit Logs &amp; Integrity</a>
+                        <a data-tab="audit_trail_diffs">Granular Data Change Diffs</a>
                         <a data-tab="security_incidents">Security Incidents &amp; Breach Assessment</a>
                         <a data-tab="business_associates">BAA Vendor Registry (§ 164.502(e))</a>
                         <a data-tab="drs_requests">Right of Access (DRS Pipeline § 164.524)</a>
