@@ -104,4 +104,31 @@ class GeneralSettingController extends Controller
 
         $this->success($result['data'], $result['message']);
     }
+
+    /**
+     * Update Notification Preferences & Master Channel Switches (admin-only).
+     */
+    public function updateNotifications(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->generalSettingService->updateNotificationSettings(
+            $request->only([
+                'notification_sms_enabled',
+                'notification_email_enabled',
+                'notification_in_app_enabled',
+                'sms_gateway_provider',
+                'email_gateway_provider'
+            ]),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
 }

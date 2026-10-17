@@ -58,3 +58,14 @@ export async function updateGeneralSettings(data)
         }
     );
 }
+
+export async function updateNotificationSettings(data)
+{
+    return await api(
+        "/general-settings/notifications",
+        {
+            method: "PUT",
+            body: JSON.stringify(data)
+        }
+    );
+}

@@ -3,6 +3,7 @@
 namespace App\Modules\PatientReminders\Services;
 
 use App\Core\Database;
+use App\Modules\GeneralSettings\Services\GeneralSettingService;
 use App\Modules\PatientReminders\Models\PatientReminderAction;
 use DateTime;
 use PDO;
@@ -241,10 +242,12 @@ class PatientReminderService
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $sent = 0;
+        $globalSmsEnabled = GeneralSettingService::isSmsNotificationEnabled();
+        $globalEmailEnabled = GeneralSettingService::isEmailNotificationEnabled();
 
         foreach ($rows as $row) {
-            $emailSent = $row['allow_email'] === 'yes' ? 1 : 0;
-            $smsSent = $row['allow_sms'] === 'yes' ? 1 : 0;
+            $emailSent = ($globalEmailEnabled && $row['allow_email'] === 'yes') ? 1 : 0;
+            $smsSent = ($globalSmsEnabled && $row['allow_sms'] === 'yes') ? 1 : 0;
             $voiceSent = $row['allow_voice_calls'] === 'yes' ? 1 : 0;
             $mailSent = $row['allow_postcard'] === 'yes' ? 1 : 0;
 

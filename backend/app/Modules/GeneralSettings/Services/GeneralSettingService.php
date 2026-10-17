@@ -2,6 +2,7 @@
 
 namespace App\Modules\GeneralSettings\Services;
 
+use App\Core\AuditDiffService;
 use App\Core\Database;
 use App\Modules\GeneralSettings\Models\GeneralSetting;
 use DateTime;
@@ -11,6 +12,12 @@ use PDO;
 class GeneralSettingService
 {
     private const TWO_FACTOR_METHODS = ['sms', 'email'];
+
+    /** Supported SMS Gateway Providers */
+    public const SMS_GATEWAYS = ['Twilio', 'Vonage', 'Infobip', 'Semaphore', 'Custom / HTTP API'];
+
+    /** Supported Email Gateway Providers */
+    public const EMAIL_GATEWAYS = ['SMTP', 'SendGrid', 'Mailgun', 'Amazon SES', 'Postmark'];
 
     /**
      * The system timezone used until an admin picks one. Only the
@@ -37,6 +44,11 @@ class GeneralSettingService
         if (!$settings) {
             $id = (new GeneralSetting())->create([
                 'two_factor_enabled' => 0,
+                'notification_sms_enabled' => 1,
+                'notification_email_enabled' => 1,
+                'notification_in_app_enabled' => 1,
+                'sms_gateway_provider' => 'Twilio',
+                'email_gateway_provider' => 'SMTP',
                 'created_at' => date('Y-m-d H:i:s')
             ]);
 
@@ -48,6 +60,11 @@ class GeneralSettingService
         $settings['timezone_offset'] = (new DateTime('now', new DateTimeZone($settings['timezone'])))->format('P');
         $settings['prescription_validity_days'] = (int) ($settings['prescription_validity_days'] ?? self::DEFAULT_PRESCRIPTION_VALIDITY_DAYS);
         $settings['refill_validity_days'] = (int) ($settings['refill_validity_days'] ?? self::DEFAULT_REFILL_VALIDITY_DAYS);
+        $settings['notification_sms_enabled'] = (int) ($settings['notification_sms_enabled'] ?? 1);
+        $settings['notification_email_enabled'] = (int) ($settings['notification_email_enabled'] ?? 1);
+        $settings['notification_in_app_enabled'] = (int) ($settings['notification_in_app_enabled'] ?? 1);
+        $settings['sms_gateway_provider'] = $settings['sms_gateway_provider'] ?? 'Twilio';
+        $settings['email_gateway_provider'] = $settings['email_gateway_provider'] ?? 'SMTP';
 
         return $settings;
     }
@@ -241,6 +258,102 @@ class GeneralSettingService
             'success' => true,
             'message' => 'General settings updated successfully.',
             'data' => $this->get()
+        ];
+    }
+
+    /** Whether system-wide SMS notifications and reminders are active. */
+    public static function isSmsNotificationEnabled(): bool
+    {
+        $val = Database::connection()->query("SELECT notification_sms_enabled FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false ? (bool)$val : true;
+    }
+
+    /** Whether system-wide Email notifications and reminders are active. */
+    public static function isEmailNotificationEnabled(): bool
+    {
+        $val = Database::connection()->query("SELECT notification_email_enabled FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false ? (bool)$val : true;
+    }
+
+    /** Whether system-wide In-App notifications are active. */
+    public static function isInAppNotificationEnabled(): bool
+    {
+        $val = Database::connection()->query("SELECT notification_in_app_enabled FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false ? (bool)$val : true;
+    }
+
+    /**
+     * Update system-wide notification channel master switches and gateway providers (admin-only).
+     */
+    public function updateNotificationSettings(array $data, int $userId): array
+    {
+        $settings = $this->get();
+        $oldSnapshot = $settings;
+
+        $errors = [];
+        $smsGateway = trim((string)($data['sms_gateway_provider'] ?? 'Twilio'));
+        $emailGateway = trim((string)($data['email_gateway_provider'] ?? 'SMTP'));
+
+        if ($smsGateway !== '' && mb_strlen($smsGateway) > 50) {
+            $errors['sms_gateway_provider'] = 'SMS gateway provider name cannot exceed 50 characters.';
+        }
+
+        if ($emailGateway !== '' && mb_strlen($emailGateway) > 50) {
+            $errors['email_gateway_provider'] = 'Email gateway provider name cannot exceed 50 characters.';
+        }
+
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $errors
+            ];
+        }
+
+        $smsEnabled = array_key_exists('notification_sms_enabled', $data)
+            ? (!empty($data['notification_sms_enabled']) ? 1 : 0)
+            : (int)($settings['notification_sms_enabled'] ?? 1);
+
+        $emailEnabled = array_key_exists('notification_email_enabled', $data)
+            ? (!empty($data['notification_email_enabled']) ? 1 : 0)
+            : (int)($settings['notification_email_enabled'] ?? 1);
+
+        $inAppEnabled = array_key_exists('notification_in_app_enabled', $data)
+            ? (!empty($data['notification_in_app_enabled']) ? 1 : 0)
+            : (int)($settings['notification_in_app_enabled'] ?? 1);
+
+        $updatePayload = [
+            'notification_sms_enabled'   => $smsEnabled,
+            'notification_email_enabled' => $emailEnabled,
+            'notification_in_app_enabled'=> $inAppEnabled,
+            'sms_gateway_provider'       => $smsGateway ?: 'Twilio',
+            'email_gateway_provider'     => $emailGateway ?: 'SMTP',
+            'updated_at'                 => date('Y-m-d H:i:s'),
+            'updated_by'                 => $userId
+        ];
+
+        (new GeneralSetting())->update($updatePayload, $settings['id']);
+
+        $newSettings = $this->get();
+
+        // Record granular entity change audit diff
+        try {
+            AuditDiffService::recordDiff(
+                'general_settings',
+                (int)$settings['id'],
+                'UPDATE',
+                $oldSnapshot,
+                $newSettings,
+                $userId
+            );
+        } catch (\Throwable $e) {
+            error_log('AuditDiffService error on general_settings notifications: ' . $e->getMessage());
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Notification preferences updated successfully.',
+            'data' => $newSettings
         ];
     }
 

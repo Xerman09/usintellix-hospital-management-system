@@ -1,4 +1,4 @@
-import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings } from "./general-settings.service.js?v=7";
+import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings, updateNotificationSettings } from "./general-settings.service.js?v=7";
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
 import { setSystemTimezone, systemParts } from "../../core/timezone.js";
@@ -33,8 +33,10 @@ export async function initGeneralSettings()
 
     renderSettings(currentSettings);
     renderTimezone(currentSettings);
+    renderNotificationSettings(currentSettings);
     setupEditGeneralSettingsModal();
     setupEditTimezoneModal();
+    setupEditNotificationSettingsModal();
     setupPrescriptionSettings();
     await loadApprovalLimits();
 }
@@ -358,6 +360,40 @@ function renderSettings(settings)
         : "<p>-</p>";
 }
 
+function renderNotificationSettings(settings)
+{
+    const smsEnabled = !!settings.notification_sms_enabled;
+    const smsBadge = document.getElementById("ro_notif_sms_status");
+    if (smsBadge) {
+        smsBadge.textContent = smsEnabled ? "Enabled" : "Disabled";
+        smsBadge.className = `gs-status-badge ${smsEnabled ? "on" : "off"}`;
+    }
+
+    const smsProvider = document.getElementById("ro_notif_sms_provider");
+    if (smsProvider) {
+        smsProvider.textContent = `Gateway: ${settings.sms_gateway_provider || "Twilio"}`;
+    }
+
+    const emailEnabled = !!settings.notification_email_enabled;
+    const emailBadge = document.getElementById("ro_notif_email_status");
+    if (emailBadge) {
+        emailBadge.textContent = emailEnabled ? "Enabled" : "Disabled";
+        emailBadge.className = `gs-status-badge ${emailEnabled ? "on" : "off"}`;
+    }
+
+    const emailProvider = document.getElementById("ro_notif_email_provider");
+    if (emailProvider) {
+        emailProvider.textContent = `Gateway: ${settings.email_gateway_provider || "SMTP"}`;
+    }
+
+    const inappEnabled = !!settings.notification_in_app_enabled;
+    const inappBadge = document.getElementById("ro_notif_inapp_status");
+    if (inappBadge) {
+        inappBadge.textContent = inappEnabled ? "Enabled" : "Disabled";
+        inappBadge.className = `gs-status-badge ${inappEnabled ? "on" : "off"}`;
+    }
+}
+
 function setupEditGeneralSettingsModal()
 {
     const modalOverlay = document.getElementById("editGeneralSettingsModalOverlay");
@@ -449,6 +485,83 @@ function setupEditGeneralSettingsModal()
         renderSettings(currentSettings);
         closeModal();
         showToast("General settings updated successfully.", "success");
+    });
+}
+
+function setupEditNotificationSettingsModal()
+{
+    const modalOverlay = document.getElementById("editNotificationSettingsModalOverlay");
+    const form = document.getElementById("editNotificationSettingsForm");
+    if (!modalOverlay || !form) return;
+
+    const smsCheckbox = document.getElementById("edit_notif_sms_enabled");
+    const emailCheckbox = document.getElementById("edit_notif_email_enabled");
+    const inappCheckbox = document.getElementById("edit_notif_inapp_enabled");
+    const smsProviderSelect = document.getElementById("edit_sms_gateway_provider");
+    const emailProviderSelect = document.getElementById("edit_email_gateway_provider");
+
+    const openModal = () => {
+        document.getElementById("err-sms_gateway_provider").textContent = "";
+        document.getElementById("err-email_gateway_provider").textContent = "";
+        document.getElementById("editNotificationSettingsFormAlert").innerHTML = "";
+
+        smsCheckbox.checked = !!currentSettings.notification_sms_enabled;
+        emailCheckbox.checked = !!currentSettings.notification_email_enabled;
+        inappCheckbox.checked = !!currentSettings.notification_in_app_enabled;
+        smsProviderSelect.value = currentSettings.sms_gateway_provider || "Twilio";
+        emailProviderSelect.value = currentSettings.email_gateway_provider || "SMTP";
+
+        modalOverlay.classList.add("open");
+    };
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("openEditNotificationSettingsModal")?.addEventListener("click", openModal);
+    document.getElementById("closeEditNotificationSettingsModal")?.addEventListener("click", closeModal);
+    document.getElementById("cancelEditNotificationSettings")?.addEventListener("click", closeModal);
+
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("err-sms_gateway_provider").textContent = "";
+        document.getElementById("err-email_gateway_provider").textContent = "";
+        document.getElementById("editNotificationSettingsFormAlert").innerHTML = "";
+
+        const payload = {
+            notification_sms_enabled: smsCheckbox.checked ? 1 : 0,
+            notification_email_enabled: emailCheckbox.checked ? 1 : 0,
+            notification_in_app_enabled: inappCheckbox.checked ? 1 : 0,
+            sms_gateway_provider: smsProviderSelect.value,
+            email_gateway_provider: emailProviderSelect.value
+        };
+
+        const result = await updateNotificationSettings(payload);
+
+        if (!result.success) {
+            showAlert("editNotificationSettingsFormAlert", result.message || "Failed to update notification settings.", "error");
+
+            if (result.errors) {
+                if (result.errors.sms_gateway_provider) {
+                    document.getElementById("err-sms_gateway_provider").textContent = result.errors.sms_gateway_provider;
+                }
+                if (result.errors.email_gateway_provider) {
+                    document.getElementById("err-email_gateway_provider").textContent = result.errors.email_gateway_provider;
+                }
+            }
+
+            return;
+        }
+
+        currentSettings = { ...currentSettings, ...result.data };
+        renderNotificationSettings(currentSettings);
+        closeModal();
+        showToast("Notification preferences updated successfully.", "success");
     });
 }
 

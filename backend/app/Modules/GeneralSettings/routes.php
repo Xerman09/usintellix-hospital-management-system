@@ -30,3 +30,8 @@ $router->put('/general-settings/prescriptions', [GeneralSettingController::class
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->put('/general-settings/notifications', [GeneralSettingController::class, 'updateNotifications'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);

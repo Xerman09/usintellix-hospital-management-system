@@ -327,6 +327,47 @@ export function GeneralSettingsView()
             </div>
         </div>
     </div>
+
+    <div class="gs-card">
+        <div class="gs-header">
+            <div>
+                <h1>Notification Preferences & Master Switches</h1>
+                <p class="form-subtitle">System-wide administrative master control panel to enable or disable communication channels (SMS reminders, Email notices, In-App alerts) and configure gateway providers.</p>
+            </div>
+            <button type="button" class="gs-add-btn" id="openEditNotificationSettingsModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Edit
+            </button>
+        </div>
+
+        <div id="gsNotificationAlert"></div>
+
+        <div class="form-grid" style="margin-top: 20px;">
+            <div class="form-group">
+                <label>SMS Reminders & Dispatches</label>
+                <p style="display: flex; align-items: center; gap: 8px;">
+                    <span class="gs-status-badge" id="ro_notif_sms_status">-</span>
+                    <span style="font-size: 12px; color: var(--text-muted);" id="ro_notif_sms_provider">-</span>
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label>Email Notifications & Reports</label>
+                <p style="display: flex; align-items: center; gap: 8px;">
+                    <span class="gs-status-badge" id="ro_notif_email_status">-</span>
+                    <span style="font-size: 12px; color: var(--text-muted);" id="ro_notif_email_provider">-</span>
+                </p>
+            </div>
+
+            <div class="form-group full">
+                <label>In-App Alerts & Activity Reminders</label>
+                <p style="display: flex; align-items: center; gap: 8px;">
+                    <span class="gs-status-badge" id="ro_notif_inapp_status">-</span>
+                    <span style="font-size: 12.5px; color: var(--text-muted);">Real-time activity bell, critical abnormal lab results, and patient appointment reminders</span>
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="editTimezoneModalOverlay">
@@ -396,6 +437,71 @@ export function GeneralSettingsView()
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelEditGeneralSettings">Cancel</button>
+                <button class="login-btn" type="submit">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="editNotificationSettingsModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Edit Notification Preferences</h2>
+            <button type="button" class="modal-close" id="closeEditNotificationSettingsModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Toggle master communication switches system-wide and configure delivery gateway providers.</p>
+
+        <div id="editNotificationSettingsFormAlert"></div>
+
+        <form id="editNotificationSettingsForm">
+            <div class="form-group full">
+                <label style="margin-bottom: 8px; font-weight: 700;">Master Channel Switches</label>
+                <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="checkbox" id="edit_notif_sms_enabled" style="width: 17px; height: 17px; accent-color: var(--accent);">
+                        <span><strong>Enable SMS Reminders & Text Alerts</strong> (Master Switch)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="checkbox" id="edit_notif_email_enabled" style="width: 17px; height: 17px; accent-color: var(--accent);">
+                        <span><strong>Enable Email Notifications & Reminders</strong> (Master Switch)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="checkbox" id="edit_notif_inapp_enabled" style="width: 17px; height: 17px; accent-color: var(--accent);">
+                        <span><strong>Enable In-App Activity & Reminder Alerts</strong> (Master Switch)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group full" style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-color, #e2e8f0);">
+                <label style="margin-bottom: 8px; font-weight: 700;">Gateway Provider Routing</label>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_sms_gateway_provider">SMS Gateway Provider</label>
+                <select id="edit_sms_gateway_provider" class="form-input">
+                    <option value="Twilio">Twilio Cloud API</option>
+                    <option value="Vonage">Vonage (Nexmo) SMS</option>
+                    <option value="Infobip">Infobip Enterprise</option>
+                    <option value="Semaphore">Semaphore PH SMS</option>
+                    <option value="Custom / HTTP API">Custom / HTTP Webhook</option>
+                </select>
+                <span class="form-error" id="err-sms_gateway_provider"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_email_gateway_provider">Email Gateway Provider</label>
+                <select id="edit_email_gateway_provider" class="form-input">
+                    <option value="SMTP">Hospital SMTP Mail Server</option>
+                    <option value="SendGrid">Twilio SendGrid API</option>
+                    <option value="Mailgun">Mailgun Cloud Delivery</option>
+                    <option value="Amazon SES">Amazon Simple Email Service (SES)</option>
+                    <option value="Postmark">Postmark Transactional</option>
+                </select>
+                <span class="form-error" id="err-email_gateway_provider"></span>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelEditNotificationSettings">Cancel</button>
                 <button class="login-btn" type="submit">Save Changes</button>
             </div>
         </form>
