@@ -1,7 +1,8 @@
-import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings, updateNotificationSettings } from "./general-settings.service.js?v=7";
+import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings, updateNotificationSettings, updateOperationalPolicies } from "./general-settings.service.js?v=7";
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
 import { setSystemTimezone, systemParts } from "../../core/timezone.js";
+import { setInactivityTimeoutMinutes } from "../../core/inactivity-guard.js";
 
 let currentSettings = null;
 let rolesCatalog = [];
@@ -30,13 +31,18 @@ export async function initGeneralSettings()
 
     currentSettings = settingsResult.data;
     setSystemTimezone(currentSettings.timezone);
+    if (currentSettings.inactivity_timeout_minutes) {
+        setInactivityTimeoutMinutes(currentSettings.inactivity_timeout_minutes);
+    }
 
     renderSettings(currentSettings);
     renderTimezone(currentSettings);
     renderNotificationSettings(currentSettings);
+    renderOperationalPolicies(currentSettings);
     setupEditGeneralSettingsModal();
     setupEditTimezoneModal();
     setupEditNotificationSettingsModal();
+    setupEditOperationalPoliciesModal();
     setupPrescriptionSettings();
     await loadApprovalLimits();
 }
@@ -394,6 +400,35 @@ function renderNotificationSettings(settings)
     }
 }
 
+function renderOperationalPolicies(settings)
+{
+    const apptDuration = settings.default_appointment_duration ?? 30;
+    const turnoverBuffer = settings.bed_turnover_buffer_minutes ?? 45;
+    const inactivityTimeout = settings.inactivity_timeout_minutes ?? 15;
+    const breakGlassCosign = !!settings.break_glass_requires_cosign;
+
+    const apptEl = document.getElementById("ro_default_appointment_duration");
+    if (apptEl) {
+        apptEl.textContent = `${apptDuration} minutes`;
+    }
+
+    const turnoverEl = document.getElementById("ro_bed_turnover_buffer");
+    if (turnoverEl) {
+        turnoverEl.textContent = `${turnoverBuffer} minutes`;
+    }
+
+    const inactivityEl = document.getElementById("ro_inactivity_timeout");
+    if (inactivityEl) {
+        inactivityEl.textContent = `${inactivityTimeout} minutes`;
+    }
+
+    const cosignBadge = document.getElementById("ro_break_glass_cosign");
+    if (cosignBadge) {
+        cosignBadge.textContent = breakGlassCosign ? "Cosignature Required" : "No Cosign Required";
+        cosignBadge.className = `gs-status-badge ${breakGlassCosign ? "on" : "off"}`;
+    }
+}
+
 function setupEditGeneralSettingsModal()
 {
     const modalOverlay = document.getElementById("editGeneralSettingsModalOverlay");
@@ -562,6 +597,107 @@ function setupEditNotificationSettingsModal()
         renderNotificationSettings(currentSettings);
         closeModal();
         showToast("Notification preferences updated successfully.", "success");
+    });
+}
+
+function setupEditOperationalPoliciesModal()
+{
+    const modalOverlay = document.getElementById("editOperationalPoliciesModalOverlay");
+    const form = document.getElementById("editOperationalPoliciesForm");
+    if (!modalOverlay || !form) return;
+
+    const apptInput = document.getElementById("edit_default_appointment_duration");
+    const turnoverInput = document.getElementById("edit_bed_turnover_buffer_minutes");
+    const inactivityInput = document.getElementById("edit_inactivity_timeout_minutes");
+    const cosignCheckbox = document.getElementById("edit_break_glass_requires_cosign");
+
+    const openModal = () => {
+        document.getElementById("err-default_appointment_duration").textContent = "";
+        document.getElementById("err-bed_turnover_buffer_minutes").textContent = "";
+        document.getElementById("err-inactivity_timeout_minutes").textContent = "";
+        document.getElementById("editOperationalPoliciesFormAlert").innerHTML = "";
+
+        apptInput.value = currentSettings.default_appointment_duration ?? 30;
+        turnoverInput.value = currentSettings.bed_turnover_buffer_minutes ?? 45;
+        inactivityInput.value = currentSettings.inactivity_timeout_minutes ?? 15;
+        cosignCheckbox.checked = !!currentSettings.break_glass_requires_cosign;
+
+        modalOverlay.classList.add("open");
+    };
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    document.getElementById("openEditOperationalPoliciesModal")?.addEventListener("click", openModal);
+    document.getElementById("closeEditOperationalPoliciesModal")?.addEventListener("click", closeModal);
+    document.getElementById("cancelEditOperationalPolicies")?.addEventListener("click", closeModal);
+
+    modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) {
+            closeModal();
+        }
+    });
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        document.getElementById("err-default_appointment_duration").textContent = "";
+        document.getElementById("err-bed_turnover_buffer_minutes").textContent = "";
+        document.getElementById("err-inactivity_timeout_minutes").textContent = "";
+        document.getElementById("editOperationalPoliciesFormAlert").innerHTML = "";
+
+        const apptVal = parseInt(apptInput.value.trim(), 10);
+        const turnoverVal = parseInt(turnoverInput.value.trim(), 10);
+        const inactivityVal = parseInt(inactivityInput.value.trim(), 10);
+        const cosignVal = cosignCheckbox.checked ? 1 : 0;
+
+        let hasError = false;
+        if (isNaN(apptVal) || apptVal < 5 || apptVal > 240) {
+            document.getElementById("err-default_appointment_duration").textContent = "Enter appointment duration between 5 and 240 minutes.";
+            hasError = true;
+        }
+        if (isNaN(turnoverVal) || turnoverVal < 5 || turnoverVal > 360) {
+            document.getElementById("err-bed_turnover_buffer_minutes").textContent = "Enter bed turnover buffer between 5 and 360 minutes.";
+            hasError = true;
+        }
+        if (isNaN(inactivityVal) || inactivityVal < 1 || inactivityVal > 120) {
+            document.getElementById("err-inactivity_timeout_minutes").textContent = "Enter inactivity timeout between 1 and 120 minutes.";
+            hasError = true;
+        }
+
+        if (hasError) return;
+
+        const payload = {
+            default_appointment_duration: apptVal,
+            bed_turnover_buffer_minutes: turnoverVal,
+            inactivity_timeout_minutes: inactivityVal,
+            break_glass_requires_cosign: cosignVal
+        };
+
+        const result = await updateOperationalPolicies(payload);
+
+        if (!result.success) {
+            showAlert("editOperationalPoliciesFormAlert", result.message || "Failed to update operational policies.", "error");
+
+            if (result.errors) {
+                if (result.errors.default_appointment_duration) {
+                    document.getElementById("err-default_appointment_duration").textContent = result.errors.default_appointment_duration;
+                }
+                if (result.errors.bed_turnover_buffer_minutes) {
+                    document.getElementById("err-bed_turnover_buffer_minutes").textContent = result.errors.bed_turnover_buffer_minutes;
+                }
+                if (result.errors.inactivity_timeout_minutes) {
+                    document.getElementById("err-inactivity_timeout_minutes").textContent = result.errors.inactivity_timeout_minutes;
+                }
+            }
+
+            return;
+        }
+
+        currentSettings = { ...currentSettings, ...result.data };
+        setInactivityTimeoutMinutes(currentSettings.inactivity_timeout_minutes);
+        renderOperationalPolicies(currentSettings);
+        closeModal();
+        showToast("Hospital operational policies and system constants updated successfully.", "success");
     });
 }
 

@@ -368,6 +368,47 @@ export function GeneralSettingsView()
             </div>
         </div>
     </div>
+
+    <div class="gs-card">
+        <div class="gs-header">
+            <div>
+                <h1>Operational Policies & System Constants</h1>
+                <p class="form-subtitle">Hospital-wide timeouts, grace periods, clinical governance flags, and operational defaults.</p>
+            </div>
+            <button type="button" class="gs-add-btn" id="openEditOperationalPoliciesModal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                Edit
+            </button>
+        </div>
+
+        <div id="gsOperationalPoliciesAlert"></div>
+
+        <div class="form-grid" style="margin-top: 20px;">
+            <div class="form-group">
+                <label>Default Appointment Duration</label>
+                <p><span class="gs-tz-name" id="ro_default_appointment_duration">30 minutes</span></p>
+                <p class="form-subtitle" style="font-size: 11.5px; margin-top: 2px;">Standard outpatient booking duration fallback</p>
+            </div>
+
+            <div class="form-group">
+                <label>Bed Turnover Buffer (Grace Period)</label>
+                <p><span class="gs-tz-name" id="ro_bed_turnover_buffer">45 minutes</span></p>
+                <p class="form-subtitle" style="font-size: 11.5px; margin-top: 2px;">Housekeeping turnover window before bed is marked Available</p>
+            </div>
+
+            <div class="form-group">
+                <label>HIPAA Inactivity Session Timeout</label>
+                <p><span class="gs-tz-name" id="ro_inactivity_timeout">15 minutes</span></p>
+                <p class="form-subtitle" style="font-size: 11.5px; margin-top: 2px;">Automatic logoff threshold (§ 164.312(a)(2)(iii))</p>
+            </div>
+
+            <div class="form-group">
+                <label>Emergency Break-Glass Governance</label>
+                <p><span class="gs-status-badge on" id="ro_break_glass_cosign">Cosignature Required</span></p>
+                <p class="form-subtitle" style="font-size: 11.5px; margin-top: 2px;">Attending physician cosignature required on emergency overrides</p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="modal-overlay" id="editTimezoneModalOverlay">
@@ -502,6 +543,59 @@ export function GeneralSettingsView()
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelEditNotificationSettings">Cancel</button>
+                <button class="login-btn" type="submit">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="editOperationalPoliciesModalOverlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Edit Operational Policies & Constants</h2>
+            <button type="button" class="modal-close" id="closeEditOperationalPoliciesModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Configure hospital-wide scheduling defaults, bed turnover buffers, HIPAA security timeouts, and clinical emergency governance.</p>
+
+        <div id="editOperationalPoliciesFormAlert"></div>
+
+        <form id="editOperationalPoliciesForm">
+            <div class="form-group full">
+                <label for="edit_default_appointment_duration">Default Appointment Duration (Minutes) *</label>
+                <input type="number" id="edit_default_appointment_duration" class="form-input" min="5" max="240" step="5" required>
+                <span class="form-error" id="err-default_appointment_duration"></span>
+                <span class="form-subtitle" style="font-size: 12px; margin-top: 4px; display: block;">Standard slot length used for patient appointments when clinic-specific schedule is not defined (5–240 mins).</span>
+            </div>
+
+            <div class="form-group full">
+                <label for="edit_bed_turnover_buffer_minutes">Bed Turnover Buffer Grace Period (Minutes) *</label>
+                <input type="number" id="edit_bed_turnover_buffer_minutes" class="form-input" min="5" max="360" step="5" required>
+                <span class="form-error" id="err-bed_turnover_buffer_minutes"></span>
+                <span class="form-subtitle" style="font-size: 12px; margin-top: 4px; display: block;">Turnover and sanitation buffer duration before discharged beds return to Available status (5–360 mins).</span>
+            </div>
+
+            <div class="form-group full">
+                <label for="edit_inactivity_timeout_minutes">HIPAA Inactivity Session Timeout (Minutes) *</label>
+                <input type="number" id="edit_inactivity_timeout_minutes" class="form-input" min="1" max="120" step="1" required>
+                <span class="form-error" id="err-inactivity_timeout_minutes"></span>
+                <span class="form-subtitle" style="font-size: 12px; margin-top: 4px; display: block;">Maximum idle time before the system displays the warning and terminates user sessions (§ 164.312(a)(2)(iii), 1–120 mins).</span>
+            </div>
+
+            <div class="form-group full">
+                <label style="margin-bottom: 6px; font-weight: 700;">Break-Glass Clinical Emergency Governance</label>
+                <div style="padding: 12px; background: var(--bg-surface-alt, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; color: var(--text-primary);">
+                        <input type="checkbox" id="edit_break_glass_requires_cosign" style="width: 17px; height: 17px; accent-color: var(--accent);">
+                        <span><strong>Require Attending / Supervisor Cosignature</strong> for Emergency Break-Glass Overrides</span>
+                    </label>
+                    <span class="form-subtitle" style="font-size: 11.5px; margin-top: 6px; display: block; color: var(--text-muted);">
+                        When active, emergency unassigned chart access requires mandatory cosignature verification in the HIPAA audit ledger.
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelEditOperationalPolicies">Cancel</button>
                 <button class="login-btn" type="submit">Save Changes</button>
             </div>
         </form>

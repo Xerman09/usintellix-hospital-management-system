@@ -35,3 +35,9 @@ $router->put('/general-settings/notifications', [GeneralSettingController::class
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->put('/general-settings/operational-policies', [GeneralSettingController::class, 'updateOperationalPolicies'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin']]
+]);
+

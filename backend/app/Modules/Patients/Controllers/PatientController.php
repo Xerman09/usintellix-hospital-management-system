@@ -26,6 +26,7 @@ use App\Modules\PatientReminders\Services\PatientReminderService;
 use App\Modules\OfficeNotes\Services\OfficeNoteService;
 use App\Modules\PatientCarePreferences\Services\PatientCarePreferenceService;
 use App\Modules\Patients\Models\Patient;
+use App\Modules\GeneralSettings\Services\GeneralSettingService;
 use App\Core\AuditLogger;
 use App\Core\PhiAccessGuard;
 
@@ -454,11 +455,17 @@ class PatientController extends Controller
             return;
         }
 
+        $requiresCosign = GeneralSettingService::breakGlassRequiresCosign();
+        $auditMessage = "EMERGENCY ACCESS (Break-Glass) invoked: " . $reason;
+        if ($requiresCosign) {
+            $auditMessage .= " [Attending Cosignature Required]";
+        }
+
         // Log the emergency break-glass event into the immutable HIPAA audit trail
         AuditLogger::log(
             AuditLogger::CATEGORY_EMERGENCY,
             AuditLogger::ACTION_BREAK_GLASS,
-            "EMERGENCY ACCESS (Break-Glass) invoked: " . $reason,
+            $auditMessage,
             $patientId
         );
 
@@ -472,7 +479,12 @@ class PatientController extends Controller
             Session::put('break_glass_patients', $emergencyGrants);
         }
 
-        $this->success(null, 'Emergency break-glass access granted and logged in the immutable HIPAA audit trail.');
+        $this->success(
+            ['cosign_required' => $requiresCosign],
+            $requiresCosign
+                ? 'Emergency break-glass access granted and logged. Attending physician cosignature required per hospital governance policy.'
+                : 'Emergency break-glass access granted and logged in the immutable HIPAA audit trail.'
+        );
     }
 
     /**

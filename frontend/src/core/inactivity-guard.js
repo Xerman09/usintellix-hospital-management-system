@@ -1,15 +1,30 @@
 import { api } from "./api.js?v=10";
 import { isAuthenticated, clearSession } from "./session.js?v=5";
 
-const TOTAL_TIMEOUT_MS = 15 * 60 * 1000;      // 15 minutes
+const savedTimeout = parseInt(localStorage.getItem("hms_inactivity_timeout_minutes"), 10);
+let totalTimeoutMs = (savedTimeout && savedTimeout >= 1 && savedTimeout <= 120 ? savedTimeout : 15) * 60 * 1000;
 const WARNING_BEFORE_MS = 60 * 1000;          // Show warning 60 seconds before
-const WARNING_TIMEOUT_MS = TOTAL_TIMEOUT_MS - WARNING_BEFORE_MS; // 14 minutes
 
 let warningTimer = null;
 let logoutTimer = null;
 let countdownInterval = null;
 let isWarningActive = false;
 let isInitialized = false;
+
+/**
+ * Dynamically updates the HIPAA inactivity timeout threshold (in minutes).
+ */
+export function setInactivityTimeoutMinutes(minutes)
+{
+    const m = Number(minutes);
+    if (!isNaN(m) && m >= 1 && m <= 120) {
+        totalTimeoutMs = m * 60 * 1000;
+        localStorage.setItem("hms_inactivity_timeout_minutes", String(m));
+        if (isAuthenticated() && !isWarningActive) {
+            resetInactivityTimer();
+        }
+    }
+}
 
 /**
  * Initializes the HIPAA Automatic Logoff watchdog (§ 164.312(a)(2)(iii)).
@@ -73,9 +88,10 @@ export function resetInactivityTimer()
         return;
     }
 
+    const warningDelay = Math.max(10000, totalTimeoutMs - WARNING_BEFORE_MS);
     warningTimer = setTimeout(() => {
         showWarningModal();
-    }, WARNING_TIMEOUT_MS);
+    }, warningDelay);
 }
 
 /**

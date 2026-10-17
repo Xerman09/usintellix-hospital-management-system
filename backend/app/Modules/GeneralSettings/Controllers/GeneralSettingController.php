@@ -131,4 +131,30 @@ class GeneralSettingController extends Controller
 
         $this->success($result['data'], $result['message']);
     }
+
+    /**
+     * Update Hospital Operational Policies & System Constants (admin-only).
+     */
+    public function updateOperationalPolicies(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $result = $this->generalSettingService->updateOperationalPolicies(
+            $request->only([
+                'default_appointment_duration',
+                'bed_turnover_buffer_minutes',
+                'inactivity_timeout_minutes',
+                'break_glass_requires_cosign'
+            ]),
+            (int) $user['id']
+        );
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422, $result['errors'] ?? null);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
 }

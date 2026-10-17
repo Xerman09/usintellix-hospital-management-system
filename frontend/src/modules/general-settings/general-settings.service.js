@@ -69,3 +69,15 @@ export async function updateNotificationSettings(data)
         }
     );
 }
+
+export async function updateOperationalPolicies(data)
+{
+    return await api(
+        "/general-settings/operational-policies",
+        {
+            method: "PUT",
+            body: JSON.stringify(data)
+        }
+    );
+}
+

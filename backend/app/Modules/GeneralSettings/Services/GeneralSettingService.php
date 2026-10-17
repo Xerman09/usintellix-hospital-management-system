@@ -32,6 +32,18 @@ class GeneralSettingService
     /** How long refills can be dispensed after a prescription is written. */
     public const DEFAULT_REFILL_VALIDITY_DAYS = 180;
 
+    /** Standard outpatient appointment duration in minutes. */
+    public const DEFAULT_APPOINTMENT_DURATION = 30;
+
+    /** Bed turnover cleaning grace period in minutes. */
+    public const DEFAULT_BED_TURNOVER_BUFFER = 45;
+
+    /** HIPAA automatic session inactivity logoff threshold in minutes. */
+    public const DEFAULT_INACTIVITY_TIMEOUT = 15;
+
+    /** Whether emergency break-glass chart access requires supervisor/attending cosignature. */
+    public const DEFAULT_BREAK_GLASS_REQUIRES_COSIGN = 1;
+
     /**
      * Get the single general settings row (creating a default one if it
      * somehow doesn't exist yet), plus which roles Two-Factor
@@ -49,6 +61,10 @@ class GeneralSettingService
                 'notification_in_app_enabled' => 1,
                 'sms_gateway_provider' => 'Twilio',
                 'email_gateway_provider' => 'SMTP',
+                'default_appointment_duration' => self::DEFAULT_APPOINTMENT_DURATION,
+                'bed_turnover_buffer_minutes' => self::DEFAULT_BED_TURNOVER_BUFFER,
+                'inactivity_timeout_minutes' => self::DEFAULT_INACTIVITY_TIMEOUT,
+                'break_glass_requires_cosign' => self::DEFAULT_BREAK_GLASS_REQUIRES_COSIGN,
                 'created_at' => date('Y-m-d H:i:s')
             ]);
 
@@ -65,6 +81,10 @@ class GeneralSettingService
         $settings['notification_in_app_enabled'] = (int) ($settings['notification_in_app_enabled'] ?? 1);
         $settings['sms_gateway_provider'] = $settings['sms_gateway_provider'] ?? 'Twilio';
         $settings['email_gateway_provider'] = $settings['email_gateway_provider'] ?? 'SMTP';
+        $settings['default_appointment_duration'] = (int) ($settings['default_appointment_duration'] ?? self::DEFAULT_APPOINTMENT_DURATION);
+        $settings['bed_turnover_buffer_minutes'] = (int) ($settings['bed_turnover_buffer_minutes'] ?? self::DEFAULT_BED_TURNOVER_BUFFER);
+        $settings['inactivity_timeout_minutes'] = (int) ($settings['inactivity_timeout_minutes'] ?? self::DEFAULT_INACTIVITY_TIMEOUT);
+        $settings['break_glass_requires_cosign'] = (int) ($settings['break_glass_requires_cosign'] ?? self::DEFAULT_BREAK_GLASS_REQUIRES_COSIGN);
 
         return $settings;
     }
@@ -282,6 +302,34 @@ class GeneralSettingService
         return $val !== false ? (bool)$val : true;
     }
 
+    /** Default outpatient appointment duration in minutes across facilities. */
+    public static function getDefaultAppointmentDuration(): int
+    {
+        $val = Database::connection()->query("SELECT default_appointment_duration FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false && (int)$val > 0 ? (int)$val : self::DEFAULT_APPOINTMENT_DURATION;
+    }
+
+    /** Bed turnover cleaning grace period in minutes before status transitions to Available. */
+    public static function getBedTurnoverBufferMinutes(): int
+    {
+        $val = Database::connection()->query("SELECT bed_turnover_buffer_minutes FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false && (int)$val > 0 ? (int)$val : self::DEFAULT_BED_TURNOVER_BUFFER;
+    }
+
+    /** HIPAA automatic session inactivity logoff threshold in minutes. */
+    public static function getInactivityTimeoutMinutes(): int
+    {
+        $val = Database::connection()->query("SELECT inactivity_timeout_minutes FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false && (int)$val > 0 ? (int)$val : self::DEFAULT_INACTIVITY_TIMEOUT;
+    }
+
+    /** Whether emergency break-glass chart overrides require attending/supervisor cosignature. */
+    public static function breakGlassRequiresCosign(): bool
+    {
+        $val = Database::connection()->query("SELECT break_glass_requires_cosign FROM general_settings ORDER BY id LIMIT 1")->fetchColumn();
+        return $val !== false ? (bool)$val : true;
+    }
+
     /**
      * Update system-wide notification channel master switches and gateway providers (admin-only).
      */
@@ -353,6 +401,77 @@ class GeneralSettingService
         return [
             'success' => true,
             'message' => 'Notification preferences updated successfully.',
+            'data' => $newSettings
+        ];
+    }
+
+    /**
+     * Update hospital operational policies & system constants (admin-only).
+     */
+    public function updateOperationalPolicies(array $data, int $userId): array
+    {
+        $settings = $this->get();
+        $oldSnapshot = $settings;
+
+        $errors = [];
+
+        $apptDuration = isset($data['default_appointment_duration']) ? (int)$data['default_appointment_duration'] : $settings['default_appointment_duration'];
+        $turnoverBuffer = isset($data['bed_turnover_buffer_minutes']) ? (int)$data['bed_turnover_buffer_minutes'] : $settings['bed_turnover_buffer_minutes'];
+        $inactivityTimeout = isset($data['inactivity_timeout_minutes']) ? (int)$data['inactivity_timeout_minutes'] : $settings['inactivity_timeout_minutes'];
+        $breakGlassCosign = array_key_exists('break_glass_requires_cosign', $data)
+            ? (!empty($data['break_glass_requires_cosign']) ? 1 : 0)
+            : (int)$settings['break_glass_requires_cosign'];
+
+        if ($apptDuration < 5 || $apptDuration > 240) {
+            $errors['default_appointment_duration'] = 'Default appointment duration must be between 5 and 240 minutes.';
+        }
+
+        if ($turnoverBuffer < 5 || $turnoverBuffer > 360) {
+            $errors['bed_turnover_buffer_minutes'] = 'Bed turnover buffer must be between 5 and 360 minutes.';
+        }
+
+        if ($inactivityTimeout < 1 || $inactivityTimeout > 120) {
+            $errors['inactivity_timeout_minutes'] = 'Inactivity timeout must be between 1 and 120 minutes.';
+        }
+
+        if (!empty($errors)) {
+            return [
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $errors
+            ];
+        }
+
+        $updatePayload = [
+            'default_appointment_duration' => $apptDuration,
+            'bed_turnover_buffer_minutes'   => $turnoverBuffer,
+            'inactivity_timeout_minutes'    => $inactivityTimeout,
+            'break_glass_requires_cosign'   => $breakGlassCosign,
+            'updated_at'                    => date('Y-m-d H:i:s'),
+            'updated_by'                    => $userId
+        ];
+
+        (new GeneralSetting())->update($updatePayload, $settings['id']);
+
+        $newSettings = $this->get();
+
+        // Record granular entity change audit diff
+        try {
+            AuditDiffService::recordDiff(
+                'general_settings',
+                (int)$settings['id'],
+                'UPDATE',
+                $oldSnapshot,
+                $newSettings,
+                $userId
+            );
+        } catch (\Throwable $e) {
+            error_log('AuditDiffService error on general_settings operational policies: ' . $e->getMessage());
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Hospital operational policies updated successfully.',
             'data' => $newSettings
         ];
     }
