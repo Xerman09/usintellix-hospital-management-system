@@ -16,6 +16,8 @@ import { EquipmentAssetsView } from "../modules/equipment-assets/equipment-asset
 import { initEquipmentAssets } from "../modules/equipment-assets/equipment-assets.js";
 import { ClinicSchedulesView } from "../modules/clinic-schedules/clinic-schedules.view.js";
 import { initClinicSchedules } from "../modules/clinic-schedules/clinic-schedules.js";
+import { DepartmentOrgView } from "../modules/department-org/department-org.view.js";
+import { initDepartmentOrg } from "../modules/department-org/department-org.js";
 
 
 const app = document.getElementById("app");
@@ -94,6 +96,14 @@ const routes = {
     "/clinic_schedules": {
         view: ClinicSchedulesView,
         afterRender: initClinicSchedules
+    },
+    "/department-org": {
+        view: DepartmentOrgView,
+        afterRender: initDepartmentOrg
+    },
+    "/department_org": {
+        view: DepartmentOrgView,
+        afterRender: initDepartmentOrg
     }
 
 };

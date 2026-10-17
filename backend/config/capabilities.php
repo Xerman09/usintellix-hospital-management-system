@@ -44,6 +44,11 @@ return [
                 'label' => 'Clinic Operating Schedules',
                 'description' => 'Configure department operating hours, weekly clinic timetables, slot durations, and daily capacities',
             ],
+            'admin_department_org' => [
+                'name' => 'admin_department_org',
+                'label' => 'Department Organizational Mapping',
+                'description' => 'View and manage visual organizational tree linking Facility, Departments, Department Heads, Wards, and Medical Staff',
+            ],
             'admin_audit_logs' => [
                 'name' => 'admin_audit_logs',
                 'label' => 'HIPAA Security Audit Logs',

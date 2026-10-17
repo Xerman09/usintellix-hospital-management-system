@@ -25,6 +25,7 @@ function staffNavLinks(role)
                 <a data-tab="census">Daily Census</a>
                 ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
                 <a data-tab="room_management">Room &amp; Bed Management</a>
+                <a data-tab="department_org">Department Org Mapping</a>
                 <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                 <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
@@ -163,6 +164,7 @@ function staffNavLinks(role)
                         <a data-tab="facilities">Facilities</a>
                         <a data-tab="room_management">Buildings &amp; Rooms</a>
                         <a data-tab="department_management">Department Management</a>
+                        <a data-tab="department_org">Department Org Mapping</a>
                         <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                         <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
