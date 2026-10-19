@@ -58,11 +58,11 @@ $router->post('/queue-tokens/complete', [QueueTokenController::class, 'complete'
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'nurse']]
 ]);
 
-// Real-time Queue Display Board (Waiting Room TV Monitors & Dashboards)
-$router->get('/queue-tokens/display-board', [QueueTokenController::class, 'displayBoard'], [
-    AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'nurse', 'patient']]
-]);
+// Real-time Queue Display Board (Public Waiting Room TV Monitors & Dashboards)
+$router->get('/queue-tokens/display-board', [QueueTokenController::class, 'displayBoard']);
+$router->get('/patient-flow/queue-tokens/display-board', [QueueTokenController::class, 'displayBoard']);
+
+
 
 // Printable Thermal Token Slip
 $router->get('/queue-tokens/slip', [QueueTokenController::class, 'slip'], [

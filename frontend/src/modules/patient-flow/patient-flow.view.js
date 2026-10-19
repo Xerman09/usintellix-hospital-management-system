@@ -752,6 +752,7 @@ export function PatientFlowView()
             </div>
             <div style="display: flex; align-items: center; gap: 20px;">
                 <div style="background: rgba(255,255,255,0.08); padding: 6px 14px; border-radius: 6px; font-family: monospace; font-size: 16px; color: #38bdf8; font-weight: 700;" id="queueTvClock">--:--:--</div>
+                <a href="queue-display.html" target="_blank" style="text-decoration: none; background: #38bdf8; color: #0f172a; font-weight: 700; padding: 6px 12px; border-radius: 6px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">⛶ Open Dedicated TV Page</a>
                 <button type="button" id="closeQueueDisplayModal" style="background: transparent; border: 1px solid #475569; color: #cbd5e1; border-radius: 6px; width: 32px; height: 32px; font-size: 18px; cursor: pointer;">&times;</button>
             </div>
         </div>

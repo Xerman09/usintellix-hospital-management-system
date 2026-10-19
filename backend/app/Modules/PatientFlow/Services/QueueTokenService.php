@@ -530,6 +530,9 @@ class QueueTokenService
         $deptStmt->execute([':today' => $today]);
         $departments = $deptStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $allDeptsStmt = $this->db->query("SELECT id, code, name FROM departments ORDER BY name ASC");
+        $allDepartments = $allDeptsStmt ? $allDeptsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
         return [
             'server_time'     => date('Y-m-d H:i:s'),
             'today'           => $today,
@@ -544,7 +547,8 @@ class QueueTokenService
                 'completed_count'    => (int)($kpi['completed_count'] ?? 0),
                 'avg_wait_minutes'   => (float)($kpi['avg_wait_minutes'] ?? 0)
             ],
-            'departments'     => $departments
+            'departments'     => $departments,
+            'all_departments' => $allDepartments
         ];
     }
 

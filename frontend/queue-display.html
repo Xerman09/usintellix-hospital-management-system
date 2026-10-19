@@ -1,0 +1,1649 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Hospital Queue Calling Board | Waiting Room TV Display</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap">
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #070d18;
+            --surface: #0f172a;
+            --panel: #131d33;
+            --panel-border: #1e293b;
+            --panel-hover: #1a2744;
+            --text-primary: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.25);
+            --emerald: #10b981;
+            --emerald-glow: rgba(16, 185, 129, 0.3);
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --violet: #8b5cf6;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body.idle, body.idle * {
+            cursor: none !important;
+        }
+
+        /* App Layout */
+        .tv-container {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            width: 100vw;
+            height: 100vh;
+            padding: clamp(12px, 1.8vw, 24px);
+            gap: clamp(12px, 1.4vw, 20px);
+        }
+
+        /* Top Bar */
+        .tv-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius-lg);
+            padding: 12px 24px;
+            gap: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .tv-brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tv-brand-logo {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .tv-brand-logo svg {
+            width: 26px;
+            height: 26px;
+            fill: #fff;
+        }
+
+        .tv-brand-text h1 {
+            font-size: clamp(16px, 1.5vw, 22px);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            text-transform: uppercase;
+            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tv-brand-text p {
+            font-size: clamp(11px, 0.9vw, 13px);
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .tv-header-center {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dept-select-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .dept-select {
+            background: var(--panel);
+            color: var(--accent);
+            border: 1px solid var(--panel-border);
+            padding: 8px 18px 8px 14px;
+            border-radius: 999px;
+            font-size: clamp(12px, 1vw, 15px);
+            font-weight: 700;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dept-select:hover, .dept-select:focus {
+            border-color: var(--accent);
+            background: var(--panel-hover);
+        }
+
+        .live-status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .live-status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse-dot 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .tv-header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .tv-clock {
+            text-align: right;
+        }
+
+        .tv-clock-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(18px, 2vw, 28px);
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+
+        .tv-clock-date {
+            font-size: clamp(11px, 0.9vw, 13px);
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .tv-ctrl-btn {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tv-ctrl-btn:hover {
+            color: var(--text-primary);
+            background: var(--panel-hover);
+            border-color: var(--accent);
+        }
+
+        .tv-ctrl-btn.active {
+            color: #38bdf8;
+            border-color: rgba(56, 189, 248, 0.4);
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        /* Main Workspace (Calling & Up Next Grid) */
+        .tv-main {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+            gap: clamp(14px, 1.6vw, 24px);
+            min-height: 0;
+            height: 100%;
+        }
+
+        /* Left Column: Currently Calling */
+        .calling-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 4px;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: clamp(16px, 1.4vw, 22px);
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .section-title.calling-title {
+            color: #38bdf8;
+        }
+
+        .section-title.upnext-title {
+            color: #a78bfa;
+        }
+
+        .badge-count {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* Primary Hero Calling Card */
+        .hero-call-card {
+            background: linear-gradient(145deg, #101c38, #0b1528);
+            border: 2px solid rgba(56, 189, 248, 0.45);
+            border-radius: var(--radius-lg);
+            padding: clamp(20px, 3vh, 36px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(56, 189, 248, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hero-call-card.new-call-flash {
+            animation: pulse-border 1.5s 3 ease-in-out;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% {
+                border-color: rgba(56, 189, 248, 0.45);
+                box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+            }
+            50% {
+                border-color: #38bdf8;
+                box-shadow: 0 0 50px rgba(56, 189, 248, 0.6), inset 0 0 50px rgba(56, 189, 248, 0.2);
+            }
+        }
+
+        .hero-top-badge {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .hero-beacon {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #7dd3fc;
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: clamp(12px, 1.1vw, 15px);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .beacon-light {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #38bdf8;
+            box-shadow: 0 0 12px #38bdf8;
+            animation: beacon-blink 1s infinite alternate ease-in-out;
+        }
+
+        @keyframes beacon-blink {
+            0% { opacity: 0.3; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .hero-meta-time {
+            font-size: clamp(12px, 1vw, 15px);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Token Hero Typography */
+        .hero-token-display {
+            text-align: center;
+            padding: clamp(10px, 2vh, 24px) 0;
+        }
+
+        .hero-token-label {
+            font-size: clamp(12px, 1.1vw, 16px);
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 6px;
+        }
+
+        .hero-token-number {
+            font-family: 'JetBrains Mono', 'Inter', monospace;
+            font-size: clamp(56px, 7.5vw, 110px);
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.03em;
+            color: #ffffff;
+            text-shadow: 0 0 35px rgba(56, 189, 248, 0.45);
+        }
+
+        .hero-token-pills {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .hero-dept-pill {
+            background: rgba(14, 165, 233, 0.15);
+            border: 1px solid rgba(14, 165, 233, 0.4);
+            color: #bae6fd;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: clamp(12px, 1vw, 15px);
+            font-weight: 700;
+        }
+
+        .hero-priority-pill {
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: clamp(12px, 1vw, 15px);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .priority-normal { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #475569; }
+        .priority-priority { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.5); }
+        .priority-senior_pwd { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); }
+        .priority-vip { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.5); }
+        .priority-emergency { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.5); animation: pulse-dot 1.2s infinite; }
+
+        /* Room Box in Hero */
+        .hero-room-box {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            padding: clamp(14px, 2vh, 22px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .room-box-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .room-icon-badge {
+            width: 48px;
+            height: 48px;
+            background: rgba(56, 189, 248, 0.12);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #38bdf8;
+            flex-shrink: 0;
+        }
+
+        .room-box-title {
+            font-size: clamp(11px, 0.9vw, 13px);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .room-box-name {
+            font-size: clamp(18px, 2.2vw, 32px);
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+        }
+
+        .room-box-right {
+            text-align: right;
+        }
+
+        .patient-box-title {
+            font-size: clamp(10px, 0.8vw, 12px);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .patient-box-name {
+            font-size: clamp(14px, 1.2vw, 18px);
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+
+        /* Recent Calls Grid */
+        .recent-calls-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .recent-calls-label {
+            font-size: clamp(11px, 0.9vw, 13px);
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0 4px;
+        }
+
+        .recent-calls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .mini-call-card {
+            background: var(--surface);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .mini-call-card:hover {
+            border-color: var(--accent);
+            background: var(--panel-hover);
+        }
+
+        .mini-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .mini-card-token {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(16px, 1.4vw, 20px);
+            font-weight: 800;
+            color: #38bdf8;
+        }
+
+        .mini-card-time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .mini-card-room {
+            font-size: clamp(13px, 1.1vw, 15px);
+            font-weight: 700;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mini-card-dept {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Right Column: Up Next in Line */
+        .upnext-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .queue-list-container {
+            background: var(--surface);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius-lg);
+            padding: clamp(14px, 1.6vw, 20px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Up Next Token Card */
+        .queue-item-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+
+        .queue-item-card:hover {
+            border-color: rgba(167, 139, 250, 0.4);
+            background: var(--panel-hover);
+            transform: translateY(-1px);
+        }
+
+        .queue-item-card.next-in-line {
+            border-left: 4px solid #a78bfa;
+            background: linear-gradient(90deg, rgba(167, 139, 250, 0.12), var(--panel));
+        }
+
+        .queue-pos-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: rgba(167, 139, 250, 0.15);
+            color: #c4b5fd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .queue-item-card.next-in-line .queue-pos-badge {
+            background: #a78bfa;
+            color: #0f172a;
+            box-shadow: 0 0 12px rgba(167, 139, 250, 0.5);
+        }
+
+        .queue-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .queue-item-token-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .queue-item-token {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(20px, 1.8vw, 26px);
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+        }
+
+        .queue-item-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Countdown Badge */
+        .countdown-wrap {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+
+        .countdown-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(13px, 1.2vw, 16px);
+            font-weight: 800;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            color: #fbbf24;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .countdown-badge.imminent {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.5);
+            color: #34d399;
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        .countdown-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Empty State */
+        .empty-state-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            gap: 12px;
+            color: var(--text-muted);
+            height: 100%;
+        }
+
+        .empty-state-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--panel);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .empty-state-box h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+
+        .empty-state-box p {
+            font-size: 13px;
+            max-width: 32ch;
+            line-height: 1.4;
+        }
+
+        /* Footer & Ticker */
+        .tv-footer {
+            background: var(--surface);
+            border: 1px solid var(--panel-border);
+            border-radius: var(--radius-lg);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .footer-kpis {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-shrink: 0;
+        }
+
+        .kpi-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .kpi-label {
+            font-size: clamp(11px, 0.8vw, 13px);
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .kpi-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(15px, 1.2vw, 20px);
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .kpi-value.cyan { color: #38bdf8; }
+        .kpi-value.emerald { color: #34d399; }
+        .kpi-value.amber { color: #fbbf24; }
+
+        .footer-ticker {
+            flex: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            font-size: clamp(12px, 0.9vw, 14px);
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .ticker-content {
+            display: inline-block;
+            animation: ticker 30s linear infinite;
+        }
+
+        @keyframes ticker {
+            0% { transform: translate3d(100%, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+
+        /* Overlay for Unmuting & Fullscreen */
+        .unlock-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 13, 24, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 32px;
+            cursor: pointer;
+            transition: opacity 0.4s ease, visibility 0.4s;
+        }
+
+        .unlock-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .unlock-card {
+            background: var(--surface);
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 50px rgba(56, 189, 248, 0.3);
+            border-radius: var(--radius-lg);
+            padding: clamp(30px, 4vw, 48px);
+            max-width: 580px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .unlock-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(56, 189, 248, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #38bdf8;
+            animation: pulse-dot 2s infinite ease-in-out;
+        }
+
+        .unlock-card h2 {
+            font-size: clamp(22px, 2.4vw, 32px);
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .unlock-card p {
+            font-size: clamp(14px, 1.1vw, 16px);
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .unlock-btn {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #ffffff;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 999px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(2, 132, 199, 0.4);
+            transition: all 0.2s;
+        }
+
+        .unlock-btn:hover {
+            transform: scale(1.04);
+            box-shadow: 0 12px 25px rgba(2, 132, 199, 0.6);
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 1024px) {
+            .tv-main {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            .hero-token-number {
+                font-size: clamp(48px, 6vw, 80px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- First Interaction Audio Unlock Overlay -->
+    <div id="unlockOverlay" class="unlock-overlay">
+        <div class="unlock-card">
+            <div class="unlock-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+            </div>
+            <h2>Enable TV Audio &amp; Fullscreen</h2>
+            <p>Browsers require one tap to enable the hospital calling audio chime and auto-speech announcements.</p>
+            <button id="unlockBtn" class="unlock-btn">Start Waiting Room Display 🔊</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="tv-container">
+
+        <!-- Header -->
+        <header class="tv-header">
+            <div class="tv-brand">
+                <div class="tv-brand-logo">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 10.5V8a2 2 0 0 0-2-2h-3V3a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v3H7a2 2 0 0 0-2 2v2.5a4.5 4.5 0 0 0 0 9V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2.5a4.5 4.5 0 0 0 0-9zM10 4h4v4h-4V4zm7 15H7v-2h10v2zm0-4H7v-1.5a2.5 2.5 0 0 1 5 0V15h2v-1.5a2.5 2.5 0 0 1 5 0V15z"/>
+                    </svg>
+                </div>
+                <div class="tv-brand-text">
+                    <h1 id="hospitalTitle">USINTELLIX HEALTHCARE</h1>
+                    <p id="clinicSubtitle">Outpatient Clinic Live Queue Board</p>
+                </div>
+            </div>
+
+            <div class="tv-header-center">
+                <div class="dept-select-wrap">
+                    <select id="departmentFilter" class="dept-select" title="Filter by Department">
+                        <option value="">All Outpatient Clinics</option>
+                    </select>
+                </div>
+
+                <div class="live-status-pill">
+                    <span class="live-status-dot"></span>
+                    <span>LIVE</span>
+                </div>
+            </div>
+
+            <div class="tv-header-right">
+                <div class="tv-clock">
+                    <div id="clockTime" class="tv-clock-time">--:--:-- --</div>
+                    <div id="clockDate" class="tv-clock-date">Loading date...</div>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button id="toggleAudioBtn" class="tv-ctrl-btn active" title="Toggle Audio Chime">
+                        <span id="audioIcon">🔊</span>
+                        <span id="audioText">Sound ON</span>
+                    </button>
+                    <button id="toggleVoiceBtn" class="tv-ctrl-btn active" title="Toggle Voice Announcements">
+                        <span>🗣️</span>
+                        <span id="voiceText">Voice ON</span>
+                    </button>
+                    <button id="testChimeBtn" class="tv-ctrl-btn" title="Test Chime Tone">
+                        <span>🔔</span>
+                        <span>Test</span>
+                    </button>
+                    <button id="toggleFullscreenBtn" class="tv-ctrl-btn" title="Full Screen (F)">
+                        <span>⛶</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Display Grid -->
+        <main class="tv-main">
+
+            <!-- Left: Currently Calling -->
+            <section class="calling-section">
+                <div class="section-header">
+                    <div class="section-title calling-title">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        <span>Currently Calling</span>
+                    </div>
+                    <span id="callingCountBadge" class="badge-count">0 Active</span>
+                </div>
+
+                <!-- Primary Call Card -->
+                <div id="heroCallCard" class="hero-call-card">
+                    <!-- Populated dynamically via JS -->
+                    <div class="empty-state-box">
+                        <div class="empty-state-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <h3>Doctors In Consultation</h3>
+                        <p>No patient is currently being called. Next token will appear here with an audio chime announcement.</p>
+                    </div>
+                </div>
+
+                <!-- Other Concurrent Calls -->
+                <div id="recentCallsWrap" class="recent-calls-wrap" style="display: none;">
+                    <div class="recent-calls-label">Also Calling In Other Rooms</div>
+                    <div id="recentCallsGrid" class="recent-calls-grid">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Up Next in Line -->
+            <section class="upnext-section">
+                <div class="section-header">
+                    <div class="section-title upnext-title">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>Next in Line</span>
+                    </div>
+                    <span id="upNextCountBadge" class="badge-count">0 Waiting</span>
+                </div>
+
+                <div id="queueListContainer" class="queue-list-container">
+                    <!-- Populated dynamically -->
+                    <div class="empty-state-box">
+                        <div class="empty-state-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                        <h3>Queue is Clear</h3>
+                        <p>All checked-in patients have been accommodated or called. New check-ins will appear here automatically.</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="tv-footer">
+            <div class="footer-kpis">
+                <div class="kpi-item">
+                    <span class="kpi-label">Waiting:</span>
+                    <span id="kpiWaiting" class="kpi-value amber">0</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">In Consultation:</span>
+                    <span id="kpiConsultation" class="kpi-value cyan">0</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">Completed Today:</span>
+                    <span id="kpiCompleted" class="kpi-value emerald">0</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">Avg Wait:</span>
+                    <span id="kpiAvgWait" class="kpi-value">-- min</span>
+                </div>
+            </div>
+
+            <div class="footer-ticker">
+                <div id="tickerText" class="ticker-content">
+                    Notice: Please prepare your queue token slip and valid identification card. When your token is called, please proceed directly to the indicated consultation room. Priority is accorded to Senior Citizens, PWDs, and emergency patients. Thank you for your patience and cooperation.
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        (function() {
+            "use strict";
+
+            // State & Config
+            const POLL_INTERVAL_MS = 4000;
+            let audioEnabled = true;
+            let voiceEnabled = true;
+            let lastCalledTokenId = null;
+            let lastCallCounter = 0;
+            let lastCalledAt = null;
+            let serverTimeOffsetMs = 0;
+            let pollTimer = null;
+            let countdownInterval = null;
+            let currentQueueData = null;
+            let audioCtx = null;
+
+            // Resolve backend API URL (matches core/api-url.js)
+            function getApiBase() {
+                const frontendMarker = "/frontend";
+                const path = window.location.pathname;
+                const markerIndex = path.indexOf(frontendMarker);
+                const projectBase = markerIndex !== -1 ? path.slice(0, markerIndex) : "";
+                return `${window.location.origin}${projectBase}/backend/public`;
+            }
+            const API_BASE = getApiBase();
+
+            // Audio Chime Synthesis (Web Audio API)
+            class AcousticHospitalChime {
+                init() {
+                    if (!audioCtx) {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContext) {
+                            audioCtx = new AudioContext();
+                        }
+                    }
+                    if (audioCtx && audioCtx.state === "suspended") {
+                        audioCtx.resume();
+                    }
+                }
+
+                playChime() {
+                    if (!audioEnabled) return;
+                    this.init();
+                    if (!audioCtx) return;
+
+                    try {
+                        const now = audioCtx.currentTime;
+                        
+                        // Harmonic 3-Tone Hospital Chime:
+                        // Tone 1: F5 (698.46 Hz)
+                        const osc1 = audioCtx.createOscillator();
+                        const gain1 = audioCtx.createGain();
+                        osc1.type = "sine";
+                        osc1.frequency.setValueAtTime(698.46, now);
+                        gain1.gain.setValueAtTime(0.0001, now);
+                        gain1.gain.exponentialRampToValueAtTime(0.35, now + 0.04);
+                        gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+                        osc1.connect(gain1).connect(audioCtx.destination);
+                        osc1.start(now);
+                        osc1.stop(now + 0.5);
+
+                        // Tone 2: A5 (880.00 Hz)
+                        const osc2 = audioCtx.createOscillator();
+                        const gain2 = audioCtx.createGain();
+                        osc2.type = "sine";
+                        osc2.frequency.setValueAtTime(880.00, now + 0.25);
+                        gain2.gain.setValueAtTime(0.0001, now + 0.25);
+                        gain2.gain.exponentialRampToValueAtTime(0.4, now + 0.29);
+                        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+                        osc2.connect(gain2).connect(audioCtx.destination);
+                        osc2.start(now + 0.25);
+                        osc2.stop(now + 0.9);
+
+                        // Tone 3: C6 (1046.50 Hz)
+                        const osc3 = audioCtx.createOscillator();
+                        const gain3 = audioCtx.createGain();
+                        osc3.type = "sine";
+                        osc3.frequency.setValueAtTime(1046.50, now + 0.55);
+                        gain3.gain.setValueAtTime(0.0001, now + 0.55);
+                        gain3.gain.exponentialRampToValueAtTime(0.45, now + 0.60);
+                        gain3.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+                        osc3.connect(gain3).connect(audioCtx.destination);
+                        osc3.start(now + 0.55);
+                        osc3.stop(now + 1.45);
+                    } catch (e) {
+                        console.warn("Audio chime error:", e);
+                    }
+                }
+
+                announce(text) {
+                    if (!audioEnabled || !voiceEnabled) return;
+                    if ("speechSynthesis" in window) {
+                        try {
+                            window.speechSynthesis.cancel();
+                            const utter = new SpeechSynthesisUtterance(text);
+                            utter.rate = 0.90;
+                            utter.pitch = 1.05;
+                            utter.lang = "en-US";
+                            setTimeout(() => {
+                                window.speechSynthesis.speak(utter);
+                            }, 750);
+                        } catch (err) {
+                            console.warn("Voice speech error:", err);
+                        }
+                    }
+                }
+
+                callToken(tokenNumber, roomName) {
+                    this.playChime();
+                    // Split letters and numbers with spaces for clear speech synthesis
+                    const spokenToken = tokenNumber.replace(/([A-Z]+)-(\d+)/, "$1, $2");
+                    this.announce(`Now calling token ${spokenToken} to ${roomName}.`);
+                }
+            }
+
+            const chimeService = new AcousticHospitalChime();
+
+            // Helpers
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return "";
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            function formatPriority(p) {
+                switch (p) {
+                    case "emergency": return { label: "Emergency", class: "priority-emergency" };
+                    case "vip": return { label: "VIP", class: "priority-vip" };
+                    case "senior_pwd": return { label: "Senior / PWD", class: "priority-senior_pwd" };
+                    case "priority": return { label: "Priority", class: "priority-priority" };
+                    default: return { label: "Standard", class: "priority-normal" };
+                }
+            }
+
+            // Live Clock
+            function updateClock() {
+                const now = new Date(Date.now() + serverTimeOffsetMs);
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, "0");
+                const seconds = String(now.getSeconds()).padStart(2, "0");
+                const ampm = hours >= 12 ? "PM" : "AM";
+                hours = hours % 12 || 12;
+
+                const clockTimeEl = document.getElementById("clockTime");
+                if (clockTimeEl) {
+                    clockTimeEl.textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
+                }
+
+                const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+                const clockDateEl = document.getElementById("clockDate");
+                if (clockDateEl) {
+                    clockDateEl.textContent = now.toLocaleDateString("en-US", options);
+                }
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // Screen WakeLock to prevent TV display from sleeping
+            async function requestWakeLock() {
+                try {
+                    if ("wakeLock" in navigator && document.visibilityState === "visible") {
+                        await navigator.wakeLock.request("screen");
+                    }
+                } catch (e) {
+                    // Ignore wakeLock refusal
+                }
+            }
+            document.addEventListener("visibilitychange", requestWakeLock);
+            requestWakeLock();
+
+            // Auto-hide mouse cursor after 3s of inactivity
+            let idleTimer = null;
+            window.addEventListener("mousemove", () => {
+                document.body.classList.remove("idle");
+                clearTimeout(idleTimer);
+                idleTimer = setTimeout(() => {
+                    document.body.classList.add("idle");
+                }, 3000);
+            });
+
+            // Read query params (e.g. ?dept=CARD)
+            function getSelectedDept() {
+                const deptSelect = document.getElementById("departmentFilter");
+                if (deptSelect && deptSelect.value) return deptSelect.value;
+                const params = new URLSearchParams(window.location.search);
+                return params.get("dept") || "";
+            }
+
+            // Populate Department Selector
+            function updateDepartmentDropdown(allDepts) {
+                const select = document.getElementById("departmentFilter");
+                if (!select || !Array.isArray(allDepts) || allDepts.length === 0) return;
+
+                const currentVal = getSelectedDept();
+                // Check if options already populated
+                if (select.options.length <= 1) {
+                    allDepts.forEach(d => {
+                        const opt = document.createElement("option");
+                        opt.value = d.code;
+                        opt.textContent = `${d.name} (${d.code})`;
+                        if (d.code === currentVal) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                }
+            }
+
+            // Fetch Display Board Data
+            async function fetchDisplayData() {
+                const dept = getSelectedDept();
+                const url = new URL(`${API_BASE}/queue-tokens/display-board`);
+                if (dept) url.searchParams.set("department_code", dept);
+
+                try {
+                    const response = await fetch(url.toString(), {
+                        headers: { "Accept": "application/json" },
+                        cache: "no-store"
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        currentQueueData = result.data;
+                        if (result.data.server_time) {
+                            const srv = new Date(result.data.server_time.replace(" ", "T")).getTime();
+                            if (!isNaN(srv)) {
+                                serverTimeOffsetMs = srv - Date.now();
+                            }
+                        }
+                        if (result.data.all_departments) {
+                            updateDepartmentDropdown(result.data.all_departments);
+                        }
+                        renderBoard(result.data);
+                    }
+                } catch (err) {
+                    console.warn("Failed to fetch queue display data:", err);
+                } finally {
+                    clearTimeout(pollTimer);
+                    pollTimer = setTimeout(fetchDisplayData, POLL_INTERVAL_MS);
+                }
+            }
+
+            // Render Entire Board
+            function renderBoard(data) {
+                const nowCalling = data.now_calling || [];
+                const upNext = data.up_next || [];
+                const stats = data.summary || {};
+
+                // 1. Update KPIs
+                const kpiWaiting = document.getElementById("kpiWaiting");
+                const kpiConsultation = document.getElementById("kpiConsultation");
+                const kpiCompleted = document.getElementById("kpiCompleted");
+                const kpiAvgWait = document.getElementById("kpiAvgWait");
+
+                if (kpiWaiting) kpiWaiting.textContent = stats.waiting_count ?? 0;
+                if (kpiConsultation) kpiConsultation.textContent = stats.consultation_count ?? 0;
+                if (kpiCompleted) kpiCompleted.textContent = stats.completed_count ?? 0;
+                if (kpiAvgWait) kpiAvgWait.textContent = `${stats.avg_wait_minutes ?? 0} min`;
+
+                // 2. Calling Section
+                renderCalling(nowCalling);
+
+                // 3. Up Next Section
+                renderUpNext(upNext);
+            }
+
+            // Render Currently Calling
+            function renderCalling(callingList) {
+                const heroCard = document.getElementById("heroCallCard");
+                const recentWrap = document.getElementById("recentCallsWrap");
+                const recentGrid = document.getElementById("recentCallsGrid");
+                const countBadge = document.getElementById("callingCountBadge");
+
+                if (countBadge) countBadge.textContent = `${callingList.length} Active`;
+
+                if (!callingList || callingList.length === 0) {
+                    heroCard.className = "hero-call-card";
+                    heroCard.innerHTML = `
+                        <div class="empty-state-box">
+                            <div class="empty-state-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <h3>Doctors In Consultation</h3>
+                            <p>No patient is currently being called. Next token will appear here with an audio chime alert.</p>
+                        </div>
+                    `;
+                    if (recentWrap) recentWrap.style.display = "none";
+                    return;
+                }
+
+                const primary = callingList[0];
+                const priorityInfo = formatPriority(primary.priority);
+
+                // Detect if this is a newly called token or recalled
+                const isNewCall = (primary.id !== lastCalledTokenId) || 
+                                  (primary.call_counter > lastCallCounter) || 
+                                  (primary.called_at && primary.called_at !== lastCalledAt);
+
+                if (isNewCall && lastCalledTokenId !== null) {
+                    chimeService.callToken(primary.token_number, primary.room_name || "Consultation Room");
+                }
+
+                lastCalledTokenId = primary.id;
+                lastCallCounter = primary.call_counter || 0;
+                lastCalledAt = primary.called_at;
+
+                // Anonymize patient name for lobby privacy: First Name + Initial
+                let maskedName = "Patient";
+                if (primary.patient_name) {
+                    const parts = primary.patient_name.trim().split(/\s+/);
+                    if (parts.length > 1) {
+                        maskedName = `${parts[0]} ${parts[parts.length - 1][0]}.`;
+                    } else {
+                        maskedName = parts[0];
+                    }
+                }
+
+                heroCard.className = `hero-call-card ${isNewCall ? "new-call-flash" : ""}`;
+                heroCard.innerHTML = `
+                    <div class="hero-top-badge">
+                        <div class="hero-beacon">
+                            <span class="beacon-light"></span>
+                            <span>NOW CALLING</span>
+                        </div>
+                        <div class="hero-meta-time">
+                            <span>Call #${primary.call_counter || 1} • ${primary.called_at ? primary.called_at.split(" ")[1] : "Just now"}</span>
+                        </div>
+                    </div>
+
+                    <div class="hero-token-display">
+                        <div class="hero-token-label">Queue Token Number</div>
+                        <div class="hero-token-number">${escapeHtml(primary.token_number)}</div>
+                        <div class="hero-token-pills">
+                            <span class="hero-dept-pill">${escapeHtml(primary.department_name || primary.department_code)}</span>
+                            <span class="hero-priority-pill ${priorityInfo.class}">${priorityInfo.label}</span>
+                        </div>
+                    </div>
+
+                    <div class="hero-room-box">
+                        <div class="room-box-left">
+                            <div class="room-icon-badge">
+                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="room-box-title">Please Proceed To</div>
+                                <div class="room-box-name">${escapeHtml(primary.room_name || "Consultation Room")}</div>
+                            </div>
+                        </div>
+
+                        <div class="room-box-right">
+                            <div class="patient-box-title">Patient Identifier</div>
+                            <div class="patient-box-name">${escapeHtml(maskedName)} (${escapeHtml(primary.patient_no || "")})</div>
+                        </div>
+                    </div>
+                `;
+
+                // Render other concurrent calls if more than 1 room is calling
+                if (callingList.length > 1) {
+                    if (recentWrap) recentWrap.style.display = "flex";
+                    if (recentGrid) {
+                        recentGrid.innerHTML = callingList.slice(1).map(item => `
+                            <div class="mini-call-card">
+                                <div class="mini-card-top">
+                                    <span class="mini-card-token">${escapeHtml(item.token_number)}</span>
+                                    <span class="mini-card-time">${item.called_at ? item.called_at.split(" ")[1] : ""}</span>
+                                </div>
+                                <div class="mini-card-room">${escapeHtml(item.room_name || "Room")}</div>
+                                <div class="mini-card-dept">${escapeHtml(item.department_name || item.department_code)}</div>
+                            </div>
+                        `).join("");
+                    }
+                } else {
+                    if (recentWrap) recentWrap.style.display = "none";
+                }
+            }
+
+            // Render Up Next in Line Queue with Real-time Countdown
+            function renderUpNext(waitingList) {
+                const container = document.getElementById("queueListContainer");
+                const countBadge = document.getElementById("upNextCountBadge");
+
+                if (countBadge) countBadge.textContent = `${waitingList.length} Waiting`;
+
+                if (!waitingList || waitingList.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state-box">
+                            <div class="empty-state-icon">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <h3>Queue is Clear</h3>
+                            <p>No patients currently waiting. Newly checked-in patients will appear here with live wait countdowns.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = waitingList.map((token, index) => {
+                    const priorityInfo = formatPriority(token.priority);
+                    const isFirst = index === 0;
+
+                    return `
+                        <div class="queue-item-card ${isFirst ? "next-in-line" : ""}" data-token-id="${token.id}" data-issued-at="${escapeHtml(token.issued_at || token.created_at)}" data-wait-mins="${token.estimated_wait_minutes || 10}">
+                            <div class="queue-pos-badge">${index + 1}</div>
+                            
+                            <div class="queue-item-info">
+                                <div class="queue-item-token-row">
+                                    <span class="queue-item-token">${escapeHtml(token.token_number)}</span>
+                                    <span class="hero-priority-pill ${priorityInfo.class}" style="font-size: 11px; padding: 2px 8px;">${priorityInfo.label}</span>
+                                </div>
+                                <div class="queue-item-meta">
+                                    <span>${escapeHtml(token.department_name || token.department_code)}</span>
+                                    <span>•</span>
+                                    <span>${token.room_name && token.room_name !== "TBA" ? escapeHtml(token.room_name) : "Room TBA"}</span>
+                                </div>
+                            </div>
+
+                            <div class="countdown-wrap">
+                                <div class="countdown-badge" id="countdown-${token.id}">
+                                    <span>⏳</span>
+                                    <span class="countdown-timer">Calculating...</span>
+                                </div>
+                                <span class="countdown-label">Estimated Wait</span>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+
+                // Trigger live countdown calculation immediately
+                updateCountdowns();
+            }
+
+            // Live Countdown Calculation (every 1 second)
+            function updateCountdowns() {
+                const nowMs = Date.now() + serverTimeOffsetMs;
+                const cards = document.querySelectorAll(".queue-item-card");
+
+                cards.forEach(card => {
+                    const tokenId = card.getAttribute("data-token-id");
+                    const issuedAtStr = card.getAttribute("data-issued-at");
+                    const waitMins = parseFloat(card.getAttribute("data-wait-mins")) || 10;
+                    const badgeEl = document.getElementById(`countdown-${tokenId}`);
+                    if (!badgeEl) return;
+
+                    const timerSpan = badgeEl.querySelector(".countdown-timer");
+                    if (!timerSpan) return;
+
+                    if (!issuedAtStr) {
+                        timerSpan.textContent = `~${waitMins} min`;
+                        return;
+                    }
+
+                    const issuedMs = new Date(issuedAtStr.replace(" ", "T")).getTime();
+                    if (isNaN(issuedMs)) {
+                        timerSpan.textContent = `~${waitMins} min`;
+                        return;
+                    }
+
+                    // Target call time = issued time + estimated minutes
+                    const targetMs = issuedMs + (waitMins * 60 * 1000);
+                    const diffSec = Math.round((targetMs - nowMs) / 1000);
+
+                    if (diffSec <= 0) {
+                        badgeEl.classList.add("imminent");
+                        badgeEl.innerHTML = `<span>⚡</span><span class="countdown-timer">Next Up</span>`;
+                    } else if (diffSec < 60) {
+                        badgeEl.classList.add("imminent");
+                        badgeEl.innerHTML = `<span>⚡</span><span class="countdown-timer">&lt; 1 min</span>`;
+                    } else {
+                        badgeEl.classList.remove("imminent");
+                        const m = Math.floor(diffSec / 60);
+                        const s = diffSec % 60;
+                        badgeEl.innerHTML = `<span>⏳</span><span class="countdown-timer">${m}m ${s < 10 ? '0' : ''}${s}s</span>`;
+                    }
+                });
+            }
+
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(updateCountdowns, 1000);
+
+            // Audio & Fullscreen User Interactions
+            const unlockOverlay = document.getElementById("unlockOverlay");
+            const unlockBtn = document.getElementById("unlockBtn");
+
+            function dismissUnlock() {
+                chimeService.init();
+                chimeService.playChime();
+                if (unlockOverlay) unlockOverlay.classList.add("hidden");
+                // Attempt fullscreen on first tap
+                if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                }
+            }
+
+            if (unlockBtn) unlockBtn.addEventListener("click", dismissUnlock);
+            if (unlockOverlay) {
+                unlockOverlay.addEventListener("click", (e) => {
+                    if (e.target === unlockOverlay) dismissUnlock();
+                });
+            }
+
+            // Keyboard Shortcuts: F for fullscreen, M for mute, V for voice, T for test chime
+            window.addEventListener("keydown", (e) => {
+                if (e.key === "f" || e.key === "F") {
+                    toggleFullScreen();
+                } else if (e.key === "m" || e.key === "M") {
+                    toggleAudio();
+                } else if (e.key === "v" || e.key === "V") {
+                    toggleVoice();
+                } else if (e.key === "t" || e.key === "T") {
+                    chimeService.playChime();
+                } else if (e.key === "Enter" && unlockOverlay && !unlockOverlay.classList.contains("hidden")) {
+                    dismissUnlock();
+                }
+            });
+
+            // UI Control Buttons
+            const toggleAudioBtn = document.getElementById("toggleAudioBtn");
+            const audioIcon = document.getElementById("audioIcon");
+            const audioText = document.getElementById("audioText");
+
+            function toggleAudio() {
+                audioEnabled = !audioEnabled;
+                if (audioEnabled) {
+                    chimeService.init();
+                    toggleAudioBtn.classList.add("active");
+                    audioIcon.textContent = "🔊";
+                    audioText.textContent = "Sound ON";
+                    chimeService.playChime();
+                } else {
+                    toggleAudioBtn.classList.remove("active");
+                    audioIcon.textContent = "🔇";
+                    audioText.textContent = "Muted";
+                }
+            }
+            if (toggleAudioBtn) toggleAudioBtn.addEventListener("click", toggleAudio);
+
+            const toggleVoiceBtn = document.getElementById("toggleVoiceBtn");
+            const voiceText = document.getElementById("voiceText");
+
+            function toggleVoice() {
+                voiceEnabled = !voiceEnabled;
+                if (voiceEnabled) {
+                    toggleVoiceBtn.classList.add("active");
+                    voiceText.textContent = "Voice ON";
+                } else {
+                    toggleVoiceBtn.classList.remove("active");
+                    voiceText.textContent = "Voice OFF";
+                }
+            }
+            if (toggleVoiceBtn) toggleVoiceBtn.addEventListener("click", toggleVoice);
+
+            const testChimeBtn = document.getElementById("testChimeBtn");
+            if (testChimeBtn) {
+                testChimeBtn.addEventListener("click", () => {
+                    chimeService.callToken("TEST-001", "Room 1");
+                });
+            }
+
+            const toggleFullscreenBtn = document.getElementById("toggleFullscreenBtn");
+            function toggleFullScreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+                }
+            }
+            if (toggleFullscreenBtn) toggleFullscreenBtn.addEventListener("click", toggleFullScreen);
+
+            // Department filter change
+            const deptFilter = document.getElementById("departmentFilter");
+            if (deptFilter) {
+                deptFilter.addEventListener("change", () => {
+                    const val = deptFilter.value;
+                    const url = new URL(window.location);
+                    if (val) {
+                        url.searchParams.set("dept", val);
+                    } else {
+                        url.searchParams.delete("dept");
+                    }
+                    window.history.replaceState({}, "", url);
+                    fetchDisplayData();
+                });
+            }
+
+            // Start Polling Loop
+            fetchDisplayData();
+
+        })();
+    </script>
+</body>
+</html>
