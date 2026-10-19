@@ -5,7 +5,9 @@ import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchRooms } from "../rooms/rooms.service.js";
 import {
     fetchFlow, checkInPatient, updateFlowStatusRoom, updateFlowDrugScreen, removeFlowEntry,
-    getNppConsentStatus, captureNppConsent
+    getNppConsentStatus, captureNppConsent,
+    fetchQueueTokens, callQueueToken, serveQueueToken, completeQueueToken,
+    fetchQueueDisplayBoard, getQueueTokenSlipUrl
 } from "./patient-flow.service.js";
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
 import { getUser } from "../../core/session.js?v=5";
@@ -75,6 +77,8 @@ export async function initPatientFlow()
     setupDateRangeToggle();
     setupFilters();
     setupCheckInModal();
+    setupTokenSuccessModal();
+    setupQueueDisplayModal();
     setupStatusRoomModal();
     setupTableActions();
     setupToolbarButtons();
@@ -421,6 +425,31 @@ function renderRow(entry)
     const checkout = entry.checked_out_at ? formatTime(entry.checked_out_at) : "—";
     const stageStart = entry[STAGE_TIMESTAMP_FIELD[entry.stage]] || entry.checked_in_at;
 
+    let tokenHtml = '<span style="color:#94a3b8;">—</span>';
+    if (entry.token_number) {
+        const priorityBadge = entry.token_priority && entry.token_priority !== 'routine' 
+            ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:#fee2e2;color:#b91c1c;margin-left:4px;">${escapeHtml(entry.token_priority)}</span>` 
+            : '';
+        const isWaitingOrRoomed = (entry.stage === 'waiting' || entry.stage === 'roomed');
+        const callBtn = isWaitingOrRoomed && entry.queue_token_id 
+            ? `<button type="button" class="btn-call-token" data-token-id="${entry.queue_token_id}" data-patient-name="${patientName}" data-token-num="${escapeHtml(entry.token_number)}" data-room="${roomName}" style="padding:2px 7px;font-size:11px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Call patient on audio/display">🔊 Call ${entry.call_counter > 0 ? `(#${entry.call_counter})` : ''}</button>` 
+            : '';
+        const slipBtn = entry.queue_token_id 
+            ? `<button type="button" class="btn-token-slip" data-token-id="${entry.queue_token_id}" style="padding:2px 6px;font-size:11px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:4px;cursor:pointer;margin-left:4px;" title="Print Token Slip">🎫</button>` 
+            : '';
+
+        tokenHtml = `
+            <div>
+                <span style="font-family:monospace;font-size:13px;font-weight:800;background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;border:1px solid #bae6fd;display:inline-block;">${escapeHtml(entry.token_number)}</span>
+                ${priorityBadge}
+            </div>
+            <div style="margin-top:4px;display:flex;align-items:center;">
+                ${callBtn}
+                ${slipBtn}
+            </div>
+        `;
+    }
+
     return `
     <tr data-flow-id="${entry.id}"
         data-stage="${entry.stage}"
@@ -432,6 +461,7 @@ function renderRow(entry)
             <a href="#" class="btn-edit" data-view-patient="${escapeHtml(entry.patient_no || "")}" style="text-decoration:none;">${patientName}</a>
             <div style="font-size:11px;color:#6b7787;">${escapeHtml(entry.patient_no || "—")}</div>
         </td>
+        <td>${tokenHtml}</td>
         <td>${visitCategory}</td>
         <td>${providerName}</td>
         <td>${facility}</td>
@@ -689,17 +719,43 @@ function setupCheckInModal()
             return;
         }
 
-        const result = await checkInPatient(Number(appointmentId));
+        const deptCode = document.getElementById("checkin_department_code")?.value || "";
+        const priority = document.getElementById("checkin_priority")?.value || "routine";
 
-        if (!result.success) {
-            showAlert("checkInFormAlert", result.message || "Failed to check in patient.", "error");
-            return;
+        const btnSubmit = document.getElementById("btnSubmitCheckIn");
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = "Checking in & issuing token...";
         }
 
-        closeModal();
-        showListAlert("Patient checked in successfully.", "success");
-        await loadFlow();
-        await loadAppointmentOptions();
+        try {
+            const result = await checkInPatient(Number(appointmentId), {
+                department_code: deptCode,
+                priority: priority
+            });
+
+            if (!result.success) {
+                showAlert("checkInFormAlert", result.message || "Failed to check in patient.", "error");
+                return;
+            }
+
+            closeModal();
+            await loadFlow();
+            await loadAppointmentOptions();
+
+            if (result.data?.queue_token) {
+                openTokenSuccessModal(result.data.queue_token);
+            } else {
+                showListAlert(result.message || "Patient checked in successfully.", "success");
+            }
+        } catch (err) {
+            showAlert("checkInFormAlert", "Network or server error during check-in.", "error");
+        } finally {
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = "Check In & Issue Token";
+            }
+        }
     });
 }
 
@@ -761,6 +817,51 @@ function setupTableActions()
         const statusBtn = event.target.closest("[data-open-status-room]");
         const removeBtn = event.target.closest("[data-remove-flow]");
         const patientLink = event.target.closest("[data-view-patient]");
+        const callTokenBtn = event.target.closest(".btn-call-token");
+        const tokenSlipBtn = event.target.closest(".btn-token-slip");
+
+        if (callTokenBtn) {
+            const tokenId = Number(callTokenBtn.getAttribute("data-token-id"));
+            const patientName = callTokenBtn.getAttribute("data-patient-name") || "Patient";
+            const tokenNum = callTokenBtn.getAttribute("data-token-num") || "Token";
+            const roomName = callTokenBtn.getAttribute("data-room") || "Consultation Room";
+
+            callTokenBtn.disabled = true;
+            callTokenBtn.textContent = "Calling...";
+
+            try {
+                const res = await callQueueToken(tokenId);
+                if (res.success) {
+                    showListAlert(res.announcement_text || res.message, "success");
+                    // Audio voice synthesis announcement
+                    if ('speechSynthesis' in window) {
+                        try {
+                            const utter = new SpeechSynthesisUtterance(`Now calling token ${tokenNum}, ${patientName}, to ${roomName}`);
+                            utter.rate = 0.9;
+                            window.speechSynthesis.speak(utter);
+                        } catch (e) {
+                            console.debug("Speech synthesis error:", e);
+                        }
+                    }
+                    await loadFlow();
+                } else {
+                    showListAlert(res.message || "Failed to call token.", "error");
+                }
+            } catch (err) {
+                showListAlert("Network error calling queue token.", "error");
+            } finally {
+                callTokenBtn.disabled = false;
+            }
+            return;
+        }
+
+        if (tokenSlipBtn) {
+            const tokenId = Number(tokenSlipBtn.getAttribute("data-token-id"));
+            if (tokenId) {
+                window.open(getQueueTokenSlipUrl(tokenId), "_blank");
+            }
+            return;
+        }
 
         if (statusBtn) {
             openStatusRoomModal(Number(statusBtn.getAttribute("data-open-status-room")));
@@ -861,4 +962,154 @@ function showListAlert(message, type)
     const container = document.getElementById("listAlert");
 
     container.innerHTML = `<div class="form-alert ${type}">${message}</div>`;
+}
+
+let currentSuccessTokenId = null;
+
+function setupTokenSuccessModal()
+{
+    const modal = document.getElementById("tokenSuccessModalOverlay");
+    if (!modal) return;
+
+    const closeModal = () => modal.classList.remove("open");
+
+    document.getElementById("closeTokenSuccessModal")?.addEventListener("click", closeModal);
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    document.getElementById("btnPrintTokenSlip")?.addEventListener("click", () => {
+        if (currentSuccessTokenId) {
+            window.open(getQueueTokenSlipUrl(currentSuccessTokenId), "_blank");
+        }
+    });
+}
+
+function openTokenSuccessModal(token)
+{
+    const modal = document.getElementById("tokenSuccessModalOverlay");
+    if (!modal || !token) return;
+
+    currentSuccessTokenId = token.id;
+
+    const deptEl = document.getElementById("successTokenDept");
+    const numEl = document.getElementById("successTokenNumber");
+    const priEl = document.getElementById("successTokenPriority");
+    const waitEl = document.getElementById("successTokenWait");
+    const patEl = document.getElementById("successTokenPatient");
+
+    if (deptEl) deptEl.textContent = token.department_name || token.department_code || "Clinic";
+    if (numEl) numEl.textContent = token.token_number || "--";
+    if (priEl) priEl.textContent = (token.priority || "routine").toUpperCase();
+    if (waitEl) waitEl.textContent = `~${token.estimated_wait_minutes || 15} mins`;
+    if (patEl) patEl.textContent = token.patient_name || "--";
+
+    modal.classList.add("open");
+}
+
+let queueTvIntervalId = null;
+let queueTvClockIntervalId = null;
+
+function setupQueueDisplayModal()
+{
+    const modal = document.getElementById("queueDisplayModalOverlay");
+    const openBtn = document.getElementById("openQueueDisplayBtn");
+    const closeBtn = document.getElementById("closeQueueDisplayModal");
+
+    if (!modal || !openBtn) return;
+
+    const updateClock = () => {
+        const clockEl = document.getElementById("queueTvClock");
+        if (clockEl) {
+            const now = new Date();
+            clockEl.textContent = now.toTimeString().split(" ")[0];
+        }
+    };
+
+    const renderDisplayBoard = async () => {
+        try {
+            const res = await fetchQueueDisplayBoard();
+            if (!res.success || !res.data) return;
+
+            const d = res.data;
+            const callingList = document.getElementById("queueTvCallingList");
+            const upNextList = document.getElementById("queueTvUpNextList");
+            const waitingCount = document.getElementById("queueTvWaitingCount");
+            const summaryStats = document.getElementById("queueTvSummaryStats");
+
+            if (waitingCount) {
+                waitingCount.textContent = `${d.summary?.waiting_count || 0} Waiting`;
+            }
+            if (summaryStats) {
+                summaryStats.textContent = `Total Issued: ${d.summary?.total_issued_today || 0} • In Consultation: ${d.summary?.consultation_count || 0} • Completed: ${d.summary?.completed_count || 0} • Avg Wait: ${d.summary?.avg_wait_minutes || 0}m`;
+            }
+
+            if (callingList) {
+                if (!d.now_calling || d.now_calling.length === 0) {
+                    callingList.innerHTML = `<div style="color: #64748b; text-align: center; padding: 40px; font-size: 14px;">No patients currently being called.</div>`;
+                } else {
+                    callingList.innerHTML = d.now_calling.map(t => `
+                        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 78, 59, 0.3) 100%); border: 2px solid #10b981; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);">
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700; color: #6ee7b7; text-transform: uppercase;">${escapeHtml(t.department_name || t.department_code)}</div>
+                                <div style="font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 1.5px; font-family: monospace;">${escapeHtml(t.token_number)}</div>
+                                <div style="font-size: 13px; color: #cbd5e1;">${escapeHtml(t.patient_name)}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">PROCEED TO</div>
+                                <div style="font-size: 22px; font-weight: 800; color: #38bdf8;">${escapeHtml(t.room_name)}</div>
+                                <div style="display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 4px; background: #064e3b; color: #6ee7b7; font-size: 11px; font-weight: 700;">CALL #${t.call_counter}</div>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+            }
+
+            if (upNextList) {
+                if (!d.up_next || d.up_next.length === 0) {
+                    upNextList.innerHTML = `<div style="color: #64748b; text-align: center; padding: 40px; font-size: 14px;">Queue is currently empty.</div>`;
+                } else {
+                    upNextList.innerHTML = d.up_next.map((t, i) => `
+                        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 13px; font-weight: 800; color: #64748b; width: 20px;">#${i + 1}</span>
+                                <div>
+                                    <span style="font-size: 18px; font-weight: 800; color: #38bdf8; font-family: monospace;">${escapeHtml(t.token_number)}</span>
+                                    <span style="font-size: 11px; color: #94a3b8; margin-left: 8px;">${escapeHtml(t.department_code)}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; ${t.priority !== 'routine' ? 'background: #7f1d1d; color: #fca5a5;' : 'background: #1e293b; color: #94a3b8;'}">${escapeHtml(t.priority)}</span>
+                                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Est. ~${t.estimated_wait_minutes || 15}m</div>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+            }
+        } catch (err) {
+            console.error("Queue display board polling error:", err);
+        }
+    };
+
+    const openModal = () => {
+        modal.classList.add("open");
+        updateClock();
+        renderDisplayBoard();
+        if (queueTvClockIntervalId) clearInterval(queueTvClockIntervalId);
+        if (queueTvIntervalId) clearInterval(queueTvIntervalId);
+        queueTvClockIntervalId = setInterval(updateClock, 1000);
+        queueTvIntervalId = setInterval(renderDisplayBoard, 5000);
+    };
+
+    const closeModal = () => {
+        modal.classList.remove("open");
+        if (queueTvClockIntervalId) clearInterval(queueTvClockIntervalId);
+        if (queueTvIntervalId) clearInterval(queueTvIntervalId);
+    };
+
+    openBtn.addEventListener("click", openModal);
+    closeBtn?.addEventListener("click", closeModal);
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+    });
 }

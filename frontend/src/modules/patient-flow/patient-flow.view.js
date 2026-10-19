@@ -456,6 +456,10 @@ export function PatientFlowView()
             </div>
         </div>
         <div class="pf-header-actions">
+            <button type="button" class="pf-add-btn" id="openQueueDisplayBtn" style="background: #4f46e5; border-color: #4338ca;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
+                Waiting Room TV
+            </button>
             <button type="button" class="pf-add-btn" id="openCheckInModal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
                 Check In Patient
@@ -559,6 +563,7 @@ export function PatientFlowView()
             <thead>
                 <tr>
                     <th>Patient</th>
+                    <th>Queue Token</th>
                     <th>Visit Category</th>
                     <th>Provider</th>
                     <th>Facility</th>
@@ -572,7 +577,7 @@ export function PatientFlowView()
                 </tr>
             </thead>
             <tbody id="flowTableBody">
-                <tr><td colspan="11" class="table-empty">Loading patient flow...</td></tr>
+                <tr><td colspan="12" class="table-empty">Loading patient flow...</td></tr>
             </tbody>
         </table>
     </div>
@@ -623,9 +628,45 @@ export function PatientFlowView()
                 </div>
             </div>
 
+            <!-- Outpatient Clinic Queue Token Generation Options -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px; margin-bottom: 16px;">
+                <div style="font-size: 12.5px; font-weight: 700; color: #1e40af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <span>🎫</span> Outpatient Clinic Sequential Queue Token
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 11px; font-weight: 600; color: #3b82f6; display: block; margin-bottom: 4px;">Department Prefix</label>
+                        <select id="checkin_department_code" class="form-input" style="height: 34px; font-size: 12px;">
+                            <option value="">Auto-Detect (Provider Dept)</option>
+                            <option value="CARD">CARD — Cardiology Clinic</option>
+                            <option value="PEDI">PEDI — Pediatrics Clinic</option>
+                            <option value="INTMED">INTMED — Internal Medicine</option>
+                            <option value="SURG">SURG — General Surgery</option>
+                            <option value="OBGYN">OBGYN — Obstetrics &amp; Gynecology</option>
+                            <option value="ORTHO">ORTHO — Orthopedics &amp; Sports Med</option>
+                            <option value="EMERG">EMERG — Acute Urgent Care</option>
+                            <option value="OPD">OPD — General Outpatient</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 600; color: #3b82f6; display: block; margin-bottom: 4px;">Queue Priority</label>
+                        <select id="checkin_priority" class="form-input" style="height: 34px; font-size: 12px;">
+                            <option value="routine">Routine</option>
+                            <option value="senior_pwd">Senior Citizen / PWD</option>
+                            <option value="priority">Priority Consultation</option>
+                            <option value="urgent">Urgent / STAT</option>
+                            <option value="vip">VIP</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: #60a5fa; margin-top: 6px;">
+                    Daily sequential token (e.g. CARD-001) will be issued immediately upon check-in.
+                </div>
+            </div>
+
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="cancelCheckInForm">Cancel</button>
-                <button class="login-btn" type="submit">Check In</button>
+                <button class="login-btn" type="submit" id="btnSubmitCheckIn">Check In &amp; Issue Token</button>
             </div>
         </form>
     </div>
@@ -665,6 +706,86 @@ export function PatientFlowView()
                 <button class="login-btn" type="submit">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- =============================================================== -->
+<!-- MODAL: QUEUE TOKEN ISSUED SUCCESS POPUP                         -->
+<!-- =============================================================== -->
+<div class="modal-overlay" id="tokenSuccessModalOverlay">
+    <div class="modal-box" style="max-width: 440px; text-align: center; padding: 24px;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: #dcfce7; color: #16a34a; font-size: 26px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px;">✓</div>
+        <h2 style="margin: 0 0 4px 0; font-size: 20px; color: #0f172a;">Queue Token Generated</h2>
+        <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b;">Patient is checked in and queued for clinical consultation.</p>
+        
+        <div style="background: #f8fafc; border: 2px dashed #0284c7; border-radius: 12px; padding: 18px; margin-bottom: 18px;">
+            <div style="font-size: 12px; font-weight: 700; color: #0284c7; text-transform: uppercase;" id="successTokenDept">Cardiology Clinic</div>
+            <div style="font-size: 46px; font-weight: 900; color: #0f172a; letter-spacing: 1px; margin: 6px 0; font-family: monospace;" id="successTokenNumber">CARD-001</div>
+            <div style="display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 12px; background: #e0e7ff; color: #4338ca; text-transform: uppercase;" id="successTokenPriority">Routine</div>
+            
+            <div style="margin-top: 14px; font-size: 12px; color: #475569; border-top: 1px solid #e2e8f0; padding-top: 10px; display: flex; justify-content: space-around;">
+                <div>Est. Wait: <strong id="successTokenWait" style="color: #0f172a;">~15 mins</strong></div>
+                <div>Patient: <strong id="successTokenPatient" style="color: #0f172a;">--</strong></div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" class="btn-secondary" id="closeTokenSuccessModal">Done</button>
+            <button type="button" class="login-btn" id="btnPrintTokenSlip" style="background: #0284c7; border: none; padding: 8px 16px; border-radius: 6px; color: #fff; cursor: pointer;">🖨️ Print Token Slip</button>
+        </div>
+    </div>
+</div>
+
+<!-- =============================================================== -->
+<!-- MODAL: WAITING ROOM LIVE QUEUE TV DISPLAY                       -->
+<!-- =============================================================== -->
+<div class="modal-overlay" id="queueDisplayModalOverlay" style="align-items: stretch; justify-content: stretch; padding: 10px;">
+    <div class="modal-box" style="max-width: 1200px; width: 98vw; height: 95vh; display: flex; flex-direction: column; background: #0f172a; color: #f8fafc; border-radius: 12px; overflow: hidden; padding: 0;">
+        <!-- Display Header -->
+        <div style="background: #1e293b; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 36px; height: 36px; background: #3b82f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🏥</div>
+                <div>
+                    <div style="font-size: 18px; font-weight: 800; letter-spacing: 0.5px;">USINTELLIX OUTPATIENT CLINICS</div>
+                    <div style="font-size: 11px; color: #94a3b8;">Patient Queue Announcement &amp; Calling Board</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div style="background: rgba(255,255,255,0.08); padding: 6px 14px; border-radius: 6px; font-family: monospace; font-size: 16px; color: #38bdf8; font-weight: 700;" id="queueTvClock">--:--:--</div>
+                <button type="button" id="closeQueueDisplayModal" style="background: transparent; border: 1px solid #475569; color: #cbd5e1; border-radius: 6px; width: 32px; height: 32px; font-size: 18px; cursor: pointer;">&times;</button>
+            </div>
+        </div>
+
+        <!-- Display Body Split -->
+        <div style="flex: 1; display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; padding: 20px; overflow: hidden;">
+            <!-- Left: NOW CALLING -->
+            <div style="display: flex; flex-direction: column; background: #1e293b; border-radius: 10px; border: 1px solid #334155; padding: 18px; overflow: hidden;">
+                <div style="font-size: 16px; font-weight: 800; color: #10b981; letter-spacing: 1px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981;"></span>
+                    NOW CALLING / PROCEED TO ROOM
+                </div>
+                <div id="queueTvCallingList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="color: #64748b; text-align: center; padding: 40px;">No patients currently being called.</div>
+                </div>
+            </div>
+
+            <!-- Right: UP NEXT / WAITING -->
+            <div style="display: flex; flex-direction: column; background: #1e293b; border-radius: 10px; border: 1px solid #334155; padding: 18px; overflow: hidden;">
+                <div style="font-size: 16px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>UP NEXT IN QUEUE</span>
+                    <span style="font-size: 12px; color: #94a3b8;" id="queueTvWaitingCount">0 Waiting</span>
+                </div>
+                <div id="queueTvUpNextList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="color: #64748b; text-align: center; padding: 40px;">Queue is currently empty.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Display Footer KPIs -->
+        <div style="background: #1e293b; padding: 10px 24px; border-top: 1px solid #334155; display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+            <div>Please proceed promptly to your consultation room when your token is called.</div>
+            <div id="queueTvSummaryStats">Total Served Today: --</div>
+        </div>
     </div>
 </div>
 `;

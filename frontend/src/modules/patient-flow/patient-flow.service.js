@@ -11,15 +11,68 @@ export async function fetchFlow(filters = {})
     return await api(`/patient-flow${query ? "?" + query : ""}`);
 }
 
-export async function checkInPatient(appointmentId)
+export async function checkInPatient(appointmentId, extraData = {})
 {
     return await api(
         "/patient-flow",
         {
             method: "POST",
-            body: JSON.stringify({ appointment_id: appointmentId })
+            body: JSON.stringify({ appointment_id: appointmentId, ...extraData })
         }
     );
+}
+
+export async function fetchQueueTokens(filters = {})
+{
+    const params = new URLSearchParams(filters).toString();
+    return await api(`/queue-tokens${params ? "?" + params : ""}`);
+}
+
+export async function callQueueToken(tokenId, roomId = null)
+{
+    return await api(
+        "/queue-tokens/call",
+        {
+            method: "POST",
+            body: JSON.stringify({ token_id: tokenId, room_id: roomId })
+        }
+    );
+}
+
+export async function serveQueueToken(tokenId, roomId = null)
+{
+    return await api(
+        "/queue-tokens/serve",
+        {
+            method: "POST",
+            body: JSON.stringify({ token_id: tokenId, room_id: roomId })
+        }
+    );
+}
+
+export async function completeQueueToken(tokenId)
+{
+    return await api(
+        "/queue-tokens/complete",
+        {
+            method: "POST",
+            body: JSON.stringify({ token_id: tokenId })
+        }
+    );
+}
+
+export async function fetchQueueDisplayBoard(facilityId = null, departmentCode = null)
+{
+    const params = new URLSearchParams();
+    if (facilityId) params.append("facility_id", facilityId);
+    if (departmentCode) params.append("department_code", departmentCode);
+    const qs = params.toString();
+    return await api(`/queue-tokens/display-board${qs ? "?" + qs : ""}`);
+}
+
+export function getQueueTokenSlipUrl(tokenId, autoprint = true)
+{
+    return `/api/queue-tokens/slip?token_id=${tokenId}${autoprint ? "&autoprint=1" : ""}`;
 }
 
 export async function updateFlowStatusRoom(id, stage, roomId)

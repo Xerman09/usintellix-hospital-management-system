@@ -23,10 +23,12 @@ class PatientFlowService
     ];
 
     private ProviderService $providerService;
+    private QueueTokenService $queueTokenService;
 
     public function __construct()
     {
         $this->providerService = new ProviderService();
+        $this->queueTokenService = new QueueTokenService();
     }
 
     /**
@@ -46,10 +48,15 @@ class PatientFlowService
                     f.name AS facility_name,
                     r.name AS room_name,
                     vc.name AS visit_category_name,
-                    a.appointment_time, a.reason AS appointment_reason
+                    a.appointment_time, a.reason AS appointment_reason,
+                    qt.token_number, qt.sequence_number, qt.department_code, qt.priority AS token_priority,
+                    qt.status AS token_status, qt.call_counter, qt.called_at, qt.estimated_wait_minutes,
+                    d.name AS department_name
                 FROM patient_flow pf
                 JOIN appointments a ON a.id = pf.appointment_id
                 JOIN patients p ON p.id = pf.patient_id
+                LEFT JOIN appointment_queue_tokens qt ON qt.id = pf.queue_token_id
+                LEFT JOIN departments d ON d.id = qt.department_id
                 LEFT JOIN providers pr ON pr.id = pf.provider_id
                 LEFT JOIN employees e ON e.id = pr.employee_id
                 LEFT JOIN facilities f ON f.id = pf.facility_id
@@ -188,10 +195,20 @@ class PatientFlowService
             ];
         }
 
+        // Generate Daily Sequential Queue Token (e.g. CARD-001, OPD-015)
+        $tokenRes = $this->queueTokenService->generateTokenForCheckIn($appointmentId, $data, $user, (int)$id);
+        $token = $tokenRes['success'] ? ($tokenRes['token'] ?? null) : null;
+        $tokenNumber = $tokenRes['token_number'] ?? null;
+
         return [
             'success' => true,
-            'message' => 'Patient checked in successfully.',
-            'data' => ['id' => $id]
+            'message' => $tokenNumber ? "Patient checked in successfully. Queue Token: {$tokenNumber}" : 'Patient checked in successfully.',
+            'data' => [
+                'id'           => $id,
+                'token_id'     => $token['id'] ?? null,
+                'token_number' => $tokenNumber,
+                'queue_token'  => $token
+            ]
         ];
     }
 
@@ -226,6 +243,16 @@ class PatientFlowService
             'updated_at' => date('Y-m-d H:i:s'),
             'updated_by' => (int) $user['id']
         ], $id);
+
+        // Keep Queue Token status synchronized with Flow stage
+        $tokenId = (int)($record['queue_token_id'] ?? 0);
+        if ($tokenId) {
+            if ($stage === 'roomed' || $stage === 'with_provider') {
+                $this->queueTokenService->serveToken($tokenId, $user, $roomId);
+            } elseif ($stage === 'checked_out') {
+                $this->queueTokenService->completeToken($tokenId, $user);
+            }
+        }
 
         return [
             'success' => true,
