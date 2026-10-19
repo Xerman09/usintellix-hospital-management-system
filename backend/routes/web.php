@@ -194,5 +194,6 @@ require_once __DIR__ . '/../app/Modules/Radiology/routes.php';
 require_once __DIR__ . '/../app/Modules/EquipmentAssets/routes.php';
 require_once __DIR__ . '/../app/Modules/ClinicSchedules/routes.php';
 require_once __DIR__ . '/../app/Modules/DepartmentOrg/routes.php';
+require_once __DIR__ . '/../app/Modules/VisitorManagement/routes.php';
 
 return $router;

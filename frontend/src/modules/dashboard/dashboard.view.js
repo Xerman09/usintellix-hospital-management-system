@@ -25,6 +25,7 @@ function staffNavLinks(role)
                 <a data-tab="census">Daily Census</a>
                 ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
                 <a data-tab="room_management">Room &amp; Bed Management</a>
+                <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
                 <a data-tab="department_org">Department Org Mapping</a>
                 <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
                 <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
@@ -93,6 +94,7 @@ function staffNavLinks(role)
                 <a data-tab="code_blue">Code Blue</a>
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
                 <a data-tab="room_management">Room &amp; Bed Management</a>
+                <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
             </div>
         </div>
         <div class="nav-dropdown">
@@ -554,6 +556,7 @@ const RECEPTIONIST_NAV_LINKS = `
             <a data-tab="census">Daily Census</a>
             <a data-tab="census_report">Census Reports</a>
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
             <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
             <a data-tab="clinic_schedules">Clinic Operating Schedules</a>
             <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
@@ -767,6 +770,7 @@ function nurseNavLinks(role)
             <a data-tab="census">Daily Census</a>
             ${["admin", "receptionist", "doctor", "clinician", "charge_nurse", "accountant"].includes(role) ? `<a data-tab="census_report">Census Reports</a>` : ""}
             <a data-tab="room_management">Rooms &amp; Beds Availability</a>
+            <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
             <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
             <a data-tab="patient_flow">Flow</a>
         </div>

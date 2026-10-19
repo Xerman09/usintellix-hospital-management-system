@@ -333,6 +333,8 @@ import { initClinicSchedules } from "../clinic-schedules/clinic-schedules.js";
 import { ClinicSchedulesView } from "../clinic-schedules/clinic-schedules.view.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
+import { initVisitorManagement } from "../visitor-management/visitor-management.js";
+import { VisitorManagementView } from "../visitor-management/visitor-management.view.js";
 import { initPrivacyPolicy } from "../privacy-policy/privacy-policy.js?v=5";
 import { PrivacyPolicyView } from "../privacy-policy/privacy-policy.view.js?v=4";
 import { initTermsConditions } from "../terms-conditions/terms-conditions.js?v=3";
@@ -1736,6 +1738,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Room & Bed Management', () => {
                 setTimeout(() => initRoomManagement(user), 0);
                 return RoomManagementView(user);
+            }, activate);
+        } else if (tabId === 'visitor_management' || tabId === 'visitor_passes') {
+            tabManager.openTab(tabId, title || 'Visitor Management & Passes', () => {
+                setTimeout(() => initVisitorManagement(user), 0);
+                return VisitorManagementView(user);
             }, activate);
         } else if (tabId === 'equipment_assets' || tabId === 'equipment_management') {
             tabManager.openTab(tabId, title || 'Biomedical & Equipment Assets', () => {
