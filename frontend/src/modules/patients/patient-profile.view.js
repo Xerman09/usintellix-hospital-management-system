@@ -36,7 +36,7 @@ export function PatientProfileView(patient)
         <div class="panel-header-row">
             <div>
                 <h1>${[patient.first_name, patient.middle_name, patient.last_name, patient.suffix].filter(Boolean).join(" ")}</h1>
-                <p class="form-subtitle">Patient No: ${patient.patient_no} &middot; View only</p>
+                <p class="form-subtitle">Patient No: ${patient.patient_no} &middot; MPI Status: <strong style="color:${patient.identity_status === 'Verified' ? '#16a34a' : (patient.identity_status === 'Pending Verification' ? '#d97706' : (patient.identity_status === 'Restricted' ? '#dc2626' : '#64748b'))}">${patient.identity_status || 'Unverified'}</strong> &middot; View only</p>
             </div>
         </div>
 
@@ -99,6 +99,15 @@ function overviewPanel(patient)
             <div class="form-group">
                 <label>Provider</label>
                 <p>${patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "-"}</p>
+            </div>
+            <div class="form-group">
+                <label>Official ID Status</label>
+                <p>
+                    <span class="badge" style="background:${patient.identity_status === 'Verified' ? '#16a34a' : (patient.identity_status === 'Pending Verification' ? '#d97706' : (patient.identity_status === 'Restricted' ? '#dc2626' : '#64748b'))};color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">
+                        ${patient.identity_status || "Unverified"}
+                    </span>
+                    ${patient.id_document_type ? `<br><small style="color:var(--text-muted);">${patient.id_document_type}${patient.id_document_number ? `: ${patient.id_document_number}` : ''}</small>` : ''}
+                </p>
             </div>
         </div>
         ${sections}

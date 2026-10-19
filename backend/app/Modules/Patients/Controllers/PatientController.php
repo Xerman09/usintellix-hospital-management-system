@@ -232,6 +232,10 @@ class PatientController extends Controller
             'weight',
             'ssn',
             'national_id',
+            'identity_status',
+            'id_document_type',
+            'id_document_number',
+            'verification_notes',
             'address_line',
             'city',
             'province',
@@ -373,6 +377,10 @@ class PatientController extends Controller
             'weight',
             'ssn',
             'national_id',
+            'identity_status',
+            'id_document_type',
+            'id_document_number',
+            'verification_notes',
             'address_line',
             'city',
             'province',
@@ -614,6 +622,29 @@ class PatientController extends Controller
 
         if (!$result['success']) {
             $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
+     * Officially verify or update patient identity document and MPI verification status.
+     */
+    public function verifyIdentity(int $id): void
+    {
+        $user = Session::get('user');
+        if (!$this->ownsPatient($user, $id)) {
+            $this->error('Patient not found or access denied.', 404);
+            return;
+        }
+
+        $request = new Request();
+        $data = $request->only(['identity_status', 'id_document_type', 'id_document_number', 'verification_notes']);
+
+        $result = $this->patientService->verifyIdentity($id, $data, (int) $user['id']);
+        if (!$result['success']) {
+            $this->error($result['message'] ?? 'Failed to update identity verification.', 422);
             return;
         }
 

@@ -74,4 +74,9 @@ $router->post('/patients/{id}/contact-history', [PatientController::class, 'addC
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->post('/patients/{id}/verify-identity', [PatientController::class, 'verifyIdentity'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 

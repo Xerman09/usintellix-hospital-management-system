@@ -2387,6 +2387,7 @@ export function PatientsListView(user)
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
             <button type="button" class="modal-tab" data-tab="contact_history">Contact &amp; Address History</button>
+            <button type="button" class="modal-tab" data-tab="identity_verification">Official ID Verification</button>
             <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
             <button type="button" class="modal-tab" data-tab="employer">Employer</button>
             <button type="button" class="modal-tab" data-tab="misc">Misc</button>
@@ -2731,6 +2732,67 @@ export function PatientsListView(user)
                 </div>
             </div>
 
+            <div class="modal-tab-panel" data-panel="identity_verification">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span id="edit_identity_status_badge" style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;background:#64748b;color:#fff;">Unverified</span>
+                            <span style="font-size:13px;color:var(--text-muted);" id="edit_identity_verification_meta">Physical inspection of official government ID required</span>
+                        </div>
+                        <div>
+                            <button type="button" class="btn-primary" id="btnQuickVerifyId" style="font-size:12px;padding:6px 14px;background:#059669;border-color:#059669;">
+                                ✓ Mark Verified by Current User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>MPI Verification Status</label>
+                        <select id="edit_identity_status" class="form-input">
+                            <option value="Unverified">Unverified (No ID checked)</option>
+                            <option value="Pending Verification">Pending Verification (Photocopy / Pending physical)</option>
+                            <option value="Verified">Verified (Official physical ID inspected)</option>
+                            <option value="Restricted">Restricted (Flagged discrepancy / Suspicious ID)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Official ID Document Type</label>
+                        <select id="edit_id_document_type" class="form-input">
+                            <option value="">Select document type...</option>
+                            <option value="National ID">National ID (PhilSys / PSA)</option>
+                            <option value="Passport">Passport (DFA / International)</option>
+                            <option value="Driver's License">Driver's License (LTO)</option>
+                            <option value="PhilHealth ID">PhilHealth Card / ID</option>
+                            <option value="SSS/GSIS ID">SSS / GSIS UMID</option>
+                            <option value="Postal ID">Postal ID (PhilPost)</option>
+                            <option value="Voter's ID">Voter's ID (COMELEC)</option>
+                            <option value="Senior Citizen ID">Senior Citizen / PWD ID</option>
+                            <option value="PRC License">PRC Professional License</option>
+                            <option value="Other Official ID">Other Official Government ID</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>ID Document Card Number</label>
+                        <input id="edit_id_document_number" class="form-input" placeholder="e.g. P1234567A, 7142-9981-3420-1129" autocomplete="off">
+                        <small style="color:var(--text-muted);font-size:11px;">Encrypted at rest using AES-256-GCM.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Verified By Staff</label>
+                        <input id="edit_verified_by_display" class="form-input" placeholder="System auto-records verifier" readonly style="background:#f1f5f9;cursor:not-allowed;">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Staff Physical Verification Notes &amp; Observations</label>
+                        <textarea id="edit_verification_notes" class="form-input" rows="3" placeholder="Enter physical inspection notes (e.g. Original physical ID presented at front desk; photo and signature matched; PSA birthdate matched)."></textarea>
+                    </div>
+                </div>
+            </div>
+
             <div class="modal-tab-panel" data-panel="related_persons">
                 <div class="rp-toolbar">
                     <span class="rp-count-text" id="relatedPersonsCountText">0 related persons</span>
@@ -2866,6 +2928,7 @@ ${canAdd ? `
             <button type="button" class="modal-tab" data-tab="choices">Choices</button>
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
+            <button type="button" class="modal-tab" data-tab="identity_verification">Official ID Verification</button>
             <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
             <button type="button" class="modal-tab" data-tab="employer">Employer</button>
             <button type="button" class="modal-tab" data-tab="misc">Misc</button>
@@ -3187,6 +3250,48 @@ ${canAdd ? `
                         <label>Work Phone</label>
                         <input id="work_phone" class="form-input" placeholder="Work phone (optional)">
                         <span class="form-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="identity_verification">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>MPI Verification Status</label>
+                        <select id="identity_status" class="form-input">
+                            <option value="Unverified">Unverified (Default)</option>
+                            <option value="Pending Verification">Pending Verification</option>
+                            <option value="Verified">Verified (Physical ID inspected at registration)</option>
+                            <option value="Restricted">Restricted (Flagged discrepancy)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Official ID Document Type</label>
+                        <select id="id_document_type" class="form-input">
+                            <option value="">Select document type...</option>
+                            <option value="National ID">National ID (PhilSys / PSA)</option>
+                            <option value="Passport">Passport (DFA / International)</option>
+                            <option value="Driver's License">Driver's License (LTO)</option>
+                            <option value="PhilHealth ID">PhilHealth Card / ID</option>
+                            <option value="SSS/GSIS ID">SSS / GSIS UMID</option>
+                            <option value="Postal ID">Postal ID (PhilPost)</option>
+                            <option value="Voter's ID">Voter's ID (COMELEC)</option>
+                            <option value="Senior Citizen ID">Senior Citizen / PWD ID</option>
+                            <option value="PRC License">PRC Professional License</option>
+                            <option value="Other Official ID">Other Official Government ID</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>ID Document Card Number</label>
+                        <input id="id_document_number" class="form-input" placeholder="e.g. P1234567A, 7142-9981-3420-1129" autocomplete="off">
+                        <small style="color:var(--text-muted);font-size:11px;">Encrypted at rest using AES-256-GCM.</small>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Physical Verification Notes</label>
+                        <textarea id="verification_notes" class="form-input" rows="3" placeholder="Enter physical inspection notes (e.g. Original physical ID card inspected at admissions desk)."></textarea>
                     </div>
                 </div>
             </div>
@@ -7619,6 +7724,7 @@ textarea.pd-sdoh-readonly {
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
                 <div id="pdCodeBlueBtn"></div>
                 <div id="pdCriticalLabBadge"></div>
+                <div id="pdIdentityStatusBadge" style="display:flex;align-items:center;"></div>
                 <div id="pdConfidentialCommBadgeContainer" style="display:flex;align-items:center;gap:8px;"></div>
             </div>
         </div>
@@ -7659,6 +7765,14 @@ textarea.pd-sdoh-readonly {
                     <div class="pd-fact">
                         <span class="pd-fact-label">Care Provider</span>
                         <span class="pd-fact-value" id="pdFactProvider">-</span>
+                    </div>
+                    <div class="pd-fact">
+                        <span class="pd-fact-label">MPI Official ID</span>
+                        <span class="pd-fact-value" id="pdFactIdentityStatus">-</span>
+                    </div>
+                    <div class="pd-fact">
+                        <span class="pd-fact-label">ID Document</span>
+                        <span class="pd-fact-value" id="pdFactIdDocument">-</span>
                     </div>
                 </div>
 
@@ -14717,6 +14831,7 @@ textarea.pd-sdoh-readonly {
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
             <button type="button" class="modal-tab" data-tab="contact_history">Contact &amp; Address History</button>
+            <button type="button" class="modal-tab" data-tab="identity_verification">Official ID Verification</button>
             <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
             <button type="button" class="modal-tab" data-tab="employer">Employer</button>
             <button type="button" class="modal-tab" data-tab="misc">Misc</button>
@@ -15058,6 +15173,67 @@ textarea.pd-sdoh-readonly {
                             <tr><td colspan="6" class="table-empty">Loading address &amp; contact history...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="identity_verification">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span id="edit_identity_status_badge" style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;background:#64748b;color:#fff;">Unverified</span>
+                            <span style="font-size:13px;color:var(--text-muted);" id="edit_identity_verification_meta">Physical inspection of official government ID required</span>
+                        </div>
+                        <div>
+                            <button type="button" class="btn-primary" id="btnQuickVerifyId" style="font-size:12px;padding:6px 14px;background:#059669;border-color:#059669;">
+                                ✓ Mark Verified by Current User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>MPI Verification Status</label>
+                        <select id="edit_identity_status" class="form-input">
+                            <option value="Unverified">Unverified (No ID checked)</option>
+                            <option value="Pending Verification">Pending Verification (Photocopy / Pending physical)</option>
+                            <option value="Verified">Verified (Official physical ID inspected)</option>
+                            <option value="Restricted">Restricted (Flagged discrepancy / Suspicious ID)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Official ID Document Type</label>
+                        <select id="edit_id_document_type" class="form-input">
+                            <option value="">Select document type...</option>
+                            <option value="National ID">National ID (PhilSys / PSA)</option>
+                            <option value="Passport">Passport (DFA / International)</option>
+                            <option value="Driver's License">Driver's License (LTO)</option>
+                            <option value="PhilHealth ID">PhilHealth Card / ID</option>
+                            <option value="SSS/GSIS ID">SSS / GSIS UMID</option>
+                            <option value="Postal ID">Postal ID (PhilPost)</option>
+                            <option value="Voter's ID">Voter's ID (COMELEC)</option>
+                            <option value="Senior Citizen ID">Senior Citizen / PWD ID</option>
+                            <option value="PRC License">PRC Professional License</option>
+                            <option value="Other Official ID">Other Official Government ID</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>ID Document Card Number</label>
+                        <input id="edit_id_document_number" class="form-input" placeholder="e.g. P1234567A, 7142-9981-3420-1129" autocomplete="off">
+                        <small style="color:var(--text-muted);font-size:11px;">Encrypted at rest using AES-256-GCM.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Verified By Staff</label>
+                        <input id="edit_verified_by_display" class="form-input" placeholder="System auto-records verifier" readonly style="background:#f1f5f9;cursor:not-allowed;">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Staff Physical Verification Notes &amp; Observations</label>
+                        <textarea id="edit_verification_notes" class="form-input" rows="3" placeholder="Enter physical inspection notes (e.g. Original physical ID presented at front desk; photo and signature matched; PSA birthdate matched)."></textarea>
+                    </div>
                 </div>
             </div>
 

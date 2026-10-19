@@ -55,13 +55,15 @@ class PatientService
                     pg.country AS guardian_country,
                     pg.phone AS guardian_phone,
                     pg.work_phone AS guardian_work_phone,
-                    pg.email AS guardian_email
+                    pg.email AS guardian_email,
+                    u_ver.username AS verified_by_username
              FROM patients p
              LEFT JOIN providers pr ON pr.id = p.provider_id
              LEFT JOIN employees pe ON pe.id = pr.employee_id
              LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
              LEFT JOIN patient_employers pemp ON pemp.patient_id = p.id
              LEFT JOIN patient_guardians pg ON pg.patient_id = p.id
+             LEFT JOIN users u_ver ON u_ver.id = p.verified_by
              WHERE p.deleted_at IS NULL";
 
         $params = [];
@@ -78,7 +80,7 @@ class PatientService
 
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return FieldEncryption::decryptRows($rows, ['ssn', 'national_id']);
+        return FieldEncryption::decryptRows($rows, ['ssn', 'national_id', 'id_document_number']);
     }
 
     /**
@@ -200,6 +202,12 @@ class PatientService
             'weight'       => $data['weight'],
             'ssn'          => array_key_exists('ssn', $data) ? ($data['ssn'] ?: null) : ($patient['ssn'] ?? null),
             'national_id'  => array_key_exists('national_id', $data) ? ($data['national_id'] ?: null) : ($patient['national_id'] ?? null),
+            'identity_status'    => in_array($data['identity_status'] ?? '', ['Unverified', 'Pending Verification', 'Verified', 'Restricted'], true) ? $data['identity_status'] : ($patient['identity_status'] ?? 'Unverified'),
+            'id_document_type'   => array_key_exists('id_document_type', $data) ? ($data['id_document_type'] ?: null) : ($patient['id_document_type'] ?? null),
+            'id_document_number' => array_key_exists('id_document_number', $data) ? ($data['id_document_number'] ?: null) : ($patient['id_document_number'] ?? null),
+            'verified_by'        => (($data['identity_status'] ?? '') === 'Verified') ? ($patient['verified_by'] ?? $updatedBy) : ((in_array($data['identity_status'] ?? '', ['Unverified', 'Pending Verification'], true)) ? null : ($patient['verified_by'] ?? null)),
+            'verified_at'        => (($data['identity_status'] ?? '') === 'Verified') ? ($patient['verified_at'] ?? date('Y-m-d H:i:s')) : ((in_array($data['identity_status'] ?? '', ['Unverified', 'Pending Verification'], true)) ? null : ($patient['verified_at'] ?? null)),
+            'verification_notes' => array_key_exists('verification_notes', $data) ? ($data['verification_notes'] ?: null) : ($patient['verification_notes'] ?? null),
             'date_deceased'   => $data['date_deceased'] ?? null,
             'reason_deceased' => $data['reason_deceased'] ?? null,
             'updated_at'   => date('Y-m-d H:i:s'),
@@ -595,6 +603,12 @@ class PatientService
                     'weight'       => $data['weight'],
                     'ssn'          => !empty($data['ssn']) ? $data['ssn'] : null,
                     'national_id'  => !empty($data['national_id']) ? $data['national_id'] : null,
+                    'identity_status'    => in_array($data['identity_status'] ?? '', ['Unverified', 'Pending Verification', 'Verified', 'Restricted'], true) ? $data['identity_status'] : 'Unverified',
+                    'id_document_type'   => !empty($data['id_document_type']) ? $data['id_document_type'] : null,
+                    'id_document_number' => !empty($data['id_document_number']) ? $data['id_document_number'] : null,
+                    'verified_by'        => (($data['identity_status'] ?? '') === 'Verified') ? $createdBy : null,
+                    'verified_at'        => (($data['identity_status'] ?? '') === 'Verified') ? date('Y-m-d H:i:s') : null,
+                    'verification_notes' => !empty($data['verification_notes']) ? $data['verification_notes'] : null,
                     'date_deceased'   => $data['date_deceased'] ?? null,
                     'reason_deceased' => $data['reason_deceased'] ?? null,
                     'created_at'   => date('Y-m-d H:i:s'),
@@ -1193,6 +1207,68 @@ class PatientService
             'success' => true,
             'message' => 'Contact and address history entry recorded successfully.',
             'data' => (new PatientContactHistory())->where('id', $historyId)->first()
+        ];
+    }
+
+    /**
+     * Update official identity document verification details for a patient.
+     */
+    public function verifyIdentity(int $patientId, array $data, int $userId): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $status = $data['identity_status'] ?? 'Verified';
+        if (!in_array($status, ['Unverified', 'Pending Verification', 'Verified', 'Restricted'], true)) {
+            return ['success' => false, 'message' => 'Invalid identity verification status.'];
+        }
+
+        $docType = !empty($data['id_document_type']) ? trim((string) $data['id_document_type']) : null;
+        $docNumber = !empty($data['id_document_number']) ? trim((string) $data['id_document_number']) : null;
+        $notes = !empty($data['verification_notes']) ? trim((string) $data['verification_notes']) : null;
+
+        $verifiedBy = ($status === 'Verified') ? $userId : ($status === 'Restricted' ? $userId : null);
+        $verifiedAt = ($status === 'Verified' || $status === 'Restricted') ? date('Y-m-d H:i:s') : null;
+
+        (new Patient())->update([
+            'identity_status'    => $status,
+            'id_document_type'   => $docType,
+            'id_document_number' => $docNumber,
+            'verified_by'        => $verifiedBy,
+            'verified_at'        => $verifiedAt,
+            'verification_notes' => $notes,
+            'updated_at'         => date('Y-m-d H:i:s'),
+            'updated_by'         => $userId
+        ], $patientId);
+
+        AuditLogger::log(
+            AuditLogger::CATEGORY_SECURITY,
+            $status === 'Verified' ? 'MPI_IDENTITY_VERIFIED' : 'MPI_IDENTITY_STATUS_CHANGED',
+            "Official identity verification updated for patient ID {$patientId}: status='{$status}', doc_type='{$docType}'",
+            $patientId,
+            $userId
+        );
+
+        $db = Database::connection();
+        $stmt = $db->prepare("
+            SELECT p.*, u.username AS verified_by_username
+            FROM patients p
+            LEFT JOIN users u ON u.id = p.verified_by
+            WHERE p.id = :id
+        ");
+        $stmt->execute([':id' => $patientId]);
+        $updated = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($updated) {
+            $updated = FieldEncryption::decryptRow($updated, ['ssn', 'national_id', 'id_document_number']);
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Official identity document verification updated successfully.',
+            'data'    => $updated
         ];
     }
 }

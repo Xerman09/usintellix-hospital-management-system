@@ -135,3 +135,14 @@ export async function savePatientContactHistory(patientId, data)
     );
 }
 
+export async function verifyPatientIdentity(patientId, data)
+{
+    return await api(
+        `/patients/${encodeURIComponent(patientId)}/verify-identity`,
+        {
+            method: "POST",
+            body: JSON.stringify(data)
+        }
+    );
+}
+

@@ -32,7 +32,7 @@ import { initRelativesHistory } from "./patient-relatives-history.js?v=4";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=4";
-import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment, fetchPatientContactHistory, savePatientContactHistory } from "./patients.service.js?v=9";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment, fetchPatientContactHistory, savePatientContactHistory, verifyPatientIdentity } from "./patients.service.js?v=9";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
 import { openBreakGlassModal } from "../../core/break-glass-modal.js?v=4";
 import { api, API_URL } from "../../core/api.js?v=10";
@@ -375,7 +375,8 @@ const FIELDS = [
     "employer_occupation", "employer_name", "employer_address_line", "employer_address_line2",
     "employer_city", "employer_state", "employer_postal_code", "employer_country",
     "employer_industry", "employer_employment_start_date", "employer_employment_end_date",
-    "date_deceased", "reason_deceased"
+    "date_deceased", "reason_deceased",
+    "identity_status", "id_document_type", "id_document_number", "verification_notes"
 ];
 
 const EDIT_FIELDS = [
@@ -390,7 +391,8 @@ const EDIT_FIELDS = [
     "employer_occupation", "employer_name", "employer_address_line", "employer_address_line2",
     "employer_city", "employer_state", "employer_postal_code", "employer_country",
     "employer_industry", "employer_employment_start_date", "employer_employment_end_date",
-    "date_deceased", "reason_deceased"
+    "date_deceased", "reason_deceased",
+    "identity_status", "id_document_type", "id_document_number", "verification_notes"
 ];
 
 let patientsCache = [];
@@ -2708,6 +2710,14 @@ export async function initPatientChartTab(patient)
     setFact("pdFactBloodType", patient.blood_type);
     setFact("pdFactProvider", providerName);
 
+    const idBadgeEl = document.getElementById("pdIdentityStatusBadge");
+    if (idBadgeEl) {
+        idBadgeEl.innerHTML = identityStatusBadgeHtml(patient.identity_status);
+    }
+    setFact("pdFactIdentityStatus", patient.identity_status || "Unverified");
+    const idDocSummary = [patient.id_document_type, patient.id_document_number].filter(Boolean).join(": ");
+    setFact("pdFactIdDocument", idDocSummary || "None on file");
+
     renderConfidentialCommunicationsAlert(patient);
     showPatientContextBar(patient);
     setupPatientPhotoUpload(patient);
@@ -3613,7 +3623,11 @@ function renderDemographics(patient)
             field("Civil Status", patient.civil_status),
             field("Blood Type", patient.blood_type),
             field("Height (cm)", patient.height),
-            field("Weight (kg)", patient.weight)
+            field("Weight (kg)", patient.weight),
+            field("MPI Verification", patient.identity_status || "Unverified"),
+            field("Official ID Type", patient.id_document_type || "None on file"),
+            field("ID Document No.", patient.id_document_number || "None on file"),
+            field("Verified By", patient.verified_by_username ? `${patient.verified_by_username} (${patient.verified_at ? String(patient.verified_at).slice(0, 16) : ''})` : (patient.identity_status === "Verified" ? "Verified" : "Unverified"))
         ],
         contact: [
             field("Address Line", patient.contact_address_line),
@@ -18986,7 +19000,107 @@ async function setupEditPatientModal(user)
         await loadPatients(user);
     });
 
+    const idStatusSelect = document.getElementById("edit_identity_status");
+    if (idStatusSelect) {
+        idStatusSelect.addEventListener("change", (e) => {
+            updateEditIdentityBadge(e.target.value);
+        });
+    }
+
+    const quickVerifyBtn = document.getElementById("btnQuickVerifyId");
+    if (quickVerifyBtn) {
+        quickVerifyBtn.addEventListener("click", async () => {
+            const patient = currentEditPatient;
+            if (!patient) return;
+
+            const docType = document.getElementById("edit_id_document_type").value;
+            const docNum = document.getElementById("edit_id_document_number").value.trim();
+            const notes = document.getElementById("edit_verification_notes").value.trim();
+
+            if (!docType && !docNum) {
+                if (!confirm("No ID Document Type or Card Number specified. Are you sure you want to mark this patient's identity as physically Verified?")) {
+                    document.getElementById("edit_id_document_type").focus();
+                    return;
+                }
+            }
+
+            const payload = {
+                identity_status: "Verified",
+                id_document_type: docType,
+                id_document_number: docNum,
+                verification_notes: notes || "Physically inspected and verified at admissions / front desk."
+            };
+
+            const res = await verifyPatientIdentity(patient.id, payload);
+            if (!res.success) {
+                showAlert("editFormAlert", res.message || "Failed to verify identity.", "error");
+                return;
+            }
+
+            document.getElementById("edit_identity_status").value = "Verified";
+            const verDisplay = document.getElementById("edit_verified_by_display");
+            if (verDisplay) {
+                verDisplay.value = `${user.username} (Just now)`;
+            }
+            updateEditIdentityBadge("Verified");
+
+            patient.identity_status = "Verified";
+            patient.id_document_type = docType;
+            patient.id_document_number = docNum;
+            patient.verified_by_username = user.username;
+            patient.verified_at = new Date().toISOString();
+
+            showListAlert("Official identity document verified successfully.", "success");
+            await loadPatients(user);
+        });
+    }
+
     setupContactHistoryModal();
+}
+
+function identityStatusBadgeHtml(status)
+{
+    switch (status) {
+        case "Verified":
+            return `<span class="badge" title="Official Government ID Verified" style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(22,163,74,0.3);">✓ Verified ID</span>`;
+        case "Pending Verification":
+            return `<span class="badge" title="Pending Physical ID Inspection" style="background:#d97706;color:#fff;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(217,119,6,0.3);">⏳ Pending ID</span>`;
+        case "Restricted":
+            return `<span class="badge" title="MPI Identity Restricted / Flagged Discrepancy" style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(220,38,38,0.3);">⚠ Restricted ID</span>`;
+        default:
+            return `<span class="badge" title="Unverified Identity (Vulnerable to spoofing/John Doe)" style="background:#64748b;color:#fff;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;gap:3px;">Unverified ID</span>`;
+    }
+}
+
+function updateEditIdentityBadge(status)
+{
+    const badge = document.getElementById("edit_identity_status_badge");
+    const meta = document.getElementById("edit_identity_verification_meta");
+    if (!badge) return;
+
+    badge.textContent = status || "Unverified";
+    switch (status) {
+        case "Verified":
+            badge.style.background = "#16a34a";
+            badge.style.color = "#fff";
+            if (meta) meta.textContent = "Official physical government ID verified and authenticated.";
+            break;
+        case "Pending Verification":
+            badge.style.background = "#d97706";
+            badge.style.color = "#fff";
+            if (meta) meta.textContent = "Photocopy/provisional info on file. Physical card inspection required on next consult.";
+            break;
+        case "Restricted":
+            badge.style.background = "#dc2626";
+            badge.style.color = "#fff";
+            if (meta) meta.textContent = "Identity flagged for discrepancy or legal hold. Supervisory review required.";
+            break;
+        default:
+            badge.style.background = "#64748b";
+            badge.style.color = "#fff";
+            if (meta) meta.textContent = "Physical inspection of official government ID required.";
+            break;
+    }
 }
 
 let currentContactHistoryPatientId = null;
@@ -19937,10 +20051,20 @@ function openEditModal(patient)
     document.getElementById("edit_employer_country").value = patient.employer_country ?? "";
     document.getElementById("edit_employer_industry").value = patient.employer_industry ?? "";
     document.getElementById("edit_employer_employment_start_date").value = patient.employer_employment_start_date ?? "";
-    document.getElementById("edit_employer_employment_end_date").value = patient.employer_employment_end_date ?? "";
-
     document.getElementById("edit_date_deceased").value = patient.date_deceased ?? "";
     document.getElementById("edit_reason_deceased").value = patient.reason_deceased ?? "";
+
+    setIfExists("edit_identity_status", patient.identity_status || "Unverified");
+    setIfExists("edit_id_document_type", patient.id_document_type || "");
+    setIfExists("edit_id_document_number", patient.id_document_number || "");
+    setIfExists("edit_verification_notes", patient.verification_notes || "");
+    const verDisplay = document.getElementById("edit_verified_by_display");
+    if (verDisplay) {
+        verDisplay.value = patient.verified_by_username
+            ? `${patient.verified_by_username} (${patient.verified_at ? String(patient.verified_at).slice(0, 16) : ''})`
+            : (patient.identity_status === "Verified" ? "Verified" : "Not yet physically verified");
+    }
+    updateEditIdentityBadge(patient.identity_status || "Unverified");
 
     modalOverlay.classList.add("open");
 }
@@ -20003,6 +20127,7 @@ function renderPatientsTable(patients, user)
         const providerName = patient.provider_first_name ? `${patient.provider_first_name} ${patient.provider_last_name}` : "";
         const hasCommRestrictions = Number(patient.has_confidential_restrictions) === 1 || patient.has_confidential_restrictions === true;
         const commBadge = hasCommRestrictions ? ` <span class="pat-comm-badge" title="45 CFR § 164.522(b): Confidential Communications Restrictions Active" style="display:inline-flex;align-items:center;padding:1px 5px;font-size:10.5px;font-weight:700;color:#991b1b;background:#fee2e2;border:1px solid #f87171;border-radius:3px;margin-left:5px;cursor:help;">🔒 CC</span>` : "";
+        const idBadge = identityStatusBadgeHtml(patient.identity_status);
 
         return `
         <tr class="pat-row" data-row-id="${patient.id}">
@@ -20010,7 +20135,7 @@ function renderPatientsTable(patients, user)
             <td>
                 <div class="pat-name-cell">
                     <div class="pat-avatar">${patientAvatarHtml(patient)}</div>
-                    <span class="pat-name">${escapeHtml(fullName)}${commBadge}</span>
+                    <span class="pat-name">${escapeHtml(fullName)}${commBadge} ${idBadge}</span>
                 </div>
             </td>
             <td><span class="pat-sex-badge ${sexClass}">${escapeHtml(sexLabel)}</span></td>

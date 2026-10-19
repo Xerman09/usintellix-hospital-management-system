@@ -13,5 +13,5 @@ class Patient extends QueryBuilder
     /**
      * Fields automatically encrypted at rest using AES-256-GCM (HIPAA § 164.312(a)(2)(iv)).
      */
-    protected array $encryptedFields = ['ssn', 'national_id'];
+    protected array $encryptedFields = ['ssn', 'national_id', 'id_document_number'];
 }
