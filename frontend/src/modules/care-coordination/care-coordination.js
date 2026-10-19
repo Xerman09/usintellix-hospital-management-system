@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { fetchPatients, fetchPatientDashboardSummary } from "../patients/patients.service.js?v=9";
-import { generateCcdDetailedReportHtml, generateQrdaReportHtml } from "../patients/patients-list.js?v=115";
+import { generateCcdDetailedReportHtml, generateQrdaReportHtml } from "../patients/patients-list.js?v=116";
 
 export async function initCareCoordination() {
     try {

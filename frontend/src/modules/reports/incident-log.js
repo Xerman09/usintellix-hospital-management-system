@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { logReportRun } from "./report-history.js";
-import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=40";
+import { populatePatientSelector } from "../../core/patient-chart-helper.js?v=41";
 import { systemNow, toDateTimeInput } from "../../core/timezone.js";
 
 let currentIncidents = [];

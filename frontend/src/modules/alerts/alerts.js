@@ -1,6 +1,6 @@
 import { fetchAlerts, fetchAlert, fetchAlertOptions, markAlertRead, markAllAlertsRead, acknowledgeAlert, sendAlert } from "./alerts.service.js?v=5";
-import { esc, fmtDateTime, ago, URGENCY_LABEL, openAlertLink, hasLink, refreshAlerts, onAlertsChanged, takePendingAlert, showPopup } from "./alert-bell.js?v=14";
-import { initAlertAdmin, showEscalation, showReport } from "./alerts-admin.js?v=12";
+import { esc, fmtDateTime, ago, URGENCY_LABEL, openAlertLink, hasLink, refreshAlerts, onAlertsChanged, takePendingAlert, showPopup } from "./alert-bell.js?v=15";
+import { initAlertAdmin, showEscalation, showReport } from "./alerts-admin.js?v=13";
 import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { showToast } from "../../core/toast.js";
 

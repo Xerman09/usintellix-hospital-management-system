@@ -15,7 +15,7 @@ import {
     importPatientProcedureResults
 } from "./patient-results.service.js?v=5";
 import { todayISO } from "../../core/timezone.js";
-import { openResultByOrder } from "../results-inbox/results-inbox.js?v=7";
+import { openResultByOrder } from "../results-inbox/results-inbox.js?v=8";
 
 const REVIEW_ROLES = ["doctor", "clinician"];
 let reviewListener = null;

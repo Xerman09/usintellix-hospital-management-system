@@ -12,7 +12,7 @@ import {
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
 import { getUser } from "../../core/session.js?v=5";
 import { PatientsListView } from "../patients/patients-list.view.js?v=87";
-import { initPatientsList } from "../patients/patients-list.js?v=115";
+import { initPatientsList } from "../patients/patients-list.js?v=116";
 import { todayISO } from "../../core/timezone.js";
 
 const STAGES = ["waiting", "roomed", "with_provider", "checked_out"];

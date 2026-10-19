@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js?v=5";
 import { API_URL } from "../../core/api.js?v=10";
 import { fetchHealthSummary } from "../health-records/health-records.service.js";
 import { fetchProfile } from "../profile/profile.service.js";
-import { generateCcdDetailedReportHtml } from "../patients/patients-list.js?v=115";
+import { generateCcdDetailedReportHtml } from "../patients/patients-list.js?v=116";
 import { generateCustomPatientReportHtml } from "./custom-report-template.js";
 import { fetchPatientDocuments } from "../patient-documents/patient-documents.service.js";
 import { todayISO } from "../../core/timezone.js";

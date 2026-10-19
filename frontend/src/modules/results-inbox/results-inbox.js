@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { esc, ago, fmtDateTime } from "../alerts/alert-bell.js?v=14";
+import { esc, ago, fmtDateTime } from "../alerts/alert-bell.js?v=15";
 
 /*
  * Results inbox: the "!" in the top bar. New lab and radiology results for your patients
@@ -125,6 +125,13 @@ const CSS = `
 .rib-set .rib-b { padding: 4px 10px; font-size: 12px; }
 .rib-signoff { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color); }
 .rib-signoff h3 { margin: 0 0 8px; font-size: 14px; }
+/* My Chart release (patient portal, Phase 1) */
+.rib-portal { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+.rib-portal .rib-stitle { margin: 0 0 6px; font-size: 14px; }
+.rib-pstate { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary, var(--text-muted)); }
+.rib-pacts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rib-pacts .rib-b { padding: 5px 11px; font-size: 12.5px; }
+.rib-input { border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 9px; font: inherit; font-size: 13px; background: var(--bg-surface); color: var(--text-primary); min-width: min(260px, 100%); }
 .rib-rev-box { border-radius: 8px; padding: 8px 10px; background: var(--bg-surface-alt); font-size: 13px; }
 .rib-rev-box.ok { background: #f0fdf4; color: #14532d; }
 .rib-rev-box.late { background: #fef2f2; color: #991b1b; }
@@ -403,6 +410,63 @@ function onPanelClick(e) {
     else openResult({ order_id: Number(el.dataset.ribOrder) });
 }
 
+/* ---------------- what My Chart shows (Phase 1) ---------------- */
+
+/**
+ * The patient's side of this result: whether they can see it, and -- for the roles that
+ * sign results off -- release it now or hold it back. A critical result is never
+ * released automatically, so this is where the doctor lets it through after speaking
+ * to the patient.
+ */
+function renderPortal(orderId, portal) {
+    const box = document.querySelector("[data-rib-portal]");
+    if (!box || !portal) return;
+    const held = Number(portal.held || 0);
+    const waiting = Number(portal.waiting || 0);
+    const visible = Number(portal.visible || 0);
+    const state = held
+        ? `<b>Held back from the patient.</b> ${esc(portal.hold_reason || "")}`
+        : waiting
+            ? `Waiting to appear in My Chart${portal.next_release_at ? ` on ${esc(fmtDateTime(portal.next_release_at))}` : ""}.`
+            : visible
+                ? "The patient can see this in My Chart."
+                : "Not released to My Chart.";
+    box.innerHTML = `<h3 class="rib-stitle">My Chart</h3>
+        <p class="rib-pstate">${state}</p>
+        ${portal.may_release ? `<div class="rib-pacts">
+            ${held || waiting || !visible ? `<button type="button" class="rib-b primary" data-rib-release="${orderId}">Release to the patient now</button>` : ""}
+            ${visible || waiting ? `<button type="button" class="rib-b" data-rib-hold="${orderId}">Hold back…</button>` : ""}
+        </div>` : ""}`;
+    const rel = box.querySelector("[data-rib-release]");
+    if (rel) {
+        rel.onclick = async () => {
+            rel.disabled = true;
+            const r = await api("/results-inbox/release", { method: "POST", body: JSON.stringify({ order_id: orderId, hold: 0 }) }).catch(() => null);
+            showToast(r?.message || "Could not release the result.", r?.success ? "success" : "error", 6000);
+            if (r?.success) openResult({ order_id: orderId });
+            else rel.disabled = false;
+        };
+    }
+    const hold = box.querySelector("[data-rib-hold]");
+    if (hold) {
+        hold.onclick = () => {
+            box.querySelector(".rib-pacts").innerHTML = `<input type="text" data-rib-why maxlength="255" placeholder="Why hold it back from the patient?"
+                aria-label="Why hold this result back from the patient" class="rib-input">
+                <button type="button" class="rib-b" data-rib-holdgo="${orderId}">Hold back</button>`;
+            const why = box.querySelector("[data-rib-why]");
+            why.focus();
+            box.querySelector("[data-rib-holdgo]").onclick = async (ev) => {
+                if (!why.value.trim()) return why.focus();
+                ev.target.disabled = true;
+                const r = await api("/results-inbox/release", { method: "POST", body: JSON.stringify({ order_id: orderId, hold: 1, reason: why.value.trim() }) }).catch(() => null);
+                showToast(r?.message || "Could not hold the result.", r?.success ? "success" : "error", 6000);
+                if (r?.success) openResult({ order_id: orderId });
+                else ev.target.disabled = false;
+            };
+        };
+    }
+}
+
 /* ---------------- one result ---------------- */
 
 /** Open one order's result (an alert's link, Patient Results' "Review"). */
@@ -455,6 +519,7 @@ async function openResult(ref) {
             ${results.length ? `<table class="rib-table"><thead><tr><th>Test</th><th>Value</th><th>Units</th><th>Range</th><th>Flag</th></tr></thead><tbody>${rows}</tbody></table>`
                 : `<p class="rib-empty">The results were removed from this order.</p>`}
             <section class="rib-signoff" data-rib-signoff aria-labelledby="ribSignTitle"></section>
+            <section class="rib-portal" data-rib-portal></section>
         </div>
         <div class="rib-actions">
             <span class="rib-left" data-rib-left></span>
@@ -462,6 +527,7 @@ async function openResult(ref) {
             <button type="button" class="rib-b" data-rib-act="chart">Open patient chart</button>
             <button type="button" class="rib-b primary" data-rib-act="next" hidden>Next new result</button>
         </div>`;
+    renderPortal(order.id, res.data.portal);
     modal.querySelector("[data-rib-act=close]").onclick = closeResult;
     modal.querySelector("[data-rib-act=chart]").onclick = () => {
         closeResult();

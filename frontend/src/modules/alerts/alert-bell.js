@@ -72,7 +72,7 @@ export async function openAlertLink(a) {
         return true;
     }
     if (link.result) {
-        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=7");
+        const { openResultByOrder } = await import("../results-inbox/results-inbox.js?v=8");
         openResultByOrder(Number(link.result));
         return true;
     }

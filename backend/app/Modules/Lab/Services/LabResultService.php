@@ -4,6 +4,7 @@ namespace App\Modules\Lab\Services;
 
 use App\Core\Database;
 use App\Modules\LabRanges\Services\LabFlagService;
+use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\PatientProcedureResults\Services\PatientProcedureResultService;
 use PDO;
 
@@ -319,6 +320,9 @@ class LabResultService
             }
             $db->prepare("UPDATE lab_result_sets SET status = 'superseded' WHERE order_id = :o AND status = 'released'")->execute(['o' => $s['order_id']]);
             $db->prepare("UPDATE lab_result_sets SET status = 'released', verified_by = :u, verified_at = NOW() WHERE id = :id")->execute(['u' => (int) $actor['id'], 'id' => $setId]);
+            // My Chart Phase 1: work out when the patient may read these, from the release policy
+            // for this lab section. A critical result is withheld until a doctor clears it.
+            PortalResultService::stampForOrder($db, (int) $s['order_id'], 'lab', (int) $actor['id']);
             // Phase 3: the test is charged to the patient's ledger once, on its first release.
             $charge = LabChargeService::postForRelease($db, (int) $s['order_id'], $setId, (int) $actor['id']);
             $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT lab_verify');

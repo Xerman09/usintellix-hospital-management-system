@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { onAlertsChanged } from "../alerts/alert-bell.js?v=14";
+import { onAlertsChanged } from "../alerts/alert-bell.js?v=15";
 import { readBackFormHtml, bindReadBack, submitReadBack } from "./readback.js?v=4";
 
 /*

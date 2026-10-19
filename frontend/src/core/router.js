@@ -1,7 +1,7 @@
 import { LoginView } from "../modules/auth/login.view.js?v=110";
-import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=185";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=317";
-import { initLogin } from "../modules/auth/auth.js?v=115";
+import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=186";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=318";
+import { initLogin } from "../modules/auth/auth.js?v=116";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=104";
 import { initAddEmployee } from "../modules/employees/add-employee.js?v=105";
 import { AddPatientView } from "../modules/patients/add-patient.view.js?v=104";

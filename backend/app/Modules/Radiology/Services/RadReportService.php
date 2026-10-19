@@ -3,6 +3,7 @@
 namespace App\Modules\Radiology\Services;
 
 use App\Core\Database;
+use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\PatientProcedureResults\Services\PatientProcedureResultService;
 use PDO;
 
@@ -467,6 +468,9 @@ class RadReportService
                 ->execute(['o' => $o['id'], 'id' => $rid]);
             $db->prepare("UPDATE rad_reports SET status = 'signed', signed_by = :u, signed_at = NOW() WHERE id = :id")
                 ->execute(['u' => (int) $actor['id'], 'id' => $rid]);
+            // My Chart Phase 1: when the patient may read the report (imaging waits a day by
+            // default); a critical conclusion is withheld until a doctor clears it.
+            PortalResultService::stampForOrder($db, (int) $o['id'], 'imaging', (int) $actor['id']);
             // Phase 3: the study is charged to the patient's ledger once, when its report is first signed.
             $charge = RadChargeService::postForReport($db, (int) $o['id'], $rid, (int) $actor['id']);
             $this->closeRequest($db, (int) $o['rad_request_id']);

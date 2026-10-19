@@ -4,6 +4,7 @@ namespace App\Modules\ResultsInbox\Services;
 
 use App\Core\Database;
 use App\Modules\InpatientOrders\Services\MedOrderService;
+use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\PatientProcedureResults\Services\PatientProcedureResultService;
 use PDO;
 
@@ -188,6 +189,12 @@ class ResultsInboxService
             ],
             'results' => (new PatientProcedureResultService())->listForOrder($orderId),
             'review' => (new ResultReviewService())->status($orderId, $user),
+            // My Chart Phase 1: what the patient can see of this result, and whether this
+            // user may release it early or hold it back.
+            'portal' => PortalResultService::stateForOrder($db, $orderId) + [
+                'may_release' => \App\Core\RoleAccess::inList((string) ($user['role'] ?? ''), PortalResultService::RELEASE_ROLES)
+                    || ($user['role'] ?? '') === 'admin',
+            ],
             'new' => $list['new'], 'critical' => $list['critical'], 'to_review' => $list['to_review'], 'review_overdue' => $list['review_overdue'],
         ]];
     }

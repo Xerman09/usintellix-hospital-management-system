@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\ResultsInbox\Services\ResultReviewService;
+use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\ResultsInbox\Services\ResultsInboxService;
 
 class ResultsInboxController extends Controller
@@ -48,6 +49,30 @@ class ResultsInboxController extends Controller
     {
         $request = new Request();
         $this->respond((new ResultReviewService())->review((int) $request->input('order_id'), $request->all(), Session::get('user') ?? []));
+    }
+
+    /**
+     * Body: order_id, hold (0|1), reason (required when holding) -- release this result to
+     * My Chart now, or hold it back from the patient. Used for a critical result, which is
+     * never released automatically.
+     */
+    public function portalRelease(): void
+    {
+        $request = new Request();
+        $user = Session::get('user') ?? [];
+        $orderId = (int) $request->input('order_id');
+
+        if (!$orderId) {
+            $this->error('Which result?', 422);
+            return;
+        }
+
+        $hold = (int) $request->input('hold') === 1;
+        $actorId = (int) ($user['id'] ?? 0);
+
+        $this->respond($hold
+            ? PortalResultService::holdOrder($orderId, (string) $request->input('reason', ''), $actorId)
+            : PortalResultService::releaseOrder($orderId, $actorId));
     }
 
     /** After how many days unreviewed results are flagged, and the actions a sign-off can carry. */
