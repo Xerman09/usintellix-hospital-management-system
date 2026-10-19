@@ -144,6 +144,71 @@ class InpatientAdmissionsController extends Controller
     }
 
     /**
+     * POST /inpatient-admissions/transfer/accept
+     */
+    public function acceptTransfer(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+        $userId = $user['id'] ?? null;
+        $data = $request->all();
+
+        $transferId = (int) ($data['transfer_id'] ?? 0);
+        if ($transferId <= 0) {
+            $this->error('Valid Transfer ID is required.', 422);
+            return;
+        }
+
+        try {
+            $record = $this->service->acceptTransferHandover($transferId, $data, $userId ? (int)$userId : null);
+            $this->success($record, 'Nurse transfer handover accepted and electronically co-signed at bedside.');
+        } catch (Exception $e) {
+            $this->error($e->getMessage(), 422);
+        }
+    }
+
+    /**
+     * GET /inpatient-admissions/transfer/detail
+     */
+    public function transferDetail(): void
+    {
+        $request = new Request();
+        $transferId = (int) $request->input('id');
+
+        if ($transferId <= 0) {
+            $this->error('Transfer ID is required.', 422);
+            return;
+        }
+
+        try {
+            $detail = $this->service->getTransferDetail($transferId);
+            if (!$detail) {
+                $this->error('Transfer record not found.', 404);
+                return;
+            }
+            $this->success($detail, 'Transfer handover report retrieved successfully.');
+        } catch (Exception $e) {
+            $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /inpatient-admissions/transfer/pending
+     */
+    public function pendingHandovers(): void
+    {
+        $request = new Request();
+        $wardId = $request->input('ward_id') ? (int)$request->input('ward_id') : null;
+
+        try {
+            $pending = $this->service->listPendingHandovers($wardId);
+            $this->success($pending, 'Pending transfer handovers retrieved successfully.');
+        } catch (Exception $e) {
+            $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
      * POST /inpatient-admissions/pending-discharge
      */
     public function pendingDischarge(): void

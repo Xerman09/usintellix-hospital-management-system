@@ -150,3 +150,29 @@ export function getDischargeSummaryPrintUrl(admissionId) {
     return `/api/inpatient-admissions/discharge-summary/print?admission_id=${admissionId}`;
 }
 
+/**
+ * Accept a pending transfer handover (receiving ward nurse bedside sign-off)
+ */
+export async function acceptTransferHandover(payload) {
+    return await api('/inpatient-admissions/transfer/accept', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Fetch transfer detail including SBAR, vitals, and dual signatures
+ */
+export async function fetchTransferDetail(transferId) {
+    return await api(`/inpatient-admissions/transfer/detail?id=${transferId}`);
+}
+
+/**
+ * Fetch transfers pending receiving ward nurse acceptance
+ */
+export async function fetchPendingHandovers(wardId = null) {
+    const qs = wardId ? `?ward_id=${wardId}` : '';
+    return await api(`/inpatient-admissions/transfer/pending${qs}`);
+}
+
+

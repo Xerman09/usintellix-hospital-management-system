@@ -175,6 +175,8 @@ class InpatientAdmissionsService
         ";
         $transfers = $db->query($transferSql)->fetchAll(PDO::FETCH_ASSOC);
 
+        $pendingHandovers = (int) $db->query("SELECT COUNT(*) FROM inpatient_transfers WHERE handover_status = 'Pending Acceptance'")->fetchColumn();
+
         return [
             'wards' => $wards,
             'beds'  => $beds,
@@ -189,6 +191,7 @@ class InpatientAdmissionsService
                 'alos_days'               => $alos,
                 'isolation_count'         => $isolationCount,
                 'active_inpatients'       => $activeInpatients,
+                'pending_handovers_count' => $pendingHandovers,
             ],
             'recent_transfers' => $transfers,
             'current_shift' => $currentShift,
@@ -479,28 +482,82 @@ class InpatientAdmissionsService
             $notes    = trim($data['transfer_notes'] ?? '');
             $byUser   = trim($data['transferred_by'] ?? 'Inpatient ADT Service');
 
+            // Clinical SBAR Handover fields
+            $sbarSituation = trim((string)($data['sbar_situation'] ?? $reason));
+            $sbarBackground = trim((string)($data['sbar_background'] ?? "Admitted for {$adm['admitting_diagnosis']}. Isolation Precautions: {$adm['isolation_precautions']}."));
+            $sbarAssessment = trim((string)($data['sbar_assessment'] ?? $notes));
+            $sbarRecommendation = trim((string)($data['sbar_recommendation'] ?? 'Continue scheduled inpatient medication regimen, vital signs monitoring, and specialty care plan.'));
+
+            // Vitals at transfer
+            $vitalsJson = null;
+            if (!empty($data['vitals_at_transfer'])) {
+                $vitalsJson = is_array($data['vitals_at_transfer']) ? json_encode($data['vitals_at_transfer']) : (string)$data['vitals_at_transfer'];
+            }
+
+            // Sending Nurse Sign-Off
+            $sendingNurseId = !empty($data['sending_nurse_id']) ? (int)$data['sending_nurse_id'] : $userId;
+            $sendingNurseName = trim((string)($data['sending_nurse_name'] ?? ($byUser ?: 'Sending Ward Nurse, RN')));
+            $stampTime = date('Y-m-d H:i:s');
+            $sendingNurseSig = trim((string)($data['sending_nurse_signature'] ?? "Electronically Signed by {$sendingNurseName} on {$stampTime}"));
+            $sendingNurseSignedAt = !empty($data['sending_nurse_signed_at']) ? $data['sending_nurse_signed_at'] : $stampTime;
+
+            // Optional immediate receiving nurse sign-off (bedside transfer)
+            $receivingNurseName = !empty($data['receiving_nurse_name']) ? trim((string)$data['receiving_nurse_name']) : null;
+            $hasReceivingSig = !empty($receivingNurseName);
+            $handoverStatus = $hasReceivingSig ? 'Accepted' : 'Pending Acceptance';
+            $receivingNurseId = $hasReceivingSig ? (!empty($data['receiving_nurse_id']) ? (int)$data['receiving_nurse_id'] : null) : null;
+            $receivingNurseSig = $hasReceivingSig ? trim((string)($data['receiving_nurse_signature'] ?? "Electronically Verified & Accepted at Bedside by {$receivingNurseName} on {$stampTime}")) : null;
+            $receivingNurseSignedAt = $hasReceivingSig ? $stampTime : null;
+            $receivingAcceptanceNotes = $hasReceivingSig ? trim((string)($data['receiving_acceptance_notes'] ?? 'Bedside handover accepted.')) : null;
+            $receivingVerifiedAt = $hasReceivingSig ? $stampTime : null;
+
             // Log transfer
             $transSql = "
                 INSERT INTO inpatient_transfers (
                     admission_id, patient_id, from_ward_id, from_bed_id, to_ward_id, to_bed_id,
-                    transfer_time, transfer_reason, transfer_notes, transferred_by
+                    transfer_time, transfer_reason, transfer_notes, transferred_by,
+                    handover_status, sending_nurse_id, sending_nurse_name, sending_nurse_signature, sending_nurse_signed_at,
+                    sbar_situation, sbar_background, sbar_assessment, sbar_recommendation, vitals_at_transfer,
+                    receiving_nurse_id, receiving_nurse_name, receiving_nurse_signature, receiving_nurse_signed_at,
+                    receiving_acceptance_notes, receiving_verified_at
                 ) VALUES (
                     :admission_id, :patient_id, :from_ward_id, :from_bed_id, :to_ward_id, :to_bed_id,
-                    NOW(), :transfer_reason, :transfer_notes, :transferred_by
+                    NOW(), :transfer_reason, :transfer_notes, :transferred_by,
+                    :handover_status, :sending_nurse_id, :sending_nurse_name, :sending_nurse_signature, :sending_nurse_signed_at,
+                    :sbar_situation, :sbar_background, :sbar_assessment, :sbar_recommendation, :vitals_at_transfer,
+                    :receiving_nurse_id, :receiving_nurse_name, :receiving_nurse_signature, :receiving_nurse_signed_at,
+                    :receiving_acceptance_notes, :receiving_verified_at
                 )
             ";
             $transStmt = $db->prepare($transSql);
             $transStmt->execute([
-                'admission_id'    => $admissionId,
-                'patient_id'      => $adm['patient_id'],
-                'from_ward_id'    => $fromWardId,
-                'from_bed_id'     => $fromBedId,
-                'to_ward_id'      => $toWardId,
-                'to_bed_id'       => $toBedId,
-                'transfer_reason' => $reason,
-                'transfer_notes'  => $notes,
-                'transferred_by'  => $byUser,
+                'admission_id'               => $admissionId,
+                'patient_id'                 => $adm['patient_id'],
+                'from_ward_id'               => $fromWardId,
+                'from_bed_id'                => $fromBedId,
+                'to_ward_id'                 => $toWardId,
+                'to_bed_id'                  => $toBedId,
+                'transfer_reason'            => $reason,
+                'transfer_notes'             => $notes,
+                'transferred_by'             => $byUser,
+                'handover_status'            => $handoverStatus,
+                'sending_nurse_id'           => $sendingNurseId,
+                'sending_nurse_name'         => $sendingNurseName,
+                'sending_nurse_signature'    => $sendingNurseSig,
+                'sending_nurse_signed_at'    => $sendingNurseSignedAt,
+                'sbar_situation'             => $sbarSituation,
+                'sbar_background'            => $sbarBackground,
+                'sbar_assessment'            => $sbarAssessment,
+                'sbar_recommendation'        => $sbarRecommendation,
+                'vitals_at_transfer'         => $vitalsJson,
+                'receiving_nurse_id'         => $receivingNurseId,
+                'receiving_nurse_name'       => $receivingNurseName,
+                'receiving_nurse_signature'  => $receivingNurseSig,
+                'receiving_nurse_signed_at'  => $receivingNurseSignedAt,
+                'receiving_acceptance_notes' => $receivingAcceptanceNotes,
+                'receiving_verified_at'      => $receivingVerifiedAt,
             ]);
+            $transferId = (int) $db->lastInsertId();
 
             // Release source bed -> Dirty / Turnover (per hospital infection control protocol)
             $db->prepare("
@@ -543,11 +600,137 @@ class InpatientAdmissionsService
                 error_log("EVS transfer turnover trigger error: " . $evsEx->getMessage());
             }
 
-            return $this->getAdmissionDetails($admissionId);
+            $details = $this->getAdmissionDetails($admissionId);
+            $details['transfer_id'] = $transferId;
+            $details['handover_status'] = $handoverStatus;
+            return $details;
         } catch (Exception $e) {
             $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT transfer_patient');
             throw $e;
         }
+    }
+
+    /**
+     * Accept a pending transfer handover (receiving nurse bedside sign-off)
+     */
+    public function acceptTransferHandover(int $transferId, array $data, ?int $userId = null): array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("SELECT * FROM inpatient_transfers WHERE id = :id FOR UPDATE");
+        $stmt->execute([':id' => $transferId]);
+        $transfer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$transfer) {
+            throw new Exception("Inpatient transfer record #{$transferId} not found.");
+        }
+
+        $receivingNurseName = trim((string)($data['receiving_nurse_name'] ?? ''));
+        if (empty($receivingNurseName)) {
+            throw new Exception("Receiving ward accepting nurse name is required for clinical handover sign-off.");
+        }
+
+        $stampDate = date('Y-m-d H:i:s');
+        $signature = trim((string)($data['receiving_nurse_signature'] ?? "Electronically Verified & Accepted at Bedside by {$receivingNurseName} on {$stampDate}"));
+        $notes = trim((string)($data['receiving_acceptance_notes'] ?? ''));
+        $status = in_array($data['handover_status'] ?? '', ['Accepted', 'Rejected'], true) ? $data['handover_status'] : 'Accepted';
+
+        $upd = $db->prepare("
+            UPDATE inpatient_transfers
+            SET handover_status = :status,
+                receiving_nurse_id = :nurse_id,
+                receiving_nurse_name = :nurse_name,
+                receiving_nurse_signature = :signature,
+                receiving_nurse_signed_at = :signed_at,
+                receiving_acceptance_notes = :notes,
+                receiving_verified_at = :verified_at,
+                updated_at = NOW()
+            WHERE id = :id
+        ");
+
+        $upd->execute([
+            ':status'      => $status,
+            ':nurse_id'    => $userId,
+            ':nurse_name'  => $receivingNurseName,
+            ':signature'   => $signature,
+            ':signed_at'   => $stampDate,
+            ':notes'       => $notes,
+            ':verified_at' => $stampDate,
+            ':id'          => $transferId
+        ]);
+
+        return $this->getTransferDetail($transferId) ?: ['success' => true, 'id' => $transferId];
+    }
+
+    /**
+     * Get detailed transfer handover report with dual signatures and SBAR
+     */
+    public function getTransferDetail(int $transferId): ?array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare("
+            SELECT 
+                t.*,
+                fw.ward_name AS from_ward_name, fw.ward_code AS from_ward_code,
+                fb.bed_number AS from_bed_number, fb.bed_type AS from_bed_type,
+                tw.ward_name AS to_ward_name, tw.ward_code AS to_ward_code,
+                tb.bed_number AS to_bed_number, tb.bed_type AS to_bed_type,
+                adm.admission_number, adm.patient_name, adm.patient_mrn, adm.patient_age,
+                adm.gender, adm.admitting_diagnosis, adm.attending_physician, adm.isolation_precautions
+            FROM inpatient_transfers t
+            JOIN hospital_wards fw ON t.from_ward_id = fw.id
+            JOIN hospital_beds fb ON t.from_bed_id = fb.id
+            JOIN hospital_wards tw ON t.to_ward_id = tw.id
+            JOIN hospital_beds tb ON t.to_bed_id = tb.id
+            JOIN inpatient_admissions adm ON t.admission_id = adm.id
+            WHERE t.id = :id
+        ");
+        $stmt->execute([':id' => $transferId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) return null;
+
+        $row['vitals_at_transfer'] = !empty($row['vitals_at_transfer']) ? json_decode($row['vitals_at_transfer'], true) : null;
+        return $row;
+    }
+
+    /**
+     * List transfers awaiting receiving nurse acceptance
+     */
+    public function listPendingHandovers(?int $wardId = null): array
+    {
+        $db = Database::connection();
+        $sql = "
+            SELECT 
+                t.*,
+                fw.ward_name AS from_ward_name, fw.ward_code AS from_ward_code,
+                fb.bed_number AS from_bed_number,
+                tw.ward_name AS to_ward_name, tw.ward_code AS to_ward_code,
+                tb.bed_number AS to_bed_number,
+                adm.admission_number, adm.patient_name, adm.patient_mrn, adm.isolation_precautions
+            FROM inpatient_transfers t
+            JOIN hospital_wards fw ON t.from_ward_id = fw.id
+            JOIN hospital_beds fb ON t.from_bed_id = fb.id
+            JOIN hospital_wards tw ON t.to_ward_id = tw.id
+            JOIN hospital_beds tb ON t.to_bed_id = tb.id
+            JOIN inpatient_admissions adm ON t.admission_id = adm.id
+            WHERE t.handover_status = 'Pending Acceptance'
+        ";
+        $params = [];
+        if ($wardId) {
+            $sql .= " AND t.to_ward_id = :ward_id";
+            $params[':ward_id'] = $wardId;
+        }
+        $sql .= " ORDER BY t.transfer_time DESC";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$r) {
+            $r['vitals_at_transfer'] = !empty($r['vitals_at_transfer']) ? json_decode($r['vitals_at_transfer'], true) : null;
+        }
+
+        return $rows;
     }
 
     /**

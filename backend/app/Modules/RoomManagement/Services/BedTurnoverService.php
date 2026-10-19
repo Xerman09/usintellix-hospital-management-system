@@ -23,13 +23,28 @@ class BedTurnoverService
     {
         $datePrefix = date('Ymd');
         $stmt = $this->db->prepare("
-            SELECT COUNT(*) FROM bed_turnover_logs
+            SELECT turnover_number FROM bed_turnover_logs
             WHERE turnover_number LIKE :prefix
+            ORDER BY id DESC LIMIT 1
         ");
         $stmt->execute([':prefix' => "TRN-{$datePrefix}-%"]);
-        $count = (int) $stmt->fetchColumn();
+        $last = $stmt->fetchColumn();
 
-        return sprintf('TRN-%s-%04d', $datePrefix, $count + 1);
+        $nextSeq = 1;
+        if ($last) {
+            $parts = explode('-', $last);
+            $nextSeq = ((int) end($parts)) + 1;
+        }
+
+        do {
+            $num = sprintf('TRN-%s-%04d', $datePrefix, $nextSeq);
+            $check = $this->db->prepare("SELECT COUNT(*) FROM bed_turnover_logs WHERE turnover_number = ?");
+            $check->execute([$num]);
+            if ((int)$check->fetchColumn() === 0) {
+                return $num;
+            }
+            $nextSeq++;
+        } while (true);
     }
 
     /**

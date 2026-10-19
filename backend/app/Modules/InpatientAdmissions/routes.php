@@ -31,6 +31,22 @@ $router->post('/inpatient-admissions/transfer', [InpatientAdmissionsController::
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'nurse', 'clinician', 'staff']]
 ]);
 
+$router->post('/inpatient-admissions/transfer/accept', [InpatientAdmissionsController::class, 'acceptTransfer'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician']]
+]);
+
+$router->get('/inpatient-admissions/transfer/detail', [InpatientAdmissionsController::class, 'transferDetail'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/transfer/pending', [InpatientAdmissionsController::class, 'pendingHandovers'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff']]
+]);
+
+
 $router->post('/inpatient-admissions/pending-discharge', [InpatientAdmissionsController::class, 'pendingDischarge'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'nurse', 'clinician', 'staff']]

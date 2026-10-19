@@ -1040,6 +1040,12 @@ export function InpatientAdmissionsView() {
                 <div class="inpatient-kpi-sub">Contact / Droplet / Airborne</div>
                 <div class="inpatient-kpi-bar kpi-bar-red"></div>
             </div>
+            <div class="inpatient-kpi-card" id="kpiCardPendingHandovers" style="cursor: pointer;" title="Click to review pending transfer handovers">
+                <div class="inpatient-kpi-title">🤝 Pending Handover Sign-Off</div>
+                <div class="inpatient-kpi-value" id="kpiPendingHandovers" style="color: #6366f1;">--</div>
+                <div class="inpatient-kpi-sub">Receiving Nurse Acceptance Awaited</div>
+                <div class="inpatient-kpi-bar" style="background: #6366f1;"></div>
+            </div>
         </div>
 
         <!-- Filter Bar -->
@@ -1243,67 +1249,272 @@ export function InpatientAdmissionsView() {
         </div>
 
         <!-- ============================================================== -->
-        <!-- MODAL: TRANSFER PATIENT                                         -->
+        <!-- MODAL: TRANSFER PATIENT & SBAR NURSE HANDOVER                   -->
         <!-- ============================================================== -->
         <div class="inpatient-modal-backdrop" id="modalTransferPatient">
-            <div class="inpatient-modal-content">
-                <div class="inpatient-modal-header">
-                    <h3>🔄 Electronic Patient Transfer (Bed-to-Bed / Ward-to-Ward)</h3>
+            <div class="inpatient-modal-content" style="max-width: 820px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0;">
+                    <div>
+                        <h3>🔄 Patient Bed Transfer & SBAR Nurse Handover</h3>
+                        <div style="font-size: 11.5px; color: var(--text-muted, #64748b); margin-top: 2px;">
+                            Joint Commission / Enterprise Nursing Clinical Handover Protocol (Dual Sign-Off)
+                        </div>
+                    </div>
                     <button class="inpatient-modal-close" data-close-modal>&times;</button>
                 </div>
-                <form id="formTransferPatient">
-                    <div class="inpatient-modal-body">
-                        <div class="jcaho-notice-box">
+                <form id="formTransferPatient" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                    <div class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 20px;">
+                        <div class="jcaho-notice-box" style="margin-bottom: 14px;">
                             <span>🛡️</span>
                             <div>
-                                <strong>Infection Control & Safety Protocol:</strong> The vacated bed will automatically transition to <strong>Dirty / Turnover</strong> and will require terminal housekeeping sanitization.
+                                <strong>Clinical Safety Protocol:</strong> Vacated bed will automatically transition to <strong>Dirty / Turnover</strong> and enter the EVS turnover pipeline. A structured SBAR handover and sending nurse sign-off are required.
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Active Inpatient to Transfer <span style="color: red;">*</span></label>
-                            <select class="form-control" name="admission_id" id="transferAdmissionSelect" required>
-                                <option value="">-- Choose Admitted Patient --</option>
-                                <!-- Populated dynamically -->
-                            </select>
-                        </div>
-
-                        <div class="form-group" id="transferCurrentLocationBox" style="display: none;">
-                            <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px;">
-                                <strong>Current Location:</strong> <span id="transferCurrentLocText">--</span>
+                        <!-- Patient & Destination Selection -->
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label>Active Inpatient to Transfer <span style="color: red;">*</span></label>
+                                <select class="form-control" name="admission_id" id="transferAdmissionSelect" required>
+                                    <option value="">-- Choose Admitted Patient --</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Destination Bed (Available Only) <span style="color: red;">*</span></label>
+                                <select class="form-control" name="to_bed_id" id="transferToBedSelect" required>
+                                    <option value="">-- Choose Destination Bed --</option>
+                                    <!-- Populated dynamically -->
+                                </select>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Destination Hospital Bed (Available Only) <span style="color: red;">*</span></label>
-                            <select class="form-control" name="to_bed_id" id="transferToBedSelect" required>
-                                <option value="">-- Choose Destination Bed --</option>
-                                <!-- Populated dynamically -->
-                            </select>
+                        <div class="form-group" id="transferCurrentLocationBox" style="display: none; margin-bottom: 14px;">
+                            <div style="background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px; display: flex; justify-content: space-between;">
+                                <div><strong>Current Location:</strong> <span id="transferCurrentLocText">--</span></div>
+                                <div id="transferPatientMetaText" style="color: #64748b;"></div>
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label>Reason for Transfer <span style="color: red;">*</span></label>
-                            <input type="text" class="form-control" name="transfer_reason" placeholder="e.g. Clinical escalation to ICU, Post-op surgical stepdown, Isolation requirement" required />
+                            <input type="text" class="form-control" name="transfer_reason" id="transferReasonInput" placeholder="e.g. Clinical escalation to ICU, Post-op surgical stepdown, Telemetry monitoring" required />
                         </div>
 
-                        <div class="form-group">
-                            <label>Clinical Handover & Transfer Notes</label>
-                            <textarea class="form-control" name="transfer_notes" rows="3" placeholder="Document patient condition, IV infusions, oxygen requirements, nursing handoff report..."></textarea>
+                        <!-- Structured SBAR Handover Section -->
+                        <div style="margin: 18px 0 10px 0; border-top: 2px solid #e2e8f0; padding-top: 14px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                    <span>📋</span> Structured SBAR Nursing Clinical Handover Protocol
+                                </div>
+                                <span style="font-size: 11px; background: #eff6ff; color: #1d4ed8; font-weight: 700; padding: 2px 8px; border-radius: 4px;">SBAR Standard</span>
+                            </div>
+
+                            <!-- S - Situation -->
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: #1e293b;">S — Situation (Current Status & Trigger for Transfer) <span style="color: red;">*</span></label>
+                                <textarea class="form-control" name="sbar_situation" id="sbarSituation" rows="2" placeholder="Briefly state current clinical situation, vital stability, and why transfer is indicated now..." required></textarea>
+                            </div>
+
+                            <!-- B - Background -->
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: #1e293b;">B — Background (Clinical Context & History)</label>
+                                <textarea class="form-control" name="sbar_background" id="sbarBackground" rows="2" placeholder="Primary diagnosis, relevant surgical procedures, isolation precautions, significant allergies, code status..."></textarea>
+                            </div>
+
+                            <!-- A - Assessment & Vitals -->
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: #1e293b;">A — Assessment & Transfer Vital Signs</label>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 8px;">
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block;">Blood Pressure</label>
+                                        <input type="text" class="form-control" name="vitals_bp" id="transferVitalsBp" placeholder="120/80" style="height: 32px; font-size: 12px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block;">Heart Rate (bpm)</label>
+                                        <input type="number" class="form-control" name="vitals_hr" id="transferVitalsHr" placeholder="78" style="height: 32px; font-size: 12px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block;">Resp Rate (/min)</label>
+                                        <input type="number" class="form-control" name="vitals_rr" id="transferVitalsRr" placeholder="18" style="height: 32px; font-size: 12px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block;">Temp (°C)</label>
+                                        <input type="text" class="form-control" name="vitals_temp" id="transferVitalsTemp" placeholder="36.8" style="height: 32px; font-size: 12px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block;">SpO2 (%)</label>
+                                        <input type="number" class="form-control" name="vitals_spo2" id="transferVitalsSpo2" placeholder="98" style="height: 32px; font-size: 12px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block;">Pain Scale</label>
+                                        <input type="text" class="form-control" name="vitals_pain" id="transferVitalsPain" placeholder="2/10" style="height: 32px; font-size: 12px;" />
+                                    </div>
+                                </div>
+                                <textarea class="form-control" name="sbar_assessment" id="sbarAssessment" rows="2" placeholder="Clinical assessment: mental status, IV line locations/patency, active infusions, oxygen therapy, surgical drains, intake/output..."></textarea>
+                            </div>
+
+                            <!-- R - Recommendation -->
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: #1e293b;">R — Recommendation & Next Critical Actions</label>
+                                <textarea class="form-control" name="sbar_recommendation" id="sbarRecommendation" rows="2" placeholder="Recommendations for receiving unit: monitoring frequency, pending lab/imaging results, next due medications..."></textarea>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Transferred By (Nurse / Physician)</label>
-                            <input type="text" class="form-control" name="transferred_by" placeholder="Charge Nurse / Attending Doctor" />
+                        <!-- Sending Nurse Handover Sign-off Box -->
+                        <div style="background: #f1f5f9; padding: 14px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 14px;">
+                            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                <span>✍️</span> 1. Sending Nurse Handover Sign-Off (Departure Unit)
+                            </div>
+                            <div class="form-grid-2">
+                                <div class="form-group" style="margin-bottom: 8px;">
+                                    <label>Sending Nurse Name & Credential <span style="color: red;">*</span></label>
+                                    <input type="text" class="form-control" name="sending_nurse_name" id="transferSendingNurseName" placeholder="e.g. Nurse Sarah Jenkins, BSN, RN" required />
+                                </div>
+                                <div class="form-group" style="margin-bottom: 8px;">
+                                    <label>Electronic Sign-Off Timestamp</label>
+                                    <input type="text" class="form-control" id="transferSendingNurseTimestamp" value="Current System Timestamp" readonly style="background: #e2e8f0; color: #64748b;" />
+                                </div>
+                            </div>
+                            <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; margin-top: 4px; color: #334155;">
+                                <input type="checkbox" id="chkSendingNurseCertify" required checked style="margin-top: 2px;" />
+                                <span>I certify that I have conducted a direct clinical handover to the receiving unit and communicated all critical patient data, pending orders, and precautions.</span>
+                            </label>
+                        </div>
+
+                        <!-- Optional Bedside Dual Sign-Off Co-Sign Toggle -->
+                        <div style="margin-top: 14px; background: #faf5ff; padding: 14px; border-radius: 6px; border: 1px solid #e9d5ff;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #6b21a8; cursor: pointer; margin-bottom: 0;">
+                                <input type="checkbox" id="transferBedsideCosignToggle" />
+                                <span>🤝 Receiving Nurse is Present at Bedside (Co-Sign Dual Handover Now)</span>
+                            </label>
+                            
+                            <div id="transferBedsideCosignSection" style="display: none; margin-top: 12px; border-top: 1px dashed #d8b4fe; padding-top: 10px;">
+                                <div class="form-grid-2">
+                                    <div class="form-group" style="margin-bottom: 8px;">
+                                        <label>Receiving Nurse Name & Credential</label>
+                                        <input type="text" class="form-control" name="receiving_nurse_name" id="transferBedsideReceivingName" placeholder="e.g. Nurse Jennifer Lopez, RN" />
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 8px;">
+                                        <label>Acceptance Notes</label>
+                                        <input type="text" class="form-control" name="receiving_acceptance_notes" placeholder="Patient verified at bedside, vitals reviewed." />
+                                    </div>
+                                </div>
+                                <div style="font-size: 11.5px; color: #7e22ce;">
+                                    Checking this completes the dual signature simultaneously upon transfer submission.
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="inpatient-modal-footer">
+                    <div class="inpatient-modal-footer" style="flex-shrink: 0;">
                         <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Cancel</button>
-                        <button type="submit" class="btn-inpatient btn-inpatient-primary">Authorize & Complete Transfer</button>
+                        <button type="submit" class="btn-inpatient btn-inpatient-primary" id="btnSubmitTransfer">Authorize Transfer & Sign Handover</button>
                     </div>
                 </form>
             </div>
         </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL: RECEIVING NURSE HANDOVER BEDSIDE SIGN-OFF               -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalAcceptTransferHandover">
+            <div class="inpatient-modal-content" style="max-width: 680px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0;">
+                    <div>
+                        <h3>🤝 Receiving Ward Nurse Handover Sign-Off</h3>
+                        <div style="font-size: 11.5px; color: var(--text-muted, #64748b); margin-top: 2px;">
+                            Bedside Patient Verification & Acceptance Dual Signature
+                        </div>
+                    </div>
+                    <button class="inpatient-modal-close" data-close-modal>&times;</button>
+                </div>
+                <form id="formAcceptHandover" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                    <div class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 20px;">
+                        <input type="hidden" id="acceptTransferId" />
+
+                        <!-- Transfer Summary Banner -->
+                        <div id="acceptTransferBanner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 14px; font-size: 13px;">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <!-- SBAR Preview Box -->
+                        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 12.5px;">
+                            <div style="font-weight: 700; color: #0f172a; margin-bottom: 6px; font-size: 13px;">SBAR Handover Report from Sending Unit:</div>
+                            <div style="margin-bottom: 6px;"><strong>S (Situation):</strong> <span id="acceptSbarSituation">--</span></div>
+                            <div style="margin-bottom: 6px;"><strong>B (Background):</strong> <span id="acceptSbarBackground">--</span></div>
+                            <div style="margin-bottom: 6px;"><strong>A (Assessment):</strong> <span id="acceptSbarAssessment">--</span></div>
+                            <div style="margin-bottom: 6px;" id="acceptVitalsRow"></div>
+                            <div><strong>R (Recommendation):</strong> <span id="acceptSbarRecommendation">--</span></div>
+                        </div>
+
+                        <!-- Bedside Clinical Verification Checklist -->
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                            <div style="font-size: 13px; font-weight: 700; color: #166534; margin-bottom: 8px;">
+                                Bedside Clinical Verification Checklist *
+                            </div>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-bottom: 6px; cursor: pointer;">
+                                <input type="checkbox" id="chkAcceptIdBand" required checked />
+                                <span>Patient 2-identifier verification (wristband barcode, name & birthdate confirmed).</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-bottom: 6px; cursor: pointer;">
+                                <input type="checkbox" id="chkAcceptVitals" required checked />
+                                <span>Patient received in clinically stable condition matching SBAR assessment.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer;">
+                                <input type="checkbox" id="chkAcceptInfusions" required checked />
+                                <span>IV lines, infusions, medications, and equipment verified.</span>
+                            </label>
+                        </div>
+
+                        <!-- Receiving Nurse Sign-Off Form -->
+                        <div class="form-group">
+                            <label>Handover Disposition *</label>
+                            <select class="form-control" id="acceptHandoverStatus" style="font-weight: 700;">
+                                <option value="Accepted" style="color: #10b981;">🟢 ACCEPTED — Patient safely received in unit, bedside handover verified.</option>
+                                <option value="Rejected" style="color: #ef4444;">🔴 REJECTED / DISPUTED — Clinical handover discrepancy noted.</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Receiving Ward Nurse Name & Credential <span style="color: red;">*</span></label>
+                            <input type="text" class="form-control" id="acceptReceivingNurseName" placeholder="e.g. Nurse Jennifer Lopez, BSN, RN" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Bedside Acceptance Notes & Observations</label>
+                            <textarea class="form-control" id="acceptReceivingNotes" rows="2" placeholder="e.g. Patient arrived via gurney, settled in bed, call bell in reach, telemetry connected..."></textarea>
+                        </div>
+                    </div>
+                    <div class="inpatient-modal-footer" style="flex-shrink: 0;">
+                        <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Cancel</button>
+                        <button type="submit" class="btn-inpatient btn-inpatient-success" id="btnSubmitAcceptHandover">Sign & Accept Patient Handover</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL: DUAL SIGNATURE HANDOVER CERTIFICATE / REPORT             -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalTransferHandoverReport">
+            <div class="inpatient-modal-content" style="max-width: 720px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0;">
+                    <div>
+                        <h3>📜 Nursing Clinical Handover Record</h3>
+                        <div style="font-size: 11.5px; color: var(--text-muted, #64748b);">Official Dual Sign-Off Certificate & SBAR Audit Log</div>
+                    </div>
+                    <button class="inpatient-modal-close" data-close-modal>&times;</button>
+                </div>
+                <div class="inpatient-modal-body" id="transferHandoverReportContent" style="overflow-y: auto; flex: 1; padding: 20px;">
+                    <div style="text-align: center; padding: 30px; color: #64748b;">Loading handover record...</div>
+                </div>
+                <div class="inpatient-modal-footer" style="flex-shrink: 0;">
+                    <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
+                    <button type="button" class="btn-inpatient btn-inpatient-primary" id="btnPrintHandoverRecord">🖨️ Print Certificate</button>
+                </div>
+            </div>
+        </div>
+
 
         <!-- ============================================================== -->
         <!-- MODAL: DISCHARGE PATIENT                                        -->

@@ -13,7 +13,10 @@ import {
     fetchDischargeSummary,
     saveDischargeSummaryDraft,
     finalizeDischargeSummary,
-    getDischargeSummaryPrintUrl
+    getDischargeSummaryPrintUrl,
+    acceptTransferHandover,
+    fetchTransferDetail,
+    fetchPendingHandovers
 } from './inpatient-admissions.service.js?v=5';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=40';
@@ -262,6 +265,79 @@ function setupEventListeners() {
             if (bed && box && txt) {
                 box.style.display = 'block';
                 txt.textContent = `${bed.ward_name} (${bed.ward_code}) — Room ${bed.room_number}, Bed ${bed.bed_number}`;
+
+                // Auto-suggest SBAR Situation & Background if not already populated
+                const sitEl = document.getElementById('sbarSituation');
+                if (sitEl && !sitEl.value) {
+                    sitEl.value = `Transfer from ${bed.ward_name} [${bed.bed_number}] to destination bed for ${bed.patient_name}.`;
+                }
+                const bgEl = document.getElementById('sbarBackground');
+                if (bgEl && !bgEl.value) {
+                    bgEl.value = `Admission Date: ${bed.admission_date || '--'} (${bed.los_days || 0}d LOS). Admitting Diagnosis: ${bed.admitting_diagnosis || '--'}. Isolation: ${bed.isolation_precautions || 'Standard'}.`;
+                }
+            }
+        };
+    }
+
+    // Bedside Co-Sign Toggle
+    const cosignToggle = document.getElementById('transferBedsideCosignToggle');
+    const cosignSection = document.getElementById('transferBedsideCosignSection');
+    if (cosignToggle && cosignSection) {
+        cosignToggle.onchange = () => {
+            cosignSection.style.display = cosignToggle.checked ? 'block' : 'none';
+        };
+    }
+
+    // Print Handover Record Button
+    const btnPrintHandover = document.getElementById('btnPrintHandoverRecord');
+    if (btnPrintHandover) {
+        btnPrintHandover.onclick = () => {
+            const content = document.getElementById('transferHandoverReportContent')?.innerHTML;
+            if (!content) return;
+            const printWindow = window.open('', '_blank', 'width=850,height=900');
+            if (printWindow) {
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Nursing Clinical Handover Record</title>
+                        <style>
+                            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 24px; color: #0f172a; line-height: 1.5; }
+                            h1, h2, h3, h4 { margin-top: 0; }
+                            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+                            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 13px; text-align: left; }
+                            th { background: #f8fafc; font-weight: 600; }
+                            @media print {
+                                body { padding: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${content}
+                        <script>
+                            window.onload = function() { window.print(); };
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            }
+        };
+    }
+
+    // KPI Card Pending Handovers Click
+    const kpiPendingCard = document.getElementById('kpiCardPendingHandovers');
+    if (kpiPendingCard) {
+        kpiPendingCard.onclick = async () => {
+            try {
+                const res = await fetchPendingHandovers();
+                if (res && res.success && res.data && res.data.length > 0) {
+                    openAcceptHandoverModal(res.data[0].id);
+                } else {
+                    showToast('No transfer handovers are currently awaiting nurse acceptance.', 'info');
+                }
+            } catch (err) {
+                showToast('Unable to fetch pending handovers: ' + err.message, 'error');
             }
         };
     }
@@ -295,7 +371,7 @@ function setupFormSubmissions() {
         };
     }
 
-    // 2. Form Transfer Patient
+    // 2. Form Transfer Patient & SBAR Handover Sign-Off
     const formTransfer = document.getElementById('formTransferPatient');
     if (formTransfer) {
         formTransfer.onsubmit = async (e) => {
@@ -303,12 +379,42 @@ function setupFormSubmissions() {
             const formData = new FormData(formTransfer);
             const payload = Object.fromEntries(formData.entries());
 
+            // Structure vitals_at_transfer
+            payload.vitals_at_transfer = {
+                bp: document.getElementById('transferVitalsBp')?.value || '',
+                hr: document.getElementById('transferVitalsHr')?.value || '',
+                rr: document.getElementById('transferVitalsRr')?.value || '',
+                temp: document.getElementById('transferVitalsTemp')?.value || '',
+                spo2: document.getElementById('transferVitalsSpo2')?.value || '',
+                pain: document.getElementById('transferVitalsPain')?.value || ''
+            };
+
+            // Electronic Signature for Sending Nurse
+            if (payload.sending_nurse_name) {
+                payload.sending_nurse_signature = `ELECTRONICALLY_SIGNED_BY_${payload.sending_nurse_name.toUpperCase().replace(/\s+/g, '_')}`;
+            }
+
+            // Bedside Co-Sign Verification
+            const isCosigning = document.getElementById('transferBedsideCosignToggle')?.checked;
+            if (isCosigning && payload.receiving_nurse_name) {
+                payload.receiving_nurse_signature = `ELECTRONICALLY_SIGNED_BY_${payload.receiving_nurse_name.toUpperCase().replace(/\s+/g, '_')}`;
+            } else {
+                delete payload.receiving_nurse_name;
+                delete payload.receiving_acceptance_notes;
+                delete payload.receiving_nurse_signature;
+            }
+
             try {
                 const res = await transferPatient(payload);
                 if (res && res.success) {
-                    showToast('Patient transfer completed successfully! Vacated bed marked for terminal sanitization.', 'success');
+                    const msg = isCosigning && payload.receiving_nurse_signature
+                        ? 'Dual-signed transfer completed and accepted at bedside!'
+                        : 'Patient transfer initiated with SBAR handover! Pending receiving nurse acceptance.';
+                    showToast(msg, 'success');
                     document.getElementById('modalTransferPatient')?.classList.remove('open');
                     formTransfer.reset();
+                    const cosignSec = document.getElementById('transferBedsideCosignSection');
+                    if (cosignSec) cosignSec.style.display = 'none';
                     await fetchWhiteboard();
                 } else {
                     showToast('Transfer failed: ' + (res?.message || 'Unknown error'), 'error');
@@ -459,6 +565,50 @@ function setupFormSubmissions() {
             }
         };
     }
+
+    // 7. Form Accept Transfer Handover (Receiving Nurse Bedside Sign-Off)
+    const formAcceptHandover = document.getElementById('formAcceptHandover');
+    if (formAcceptHandover) {
+        formAcceptHandover.onsubmit = async (e) => {
+            e.preventDefault();
+            const transferId = document.getElementById('acceptTransferId')?.value;
+            const handoverStatus = document.getElementById('acceptHandoverStatus')?.value || 'Accepted';
+            const receivingNurseName = document.getElementById('acceptReceivingNurseName')?.value;
+            const receivingNotes = document.getElementById('acceptReceivingNotes')?.value || '';
+
+            if (!transferId) {
+                showToast('Invalid transfer record', 'error');
+                return;
+            }
+
+            if (!receivingNurseName) {
+                showToast('Please enter your full name & credentials to sign', 'error');
+                return;
+            }
+
+            const payload = {
+                transfer_id: transferId,
+                handover_status: handoverStatus,
+                receiving_nurse_name: receivingNurseName,
+                receiving_nurse_signature: `ELECTRONICALLY_SIGNED_BY_${receivingNurseName.toUpperCase().replace(/\s+/g, '_')}`,
+                receiving_acceptance_notes: receivingNotes
+            };
+
+            try {
+                const res = await acceptTransferHandover(payload);
+                if (res && res.success) {
+                    showToast(handoverStatus === 'Accepted' ? 'Bedside handover accepted and dual-signed successfully!' : 'Transfer handover status updated.', 'success');
+                    document.getElementById('modalAcceptTransferHandover')?.classList.remove('open');
+                    formAcceptHandover.reset();
+                    await fetchWhiteboard();
+                } else {
+                    showToast('Handover sign-off failed: ' + (res?.message || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                showToast('Handover sign-off error: ' + (err.message || 'Server error'), 'error');
+            }
+        };
+    }
 }
 
 export async function fetchWhiteboard(isSilent = false) {
@@ -494,6 +644,7 @@ function renderKpis(kpis) {
     setVal('kpiPendingBeds', kpis.pending_discharge_count);
     setVal('kpiDirtyBeds', kpis.dirty_turnover_count);
     setVal('kpiIsolationCases', kpis.isolation_count);
+    setVal('kpiPendingHandovers', kpis.pending_handovers_count || 0);
 
     const alosEl = document.getElementById('kpiAlos');
     if (alosEl) {
@@ -894,25 +1045,69 @@ function renderActivityFeed(transfers) {
     }
 
     let html = '';
-    transfers.slice(0, 5).forEach(t => {
+    transfers.slice(0, 10).forEach(t => {
         const timeFormatted = t.transfer_time ? t.transfer_time.substring(11, 16) : '';
+        const isPending = t.handover_status === 'Pending Acceptance';
+        const isAccepted = t.handover_status === 'Accepted';
+
+        let statusBadge = '';
+        let actionButtons = '';
+
+        if (isPending) {
+            statusBadge = `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 700; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">Pending Acceptance</span>`;
+            actionButtons = `
+                <button class="bed-action-btn btn-act-accept-handover" data-transfer-id="${t.id}" style="background: #10b981; color: #fff; border-color: #10b981; padding: 4px 8px;">🤝 Accept & Sign</button>
+                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; padding: 4px 8px;">📜 SBAR</button>
+            `;
+        } else if (isAccepted) {
+            statusBadge = `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 700; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">Dual Signed</span>`;
+            actionButtons = `
+                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #f1f5f9; color: #334155; border-color: #cbd5e1; padding: 4px 8px;">📜 Certificate</button>
+            `;
+        } else if (t.handover_status === 'Rejected') {
+            statusBadge = `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 700; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">Disputed</span>`;
+            actionButtons = `
+                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #f1f5f9; color: #334155; border-color: #cbd5e1; padding: 4px 8px;">📜 Review</button>
+            `;
+        }
+
         html += `
-            <div class="activity-item">
-                <div class="activity-icon icon-transfer">🔄</div>
+            <div class="activity-item" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9;">
+                <div class="activity-icon icon-transfer" style="margin-right: 4px;">🔄</div>
                 <div style="flex: 1;">
-                    <div style="font-weight: 600; color: #0f172a;">
-                        ${esc(t.patient_name)} (${esc(t.patient_mrn || '')}) transferred from <strong>${esc(t.from_ward_name)} [${esc(t.from_bed_number)}]</strong> ➔ <strong>${esc(t.to_ward_name)} [${esc(t.to_bed_number)}]</strong>
+                    <div style="font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span>${esc(t.patient_name)} (${esc(t.patient_mrn || '')})</span>
+                        <span>${esc(t.from_ward_name)} [${esc(t.from_bed_number)}] ➔ ${esc(t.to_ward_name)} [${esc(t.to_bed_number)}]</span>
+                        ${statusBadge}
                     </div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                        Reason: ${esc(t.transfer_reason)} • Transferred by: ${esc(t.transferred_by || 'Nursing Staff')}
+                    <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
+                        Reason: ${esc(t.transfer_reason || 'Clinical transfer')} • Sending RN: ${esc(t.sending_nurse_name || t.transferred_by || 'Staff')}
+                        ${t.receiving_nurse_name ? ` • Receiving RN: ${esc(t.receiving_nurse_name)}` : ''}
                     </div>
                 </div>
-                <div style="font-size: 11px; color: #94a3b8; font-family: monospace;">${timeFormatted}</div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-right: 4px;">${timeFormatted}</span>
+                    ${actionButtons}
+                </div>
             </div>
         `;
     });
 
     listEl.innerHTML = html;
+
+    listEl.querySelectorAll('.btn-act-accept-handover').forEach(btn => {
+        btn.onclick = () => {
+            const transferId = btn.getAttribute('data-transfer-id');
+            if (transferId) openAcceptHandoverModal(transferId);
+        };
+    });
+
+    listEl.querySelectorAll('.btn-act-view-handover').forEach(btn => {
+        btn.onclick = () => {
+            const transferId = btn.getAttribute('data-transfer-id');
+            if (transferId) openHandoverReportModal(transferId);
+        };
+    });
 }
 
 function attachBedCardListeners(container) {
@@ -1080,7 +1275,257 @@ function openTransferModal(preselectedAdmId = null) {
         });
     }
 
+    // Pre-populate sending nurse name and timestamp
+    const sendingNurseInput = document.getElementById('transferSendingNurseName');
+    if (sendingNurseInput && (!sendingNurseInput.value || sendingNurseInput.value.trim() === '')) {
+        const u = getUser() || currentUser;
+        if (u?.name) {
+            sendingNurseInput.value = u.name;
+        }
+    }
+    const tsInput = document.getElementById('transferSendingNurseTimestamp');
+    if (tsInput) {
+        tsInput.value = systemNow().toLocaleString();
+    }
+
+    // Reset bedside co-sign section
+    const cosignToggle = document.getElementById('transferBedsideCosignToggle');
+    if (cosignToggle) cosignToggle.checked = false;
+    const cosignSection = document.getElementById('transferBedsideCosignSection');
+    if (cosignSection) cosignSection.style.display = 'none';
+
     modal.classList.add('open');
+}
+
+export async function openAcceptHandoverModal(transferId) {
+    const modal = document.getElementById('modalAcceptTransferHandover');
+    if (!modal) return;
+
+    try {
+        const res = await fetchTransferDetail(transferId);
+        if (!res || !res.success || !res.data) {
+            showToast('Unable to load transfer details: ' + (res?.message || 'Not found'), 'error');
+            return;
+        }
+
+        const t = res.data;
+        document.getElementById('acceptTransferId').value = t.id;
+
+        const bannerEl = document.getElementById('acceptTransferBanner');
+        if (bannerEl) {
+            bannerEl.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-size: 15px; font-weight: 700; color: #0f172a;">${esc(t.patient_name)}</span>
+                        <span style="font-size: 12px; color: #64748b; margin-left: 8px;">MRN: <strong>${esc(t.patient_mrn || '--')}</strong></span>
+                    </div>
+                    <span style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; background: ${t.handover_status === 'Accepted' ? '#dcfce7' : '#fef3c7'}; color: ${t.handover_status === 'Accepted' ? '#15803d' : '#b45309'}; border: 1px solid ${t.handover_status === 'Accepted' ? '#bbf7d0' : '#fde68a'};">
+                        ${esc(t.handover_status)}
+                    </span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; font-size: 12px;">
+                    <div><strong>From:</strong> ${esc(t.from_ward_name)} [Bed ${esc(t.from_bed_number)}]</div>
+                    <div><strong>To:</strong> ${esc(t.to_ward_name)} [Bed ${esc(t.to_bed_number)}]</div>
+                    <div><strong>Transferred:</strong> ${esc(t.transfer_time || '--')}</div>
+                    <div><strong>Sending Nurse:</strong> ${esc(t.sending_nurse_name || t.transferred_by || '--')}</div>
+                </div>
+            `;
+        }
+
+        document.getElementById('acceptSbarSituation').textContent = t.sbar_situation || 'No situation notes provided.';
+        document.getElementById('acceptSbarBackground').textContent = t.sbar_background || 'No background notes provided.';
+        document.getElementById('acceptSbarAssessment').textContent = t.sbar_assessment || 'No assessment notes provided.';
+        document.getElementById('acceptSbarRecommendation').textContent = t.sbar_recommendation || 'No recommendations provided.';
+
+        // Vitals
+        const vitalsContainer = document.getElementById('acceptVitalsRow');
+        if (vitalsContainer) {
+            let vitals = t.vitals_at_transfer;
+            if (typeof vitals === 'string') {
+                try { vitals = JSON.parse(vitals); } catch (e) { vitals = null; }
+            }
+            if (vitals && Object.keys(vitals).length > 0) {
+                vitalsContainer.innerHTML = `
+                    <div style="font-weight: 600; color: #334155; margin-bottom: 4px;">Transfer Vital Signs:</div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; background: #f8fafc; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 11.5px;">
+                        <div><strong>BP:</strong> ${esc(vitals.bp || '--')}</div>
+                        <div><strong>HR:</strong> ${esc(vitals.hr || '--')} bpm</div>
+                        <div><strong>RR:</strong> ${esc(vitals.rr || '--')} /min</div>
+                        <div><strong>Temp:</strong> ${esc(vitals.temp || '--')} °C</div>
+                        <div><strong>SpO2:</strong> ${esc(vitals.spo2 || '--')}%</div>
+                        <div><strong>Pain:</strong> ${esc(vitals.pain || '--')}</div>
+                    </div>
+                `;
+            } else {
+                vitalsContainer.innerHTML = '';
+            }
+        }
+
+        // Prefill nurse name if current user
+        const nurseInput = document.getElementById('acceptReceivingNurseName');
+        if (nurseInput && (!nurseInput.value || nurseInput.value.trim() === '')) {
+            const u = getUser() || currentUser;
+            if (u?.name) {
+                nurseInput.value = u.name;
+            }
+        }
+
+        // Reset checklist checkboxes
+        ['chkAcceptIdBand', 'chkAcceptVitals', 'chkAcceptInfusions'].forEach(id => {
+            const chk = document.getElementById(id);
+            if (chk) chk.checked = true;
+        });
+
+        modal.classList.add('open');
+    } catch (err) {
+        showToast('Error opening handover: ' + (err.message || 'Unknown error'), 'error');
+    }
+}
+
+export async function openHandoverReportModal(transferId) {
+    const modal = document.getElementById('modalTransferHandoverReport');
+    const container = document.getElementById('transferHandoverReportContent');
+    if (!modal || !container) return;
+
+    modal.classList.add('open');
+    container.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">Loading handover record...</div>';
+
+    try {
+        const res = await fetchTransferDetail(transferId);
+        if (!res || !res.success || !res.data) {
+            container.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align: center;">Failed to load handover details.</div>';
+            return;
+        }
+
+        const t = res.data;
+        let vitals = t.vitals_at_transfer;
+        if (typeof vitals === 'string') {
+            try { vitals = JSON.parse(vitals); } catch (e) { vitals = null; }
+        }
+
+        const isAccepted = t.handover_status === 'Accepted';
+        const isPending = t.handover_status === 'Pending Acceptance';
+
+        container.innerHTML = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #1e293b;">
+                <!-- Hospital & Document Header -->
+                <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div>
+                        <div style="font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">USINTELLIX HEALTH SYSTEM</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #475569;">INPATIENT CLINICAL TRANSFER &amp; NURSE HANDOVER CERTIFICATE</div>
+                        <div style="font-size: 11px; color: #64748b;">JCAHO Standard NPSG.02.05.01 • Structured Bedside SBAR Protocol</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; ${isAccepted ? 'background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;' : isPending ? 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;' : 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;'}">
+                            ${esc(t.handover_status)}
+                        </span>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Transfer ID: #${t.id}</div>
+                    </div>
+                </div>
+
+                <!-- Patient & Transfer Overview Table -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                    <tbody>
+                        <tr style="background: #f8fafc;">
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600; width: 20%;">Patient Name:</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; width: 30%; font-weight: 700; color: #0f172a;">${esc(t.patient_name)}</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600; width: 20%;">MRN / Patient ID:</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; width: 30%; font-family: monospace;">${esc(t.patient_mrn || '--')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600;">Departing Unit:</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${esc(t.from_ward_name)} [Bed ${esc(t.from_bed_number)}]</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600;">Destination Unit:</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600; color: #0369a1;">${esc(t.to_ward_name)} [Bed ${esc(t.to_bed_number)}]</td>
+                        </tr>
+                        <tr style="background: #f8fafc;">
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600;">Transfer Time:</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${esc(t.transfer_time || '--')}</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: 600;">Transfer Reason:</td>
+                            <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${esc(t.transfer_reason || '--')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- SBAR Structured Clinical Handover Box -->
+                <div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
+                    <div style="background: #f1f5f9; padding: 8px 14px; font-weight: 700; font-size: 13px; color: #0f172a; border-bottom: 1px solid #cbd5e1;">
+                        Structured SBAR Clinical Handover Report
+                    </div>
+                    <div style="padding: 12px 14px; font-size: 13px; line-height: 1.5;">
+                        <div style="margin-bottom: 10px;">
+                            <strong style="color: #0369a1;">S — Situation:</strong>
+                            <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_situation || 'No situation provided.')}</div>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <strong style="color: #0369a1;">B — Background:</strong>
+                            <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_background || 'No background provided.')}</div>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <strong style="color: #0369a1;">A — Assessment &amp; Bedside Vitals:</strong>
+                            <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_assessment || 'No clinical assessment provided.')}</div>
+                            ${vitals ? `
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 6px; background: #f8fafc; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; margin-top: 6px; font-size: 12px;">
+                                    <div><span style="color:#64748b;">BP:</span> <strong>${esc(vitals.bp || '--')}</strong></div>
+                                    <div><span style="color:#64748b;">HR:</span> <strong>${esc(vitals.hr || '--')}</strong></div>
+                                    <div><span style="color:#64748b;">RR:</span> <strong>${esc(vitals.rr || '--')}</strong></div>
+                                    <div><span style="color:#64748b;">Temp:</span> <strong>${esc(vitals.temp || '--')}°C</strong></div>
+                                    <div><span style="color:#64748b;">SpO2:</span> <strong>${esc(vitals.spo2 || '--')}%</strong></div>
+                                    <div><span style="color:#64748b;">Pain:</span> <strong>${esc(vitals.pain || '--')}</strong></div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div>
+                            <strong style="color: #0369a1;">R — Recommendation &amp; Next Actions:</strong>
+                            <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_recommendation || 'No recommendations provided.')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dual Electronic Signatures Strip -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+                    <!-- Sending Nurse Signature Box -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px;">
+                        <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-bottom: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px;">
+                            1. Sending Ward Handover Sign-off
+                        </div>
+                        <div style="font-size: 12.5px; margin-bottom: 4px;"><strong>Nurse:</strong> ${esc(t.sending_nurse_name || t.transferred_by || '--')}</div>
+                        <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">Signed: ${esc(t.sending_nurse_signed_at || t.created_at || '--')}</div>
+                        <div style="font-family: monospace; font-size: 10px; color: #059669; word-break: break-all; background: #ecfdf5; padding: 4px 6px; border-radius: 4px; border: 1px solid #a7f3d0;">
+                            ✓ ${esc(t.sending_nurse_signature || 'ELECTRONICALLY_SIGNED')}
+                        </div>
+                    </div>
+
+                    <!-- Receiving Nurse Signature Box -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px;">
+                        <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-bottom: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px;">
+                            2. Receiving Ward Acceptance Sign-off
+                        </div>
+                        ${isAccepted ? `
+                            <div style="font-size: 12.5px; margin-bottom: 4px;"><strong>Nurse:</strong> ${esc(t.receiving_nurse_name || '--')}</div>
+                            <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">Signed: ${esc(t.receiving_nurse_signed_at || '--')}</div>
+                            <div style="font-family: monospace; font-size: 10px; color: #059669; word-break: break-all; background: #ecfdf5; padding: 4px 6px; border-radius: 4px; border: 1px solid #a7f3d0; margin-bottom: 6px;">
+                                ✓ ${esc(t.receiving_nurse_signature || 'ELECTRONICALLY_SIGNED')}
+                            </div>
+                            ${t.receiving_acceptance_notes ? `<div style="font-size: 11.5px; color: #475569; font-style: italic;">"${esc(t.receiving_acceptance_notes)}"</div>` : ''}
+                        ` : isPending ? `
+                            <div style="text-align: center; padding: 16px 8px; color: #b45309;">
+                                <div style="font-size: 13px; font-weight: 700;">⏳ Awaiting Acceptance</div>
+                                <div style="font-size: 11px; margin-top: 4px;">Receiving nurse bedside sign-off has not yet been executed.</div>
+                            </div>
+                        ` : `
+                            <div style="text-align: center; padding: 16px 8px; color: #b91c1c;">
+                                <div style="font-size: 13px; font-weight: 700;">❌ Disputed / Rejected</div>
+                                <div style="font-size: 11.5px; margin-top: 4px;">${esc(t.receiving_acceptance_notes || 'Handover rejected.')}</div>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading handover details: ${esc(err.message)}</div>`;
+    }
 }
 
 async function openDischargeModal(admissionId) {
