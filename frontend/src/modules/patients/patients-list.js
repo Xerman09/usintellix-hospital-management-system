@@ -32,7 +32,7 @@ import { initRelativesHistory } from "./patient-relatives-history.js?v=4";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=4";
-import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment, fetchPatientContactHistory, savePatientContactHistory, verifyPatientIdentity } from "./patients.service.js?v=9";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment, fetchPatientContactHistory, savePatientContactHistory, verifyPatientIdentity, checkPatientDuplicates } from "./patients.service.js?v=9";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
 import { openBreakGlassModal } from "../../core/break-glass-modal.js?v=4";
 import { api, API_URL } from "../../core/api.js?v=10";
@@ -18799,8 +18799,158 @@ async function setupAddPatientModal(user)
 
     const modalBox = modalOverlay.querySelector(".modal-box");
     const form = document.getElementById("addPatientForm");
+    const duplicateModal = document.getElementById("mpiDuplicateModalOverlay");
+    const duplicateContainer = document.getElementById("mpiDuplicateListContainer");
+    const duplicateAlert = document.getElementById("regMpiDuplicateAlert");
 
     wireModalTabs(modalBox);
+
+    let lastCandidateMatches = [];
+    let pendingSubmissionData = null;
+    let mpiDebounceTimer = null;
+
+    const openDuplicateModal = (matches, dataToRetry = null) => {
+        if (!duplicateModal || !duplicateContainer) return;
+        pendingSubmissionData = dataToRetry;
+        renderDuplicateCards(matches);
+        duplicateModal.style.display = "flex";
+        duplicateModal.classList.add("open");
+    };
+
+    const closeDuplicateModal = () => {
+        if (!duplicateModal) return;
+        duplicateModal.style.display = "none";
+        duplicateModal.classList.remove("open");
+    };
+
+    const renderDuplicateCards = (matches) => {
+        if (!duplicateContainer) return;
+        if (!matches || matches.length === 0) {
+            duplicateContainer.innerHTML = `<div style="text-align: center; color: #6b7280; padding: 1rem;">No duplicate candidate details found.</div>`;
+            return;
+        }
+
+        duplicateContainer.innerHTML = matches.map((m) => {
+            const scoreColor = m.score >= 90 ? "#dc2626" : (m.score >= 75 ? "#d97706" : "#2563eb");
+            const scoreBg = m.score >= 90 ? "#fee2e2" : (m.score >= 75 ? "#fef3c7" : "#dbeafe");
+            const factors = (m.match_factors || []).map(f => `<span style="display:inline-block;background:#f3f4f6;color:#374151;font-size:0.75rem;padding:2px 7px;border-radius:4px;margin-right:4px;margin-bottom:4px;border:1px solid #e5e7eb;">${escapeHtml(f)}</span>`).join("");
+
+            return `
+            <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div>
+                        <div style="font-weight: 700; color: #111827; font-size: 0.95rem;">
+                            ${escapeHtml(m.name || `${m.first_name || ''} ${m.last_name || ''}`)}
+                            <span style="font-weight: 400; color: #6b7280; font-size: 0.8rem; margin-left: 6px;">(${escapeHtml(m.patient_no || 'No ID')})</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #4b5563; margin-top: 3px;">
+                            <span>DOB: <strong>${escapeHtml(m.birthdate || 'N/A')}</strong></span> &bull; 
+                            <span>Sex: <strong>${escapeHtml(m.sex ? (m.sex.charAt(0).toUpperCase() + m.sex.slice(1)) : 'N/A')}</strong></span>
+                            ${m.phone ? ` &bull; <span>Phone: ${escapeHtml(m.phone)}</span>` : ""}
+                            ${m.city ? ` &bull; <span>City: ${escapeHtml(m.city)}</span>` : ""}
+                        </div>
+                        ${m.id_document_number ? `
+                        <div style="font-size: 0.78rem; color: #6b7280; margin-top: 2px;">
+                            ID Doc: <strong>${escapeHtml(m.id_document_type || 'ID')}</strong> - ${escapeHtml(m.id_document_number)}
+                            ${m.identity_status ? ` <span style="font-size: 0.72rem; padding: 1px 6px; border-radius: 3px; background: #e0f2fe; color: #0369a1;">${escapeHtml(m.identity_status)}</span>` : ""}
+                        </div>` : ""}
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0;">
+                        <span style="display: inline-block; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem; background: ${scoreBg}; color: ${scoreColor}; border: 1px solid ${scoreColor}40;">
+                            ${m.score}% Match
+                        </span>
+                        <div style="font-size: 0.72rem; color: ${scoreColor}; font-weight: 600; margin-top: 2px;">
+                            ${escapeHtml(m.match_level || 'Duplicate')}
+                        </div>
+                    </div>
+                </div>
+
+                ${factors ? `<div style="margin-top: 4px;">${factors}</div>` : ""}
+
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #f3f4f6;">
+                    <button type="button" class="btn-primary" data-open-existing-patient="${m.id}" style="padding: 5px 12px; font-size: 0.8rem; background: #2563eb; color: #fff; border: none; border-radius: 5px; cursor: pointer;">
+                        Open Patient Chart &rarr;
+                    </button>
+                </div>
+            </div>
+            `;
+        }).join("");
+
+        duplicateContainer.querySelectorAll("[data-open-existing-patient]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const patId = parseInt(btn.getAttribute("data-open-existing-patient"), 10);
+                const match = matches.find((m) => m.id === patId);
+                if (match) {
+                    closeDuplicateModal();
+                    closeModal();
+                    openPatientChartTab(match);
+                }
+            });
+        });
+    };
+
+    const triggerDebouncedMpiCheck = () => {
+        if (mpiDebounceTimer) clearTimeout(mpiDebounceTimer);
+        mpiDebounceTimer = setTimeout(async () => {
+            const firstName = document.getElementById("first_name")?.value.trim() || "";
+            const lastName = document.getElementById("last_name")?.value.trim() || "";
+            const birthdate = document.getElementById("birthdate")?.value.trim() || "";
+            const sex = document.getElementById("sex")?.value || "";
+            const idDocNum = document.getElementById("id_document_number")?.value.trim() || "";
+            const idDocType = document.getElementById("id_document_type")?.value || "";
+
+            if ((lastName.length >= 2 && (firstName.length >= 2 || birthdate !== "")) || idDocNum.length >= 4) {
+                try {
+                    const res = await checkPatientDuplicates({
+                        first_name: firstName,
+                        last_name: lastName,
+                        birthdate: birthdate,
+                        sex: sex,
+                        id_document_number: idDocNum,
+                        id_document_type: idDocType
+                    });
+
+                    if (res && res.success && res.data?.matches?.length > 0) {
+                        lastCandidateMatches = res.data.matches;
+                        const topMatch = lastCandidateMatches[0];
+                        if (topMatch.score >= 60) {
+                            if (duplicateAlert) {
+                                duplicateAlert.style.display = "flex";
+                                duplicateAlert.style.alignItems = "center";
+                                duplicateAlert.style.justifyContent = "space-between";
+                                duplicateAlert.innerHTML = `
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 1.1rem;">⚠️</span>
+                                        <span>MPI Duplicate Alert: Found <strong>${lastCandidateMatches.length}</strong> potential duplicate chart(s) (top: <strong>${topMatch.score}%</strong> match with ${escapeHtml(topMatch.name)}).</span>
+                                    </div>
+                                    <button type="button" id="btnViewLiveMpiMatches" style="background: #fff; border: 1px solid #d97706; color: #b45309; padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; font-weight: 600; cursor: pointer; white-space: nowrap;">Review Candidates</button>
+                                `;
+                                document.getElementById("btnViewLiveMpiMatches")?.addEventListener("click", () => {
+                                    openDuplicateModal(lastCandidateMatches, null);
+                                });
+                            }
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.debug("MPI duplicate check error:", e);
+                }
+            }
+
+            if (duplicateAlert) {
+                duplicateAlert.style.display = "none";
+                duplicateAlert.innerHTML = "";
+            }
+        }, 450);
+    };
+
+    ["first_name", "last_name", "birthdate", "sex", "id_document_number"].forEach((fieldId) => {
+        const el = document.getElementById(fieldId);
+        if (el) {
+            el.addEventListener("input", triggerDebouncedMpiCheck);
+            el.addEventListener("change", triggerDebouncedMpiCheck);
+        }
+    });
 
     const openModal = () => {
         resetModalTabs(modalBox);
@@ -18811,6 +18961,11 @@ async function setupAddPatientModal(user)
         form.reset();
         clearErrors(FIELDS, "");
         document.getElementById("formAlert").innerHTML = "";
+        if (duplicateAlert) {
+            duplicateAlert.style.display = "none";
+            duplicateAlert.innerHTML = "";
+        }
+        closeDuplicateModal();
     };
 
     document.getElementById("openAddPatientModal").addEventListener("click", openModal);
@@ -18819,6 +18974,47 @@ async function setupAddPatientModal(user)
     modalOverlay.addEventListener("click", (event) => {
         if (event.target === modalOverlay) {
             closeModal();
+        }
+    });
+
+    document.getElementById("closeMpiDuplicateModal")?.addEventListener("click", closeDuplicateModal);
+    document.getElementById("mpiCancelDuplicateBtn")?.addEventListener("click", closeDuplicateModal);
+    duplicateModal?.addEventListener("click", (e) => {
+        if (e.target === duplicateModal) {
+            closeDuplicateModal();
+        }
+    });
+
+    document.getElementById("mpiForceOverrideBtn")?.addEventListener("click", async () => {
+        if (!pendingSubmissionData) {
+            closeDuplicateModal();
+            return;
+        }
+
+        const dataToSubmit = {
+            ...pendingSubmissionData,
+            force_duplicate_override: 1,
+            allow_duplicate: 1
+        };
+
+        closeDuplicateModal();
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
+
+        try {
+            const result = await createPatient(dataToSubmit);
+            if (!result.success) {
+                showAlert("formAlert", result.message || "Failed to register patient with duplicate override.", "error");
+                return;
+            }
+
+            closeModal();
+            showListAlert(`Patient registered successfully (MPI duplicate overridden). Patient No: ${result.data.patient_no}`, "success");
+            await loadPatients(user);
+        } catch (error) {
+            showAlert("formAlert", "Failed to register patient with override. Please try again.", "error");
+        } finally {
+            if (submitButton) submitButton.disabled = false;
         }
     });
 
@@ -18849,15 +19045,24 @@ async function setupAddPatientModal(user)
             const result = await createPatient(data);
 
             if (!result.success) {
+                const duplicateMatches = result.errors?.duplicate_matches || result.duplicate_matches || [];
+                const isDuplicate = result.is_duplicate || result.errors?.is_duplicate || duplicateMatches.length > 0;
+
+                if (isDuplicate && duplicateMatches.length > 0) {
+                    showAlert("formAlert", result.message || "Potential duplicate patient detected by Master Patient Index.", "error");
+                    openDuplicateModal(duplicateMatches, data);
+                    return;
+                }
+
                 if (result.errors && Object.keys(result.errors).length > 0) {
-                    showAlert("formAlert", Object.values(result.errors).join(" "), "error");
+                    showAlert("formAlert", Object.values(result.errors).filter(v => typeof v === 'string').join(" "), "error");
 
                     let firstErrorField = null;
 
                     Object.entries(result.errors).forEach(([field, message]) => {
                         const errorEl = document.getElementById(`err-${field}`);
 
-                        if (errorEl) {
+                        if (errorEl && typeof message === 'string') {
                             errorEl.textContent = message;
                         }
 

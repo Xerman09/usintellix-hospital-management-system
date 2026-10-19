@@ -2922,6 +2922,7 @@ ${canAdd ? `
         <p class="form-subtitle">Create a login account and patient record.</p>
 
         <div id="formAlert"></div>
+        <div id="regMpiDuplicateAlert" style="display: none; margin-bottom: 1rem; border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.875rem; border: 1px solid #fde68a; background: #fffbeb; color: #92400e;"></div>
 
         <div class="modal-tabs">
             <button type="button" class="modal-tab active" data-tab="basic">Basic Info</button>
@@ -3391,6 +3392,38 @@ ${canAdd ? `
                 <button class="login-btn" type="submit">Register Patient</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="mpiDuplicateModalOverlay" style="display: none; z-index: 1050;">
+    <div class="modal-box" style="max-width: 680px; width: 92%;">
+        <div class="modal-header" style="border-bottom: 2px solid #fef3c7; background: #fffbeb; margin: -1.5rem -1.5rem 1rem -1.5rem; padding: 1.25rem 1.5rem; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: #fef08a; color: #b45309; font-size: 20px;">⚠️</span>
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; color: #92400e; margin: 0;">Master Patient Index (MPI) Duplicate Detected</h2>
+                    <p style="margin: 2px 0 0; font-size: 0.82rem; color: #b45309;">Matching records already exist in the hospital registry.</p>
+                </div>
+            </div>
+            <button type="button" class="modal-close" id="closeMpiDuplicateModal">&times;</button>
+        </div>
+
+        <div style="margin-bottom: 1rem; color: #374151; font-size: 0.88rem; line-height: 1.45;">
+            The registration details you entered match existing patient records. To avoid split medical charts and fragmented histories, review the candidates below before continuing:
+        </div>
+
+        <div id="mpiDuplicateListContainer" style="max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin-bottom: 1.25rem; padding-right: 4px;">
+            <!-- Candidate cards rendered dynamically -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e5e7eb; padding-top: 1rem; gap: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary" id="mpiCancelDuplicateBtn" style="font-size: 0.85rem;">Review &amp; Edit Form</button>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-secondary" id="mpiForceOverrideBtn" style="background: #fff; border: 1px solid #f59e0b; color: #b45309; font-weight: 600; font-size: 0.85rem;">
+                    Confirm Different Person &amp; Register Anyway
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 ` : ""}

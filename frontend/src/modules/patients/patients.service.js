@@ -146,3 +146,14 @@ export async function verifyPatientIdentity(patientId, data)
     );
 }
 
+export async function checkPatientDuplicates(data)
+{
+    return await api(
+        "/patients/check-duplicates",
+        {
+            method: "POST",
+            body: JSON.stringify(data)
+        }
+    );
+}
+

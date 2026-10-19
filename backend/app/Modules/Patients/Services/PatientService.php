@@ -547,6 +547,20 @@ class PatientService
             ];
         }
 
+        $forceOverride = !empty($data['force_duplicate_override']) || !empty($data['allow_duplicate']);
+        if (!$forceOverride) {
+            $mpiService = new MpiService();
+            $matches = $mpiService->findDuplicates($data, null, MpiService::THRESHOLD_CERTAIN);
+            if (!empty($matches)) {
+                return [
+                    'success' => false,
+                    'is_duplicate' => true,
+                    'message' => 'Potential duplicate patient detected by Master Patient Index (MPI). Please review existing records before proceeding.',
+                    'duplicate_matches' => $matches
+                ];
+            }
+        }
+
         $db = Database::connection();
         $maxAttempts = 5;
 
@@ -1269,6 +1283,21 @@ class PatientService
             'success' => true,
             'message' => 'Official identity document verification updated successfully.',
             'data'    => $updated
+        ];
+    }
+
+    /**
+     * Check for potential duplicates using the Master Patient Index fuzzy matching engine.
+     */
+    public function checkMpiDuplicates(array $data, ?int $excludeId = null): array
+    {
+        $mpiService = new MpiService();
+        $matches = $mpiService->findDuplicates($data, $excludeId, MpiService::THRESHOLD_POSSIBLE);
+
+        return [
+            'count'   => count($matches),
+            'has_high_confidence' => !empty(array_filter($matches, fn($m) => $m['score'] >= MpiService::THRESHOLD_CERTAIN)),
+            'matches' => $matches
         ];
     }
 }

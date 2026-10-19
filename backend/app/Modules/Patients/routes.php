@@ -79,4 +79,14 @@ $router->post('/patients/{id}/verify-identity', [PatientController::class, 'veri
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->post('/patients/check-duplicates', [PatientController::class, 'checkDuplicates'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+$router->get('/patients/check-duplicates', [PatientController::class, 'checkDuplicates'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 

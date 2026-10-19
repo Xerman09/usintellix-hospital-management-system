@@ -412,7 +412,9 @@ class PatientController extends Controller
             'guardian_country',
             'guardian_phone',
             'guardian_work_phone',
-            'guardian_email'
+            'guardian_email',
+            'force_duplicate_override',
+            'allow_duplicate'
         ]);
 
         $result = $this->patientService->register(
@@ -421,6 +423,14 @@ class PatientController extends Controller
         );
 
         if (!$result['success']) {
+            if (!empty($result['is_duplicate'])) {
+                $this->error($result['message'], 409, [
+                    'is_duplicate' => true,
+                    'duplicate_matches' => $result['duplicate_matches'] ?? []
+                ]);
+                return;
+            }
+
             $status = !empty($result['errors']) ? 422 : 500;
             $this->error($result['message'], $status, $result['errors'] ?? null);
             return;
@@ -649,6 +659,19 @@ class PatientController extends Controller
         }
 
         $this->success($result['data'], $result['message']);
+    }
+
+    /**
+     * Pre-registration MPI duplicate search across phonetic/fuzzy demographics and official IDs.
+     */
+    public function checkDuplicates(): void
+    {
+        $request = new Request();
+        $data = $request->all();
+        $excludeId = $request->input('exclude_id') ? (int) $request->input('exclude_id') : null;
+
+        $result = $this->patientService->checkMpiDuplicates($data, $excludeId);
+        $this->success($result, 'MPI duplicate evaluation complete.');
     }
 
     /**
