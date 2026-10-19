@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\InpatientAdmissions\Controllers\InpatientAdmissionsController;
+use App\Modules\InpatientAdmissions\Controllers\DischargeSummaryController;
 
 /** @var \App\Core\Router $router */
 
@@ -53,3 +54,24 @@ $router->post('/inpatient-admissions/beds', [InpatientAdmissionsController::clas
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+$router->get('/inpatient-admissions/discharge-summary', [DischargeSummaryController::class, 'getSummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/discharge-summary/save-draft', [DischargeSummaryController::class, 'saveDraft'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician']]
+]);
+
+$router->post('/inpatient-admissions/discharge-summary/finalize', [DischargeSummaryController::class, 'finalize'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician']]
+]);
+
+$router->get('/inpatient-admissions/discharge-summary/print', [DischargeSummaryController::class, 'printPdf'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+

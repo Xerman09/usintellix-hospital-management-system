@@ -115,3 +115,38 @@ export async function createBed(payload) {
         body: JSON.stringify(payload)
     });
 }
+
+/**
+ * Fetch clinical discharge summary (saved or pre-populated draft)
+ */
+export async function fetchDischargeSummary(admissionId) {
+    return await api(`/inpatient-admissions/discharge-summary?admission_id=${admissionId}`);
+}
+
+/**
+ * Save draft clinical discharge summary
+ */
+export async function saveDischargeSummaryDraft(payload) {
+    return await api('/inpatient-admissions/discharge-summary/save-draft', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Finalize, electronically sign, and officially discharge the inpatient
+ */
+export async function finalizeDischargeSummary(payload) {
+    return await api('/inpatient-admissions/discharge-summary/finalize', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Get direct print/PDF URL for discharge summary
+ */
+export function getDischargeSummaryPrintUrl(admissionId) {
+    return `/api/inpatient-admissions/discharge-summary/print?admission_id=${admissionId}`;
+}
+

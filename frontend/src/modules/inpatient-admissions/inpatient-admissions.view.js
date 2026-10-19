@@ -1308,37 +1308,61 @@ export function InpatientAdmissionsView() {
         <!-- ============================================================== -->
         <!-- MODAL: DISCHARGE PATIENT                                        -->
         <!-- ============================================================== -->
+        <!-- MODAL: PATIENT DISCHARGE & CLINICAL DISCHARGE SUMMARY          -->
+        <!-- ============================================================== -->
         <div class="inpatient-modal-backdrop" id="modalDischargePatient">
-            <div class="inpatient-modal-content">
-                <div class="inpatient-modal-header">
-                    <h3>🚪 Inpatient Discharge & Disposition</h3>
+            <div class="inpatient-modal-content" style="max-width: 840px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h3>📋 Inpatient Clinical Discharge Summary</h3>
+                        <span id="dischargeSummaryStatusBadge" style="font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 700; background: #fef3c7; color: #b45309; text-transform: uppercase;">Draft In-Progress</span>
+                    </div>
                     <button class="inpatient-modal-close" data-close-modal>&times;</button>
                 </div>
-                <form id="formDischargePatient">
+                <form id="formDischargePatient" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
                     <input type="hidden" name="admission_id" id="dischargeAdmissionId" />
-                    <div class="inpatient-modal-body">
-                        <div class="jcaho-notice-box">
+                    <div class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 18px 24px;">
+                        <div class="jcaho-notice-box" style="margin-bottom: 14px;">
                             <span>🧹</span>
                             <div>
-                                <strong>JCAHO Terminal Cleaning Mandate:</strong> Discharging this patient will release the bed and automatically mark it as <strong>Dirty / Turnover</strong>. A terminal disinfection sign-off will be required before another patient can be admitted.
+                                <strong>JCAHO Environmental &amp; ADT Governance:</strong> Finalizing this clinical summary will officially discharge the patient, record the electronic physician signature, and automatically transition Bed to <strong>Dirty / Turnover</strong> for housekeeping terminal decontamination.
                             </div>
                         </div>
 
-                        <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
-                            <div style="font-size: 14px; font-weight: 700; color: #0f172a;" id="dischargePatientName">Patient Name</div>
-                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                                Admission: <span id="dischargeAdmissionNo">--</span> | Bed: <span id="dischargeBedNo">--</span> | LOS: <span id="dischargeLos">--</span>
+                        <!-- Patient Demographic Context -->
+                        <div style="background: #f8fafc; padding: 12px 16px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <div style="font-size: 15px; font-weight: 700; color: #0f172a;" id="dischargePatientName">Patient Name</div>
+                                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                                    Admission: <strong id="dischargeAdmissionNo" style="color: #0f172a;">--</strong> | 
+                                    Bed: <strong id="dischargeBedNo" style="color: #0f172a;">--</strong> | 
+                                    LOS: <strong id="dischargeLos" style="color: #0f172a;">--</strong>
+                                </div>
+                            </div>
+                            <div id="dischargeDocNumberBox" style="font-size: 12px; color: #475569; background: #fff; padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: monospace;">
+                                Doc #: <span id="dischargeDocNumber">New Draft</span>
                             </div>
                         </div>
 
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label>Discharge Date & Time <span style="color: red;">*</span></label>
+                        <!-- Timing, Disposition, and Condition -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Discharge Date &amp; Time <span style="color: red;">*</span></label>
                                 <input type="datetime-local" class="form-control" name="discharge_date" id="dischargeDateInput" required />
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Discharge Condition <span style="color: red;">*</span></label>
+                                <select class="form-control" name="discharge_condition" id="dischargeConditionSelect" required>
+                                    <option value="Improved">Improved (Stable)</option>
+                                    <option value="Recovered">Recovered (Resolved)</option>
+                                    <option value="Deteriorated">Deteriorated</option>
+                                    <option value="Against Medical Advice (AMA)">Against Medical Advice (AMA)</option>
+                                    <option value="Expired">Expired / Deceased</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
                                 <label>Discharge Disposition <span style="color: red;">*</span></label>
-                                <select class="form-control" name="discharge_disposition" required>
+                                <select class="form-control" name="discharge_disposition" id="dischargeDispositionSelect" required>
                                     <option value="Discharged Home with Self-Care">Discharged Home with Self-Care</option>
                                     <option value="Discharged Home with Home Health Care">Discharged Home with Home Health Care</option>
                                     <option value="Transferred to Skilled Nursing / Rehab">Transferred to Skilled Nursing / Rehab Facility</option>
@@ -1350,19 +1374,86 @@ export function InpatientAdmissionsView() {
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Discharging Attending Physician</label>
-                            <input type="text" class="form-control" name="discharge_physician" id="dischargePhysician" placeholder="Dr. Robert Martinez, MD" />
+                        <!-- Diagnoses -->
+                        <div class="form-grid-2" style="margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Admitting Diagnosis <span style="color: red;">*</span></label>
+                                <textarea class="form-control" name="admitting_diagnosis" id="dischargeAdmittingDiagnosis" rows="2" placeholder="Initial clinical presentation / reason for inpatient stay" required></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Final Discharge Diagnosis <span style="color: red;">*</span></label>
+                                <textarea class="form-control" name="discharge_diagnosis" id="dischargeFinalDiagnosis" rows="2" placeholder="Primary and secondary confirmed discharge diagnoses" required></textarea>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Discharge Summary & Take-Home Instructions</label>
-                            <textarea class="form-control" name="discharge_notes" rows="3" placeholder="Document post-discharge instructions, follow-up appointments, wound care, prescription reconciliation..."></textarea>
+                        <!-- Hospital Course -->
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Hospital Course Summary <span style="color: red;">*</span></label>
+                            <textarea class="form-control" name="hospital_course_summary" id="dischargeHospitalCourse" rows="3" placeholder="Document clinical progression, therapies administered, diagnostic investigations, and response to treatment..." required></textarea>
+                        </div>
+
+                        <!-- Procedures -->
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Significant Procedures &amp; Interventions</label>
+                            <input type="text" class="form-control" name="significant_procedures" id="dischargeProcedures" placeholder="e.g. Diagnostic Laparoscopy, Central Line Placement, Appendectomy (or None)" />
+                        </div>
+
+                        <!-- Discharge Medications -->
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Discharge Medications &amp; Regimen Reconciliation</label>
+                            <textarea class="form-control" name="discharge_medications" id="dischargeMedications" rows="3" placeholder="Document reconciled take-home medications, dosage, route, frequency, and duration..." style="font-family: monospace; font-size: 12px;"></textarea>
+                        </div>
+
+                        <!-- Diet & Activity -->
+                        <div class="form-grid-2" style="margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Dietary Instructions</label>
+                                <input type="text" class="form-control" name="diet_instructions" id="dischargeDietInstructions" placeholder="e.g. Low sodium, diabetic meal plan, regular as tolerated" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Activity &amp; Physical Restrictions</label>
+                                <input type="text" class="form-control" name="activity_restrictions" id="dischargeActivityRestrictions" placeholder="e.g. Ambulation as tolerated; no heavy lifting &gt; 10 lbs for 2 weeks" />
+                            </div>
+                        </div>
+
+                        <!-- Follow-up Instructions -->
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Follow-Up Instructions &amp; Emergency Precautions <span style="color: red;">*</span></label>
+                            <textarea class="form-control" name="follow_up_instructions" id="dischargeFollowUpInstructions" rows="2" placeholder="Clinic return dates, primary physician follow-up, and red flag symptoms requiring immediate ED return..." required></textarea>
+                        </div>
+
+                        <!-- Attending Physician & Electronic Signature -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-top: 10px;">
+                            <div style="font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; margin-bottom: 10px;">
+                                Attending Physician Electronic Signature &amp; Certification
+                            </div>
+                            <div class="form-grid-2" style="margin-bottom: 8px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label>Attending Physician Name <span style="color: red;">*</span></label>
+                                    <input type="text" class="form-control" name="attending_physician_name" id="dischargePhysicianName" placeholder="Dr. Robert Martinez, MD" required />
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label>Physician License / PRC #</label>
+                                    <input type="text" class="form-control" name="physician_license_number" id="dischargePhysicianLicense" placeholder="e.g. PRC-0184920" />
+                                </div>
+                            </div>
+                            <div id="dischargeSignatureStamp" style="font-size: 11px; color: #475569; font-family: monospace; background: #fff; padding: 6px 10px; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 6px;">
+                                Signature status: Pending electronic certification on finalization.
+                            </div>
                         </div>
                     </div>
-                    <div class="inpatient-modal-footer">
-                        <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Cancel</button>
-                        <button type="submit" class="btn-inpatient btn-inpatient-success">Finalize Discharge & Release Bed</button>
+                    <div class="inpatient-modal-footer" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 24px;">
+                        <div>
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" id="btnPrintDischargeSummaryPdf" style="display: inline-flex; align-items: center; gap: 6px;">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"></path></svg>
+                                Print / Export PDF Summary
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Cancel</button>
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" id="btnSaveDischargeDraft" style="font-weight: 600;">💾 Save Draft</button>
+                            <button type="submit" class="btn-inpatient btn-inpatient-success" id="btnFinalizeDischarge" style="font-weight: 700;">✍️ Sign, Finalize &amp; Release Bed</button>
+                        </div>
                     </div>
                 </form>
             </div>

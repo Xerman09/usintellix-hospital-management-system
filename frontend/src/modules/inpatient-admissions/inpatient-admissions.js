@@ -9,7 +9,11 @@ import {
     dischargePatient,
     updateBedStatus,
     createWard,
-    createBed
+    createBed,
+    fetchDischargeSummary,
+    saveDischargeSummaryDraft,
+    finalizeDischargeSummary,
+    getDischargeSummaryPrintUrl
 } from './inpatient-admissions.service.js?v=5';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=40';
@@ -315,23 +319,64 @@ function setupFormSubmissions() {
         };
     }
 
-    // 3. Form Discharge Patient
+    // 3. Form Discharge Patient & Clinical Discharge Summary
     const formDischarge = document.getElementById('formDischargePatient');
     if (formDischarge) {
+        // Direct Print / Export PDF Action
+        document.getElementById('btnPrintDischargeSummaryPdf')?.addEventListener('click', () => {
+            const admId = document.getElementById('dischargeAdmissionId')?.value;
+            if (admId) {
+                window.open(getDischargeSummaryPrintUrl(admId), '_blank');
+            } else {
+                showToast('No active admission selected.', 'error');
+            }
+        });
+
+        // Save Draft Action
+        document.getElementById('btnSaveDischargeDraft')?.addEventListener('click', async () => {
+            const formData = new FormData(formDischarge);
+            const payload = Object.fromEntries(formData.entries());
+
+            try {
+                const res = await saveDischargeSummaryDraft(payload);
+                if (res && res.success) {
+                    showToast('Discharge summary draft saved successfully.', 'success');
+                    if (res.data?.summary_number) {
+                        const docBox = document.getElementById('dischargeDocNumber');
+                        if (docBox) docBox.textContent = res.data.summary_number;
+                    }
+                } else {
+                    showToast('Draft save failed: ' + (res?.message || 'Failed to save draft'), 'error');
+                }
+            } catch (err) {
+                showToast('Draft save error: ' + (err.message || 'Server error'), 'error');
+            }
+        });
+
+        // Finalize Discharge Action
         formDischarge.onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(formDischarge);
             const payload = Object.fromEntries(formData.entries());
 
             try {
-                const res = await dischargePatient(payload);
+                const res = await finalizeDischargeSummary(payload);
                 if (res && res.success) {
-                    showToast('Patient discharged successfully! Bed vacated and marked as Dirty / Turnover.', 'success');
+                    showToast('Clinical discharge summary signed & finalized! Bed marked as Dirty / Turnover.', 'success');
                     document.getElementById('modalDischargePatient')?.classList.remove('open');
                     formDischarge.reset();
                     await fetchWhiteboard();
+
+                    const admId = payload.admission_id;
+                    if (admId) {
+                        setTimeout(() => {
+                            if (confirm('Discharge finalized! Would you like to view/print the official Clinical Discharge Summary PDF now?')) {
+                                window.open(getDischargeSummaryPrintUrl(admId), '_blank');
+                            }
+                        }, 300);
+                    }
                 } else {
-                    showToast('Discharge failed: ' + (res?.message || 'Unknown error'), 'error');
+                    showToast('Discharge finalization failed: ' + (res?.message || 'Unknown error'), 'error');
                 }
             } catch (err) {
                 showToast('Discharge error: ' + (err.message || 'Server error'), 'error');
@@ -1038,7 +1083,7 @@ function openTransferModal(preselectedAdmId = null) {
     modal.classList.add('open');
 }
 
-function openDischargeModal(admissionId) {
+async function openDischargeModal(admissionId) {
     const modal = document.getElementById('modalDischargePatient');
     if (!modal) return;
 
@@ -1050,10 +1095,70 @@ function openDischargeModal(admissionId) {
     document.getElementById('dischargeAdmissionNo').textContent = bed.admission_number || '--';
     document.getElementById('dischargeBedNo').textContent = `${bed.ward_code} - ${bed.bed_number}`;
     document.getElementById('dischargeLos').textContent = `${bed.los_days || 0} days`;
-    document.getElementById('dischargePhysician').value = bed.attending_physician || '';
 
     setupDefaultDates();
     modal.classList.add('open');
+
+    const docBox = document.getElementById('dischargeDocNumber');
+    if (docBox) docBox.textContent = 'Loading...';
+    const statusBadge = document.getElementById('dischargeSummaryStatusBadge');
+    if (statusBadge) {
+        statusBadge.textContent = 'Loading...';
+        statusBadge.style.background = '#e2e8f0';
+        statusBadge.style.color = '#475569';
+    }
+
+    try {
+        const res = await fetchDischargeSummary(admissionId);
+        if (res && res.success && res.data?.summary) {
+            const s = res.data.summary;
+            if (docBox) docBox.textContent = s.summary_number || 'New Draft';
+            
+            if (statusBadge) {
+                if (s.is_finalized) {
+                    statusBadge.textContent = 'Finalized & Electronically Signed';
+                    statusBadge.style.background = '#dcfce7';
+                    statusBadge.style.color = '#15803d';
+                } else {
+                    statusBadge.textContent = 'Draft In-Progress';
+                    statusBadge.style.background = '#fef3c7';
+                    statusBadge.style.color = '#b45309';
+                }
+            }
+
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && val !== undefined && val !== null) el.value = val;
+            };
+
+            setVal('dischargeDateInput', s.discharge_date ? s.discharge_date.replace(' ', 'T').substring(0, 16) : '');
+            setVal('dischargeConditionSelect', s.discharge_condition || 'Improved');
+            setVal('dischargeDispositionSelect', s.discharge_disposition || 'Discharged Home with Self-Care');
+            setVal('dischargeAdmittingDiagnosis', s.admitting_diagnosis || bed.admitting_diagnosis || '');
+            setVal('dischargeFinalDiagnosis', s.discharge_diagnosis || bed.admitting_diagnosis || '');
+            setVal('dischargeHospitalCourse', s.hospital_course_summary || '');
+            setVal('dischargeProcedures', s.significant_procedures || 'None performed.');
+            setVal('dischargeMedications', s.discharge_medications || '');
+            setVal('dischargeDietInstructions', s.diet_instructions || 'Regular as tolerated');
+            setVal('dischargeActivityRestrictions', s.activity_restrictions || 'Ambulation as tolerated');
+            setVal('dischargeFollowUpInstructions', s.follow_up_instructions || '');
+            setVal('dischargePhysicianName', s.attending_physician_name || bed.attending_physician || '');
+            setVal('dischargePhysicianLicense', s.physician_license_number || '');
+
+            const stampEl = document.getElementById('dischargeSignatureStamp');
+            if (stampEl) {
+                if (s.electronic_signature) {
+                    stampEl.textContent = s.electronic_signature;
+                    stampEl.style.color = '#059669';
+                } else {
+                    stampEl.textContent = 'Signature status: Pending electronic certification on finalization.';
+                    stampEl.style.color = '#475569';
+                }
+            }
+        }
+    } catch (err) {
+        console.debug('Error pre-populating discharge summary:', err);
+    }
 }
 
 function openSanitizeModal(bedId, bedNumber) {
