@@ -32,7 +32,7 @@ import { initRelativesHistory } from "./patient-relatives-history.js?v=4";
 import { initLifestyle } from "./patient-lifestyle.js";
 import { initOtherHistory } from "./patient-other-history.js";
 import { initSdohAssessment } from "./patient-sdoh-assessment.js?v=4";
-import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment } from "./patients.service.js?v=9";
+import { fetchPatients, deletePatient, createPatient, updatePatient, fetchPatientDashboardSummary, uploadPatientPhoto, removePatientPhoto, fetchAiHealthAssessment, fetchPatientContactHistory, savePatientContactHistory } from "./patients.service.js?v=9";
 import { patientAvatarHtml } from "../../core/patient-avatar.js";
 import { openBreakGlassModal } from "../../core/break-glass-modal.js?v=4";
 import { api, API_URL } from "../../core/api.js?v=10";
@@ -18985,6 +18985,148 @@ async function setupEditPatientModal(user)
         showListAlert("Patient updated successfully.", "success");
         await loadPatients(user);
     });
+
+    setupContactHistoryModal();
+}
+
+let currentContactHistoryPatientId = null;
+let contactHistoryCache = [];
+
+async function loadContactHistory(patientId)
+{
+    currentContactHistoryPatientId = patientId;
+    const result = await fetchPatientContactHistory(patientId);
+    contactHistoryCache = result.success ? result.data : [];
+    renderContactHistoryTable();
+}
+
+function renderContactHistoryTable()
+{
+    const tbody = document.getElementById("contactHistoryTableBody");
+    const countText = document.getElementById("contactHistoryCountText");
+    if (!tbody) return;
+
+    if (countText) {
+        countText.textContent = `${contactHistoryCache.length} ${contactHistoryCache.length === 1 ? "address & contact record" : "address & contact records"}`;
+    }
+
+    if (!contactHistoryCache.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No address or contact history recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = contactHistoryCache.map((row) => {
+        const isCurrent = Number(row.is_current) === 1;
+        const statusBadge = isCurrent
+            ? `<span class="badge" style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">Current Active</span>`
+            : `<span class="badge" style="background:#64748b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">Historical</span>`;
+
+        const addressParts = [
+            row.address_line,
+            row.address_line2,
+            row.city,
+            row.province,
+            row.postal_code,
+            row.country
+        ].filter(Boolean).join(", ") || "—";
+
+        const contactParts = [];
+        if (row.mobile_phone) contactParts.push(`📱 Mobile: ${escapeHtml(row.mobile_phone)}`);
+        if (row.home_phone) contactParts.push(`📞 Home: ${escapeHtml(row.home_phone)}`);
+        if (row.work_phone) contactParts.push(`💼 Work: ${escapeHtml(row.work_phone)}`);
+        if (row.email) contactParts.push(`✉️ ${escapeHtml(row.email)}`);
+        const contactHtml = contactParts.length ? contactParts.join("<br>") : `<span style="color:var(--text-muted);">No phone/email</span>`;
+
+        const fromDate = row.effective_from ? String(row.effective_from).slice(0, 10) : "—";
+        const toDate = isCurrent ? "Present / Active" : (row.effective_to ? String(row.effective_to).slice(0, 10) : "—");
+        const effectivePeriod = `<strong>${fromDate}</strong> &rarr; <span style="${isCurrent ? 'color:#16a34a;font-weight:600;' : ''}">${toDate}</span>`;
+
+        const reason = escapeHtml(row.change_reason || "Demographic Record");
+        const recordedBy = row.recorded_by_user ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">By: ${escapeHtml(row.recorded_by_user)}</div>` : "";
+
+        return `
+            <tr>
+                <td>${statusBadge}</td>
+                <td><strong style="text-transform: capitalize;">${escapeHtml(row.address_type || "residential")}</strong></td>
+                <td><div style="font-size:13px;font-weight:500;">${escapeHtml(addressParts)}</div></td>
+                <td style="font-size:12px;line-height:1.4;">${contactHtml}</td>
+                <td style="font-size:12px;white-space:nowrap;">${effectivePeriod}</td>
+                <td><div style="font-size:12px;">${reason}</div>${recordedBy}</td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function setupContactHistoryModal()
+{
+    const modalOverlay = document.getElementById("addContactHistoryModalOverlay");
+    const form = document.getElementById("addContactHistoryForm");
+    const openBtn = document.getElementById("btnOpenAddContactHistoryModal");
+    const closeBtn = document.getElementById("closeAddContactHistoryModal");
+    const cancelBtn = document.getElementById("cancelAddContactHistory");
+
+    if (!modalOverlay || !form) return;
+
+    const openModal = () => {
+        document.getElementById("addContactHistoryAlert").innerHTML = "";
+        form.reset();
+        document.getElementById("ach_effective_from").value = todayISO();
+        document.getElementById("ach_is_current").checked = true;
+        modalOverlay.classList.add("open");
+    };
+
+    const closeModal = () => modalOverlay.classList.remove("open");
+
+    openBtn?.addEventListener("click", openModal);
+    closeBtn?.addEventListener("click", closeModal);
+    cancelBtn?.addEventListener("click", closeModal);
+
+    modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) closeModal();
+    });
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const patientId = currentContactHistoryPatientId || currentEditPatient?.id;
+        if (!patientId) return;
+
+        const payload = {
+            address_type: document.getElementById("ach_address_type").value,
+            change_reason: document.getElementById("ach_change_reason").value.trim(),
+            address_line: document.getElementById("ach_address_line").value.trim(),
+            address_line2: document.getElementById("ach_address_line2").value.trim(),
+            city: document.getElementById("ach_city").value.trim(),
+            province: document.getElementById("ach_province").value.trim(),
+            postal_code: document.getElementById("ach_postal_code").value.trim(),
+            country: document.getElementById("ach_country").value.trim() || "Philippines",
+            mobile_phone: document.getElementById("ach_mobile_phone").value.trim(),
+            home_phone: document.getElementById("ach_home_phone").value.trim(),
+            effective_from: document.getElementById("ach_effective_from").value,
+            effective_to: document.getElementById("ach_effective_to").value || null,
+            is_current: document.getElementById("ach_is_current").checked ? 1 : 0
+        };
+
+        const res = await savePatientContactHistory(patientId, payload);
+        if (!res.success) {
+            showAlert("addContactHistoryAlert", res.message || "Failed to save address history.", "error");
+            return;
+        }
+
+        closeModal();
+        await loadContactHistory(patientId);
+
+        if (payload.is_current && payload.address_type === "residential") {
+            const setIf = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ""; };
+            setIf("edit_address_line", payload.address_line);
+            setIf("edit_city", payload.city);
+            setIf("edit_province", payload.province);
+            setIf("edit_zip_code", payload.postal_code);
+            if (payload.mobile_phone) setIf("edit_mobile_phone", payload.mobile_phone);
+            if (payload.home_phone) setIf("edit_home_phone", payload.home_phone);
+        }
+
+        showListAlert("Address and contact history record added successfully.", "success");
+    });
 }
 
 let currentRelatedPersonPatientId = null;
@@ -19783,6 +19925,7 @@ function openEditModal(patient)
 
     currentEditPatient = patient;
     loadRelatedPersons(patient.id);
+    loadContactHistory(patient.id);
 
     document.getElementById("edit_employer_occupation").value = patient.employer_occupation ?? "";
     document.getElementById("edit_employer_name").value = patient.employer_name ?? "";

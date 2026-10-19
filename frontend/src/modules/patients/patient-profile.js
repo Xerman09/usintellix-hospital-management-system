@@ -4,6 +4,7 @@ import { fetchHealthSummary } from "../health-records/health-records.service.js"
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=4";
 import { getUser } from "../../core/session.js?v=5";
+import { fetchPatientContactHistory } from "./patients.service.js";
 
 export function initPatientProfile(patient)
 {
@@ -23,6 +24,7 @@ export function initPatientProfile(patient)
     loadPatientAppointments(patient);
     loadOverviewSections(patient);
     loadOverviewAllergies(patient);
+    loadPatientContactHistory(patient);
 }
 
 const OVERVIEW_LIST_SECTIONS = [
@@ -197,4 +199,74 @@ async function loadPatientAppointments(patient)
             <td><span class="status-badge ${appointment.status}">${statusLabel(appointment.status)}</span></td>
         </tr>
     `).join("");
+}
+
+function escapeHtml(str)
+{
+    if (str == null) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function loadPatientContactHistory(patient)
+{
+    const tbody = document.getElementById("profileContactHistoryBody");
+    const countEl = document.getElementById("profileContactHistoryCount");
+    if (!tbody) return;
+
+    const res = await fetchPatientContactHistory(patient.id);
+    const records = res.success ? (res.data || []) : [];
+
+    if (countEl) {
+        countEl.textContent = `${records.length} ${records.length === 1 ? "record" : "records"}`;
+    }
+
+    if (!records.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-empty">No address or contact history recorded for this patient.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = records.map((row) => {
+        const isCurrent = Number(row.is_current) === 1;
+        const statusBadge = isCurrent
+            ? `<span class="badge" style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">Current Active</span>`
+            : `<span class="badge" style="background:#64748b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">Historical</span>`;
+
+        const addressParts = [
+            row.address_line,
+            row.address_line2,
+            row.city,
+            row.province,
+            row.postal_code,
+            row.country
+        ].filter(Boolean).join(", ") || "—";
+
+        const contactParts = [];
+        if (row.mobile_phone) contactParts.push(`📱 Mobile: ${escapeHtml(row.mobile_phone)}`);
+        if (row.home_phone) contactParts.push(`📞 Home: ${escapeHtml(row.home_phone)}`);
+        if (row.work_phone) contactParts.push(`💼 Work: ${escapeHtml(row.work_phone)}`);
+        if (row.email) contactParts.push(`✉️ ${escapeHtml(row.email)}`);
+        const contactHtml = contactParts.length ? contactParts.join("<br>") : `<span style="color:var(--text-muted);">No phone/email</span>`;
+
+        const fromDate = row.effective_from ? String(row.effective_from).slice(0, 10) : "—";
+        const toDate = isCurrent ? "Present / Active" : (row.effective_to ? String(row.effective_to).slice(0, 10) : "—");
+        const effectivePeriod = `<strong>${fromDate}</strong> &rarr; <span style="${isCurrent ? 'color:#16a34a;font-weight:600;' : ''}">${toDate}</span>`;
+        const reason = escapeHtml(row.change_reason || "Demographic Record");
+        const recordedBy = row.recorded_by_user ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">By: ${escapeHtml(row.recorded_by_user)}</div>` : "";
+
+        return `
+            <tr>
+                <td>${statusBadge}</td>
+                <td><strong style="text-transform: capitalize;">${escapeHtml(row.address_type || "residential")}</strong></td>
+                <td><div style="font-size:13px;font-weight:500;">${escapeHtml(addressParts)}</div></td>
+                <td style="font-size:12px;line-height:1.4;">${contactHtml}</td>
+                <td style="font-size:12px;white-space:nowrap;">${effectivePeriod}</td>
+                <td><div style="font-size:12px;">${reason}</div>${recordedBy}</td>
+            </tr>
+        `;
+    }).join("");
 }

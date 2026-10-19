@@ -1,6 +1,6 @@
 const PROFILE_TABS = [
     "overview", "appointments", "encounters", "procedures",
-    "laboratory", "medications", "billing", "documents"
+    "laboratory", "medications", "billing", "documents", "contact_history"
 ];
 
 const TAB_LABELS = {
@@ -11,7 +11,8 @@ const TAB_LABELS = {
     laboratory: "Laboratory",
     medications: "Medications",
     billing: "Billing",
-    documents: "Documents"
+    documents: "Documents",
+    contact_history: "Contact & Address History"
 };
 
 export function PatientProfileView(patient)
@@ -24,6 +25,7 @@ export function PatientProfileView(patient)
         <div class="modal-tab-panel${i === 0 ? " active" : ""}" data-panel="${tab}">
             ${tab === "overview" ? overviewPanel(patient)
                 : tab === "appointments" ? appointmentsPanel()
+                : tab === "contact_history" ? contactHistoryPanel()
                 : placeholderPanel(TAB_LABELS[tab])}
         </div>
     `).join("");
@@ -128,4 +130,34 @@ function appointmentsPanel()
 function placeholderPanel(label)
 {
     return `<div style="padding: 40px 0;" class="table-empty">${label} module is under development.</div>`;
+}
+
+function contactHistoryPanel()
+{
+    return `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div>
+                <h3 style="font-size:16px;margin:0 0 4px;color:#25324b;">Address &amp; Contact History Trail</h3>
+                <p style="font-size:13px;color:var(--text-muted);margin:0;">Chronological record of past and present residential, permanent, and billing addresses.</p>
+            </div>
+            <div id="profileContactHistoryCount" style="font-size:13px;color:var(--text-muted);"></div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:110px;">Status</th>
+                        <th style="width:110px;">Address Type</th>
+                        <th>Address Details</th>
+                        <th style="width:190px;">Contact Numbers</th>
+                        <th style="width:180px;">Effective Period</th>
+                        <th style="width:180px;">Change Reason</th>
+                    </tr>
+                </thead>
+                <tbody id="profileContactHistoryBody">
+                    <tr><td colspan="6" class="table-empty">Loading address and contact history...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
 }

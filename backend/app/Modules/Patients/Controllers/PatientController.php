@@ -579,6 +579,48 @@ class PatientController extends Controller
     }
 
     /**
+     * Get chronological contact and address history for a patient.
+     */
+    public function getContactHistory(int $id): void
+    {
+        $user = Session::get('user');
+        if (!$this->ownsPatient($user, $id)) {
+            $this->error('Patient not found or access denied.', 404);
+            return;
+        }
+
+        $result = $this->patientService->getContactHistory($id);
+        if (!$result['success']) {
+            $this->error($result['message'], 404);
+            return;
+        }
+
+        $this->success($result['data'], 'Contact and address history retrieved successfully.');
+    }
+
+    /**
+     * Add an explicit contact or address history record.
+     */
+    public function addContactHistory(int $id): void
+    {
+        $user = Session::get('user');
+        if (!$this->ownsPatient($user, $id)) {
+            $this->error('Patient not found or access denied.', 404);
+            return;
+        }
+
+        $request = new Request();
+        $result = $this->patientService->addContactHistory($id, $request->all(), (int)$user['id']);
+
+        if (!$result['success']) {
+            $this->error($result['message'], 422);
+            return;
+        }
+
+        $this->success($result['data'], $result['message']);
+    }
+
+    /**
      * Confirm the given patient exists and, for doctors, is assigned to
      * them. Admins and clinical staff may view active patients.
      * Emergency break-glass access is also honored.

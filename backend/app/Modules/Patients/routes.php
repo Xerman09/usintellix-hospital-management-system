@@ -64,3 +64,14 @@ $router->get('/patients/confidential-registry/export', [PatientController::class
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+$router->get('/patients/{id}/contact-history', [PatientController::class, 'getContactHistory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'nurse']]
+]);
+
+$router->post('/patients/{id}/contact-history', [PatientController::class, 'addContactHistory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+

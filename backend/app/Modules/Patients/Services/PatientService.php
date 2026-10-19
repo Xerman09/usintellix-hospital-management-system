@@ -6,6 +6,7 @@ use App\Core\Database;
 use App\Core\FieldEncryption;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Models\PatientContact;
+use App\Modules\Patients\Models\PatientContactHistory;
 use App\Modules\Patients\Models\PatientEmployer;
 use App\Modules\Patients\Models\PatientGuardian;
 use App\Modules\Providers\Models\Provider;
@@ -356,26 +357,69 @@ class PatientService
     /**
      * Create or update a patient's contact info record.
      */
-    private function upsertContact(int $patientId, array $data, int $userId): void
+    private function upsertContact(int $patientId, array $data, int $userId, bool $trackHistory = true): void
     {
         $existing = (new PatientContact())->where('patient_id', $patientId)->first();
 
         $payload = [
-            'address_line' => $data['address_line'] ?? null,
-            'city'         => $data['city'] ?? null,
-            'province'     => $data['province'] ?? null,
-            'zip_code'     => $data['zip_code'] ?? null,
-            'home_phone'   => $data['home_phone'] ?? null,
-            'mobile_phone' => $data['mobile_phone'] ?? null,
-            'work_phone'   => $data['work_phone'] ?? null,
-            'email'        => $data['contact_email'] ?? null
+            'address_line' => $data['address_line'] ?? ($data['contact_address_line'] ?? null),
+            'city'         => $data['city'] ?? ($data['contact_city'] ?? null),
+            'province'     => $data['province'] ?? ($data['contact_province'] ?? null),
+            'zip_code'     => $data['zip_code'] ?? ($data['contact_zip_code'] ?? null),
+            'home_phone'   => $data['home_phone'] ?? ($data['contact_home_phone'] ?? null),
+            'mobile_phone' => $data['mobile_phone'] ?? ($data['contact_mobile_phone'] ?? null),
+            'work_phone'   => $data['work_phone'] ?? ($data['contact_work_phone'] ?? null),
+            'email'        => $data['contact_email'] ?? ($data['email'] ?? null)
         ];
 
+        $changed = false;
         if ($existing) {
+            foreach (['address_line', 'city', 'province', 'zip_code', 'home_phone', 'mobile_phone', 'work_phone'] as $k) {
+                if (($existing[$k] ?? null) != ($payload[$k] ?? null)) {
+                    $changed = true;
+                    break;
+                }
+            }
+            if (($existing['email'] ?? null) != ($payload['email'] ?? null)) {
+                $changed = true;
+            }
+
             $payload['updated_at'] = date('Y-m-d H:i:s');
             $payload['updated_by'] = $userId;
 
             (new PatientContact())->where('patient_id', $patientId)->update($payload);
+
+            if ($trackHistory && $changed) {
+                $db = Database::connection();
+                $db->prepare("
+                    UPDATE patient_contact_histories
+                    SET is_current = 0,
+                        effective_to = COALESCE(effective_to, CURDATE()),
+                        updated_at = NOW(),
+                        updated_by = :user_id
+                    WHERE patient_id = :patient_id AND is_current = 1 AND address_type = 'residential'
+                ")->execute([':user_id' => $userId, ':patient_id' => $patientId]);
+
+                (new PatientContactHistory())->create([
+                    'patient_id'     => $patientId,
+                    'address_type'   => 'residential',
+                    'address_line'   => $payload['address_line'],
+                    'city'           => $payload['city'],
+                    'province'       => $payload['province'],
+                    'postal_code'    => $payload['zip_code'],
+                    'country'        => 'Philippines',
+                    'home_phone'     => $payload['home_phone'],
+                    'mobile_phone'   => $payload['mobile_phone'],
+                    'work_phone'     => $payload['work_phone'],
+                    'email'          => $payload['email'],
+                    'effective_from' => date('Y-m-d'),
+                    'effective_to'   => null,
+                    'is_current'     => 1,
+                    'change_reason'  => $data['address_change_reason'] ?? 'Demographic Contact Update',
+                    'created_at'     => date('Y-m-d H:i:s'),
+                    'created_by'     => $userId
+                ]);
+            }
             return;
         }
 
@@ -384,6 +428,28 @@ class PatientService
         $payload['created_by'] = $userId;
 
         (new PatientContact())->create($payload);
+
+        if ($trackHistory) {
+            (new PatientContactHistory())->create([
+                'patient_id'     => $patientId,
+                'address_type'   => 'residential',
+                'address_line'   => $payload['address_line'],
+                'city'           => $payload['city'],
+                'province'       => $payload['province'],
+                'postal_code'    => $payload['zip_code'],
+                'country'        => 'Philippines',
+                'home_phone'     => $payload['home_phone'],
+                'mobile_phone'   => $payload['mobile_phone'],
+                'work_phone'     => $payload['work_phone'],
+                'email'          => $payload['email'],
+                'effective_from' => date('Y-m-d'),
+                'effective_to'   => null,
+                'is_current'     => 1,
+                'change_reason'  => 'Initial Registration',
+                'created_at'     => date('Y-m-d H:i:s'),
+                'created_by'     => $userId
+            ]);
+        }
     }
 
     /**
@@ -1019,6 +1085,115 @@ class PatientService
         );
 
         return $csv;
+    }
+
+    /**
+     * Retrieve full chronological contact & address history for a patient.
+     */
+    public function getContactHistory(int $patientId): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare("
+            SELECT h.*, 
+                   CONCAT_WS(' ', u.username) AS recorded_by_user
+            FROM patient_contact_histories h
+            LEFT JOIN users u ON u.id = h.created_by
+            WHERE h.patient_id = :patient_id
+            ORDER BY h.is_current DESC, h.effective_from DESC, h.id DESC
+        ");
+        $stmt->execute([':patient_id' => $patientId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'success' => true,
+            'data' => $rows
+        ];
+    }
+
+    /**
+     * Add or update an explicit contact and address history record.
+     */
+    public function addContactHistory(int $patientId, array $data, int $userId): array
+    {
+        $patient = (new Patient())->where('id', $patientId)->first();
+        if (!$patient || $patient['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Patient not found.'];
+        }
+
+        $addressType = $data['address_type'] ?? 'residential';
+        if (!in_array($addressType, ['residential', 'permanent', 'billing', 'temporary'], true)) {
+            $addressType = 'residential';
+        }
+
+        $isCurrent = !empty($data['is_current']) ? 1 : 0;
+        $effectiveFrom = !empty($data['effective_from']) ? $data['effective_from'] : date('Y-m-d');
+        $effectiveTo = !empty($data['effective_to']) ? $data['effective_to'] : null;
+
+        // If this new record is marked current, mark previous active record of this type as historical
+        if ($isCurrent) {
+            $db = Database::connection();
+            $closeStmt = $db->prepare("
+                UPDATE patient_contact_histories
+                SET is_current = 0,
+                    effective_to = COALESCE(effective_to, :effective_to),
+                    updated_at = NOW(),
+                    updated_by = :user_id
+                WHERE patient_id = :patient_id AND address_type = :address_type AND is_current = 1
+            ");
+            $closeStmt->execute([
+                ':effective_to' => $effectiveFrom,
+                ':user_id' => $userId,
+                ':patient_id' => $patientId,
+                ':address_type' => $addressType
+            ]);
+        }
+
+        $historyId = (new PatientContactHistory())->create([
+            'patient_id'     => $patientId,
+            'address_type'   => $addressType,
+            'address_line'   => $data['address_line'] ?? null,
+            'address_line2'  => $data['address_line2'] ?? null,
+            'city'           => $data['city'] ?? null,
+            'province'       => $data['province'] ?? null,
+            'postal_code'    => $data['postal_code'] ?? ($data['zip_code'] ?? null),
+            'country'        => $data['country'] ?? 'Philippines',
+            'home_phone'     => $data['home_phone'] ?? null,
+            'mobile_phone'   => $data['mobile_phone'] ?? null,
+            'work_phone'     => $data['work_phone'] ?? null,
+            'email'          => $data['email'] ?? null,
+            'effective_from' => $effectiveFrom,
+            'effective_to'   => $effectiveTo,
+            'is_current'     => $isCurrent,
+            'change_reason'  => $data['change_reason'] ?? 'Historical Contact Added',
+            'notes'          => $data['notes'] ?? null,
+            'created_at'     => date('Y-m-d H:i:s'),
+            'created_by'     => $userId
+        ]);
+
+        // If current and residential/permanent, also sync to active patient_contacts
+        if ($isCurrent && in_array($addressType, ['residential', 'permanent'], true)) {
+            $this->upsertContact($patientId, [
+                'address_line'  => $data['address_line'] ?? null,
+                'city'          => $data['city'] ?? null,
+                'province'      => $data['province'] ?? null,
+                'zip_code'      => $data['postal_code'] ?? ($data['zip_code'] ?? null),
+                'home_phone'    => $data['home_phone'] ?? null,
+                'mobile_phone'  => $data['mobile_phone'] ?? null,
+                'work_phone'    => $data['work_phone'] ?? null,
+                'contact_email' => $data['email'] ?? null,
+            ], $userId, false);
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Contact and address history entry recorded successfully.',
+            'data' => (new PatientContactHistory())->where('id', $historyId)->first()
+        ];
     }
 }
 

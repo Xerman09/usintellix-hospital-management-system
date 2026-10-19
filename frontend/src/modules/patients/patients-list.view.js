@@ -2386,6 +2386,7 @@ export function PatientsListView(user)
             <button type="button" class="modal-tab" data-tab="choices">Choices</button>
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
+            <button type="button" class="modal-tab" data-tab="contact_history">Contact &amp; Address History</button>
             <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
             <button type="button" class="modal-tab" data-tab="employer">Employer</button>
             <button type="button" class="modal-tab" data-tab="misc">Misc</button>
@@ -2698,6 +2699,35 @@ export function PatientsListView(user)
                         <input id="edit_work_phone" class="form-input" placeholder="Work phone (optional)">
                         <span class="form-error"></span>
                     </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="contact_history">
+                <div class="rp-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div>
+                        <span class="rp-count-text" id="contactHistoryCountText">0 address &amp; contact records</span>
+                        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                            Tracks historical residential, permanent, and billing addresses with effective dates.
+                        </div>
+                    </div>
+                    <button type="button" class="btn-edit" id="btnOpenAddContactHistoryModal" style="font-size: 12px; padding: 6px 14px;">+ Add Address / Relocation</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Type</th>
+                                <th>Address Details</th>
+                                <th>Contact Numbers</th>
+                                <th>Effective Period</th>
+                                <th>Change Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactHistoryTableBody">
+                            <tr><td colspan="6" class="table-empty">Loading address &amp; contact history...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -14225,6 +14255,96 @@ textarea.pd-sdoh-readonly {
             <button type="button" class="btn-secondary" id="cancelSelectCodes">Cancel</button>
             <button type="button" class="login-btn" id="confirmSelectCodes" disabled>Ok</button>
         </div>
+    <div class="modal-overlay" id="addContactHistoryModalOverlay" style="z-index: 10005;">
+    <div class="modal-box" style="max-width: 540px;">
+        <div class="modal-header">
+            <h2>Record Address Change / Contact History</h2>
+            <button type="button" class="modal-close" id="closeAddContactHistoryModal">&times;</button>
+        </div>
+        <p class="form-subtitle">Record a relocation, permanent residence, or billing address with effective dates.</p>
+
+        <div id="addContactHistoryAlert"></div>
+
+        <form id="addContactHistoryForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="ach_address_type">Address Type *</label>
+                    <select id="ach_address_type" class="form-input" required>
+                        <option value="residential">Residential (Primary Living)</option>
+                        <option value="permanent">Permanent / Legal</option>
+                        <option value="billing">Billing / Guarantor Address</option>
+                        <option value="temporary">Temporary / Convalescent</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_change_reason">Reason for Change *</label>
+                    <input id="ach_change_reason" class="form-input" placeholder="e.g. Relocation, Phone update" required>
+                </div>
+
+                <div class="form-group full">
+                    <label for="ach_address_line">Address Line 1 *</label>
+                    <input id="ach_address_line" class="form-input" placeholder="House/Unit No., Street, Barangay" required>
+                </div>
+
+                <div class="form-group full">
+                    <label for="ach_address_line2">Address Line 2 (Optional)</label>
+                    <input id="ach_address_line2" class="form-input" placeholder="Building, Floor, Suite">
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_city">City / Municipality *</label>
+                    <input id="ach_city" class="form-input" placeholder="City" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_province">Province / State *</label>
+                    <input id="ach_province" class="form-input" placeholder="Province" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_postal_code">Postal / Zip Code</label>
+                    <input id="ach_postal_code" class="form-input" placeholder="e.g. 1000">
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_country">Country</label>
+                    <input id="ach_country" class="form-input" value="Philippines">
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_mobile_phone">Mobile Phone</label>
+                    <input id="ach_mobile_phone" class="form-input" placeholder="09XXXXXXXXX">
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_home_phone">Home Phone</label>
+                    <input id="ach_home_phone" class="form-input" placeholder="Landline">
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_effective_from">Effective From *</label>
+                    <input id="ach_effective_from" type="date" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ach_effective_to">Effective To (Leave empty if Current)</label>
+                    <input id="ach_effective_to" type="date" class="form-input">
+                </div>
+
+                <div class="form-group full">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                        <input type="checkbox" id="ach_is_current" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                        <span><strong>Mark as Active Current Address</strong> (Prior record of this type becomes historical)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 16px;">
+                <button type="button" class="btn-secondary" id="cancelAddContactHistory">Cancel</button>
+                <button class="login-btn" type="submit">Save Address History</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -14596,6 +14716,7 @@ textarea.pd-sdoh-readonly {
             <button type="button" class="modal-tab" data-tab="choices">Choices</button>
             <button type="button" class="modal-tab" data-tab="stats">Stats</button>
             <button type="button" class="modal-tab" data-tab="contact">Contact Info</button>
+            <button type="button" class="modal-tab" data-tab="contact_history">Contact &amp; Address History</button>
             <button type="button" class="modal-tab" data-tab="related_persons">Related Persons</button>
             <button type="button" class="modal-tab" data-tab="employer">Employer</button>
             <button type="button" class="modal-tab" data-tab="misc">Misc</button>
@@ -14908,6 +15029,35 @@ textarea.pd-sdoh-readonly {
                         <input id="edit_work_phone" class="form-input" placeholder="Work phone (optional)">
                         <span class="form-error"></span>
                     </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-panel" data-panel="contact_history">
+                <div class="rp-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div>
+                        <span class="rp-count-text" id="contactHistoryCountText">0 address &amp; contact records</span>
+                        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                            Tracks historical residential, permanent, and billing addresses with effective dates.
+                        </div>
+                    </div>
+                    <button type="button" class="btn-edit" id="btnOpenAddContactHistoryModal" style="font-size: 12px; padding: 6px 14px;">+ Add Address / Relocation</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Type</th>
+                                <th>Address Details</th>
+                                <th>Contact Numbers</th>
+                                <th>Effective Period</th>
+                                <th>Change Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactHistoryTableBody">
+                            <tr><td colspan="6" class="table-empty">Loading address &amp; contact history...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

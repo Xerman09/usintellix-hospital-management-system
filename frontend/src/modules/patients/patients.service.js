@@ -118,3 +118,20 @@ export function getConfidentialRegistryExportUrl()
 {
     return "/api/patients/confidential-registry/export";
 }
+
+export async function fetchPatientContactHistory(patientId)
+{
+    return await api(`/patients/${encodeURIComponent(patientId)}/contact-history`);
+}
+
+export async function savePatientContactHistory(patientId, data)
+{
+    return await api(
+        `/patients/${encodeURIComponent(patientId)}/contact-history`,
+        {
+            method: "POST",
+            body: JSON.stringify(data)
+        }
+    );
+}
+
