@@ -13,8 +13,18 @@ import {
     createBed,
     updateBed,
     updateBedStatus,
-    deleteBed
-} from "./room-management.service.js?v=5";
+    deleteBed,
+    fetchHospitalWards,
+    fetchEvsTurnovers,
+    fetchEvsStats,
+    fetchEvsTurnoverDetail,
+    createEvsTurnover,
+    assignEvsStaff,
+    startEvsCleaning,
+    completeEvsCleaning,
+    inspectEvsTurnover,
+    cancelEvsTurnover
+} from "./room-management.service.js?v=6";
 import { showToast } from "../../core/toast.js";
 
 let state = {
@@ -24,6 +34,14 @@ let state = {
     buildings: [],
     rooms: [],
     beds: [],
+    evsLogs: [],
+    evsStats: null,
+    evsFilters: {
+        stage: "all",
+        priority: "",
+        cleaning_type: "",
+        search: ""
+    },
     filters: {
         building_id: "",
         room_type: "",
@@ -111,6 +129,47 @@ function setupEventListeners() {
     document.getElementById("rmFormRoom")?.addEventListener("submit", handleRoomSubmit);
     document.getElementById("rmFormBed")?.addEventListener("submit", handleBedSubmit);
     document.getElementById("btnSaveBedAction")?.addEventListener("click", handleBedActionSubmit);
+
+    // 8. EVS Pipeline Listeners
+    document.querySelectorAll("#evsStageFilters .evs-pill-btn").forEach((pill) => {
+        pill.addEventListener("click", () => {
+            document.querySelectorAll("#evsStageFilters .evs-pill-btn").forEach((p) => p.classList.remove("active"));
+            pill.classList.add("active");
+            state.evsFilters.stage = pill.getAttribute("data-evs-stage") || "all";
+            loadEvsData();
+        });
+    });
+
+    document.getElementById("evsFilterPriority")?.addEventListener("change", (e) => {
+        state.evsFilters.priority = e.target.value;
+        loadEvsData();
+    });
+
+    document.getElementById("evsFilterType")?.addEventListener("change", (e) => {
+        state.evsFilters.cleaning_type = e.target.value;
+        loadEvsData();
+    });
+
+    let evsSearchTimer = null;
+    document.getElementById("evsSearchInput")?.addEventListener("input", (e) => {
+        clearTimeout(evsSearchTimer);
+        evsSearchTimer = setTimeout(() => {
+            state.evsFilters.search = e.target.value;
+            loadEvsData();
+        }, 300);
+    });
+
+    document.getElementById("evsBtnInitiateTurnover")?.addEventListener("click", openEvsInitiateModal);
+    document.getElementById("evsBtnRefresh")?.addEventListener("click", async () => {
+        await loadEvsData();
+        showToast("EVS bed turnover pipeline refreshed.", "info");
+    });
+
+    document.getElementById("btnSaveEvsInitiate")?.addEventListener("click", handleEvsInitiateSubmit);
+    document.getElementById("btnSaveEvsAssign")?.addEventListener("click", handleEvsAssignSubmit);
+    document.getElementById("btnSaveEvsStart")?.addEventListener("click", handleEvsStartSubmit);
+    document.getElementById("btnSaveEvsComplete")?.addEventListener("click", handleEvsCompleteSubmit);
+    document.getElementById("btnSaveEvsInspect")?.addEventListener("click", handleEvsInspectSubmit);
 }
 
 // =============================================================================
@@ -127,6 +186,8 @@ function switchTab(tabKey) {
     document.getElementById("rmTabContentBeds").style.display = tabKey === "beds" ? "block" : "none";
     document.getElementById("rmTabContentRooms").style.display = tabKey === "rooms" ? "block" : "none";
     document.getElementById("rmTabContentBuildings").style.display = tabKey === "buildings" ? "block" : "none";
+    const evsContent = document.getElementById("rmTabContentEvs");
+    if (evsContent) evsContent.style.display = tabKey === "evs" ? "block" : "none";
 
     loadCurrentTabView();
 }
@@ -140,15 +201,19 @@ async function loadCurrentTabView() {
         await loadRoomsData();
     } else if (state.activeTab === "buildings") {
         await loadBuildingsData();
+    } else if (state.activeTab === "evs") {
+        await loadEvsData();
     }
 }
 
 async function loadAllData() {
     await Promise.all([
         loadMonitorData(),
-        loadBuildingsOptions()
+        loadBuildingsOptions(),
+        loadEvsBadge()
     ]);
 }
+
 
 // =============================================================================
 // DATA LOADERS & RENDERERS
@@ -1048,3 +1113,601 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+// =============================================================================
+// EVS BED TURNOVER PIPELINE LOGIC
+// =============================================================================
+
+async function loadEvsBadge() {
+    try {
+        const res = await fetchEvsStats();
+        if (res && res.success && res.data) {
+            state.evsStats = res.data;
+            const badge = document.getElementById("tabBadgeEvs");
+            if (badge) {
+                const count = res.data.active_turnovers || 0;
+                badge.textContent = count;
+                badge.style.display = count > 0 ? "inline-block" : "none";
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load EVS stats badge:", e);
+    }
+}
+
+async function loadEvsData() {
+    const tbody = document.getElementById("evsTableBody");
+    if (!tbody) return;
+
+    try {
+        const [statsRes, logsRes] = await Promise.all([
+            fetchEvsStats(),
+            fetchEvsTurnovers(state.evsFilters)
+        ]);
+
+        if (statsRes && statsRes.success && statsRes.data) {
+            state.evsStats = statsRes.data;
+            const s = statsRes.data;
+            const dirtyEl = document.getElementById("evsKpiDirty");
+            const cleanEl = document.getElementById("evsKpiCleaning");
+            const inspEl = document.getElementById("evsKpiInspection");
+            const avgEl = document.getElementById("evsKpiAvgTurnover");
+            const slaEl = document.getElementById("evsKpiSlaRate");
+            const breachSub = document.getElementById("evsKpiBreachesSub");
+            const badge = document.getElementById("tabBadgeEvs");
+
+            if (dirtyEl) dirtyEl.textContent = s.pending_dirty;
+            if (cleanEl) cleanEl.textContent = s.in_progress;
+            if (inspEl) inspEl.textContent = s.pending_inspection;
+            if (avgEl) avgEl.textContent = `${s.avg_turnover_minutes || 0} mins`;
+            if (slaEl) slaEl.textContent = `${s.sla_compliance_rate || 100}%`;
+            if (breachSub) breachSub.textContent = `${s.active_sla_breaches || 0} active breaches`;
+            if (badge) {
+                badge.textContent = s.active_turnovers || 0;
+                badge.style.display = (s.active_turnovers > 0) ? "inline-block" : "none";
+            }
+        }
+
+        if (logsRes && logsRes.success) {
+            state.evsLogs = logsRes.data || [];
+            renderEvsTable(state.evsLogs);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: #ef4444;">${logsRes?.message || "Failed to load turnover pipeline."}</td></tr>`;
+        }
+    } catch (err) {
+        console.error("Failed to load EVS data:", err);
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: #ef4444;">Network error while retrieving EVS logs.</td></tr>`;
+    }
+}
+
+function renderEvsTable(logs) {
+    const tbody = document.getElementById("evsTableBody");
+    if (!tbody) return;
+
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="margin-bottom: 8px; opacity: 0.6;"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+                    <div>No bed turnovers found matching the selected filter criteria.</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = logs.map((log) => {
+        // Priority Badge
+        let priorityClass = "evs-priority-routine";
+        let priorityIcon = "⚪";
+        if (log.cleaning_priority === "STAT") {
+            priorityClass = "evs-priority-stat";
+            priorityIcon = "🚨";
+        } else if (log.cleaning_priority === "Urgent") {
+            priorityClass = "evs-priority-urgent";
+            priorityIcon = "⚠️";
+        }
+
+        // Stage Badge
+        let stageBadge = "";
+        if (log.status === "Vacated / Dirty") {
+            stageBadge = `<span class="evs-stage-badge evs-stage-dirty"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#b45309;"></span> Vacated / Dirty</span>`;
+        } else if (log.status === "Cleaning In-Progress") {
+            stageBadge = `<span class="evs-stage-badge evs-stage-cleaning"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#1d4ed8;"></span> Cleaning In-Progress</span>`;
+        } else if (log.status === "Sanitized / Pending Inspection") {
+            stageBadge = `<span class="evs-stage-badge evs-stage-inspection"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#6d28d9;"></span> Pending Inspection</span>`;
+        } else if (log.status === "Completed / Available") {
+            stageBadge = `<span class="evs-stage-badge evs-stage-completed"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#047857;"></span> Released / Available</span>`;
+        } else if (log.status === "Inspection Failed") {
+            stageBadge = `<span class="evs-stage-badge evs-stage-failed"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#b91c1c;"></span> Inspection Failed</span>`;
+        } else {
+            stageBadge = `<span class="rm-badge">${escapeHtml(log.status)}</span>`;
+        }
+
+        // SLA calculation
+        const elapsedMins = log.elapsed_turnover_minutes || 0;
+        const targetSla = log.target_sla_minutes || 45;
+        let slaHtml = "";
+
+        if (log.status === "Completed / Available") {
+            const actualDuration = log.turnover_duration_minutes || elapsedMins;
+            if (log.is_sla_breached) {
+                slaHtml = `
+                    <div style="font-weight: 700; color: #ef4444; font-size: 13px;">${actualDuration} mins</div>
+                    <span class="rm-badge" style="background: rgba(239, 68, 68, 0.15); color: #b91c1c;">SLA BREACHED (+${actualDuration - targetSla}m)</span>
+                `;
+            } else {
+                slaHtml = `
+                    <div style="font-weight: 700; color: #10b981; font-size: 13px;">${actualDuration} mins</div>
+                    <span class="rm-badge" style="background: rgba(16, 185, 129, 0.15); color: #047857;">MET SLA (Target: ${targetSla}m)</span>
+                `;
+            }
+        } else {
+            if (log.is_sla_breached) {
+                slaHtml = `
+                    <div style="font-weight: 700; color: #ef4444; font-size: 13px;">${elapsedMins} mins elapsed</div>
+                    <span class="rm-badge" style="background: rgba(239, 68, 68, 0.15); color: #b91c1c;">BREACHED (+${elapsedMins - targetSla}m)</span>
+                `;
+            } else {
+                const remaining = Math.max(0, targetSla - elapsedMins);
+                slaHtml = `
+                    <div style="font-weight: 700; color: var(--text-primary); font-size: 13px;">${elapsedMins} mins elapsed</div>
+                    <span class="rm-badge" style="background: rgba(59, 130, 246, 0.15); color: #1d4ed8;">${remaining}m remaining (SLA: ${targetSla}m)</span>
+                `;
+            }
+        }
+
+        // Actions
+        let actionButtons = "";
+        if (log.status === "Vacated / Dirty") {
+            actionButtons += `
+                <button type="button" class="rm-btn rm-btn-secondary btn-evs-assign" data-id="${log.id}" style="padding: 4px 8px; font-size: 11px;">
+                    👤 Assign
+                </button>
+                <button type="button" class="rm-btn rm-btn-primary btn-evs-start" data-id="${log.id}" style="padding: 4px 8px; font-size: 11px;">
+                    ▶️ Start
+                </button>
+            `;
+        } else if (log.status === "Cleaning In-Progress") {
+            actionButtons += `
+                <button type="button" class="rm-btn rm-btn-success btn-evs-complete" data-id="${log.id}" style="padding: 4px 8px; font-size: 11px;">
+                    ✅ Complete
+                </button>
+            `;
+        } else if (log.status === "Sanitized / Pending Inspection" || log.status === "Inspection Failed") {
+            actionButtons += `
+                <button type="button" class="rm-btn rm-btn-accent btn-evs-inspect" data-id="${log.id}" style="padding: 4px 8px; font-size: 11px;">
+                    🔬 Inspect & Release
+                </button>
+            `;
+        }
+
+        actionButtons += `
+            <button type="button" class="rm-btn btn-evs-detail" data-id="${log.id}" title="Audit trail & timestamps" style="padding: 4px 8px; font-size: 11px;">
+                📋 Info
+            </button>
+        `;
+
+        return `
+            <tr>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+                        <span class="${priorityClass}">${priorityIcon} ${escapeHtml(log.cleaning_priority)}</span>
+                    </div>
+                    <div style="font-family: monospace; font-size: 12px; font-weight: 700; color: var(--text-primary);">${escapeHtml(log.turnover_number)}</div>
+                </td>
+                <td>
+                    <div style="font-weight: 700; font-size: 13.5px; color: var(--text-primary);">${escapeHtml(log.bed_number)}</div>
+                    <div style="font-size: 11.5px; color: var(--text-muted);">
+                        ${escapeHtml(log.ward_name || "General Ward")} &bull; ${escapeHtml(log.room_number || log.bed_room_number || "Room")}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(log.building_name || "")}</div>
+                </td>
+                <td>
+                    <div style="font-size: 12px; font-weight: 600;">${escapeHtml(log.vacated_at ? new Date(log.vacated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently")}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(log.vacated_at ? new Date(log.vacated_at).toLocaleDateString() : "")}</div>
+                    ${log.patient_name ? `<div style="font-size: 11px; color: var(--accent); margin-top: 2px;">Prev: ${escapeHtml(log.patient_name)}</div>` : ""}
+                </td>
+                <td>
+                    ${stageBadge}
+                    ${log.notes ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; max-width: 220px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${escapeHtml(log.notes)}">${escapeHtml(log.notes)}</div>` : ""}
+                </td>
+                <td>
+                    <div style="font-weight: 600; font-size: 12.5px;">${escapeHtml(log.assigned_evs_staff_name || log.cleaned_by || "Unassigned")}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(log.cleaning_type || "Routine Turnover")}</div>
+                    ${log.cleaned_by && log.cleaned_by !== log.assigned_evs_staff_name ? `<div style="font-size: 10.5px; color: var(--text-muted);">Cleaned by: ${escapeHtml(log.cleaned_by)}</div>` : ""}
+                </td>
+                <td>
+                    ${slaHtml}
+                </td>
+                <td style="text-align: right;">
+                    <div style="display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;">
+                        ${actionButtons}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    // Wire action click handlers
+    tbody.querySelectorAll(".btn-evs-assign").forEach((btn) => {
+        btn.addEventListener("click", () => openEvsAssignModal(parseInt(btn.getAttribute("data-id"))));
+    });
+    tbody.querySelectorAll(".btn-evs-start").forEach((btn) => {
+        btn.addEventListener("click", () => openEvsStartModal(parseInt(btn.getAttribute("data-id"))));
+    });
+    tbody.querySelectorAll(".btn-evs-complete").forEach((btn) => {
+        btn.addEventListener("click", () => openEvsCompleteModal(parseInt(btn.getAttribute("data-id"))));
+    });
+    tbody.querySelectorAll(".btn-evs-inspect").forEach((btn) => {
+        btn.addEventListener("click", () => openEvsInspectModal(parseInt(btn.getAttribute("data-id"))));
+    });
+    tbody.querySelectorAll(".btn-evs-detail").forEach((btn) => {
+        btn.addEventListener("click", () => openEvsDetailModal(parseInt(btn.getAttribute("data-id"))));
+    });
+}
+
+// -----------------------------------------------------------------------------
+// EVS Modal Handlers
+// -----------------------------------------------------------------------------
+
+async function openEvsInitiateModal() {
+    const modal = document.getElementById("rmModalEvsInitiate");
+    const bedSelect = document.getElementById("evsInitiateBedSelect");
+    if (!modal || !bedSelect) return;
+
+    bedSelect.innerHTML = `<option value="">Loading beds...</option>`;
+    modal.classList.add("open");
+
+    try {
+        const res = await fetchBeds({});
+        if (res && res.success && res.data) {
+            bedSelect.innerHTML = `<option value="">-- Select Vacated / Dirty Bed --</option>` +
+                res.data.map((b) => `<option value="${b.id}" ${b.status === "Dirty / Turnover" ? "selected" : ""}>Bed ${escapeHtml(b.bed_number)} (${escapeHtml(b.room_number)} - ${escapeHtml(b.ward_name)}) [${escapeHtml(b.status)}]</option>`).join("");
+        }
+    } catch (e) {
+        console.error("Failed to populate beds:", e);
+        bedSelect.innerHTML = `<option value="">Failed to load beds</option>`;
+    }
+}
+
+async function handleEvsInitiateSubmit() {
+    const bedId = document.getElementById("evsInitiateBedSelect")?.value;
+    const priority = document.getElementById("evsInitiatePriority")?.value || "Routine";
+    const cleaningType = document.getElementById("evsInitiateCleaningType")?.value || "Terminal Cleaning";
+    const notes = document.getElementById("evsInitiateNotes")?.value || "";
+
+    if (!bedId) {
+        showToast("Please select a hospital bed.", "error");
+        return;
+    }
+
+    const btn = document.getElementById("btnSaveEvsInitiate");
+    if (btn) { btn.disabled = true; btn.textContent = "Logging..."; }
+
+    try {
+        const res = await createEvsTurnover({
+            bed_id: parseInt(bedId),
+            cleaning_priority: priority,
+            cleaning_type: cleaningType,
+            notes: notes
+        });
+
+        if (res && res.success) {
+            showToast(res.message || "Bed turnover initiated successfully.", "success");
+            document.getElementById("rmModalEvsInitiate")?.classList.remove("open");
+            await loadEvsData();
+            await loadAllData();
+        } else {
+            showToast(res?.message || "Failed to initiate turnover.", "error");
+        }
+    } catch (err) {
+        console.error("Error creating turnover:", err);
+        showToast("Error initiating bed turnover.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Log Turnover"; }
+    }
+}
+
+function openEvsAssignModal(turnoverId) {
+    const log = state.evsLogs.find((l) => l.id == turnoverId);
+    if (!log) return;
+
+    document.getElementById("evsAssignTurnoverId").value = turnoverId;
+    document.getElementById("evsAssignBedBanner").innerHTML = `
+        <strong>Bed:</strong> ${escapeHtml(log.bed_number)} (${escapeHtml(log.ward_name)} - ${escapeHtml(log.room_number)}) &bull; 
+        <strong>Turnover:</strong> ${escapeHtml(log.turnover_number)}
+    `;
+    document.getElementById("evsAssignStaffName").value = log.assigned_evs_staff_name || "";
+    document.getElementById("evsAssignPriority").value = log.cleaning_priority || "Routine";
+    document.getElementById("evsAssignSla").value = log.target_sla_minutes || 45;
+    document.getElementById("evsAssignNotes").value = log.notes || "";
+
+    document.getElementById("rmModalEvsAssign")?.classList.add("open");
+}
+
+async function handleEvsAssignSubmit() {
+    const id = document.getElementById("evsAssignTurnoverId")?.value;
+    const staffName = document.getElementById("evsAssignStaffName")?.value?.trim();
+    const priority = document.getElementById("evsAssignPriority")?.value;
+    const sla = document.getElementById("evsAssignSla")?.value;
+    const notes = document.getElementById("evsAssignNotes")?.value;
+
+    if (!staffName) {
+        showToast("Please provide staff name.", "error");
+        return;
+    }
+
+    const btn = document.getElementById("btnSaveEvsAssign");
+    if (btn) { btn.disabled = true; btn.textContent = "Assigning..."; }
+
+    try {
+        const res = await assignEvsStaff(parseInt(id), {
+            staff_name: staffName,
+            cleaning_priority: priority,
+            target_sla_minutes: parseInt(sla) || 45,
+            notes: notes
+        });
+
+        if (res && res.success) {
+            showToast(res.message, "success");
+            document.getElementById("rmModalEvsAssign")?.classList.remove("open");
+            await loadEvsData();
+        } else {
+            showToast(res?.message || "Failed to assign staff.", "error");
+        }
+    } catch (e) {
+        console.error("Assign error:", e);
+        showToast("Error assigning staff.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Assign Staff"; }
+    }
+}
+
+function openEvsStartModal(turnoverId) {
+    const log = state.evsLogs.find((l) => l.id == turnoverId);
+    if (!log) return;
+
+    document.getElementById("evsStartTurnoverId").value = turnoverId;
+    document.getElementById("evsStartBedBanner").innerHTML = `
+        <strong>Bed:</strong> ${escapeHtml(log.bed_number)} &bull; <strong>Turnover:</strong> ${escapeHtml(log.turnover_number)}<br />
+        <strong>Cleaning Type:</strong> ${escapeHtml(log.cleaning_type)} &bull; <strong>Priority:</strong> ${escapeHtml(log.cleaning_priority)}
+    `;
+    document.getElementById("evsStartCleanedBy").value = log.assigned_evs_staff_name || (state.user?.name || "EVS Staff");
+
+    document.getElementById("rmModalEvsStart")?.classList.add("open");
+}
+
+async function handleEvsStartSubmit() {
+    const id = document.getElementById("evsStartTurnoverId")?.value;
+    const cleanedBy = document.getElementById("evsStartCleanedBy")?.value?.trim();
+
+    if (!cleanedBy) {
+        showToast("Please provide staff name.", "error");
+        return;
+    }
+
+    const btn = document.getElementById("btnSaveEvsStart");
+    if (btn) { btn.disabled = true; btn.textContent = "Starting..."; }
+
+    try {
+        const res = await startEvsCleaning(parseInt(id), { cleaned_by: cleanedBy });
+        if (res && res.success) {
+            showToast(res.message, "success");
+            document.getElementById("rmModalEvsStart")?.classList.remove("open");
+            await loadEvsData();
+        } else {
+            showToast(res?.message || "Failed to start cleaning.", "error");
+        }
+    } catch (e) {
+        console.error("Start error:", e);
+        showToast("Error starting cleaning.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Confirm Start Cleaning"; }
+    }
+}
+
+function openEvsCompleteModal(turnoverId) {
+    const log = state.evsLogs.find((l) => l.id == turnoverId);
+    if (!log) return;
+
+    document.getElementById("evsCompleteTurnoverId").value = turnoverId;
+    document.getElementById("evsCompleteBedBanner").innerHTML = `
+        <strong>Bed:</strong> ${escapeHtml(log.bed_number)} &bull; <strong>Turnover:</strong> ${escapeHtml(log.turnover_number)}<br />
+        <strong>Cleaning Started:</strong> ${log.cleaning_started_at ? new Date(log.cleaning_started_at).toLocaleTimeString() : "Recently"} &bull; 
+        <strong>Current Elapsed:</strong> ${log.elapsed_cleaning_minutes || 0} mins
+    `;
+    document.getElementById("evsCompleteCleanedBy").value = log.cleaned_by || log.assigned_evs_staff_name || (state.user?.name || "");
+    document.getElementById("evsCompleteNotes").value = log.notes || "";
+
+    // Reset checkboxes to checked
+    ["chkLinen", "chkSurfaces", "chkRestroom", "chkFloor", "chkTrash", "chkTerminal"].forEach((chkId) => {
+        const el = document.getElementById(chkId);
+        if (el) el.checked = true;
+    });
+
+    document.getElementById("rmModalEvsComplete")?.classList.add("open");
+}
+
+async function handleEvsCompleteSubmit() {
+    const id = document.getElementById("evsCompleteTurnoverId")?.value;
+    const cleanedBy = document.getElementById("evsCompleteCleanedBy")?.value?.trim();
+    const notes = document.getElementById("evsCompleteNotes")?.value;
+
+    if (!cleanedBy) {
+        showToast("Staff name is required.", "error");
+        return;
+    }
+
+    const checklist = {
+        linens_stripped_and_replaced: document.getElementById("chkLinen")?.checked || false,
+        high_touch_surfaces_disinfected: document.getElementById("chkSurfaces")?.checked || false,
+        restroom_sanitized: document.getElementById("chkRestroom")?.checked || false,
+        floor_disinfectant_mopped: document.getElementById("chkFloor")?.checked || false,
+        waste_and_biohazard_disposed: document.getElementById("chkTrash")?.checked || false,
+        terminal_sanitation_uv_cycle: document.getElementById("chkTerminal")?.checked || false
+    };
+
+    const btn = document.getElementById("btnSaveEvsComplete");
+    if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+
+    try {
+        const res = await completeEvsCleaning(parseInt(id), {
+            checklist: checklist,
+            cleaned_by: cleanedBy,
+            notes: notes
+        });
+
+        if (res && res.success) {
+            showToast(res.message, "success");
+            document.getElementById("rmModalEvsComplete")?.classList.remove("open");
+            await loadEvsData();
+        } else {
+            showToast(res?.message || "Failed to complete cleaning.", "error");
+        }
+    } catch (e) {
+        console.error("Complete error:", e);
+        showToast("Error completing cleaning.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Submit Sanitization & Request Inspection"; }
+    }
+}
+
+function openEvsInspectModal(turnoverId) {
+    const log = state.evsLogs.find((l) => l.id == turnoverId);
+    if (!log) return;
+
+    document.getElementById("evsInspectTurnoverId").value = turnoverId;
+    document.getElementById("evsInspectBedBanner").innerHTML = `
+        <strong>Bed:</strong> ${escapeHtml(log.bed_number)} &bull; <strong>Turnover:</strong> ${escapeHtml(log.turnover_number)}<br />
+        <strong>Cleaned By:</strong> ${escapeHtml(log.cleaned_by || log.assigned_evs_staff_name || "Housekeeping Staff")}<br />
+        <strong>Total Elapsed:</strong> ${log.elapsed_turnover_minutes || 0} mins (SLA: ${log.target_sla_minutes || 45} mins)
+    `;
+    document.getElementById("evsInspectDecision").value = "Passed";
+    document.getElementById("evsInspectorName").value = state.user?.name ? `${state.user.name} (${state.user.role || 'Staff'})` : "Charge Nurse / EVS Supervisor";
+    document.getElementById("evsInspectNotes").value = "";
+
+    document.getElementById("rmModalEvsInspect")?.classList.add("open");
+}
+
+async function handleEvsInspectSubmit() {
+    const id = document.getElementById("evsInspectTurnoverId")?.value;
+    const decision = document.getElementById("evsInspectDecision")?.value;
+    const inspector = document.getElementById("evsInspectorName")?.value?.trim();
+    const notes = document.getElementById("evsInspectNotes")?.value;
+
+    if (!inspector) {
+        showToast("Inspector name is required.", "error");
+        return;
+    }
+
+    const btn = document.getElementById("btnSaveEvsInspect");
+    if (btn) { btn.disabled = true; btn.textContent = "Submitting Sign-Off..."; }
+
+    try {
+        const res = await inspectEvsTurnover(parseInt(id), {
+            inspection_status: decision,
+            inspector_name: inspector,
+            notes: notes
+        });
+
+        if (res && res.success) {
+            showToast(res.message, decision === "Passed" ? "success" : "warning");
+            document.getElementById("rmModalEvsInspect")?.classList.remove("open");
+            await loadEvsData();
+            await loadAllData();
+            if (state.activeTab === "beds") await loadBedsData();
+        } else {
+            showToast(res?.message || "Failed to submit inspection.", "error");
+        }
+    } catch (e) {
+        console.error("Inspect error:", e);
+        showToast("Error submitting inspection.", "error");
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Sign-Off & Submit"; }
+    }
+}
+
+async function openEvsDetailModal(turnoverId) {
+    const modal = document.getElementById("rmModalEvsDetail");
+    const body = document.getElementById("evsDetailBody");
+    if (!modal || !body) return;
+
+    body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);">Loading details...</div>`;
+    modal.classList.add("open");
+
+    try {
+        const res = await fetchEvsTurnoverDetail(turnoverId);
+        if (res && res.success && res.data) {
+            const d = res.data;
+            const checklist = d.checklist || {};
+            const checklistItems = Object.entries(checklist).map(([key, val]) => `
+                <li style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-bottom: 4px;">
+                    <span style="color: ${val ? '#10b981' : '#ef4444'}; font-weight: bold;">${val ? '✓' : '✗'}</span>
+                    <span>${escapeHtml(key.replace(/_/g, ' '))}</span>
+                </li>
+            `).join("");
+
+            body.innerHTML = `
+                <div style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 16px; font-weight: 800; color: var(--text-primary);">${escapeHtml(d.turnover_number)}</span>
+                        <span class="rm-badge">${escapeHtml(d.status)}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px;">
+                        <div><strong>Bed:</strong> ${escapeHtml(d.bed_number)} (${escapeHtml(d.bed_type)})</div>
+                        <div><strong>Ward & Room:</strong> ${escapeHtml(d.ward_name)} - ${escapeHtml(d.room_number)}</div>
+                        <div><strong>Priority:</strong> ${escapeHtml(d.cleaning_priority)}</div>
+                        <div><strong>Cleaning Type:</strong> ${escapeHtml(d.cleaning_type)}</div>
+                        <div><strong>Target SLA:</strong> ${d.target_sla_minutes} mins</div>
+                        <div><strong>SLA Breached:</strong> <span style="font-weight:700; color:${d.is_sla_breached ? '#ef4444' : '#10b981'};">${d.is_sla_breached ? 'YES' : 'NO'}</span></div>
+                    </div>
+                </div>
+
+                <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">Operational Timeline</div>
+                <div style="border-left: 2px solid var(--border-color); margin-left: 10px; padding-left: 14px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; font-size: 12px;">
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-primary);">Bed Vacated</div>
+                        <div style="color: var(--text-muted);">${d.vacated_at ? new Date(d.vacated_at).toLocaleString() : 'N/A'}</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-primary);">Staff Assigned</div>
+                        <div style="color: var(--text-muted);">${escapeHtml(d.assigned_evs_staff_name || 'Unassigned')}</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-primary);">Cleaning Started</div>
+                        <div style="color: var(--text-muted);">${d.cleaning_started_at ? new Date(d.cleaning_started_at).toLocaleString() : 'Not started'} ${d.cleaned_by ? `(by ${escapeHtml(d.cleaned_by)})` : ''}</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-primary);">Cleaning Completed & Sanitized</div>
+                        <div style="color: var(--text-muted);">${d.cleaning_completed_at ? new Date(d.cleaning_completed_at).toLocaleString() : 'Pending'} ${d.cleaning_duration_minutes ? `(${d.cleaning_duration_minutes} mins)` : ''}</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-primary);">Inspection & Release</div>
+                        <div style="color: var(--text-muted);">${d.released_at ? `${new Date(d.released_at).toLocaleString()} (Released by ${escapeHtml(d.inspector_name || 'N/A')})` : 'Pending'}</div>
+                    </div>
+                </div>
+
+                ${checklistItems ? `
+                    <div style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">Sanitization Checklist Verification</div>
+                    <ul style="list-style: none; padding: 0; margin: 0 0 16px 0; background: var(--bg-surface-alt); border-radius: 6px; padding: 12px; border: 1px solid var(--border-color);">
+                        ${checklistItems}
+                    </ul>
+                ` : ''}
+
+                ${d.notes ? `
+                    <div style="font-size: 13px; font-weight: 700; margin-bottom: 4px;">Notes & Observations</div>
+                    <div style="background: var(--bg-surface-alt); border-radius: 6px; padding: 10px; font-size: 12.5px; border: 1px solid var(--border-color);">
+                        ${escapeHtml(d.notes)}
+                    </div>
+                ` : ''}
+            `;
+        } else {
+            body.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444;">Failed to load detail.</div>`;
+        }
+    } catch (e) {
+        console.error("Detail error:", e);
+        body.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444;">Error retrieving turnover detail.</div>`;
+    }
+}
+

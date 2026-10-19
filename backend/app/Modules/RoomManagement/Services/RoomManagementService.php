@@ -519,6 +519,15 @@ class RoomManagementService
             $this->syncRoomStatus((int)$bed['room_id']);
         }
 
+        if ($status === 'Dirty / Turnover') {
+            try {
+                (new BedTurnoverService())->initiateTurnover($id);
+            } catch (\Throwable $e) {
+                // Log non-fatal error
+                error_log("Failed to auto-initiate bed turnover: " . $e->getMessage());
+            }
+        }
+
         return ['success' => true, 'message' => "Bed status updated to {$status}."];
     }
 

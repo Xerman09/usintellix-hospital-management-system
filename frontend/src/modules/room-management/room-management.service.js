@@ -118,3 +118,73 @@ export async function deleteBed(id) {
 export async function fetchHospitalWards() {
     return await api("/inpatient-admissions/wards");
 }
+
+// =============================================================================
+// EVS BED TURNOVER PIPELINE API
+// =============================================================================
+
+export async function fetchEvsTurnovers(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.status) params.set("status", filters.status);
+    if (filters.stage) params.set("stage", filters.stage);
+    if (filters.active_only) params.set("active_only", "1");
+    if (filters.priority) params.set("priority", filters.priority);
+    if (filters.cleaning_type) params.set("cleaning_type", filters.cleaning_type);
+    if (filters.ward_id) params.set("ward_id", filters.ward_id);
+    if (filters.building_id) params.set("building_id", filters.building_id);
+    if (filters.search) params.set("search", filters.search);
+
+    const qs = params.toString();
+    return await api(`/room-management/evs/turnovers${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchEvsStats() {
+    return await api("/room-management/evs/stats");
+}
+
+export async function fetchEvsTurnoverDetail(id) {
+    return await api(`/room-management/evs/turnover/detail?id=${id}`);
+}
+
+export async function createEvsTurnover(data) {
+    return await api("/room-management/evs/turnovers", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}
+
+export async function assignEvsStaff(id, data) {
+    return await api("/room-management/evs/turnover/assign", {
+        method: "POST",
+        body: JSON.stringify({ id, ...data })
+    });
+}
+
+export async function startEvsCleaning(id, data = {}) {
+    return await api("/room-management/evs/turnover/start", {
+        method: "POST",
+        body: JSON.stringify({ id, ...data })
+    });
+}
+
+export async function completeEvsCleaning(id, data) {
+    return await api("/room-management/evs/turnover/complete", {
+        method: "POST",
+        body: JSON.stringify({ id, ...data })
+    });
+}
+
+export async function inspectEvsTurnover(id, data) {
+    return await api("/room-management/evs/turnover/inspect", {
+        method: "POST",
+        body: JSON.stringify({ id, ...data })
+    });
+}
+
+export async function cancelEvsTurnover(id, reason) {
+    return await api("/room-management/evs/turnover/cancel", {
+        method: "POST",
+        body: JSON.stringify({ id, reason })
+    });
+}
+

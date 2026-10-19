@@ -528,6 +528,21 @@ class InpatientAdmissionsService
             ]);
 
             $owns ? $db->commit() : $db->exec('RELEASE SAVEPOINT transfer_patient');
+
+            // Trigger EVS bed turnover for vacated source bed
+            try {
+                (new \App\Modules\RoomManagement\Services\BedTurnoverService())->initiateTurnover(
+                    $fromBedId,
+                    $admissionId,
+                    null,
+                    'Routine',
+                    'Routine Turnover',
+                    "Patient transfer turnover from bed {$fromBedId} to {$toBedId}."
+                );
+            } catch (\Throwable $evsEx) {
+                error_log("EVS transfer turnover trigger error: " . $evsEx->getMessage());
+            }
+
             return $this->getAdmissionDetails($admissionId);
         } catch (Exception $e) {
             $owns ? $db->rollBack() : $db->exec('ROLLBACK TO SAVEPOINT transfer_patient');
@@ -629,6 +644,28 @@ class InpatientAdmissionsService
             $updBed->execute(['bed_id' => $bedId]);
 
             $db->commit();
+
+            // Automatically trigger EVS turnover pipeline for housekeeping
+            try {
+                $priority = 'Routine';
+                $cleaningType = 'Terminal Cleaning';
+                $isolation = $adm['isolation_precautions'] ?? 'Standard';
+                if ($isolation !== 'Standard') {
+                    $cleaningType = 'Isolation Deep Sanitize';
+                    $priority = 'Urgent';
+                }
+                (new \App\Modules\RoomManagement\Services\BedTurnoverService())->initiateTurnover(
+                    $bedId,
+                    $admissionId,
+                    $userId,
+                    $priority,
+                    $cleaningType,
+                    "Automated discharge turnover for {$adm['patient_name']}. Precautions: {$isolation}."
+                );
+            } catch (\Throwable $evsEx) {
+                error_log("EVS discharge turnover trigger error: " . $evsEx->getMessage());
+            }
+
             return $this->getAdmissionDetails($admissionId);
         } catch (Exception $e) {
             $db->rollBack();

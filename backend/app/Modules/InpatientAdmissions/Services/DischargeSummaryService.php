@@ -330,6 +330,28 @@ class DischargeSummaryService
 
             $db->commit();
 
+            if ($finalize && !empty($bedId)) {
+                try {
+                    $priority = 'Routine';
+                    $cleaningType = 'Terminal Cleaning';
+                    $isolation = $adm['isolation_precautions'] ?? 'Standard';
+                    if ($isolation !== 'Standard') {
+                        $cleaningType = 'Isolation Deep Sanitize';
+                        $priority = 'Urgent';
+                    }
+                    (new \App\Modules\RoomManagement\Services\BedTurnoverService())->initiateTurnover(
+                        $bedId,
+                        $admissionId,
+                        $userId,
+                        $priority,
+                        $cleaningType,
+                        "Clinical discharge finalization for {$adm['patient_name']}. Precautions: {$isolation}."
+                    );
+                } catch (\Throwable $evsEx) {
+                    error_log("EVS discharge summary turnover trigger error: " . $evsEx->getMessage());
+                }
+            }
+
             return [
                 'success' => true,
                 'message' => $finalize ? 'Clinical discharge summary finalized, signed, and patient discharged.' : 'Discharge summary draft saved successfully.',

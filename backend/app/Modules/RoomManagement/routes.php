@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\RoomManagement\Controllers\RoomManagementController;
+use App\Modules\RoomManagement\Controllers\BedTurnoverController;
 
 /** @var \App\Core\Router $router */
 
@@ -76,3 +77,41 @@ $router->delete('/room-management/beds', [RoomManagementController::class, 'beds
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin']]
 ]);
+
+// 5. Environmental Services (EVS) / Bed Turnover Pipeline
+$router->get('/room-management/evs/turnovers', [BedTurnoverController::class, 'index'], [
+    AuthMiddleware::class
+]);
+
+$router->get('/room-management/evs/stats', [BedTurnoverController::class, 'stats'], [
+    AuthMiddleware::class
+]);
+
+$router->get('/room-management/evs/turnover/detail', [BedTurnoverController::class, 'detail'], [
+    AuthMiddleware::class
+]);
+
+$router->post('/room-management/evs/turnovers', [BedTurnoverController::class, 'store'], [
+    AuthMiddleware::class
+]);
+
+$router->post('/room-management/evs/turnover/assign', [BedTurnoverController::class, 'assign'], [
+    AuthMiddleware::class
+]);
+
+$router->post('/room-management/evs/turnover/start', [BedTurnoverController::class, 'start'], [
+    AuthMiddleware::class
+]);
+
+$router->post('/room-management/evs/turnover/complete', [BedTurnoverController::class, 'complete'], [
+    AuthMiddleware::class
+]);
+
+$router->post('/room-management/evs/turnover/inspect', [BedTurnoverController::class, 'inspect'], [
+    AuthMiddleware::class
+]);
+
+$router->post('/room-management/evs/turnover/cancel', [BedTurnoverController::class, 'cancel'], [
+    AuthMiddleware::class
+]);
+
