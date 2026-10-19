@@ -11,6 +11,13 @@ use Throwable;
 
 class AppointmentService
 {
+    private DoctorRosterAvailabilityService $rosterService;
+
+    public function __construct(?DoctorRosterAvailabilityService $rosterService = null)
+    {
+        $this->rosterService = $rosterService ?? new DoctorRosterAvailabilityService();
+    }
+
     /**
      * Hard safety ceiling on how many rows a single recurring series
      * can materialize, regardless of how far out the until-date is.
@@ -415,63 +422,13 @@ class AppointmentService
     }
 
     /**
-     * Search a provider's fixed 8:00 AM-5:00 PM window (30-minute slots)
-     * across a range of days for slots that aren't already booked. There
-     * is no real provider working-hours/schedule concept in this system —
-     * this business-hours window is a hardcoded assumption applied
-     * uniformly to every provider.
+     * Search available appointment slots across a range of days
+     * binding to clinic_operating_schedules for slot intervals,
+     * operating hours, break times, non-duty days, and emergency blocks.
      */
     public function findAvailableSlots(int $providerId, string $startDate, int $days): array
     {
-        $slotTimes = [];
-
-        for ($minutes = 8 * 60; $minutes < 17 * 60; $minutes += 30) {
-            $slotTimes[] = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
-        }
-
-        $start = new \DateTimeImmutable($startDate);
-        $results = [];
-
-        for ($i = 0; $i < $days; $i++) {
-            $date = $start->add(new \DateInterval("P{$i}D"))->format('Y-m-d');
-
-            $stmt = Database::connection()->prepare(
-                "SELECT appointment_time, is_all_day FROM appointments
-                 WHERE provider_id = :provider_id
-                   AND appointment_date = :appointment_date
-                   AND status != 'cancelled' AND deleted_at IS NULL"
-            );
-
-            $stmt->execute([
-                'provider_id' => $providerId,
-                'appointment_date' => $date
-            ]);
-
-            $dayAppointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $blockedWholeDay = false;
-            $bookedTimes = [];
-
-            foreach ($dayAppointments as $appointment) {
-                if ((int) $appointment['is_all_day'] === 1) {
-                    $blockedWholeDay = true;
-                    break;
-                }
-
-                $bookedTimes[] = substr($appointment['appointment_time'], 0, 5);
-            }
-
-            $slots = array_map(
-                fn($time) => [
-                    'time' => $time,
-                    'available' => !$blockedWholeDay && !in_array($time, $bookedTimes, true)
-                ],
-                $slotTimes
-            );
-
-            $results[] = ['date' => $date, 'slots' => $slots];
-        }
-
-        return $results;
+        return $this->rosterService->findAvailableSlots($providerId, $startDate, $days);
     }
 
     /**
@@ -578,6 +535,12 @@ class AppointmentService
             $errors['appointment_time'] = 'This time slot is already booked for the selected provider.';
         }
 
+        // Enforce Doctor Roster Availability & Clinic Operating Schedules
+        $rosterErrors = $this->rosterService->validateDoctorAvailability($data, $excludeId);
+        if (!empty($rosterErrors)) {
+            $errors = array_merge($errors, $rosterErrors);
+        }
+
         return $errors;
     }
 
@@ -635,6 +598,18 @@ class AppointmentService
         $providerId = (int) $data['provider_id'];
 
         foreach ($occurrenceDates as $date) {
+            $occData = $data;
+            $occData['appointment_date'] = $date;
+            $rosterErrors = $this->rosterService->validateDoctorAvailability($occData, null);
+            if (!empty($rosterErrors)) {
+                $firstErr = reset($rosterErrors);
+                return [
+                    'success' => false,
+                    'message' => "Cannot schedule recurring appointment — {$date}: {$firstErr}",
+                    'errors'  => ['recurrence_until_date' => "Conflict on {$date}: {$firstErr}"]
+                ];
+            }
+
             if ($this->checkDoubleBooking($providerId, $date, $time, null)) {
                 return [
                     'success' => false,
