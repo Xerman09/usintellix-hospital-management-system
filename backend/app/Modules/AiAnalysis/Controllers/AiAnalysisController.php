@@ -3,6 +3,8 @@
 namespace App\Modules\AiAnalysis\Controllers;
 
 use App\Core\Controller;
+use App\Core\Session;
+use App\Modules\MyChart\Services\PortalGuard;
 use App\Core\Request;
 
 class AiAnalysisController extends Controller
@@ -10,8 +12,14 @@ class AiAnalysisController extends Controller
     public function healthAssessment(): void
     {
         $request = new Request();
+        $user = Session::get('user');
         $patientId = $request->input('patient_id');
         $data = $request->input('data');
+
+        // Keep a portal user on their own record, like every other patient-facing route.
+        if (($user['role'] ?? '') === 'patient') {
+            $patientId = PortalGuard::patientFor($user);
+        }
 
         if (!$patientId || !$data) {
             $this->error('Patient ID and data are required.', 422);

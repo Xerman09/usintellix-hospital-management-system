@@ -5,6 +5,7 @@ namespace App\Modules\Disclosures\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\MyChart\Services\PortalGuard;
 use App\Modules\Disclosures\Services\DisclosureService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Providers\Services\ProviderService;
@@ -155,6 +156,12 @@ class DisclosureController extends Controller
         $request = new Request();
         $user = Session::get('user');
         $patientId = (int) $request->input('patient_id');
+
+        // A portal user reads their own accounting (or that of a patient they hold a
+        // proxy grant for) -- never one they simply name in the request.
+        if (($user['role'] ?? '') === 'patient') {
+            $patientId = (int) PortalGuard::patientFor($user);
+        }
 
         if (!$patientId) {
             $this->error('Patient ID is required for generating an Accounting of Disclosures report.', 422);

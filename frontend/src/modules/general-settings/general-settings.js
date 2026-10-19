@@ -2,7 +2,7 @@ import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTime
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
 import { setSystemTimezone, systemParts } from "../../core/timezone.js";
-import { setInactivityTimeoutMinutes } from "../../core/inactivity-guard.js";
+import { setInactivityTimeoutMinutes } from "../../core/inactivity-guard.js?v=4";
 
 let currentSettings = null;
 let rolesCatalog = [];

@@ -4,7 +4,7 @@ import { fetchHealthSummary } from "../health-records/health-records.service.js"
 import { fetchAllergies } from "../allergies/allergies.service.js";
 import { fetchPatientAllergies, addPatientAllergy, removePatientAllergy } from "../patient-allergies/patient-allergies.service.js?v=4";
 import { getUser } from "../../core/session.js?v=5";
-import { fetchPatientContactHistory } from "./patients.service.js";
+import { fetchPatientContactHistory } from "./patients.service.js?v=9";
 
 export function initPatientProfile(patient)
 {

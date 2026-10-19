@@ -20,7 +20,7 @@ import { HealthRemindersView } from "../health-reminders/health-reminders.view.j
 import { initHealthReminders } from "../health-reminders/health-reminders.js?v=5";
 import { fetchAccessiblePatients, switchPatient } from "../proxy-access/proxy-access.service.js";
 import { AddEmployeeView } from "../employees/add-employee.view.js?v=104";
-import { initAddEmployee } from "../employees/add-employee.js?v=104";
+import { initAddEmployee } from "../employees/add-employee.js?v=105";
 import { RoleManagementView } from "../role-management/role-management.view.js";
 import { initRoleManagement } from "../role-management/role-management.js";
 import { PatientsListView } from "../patients/patients-list.view.js?v=87";

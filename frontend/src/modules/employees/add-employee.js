@@ -386,6 +386,8 @@ async function loadEmployees(openModal, openSessionModal, openQuickStatusModal)
     renderRows(openModal, openSessionModal, openQuickStatusModal);
 }
 
+const NON_STAFF_ROLES = ["patient"];
+
 async function loadRoles()
 {
     const result = await fetchRoles();
@@ -393,7 +395,9 @@ async function loadRoles()
     if (!select) return;
 
     if (result.success) {
-        result.data.forEach((role) => {
+        // "patient" is a portal role, not a job: an employee given it would land in
+        // the patient portal with no patient record behind it.
+        result.data.filter((role) => !NON_STAFF_ROLES.includes(String(role.name).toLowerCase())).forEach((role) => {
             const option = document.createElement("option");
             option.value = role.id;
             option.textContent = role.name;

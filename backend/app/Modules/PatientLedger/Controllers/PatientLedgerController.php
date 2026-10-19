@@ -5,6 +5,7 @@ namespace App\Modules\PatientLedger\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\MyChart\Services\PortalAudit;
 use App\Modules\PatientLedger\Services\PatientLedgerService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Services\PatientAccessService;
@@ -55,6 +56,10 @@ class PatientLedgerController extends Controller
 
         $from = (string) $request->input('from', date('Y') . '-01-01');
         $to = (string) $request->input('to', date('Y-m-d'));
+
+        if (($user['role'] ?? '') === 'patient') {
+            PortalAudit::view($user, $patientId, 'Billing Ledger Viewed', "Ledger viewed for {$from} to {$to}.");
+        }
 
         $this->success($this->patientLedgerService->getLedger($patientId, $from, $to), 'Ledger retrieved successfully.');
     }

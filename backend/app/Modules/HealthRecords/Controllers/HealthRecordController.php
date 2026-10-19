@@ -5,6 +5,7 @@ namespace App\Modules\HealthRecords\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\MyChart\Services\PortalAudit;
 use App\Modules\HealthRecords\Services\HealthRecordSummaryService;
 use App\Modules\Patients\Services\PatientAccessService;
 use App\Modules\Providers\Services\ProviderService;
@@ -65,6 +66,10 @@ class HealthRecordController extends Controller
         }
 
         $summary = $this->summaryService->getSummary((int) $patient['id']);
+
+        if (($user['role'] ?? '') === 'patient') {
+            PortalAudit::view($user, (int) $patient['id'], 'Health Summary Viewed');
+        }
 
         $this->success($summary, 'Health record summary retrieved successfully.');
     }

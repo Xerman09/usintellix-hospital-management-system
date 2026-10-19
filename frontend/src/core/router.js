@@ -1,9 +1,9 @@
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=185";
-import { Dashboard } from "../modules/dashboard/dashboard.js?v=316";
+import { Dashboard } from "../modules/dashboard/dashboard.js?v=317";
 import { initLogin } from "../modules/auth/auth.js?v=115";
 import { AddEmployeeView } from "../modules/employees/add-employee.view.js?v=104";
-import { initAddEmployee } from "../modules/employees/add-employee.js?v=104";
+import { initAddEmployee } from "../modules/employees/add-employee.js?v=105";
 import { AddPatientView } from "../modules/patients/add-patient.view.js?v=104";
 import { initAddPatient } from "../modules/patients/add-patient.js?v=104";
 import { PrivacyPolicyView } from "../modules/privacy-policy/privacy-policy.view.js?v=4";
@@ -18,8 +18,8 @@ import { ClinicSchedulesView } from "../modules/clinic-schedules/clinic-schedule
 import { initClinicSchedules } from "../modules/clinic-schedules/clinic-schedules.js";
 import { DepartmentOrgView } from "../modules/department-org/department-org.view.js";
 import { initDepartmentOrg } from "../modules/department-org/department-org.js";
-import { HipaaAuditView } from "../modules/hipaa-audit/hipaa-audit.view.js";
-import { initHipaaAudit } from "../modules/hipaa-audit/hipaa-audit.js";
+import { HipaaAuditView } from "../modules/hipaa-audit/hipaa-audit.view.js?v=4";
+import { initHipaaAudit } from "../modules/hipaa-audit/hipaa-audit.js?v=5";
 
 
 const app = document.getElementById("app");

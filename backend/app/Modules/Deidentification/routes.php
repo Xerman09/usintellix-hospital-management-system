@@ -1,5 +1,12 @@
 <?php
 
+/*
+ * Research / Safe Harbor de-identification. These endpoints build registry-wide
+ * exports and are not scoped to one patient, so the patient role is deliberately
+ * not on any of them -- it was listed here until 2026-10-19, which let a portal
+ * user generate and download de-identified data for other patients.
+ */
+
 use App\Core\AuthMiddleware;
 use App\Core\RoleMiddleware;
 use App\Modules\Deidentification\Controllers\DeidentificationController;
@@ -8,37 +15,37 @@ use App\Modules\Deidentification\Controllers\DeidentificationController;
 
 $router->get('/deidentification/stats', [DeidentificationController::class, 'stats'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->get('/deidentification/exports', [DeidentificationController::class, 'list'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->post('/deidentification/generate', [DeidentificationController::class, 'generate'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician']]
 ]);
 
 $router->get('/deidentification/exports/{id}', [DeidentificationController::class, 'show'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->get('/deidentification/exports/{id}/csv', [DeidentificationController::class, 'exportCsv'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->get('/deidentification/exports/{id}/json', [DeidentificationController::class, 'exportJson'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->get('/deidentification/exports/{id}/attestation', [DeidentificationController::class, 'attestation'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->post('/deidentification/exports/{id}/lookup', [DeidentificationController::class, 'lookup'], [
@@ -48,10 +55,10 @@ $router->post('/deidentification/exports/{id}/lookup', [DeidentificationControll
 
 $router->get('/deidentification/registry/csv', [DeidentificationController::class, 'exportRegistryCsv'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
 
 $router->get('/deidentification/checklist', [DeidentificationController::class, 'statutoryChecklist'], [
     AuthMiddleware::class,
-    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant', 'patient']]
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician', 'receptionist', 'biller', 'accountant']]
 ]);
