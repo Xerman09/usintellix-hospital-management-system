@@ -151,6 +151,13 @@ import {
     fetchSoapNotes, addSoapNote, updateSoapNote, removeSoapNote, signSoapNote
 } from "../encounter-sections/encounter-soap-notes.service.js";
 import {
+    renderSpecialtyTemplateSelector,
+    renderSpecialtyFormFields,
+    initSpecialtyTemplateEvents,
+    extractSpecialtyFormData,
+    renderSpecialtySoapNoteCard
+} from "../encounters/encounters.view.js";
+import {
     fetchEncounterEyeExam, saveEncounterEyeExam
 } from "../encounter-sections/encounter-eye-exam.service.js";
 import { renderEyeExamHtml } from "../encounter-sections/encounter-eye-exam.view.js";
@@ -10480,6 +10487,34 @@ function openSoapNoteFormModal(existingRecord)
     document.getElementById("soap_objective").value = existingRecord ? (existingRecord.objective || "") : "";
     document.getElementById("soap_assessment").value = existingRecord ? (existingRecord.assessment || "") : "";
     document.getElementById("soap_plan").value = existingRecord ? (existingRecord.plan || "") : "";
+
+    // Determine initial specialty for dynamic template rendering
+    const specialtyData = existingRecord?.specialty_data || null;
+    let initialSpecialty = specialtyData?.specialty_type || "general";
+
+    if (!existingRecord && initialSpecialty === "general" && currentEncounterSummary?.encounter) {
+        const provSpecialty = (currentEncounterSummary.encounter.provider_specialty || currentEncounterSummary.encounter.encounter_provider_specialty || "").toLowerCase();
+        const visitCat = (currentEncounterSummary.encounter.visit_category_name || "").toLowerCase();
+
+        if (provSpecialty.includes("ob") || provSpecialty.includes("gyn") || provSpecialty.includes("obstet") || visitCat.includes("prenatal") || visitCat.includes("ob")) {
+            initialSpecialty = "obstetrics";
+        } else if (provSpecialty.includes("ped") || visitCat.includes("ped") || visitCat.includes("child")) {
+            initialSpecialty = "pediatrics";
+        } else if (provSpecialty.includes("ortho") || visitCat.includes("ortho")) {
+            initialSpecialty = "orthopedics";
+        }
+    }
+
+    const specialtyContainer = document.getElementById("soap_specialty_container");
+    if (specialtyContainer) {
+        specialtyContainer.innerHTML = `
+            ${renderSpecialtyTemplateSelector(initialSpecialty)}
+            <div id="soap_specialty_fields_container">
+                ${renderSpecialtyFormFields(initialSpecialty, specialtyData || {})}
+            </div>
+        `;
+        initSpecialtyTemplateEvents(specialtyContainer, specialtyData || {});
+    }
     document.getElementById("soapNoteFormModalOverlay").classList.add("open");
 }
 
@@ -10508,6 +10543,12 @@ function setupSoapNoteModal()
             objective: document.getElementById("soap_objective").value.trim() || null,
             assessment: document.getElementById("soap_assessment").value.trim() || null,
             plan: document.getElementById("soap_plan").value.trim() || null
+        };
+        const specialtyContainer = document.getElementById("soap_specialty_container");
+        const specialtyData = extractSpecialtyFormData(specialtyContainer);
+        if (specialtyData) {
+            details.specialty_data = specialtyData;
+        }
         };
 
         const result = recordId
@@ -10561,6 +10602,7 @@ function renderSoapNotesSection()
                     </div>
                 </div>
                 <div class="pd-report-card-body soap-card-body">
+                    ${renderSpecialtySoapNoteCard(note.specialty_data)}
                     <p><strong>Subjective:</strong> ${escapeHtml(note.subjective || "-")}</p>
                     <p><strong>Objective:</strong> ${escapeHtml(note.objective || "-")}</p>
                     <p><strong>Assessment:</strong> ${escapeHtml(note.assessment || "-")}</p>

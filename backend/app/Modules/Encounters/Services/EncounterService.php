@@ -256,6 +256,11 @@ class EncounterService
             $phq9 = (new \App\Modules\Phq9\Services\Phq9Service())->getByEncounter($encounterId);
         } catch (\Throwable $e) {}
 
+        $opdSpecialtyConsultations = [];
+        try {
+            $opdSpecialtyConsultations = (new \App\Modules\OpdSpecialtyConsultations\Services\OpdSpecialtyConsultationService())->getByEncounter($encounterId);
+        } catch (\Throwable $e) {}
+
         return [
             'encounter' => $encounter,
             'sections' => $sectionsResult,
@@ -270,6 +275,7 @@ class EncounterService
             'reviewOfSystemsChecks' => $reviewOfSystemsChecks,
             'soapNotes' => $soapNotes,
             'speechDictationItems' => $speechDictationItems,
+            'opdSpecialtyConsultations' => $opdSpecialtyConsultations,
             'gad7'                  => $gad7,
             'phq9'                  => $phq9,
             'eyeExam'               => null

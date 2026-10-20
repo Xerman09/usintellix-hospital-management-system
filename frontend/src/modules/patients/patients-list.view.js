@@ -11744,6 +11744,7 @@ textarea.pd-sdoh-readonly {
         <div id="soapNoteFormAlert"></div>
 
         <form id="soapNoteForm">
+            <div id="soap_specialty_container"></div>
             <input type="hidden" id="soap_note_record_id">
 
             <div class="ros-section">

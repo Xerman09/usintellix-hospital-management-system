@@ -51,10 +51,16 @@ class EncounterSoapNoteController extends Controller
             return;
         }
 
+        $specialtyData = $request->input('specialty_data');
+        if (!is_array($specialtyData)) {
+            $specialtyData = null;
+        }
+
         $result = $this->encounterSoapNoteService->store(
             $encounterId,
             $request->only(self::DETAIL_FIELDS),
-            (int) $user['id']
+            (int) $user['id'],
+            $specialtyData
         );
 
         if (!$result['success']) {
@@ -78,10 +84,16 @@ class EncounterSoapNoteController extends Controller
             return;
         }
 
+        $specialtyData = $request->input('specialty_data');
+        if ($specialtyData !== null && !is_array($specialtyData)) {
+            $specialtyData = null;
+        }
+
         $result = $this->encounterSoapNoteService->update(
             $id,
             $request->only(self::DETAIL_FIELDS),
-            (int) $user['id']
+            (int) $user['id'],
+            $specialtyData
         );
 
         if (!$result['success']) {

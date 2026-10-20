@@ -34,8 +34,14 @@ class EncounterSoapNoteService
         $notes = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $notes = FieldEncryption::decryptRows($notes, self::DETAIL_FIELDS);
 
+        $specialtyService = new \App\Modules\OpdSpecialtyConsultations\Services\OpdSpecialtyConsultationService();
         foreach ($notes as &$note) {
             $note['signatures'] = $this->signatures((int) $note['id']);
+            try {
+                $note['specialty_data'] = $specialtyService->getBySoapNote((int) $note['id']);
+            } catch (\Throwable $e) {
+                $note['specialty_data'] = null;
+            }
         }
 
         return $notes;
@@ -55,11 +61,16 @@ class EncounterSoapNoteService
         }
 
         $note['signatures'] = $this->signatures($id);
+        try {
+            $note['specialty_data'] = (new \App\Modules\OpdSpecialtyConsultations\Services\OpdSpecialtyConsultationService())->getBySoapNote($id);
+        } catch (\Throwable $e) {
+            $note['specialty_data'] = null;
+        }
 
         return $note;
     }
 
-    public function store(int $encounterId, array $data, int $createdBy): array
+    public function store(int $encounterId, array $data, int $createdBy, ?array $specialtyData = null): array
     {
         $values = $this->filterDetails($data);
         $values['encounter_id'] = $encounterId;
@@ -73,10 +84,17 @@ class EncounterSoapNoteService
             return ['success' => false, 'message' => 'Failed to add SOAP note.'];
         }
 
+        if (!empty($specialtyData)) {
+            try {
+                (new \App\Modules\OpdSpecialtyConsultations\Services\OpdSpecialtyConsultationService())
+                    ->syncForSoapNote($encounterId, (int) $id, $specialtyData, $createdBy);
+            } catch (\Throwable $e) {}
+        }
+
         return ['success' => true, 'message' => 'SOAP note added successfully.', 'data' => ['id' => $id]];
     }
 
-    public function update(int $id, array $data, int $updatedBy): array
+    public function update(int $id, array $data, int $updatedBy, ?array $specialtyData = null): array
     {
         $note = $this->find($id);
 
@@ -93,6 +111,13 @@ class EncounterSoapNoteService
         $values['updated_by'] = $updatedBy;
 
         (new EncounterSoapNote())->update($values, $id);
+
+        if ($specialtyData !== null) {
+            try {
+                (new \App\Modules\OpdSpecialtyConsultations\Services\OpdSpecialtyConsultationService())
+                    ->syncForSoapNote((int) $note['encounter_id'], $id, $specialtyData, $updatedBy);
+            } catch (\Throwable $e) {}
+        }
 
         return ['success' => true, 'message' => 'SOAP note updated successfully.'];
     }

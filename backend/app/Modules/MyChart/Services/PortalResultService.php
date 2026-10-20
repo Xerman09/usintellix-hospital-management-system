@@ -391,6 +391,12 @@ class PortalResultService
             ], $results),
         ];
 
+        // Phase 2: what each test means, in the hospital's own words.
+        $out['explanations'] = PortalExplanationService::forRows(
+            array_map(static fn(array $r) => ['name' => $r['name'], 'code' => $r['code']], $results),
+            $isImaging ? 'imaging' : 'lab'
+        );
+
         if ($isImaging) {
             // Only the signed report, never a draft or a superseded version.
             $rep = $db->prepare(
@@ -418,5 +424,134 @@ class PortalResultService
         }
 
         return $out;
+    }
+
+    // ------------------------------------------------------------------
+    // Trends (Phase 2)
+    // ------------------------------------------------------------------
+
+    /** How many released values a test needs before a trend is worth drawing. */
+    public const TREND_MIN_POINTS = 3;
+
+    /**
+     * Every released value of one test for this patient, oldest first, so the screen can
+     * draw a line. Matches on the result's name (what every row carries) and, when the
+     * row has one, its code -- see PortalExplanationService for why name is the key.
+     *
+     * Only numeric values are returned: "No growth" or "Abnormal" cannot be plotted.
+     * The reference range is parsed from the text the lab stored ("12.0-17.5") so the
+     * usual range can be shaded behind the line.
+     */
+    public static function trend(int $patientId, string $name, ?string $code = null): array
+    {
+        $name = trim($name);
+
+        if ($name === '') {
+            return ['points' => [], 'enough' => false];
+        }
+
+        $db = Database::connection();
+        $params = ['p' => $patientId, 'name' => $name];
+        $match = 'r.name = :name';
+
+        if ($code !== null && trim($code) !== '') {
+            $match = '(r.name = :name OR r.code = :code)';
+            $params['code'] = trim($code);
+        }
+
+        $stmt = $db->prepare(
+            "SELECT r.value, r.units, r.reference_range, r.flag, r.is_abnormal,
+                    COALESCE(r.result_date, o.results_at, o.reported_at, o.order_date) AS taken_at,
+                    o.id AS order_id
+             FROM patient_procedure_results r
+             JOIN patient_procedure_orders o ON o.id = r.patient_procedure_order_id
+             WHERE o.patient_id = :p AND o.deleted_at IS NULL AND {$match} AND " . self::VISIBLE . "
+             ORDER BY COALESCE(r.result_date, o.results_at, o.reported_at, o.order_date) ASC, r.id ASC
+             LIMIT 60"
+        );
+        $stmt->execute($params);
+
+        $points = [];
+        $units = null;
+        $low = null;
+        $high = null;
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $value = self::numeric($r['value']);
+
+            if ($value === null) {
+                continue;
+            }
+
+            $units ??= $r['units'];
+            [$l, $h] = self::parseRange($r['reference_range']);
+            $low ??= $l;
+            $high ??= $h;
+
+            $points[] = [
+                'taken_at' => $r['taken_at'],
+                'value' => $value,
+                'order_id' => (int) $r['order_id'],
+                // A critical row is never visible to a patient, so this is normal vs abnormal only.
+                'abnormal' => $r['flag'] === 'abnormal' || ($r['flag'] === null && (int) $r['is_abnormal'] === 1),
+            ];
+        }
+
+        return [
+            'name' => $name,
+            'units' => $units,
+            'range_low' => $low,
+            'range_high' => $high,
+            'points' => $points,
+            'enough' => count($points) >= self::TREND_MIN_POINTS,
+        ];
+    }
+
+    /**
+     * The user to send a question about this order to: the doctor who ordered it, or the
+     * patient's own provider when the order names none. Null when neither has a login.
+     */
+    public static function doctorUserFor(int $orderId, int $patientId): ?int
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare(
+            "SELECT COALESCE(o.provider_id, p.provider_id) AS provider_id
+             FROM patient_procedure_orders o
+             JOIN patients p ON p.id = o.patient_id
+             WHERE o.id = :o AND o.patient_id = :p AND o.deleted_at IS NULL"
+        );
+        $stmt->execute(['o' => $orderId, 'p' => $patientId]);
+        $providerId = (int) $stmt->fetchColumn();
+
+        if (!$providerId) {
+            return null;
+        }
+
+        $userId = (new \App\Modules\Providers\Services\ProviderService())->findUserIdByProviderId($providerId);
+
+        return $userId ? (int) $userId : null;
+    }
+
+    /** "13.5" -> 13.5; "<0.01" -> 0.01; "No growth" -> null. */
+    private static function numeric(?string $value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $clean = str_replace([',', ' '], '', trim($value));
+        $clean = ltrim($clean, '<>=~');
+
+        return is_numeric($clean) ? (float) $clean : null;
+    }
+
+    /** "12.0-17.5" -> [12.0, 17.5]; anything else -> [null, null]. */
+    private static function parseRange(?string $range): array
+    {
+        if ($range !== null && preg_match('/^\s*([\d.]+)\s*-\s*([\d.]+)\s*$/', $range, $m)) {
+            return [(float) $m[1], (float) $m[2]];
+        }
+
+        return [null, null];
     }
 }

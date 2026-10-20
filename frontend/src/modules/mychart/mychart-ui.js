@@ -74,6 +74,41 @@ const CSS = `
 .mc-report section { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; }
 .mc-report h3 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
 .mc-report p { margin: 0; white-space: pre-wrap; }
+/* explanation of a test, in the hospital's own words */
+.mc-exp { margin-top: 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface-alt); }
+.mc-exp > summary { cursor: pointer; padding: 9px 12px; font-size: 13px; font-weight: 600; list-style: none; }
+.mc-exp > summary::-webkit-details-marker { display: none; }
+.mc-exp > summary::before { content: "▸"; display: inline-block; margin-right: 7px; transition: transform .15s; }
+.mc-exp[open] > summary::before { transform: rotate(90deg); }
+.mc-exp > summary:focus-visible { outline: 3px solid #93c5fd; outline-offset: -3px; border-radius: 10px; }
+.mc-exp .mc-expbody { padding: 0 12px 12px; display: grid; gap: 8px; font-size: 13px; }
+.mc-exp dt { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+.mc-exp dd { margin: 2px 0 0; }
+.mc-exp .mc-src { color: var(--text-muted); font-size: 12px; }
+/* trend */
+.mc-trend { margin-top: 10px; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: var(--bg-surface); }
+.mc-trend h4 { margin: 0 0 2px; font-size: 13px; }
+.mc-trend .mc-tmeta { color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
+.mc-trend svg { display: block; width: 100%; height: auto; overflow: visible; }
+.mc-trend svg .band { fill: #22c55e; opacity: .12; }
+.mc-trend svg .grid { stroke: var(--border-color); stroke-width: 1; }
+.mc-trend svg .axis { fill: var(--text-muted); font-size: 10px; }
+.mc-trend svg .line { fill: none; stroke: #1d4ed8; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.mc-trend svg .pt { fill: #1d4ed8; }
+.mc-trend svg .pt.abn { fill: #b45309; }
+.mc-trend svg .last { fill: var(--text-primary); font-size: 11px; font-weight: 700; }
+/* Dark mode gets its own steps: #1d4ed8 on a dark surface is too close to the background
+   to read, so the line and the points lift a few steps rather than being flipped. */
+:root[data-theme="dark"] .mc-trend svg .line { stroke: #60a5fa; }
+:root[data-theme="dark"] .mc-trend svg .pt { fill: #60a5fa; }
+:root[data-theme="dark"] .mc-trend svg .pt.abn { fill: #fbbf24; }
+:root[data-theme="dark"] .mc-trend svg .band { fill: #4ade80; opacity: .16; }
+/* ask */
+.mc-ask { margin-top: 12px; display: grid; gap: 8px; }
+.mc-ask textarea { width: 100%; box-sizing: border-box; min-height: 80px; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13.5px; background: var(--bg-surface); color: var(--text-primary); resize: vertical; }
+.mc-ask .mc-askrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mc-err { color: #b91c1c; font-size: 12.5px; }
+:root[data-theme="dark"] .mc-err { color: #fca5a5; }
 .mc-note { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border-color); border-left: 3px solid #1d4ed8; border-radius: 8px; background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
 `;
 
