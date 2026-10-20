@@ -261,6 +261,12 @@ class EncounterService
             $opdSpecialtyConsultations = (new \App\Modules\OpdSpecialtyConsultations\Services\OpdSpecialtyConsultationService())->getByEncounter($encounterId);
         } catch (\Throwable $e) {}
 
+        $cpoeDiagnosticOrders = [];
+        try {
+            $patientId = (int) ($encounter['patient_id'] ?? 0);
+            $cpoeDiagnosticOrders = (new \App\Modules\CpoeDiagnostics\Services\CpoeDiagnosticService())->getEncounterOrders($encounterId, $patientId);
+        } catch (\Throwable $e) {}
+
         return [
             'encounter' => $encounter,
             'sections' => $sectionsResult,
@@ -276,6 +282,7 @@ class EncounterService
             'soapNotes' => $soapNotes,
             'speechDictationItems' => $speechDictationItems,
             'opdSpecialtyConsultations' => $opdSpecialtyConsultations,
+            'cpoeDiagnosticOrders' => $cpoeDiagnosticOrders,
             'gad7'                  => $gad7,
             'phq9'                  => $phq9,
             'eyeExam'               => null

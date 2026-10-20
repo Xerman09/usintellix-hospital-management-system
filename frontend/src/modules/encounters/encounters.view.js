@@ -757,3 +757,523 @@ function escapeHtml(str)
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+/* ==========================================================================
+   BUNDLED INLINE CPOE DIAGNOSTIC ORDERING (LAB, CULTURES & RADIOLOGY)
+   ========================================================================== */
+
+export const CPOE_PRESET_ITEMS = [
+    // Blood Tests
+    { id: "CBC", code: "CBC", name: "Complete blood count (CBC) with diff", category: "blood", icon: "🩸", tip: "Lavender top (EDTA)" },
+    { id: "BMP", code: "BMP", name: "Basic metabolic panel (BMP)", category: "blood", icon: "🧪", tip: "Gold top (SST)" },
+    { id: "CMP", code: "CMP", name: "Comprehensive metabolic panel (CMP)", category: "blood", icon: "🧪", tip: "Gold top (SST)" },
+    { id: "LIPID", code: "LIPID", name: "Lipid profile (Chol, HDL, LDL, Trig)", category: "blood", icon: "🩸", tip: "Fasting recommended" },
+    { id: "HBA1C", code: "HBA1C", name: "HbA1c (Glycated hemoglobin)", category: "blood", icon: "🩸", tip: "Lavender top (EDTA)" },
+    { id: "LFT", code: "LFT", name: "Liver function panel (ALT, AST, ALP, Bili)", category: "blood", icon: "🧪", tip: "Gold top (SST)" },
+    { id: "BUNCREAT", code: "BUNCREAT", name: "Renal function (BUN & Creatinine)", category: "blood", icon: "🧪", tip: "Gold top (SST)" },
+    { id: "LYTES", code: "LYTES", name: "Serum electrolytes (Na, K, Cl)", category: "blood", icon: "🧪", tip: "Gold top (SST)" },
+    { id: "PTINR", code: "PTINR", name: "Prothrombin time (PT / INR)", category: "blood", icon: "🩸", tip: "Light blue top (Citrate)" },
+    { id: "TROP", code: "TROP", name: "Troponin I (High sensitivity)", category: "blood", icon: "❤️", tip: "Cardiac marker" },
+    { id: "UA", code: "UA", name: "Urinalysis (routine & microscopic)", category: "blood", icon: "🟡", tip: "Clean catch urine" },
+
+    // Cultures & Microbiology
+    { id: "BCX", code: "BCX", name: "Blood culture (2 sets)", category: "culture", icon: "🧫", tip: "Aerobic & Anaerobic bottles" },
+    { id: "UCX", code: "UCX", name: "Urine culture & sensitivity", category: "culture", icon: "🧫", tip: "Midstream clean-catch" },
+    { id: "SPCX", code: "SPCX", name: "Sputum Gram stain & culture", category: "culture", icon: "🧫", tip: "Deep cough specimen" },
+    { id: "WCX", code: "WCX", name: "Wound swab culture & Gram stain", category: "culture", icon: "🧫", tip: "Swab of active wound bed" },
+    { id: "TSCX", code: "TSCX", name: "Throat swab culture", category: "culture", icon: "🧫", tip: "Posterior pharynx swab" },
+    { id: "STCX", code: "STCX", name: "Stool culture & pathogen screen", category: "culture", icon: "🧫", tip: "Stool container" },
+
+    // Radiology & Imaging
+    { id: "CXR", code: "CXR", name: "Chest X-ray (PA view)", category: "radiology", icon: "🩻", tip: "X-ray · 10 min" },
+    { id: "CXRPAL", code: "CXRPAL", name: "Chest X-ray (PA and Lateral)", category: "radiology", icon: "🩻", tip: "X-ray · 15 min" },
+    { id: "AXR", code: "AXR", name: "Abdominal X-ray (KUB)", category: "radiology", icon: "🩻", tip: "X-ray · 10 min" },
+    { id: "USKUB", code: "USKUB", name: "Ultrasound KUB (Kidneys & Bladder)", category: "radiology", icon: "🔊", tip: "Ultrasound · Full bladder" },
+    { id: "USABD", code: "USABD", name: "Ultrasound Whole Abdomen", category: "radiology", icon: "🔊", tip: "Ultrasound · Fasting 6-8 hrs" },
+    { id: "USOB", code: "USOB", name: "Ultrasound Pelvic / Obstetric", category: "radiology", icon: "🔊", tip: "Ultrasound · Transabdominal" },
+    { id: "CTHEAD", code: "CTHEAD", name: "CT Brain / Head (without contrast)", category: "radiology", icon: "🖥️", tip: "CT · 15 min" },
+    { id: "CTABD", code: "CTABD", name: "CT Abdomen and Pelvis", category: "radiology", icon: "🖥️", tip: "CT · Check creatinine" },
+    { id: "MRIBRAIN", code: "MRIBRAIN", name: "MRI Brain (without contrast)", category: "radiology", icon: "🧲", tip: "MRI · Check implants/metal" },
+    { id: "LSPINEXR", code: "LSPINEXR", name: "Lumbosacral Spine X-ray (AP/Lat)", category: "radiology", icon: "🩻", tip: "X-ray · 15 min" },
+    { id: "LEXR", code: "LEXR", name: "Lower Extremity X-ray (Knee / Ankle)", category: "radiology", icon: "🩻", tip: "X-ray · 10 min" },
+    { id: "UEXR", code: "UEXR", name: "Upper Extremity X-ray (Wrist / Shoulder)", category: "radiology", icon: "🩻", tip: "X-ray · 10 min" }
+];
+
+/**
+ * Renders the integrated CPOE Diagnostic Order Pad directly inside the consultation note.
+ */
+export function renderCpoeOrderPad({ patientId, encounterId, clinicalIndication = "", existingOrders = [] } = {})
+{
+    const existingOrdersCount = existingOrders ? existingOrders.length : 0;
+
+    return `
+        <div class="cpoe-order-pad-wrapper" id="cpoeOrderPadWrapper" style="margin-top: 16px; margin-bottom: 18px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">🔬</span>
+                    <span style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.3px;">Inline CPOE Diagnostic Orders</span>
+                    <span style="font-size: 10px; background: rgba(255,255,255,0.18); padding: 1px 6px; border-radius: 10px; font-weight: 500;">One-Click Requisitions</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span id="cpoe_selected_badge" style="font-size: 11px; font-weight: 600; background: #0284c7; color: #ffffff; padding: 2px 8px; border-radius: 12px; display: none;">
+                        0 selected
+                    </span>
+                    ${existingOrdersCount > 0 ? `<span style="font-size: 11px; background: #059669; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-weight: 600;">${existingOrdersCount} on file</span>` : ""}
+                </div>
+            </div>
+
+            <div style="padding: 12px 14px;">
+                <!-- Category Filter Tabs & Fast Search -->
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                    <div class="cpoe-category-tabs" style="display: flex; gap: 4px;">
+                        <button type="button" class="cpoe-cat-btn active" data-cat="all" style="padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #0284c7; color: #ffffff; cursor: pointer;">All</button>
+                        <button type="button" class="cpoe-cat-btn" data-cat="blood" style="padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">🩸 Blood Tests</button>
+                        <button type="button" class="cpoe-cat-btn" data-cat="culture" style="padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">🧫 Cultures</button>
+                        <button type="button" class="cpoe-cat-btn" data-cat="radiology" style="padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">🩻 Radiology</button>
+                    </div>
+
+                    <div style="flex: 1; max-width: 260px; min-width: 160px; position: relative;">
+                        <input type="search" id="cpoe_search_input" placeholder="🔍 Search test or code (e.g. CBC, CXR)..." style="width: 100%; padding: 4px 8px; font-size: 11.5px; border: 1px solid #cbd5e1; border-radius: 4px;" autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- 1-Click Fast Pick Order Tiles -->
+                <div class="cpoe-preset-grid" id="cpoe_preset_grid" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 140px; overflow-y: auto; padding: 4px 2px; margin-bottom: 10px;">
+                    ${CPOE_PRESET_ITEMS.map((item) => `
+                        <button type="button" class="cpoe-item-pill" data-id="${item.id}" data-code="${item.code}" data-category="${item.category}" data-name="${escapeHtml(item.name)}" title="${escapeHtml(item.tip || '')}"
+                            style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; font-size: 11.5px; font-weight: 500; border: 1px solid #e2e8f0; background: #f8fafc; color: #1e293b; border-radius: 16px; cursor: pointer; transition: all 0.15s ease;">
+                            <span>${item.icon}</span>
+                            <span>${escapeHtml(item.code)}</span>
+                            <small style="color: #64748b; font-size: 10px;">(${item.category === 'radiology' ? 'Rad' : item.category === 'culture' ? 'Cx' : 'Lab'})</small>
+                        </button>
+                    `).join("")}
+                </div>
+
+                <!-- Selected Diagnostics Basket -->
+                <div id="cpoe_basket_wrapper" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #166534;">Selected Diagnostic Orders:</span>
+                        <button type="button" id="cpoe_clear_basket_btn" style="font-size: 10px; color: #dc2626; background: none; border: none; cursor: pointer; text-decoration: underline;">Clear all</button>
+                    </div>
+                    <div id="cpoe_basket_items" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+                </div>
+
+                <!-- Order Controls & 1-Click Dispatch -->
+                <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+                    <!-- Priority Segmented Control -->
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 11px; font-weight: 600; color: #475569;">Priority:</span>
+                        <div style="display: inline-flex; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; background: #ffffff;">
+                            <label style="padding: 3px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; border-right: 1px solid #e2e8f0;">
+                                <input type="radio" name="cpoe_priority" value="routine" checked style="accent-color: #0284c7;"> Routine
+                            </label>
+                            <label style="padding: 3px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; border-right: 1px solid #e2e8f0;">
+                                <input type="radio" name="cpoe_priority" value="urgent" style="accent-color: #f59e0b;"> Urgent
+                            </label>
+                            <label style="padding: 3px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; color: #b91c1c; font-weight: 600;">
+                                <input type="radio" name="cpoe_priority" value="stat" style="accent-color: #ef4444;"> STAT
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Clinical Indication / Notes -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="text" id="cpoe_indication_input" class="form-input" placeholder="Clinical indication (e.g. fever, right flank pain)..." value="${escapeHtml(clinicalIndication)}" style="padding: 4px 8px; font-size: 11.5px; width: 100%;">
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: #475569; white-space: nowrap; cursor: pointer;">
+                            <input type="checkbox" id="cpoe_fasting_checkbox" style="accent-color: #0284c7;"> Fasting
+                        </label>
+                    </div>
+
+                    <!-- 1-Click Order Button -->
+                    <div>
+                        <button type="button" id="cpoe_submit_btn" style="padding: 6px 14px; font-size: 12px; font-weight: 700; background: #0284c7; color: #ffffff; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(2,132,199,0.3);">
+                            <span>⚡ Order Diagnostics (1-Click)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="cpoe_order_alert" style="margin-top: 8px;"></div>
+
+                <!-- Existing / Active Consultation Orders -->
+                ${existingOrders && existingOrders.length ? `
+                    <div style="margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                        <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">Orders On File For This Visit:</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${existingOrders.map((ord) => `
+                                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px;">
+                                    <strong>${escapeHtml(ord.code || ord.name)}</strong>
+                                    <small style="color: #64748b;">(${escapeHtml(ord.request_no)})</small>
+                                    <span style="font-size: 9.5px; padding: 1px 5px; border-radius: 10px; font-weight: 600; background: ${ord.status === 'resulted' ? '#dcfce7' : '#e0f2fe'}; color: ${ord.status === 'resulted' ? '#15803d' : '#0369a1'};">
+                                        ${escapeHtml(ord.status)}
+                                    </span>
+                                </span>
+                            `).join("")}
+                        </div>
+                    </div>
+                ` : ""}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Initializes interactive events for the CPOE Order Pad.
+ */
+export function initCpoeOrderPadEvents(container, { patientId, encounterId, onOrderSuccess } = {})
+{
+    if (!container) return;
+
+    const basketItemsContainer = container.querySelector("#cpoe_basket_items");
+    const basketWrapper = container.querySelector("#cpoe_basket_wrapper");
+    const selectedBadge = container.querySelector("#cpoe_selected_badge");
+    const searchInput = container.querySelector("#cpoe_search_input");
+    const categoryBtns = container.querySelectorAll(".cpoe-cat-btn");
+    const itemPills = container.querySelectorAll(".cpoe-item-pill");
+    const clearBtn = container.querySelector("#cpoe_clear_basket_btn");
+    const submitBtn = container.querySelector("#cpoe_submit_btn");
+    const alertBox = container.querySelector("#cpoe_order_alert");
+
+    const selectedMap = new Map(); // id -> item details
+
+    const refreshBasket = () => {
+        if (!basketItemsContainer || !basketWrapper) return;
+
+        const count = selectedMap.size;
+
+        if (count === 0) {
+            basketWrapper.style.display = "none";
+            if (selectedBadge) selectedBadge.style.display = "none";
+            itemPills.forEach((p) => {
+                p.style.background = "#f8fafc";
+                p.style.borderColor = "#e2e8f0";
+                p.style.color = "#1e293b";
+            });
+            return;
+        }
+
+        basketWrapper.style.display = "block";
+        if (selectedBadge) {
+            selectedBadge.style.display = "inline-block";
+            selectedBadge.textContent = `${count} selected`;
+        }
+
+        basketItemsContainer.innerHTML = Array.from(selectedMap.values()).map((item) => `
+            <span class="cpoe-basket-chip" data-id="${item.id}" style="display: inline-flex; align-items: center; gap: 4px; background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 2px 7px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                <span>${item.icon || '✓'}</span>
+                <span>${escapeHtml(item.name || item.code)}</span>
+                <button type="button" class="cpoe-remove-item-btn" data-id="${item.id}" style="background: none; border: none; color: #15803d; cursor: pointer; padding: 0 2px; font-weight: bold;">&times;</button>
+            </span>
+        `).join("");
+
+        // Highlight active pills in grid
+        itemPills.forEach((p) => {
+            const id = p.getAttribute("data-id");
+            if (selectedMap.has(id)) {
+                p.style.background = "#dcfce7";
+                p.style.borderColor = "#22c55e";
+                p.style.color = "#15803d";
+                p.style.fontWeight = "700";
+            } else {
+                p.style.background = "#f8fafc";
+                p.style.borderColor = "#e2e8f0";
+                p.style.color = "#1e293b";
+                p.style.fontWeight = "500";
+            }
+        });
+
+        // Bind remove buttons
+        basketItemsContainer.querySelectorAll(".cpoe-remove-item-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const id = btn.getAttribute("data-id");
+                selectedMap.delete(id);
+                refreshBasket();
+            });
+        });
+    };
+
+    // Category Tabs Filter
+    categoryBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            categoryBtns.forEach((b) => {
+                b.classList.remove("active");
+                b.style.background = "#f8fafc";
+                b.style.color = "#334155";
+            });
+            btn.classList.add("active");
+            btn.style.background = "#0284c7";
+            btn.style.color = "#ffffff";
+
+            const cat = btn.getAttribute("data-cat");
+            const q = searchInput ? searchInput.value.trim().toLowerCase() : "";
+
+            itemPills.forEach((pill) => {
+                const itemCat = pill.getAttribute("data-category");
+                const itemName = (pill.getAttribute("data-name") || "").toLowerCase();
+                const itemCode = (pill.getAttribute("data-code") || "").toLowerCase();
+
+                const catMatch = cat === "all" || itemCat === cat;
+                const searchMatch = !q || itemName.includes(q) || itemCode.includes(q);
+
+                pill.style.display = catMatch && searchMatch ? "inline-flex" : "none";
+            });
+        });
+    });
+
+    // Real-time Search Input
+    if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+            const q = e.target.value.trim().toLowerCase();
+            const activeCat = container.querySelector(".cpoe-cat-btn.active")?.getAttribute("data-cat") || "all";
+
+            itemPills.forEach((pill) => {
+                const itemCat = pill.getAttribute("data-category");
+                const itemName = (pill.getAttribute("data-name") || "").toLowerCase();
+                const itemCode = (pill.getAttribute("data-code") || "").toLowerCase();
+
+                const catMatch = activeCat === "all" || itemCat === activeCat;
+                const searchMatch = !q || itemName.includes(q) || itemCode.includes(q);
+
+                pill.style.display = catMatch && searchMatch ? "inline-flex" : "none";
+            });
+        });
+    }
+
+    // Toggle items on pill click
+    itemPills.forEach((pill) => {
+        pill.addEventListener("click", () => {
+            const id = pill.getAttribute("data-id");
+            const code = pill.getAttribute("data-code");
+            const name = pill.getAttribute("data-name");
+            const category = pill.getAttribute("data-category");
+
+            if (selectedMap.has(id)) {
+                selectedMap.delete(id);
+            } else {
+                selectedMap.set(id, { id, code, name, category, icon: pill.querySelector("span")?.textContent || "✓" });
+            }
+            refreshBasket();
+        });
+    });
+
+    // Clear all
+    if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+            selectedMap.clear();
+            refreshBasket();
+        });
+    }
+
+    // 1-Click Order Submission
+    if (submitBtn) {
+        submitBtn.addEventListener("click", async () => {
+            if (selectedMap.size === 0) {
+                if (alertBox) {
+                    alertBox.innerHTML = `<div style="padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 4px; font-size: 11.5px;">Please select at least one diagnostic test or study from the pad above.</div>`;
+                }
+                return;
+            }
+
+            const priority = container.querySelector('input[name="cpoe_priority"]:checked')?.value || "routine";
+            const indication = container.querySelector("#cpoe_indication_input")?.value?.trim() || "";
+            const fasting = !!container.querySelector("#cpoe_fasting_checkbox")?.checked;
+
+            const labTestCodes = [];
+            const radStudyCodes = [];
+
+            selectedMap.forEach((item) => {
+                if (item.category === "radiology") {
+                    radStudyCodes.push(item.code || item.id);
+                } else {
+                    labTestCodes.push(item.code || item.id);
+                }
+            });
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>⏳ Submitting Orders...</span>`;
+            if (alertBox) alertBox.innerHTML = "";
+
+            try {
+                // Call CPOE Ordering Service API
+                const response = await fetch("/api/cpoe-diagnostics/order", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        patient_id: patientId,
+                        encounter_id: encounterId,
+                        test_codes: labTestCodes,
+                        study_codes: radStudyCodes,
+                        priority,
+                        clinical_indication: indication,
+                        fasting
+                    })
+                });
+
+                const res = await response.json();
+
+                if (res && res.success) {
+                    const total = res.data?.total_orders || selectedMap.size;
+                    const reqNumbers = [];
+                    if (res.data?.lab_request?.request_no) reqNumbers.push(`Lab: ${res.data.lab_request.request_no}`);
+                    if (res.data?.radiology_request?.request_no) reqNumbers.push(`Rad: ${res.data.radiology_request.request_no}`);
+
+                    const orderedNames = Array.from(selectedMap.values()).map((x) => x.name || x.code);
+
+                    if (alertBox) {
+                        alertBox.innerHTML = `
+                            <div style="padding: 8px 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 4px; font-size: 12px; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <strong>✅ ${total} Diagnostic Order(s) Dispatched!</strong>
+                                    ${reqNumbers.length ? ` <span style="font-size: 11px; color: #047857;">(${reqNumbers.join(' · ')})</span>` : ""}
+                                </div>
+                                <span style="font-size: 11px; background: #d1fae5; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${priority.toUpperCase()}</span>
+                            </div>
+                        `;
+                    }
+
+                    // Auto-sync into Plan textarea in the consultation note
+                    const planTextarea = document.getElementById("soap_plan");
+                    if (planTextarea) {
+                        const orderSummaryLine = `Diagnostic Orders (${priority.toUpperCase()}): ${orderedNames.join(", ")}.`;
+                        const curPlan = planTextarea.value.trim();
+                        if (!curPlan.includes(orderSummaryLine)) {
+                            planTextarea.value = curPlan ? `${curPlan}\n${orderSummaryLine}` : orderSummaryLine;
+                        }
+                    }
+
+                    selectedMap.clear();
+                    refreshBasket();
+
+                    if (typeof onOrderSuccess === "function") {
+                        onOrderSuccess(res.data);
+                    }
+                } else {
+                    if (alertBox) {
+                        alertBox.innerHTML = `<div style="padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 4px; font-size: 11.5px;">${escapeHtml(res?.message || 'Failed to place orders.')}</div>`;
+                    }
+                }
+            } catch (err) {
+                if (alertBox) {
+                    alertBox.innerHTML = `<div style="padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 4px; font-size: 11.5px;">An error occurred while transmitting diagnostic orders.</div>`;
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>⚡ Order Diagnostics (1-Click)</span>`;
+            }
+        });
+    }
+}
+
+/**
+ * Extracts any unsubmitted CPOE diagnostic orders from the pad to bundle with SOAP note save.
+ */
+export function extractCpoeOrderData(container)
+{
+    if (!container) return null;
+
+    const basketItems = container.querySelectorAll(".cpoe-basket-chip");
+    if (!basketItems || basketItems.length === 0) return null;
+
+    const testCodes = [];
+    const studyCodes = [];
+
+    basketItems.forEach((chip) => {
+        const id = chip.getAttribute("data-id");
+        const item = CPOE_PRESET_ITEMS.find((x) => x.id === id);
+        if (item) {
+            if (item.category === "radiology") {
+                studyCodes.push(item.code || item.id);
+            } else {
+                testCodes.push(item.code || item.id);
+            }
+        }
+    });
+
+    const priority = container.querySelector('input[name="cpoe_priority"]:checked')?.value || "routine";
+    const indication = container.querySelector("#cpoe_indication_input")?.value?.trim() || "";
+    const fasting = !!container.querySelector("#cpoe_fasting_checkbox")?.checked;
+
+    return {
+        test_codes: testCodes,
+        study_codes: studyCodes,
+        priority,
+        clinical_indication: indication,
+        fasting
+    };
+}
+
+/**
+ * Renders the Diagnostic Orders card for the Encounter Summary panel.
+ */
+export function renderEncounterDiagnosticOrdersCard(orders = [])
+{
+    if (!orders || orders.length === 0) {
+        return `
+            <div class="pd-report-card" id="pdEncounterDiagnosticOrdersCard">
+                <div class="pd-report-card-header">
+                    <h3><span>🔬</span> Diagnostic Requisitions (CPOE)</h3>
+                </div>
+                <div class="pd-report-card-body">
+                    <p style="color: #64748b; font-size: 12px; margin: 0;">No diagnostic requisitions ordered for this encounter yet.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="pd-report-card" id="pdEncounterDiagnosticOrdersCard">
+            <div class="pd-report-card-header">
+                <h3>
+                    <span>🔬</span> Diagnostic Requisitions (CPOE)
+                    <span style="font-size: 11px; background: #e0f2fe; color: #0284c7; padding: 2px 7px; border-radius: 10px; font-weight: 600; margin-left: 6px;">
+                        ${orders.length} order(s)
+                    </span>
+                </h3>
+            </div>
+            <div class="pd-report-card-body" style="padding: 10px 14px;">
+                <table class="data-table" style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                            <th style="padding: 6px 8px;">Order Type</th>
+                            <th style="padding: 6px 8px;">Test / Study</th>
+                            <th style="padding: 6px 8px;">Req #</th>
+                            <th style="padding: 6px 8px;">Priority</th>
+                            <th style="padding: 6px 8px;">Status</th>
+                            <th style="padding: 6px 8px;">Ordered At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${orders.map((ord) => `
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 6px 8px;">
+                                    <span style="font-weight: 600; color: ${ord.category === 'Radiology' ? '#7c3aed' : ord.category === 'Culture' ? '#d97706' : '#0284c7'};">
+                                        ${ord.category === 'Radiology' ? '🩻 Rad' : ord.category === 'Culture' ? '🧫 Cx' : '🩸 Lab'}
+                                    </span>
+                                </td>
+                                <td style="padding: 6px 8px; font-weight: 600; color: #1e293b;">
+                                    ${escapeHtml(ord.name)}
+                                </td>
+                                <td style="padding: 6px 8px; font-family: monospace; font-size: 11px; color: #475569;">
+                                    ${escapeHtml(ord.request_no)}
+                                </td>
+                                <td style="padding: 6px 8px;">
+                                    <span style="font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; background: ${ord.priority === 'stat' ? '#fee2e2' : ord.priority === 'urgent' ? '#fef3c7' : '#f1f5f9'}; color: ${ord.priority === 'stat' ? '#b91c1c' : ord.priority === 'urgent' ? '#b45309' : '#475569'};">
+                                        ${escapeHtml((ord.priority || 'routine').toUpperCase())}
+                                    </span>
+                                </td>
+                                <td style="padding: 6px 8px;">
+                                    <span style="font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; background: ${ord.status === 'resulted' ? '#dcfce7' : ord.status === 'scheduled' ? '#e0f2fe' : '#fef9c3'}; color: ${ord.status === 'resulted' ? '#15803d' : ord.status === 'scheduled' ? '#0369a1' : '#a16207'};">
+                                        ${escapeHtml(ord.status)}
+                                    </span>
+                                </td>
+                                <td style="padding: 6px 8px; color: #64748b; font-size: 11px;">
+                                    ${escapeHtml(ord.order_date || '-')}
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}

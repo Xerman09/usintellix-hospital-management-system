@@ -9299,6 +9299,7 @@ textarea.pd-sdoh-readonly {
 
 
                     <div id="pdSoapNotesContainer"></div>
+                    <div id="pdDiagnosticOrdersContainer"></div>
                     </div><!-- /#pdEncounterCardsWrap -->
 
                     <div id="pdEncounterEyeExamPanel" style="display: none;"></div>
@@ -11765,6 +11766,7 @@ textarea.pd-sdoh-readonly {
             <div class="ros-section">
                 <div class="ros-section-title">Plan</div>
                 <textarea id="soap_plan" class="form-input" style="min-height: 120px;"></textarea>
+                <div id="soap_cpoe_order_pad_container"></div>
             </div>
 
             <div class="form-actions">

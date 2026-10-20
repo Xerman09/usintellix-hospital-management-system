@@ -68,6 +68,21 @@ class EncounterSoapNoteController extends Controller
             return;
         }
 
+        $cpoeOrders = $request->input('cpoe_orders');
+        if (is_array($cpoeOrders) && (!empty($cpoeOrders['tests']) || !empty($cpoeOrders['studies']))) {
+            try {
+                $enc = (new Encounter())->where('id', $encounterId)->first();
+                if ($enc) {
+                    $cpoeOrders['patient_id'] = (int) $enc['patient_id'];
+                    $cpoeOrders['encounter_id'] = $encounterId;
+                    if (!empty($result['data']['id'])) {
+                        $cpoeOrders['soap_note_id'] = (int) $result['data']['id'];
+                    }
+                    (new \App\Modules\CpoeDiagnostics\Services\CpoeDiagnosticService())->placeOrders($cpoeOrders, $user);
+                }
+            } catch (\Throwable $e) {}
+        }
+
         $this->success($result['data'], $result['message'], 201);
     }
 
@@ -101,6 +116,19 @@ class EncounterSoapNoteController extends Controller
             return;
         }
 
+        $cpoeOrders = $request->input('cpoe_orders');
+        if (is_array($cpoeOrders) && (!empty($cpoeOrders['tests']) || !empty($cpoeOrders['studies']))) {
+            try {
+                $enc = (new Encounter())->where('id', (int) $note['encounter_id'])->first();
+                if ($enc) {
+                    $cpoeOrders['patient_id'] = (int) $enc['patient_id'];
+                    $cpoeOrders['encounter_id'] = (int) $note['encounter_id'];
+                    $cpoeOrders['soap_note_id'] = $id;
+                    (new \App\Modules\CpoeDiagnostics\Services\CpoeDiagnosticService())->placeOrders($cpoeOrders, $user);
+                }
+            } catch (\Throwable $e) {}
+        }
+
         $this->success(null, $result['message']);
     }
 
@@ -122,6 +150,19 @@ class EncounterSoapNoteController extends Controller
         if (!$result['success']) {
             $this->error($result['message'], 422);
             return;
+        }
+
+        $cpoeOrders = $request->input('cpoe_orders');
+        if (is_array($cpoeOrders) && (!empty($cpoeOrders['tests']) || !empty($cpoeOrders['studies']))) {
+            try {
+                $enc = (new Encounter())->where('id', (int) $note['encounter_id'])->first();
+                if ($enc) {
+                    $cpoeOrders['patient_id'] = (int) $enc['patient_id'];
+                    $cpoeOrders['encounter_id'] = (int) $note['encounter_id'];
+                    $cpoeOrders['soap_note_id'] = $id;
+                    (new \App\Modules\CpoeDiagnostics\Services\CpoeDiagnosticService())->placeOrders($cpoeOrders, $user);
+                }
+            } catch (\Throwable $e) {}
         }
 
         $this->success(null, $result['message']);

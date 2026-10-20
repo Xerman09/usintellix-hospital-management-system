@@ -155,7 +155,11 @@ import {
     renderSpecialtyFormFields,
     initSpecialtyTemplateEvents,
     extractSpecialtyFormData,
-    renderSpecialtySoapNoteCard
+    renderSpecialtySoapNoteCard,
+    renderCpoeOrderPad,
+    initCpoeOrderPadEvents,
+    extractCpoeOrderData,
+    renderEncounterDiagnosticOrdersCard
 } from "../encounters/encounters.view.js";
 import {
     fetchEncounterEyeExam, saveEncounterEyeExam
@@ -10515,6 +10519,37 @@ function openSoapNoteFormModal(existingRecord)
         `;
         initSpecialtyTemplateEvents(specialtyContainer, specialtyData || {});
     }
+    const cpoeContainer = document.getElementById("soap_cpoe_order_pad_container");
+    if (cpoeContainer) {
+        const patientId = currentDashboardPatient ? currentDashboardPatient.id : null;
+        const encounterId = currentEncounterSummary?.encounter ? currentEncounterSummary.encounter.id : null;
+        const indication = currentEncounterSummary?.encounter?.reason_for_visit || "";
+        const existingOrders = currentEncounterSummary?.cpoeDiagnosticOrders || [];
+
+        cpoeContainer.innerHTML = renderCpoeOrderPad({
+            patientId,
+            encounterId,
+            clinicalIndication: indication,
+            existingOrders
+        });
+
+        initCpoeOrderPadEvents(cpoeContainer, {
+            patientId,
+            encounterId,
+            onOrderSuccess: async () => {
+                if (encounterId && patientId) {
+                    try {
+                        const refreshed = await (await import("../encounters/cpoe-diagnostics.service.js")).fetchEncounterCpoeOrders(patientId, encounterId);
+                        if (refreshed?.success) {
+                            currentEncounterSummary.cpoeDiagnosticOrders = refreshed.data;
+                            renderDiagnosticOrdersSection();
+                        }
+                    } catch (e) {}
+                }
+            }
+        });
+    }
+
     document.getElementById("soapNoteFormModalOverlay").classList.add("open");
 }
 
@@ -10549,7 +10584,12 @@ function setupSoapNoteModal()
         if (specialtyData) {
             details.specialty_data = specialtyData;
         }
-        };
+
+        const cpoeContainer = document.getElementById("soap_cpoe_order_pad_container");
+        const cpoeData = extractCpoeOrderData(cpoeContainer);
+        if (cpoeData) {
+            details.cpoe_orders = cpoeData;
+        }
 
         const result = recordId
             ? await updateSoapNote(recordId, details)
@@ -10563,6 +10603,7 @@ function setupSoapNoteModal()
         closeForm();
         await loadSoapNotes();
         renderSoapNotesSection();
+    renderDiagnosticOrdersSection();
     });
 }
 
@@ -10674,8 +10715,17 @@ function renderSoapNotesSection()
 
             await loadSoapNotes();
             renderSoapNotesSection();
+    renderDiagnosticOrdersSection();
         });
     });
+}
+
+function renderDiagnosticOrdersSection()
+{
+    const container = document.getElementById("pdDiagnosticOrdersContainer");
+    if (!container) return;
+    const orders = currentEncounterSummary?.cpoeDiagnosticOrders || [];
+    container.innerHTML = renderEncounterDiagnosticOrdersCard(orders);
 }
 
 function openSpeechDictationFormModal(existingRecord)
@@ -14278,6 +14328,7 @@ function renderEncounterSummary()
     renderReviewOfSystemsSection();
     renderReviewOfSystemsChecksSection();
     renderSoapNotesSection();
+    renderDiagnosticOrdersSection();
     renderSpeechDictationSection();
     renderGad7Section();
     const eyeExamBtn = document.getElementById("pdEncSubnavEyeExamBtn");
@@ -17692,6 +17743,7 @@ function setupEsignModal()
             closeModal();
             await loadSoapNotes();
             renderSoapNotesSection();
+    renderDiagnosticOrdersSection();
             return;
         }
 
