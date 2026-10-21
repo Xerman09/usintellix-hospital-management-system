@@ -121,6 +121,7 @@ export function DispensingView() {
         <div class="dp-toolbar">
             <div class="dp-tabs" id="dpViews" role="tablist">
                 <button type="button" data-dp-view="to_fill" class="active">To dispense <span class="dp-count" id="dpCountToFill" hidden></span></button>
+                <button type="button" data-dp-view="to_verify">Clinical verification <span class="dp-count warn" id="dpCountToVerify" hidden></span></button>
                 <button type="button" data-dp-view="refills">Refill requests <span class="dp-count" id="dpCountRefills" hidden></span></button>
                 <button type="button" data-dp-view="to_check">To check <span class="dp-count warn" id="dpCountToCheck" hidden></span></button>
                 <button type="button" data-dp-view="partial">Partly dispensed</button>

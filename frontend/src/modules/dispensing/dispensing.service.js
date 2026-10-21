@@ -51,3 +51,12 @@ export async function fetchChargeSlip(dispenseId) {
 export async function fetchDispenseLabels(dispenseId) {
     return api(`/dispensing/labels${query({ id: dispenseId })}`);
 }
+
+/** Pharmacist Clinical Verification Queue (prescription_verifications) */
+export async function fetchClinicalVerification(prescriptionId) {
+    return api(`/dispensing/clinical-verifications${query({ prescription_id: prescriptionId })}`);
+}
+
+export async function saveClinicalVerification(data) {
+    return api("/dispensing/clinical-verifications/save", { method: "POST", body: JSON.stringify(data) });
+}

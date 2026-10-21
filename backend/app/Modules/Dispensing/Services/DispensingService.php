@@ -67,16 +67,25 @@ class DispensingService
      * Reading
      * ------------------------------------------------------------- */
 
-    /** Filters: view (to_fill | refills | expired | partial | dispensed | closed | all), q? */
+    /** Filters: view (to_fill | to_verify | refills | expired | partial | dispensed | closed | all), q? */
     public function queue(array $filters): array
     {
         $db = Database::connection();
+        PrescriptionVerificationService::ensureTableExists($db);
         $today = date('Y-m-d');
         $view = $filters['view'] ?? 'to_fill';
         $where = ["p.deleted_at IS NULL", "p.status = 'active'"];
         $params = [];
 
         switch ($view) {
+            case 'to_verify':
+                // Pharmacist Clinical Verification Queue: unfilled/partly-filled prescriptions not yet Approved
+                // or flagged with Intervention Needed / Clarification Requested.
+                $where[] = "p.dispense_status IN ('pending', 'partial') AND (p.fillable_until IS NULL OR p.fillable_until >= :today)";
+                $where[] = "NOT EXISTS (SELECT 1 FROM prescription_verifications pv WHERE pv.prescription_id = p.id AND pv.verification_status = 'Approved')";
+                $params['today'] = $today;
+                $order = 'p.prescribed_date, p.id';
+                break;
             case 'to_check':
                 // High-alert dispensings waiting for their second check, oldest first.
                 $where[] = "EXISTS (SELECT 1 FROM prescription_dispenses d WHERE d.prescription_id = p.id AND d.status = 'completed' AND d.check_status = 'awaiting')";
@@ -127,6 +136,8 @@ class DispensingService
             "SELECT p.id, p.rx_number, p.patient_id, p.prescribed_date, p.valid_until, p.fillable_until, p.dispense_status, p.last_dispensed_at, p.closed_at,
                     (SELECT COUNT(*) FROM prescription_refill_requests r WHERE r.prescription_id = p.id AND r.status = 'pending') AS refill_requests,
                     (SELECT COUNT(*) FROM prescription_dispenses d WHERE d.prescription_id = p.id AND d.status = 'completed' AND d.check_status = 'awaiting') AS awaiting_check,
+                    (SELECT pv.verification_status FROM prescription_verifications pv WHERE pv.prescription_id = p.id ORDER BY pv.id DESC LIMIT 1) AS clinical_verification_status,
+                    (SELECT pv.verification_number FROM prescription_verifications pv WHERE pv.prescription_id = p.id ORDER BY pv.id DESC LIMIT 1) AS clinical_verification_number,
                     pt.patient_no, pt.first_name, pt.middle_name, pt.last_name, pt.suffix,
                     " . self::userNameSql('p.prescriber_user_id') . " AS prescriber_name,
                     (SELECT COUNT(*) FROM patient_prescriptions pp WHERE pp.prescription_id = p.id AND pp.deleted_at IS NULL) AS line_count,
@@ -149,18 +160,27 @@ class DispensingService
                 SUM(CASE WHEN dispense_status IN ('pending', 'partial') AND (fillable_until IS NULL OR fillable_until >= :t1) THEN 1 ELSE 0 END) AS to_fill,
                 SUM(CASE WHEN dispense_status = 'partial' AND (fillable_until IS NULL OR fillable_until >= :t2) THEN 1 ELSE 0 END) AS partial,
                 SUM(CASE WHEN dispense_status IN ('pending', 'partial') AND fillable_until < :t3 THEN 1 ELSE 0 END) AS expired,
+                SUM(CASE WHEN dispense_status IN ('pending', 'partial') AND (fillable_until IS NULL OR fillable_until >= :t4)
+                    AND NOT EXISTS (SELECT 1 FROM prescription_verifications pv WHERE pv.prescription_id = prescriptions.id AND pv.verification_status = 'Approved') THEN 1 ELSE 0 END) AS to_verify,
                 (SELECT COUNT(DISTINCT r.prescription_id) FROM prescription_refill_requests r JOIN prescriptions p2 ON p2.id = r.prescription_id
                  WHERE r.status = 'pending' AND p2.deleted_at IS NULL AND p2.status = 'active') AS refills,
                 (SELECT COUNT(DISTINCT d.prescription_id) FROM prescription_dispenses d JOIN prescriptions p3 ON p3.id = d.prescription_id
                  WHERE d.status = 'completed' AND d.check_status = 'awaiting' AND p3.deleted_at IS NULL AND p3.status = 'active') AS to_check
              FROM prescriptions WHERE deleted_at IS NULL AND status = 'active'"
         );
-        $counts->execute(['t1' => $today, 't2' => $today, 't3' => $today]);
+        $counts->execute(['t1' => $today, 't2' => $today, 't3' => $today, 't4' => $today]);
         $c = $counts->fetch(PDO::FETCH_ASSOC);
 
         return [
             'view' => $view,
-            'counts' => ['to_fill' => (int) $c['to_fill'], 'partial' => (int) $c['partial'], 'expired' => (int) $c['expired'], 'refills' => (int) $c['refills'], 'to_check' => (int) $c['to_check']],
+            'counts' => [
+                'to_fill'   => (int) $c['to_fill'],
+                'to_verify' => (int) ($c['to_verify'] ?? 0),
+                'partial'   => (int) $c['partial'],
+                'expired'   => (int) $c['expired'],
+                'refills'   => (int) $c['refills'],
+                'to_check'  => (int) $c['to_check']
+            ],
             'truncated' => count($rows) > self::QUEUE_LIMIT,
             'rows' => array_map(fn($r) => [
                 'id' => (int) $r['id'],
@@ -174,6 +194,8 @@ class DispensingService
                 'is_expired' => $r['fillable_until'] !== null && $r['fillable_until'] < $today,
                 'refill_requests' => (int) $r['refill_requests'],
                 'awaiting_check' => (int) $r['awaiting_check'],
+                'clinical_verification_status' => $r['clinical_verification_status'] ?? 'Pending Review',
+                'clinical_verification_number' => $r['clinical_verification_number'] ?? null,
                 'dispense_status' => $r['dispense_status'],
                 'status_label' => self::STATUS_LABELS[$r['dispense_status']] ?? $r['dispense_status'],
                 'last_dispensed_at' => $r['last_dispensed_at'],
@@ -275,12 +297,19 @@ class DispensingService
         $stuck = array_filter($items, fn($i) => $i['can_dispense'] && !$i['is_complete'] && !$i['can_give_now']);
         $history = $this->history($prescriptionId, $viewerId);
 
+        // Attach Pharmacist Clinical Verification record & patient clinical context
+        $verificationData = (new PrescriptionVerificationService())->getForPrescription($prescriptionId);
+        $clinicalVerification = $verificationData['verification'] ?? null;
+
         return [
             'prescription' => array_merge($slip, ['items' => $items]),
             'patient' => [
                 'id' => $slip['patient_id'], 'patient_no' => $head['patient_no'], 'name' => self::personName($head),
-                'sex' => $head['sex'], 'age' => $head['birthdate'] ? (new \DateTime($head['birthdate']))->diff(new \DateTime())->y : null
+                'sex' => $head['sex'], 'age' => $head['birthdate'] ? (new \DateTime($head['birthdate']))->diff(new \DateTime())->y : null,
+                'latest_weight_kg' => $verificationData['latest_weight_kg'] ?? 68.0,
+                'allergies' => $verificationData['patient_allergies'] ?? [],
             ],
+            'clinical_verification' => $clinicalVerification,
             'dispense_status' => $head['dispense_status'],
             'status_label' => self::STATUS_LABELS[$head['dispense_status']] ?? $head['dispense_status'],
             'closed_at' => $head['closed_at'],
@@ -354,6 +383,17 @@ class DispensingService
             }
             if ($rx['dispense_status'] === 'none') {
                 return $fail('This prescription has nothing from the Drug Catalog to dispense.');
+            }
+
+            // Enforce Clinical Pharmacist Verification hold if flagged
+            PrescriptionVerificationService::ensureTableExists($db);
+            $verStmt = $db->prepare("SELECT verification_status, intervention_category FROM prescription_verifications WHERE prescription_id = :rx_id ORDER BY id DESC LIMIT 1");
+            $verStmt->execute(['rx_id' => $prescriptionId]);
+            $verRow = $verStmt->fetch(PDO::FETCH_ASSOC);
+            if ($verRow && in_array($verRow['verification_status'], ['Intervention Needed', 'Clarification Requested', 'Rejected'], true)) {
+                return $fail(
+                    'Pharmacist Clinical Verification Hold (' . $verRow['verification_status'] . '): ' . ($verRow['intervention_category'] ?: 'Review required') . '. Please update the Clinical Verification status to Approved before physical dispensing.'
+                );
             }
 
             $stmt = $db->prepare("SELECT id, name FROM warehouses WHERE id = :id AND deleted_at IS NULL AND is_active = 1");

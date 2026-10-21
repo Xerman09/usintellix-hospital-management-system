@@ -1,7 +1,8 @@
 import {
     fetchDispensingQueue, fetchDispensingDetail, fetchDispensingOptions, dispensePrescription,
-    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip, checkDispense
-} from "./dispensing.service.js?v=7";
+    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip, checkDispense,
+    saveClinicalVerification
+} from "./dispensing.service.js?v=8";
 import { formatQty, formatDate, formatMoney, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 
@@ -61,8 +62,9 @@ async function loadQueue() {
     }
 
     queue = result.data;
-    const setCount = (el, n) => { el.hidden = !n; el.textContent = n; };
+    const setCount = (el, n) => { if (el) { el.hidden = !n; el.textContent = n; } };
     setCount($("dpCountToFill"), queue.counts.to_fill);
+    setCount($("dpCountToVerify"), queue.counts.to_verify);
     setCount($("dpCountRefills"), queue.counts.refills);
     setCount($("dpCountExpired"), queue.counts.expired);
     setCount($("dpCountToCheck"), queue.counts.to_check);
@@ -74,20 +76,35 @@ function statusBadge(row) {
     return `<span class="dp-badge ${escapeHtml(row.dispense_status)}">${escapeHtml(row.status_label || row.dispense_status)}</span>`;
 }
 
+function clinicalVerificationBadge(status) {
+    const st = status || "Pending Review";
+    if (st === "Approved") return `<span class="dp-badge dispensed" title="Pharmacist Clinical Verification: Approved">&#10003; Rx Verified</span>`;
+    if (st === "Intervention Needed") return `<span class="dp-badge dd" title="Pharmacist Clinical Verification: Intervention Needed">&#9888; Intervention Needed</span>`;
+    if (st === "Clarification Requested") return `<span class="dp-badge ha" title="Pharmacist Clinical Verification: Prescriber Clarification Requested">&#10067; Clarification Req.</span>`;
+    if (st === "Rejected") return `<span class="dp-badge expired" title="Pharmacist Clinical Verification: Rejected">&#128683; Rejected</span>`;
+    return `<span class="dp-badge partial" title="Awaiting Pharmacist Clinical Verification">&#9203; Pending Verification</span>`;
+}
+
 function renderQueue() {
     const rows = queue.rows;
     const empty = {
-        to_fill: "No prescriptions are waiting to be dispensed.", refills: "No refill requests are waiting.", partial: "No prescriptions are partly dispensed.",
+        to_fill: "No prescriptions are waiting to be dispensed.",
+        to_verify: "All active prescriptions have been clinically verified and approved by a pharmacist.",
+        refills: "No refill requests are waiting.",
+        partial: "No prescriptions are partly dispensed.",
         to_check: "No high-alert dispensings are waiting for a second check.",
-        expired: "No unfilled prescriptions have expired.", dispensed: "Nothing dispensed yet.", closed: "No closed prescriptions.", all: "No prescriptions."
+        expired: "No unfilled prescriptions have expired.",
+        dispensed: "Nothing dispensed yet.",
+        closed: "No closed prescriptions.",
+        all: "No prescriptions."
     }[view];
 
     $("dpQueue").innerHTML = rows.length ? `
         <div class="dp-card">
             <div class="dp-table-wrap"><table class="dp-table wide">
-                <thead><tr><th>Prescription</th><th>Patient</th><th>Medicines</th><th>Doctor</th><th>Status</th></tr></thead>
+                <thead><tr><th>Prescription</th><th>Patient</th><th>Medicines</th><th>Doctor</th><th>Clinical Review &amp; Status</th></tr></thead>
                 <tbody>${rows.map((r) => `
-                    <tr class="dp-click" data-dp-open="${r.id}" tabindex="0" title="Open to dispense">
+                    <tr class="dp-click" data-dp-open="${r.id}" tabindex="0" title="Open for clinical verification and dispensing">
                         <td style="white-space:nowrap;"><strong>${escapeHtml(r.rx_number)}</strong>
                             <span class="dp-sub">${escapeHtml(formatDate(r.prescribed_date))}</span>
                             ${r.valid_until ? `<span class="dp-sub">Valid until ${escapeHtml(formatDate(r.valid_until))}</span>` : ""}</td>
@@ -96,11 +113,12 @@ function renderQueue() {
                             ${r.medicines.length > 4 ? `<span class="dp-sub">+ ${r.medicines.length - 4} more</span>` : ""}
                             ${r.catalog_count < r.line_count ? `<span class="dp-sub">${r.line_count - r.catalog_count} not from the catalog</span>` : ""}</td>
                         <td>${escapeHtml(r.prescriber_name || "—")}</td>
-                        <td>${statusBadge(r)}${r.refill_requests ? ` <span class="dp-badge partial">Refill requested</span>` : ""}${r.has_dangerous_drug ? ` <span class="dp-badge dd">Dangerous drug</span>` : ""}${r.awaiting_check ? ` <span class="dp-badge ha">Awaiting 2nd check</span>` : ""}</td>
+                        <td>${clinicalVerificationBadge(r.clinical_verification_status)} ${statusBadge(r)}${r.refill_requests ? ` <span class="dp-badge partial">Refill requested</span>` : ""}${r.has_dangerous_drug ? ` <span class="dp-badge dd">Dangerous drug</span>` : ""}${r.awaiting_check ? ` <span class="dp-badge ha">Awaiting 2nd check</span>` : ""}</td>
                     </tr>`).join("")}</tbody>
             </table></div>
             ${queue.truncated ? `<p class="dp-note">Showing the first 300. Search to narrow it down.</p>` : ""}
             ${view === "to_fill" ? `<p class="dp-note">Oldest first. Expired prescriptions are under Expired — they can't be filled.</p>` : ""}
+            ${view === "to_verify" ? `<p class="dp-note">Pharmacist Clinical Verification Queue: review renal adjustment (eGFR/CrCl), patient weight (mg/kg), and clinical indications before physical product picking.</p>` : ""}
             ${view === "to_check" ? `<p class="dp-note">Dispensings with a high-alert medicine. Someone other than the person who prepared it checks it before it's handed over.</p>` : ""}
         </div>` : `<div class="dp-empty">${escapeHtml(empty)}</div>`;
 
@@ -231,16 +249,17 @@ function renderDetail() {
         ${banners.join("")}
         <div class="dp-card">
             <div class="dp-card-title"><span style="text-transform:none;font-size:16px;color:var(--text-primary);">${escapeHtml(rx.rx_number)}</span>
-                <span>${statusBadge({ ...d, dispense_status: d.dispense_status, status_label: d.status_label, is_expired: rx.is_expired })}</span></div>
+                <span>${clinicalVerificationBadge(d.clinical_verification?.verification_status)} ${statusBadge({ ...d, dispense_status: d.dispense_status, status_label: d.status_label, is_expired: rx.is_expired })}</span></div>
             <div class="dp-facts">
-                <div><span>Patient</span><strong>${escapeHtml(d.patient.name)}</strong><span class="dp-sub" style="text-transform:none;letter-spacing:0;font-weight:400;">${escapeHtml([d.patient.patient_no, d.patient.age != null ? `${d.patient.age} yrs` : null, d.patient.sex].filter(Boolean).join(" · "))}</span></div>
+                <div><span>Patient</span><strong>${escapeHtml(d.patient.name)}</strong><span class="dp-sub" style="text-transform:none;letter-spacing:0;font-weight:400;">${escapeHtml([d.patient.patient_no, d.patient.age != null ? `${d.patient.age} yrs` : null, d.patient.sex, d.patient.latest_weight_kg ? `${d.patient.latest_weight_kg} kg` : null].filter(Boolean).join(" · "))}</span></div>
                 <div><span>Prescribed by</span><strong>${escapeHtml(rx.prescriber_name || "—")}</strong></div>
                 <div><span>Date</span><strong>${escapeHtml(formatDate(rx.prescribed_date))}</strong></div>
                 <div><span>Valid until</span><strong>${rx.valid_until ? escapeHtml(formatDate(rx.valid_until)) : "—"}</strong></div>
-                ${rx.diagnosis ? `<div><span>Diagnosis</span><strong>${escapeHtml(rx.diagnosis)}</strong></div>` : ""}
+                ${rx.diagnosis ? `<div><span>Diagnosis / Indication</span><strong>${escapeHtml(rx.diagnosis)}</strong></div>` : ""}
                 ${rx.notes ? `<div><span>Doctor's notes</span><strong>${escapeHtml(rx.notes)}</strong></div>` : ""}
             </div>
         </div>
+        ${renderClinicalVerificationCard(d)}
         <div class="dp-card">
             <div class="dp-card-title"><span>Medicines</span><small>Quantities in each medicine's dispensing unit</small></div>
             ${open ? `<div class="dp-form-row">
@@ -333,6 +352,10 @@ function onDetailInput(event) {
 }
 
 function onDetailClick(event) {
+    const quickVerify = event.target.closest("[data-dp-quick-verify]");
+    if (quickVerify) return submitClinicalVerification(quickVerify.dataset.dpQuickVerify);
+    if (event.target.closest("#dpSaveClinicalVerificationBtn")) return submitClinicalVerification(null);
+
     const labels = event.target.closest("[data-dp-labels]");
     if (labels) return printLabels(Number(labels.dataset.dpLabels));
     const undo = event.target.closest("[data-dp-void]");
@@ -347,6 +370,203 @@ function onDetailClick(event) {
     if (decline) return confirmDecline(Number(decline.dataset.dpDecline));
     if (event.target.closest("#dpDispense")) return confirmDispense();
     if (event.target.closest("#dpClose")) return confirmClose();
+}
+
+function renderClinicalVerificationCard(d) {
+    const rx = d.prescription || {};
+    const cv = d.clinical_verification || null;
+    const st = cv?.verification_status || "Pending Review";
+    const weightKg = cv?.patient_weight_kg ?? d.patient?.latest_weight_kg ?? 68.0;
+    const egfr = cv?.egfr_crcl_ml_min ?? 90.0;
+    const renalStatus = cv?.renal_adjustment_status || "Normal Renal Function — No Adjustment Needed";
+    const weightStatus = cv?.weight_dosing_status || "Appropriate for Weight / Age";
+    const indication = cv?.documented_indication || rx.diagnosis || "Outpatient clinical pharmacotherapy";
+    const indOk = cv ? Number(cv.indication_verified) === 1 : true;
+    const allergyOk = cv ? Number(cv.allergy_cross_check_passed) === 1 : true;
+    const interOk = cv ? Number(cv.drug_interaction_check_passed) === 1 : true;
+    const dupOk = cv ? Number(cv.duplicate_therapy_check_passed) === 1 : true;
+    const intCat = cv?.intervention_category || "None — Regimen Clinically Appropriate";
+    const notes = cv?.clinical_review_notes || "";
+    const prescContacted = cv ? Number(cv.prescriber_contacted) === 1 : false;
+    const rphName = cv?.pharmacist_name || "RPh. Clarissa Mendoza, PharmD (Clinical Pharmacist)";
+    const rphLic = cv?.pharmacist_license_no || "PRC-RPH-0094821";
+
+    const borderColor = st === "Approved"
+        ? "#16a34a"
+        : ["Intervention Needed", "Clarification Requested", "Rejected"].includes(st)
+            ? "#dc2626"
+            : "#0284c7";
+
+    const allergiesList = (d.patient?.allergies || [])
+        .map((a) => `${a.allergen || ""}${a.reaction ? ` (${a.reaction})` : ""}`)
+        .filter(Boolean)
+        .join(", ");
+
+    return `
+        <div class="dp-card" style="border-left: 4px solid ${borderColor};">
+            <div class="dp-card-title" style="margin-bottom: 10px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="color:var(--text-primary);font-size:13.5px;">&#129658; Pharmacist Clinical Verification Queue (Renal, Weight &amp; Indication Review)</span>
+                    ${cv?.verification_number ? `<span class="dp-badge pending" style="font-family:monospace;">${escapeHtml(cv.verification_number)}</span>` : ""}
+                    ${clinicalVerificationBadge(st)}
+                </div>
+                <div class="dp-actions">
+                    <button type="button" class="dp-btn small primary" data-dp-quick-verify="Approved" style="background:#16a34a;border-color:#15803d;">
+                        &#10003; Quick Approve Rx
+                    </button>
+                    <button type="button" class="dp-btn small" data-dp-quick-verify="Intervention Needed" style="background:#fef3c7;color:#92400e;border-color:#fde68a;">
+                        &#9888; Intervention Needed
+                    </button>
+                    <button type="button" class="dp-btn small" data-dp-quick-verify="Clarification Requested" style="background:#ffedd5;color:#9a3412;border-color:#fed7aa;">
+                        &#10067; Request Clarification
+                    </button>
+                    <button type="button" class="dp-btn small danger" data-dp-quick-verify="Rejected">
+                        &#128683; Reject
+                    </button>
+                </div>
+            </div>
+
+            ${allergiesList ? `<div class="dp-banner warn" style="margin-bottom:10px;padding:7px 12px;"><strong>Documented Patient Allergies:</strong> ${escapeHtml(allergiesList)}</div>` : ""}
+
+            <div class="dp-form-row" style="margin-bottom:10px;">
+                <label style="flex:1 1 200px;">Verification Decision *
+                    <select id="dpCvStatus" style="font-weight:700;">
+                        ${["Pending Review", "Approved", "Intervention Needed", "Clarification Requested", "Rejected"]
+                            .map((opt) => `<option value="${escapeHtml(opt)}"${st === opt ? " selected" : ""}>${escapeHtml(opt)}</option>`)
+                            .join("")}
+                    </select>
+                </label>
+                <label style="flex:0 1 130px;">eGFR / CrCl (mL/min)
+                    <input type="number" id="dpCvEgfr" step="0.1" min="1" max="200" value="${escapeHtml(String(egfr))}">
+                </label>
+                <label style="flex:1 1 240px;">Renal Dose Adjustment Review *
+                    <select id="dpCvRenalStatus">
+                        ${[
+                            "Normal Renal Function — No Adjustment Needed",
+                            "Renal Dose Adjustment Verified",
+                            "Renal Dose Reduction Required",
+                            "Contraindicated in Renal Impairment"
+                        ].map((opt) => `<option value="${escapeHtml(opt)}"${renalStatus === opt ? " selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
+                    </select>
+                </label>
+                <label style="flex:0 1 120px;">Patient Weight (kg)
+                    <input type="number" id="dpCvWeightKg" step="0.1" min="0.5" max="400" value="${escapeHtml(String(weightKg))}">
+                </label>
+                <label style="flex:1 1 230px;">Weight &amp; Age Dosing Review *
+                    <select id="dpCvWeightStatus">
+                        ${[
+                            "Appropriate for Weight / Age",
+                            "Weight-Based Dose Verified (mg/kg)",
+                            "Dose Too High for Weight (Overdose Risk)",
+                            "Subtherapeutic Dose for Weight"
+                        ].map((opt) => `<option value="${escapeHtml(opt)}"${weightStatus === opt ? " selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
+                    </select>
+                </label>
+            </div>
+
+            <div class="dp-form-row" style="margin-bottom:10px;">
+                <label class="dp-grow">Verified Clinical Indication / Diagnosis *
+                    <input type="text" id="dpCvIndication" value="${escapeHtml(indication)}" placeholder="e.g. Community-Acquired Pneumonia, Essential Hypertension">
+                </label>
+                <label style="flex:1 1 240px;">Pharmacist Intervention Category
+                    <select id="dpCvInterventionCat">
+                        ${[
+                            "None — Regimen Clinically Appropriate",
+                            "Renal Dose Adjustment",
+                            "Weight-Based Dose Modification",
+                            "Drug-Allergy Cross-Reactivity Alert",
+                            "Major Drug-Drug Interaction",
+                            "Therapeutic Duplication",
+                            "Formulary Substitution",
+                            "Duration / Frequency Clarification"
+                        ].map((opt) => `<option value="${escapeHtml(opt)}"${intCat === opt ? " selected" : ""}>${escapeHtml(opt)}</option>`).join("")}
+                    </select>
+                </label>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:14px;padding:8px 12px;background:var(--bg-surface-alt);border-radius:8px;margin-bottom:10px;font-size:12.5px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;">
+                    <input type="checkbox" id="dpCvIndOk" ${indOk ? "checked" : ""}> Indication Matches Regimen
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;">
+                    <input type="checkbox" id="dpCvAllergyOk" ${allergyOk ? "checked" : ""}> Allergy Cross-Check Passed
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;">
+                    <input type="checkbox" id="dpCvInterOk" ${interOk ? "checked" : ""}> No Major Drug Interactions
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;">
+                    <input type="checkbox" id="dpCvDupOk" ${dupOk ? "checked" : ""}> No Duplicate Therapy
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:#b45309;">
+                    <input type="checkbox" id="dpCvPrescriberContacted" ${prescContacted ? "checked" : ""}> Prescriber Contacted for Clarification
+                </label>
+            </div>
+
+            <div class="dp-form-row" style="margin-bottom:0;">
+                <label class="dp-grow">Clinical Pharmacist Review / Intervention Notes
+                    <input type="text" id="dpCvNotes" value="${escapeHtml(notes)}" placeholder="e.g. Verified CrCl > 60 mL/min, weight-appropriate dosing, no allergy or DDI conflicts.">
+                </label>
+                <label style="flex:0 1 240px;">Verifying Clinical Pharmacist
+                    <input type="text" id="dpCvPharmacistName" value="${escapeHtml(rphName)}">
+                </label>
+                <label style="flex:0 1 140px;">PRC License No.
+                    <input type="text" id="dpCvPharmacistLic" value="${escapeHtml(rphLic)}">
+                </label>
+                <button type="button" class="dp-btn primary" id="dpSaveClinicalVerificationBtn">
+                    &#128190; Save Verification
+                </button>
+            </div>
+            ${cv?.pharmacist_signature ? `<p class="dp-note" style="color:#15803d;font-weight:600;">&#10003; ${escapeHtml(cv.pharmacist_signature)}</p>` : ""}
+        </div>
+    `;
+}
+
+async function submitClinicalVerification(quickStatus = null) {
+    if (!detail?.prescription?.id) return;
+
+    const statusEl = $("dpCvStatus");
+    if (quickStatus && statusEl) {
+        statusEl.value = quickStatus;
+    }
+
+    const chosenStatus = quickStatus || statusEl?.value || "Approved";
+    const btn = $("dpSaveClinicalVerificationBtn");
+    if (btn) btn.disabled = true;
+
+    const payload = {
+        prescription_id:                detail.prescription.id,
+        patient_id:                     detail.patient?.id || null,
+        verification_status:            chosenStatus,
+        egfr_crcl_ml_min:               $("dpCvEgfr")?.value ?? 90,
+        renal_adjustment_status:        $("dpCvRenalStatus")?.value || "Normal Renal Function — No Adjustment Needed",
+        patient_weight_kg:              $("dpCvWeightKg")?.value ?? 68,
+        weight_dosing_status:           $("dpCvWeightStatus")?.value || "Appropriate for Weight / Age",
+        documented_indication:          $("dpCvIndication")?.value || "",
+        intervention_category:          $("dpCvInterventionCat")?.value || "None — Regimen Clinically Appropriate",
+        indication_verified:            $("dpCvIndOk")?.checked ? 1 : 0,
+        allergy_cross_check_passed:     $("dpCvAllergyOk")?.checked ? 1 : 0,
+        drug_interaction_check_passed:  $("dpCvInterOk")?.checked ? 1 : 0,
+        duplicate_therapy_check_passed: $("dpCvDupOk")?.checked ? 1 : 0,
+        prescriber_contacted:           $("dpCvPrescriberContacted")?.checked ? 1 : 0,
+        clinical_review_notes:          $("dpCvNotes")?.value || "",
+        pharmacist_name:                $("dpCvPharmacistName")?.value || "RPh. Clarissa Mendoza, PharmD (Clinical Pharmacist)",
+        pharmacist_license_no:          $("dpCvPharmacistLic")?.value || "PRC-RPH-0094821",
+    };
+
+    try {
+        const res = await saveClinicalVerification(payload);
+        if (res?.success) {
+            showToast(res.message || `Clinical verification saved (${chosenStatus}).`, "success");
+            await openDetail(detail.prescription.id, true);
+        } else {
+            showToast(res?.message || "Failed to save clinical verification.", "error");
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Error saving Pharmacist Clinical Verification.", "error");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 /* ---------------------------------------------------------------

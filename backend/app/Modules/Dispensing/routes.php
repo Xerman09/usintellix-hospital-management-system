@@ -19,3 +19,14 @@ $router->post('/dispensing/refill-request', [DispensingController::class, 'reque
 $router->post('/dispensing/refill-decline', [DispensingController::class, 'declineRefill'], $dispensingRoles);
 $router->post('/dispensing/payment', [DispensingController::class, 'payment'], $dispensingRoles);
 $router->get('/dispensing/charge-slip', [DispensingController::class, 'chargeSlip'], $dispensingRoles);
+
+
+// ---------------------------------------------------------------
+// Pharmacist Clinical Verification Queue (prescription_verifications):
+// Renal adjustment, patient weight considerations, clinical indication,
+// allergy/interaction cross-check, and verification status before dispensing.
+// ---------------------------------------------------------------
+use App\Modules\Dispensing\Controllers\PrescriptionVerificationController;
+
+$router->get('/dispensing/clinical-verifications', [PrescriptionVerificationController::class, 'index'], $dispensingRoles);
+$router->post('/dispensing/clinical-verifications/save', [PrescriptionVerificationController::class, 'save'], $dispensingRoles);
