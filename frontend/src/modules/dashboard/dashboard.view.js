@@ -13,6 +13,7 @@ function staffNavLinks(role)
         ${role === "radiologic_technologist" ? `<a data-tab="rad_report">Radiology Report</a>` : ""}
         <a data-tab="patient_finder">Finder</a>
         <a data-tab="patient_flow">Flow</a>
+        ${role === "admin" ? `<a data-tab="portal_checkins">Online Check-ins</a>` : ""}
         <a data-tab="recalls">Recalls</a>
         <a data-tab="messaging">Messaging</a>
         <div class="nav-dropdown">
@@ -61,6 +62,7 @@ function staffNavLinks(role)
                 <a data-tab="payment">Payment</a>
                 <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>
                 <a data-tab="billing_manager">Billing Manager</a>
+                <a data-tab="portal_payments">Online Payments</a>
                 <a data-tab="batch_payments">Batch Payments</a>
                 <a data-tab="posting_payments">Posting Payments</a>
                 <a data-tab="edi_history">EDI History</a>
@@ -523,6 +525,7 @@ function staffNavLinks(role)
 
 const PATIENT_NAV_LINKS = `
     <a data-tab="appointments">Appointments</a>
+    <a data-tab="mychart_checkin">Check In</a>
     <a data-tab="mychart_visits">Visits</a>
     <a data-tab="mychart_results">Test Results</a>
     <div class="nav-dropdown">
@@ -548,6 +551,7 @@ const RECEPTIONIST_NAV_LINKS = `
     <a data-tab="appointments">Calendar</a>
     <a data-tab="patient_finder">Finder</a>
     <a data-tab="patient_flow">Flow</a>
+    <a data-tab="portal_checkins">Online Check-ins</a>
     <a data-tab="recalls">Recalls</a>
     <div class="nav-dropdown">
         <span>Patient</span>
@@ -776,6 +780,7 @@ function nurseNavLinks(role)
             <a data-tab="visitor_management">Visitor Management &amp; Passes</a>
             <a data-tab="equipment_assets">Biomedical &amp; Equipment Assets</a>
             <a data-tab="patient_flow">Flow</a>
+            <a data-tab="portal_checkins">Online Check-ins</a>
         </div>
     </div>
     <a data-tab="inpatient_admissions">Wards</a>
@@ -791,6 +796,7 @@ function nurseNavLinks(role)
     ${role === "charge_nurse" ? `<a data-tab="code_blue_report">Code Blue Report</a>` : ""}
     <a data-tab="nurse_assignments">Shift Assignments</a>
     <a data-tab="patient_flow">Flow</a>
+    <a data-tab="portal_checkins">Online Check-ins</a>
     <div class="nav-dropdown">
         <span>Surgery</span>
         <div class="dropdown-content">

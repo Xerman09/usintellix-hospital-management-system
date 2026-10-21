@@ -112,7 +112,7 @@ class PatientLedgerService
             'id' => 'm' . $row['id'],
             'code' => $row['dispense_number'],
             'description' => $row['description'] . ((float) $row['discount_amount'] > 0
-                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+                ? ' (less ' . self::currencySymbol() . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
             'billed_date' => $row['charge_date'],
             'payor' => null,
             'type' => 'Pharmacy',
@@ -145,7 +145,7 @@ class PatientLedgerService
             'code' => $row['case_number'],
             'description' => $row['description'] . ((float) $row['quantity'] != 1.0 ? ' x ' . rtrim(rtrim(number_format((float) $row['quantity'], 3, '.', ''), '0'), '.') : '')
                 . ((float) $row['discount_amount'] > 0
-                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+                ? ' (less ' . self::currencySymbol() . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
             'billed_date' => $row['charge_date'],
             'payor' => null,
             'type' => 'Surgery',
@@ -209,7 +209,7 @@ class PatientLedgerService
             'id' => 'l' . $row['id'],
             'code' => $row['accession_no'] ?: $row['request_no'],
             'description' => $row['description'] . ((float) $row['discount_amount'] > 0
-                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+                ? ' (less ' . self::currencySymbol() . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
             'billed_date' => $row['charge_date'],
             'payor' => null,
             'type' => 'Laboratory',
@@ -240,7 +240,7 @@ class PatientLedgerService
             'id' => 'x' . $row['id'],
             'code' => $row['request_no'],
             'description' => $row['description'] . ((float) $row['discount_amount'] > 0
-                ? ' (less ₱' . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
+                ? ' (less ' . self::currencySymbol() . number_format((float) $row['discount_amount'], 2) . ($row['discount_type'] === 'senior' ? ' Senior Citizen' : ($row['discount_type'] === 'pwd' ? ' PWD' : '')) . ' discount)' : ''),
             'billed_date' => $row['charge_date'],
             'payor' => null,
             'type' => 'Imaging',
@@ -253,12 +253,42 @@ class PatientLedgerService
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /**
+     * Payments that have actually arrived.
+     *
+     * My Chart Phase 4 lets a patient start a payment from the portal, which sits as
+     * `pending` until a cashier (or a gateway callback) confirms the money. Only a
+     * settled row may reduce the balance -- otherwise pressing a button in the portal
+     * would clear the bill. Counter payments default to 'settled', so nothing about
+     * the desk's behaviour changes.
+     */
+    /**
+     * The hospital's currency symbol, from business settings. Read once per request:
+     * the discount text on a charge used to be a hard-coded peso sign, which read
+     * oddly next to amounts formatted from the configured currency.
+     */
+    private static function currencySymbol(): string
+    {
+        static $symbol = null;
+
+        if ($symbol === null) {
+            try {
+                $symbol = (string) (Database::connection()->query("SELECT currency_symbol FROM business_settings LIMIT 1")->fetchColumn() ?: '₱');
+            } catch (\Throwable $e) {
+                $symbol = '₱';
+            }
+        }
+
+        return $symbol;
+    }
+
     private function listPayments(int $patientId, string $from, string $to): array
     {
         $stmt = Database::connection()->prepare(
             "SELECT id, encounter_id, payer_type, payment_type, card_number, card_expiry, card_cvv, payment_date, payment_amount, adjustment_amount, notes
              FROM patient_ledger_payments
              WHERE patient_id = :patient_id AND deleted_at IS NULL
+               AND status = 'settled'
                AND payment_date >= :from AND payment_date <= :to
              ORDER BY payment_date ASC, id ASC"
         );

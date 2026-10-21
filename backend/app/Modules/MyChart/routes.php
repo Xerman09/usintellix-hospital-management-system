@@ -2,6 +2,8 @@
 
 use App\Modules\MyChart\Controllers\MyChartController;
 use App\Modules\MyChart\Services\PortalExplanationService;
+use App\Modules\MyChart\Services\PortalCheckinService;
+use App\Modules\MyChart\Services\PortalPaymentService;
 
 /** @var \App\Core\Router $router */
 
@@ -49,6 +51,87 @@ $router->get('/mychart/visits/avs', [MyChartController::class, 'afterVisitSummar
 $router->get('/mychart/visits/discharge-summary', [MyChartController::class, 'dischargeSummary'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['patient']]
+]);
+
+// ---------------------------------------------------------------
+// Billing: the statement, paying, and the receipts.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/billing', [MyChartController::class, 'billing'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/billing/history', [MyChartController::class, 'billingHistory'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/billing/receipt', [MyChartController::class, 'billingReceipt'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/billing/pay', [MyChartController::class, 'billingPay'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/billing/cancel', [MyChartController::class, 'billingCancel'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// The desk confirms that a portal payment's money actually arrived. A payment
+// gateway would call the same settle path from its callback instead.
+$router->get('/portal-payments', [MyChartController::class, 'portalPayments'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalPaymentService::SETTLE_ROLES]
+]);
+
+$router->post('/portal-payments/settle', [MyChartController::class, 'portalPaymentSettle'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalPaymentService::SETTLE_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// e-Check-in: the paperwork done at home before a visit.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/checkin', [MyChartController::class, 'checkinOpen'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/checkin/start', [MyChartController::class, 'checkinStart'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/checkin/step', [MyChartController::class, 'checkinStep'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/checkin/complete', [MyChartController::class, 'checkinComplete'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// The desk: who has checked in online, what they answered, and arriving in one tap.
+$router->get('/portal-checkins', [MyChartController::class, 'portalCheckins'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCheckinService::DESK_ROLES]
+]);
+
+$router->get('/portal-checkins/response', [MyChartController::class, 'portalCheckinResponse'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCheckinService::DESK_ROLES]
+]);
+
+$router->post('/portal-checkins/arrive', [MyChartController::class, 'portalCheckinArrive'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalCheckinService::DESK_ROLES]
 ]);
 
 // ---------------------------------------------------------------

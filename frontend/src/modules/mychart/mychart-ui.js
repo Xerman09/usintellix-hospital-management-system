@@ -124,6 +124,44 @@ const CSS = `
 .mc-sec p { margin: 0; white-space: pre-wrap; }
 .mc-sec ul { margin: 0; padding-left: 20px; }
 .mc-sec li { margin-bottom: 3px; }
+/* billing (Phase 4) */
+.mc-billbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 14px; }
+.mc-bill-owed { border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 16px; background: var(--bg-surface); }
+.mc-bill-owed.due { border-color: #fcd34d; background: #fffbeb; }
+:root[data-theme="dark"] .mc-bill-owed.due { background: #2a2208; border-color: #92400e; }
+.mc-bill-label { display: block; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.mc-bill-amount { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mc-bill-note { flex: 1 1 260px; font-size: 12.5px; color: var(--text-muted); border-left: 3px solid #1d4ed8; padding: 4px 0 4px 10px; }
+.mc-bill-note b { color: var(--text-primary); }
+.mc-billdate { margin: 0 0 6px; font-size: 14px; }
+.mc-tbl tr.mc-tot td { border-top: 2px solid var(--border-color); border-bottom: 0; font-weight: 700; }
+/* e-check-in (Phase 5) */
+.mc-chip.ok { background: #dcfce7; border-color: #86efac; color: #14532d; }
+:root[data-theme="dark"] .mc-chip.ok { background: #052e16; border-color: #166534; color: #bbf7d0; }
+.mc-done { border: 1px solid #86efac; background: #f0fdf4; color: #14532d; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-weight: 600; }
+:root[data-theme="dark"] .mc-done { background: #052e16; border-color: #166534; color: #bbf7d0; }
+.mc-steps { display: grid; gap: 10px; }
+.mc-step { border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-surface); }
+.mc-step.done { border-color: #86efac; }
+:root[data-theme="dark"] .mc-step.done { border-color: #166534; }
+.mc-step-head { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; }
+.mc-step-head > span:nth-child(2) { flex: 1 1 auto; min-width: 0; }
+.mc-step-head .mc-meta { display: block; }
+.mc-step-tick { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-color); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #15803d; }
+.mc-step.done .mc-step-tick { background: #dcfce7; border-color: #86efac; }
+:root[data-theme="dark"] .mc-step.done .mc-step-tick { background: #052e16; border-color: #166534; color: #bbf7d0; }
+.mc-step-body:empty { display: none; }
+.mc-form { padding: 0 14px 14px; display: grid; gap: 10px; }
+.mc-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.mc-field label, .mc-qlabel { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 3px; }
+.mc-field input[type=text], .mc-field input[type=tel], .mc-field input[type=email], .mc-field input[type=file], .mc-field select, .mc-field textarea {
+    width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13.5px; background: var(--bg-surface); color: var(--text-primary); }
+.mc-field textarea { min-height: 70px; resize: vertical; }
+.mc-check { display: block; font-size: 13px; margin-bottom: 4px; }
+.mc-radios { display: inline-flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+.mc-formrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mc-req { font-size: 11px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: .03em; }
+:root[data-theme="dark"] .mc-req { color: #fbbf24; }
 .mc-note { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border-color); border-left: 3px solid #1d4ed8; border-radius: 8px; background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
 `;
 

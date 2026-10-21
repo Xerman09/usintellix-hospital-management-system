@@ -8,7 +8,9 @@ use App\Core\Session;
 use App\Modules\Messaging\Models\MessageType;
 use App\Modules\Messaging\Services\MessagingService;
 use App\Modules\MyChart\Services\PortalAudit;
+use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalGuard;
+use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalVisitService;
@@ -223,6 +225,287 @@ class MyChartController extends Controller
         }
 
         $this->success($summary, 'Discharge summary retrieved successfully.');
+    }
+
+    // ------------------------------------------------------------------
+    // Billing (Phase 4)
+    // ------------------------------------------------------------------
+
+    /** GET /mychart/billing?from=&to= -- the itemised statement. */
+    public function billing(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Statement Viewed');
+
+        if ($patientId === null) {
+            $this->error('Billing is not available for this account.', 403);
+            return;
+        }
+
+        $to = (string) $request->input('to', '') ?: date('Y-m-d');
+        $from = (string) $request->input('from', '') ?: date('Y-m-d', strtotime('-2 years'));
+
+        $this->success(
+            PortalPaymentService::statement($patientId, $from, $to)
+                + ['can_pay' => PortalGuard::can($user, PortalGuard::CAP_BILLING_PAY)],
+            'Statement retrieved successfully.'
+        );
+    }
+
+    /** GET /mychart/billing/history -- what has been paid, and what is waiting to be confirmed. */
+    public function billingHistory(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Payment History Viewed');
+
+        if ($patientId === null) {
+            $this->error('Billing is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalPaymentService::history($patientId), 'Payment history retrieved successfully.');
+    }
+
+    /** GET /mychart/billing/receipt?payment_id= -- one receipt, to print. */
+    public function billingReceipt(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Receipt Viewed');
+
+        if ($patientId === null) {
+            $this->error('Billing is not available for this account.', 403);
+            return;
+        }
+
+        $receipt = PortalPaymentService::receipt($patientId, (int) $request->input('payment_id'));
+
+        if ($receipt === null) {
+            $this->error('That receipt is not available.', 404);
+            return;
+        }
+
+        $this->success($receipt, 'Receipt retrieved successfully.');
+    }
+
+    /**
+     * POST /mychart/billing/pay -- start a payment. Body: amount, note?
+     * Nothing reaches the ledger here: the attempt waits until the money is confirmed.
+     */
+    public function billingPay(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Payment Started', PortalGuard::CAP_BILLING_PAY);
+
+        if ($patientId === null) {
+            $this->error('Paying online is not available for this account.', 403);
+            return;
+        }
+
+        $result = PortalPaymentService::start($patientId, (int) ($user['id'] ?? 0), $request->input('amount'), $request->input('note'));
+
+        if (!empty($result['success'])) {
+            PortalAudit::action($user, $patientId, 'Payment Started',
+                "Started a payment of {$result['data']['amount']} ({$result['data']['reference_no']}).");
+        }
+
+        $this->respond($result);
+    }
+
+    /** POST /mychart/billing/cancel -- the patient changes their mind. Body: attempt_id */
+    public function billingCancel(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Payment Cancelled', PortalGuard::CAP_BILLING_PAY);
+
+        if ($patientId === null) {
+            $this->error('Paying online is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalPaymentService::cancel($patientId, (int) $request->input('attempt_id')));
+    }
+
+    // ------------------------------------------------------------------
+    // e-Check-in (Phase 5)
+    // ------------------------------------------------------------------
+
+    /** GET /mychart/checkin -- appointments open for check-in, and how far each has got. */
+    public function checkinOpen(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'e-Check-in Opened', PortalGuard::CAP_CHECKIN);
+
+        if ($patientId === null) {
+            $this->error('Check-in is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalCheckinService::open($patientId), 'Check-in retrieved successfully.');
+    }
+
+    /** GET /mychart/checkin/start?appointment_id= -- everything needed to check in. */
+    public function checkinStart(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Check-in Started', PortalGuard::CAP_CHECKIN);
+
+        if ($patientId === null) {
+            $this->error('Check-in is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalCheckinService::start($patientId, (int) $request->input('appointment_id'), (int) ($user['id'] ?? 0)));
+    }
+
+    /**
+     * POST /mychart/checkin/step -- save one step.
+     * Body: appointment_id, step (demographics|insurance|consents|questionnaire|id_document|copay), and that step's fields.
+     */
+    public function checkinStep(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Check-in Step Saved', PortalGuard::CAP_CHECKIN);
+
+        if ($patientId === null) {
+            $this->error('Check-in is not available for this account.', 403);
+            return;
+        }
+
+        $appointmentId = (int) $request->input('appointment_id');
+        $userId = (int) ($user['id'] ?? 0);
+        $data = $request->all();
+
+        $result = match ((string) $request->input('step', '')) {
+            'demographics' => PortalCheckinService::saveDemographics($patientId, $appointmentId, $data, $userId),
+            'insurance' => PortalCheckinService::saveInsurance($patientId, $appointmentId, $data, $userId),
+            'consents' => PortalCheckinService::signConsents($patientId, $appointmentId, $data, $userId),
+            'questionnaire' => PortalCheckinService::saveQuestionnaire($patientId, $appointmentId, $data, $userId),
+            'id_document' => PortalCheckinService::recordIdDocument($patientId, $appointmentId, $userId),
+            'copay' => PortalCheckinService::recordCopay($patientId, $appointmentId, (int) $request->input('attempt_id'), $userId),
+            default => ['success' => false, 'message' => 'Which step is this?'],
+        };
+
+        $this->respond($result);
+    }
+
+    /** POST /mychart/checkin/complete -- finish the check-in. Body: appointment_id */
+    public function checkinComplete(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'e-Check-in Completed', PortalGuard::CAP_CHECKIN);
+
+        if ($patientId === null) {
+            $this->error('Check-in is not available for this account.', 403);
+            return;
+        }
+
+        $result = PortalCheckinService::complete($patientId, (int) $request->input('appointment_id'), (int) ($user['id'] ?? 0));
+
+        if (!empty($result['success'])) {
+            PortalAudit::action($user, $patientId, 'e-Check-in Completed',
+                'Checked in online for appointment ' . (int) $request->input('appointment_id') . '.');
+        }
+
+        $this->respond($result);
+    }
+
+    // ------------------------------------------------------------------
+    // The desk's side of e-check-in
+    // ------------------------------------------------------------------
+
+    /** GET /portal-checkins?date= -- who has checked in online for a day. */
+    public function portalCheckins(): void
+    {
+        $request = new Request();
+
+        $this->success(PortalCheckinService::deskList((string) $request->input('date', '') ?: null), 'Check-ins retrieved successfully.');
+    }
+
+    /** GET /portal-checkins/response?id= -- what the patient answered. */
+    public function portalCheckinResponse(): void
+    {
+        $request = new Request();
+        $response = PortalCheckinService::response((int) $request->input('id'));
+
+        if ($response === null) {
+            $this->error('Those answers were not found.', 404);
+            return;
+        }
+
+        $this->success($response, 'Answers retrieved successfully.');
+    }
+
+    /**
+     * POST /portal-checkins/arrive -- one tap when the patient reaches the desk: creates
+     * the patient-flow row the clinic already uses. Body: appointment_id
+     */
+    public function portalCheckinArrive(): void
+    {
+        $request = new Request();
+        $user = Session::get('user') ?? [];
+        $appointmentId = (int) $request->input('appointment_id');
+
+        if (!$appointmentId) {
+            $this->error('Which appointment?', 422);
+            return;
+        }
+
+        $result = (new \App\Modules\PatientFlow\Services\PatientFlowService())->checkIn(['appointment_id' => $appointmentId], $user);
+
+        if (!empty($result['success'])) {
+            \App\Core\Database::connection()
+                ->prepare("UPDATE portal_checkins SET arrived_flow_id = :f, updated_at = NOW() WHERE appointment_id = :a")
+                ->execute(['f' => $result['data']['id'] ?? null, 'a' => $appointmentId]);
+        }
+
+        $this->respond($result);
+    }
+
+    // ------------------------------------------------------------------
+    // The cashier's side of portal payments
+    // ------------------------------------------------------------------
+
+    /** GET /portal-payments -- portal payments waiting for the money to be confirmed. */
+    public function portalPayments(): void
+    {
+        $this->success(PortalPaymentService::queue(), 'Waiting payments retrieved successfully.');
+    }
+
+    /**
+     * POST /portal-payments/settle -- the cashier confirms the money arrived (or marks it
+     * as not paid with paid = 0). Body: attempt_id, paid (0|1), reference?
+     */
+    public function portalPaymentSettle(): void
+    {
+        $request = new Request();
+        $user = Session::get('user') ?? [];
+        $attemptId = (int) $request->input('attempt_id');
+        $actorId = (int) ($user['id'] ?? 0);
+
+        if (!$attemptId) {
+            $this->error('Which payment?', 422);
+            return;
+        }
+
+        $this->respond((int) $request->input('paid', 1) === 1
+            ? PortalPaymentService::settleFromProvider($attemptId, $actorId, (string) $request->input('reference', '') ?: null, 'Confirmed at the desk.')
+            : PortalPaymentService::fail($attemptId, $actorId, 'Marked as not paid at the desk.'));
     }
 
     /**
