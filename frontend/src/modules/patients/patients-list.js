@@ -11256,11 +11256,15 @@ async function openPrescriptionFormModal(slip)
     const pedCheck = document.getElementById("rxForcePediatricCheck");
     const overAck = document.getElementById("rxDosageOverrideAck");
     const overReason = document.getElementById("rxDosageOverrideReason");
+    const dupAck = document.getElementById("rxDupOverrideAck");
+    const dupReason = document.getElementById("rxDupOverrideReason");
     if (weightInput) weightInput.value = ctx.patient_weight_kg ?? 68;
     if (egfrInput) egfrInput.value = ctx.patient_egfr_ml_min ?? 90;
     if (pedCheck) pedCheck.checked = Boolean(ctx.is_pediatric);
     if (overAck) overAck.checked = false;
     if (overReason) overReason.value = "";
+    if (dupAck) dupAck.checked = false;
+    if (dupReason) dupReason.value = "";
 
     if (slip) {
         slip.items.forEach((item) => addPrescriptionLine(item));
@@ -11339,6 +11343,7 @@ function addPrescriptionLine(item = null)
             <div class="two"><label>Directions (sig)</label><input class="form-input" data-f="directions" value="${value("directions")}" placeholder="e.g. Take after meals for 7 days"></div>
         </div>
         <div class="rx-dosage-panel" data-rx-dosage-check hidden></div>
+        <div class="rx-dosage-panel critical_block" data-rx-dup-check hidden></div>
         <button type="button" class="rx-more-toggle" data-rx-more aria-expanded="false">Show more fields</button>
         <div class="rx-line-grid" data-rx-more-fields hidden>
             <div class="two"><label>Pharmacy</label><input class="form-input" data-f="pharmacy" value="${value("pharmacy")}" maxlength="255"></div>
@@ -11404,6 +11409,7 @@ function onPrescriptionLineClick(event)
         line.remove();
         renumberPrescriptionLines();
         updatePrescriptionRules();
+        evaluateAllPrescriptionDosageLimits();
         return;
     }
     if (event.target.closest("[data-rx-more]")) {
@@ -11583,7 +11589,11 @@ function prescriptionStockBadge(drug)
 
 function prescriptionFlagBadges(drug)
 {
+    const pharmBadges = (drug.pharmacological_classes || []).map(
+        (c) => `<span class="rx-badge ok" style="background:#e0e7ff;color:#3730a3;">&#129516; ${escapeHtml(c.class_name)}</span>`
+    );
     return [
+        ...pharmBadges,
         drug.controlled_class ? `<span class="rx-badge warn">${escapeHtml(drug.controlled_class)}</span>` : "",
         drug.is_high_alert ? `<span class="rx-badge warn">High-alert</span>` : "",
         drug.is_lasa ? `<span class="rx-badge warn">Look-alike / sound-alike</span>` : ""
@@ -12035,6 +12045,160 @@ function evaluateAllPrescriptionDosageLimits()
     if (overrideWrap) {
         overrideWrap.hidden = !hasAnyModerateOrHighWarning;
     }
+
+    evaluateDuplicateTherapyScreen();
+}
+
+/* ---------- Automated Duplicate Therapy Screen (Pharmacological Classes) ---------- */
+
+function classifyPrescriptionLine(line)
+{
+    const state = rxPickerState(line);
+    const catalogClasses = rxFormOptions?.pharmacological_classes || [];
+    const byCode = new Map(catalogClasses.map((c) => [c.class_code, c]));
+
+    if (Array.isArray(state?.chosenDrug?.pharmacological_classes) && state.chosenDrug.pharmacological_classes.length) {
+        return state.chosenDrug.pharmacological_classes.map((c) => byCode.get(c.class_code) || c);
+    }
+
+    const title = (line.querySelector('[data-f="title"]')?.value || "").toLowerCase();
+    const generic = (state?.chosenDrug?.generic_name || "").toLowerCase();
+    const hay = `${generic} ${title}`.trim();
+    if (!hay) return [];
+
+    return catalogClasses.filter((cls) =>
+        Array.isArray(cls.member_keywords) && cls.member_keywords.some((kw) => kw && hay.includes(String(kw).toLowerCase()))
+    );
+}
+
+function evaluateDuplicateTherapyScreen()
+{
+    const lines = [...document.querySelectorAll("#rxLines .rx-line")];
+    const currentSlipId = Number(document.getElementById("rxSlipId")?.value || 0) || null;
+    const activePatientMeds = (rxFormOptions?.active_patient_medications || []).filter(
+        (m) => !currentSlipId || Number(m.prescription_id) !== currentSlipId
+    );
+    const catalogClasses = rxFormOptions?.pharmacological_classes || [];
+    const byCode = new Map(catalogClasses.map((c) => [c.class_code, c]));
+
+    const lineClassifications = lines.map((line, idx) => {
+        const title = (line.querySelector('[data-f="title"]')?.value || "").trim()
+            || rxPickerState(line)?.chosenDrug?.name
+            || `Medicine #${idx + 1}`;
+        return {
+            line,
+            idx,
+            title,
+            classes: classifyPrescriptionLine(line)
+        };
+    });
+
+    const summaryAlerts = [];
+
+    lineClassifications.forEach((entry) => {
+        const dupPanel = entry.line.querySelector("[data-rx-dup-check]");
+        if (!dupPanel) return;
+
+        const lineAlerts = [];
+
+        entry.classes.forEach((cls) => {
+            const fullClass = byCode.get(cls.class_code) || cls;
+
+            // 1. Intra-Prescription Duplicate Therapy (two drugs of same pharmacological class on this slip)
+            lineClassifications.forEach((other) => {
+                if (other.idx === entry.idx) return;
+                if (other.classes.some((oc) => oc.class_code === cls.class_code)) {
+                    const alertObj = {
+                        type: "intra_slip",
+                        class_code: cls.class_code,
+                        class_name: fullClass.class_name,
+                        conflicting_title: other.title,
+                        conflicting_source: `Medicine Line #${other.idx + 1} on this prescription`,
+                        risk: fullClass.duplicate_clinical_risk || "Duplicate pharmacological class prescribed on the same slip.",
+                        recommendation: fullClass.clinical_recommendation || "Discontinue one agent from this pharmacological class."
+                    };
+                    lineAlerts.push(alertObj);
+                    if (entry.idx < other.idx) {
+                        summaryAlerts.push({
+                            ...alertObj,
+                            current_title: entry.title,
+                            current_line_no: entry.idx + 1
+                        });
+                    }
+                }
+            });
+
+            // 2. Cross-Prescription / Multi-Doctor Duplicate Therapy (against active patient prescriptions)
+            activePatientMeds.forEach((activeMed) => {
+                const activeClasses = activeMed.pharmacological_classes || [];
+                if (activeClasses.some((ac) => ac.class_code === cls.class_code)) {
+                    const alertObj = {
+                        type: "cross_prescription",
+                        class_code: cls.class_code,
+                        class_name: fullClass.class_name,
+                        conflicting_title: activeMed.title,
+                        conflicting_source: `Active Rx ${activeMed.rx_number} (Prescribed by Dr. ${activeMed.prescriber_name || "Physician"} on ${formatDate(activeMed.prescribed_date)})`,
+                        risk: fullClass.duplicate_clinical_risk || "Co-prescribed duplicate therapy across active prescriptions.",
+                        recommendation: fullClass.clinical_recommendation || "Verify active medication profile before co-prescribing."
+                    };
+                    lineAlerts.push(alertObj);
+                    summaryAlerts.push({
+                        ...alertObj,
+                        current_title: entry.title,
+                        current_line_no: entry.idx + 1
+                    });
+                }
+            });
+        });
+
+        if (!lineAlerts.length) {
+            dupPanel.hidden = true;
+            dupPanel.innerHTML = "";
+            return;
+        }
+
+        dupPanel.hidden = false;
+        dupPanel.innerHTML = `
+            <div style="font-weight:800;margin-bottom:4px;color:#991b1b;">
+                &#129516; DUPLICATE THERAPY SCREEN ALERT — ${escapeHtml(lineAlerts[0].class_name)}
+            </div>
+            ${lineAlerts.map((a) => `
+                <div class="rx-dosage-alert-item">
+                    <strong>${a.type === "cross_prescription" ? "&#9888; Multi-Doctor / Cross-Prescription Duplicate" : "&#9888; Same-Slip Duplicate Class"}:</strong>
+                    Conflicts with <strong>${escapeHtml(a.conflicting_title)}</strong> (${escapeHtml(a.conflicting_source)}).<br>
+                    <span>${escapeHtml(a.risk)}</span><br>
+                    <em style="font-weight:700;">Recommendation: ${escapeHtml(a.recommendation)}</em>
+                </div>
+            `).join("")}
+            ${lines.length > 1 ? `<div style="margin-top:6px;">
+                <button type="button" class="rx-dosage-fix-btn" data-rx-remove-line style="border-color:#dc2626;background:#fee2e2;color:#991b1b;">
+                    &#128465; Remove Duplicate Medicine Line
+                </button>
+            </div>` : ""}
+        `;
+    });
+
+    const dupBanner = document.getElementById("rxDuplicateTherapyBanner");
+    const dupSummary = document.getElementById("rxDuplicateTherapySummary");
+    if (dupBanner && dupSummary) {
+        if (!summaryAlerts.length) {
+            dupBanner.hidden = true;
+            dupSummary.innerHTML = "";
+        } else {
+            dupBanner.hidden = false;
+            dupSummary.innerHTML = `
+                <strong>&#129516; Automated Duplicate Therapy Screen (${summaryAlerts.length} Pharmacological Class Conflict${summaryAlerts.length === 1 ? "" : "s"} Detected):</strong>
+                <ul style="margin:5px 0 0;padding-left:18px;">
+                    ${summaryAlerts.map((s) => `
+                        <li>
+                            <strong>[${escapeHtml(s.class_name)}]</strong> Line #${s.current_line_no} (<strong>${escapeHtml(s.current_title)}</strong>)
+                            duplicates <strong>${escapeHtml(s.conflicting_title)}</strong> (${escapeHtml(s.conflicting_source)}).
+                        </li>
+                    `).join("")}
+                </ul>
+            `;
+        }
+    }
 }
 
 /* ---------- printing ---------- */
@@ -12239,6 +12403,8 @@ async function savePrescriptionSlip()
         patient_egfr_ml_min: document.getElementById("rxPatientEgfr")?.value || null,
         dosage_override_acknowledged: document.getElementById("rxDosageOverrideAck")?.checked ? 1 : 0,
         dosage_override_reason: document.getElementById("rxDosageOverrideReason")?.value?.trim() || "",
+        duplicate_therapy_override_acknowledged: document.getElementById("rxDupOverrideAck")?.checked ? 1 : 0,
+        duplicate_therapy_override_reason: document.getElementById("rxDupOverrideReason")?.value?.trim() || "",
         items: sent.map(({ item }) => item)
     };
 

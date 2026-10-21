@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
 use App\Modules\PatientPrescriptions\Services\DrugDosageLimitRuleEngine;
+use App\Modules\PatientPrescriptions\Services\DuplicateTherapyScreenService;
 use App\Modules\PatientPrescriptions\Services\PrescriptionService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Services\PatientAccessService;
@@ -66,7 +67,8 @@ class PrescriptionController extends Controller
         $user = Session::get('user');
         $data = $request->only([
             'patient_id', 'prescriber_user_id', 'encounter_id', 'prescribed_date', 'diagnosis', 'notes', 'items',
-            'patient_weight_kg', 'patient_egfr_ml_min', 'dosage_override_acknowledged', 'dosage_override_reason'
+            'patient_weight_kg', 'patient_egfr_ml_min', 'dosage_override_acknowledged', 'dosage_override_reason',
+            'duplicate_therapy_override_acknowledged', 'duplicate_therapy_override_reason'
         ]);
 
         if (!$this->ownsPatient($user, (int) ($data['patient_id'] ?? 0))) {
@@ -93,7 +95,8 @@ class PrescriptionController extends Controller
             $id,
             $request->only([
                 'id', 'prescriber_user_id', 'encounter_id', 'prescribed_date', 'diagnosis', 'notes', 'items', 'version',
-                'patient_weight_kg', 'patient_egfr_ml_min', 'dosage_override_acknowledged', 'dosage_override_reason'
+                'patient_weight_kg', 'patient_egfr_ml_min', 'dosage_override_acknowledged', 'dosage_override_reason',
+                'duplicate_therapy_override_acknowledged', 'duplicate_therapy_override_reason'
             ]),
             $user
         ));
@@ -126,6 +129,24 @@ class PrescriptionController extends Controller
             'patient_dosing_context' => $context,
             'evaluations' => $evaluations,
         ], 'Dosage limits evaluated successfully.');
+    }
+
+    /**
+     * Screen prescription lines against pharmacological classes for intra-prescription
+     * and cross-prescription (multi-doctor) duplicate therapy.
+     * Body: patient_id, prescription_id?, items[]
+     */
+    public function screenDuplicateTherapy(): void
+    {
+        $request = new Request();
+        $patientId = (int) $request->input('patient_id');
+        $excludeSlipId = (int) $request->input('prescription_id') ?: null;
+        $rawItems = is_array($request->input('items')) ? $request->input('items') : [];
+
+        $screen = new DuplicateTherapyScreenService();
+        $result = $screen->screenPrescriptionLines($patientId, $rawItems, $excludeSlipId);
+
+        $this->success($result, 'Duplicate therapy screening completed.');
     }
 
     /** Query: id -- what the printed prescription shows. */

@@ -108,3 +108,8 @@ export async function evaluatePrescriptionDosageLimits(payload)
 {
     return await api("/prescriptions/evaluate-dosage-limits", { method: "POST", body: JSON.stringify(payload) });
 }
+
+export async function screenPrescriptionDuplicateTherapy(payload)
+{
+    return await api("/prescriptions/screen-duplicate-therapy", { method: "POST", body: JSON.stringify(payload) });
+}

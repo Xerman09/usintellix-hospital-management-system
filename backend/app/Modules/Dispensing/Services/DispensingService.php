@@ -4,6 +4,7 @@ namespace App\Modules\Dispensing\Services;
 
 use App\Core\Database;
 use App\Modules\DrugInventory\Services\StockLedgerService;
+use App\Modules\PatientPrescriptions\Services\DuplicateTherapyScreenService;
 use App\Modules\PatientPrescriptions\Services\PrescriptionService;
 use PDO;
 
@@ -300,6 +301,7 @@ class DispensingService
         // Attach Pharmacist Clinical Verification record & patient clinical context
         $verificationData = (new PrescriptionVerificationService())->getForPrescription($prescriptionId);
         $clinicalVerification = $verificationData['verification'] ?? null;
+        $dupScreen = (new DuplicateTherapyScreenService())->screenPrescriptionLines((int) $slip['patient_id'], $items, $prescriptionId);
 
         return [
             'prescription' => array_merge($slip, ['items' => $items]),
@@ -310,6 +312,7 @@ class DispensingService
                 'allergies' => $verificationData['patient_allergies'] ?? [],
             ],
             'clinical_verification' => $clinicalVerification,
+            'duplicate_therapy_screen' => $dupScreen,
             'dispense_status' => $head['dispense_status'],
             'status_label' => self::STATUS_LABELS[$head['dispense_status']] ?? $head['dispense_status'],
             'closed_at' => $head['closed_at'],

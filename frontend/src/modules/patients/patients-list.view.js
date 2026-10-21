@@ -12082,6 +12082,15 @@ textarea.pd-sdoh-readonly {
                 </div>
             </div>
             <div class="rx-dd-banner" id="rxDangerousBanner" hidden></div>
+            <div class="rx-dd-banner bad" id="rxDuplicateTherapyBanner" hidden style="border-color:#dc2626;background:#fef2f2;color:#991b1b;">
+                <div id="rxDuplicateTherapySummary" style="margin-bottom:8px;"></div>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding-top:6px;border-top:1px dashed #fca5a5;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;margin:0;">
+                        <input type="checkbox" id="rxDupOverrideAck"> Acknowledge &amp; Override Duplicate Pharmacological Class Therapy
+                    </label>
+                    <input type="text" id="rxDupOverrideReason" class="form-input" style="max-width:360px;height:30px;font-size:12px;" placeholder="Required clinical reason for co-prescribing same class...">
+                </div>
+            </div>
             <div class="rx-dd-banner" id="rxDosageOverrideWrap" hidden style="border-color:#f59e0b;background:#fffbeb;color:#92400e;">
                 <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
                     <label style="display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;margin:0;">

@@ -129,6 +129,8 @@ class PrescriptionService
         $assigned = (int) $stmt->fetchColumn();
 
         $ruleEngine = new DrugDosageLimitRuleEngine();
+        $dupScreen = new DuplicateTherapyScreenService();
+        $allPharmClasses = $dupScreen->getAllClasses();
 
         return [
             'encounters' => array_map(fn($e) => [
@@ -143,6 +145,8 @@ class PrescriptionService
             'validity_days' => GeneralSettingService::prescriptionValidityDays(),
             'patient_dosing_context' => $ruleEngine->getPatientDosingContext($patientId),
             'drug_dosage_limits' => $ruleEngine->getAllLimits(),
+            'pharmacological_classes' => $allPharmClasses,
+            'active_patient_medications' => $dupScreen->getActivePatientMedications($patientId, null, $allPharmClasses),
         ];
     }
 
@@ -513,7 +517,7 @@ class PrescriptionService
         $drugIds = array_values(array_unique(array_filter(array_map(fn($l) => (int) ($l['drug_id'] ?? 0), $rawLines))));
         $drugs = [];
         if ($drugIds) {
-            foreach ($db->query("SELECT id, name, generic_name, strength, is_active, deleted_at, controlled_class FROM drugs WHERE id IN (" . implode(',', $drugIds) . ")")->fetchAll(PDO::FETCH_ASSOC) as $d) {
+            foreach ($db->query("SELECT id, name, generic_name, strength, category_id, is_active, deleted_at, controlled_class FROM drugs WHERE id IN (" . implode(',', $drugIds) . ")")->fetchAll(PDO::FETCH_ASSOC) as $d) {
                 $drugs[(int) $d['id']] = $d;
             }
         }
@@ -611,6 +615,35 @@ class PrescriptionService
             }
 
             $lines[] = $line;
+        }
+
+        // Automated Duplicate Therapy Screen against Pharmacological Classes
+        // (Intra-prescription duplicate class OR cross-prescription active co-prescribed drug from another doctor/slip)
+        if ($lines) {
+            $dupScreen = new DuplicateTherapyScreenService();
+            $excludeSlipId = ($existing !== null && !empty($data['id'])) ? (int) $data['id'] : null;
+            $dupResult = $dupScreen->screenPrescriptionLines($patientId, $lines, $excludeSlipId, $drugs);
+
+            $dupOverrideAck = (
+                !empty($data['duplicate_therapy_override_acknowledged'])
+                && trim((string) ($data['duplicate_therapy_override_reason'] ?? '')) !== ''
+            ) || $globalOverrideAck;
+
+            if ($dupResult['has_duplicates'] && !$dupOverrideAck) {
+                foreach ($dupResult['line_duplicates'] as $lineIdx => $dupAlerts) {
+                    if (empty($dupAlerts)) {
+                        continue;
+                    }
+                    $firstDup = $dupAlerts[0];
+                    $key = "items.{$lineIdx}.title";
+                    if (!isset($errors[$key])) {
+                        $errors[$key] = $firstDup['summary'] . ' (Remove duplicate therapy or acknowledge clinical override below.)';
+                    }
+                }
+                if (!isset($errors['items']) && !empty($dupResult['alerts'])) {
+                    $errors['items'] = 'Duplicate Therapy Detected: ' . $dupResult['alerts'][0]['summary'];
+                }
+            }
         }
 
         // Dangerous drugs: on their own prescription, by a doctor with a current S2.

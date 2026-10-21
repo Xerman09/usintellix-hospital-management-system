@@ -80,3 +80,8 @@ $router->post('/prescriptions/evaluate-dosage-limits', [PrescriptionController::
     AuthMiddleware::class,
     [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
 ]);
+
+$router->post('/prescriptions/screen-duplicate-therapy', [PrescriptionController::class, 'screenDuplicateTherapy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
+]);

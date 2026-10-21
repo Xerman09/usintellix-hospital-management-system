@@ -401,6 +401,7 @@ function renderClinicalVerificationCard(d) {
         .map((a) => `${a.allergen || ""}${a.reaction ? ` (${a.reaction})` : ""}`)
         .filter(Boolean)
         .join(", ");
+    const dupAlerts = d.duplicate_therapy_screen?.alerts || [];
 
     return `
         <div class="dp-card" style="border-left: 4px solid ${borderColor};">
@@ -427,6 +428,12 @@ function renderClinicalVerificationCard(d) {
             </div>
 
             ${allergiesList ? `<div class="dp-banner warn" style="margin-bottom:10px;padding:7px 12px;"><strong>Documented Patient Allergies:</strong> ${escapeHtml(allergiesList)}</div>` : ""}
+            ${dupAlerts.length ? `<div class="dp-banner bad" style="margin-bottom:10px;padding:8px 12px;flex-direction:column;align-items:flex-start;">
+                <strong>&#129516; Automated Duplicate Therapy Screen Alert (${dupAlerts.length} Pharmacological Class Conflict${dupAlerts.length === 1 ? "" : "s"}):</strong>
+                <ul style="margin:4px 0 0;padding-left:18px;">
+                    ${dupAlerts.map((da) => `<li><strong>[${escapeHtml(da.class_name)}]</strong> ${escapeHtml(da.summary)}</li>`).join("")}
+                </ul>
+            </div>` : ""}
 
             <div class="dp-form-row" style="margin-bottom:10px;">
                 <label style="flex:1 1 200px;">Verification Decision *

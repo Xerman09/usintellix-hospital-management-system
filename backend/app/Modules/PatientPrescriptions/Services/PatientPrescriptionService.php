@@ -282,7 +282,7 @@ class PatientPrescriptionService
         }
 
         $stmt = $db->prepare(
-            "SELECT d.id, d.name, d.generic_name, d.brand_name, d.strength, d.product_type,
+            "SELECT d.id, d.name, d.generic_name, d.brand_name, d.strength, d.product_type, d.category_id,
                     d.requires_prescription, d.controlled_class, d.is_high_alert, d.is_lasa, d.allow_inventory,
                     df.name AS dosage_form, ar.name AS route_name, du.name AS unit_name,
                     COALESCE(stock.usable, 0) AS usable, COALESCE(stock.locations, 0) AS locations
@@ -323,6 +323,8 @@ class PatientPrescriptionService
 
         $ruleEngine = new DrugDosageLimitRuleEngine();
         $allLimits = $ruleEngine->getAllLimits();
+        $dupScreen = new DuplicateTherapyScreenService();
+        $allPharmClasses = $dupScreen->getAllClasses();
 
         return array_map(fn($d) => [
             'id' => (int) $d['id'],
@@ -343,6 +345,20 @@ class PatientPrescriptionService
             'locations' => (int) $d['locations'],
             'templates' => $templates[(int) $d['id']] ?? [],
             'dosage_limit' => $ruleEngine->findLimitForDrug((int) $d['id'], (string) $d['name'], $d['generic_name'], $allLimits),
+            'pharmacological_classes' => array_map(
+                fn($c) => [
+                    'class_code' => $c['class_code'],
+                    'class_name' => $c['class_name'],
+                    'therapeutic_category' => $c['therapeutic_category'],
+                    'severity' => $c['severity'],
+                ],
+                $dupScreen->classifyDrug(
+                    (string) $d['name'],
+                    $d['generic_name'],
+                    isset($d['category_id']) ? (int) $d['category_id'] : null,
+                    $allPharmClasses
+                )
+            ),
         ], $drugs);
     }
 
