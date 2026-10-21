@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=9";
 import { TabManager } from "../../core/tabs.js?v=5";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=190";
+import { getNavLinks } from "./dashboard.view.js?v=191";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -307,10 +307,11 @@ import { LabWorklistView, initLabWorklist } from "../lab/lab-worklist.js?v=7";
 import { LabReportView, initLabReport } from "../lab/lab-report.js?v=4";
 import { RadWorklistView, initRadWorklist } from "../radiology/rad-worklist.js?v=7";
 import { RadStatsView, initRadStats } from "../radiology/rad-stats.js?v=4";
-import { MyChartResultsView, initMyChartResults } from "../mychart/mychart-results.js?v=6";
-import { MyChartVisitsView, initMyChartVisits } from "../mychart/mychart-visits.js?v=4";
-import { MyChartBillingView, initMyChartBilling } from "../mychart/mychart-billing.js?v=3";
-import { MyChartCheckinView, initMyChartCheckin } from "../mychart/mychart-checkin.js?v=2";
+import { MyChartResultsView, initMyChartResults } from "../mychart/mychart-results.js?v=7";
+import { MyChartVisitsView, initMyChartVisits } from "../mychart/mychart-visits.js?v=5";
+import { MyChartBillingView, initMyChartBilling } from "../mychart/mychart-billing.js?v=4";
+import { MyChartCheckinView, initMyChartCheckin } from "../mychart/mychart-checkin.js?v=3";
+import { MyChartTodoView, initMyChartTodo } from "../mychart/mychart-todo.js?v=2";
 import { PortalExplanationsView, initPortalExplanations } from "../mychart/portal-explanations.js?v=2";
 import { PortalPaymentsView, initPortalPayments } from "../mychart/portal-payments.js?v=2";
 import { PortalCheckinsView, initPortalCheckins } from "../mychart/portal-checkins.js?v=2";
@@ -1285,6 +1286,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initGeneralSettings, 0);
                 return GeneralSettingsView();
+            }, activate);
+        } else if (tabId === 'mychart_todo' && user.role === 'patient') {
+            tabManager.openTab(tabId, title || 'To Do', () => {
+                setTimeout(initMyChartTodo, 0);
+                return MyChartTodoView();
             }, activate);
         } else if (tabId === 'mychart_checkin' && user.role === 'patient') {
             tabManager.openTab(tabId, title || 'Check In', () => {

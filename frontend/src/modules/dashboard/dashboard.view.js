@@ -524,6 +524,7 @@ function staffNavLinks(role)
 }
 
 const PATIENT_NAV_LINKS = `
+    <a data-tab="mychart_todo">To Do</a>
     <a data-tab="appointments">Appointments</a>
     <a data-tab="mychart_checkin">Check In</a>
     <a data-tab="mychart_visits">Visits</a>

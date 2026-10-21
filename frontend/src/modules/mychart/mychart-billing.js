@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { ensureCss, esc, when, dayLabel } from "./mychart-ui.js?v=6";
+import { ensureCss, esc, when, dayLabel } from "./mychart-ui.js?v=7";
 
 /*
  * My Chart -> Billing (patient portal, Phase 4).

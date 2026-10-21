@@ -10,6 +10,8 @@ use App\Modules\Messaging\Services\MessagingService;
 use App\Modules\MyChart\Services\PortalAudit;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalGuard;
+use App\Modules\MyChart\Services\PortalNotificationService;
+use App\Modules\MyChart\Services\PortalTodoService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\MyChart\Services\PortalExplanationService;
@@ -332,6 +334,101 @@ class MyChartController extends Controller
         }
 
         $this->respond(PortalPaymentService::cancel($patientId, (int) $request->input('attempt_id')));
+    }
+
+    // ------------------------------------------------------------------
+    // To-Do and notifications (Phase 6)
+    // ------------------------------------------------------------------
+
+    /** GET /mychart/todo -- everything waiting for the patient, in one list. */
+    public function todo(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'To-Do Viewed');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(
+            PortalTodoService::list($patientId) + ['notifications' => PortalNotificationService::listFor($patientId)],
+            'To-do retrieved successfully.'
+        );
+    }
+
+    /** GET /mychart/notifications?unread=1 -- the in-app bell. */
+    public function notifications(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Notifications Viewed');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(
+            PortalNotificationService::listFor($patientId, (int) $request->input('unread') === 1),
+            'Notifications retrieved successfully.'
+        );
+    }
+
+    /** POST /mychart/notifications/read -- mark one, or all, as read. Body: id? */
+    public function notificationRead(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Notification Read');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $id = (int) $request->input('id');
+
+        $this->respond(PortalNotificationService::markRead($patientId, $id ?: null));
+    }
+
+    /** GET /mychart/notification-preferences -- what we may tell them about, and how. */
+    public function notificationPreferences(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Notification Settings Viewed');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalNotificationService::preferences($patientId), 'Preferences retrieved successfully.');
+    }
+
+    /** POST /mychart/notification-preferences -- Body: event_type, channel, enabled */
+    public function saveNotificationPreference(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Notification Settings Changed');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalNotificationService::savePreference(
+            $patientId,
+            (string) $request->input('event_type', ''),
+            (string) $request->input('channel', ''),
+            (int) $request->input('enabled', 1) === 1
+        ));
     }
 
     // ------------------------------------------------------------------

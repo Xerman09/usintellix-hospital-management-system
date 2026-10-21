@@ -95,6 +95,36 @@ $router->post('/portal-payments/settle', [MyChartController::class, 'portalPayme
 ]);
 
 // ---------------------------------------------------------------
+// To-Do and notifications: what is waiting, the bell, and what the
+// patient wants to be told about.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/todo', [MyChartController::class, 'todo'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/notifications', [MyChartController::class, 'notifications'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/notifications/read', [MyChartController::class, 'notificationRead'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/notification-preferences', [MyChartController::class, 'notificationPreferences'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/notification-preferences', [MyChartController::class, 'saveNotificationPreference'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// ---------------------------------------------------------------
 // e-Check-in: the paperwork done at home before a visit.
 // ---------------------------------------------------------------
 

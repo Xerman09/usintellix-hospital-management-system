@@ -162,6 +162,23 @@ const CSS = `
 .mc-formrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .mc-req { font-size: 11px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: .03em; }
 :root[data-theme="dark"] .mc-req { color: #fbbf24; }
+/* to-do and notifications (Phase 6) */
+.mc-todobar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.mc-todocount { border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 16px; background: var(--bg-surface); }
+.mc-todocount.due { border-color: #fcd34d; background: #fffbeb; }
+:root[data-theme="dark"] .mc-todocount.due { background: #2a2208; border-color: #92400e; }
+.mc-row.mc-todo-overdue { border-left: 3px solid #dc2626; }
+.mc-row.mc-todo-todo { border-left: 3px solid #1d4ed8; }
+.mc-row.mc-unread { border-left: 3px solid #1d4ed8; }
+.mc-switch { display: inline-flex; align-items: center; cursor: pointer; }
+.mc-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.mc-switch span { width: 38px; height: 21px; border-radius: 999px; background: var(--border-color); position: relative; transition: background .15s; }
+.mc-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.mc-switch input:checked + span { background: #1d4ed8; }
+.mc-switch input:checked + span::after { transform: translateX(17px); }
+.mc-switch input:disabled + span { opacity: .4; cursor: not-allowed; }
+.mc-switch input:focus-visible + span { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.mc-wrap { overflow-x: auto; }
 .mc-note { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border-color); border-left: 3px solid #1d4ed8; border-radius: 8px; background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
 `;
 
