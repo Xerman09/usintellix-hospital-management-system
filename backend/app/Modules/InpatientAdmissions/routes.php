@@ -2,6 +2,7 @@
 
 use App\Modules\InpatientAdmissions\Controllers\InpatientAdmissionsController;
 use App\Modules\InpatientAdmissions\Controllers\DischargeSummaryController;
+use App\Modules\InpatientAdmissions\Controllers\DailyRoundController;
 
 /** @var \App\Core\Router $router */
 
@@ -90,4 +91,35 @@ $router->get('/inpatient-admissions/discharge-summary/print', [DischargeSummaryC
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
 ]);
+
+$router->get('/inpatient-admissions/daily-rounds', [DailyRoundController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/daily-rounds/show', [DailyRoundController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/daily-rounds/options', [DailyRoundController::class, 'options'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->post('/inpatient-admissions/daily-rounds', [DailyRoundController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician']]
+]);
+
+$router->post('/inpatient-admissions/daily-rounds/update', [DailyRoundController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician']]
+]);
+
+$router->post('/inpatient-admissions/daily-rounds/delete', [DailyRoundController::class, 'destroy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'clinician']]
+]);
+
 

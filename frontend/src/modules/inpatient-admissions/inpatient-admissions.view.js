@@ -1817,6 +1817,196 @@ export function InpatientAdmissionsView() {
             </div>
         </div>
 
+        <!-- ============================================================== -->
+        <!-- MODAL: DAILY DOCTOR WARD ROUNDS (inpatient_daily_rounds)        -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalDailyWardRound">
+            <div class="inpatient-modal-content" style="max-width: 900px; width: 95%; max-height: 94vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">🩺</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">Daily Doctor Ward Round</h3>
+                            <span style="font-size: 11px; color: #94a3b8;">Structured inpatient morning progression &amp; clinical trajectory note</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="dailyRoundNumberBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #38bdf8; color: #0f172a; font-family: monospace;">New Round</span>
+                        <button class="inpatient-modal-close" data-close-modal style="color: #cbd5e1;">&times;</button>
+                    </div>
+                </div>
+
+                <!-- Patient Demographic Banner -->
+                <div style="background: #f1f5f9; padding: 12px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                    <div>
+                        <div style="font-size: 15px; font-weight: 700; color: #0f172a;" id="roundPatientName">Patient Name</div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                            MRN: <strong id="roundPatientMrn" style="color: #0f172a;">--</strong> |
+                            Age/Gender: <strong id="roundPatientAgeGender" style="color: #0f172a;">--</strong> |
+                            Ward/Bed: <strong id="roundBedNo" style="color: #0f172a;">--</strong> |
+                            LOS: <strong id="roundLos" style="color: #0f172a;">--</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #475569;">
+                            Diagnosis: <strong id="roundAdmittingDiag" style="color: #0f172a;">--</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                            Attending: <span id="roundAttendingPhysician">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation: New Round vs History -->
+                <div style="display: flex; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 0 20px; flex-shrink: 0;">
+                    <button type="button" id="tabBtnNewRound" class="daily-round-tab active" style="padding: 10px 18px; border: none; background: transparent; font-weight: 600; font-size: 13px; color: #2563eb; border-bottom: 2px solid #2563eb; cursor: pointer;">
+                        📝 Document Today's Round
+                    </button>
+                    <button type="button" id="tabBtnRoundHistory" class="daily-round-tab" style="padding: 10px 18px; border: none; background: transparent; font-weight: 600; font-size: 13px; color: #64748b; border-bottom: 2px solid transparent; cursor: pointer;">
+                        📜 Round History &amp; Trajectory (<span id="roundHistoryCount">0</span>)
+                    </button>
+                </div>
+
+                <!-- Form & Body Container -->
+                <form id="formDailyWardRound" style="display: flex; flex-direction: column; overflow: hidden; height: 100%; margin: 0;">
+                    <input type="hidden" name="admission_id" id="roundAdmissionId" />
+                    <input type="hidden" name="patient_id" id="roundPatientId" />
+                    <input type="hidden" name="id" id="roundRecordId" />
+
+                    <!-- TAB PANE 1: DOCUMENT ROUND -->
+                    <div id="paneNewRound" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 18px 24px;">
+                        <!-- Row: Date/Time, Rounding Physician, Target Discharge Date -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Round Date &amp; Time <span style="color: red;">*</span></label>
+                                <input type="datetime-local" class="form-control" name="round_datetime" id="roundDateTimeInput" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Rounding Physician <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" name="rounding_physician_name" id="roundPhysicianNameInput" placeholder="Dr. First Last, MD" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Target Discharge Date</label>
+                                <input type="date" class="form-control" name="target_discharge_date" id="roundTargetDischargeInput" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                        </div>
+
+                        <!-- Clinical Trajectory Selector -->
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                            <label style="font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+                                🎯 Clinical Trajectory <span style="color: red;">*</span>
+                            </label>
+                            <input type="hidden" name="clinical_trajectory" id="roundTrajectoryInput" value="Stable" />
+                            <div id="roundTrajectoryButtonGroup" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
+                                <button type="button" class="trajectory-btn" data-val="Critical" style="padding: 8px 6px; border-radius: 6px; border: 2px solid #e2e8f0; background: #fff; color: #dc2626; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s;">
+                                    🔴 Critical
+                                </button>
+                                <button type="button" class="trajectory-btn" data-val="Guarded" style="padding: 8px 6px; border-radius: 6px; border: 2px solid #e2e8f0; background: #fff; color: #ea580c; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s;">
+                                    🟠 Guarded
+                                </button>
+                                <button type="button" class="trajectory-btn active-trajectory" data-val="Stable" style="padding: 8px 6px; border-radius: 6px; border: 2px solid #ca8a04; background: #fef9c3; color: #854d0e; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s;">
+                                    🟡 Stable
+                                </button>
+                                <button type="button" class="trajectory-btn" data-val="Improving" style="padding: 8px 6px; border-radius: 6px; border: 2px solid #e2e8f0; background: #fff; color: #16a34a; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s;">
+                                    🟢 Improving
+                                </button>
+                                <button type="button" class="trajectory-btn" data-val="Discharge Ready" style="padding: 8px 6px; border-radius: 6px; border: 2px solid #e2e8f0; background: #fff; color: #0284c7; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s;">
+                                    🔵 Discharge Ready
+                                </button>
+                            </div>
+                            <div id="roundTrajectoryDesc" style="font-size: 11px; color: #64748b; margin-top: 8px; font-style: italic;">
+                                Vital signs stable, acute symptoms controlled, progressing on regimen.
+                            </div>
+                        </div>
+
+                        <!-- Diet and Activity Orders -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">🍲 Diet Order</label>
+                                <select class="form-control" name="diet_order" id="roundDietSelect" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Regular Diet">Regular Diet</option>
+                                    <option value="Low Salt / Low Sodium Diet">Low Salt / Low Sodium Diet</option>
+                                    <option value="Diabetic / Consistent Carb Diet">Diabetic / Consistent Carb Diet</option>
+                                    <option value="Renal Diet">Renal Diet</option>
+                                    <option value="Soft / Easy to Chew Diet">Soft / Easy to Chew Diet</option>
+                                    <option value="Pureed Diet">Pureed Diet</option>
+                                    <option value="Full Liquid Diet">Full Liquid Diet</option>
+                                    <option value="Clear Liquid Diet">Clear Liquid Diet</option>
+                                    <option value="NPO (Nil Per Os / Nothing by mouth)">NPO (Nil Per Os / Nothing by mouth)</option>
+                                    <option value="Enteral / Tube Feeding">Enteral / Tube Feeding</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">🚶 Activity / Mobilization Order</label>
+                                <select class="form-control" name="activity_order" id="roundActivitySelect" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Ambulate as tolerated / Ad lib">Ambulate as tolerated / Ad lib</option>
+                                    <option value="Ambulate with assistance">Ambulate with assistance</option>
+                                    <option value="Up in chair as tolerated">Up in chair as tolerated</option>
+                                    <option value="Dangle at bedside">Dangle at bedside</option>
+                                    <option value="Bedrest with Bathroom Privileges (BRP)">Bedrest with Bathroom Privileges (BRP)</option>
+                                    <option value="Strict Bedrest">Strict Bedrest</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Structured SOAP Clinical Notes -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>🗣️ Subjective Observations</span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Overnight events, symptoms, pain</span>
+                                </label>
+                                <textarea class="form-control" name="subjective" id="roundSubjectiveInput" rows="4" placeholder="Patient reports improved sleep. No chest pain or SOB overnight. Tolerating oral fluids well. Pain score 2/10 at surgical site..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>🔬 Objective Physical Exam &amp; Vitals</span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Physical exam, labs, telemetry, I/O</span>
+                                </label>
+                                <textarea class="form-control" name="objective" id="roundObjectiveInput" rows="4" placeholder="Vitals: BP 122/78, HR 74 regular, SpO2 98% room air, Temp 36.8C. Lungs clear bilaterally. Abdomen soft, non-tender. Dressing clean, dry, and intact..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>🧠 Clinical Assessment <span style="color: red;">*</span></span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Impression, progress</span>
+                                </label>
+                                <textarea class="form-control" name="assessment" id="roundAssessmentInput" rows="4" required placeholder="POD #2 laparoscopic appendectomy, clinically improving. Acute inflammatory response resolving. Afebrile with normalizing leukocytosis..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>📋 Daily Treatment Plan <span style="color: red;">*</span></span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Meds, diagnostics, IV, consults</span>
+                                </label>
+                                <textarea class="form-control" name="plan" id="roundPlanInput" rows="4" required placeholder="1. Discontinue IV maintenance fluids; encourage PO hydration.&#10;2. Transition to oral analgesics (Paracetamol 1g PO Q8H PRN).&#10;3. Advance diet to Regular. Ambulate TID.&#10;4. Anticipate discharge tomorrow if tolerating diet..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB PANE 2: ROUND HISTORY -->
+                    <div id="paneRoundHistory" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 18px 24px; display: none;">
+                        <div id="dailyRoundHistoryList">
+                            <!-- Populated dynamically via renderRoundHistory() -->
+                        </div>
+                    </div>
+
+                    <!-- Footer Controls -->
+                    <div class="inpatient-modal-footer" style="padding: 12px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                        <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                            <span>🔒</span> Ward round entries are time-stamped with audit attribution and sync to EHR timeline.
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
+                            <button type="submit" class="btn-inpatient btn-inpatient-primary" id="btnSubmitDailyRound">💾 Save Ward Round</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
     </div>
     `;
 }

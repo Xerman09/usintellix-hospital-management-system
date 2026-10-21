@@ -176,3 +176,55 @@ export async function fetchPendingHandovers(wardId = null) {
 }
 
 
+
+
+/**
+ * Fetch all daily ward rounds for an admission
+ */
+export async function fetchDailyRounds(admissionId) {
+    return await api(`/inpatient-admissions/daily-rounds?admission_id=${admissionId}`);
+}
+
+/**
+ * Fetch a single daily ward round by ID
+ */
+export async function fetchDailyRound(id) {
+    return await api(`/inpatient-admissions/daily-rounds/show?id=${id}`);
+}
+
+/**
+ * Fetch daily round configuration options (trajectories, diets, activity orders)
+ */
+export async function fetchDailyRoundOptions() {
+    return await api('/inpatient-admissions/daily-rounds/options');
+}
+
+/**
+ * Save / Document a new daily doctor ward round
+ */
+export async function saveDailyRound(payload) {
+    return await api('/inpatient-admissions/daily-rounds', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Update an existing daily ward round
+ */
+export async function updateDailyRound(payload) {
+    return await api('/inpatient-admissions/daily-rounds/update', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Delete a daily ward round
+ */
+export async function deleteDailyRound(id) {
+    return await api('/inpatient-admissions/daily-rounds/delete', {
+        method: 'POST',
+        body: JSON.stringify({ id })
+    });
+}

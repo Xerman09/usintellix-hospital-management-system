@@ -16,8 +16,14 @@ import {
     getDischargeSummaryPrintUrl,
     acceptTransferHandover,
     fetchTransferDetail,
-    fetchPendingHandovers
-} from './inpatient-admissions.service.js?v=5';
+    fetchPendingHandovers,
+    fetchDailyRounds,
+    fetchDailyRound,
+    fetchDailyRoundOptions,
+    saveDailyRound,
+    updateDailyRound,
+    deleteDailyRound
+} from './inpatient-admissions.service.js?v=6';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=41';
 import { systemNow } from "../../core/timezone.js";
@@ -190,9 +196,9 @@ function setupEventListeners() {
             if (!wrapper) return;
             wrapper.classList.toggle('inpatient-fullscreen');
             if (wrapper.classList.contains('inpatient-fullscreen')) {
-                fsBtn.textContent = '✖ Exit Whiteboard';
+                fsBtn.textContent = 'âœ– Exit Whiteboard';
             } else {
-                fsBtn.textContent = '🖥️ Whiteboard Mode';
+                fsBtn.textContent = 'ðŸ–¥ï¸ Whiteboard Mode';
             }
         };
     }
@@ -250,6 +256,47 @@ function setupEventListeners() {
         };
     }
 
+    // Modal Daily Ward Round Tabs
+    const tabBtnNewRound = document.getElementById('tabBtnNewRound');
+    const tabBtnRoundHistory = document.getElementById('tabBtnRoundHistory');
+    const paneNewRound = document.getElementById('paneNewRound');
+    const paneRoundHistory = document.getElementById('paneRoundHistory');
+
+    if (tabBtnNewRound && tabBtnRoundHistory) {
+        tabBtnNewRound.onclick = () => {
+            tabBtnNewRound.classList.add('active');
+            tabBtnNewRound.style.color = '#2563eb';
+            tabBtnNewRound.style.borderBottom = '2px solid #2563eb';
+            tabBtnRoundHistory.classList.remove('active');
+            tabBtnRoundHistory.style.color = '#64748b';
+            tabBtnRoundHistory.style.borderBottom = '2px solid transparent';
+            if (paneNewRound) paneNewRound.style.display = 'block';
+            if (paneRoundHistory) paneRoundHistory.style.display = 'none';
+        };
+
+        tabBtnRoundHistory.onclick = () => {
+            tabBtnRoundHistory.classList.add('active');
+            tabBtnRoundHistory.style.color = '#2563eb';
+            tabBtnRoundHistory.style.borderBottom = '2px solid #2563eb';
+            tabBtnNewRound.classList.remove('active');
+            tabBtnNewRound.style.color = '#64748b';
+            tabBtnNewRound.style.borderBottom = '2px solid transparent';
+            if (paneNewRound) paneNewRound.style.display = 'none';
+            if (paneRoundHistory) paneRoundHistory.style.display = 'block';
+        };
+    }
+
+    // Modal Daily Ward Round Trajectory Buttons
+    const trajectoryButtonGroup = document.getElementById('roundTrajectoryButtonGroup');
+    if (trajectoryButtonGroup) {
+        trajectoryButtonGroup.querySelectorAll('.trajectory-btn').forEach(btn => {
+            btn.onclick = () => {
+                const val = btn.getAttribute('data-val');
+                selectTrajectoryButton(val);
+            };
+        });
+    }
+
     // Transfer Admission Select Change
     const transAdmSel = document.getElementById('transferAdmissionSelect');
     if (transAdmSel) {
@@ -264,7 +311,7 @@ function setupEventListeners() {
             const bed = currentCensusData.beds.find(b => b.admission_id == admId);
             if (bed && box && txt) {
                 box.style.display = 'block';
-                txt.textContent = `${bed.ward_name} (${bed.ward_code}) — Room ${bed.room_number}, Bed ${bed.bed_number}`;
+                txt.textContent = `${bed.ward_name} (${bed.ward_code}) â€” Room ${bed.room_number}, Bed ${bed.bed_number}`;
 
                 // Auto-suggest SBAR Situation & Background if not already populated
                 const sitEl = document.getElementById('sbarSituation');
@@ -609,6 +656,51 @@ function setupFormSubmissions() {
             }
         };
     }
+
+    // 7. Form Daily Doctor Ward Round (inpatient_daily_rounds)
+    const formRound = document.getElementById('formDailyWardRound');
+    if (formRound) {
+        formRound.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(formRound);
+            const payload = Object.fromEntries(formData.entries());
+
+            if (!payload.assessment || !payload.assessment.trim()) {
+                showToast('Clinical Assessment is required.', 'error');
+                return;
+            }
+            if (!payload.plan || !payload.plan.trim()) {
+                showToast('Daily Treatment Plan is required.', 'error');
+                return;
+            }
+
+            const isEdit = Boolean(payload.id && Number(payload.id) > 0);
+            const submitBtn = document.getElementById('btnSubmitDailyRound');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = isEdit ? 'Updating Round...' : 'Saving Round...';
+            }
+
+            try {
+                const res = isEdit ? await updateDailyRound(payload) : await saveDailyRound(payload);
+                if (res && res.success) {
+                    showToast(isEdit ? 'Ward round updated successfully!' : 'Daily ward round documented successfully!', 'success');
+                    document.getElementById('modalDailyWardRound')?.classList.remove('open');
+                    formRound.reset();
+                    await fetchWhiteboard();
+                } else {
+                    showToast('Failed to save ward round: ' + (res?.message || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                showToast('Error saving ward round: ' + (err.message || 'Server error'), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Save Ward Round';
+                }
+            }
+        };
+    }
 }
 
 export async function fetchWhiteboard(isSilent = false) {
@@ -717,7 +809,7 @@ function renderFloorplan(wards, beds) {
     if (!beds || beds.length === 0) {
         container.innerHTML = `
             <div style="background: #fff; padding: 40px; border-radius: 12px; text-align: center; border: 1px dashed #cbd5e1; color: #64748b;">
-                <div style="font-size: 32px; margin-bottom: 8px;">🛏️</div>
+                <div style="font-size: 32px; margin-bottom: 8px;">ðŸ›ï¸</div>
                 <div style="font-size: 16px; font-weight: 700; color: #1e293b;">No Hospital Beds Match Selection</div>
                 <p style="font-size: 13px; margin: 4px 0 0 0;">Adjust your ward filter or search keywords to view census.</p>
             </div>
@@ -758,8 +850,8 @@ function renderFloorplan(wards, beds) {
                         <span class="ward-type-badge ${badgeClass}">${esc(ward.ward_type)}</span>
                     </div>
                     <div class="ward-header-meta">
-                        <span>📍 ${esc(ward.floor_location)}</span>
-                        <span>👩‍⚕️ Head Nurse: ${esc(ward.head_nurse || 'Charge Nurse On-Duty')}</span>
+                        <span>ðŸ“ ${esc(ward.floor_location)}</span>
+                        <span>ðŸ‘©â€âš•ï¸ Head Nurse: ${esc(ward.head_nurse || 'Charge Nurse On-Duty')}</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span>${occupied}/${totalBeds} Beds (${occupancyPct}%)</span>
                             <div class="ward-meter-bar">
@@ -783,24 +875,24 @@ function renderFloorplan(wards, beds) {
 function renderBedCard(bed) {
     let cardClass = 'bed-card-available';
     let statusPillClass = 'status-pill-available';
-    let statusText = '🟢 Available & Sanitized';
+    let statusText = 'ðŸŸ¢ Available & Sanitized';
 
     if (bed.status === 'Occupied') {
         cardClass = 'bed-card-occupied';
         statusPillClass = 'status-pill-occupied';
-        statusText = '🔴 Occupied';
+        statusText = 'ðŸ”´ Occupied';
     } else if (bed.status === 'Pending Discharge') {
         cardClass = 'bed-card-pending-discharge';
         statusPillClass = 'status-pill-pending-discharge';
-        statusText = '🟡 Pending Discharge';
+        statusText = 'ðŸŸ¡ Pending Discharge';
     } else if (bed.status === 'Dirty / Turnover') {
         cardClass = 'bed-card-dirty';
         statusPillClass = 'status-pill-dirty';
-        statusText = '🟠 Dirty / Turnover';
+        statusText = 'ðŸŸ  Dirty / Turnover';
     } else if (bed.status === 'Maintenance' || bed.status === 'Blocked') {
         cardClass = 'bed-card-maintenance';
         statusPillClass = 'status-pill-maintenance';
-        statusText = '⚙️ Maintenance';
+        statusText = 'âš™ï¸ Maintenance';
     }
 
     let patientHtml = '';
@@ -812,7 +904,7 @@ function renderBedCard(bed) {
             else if (bed.isolation_precautions === 'Airborne') isoClass = 'iso-airborne';
             else if (bed.isolation_precautions === 'Strict Protective Neutropenic') isoClass = 'iso-strict';
 
-            isoBadge = `<div class="isolation-badge ${isoClass}">⚠️ ${esc(bed.isolation_precautions)}</div>`;
+            isoBadge = `<div class="isolation-badge ${isoClass}">âš ï¸ ${esc(bed.isolation_precautions)}</div>`;
         }
 
         const formattedAdmDate = bed.admission_date ? bed.admission_date.substring(0, 16).replace('T', ' ') : '--';
@@ -821,7 +913,7 @@ function renderBedCard(bed) {
             <div class="bed-patient-info">
                 <div class="bed-patient-name">
                     <a href="javascript:void(0)" class="patient-chart-link" data-mrn="${esc(bed.patient_mrn)}">
-                        👤 ${esc(bed.patient_name)}
+                        ðŸ‘¤ ${esc(bed.patient_name)}
                     </a>
                     <span class="bed-patient-mrn">${esc(bed.patient_mrn || 'NO MRN')}</span>
                 </div>
@@ -868,7 +960,7 @@ function renderBedCard(bed) {
         patientHtml = `
             <div class="bed-patient-info" style="border-left: 3px solid #f97316;">
                 <div style="font-size: 12px; font-weight: 700; color: #ea580c;">
-                    🧹 Turnover Cleaning Mandate
+                    ðŸ§¹ Turnover Cleaning Mandate
                 </div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
                     Bed vacated; terminal UV & chemical sanitization required per JCAHO infection control protocol before patient admission.
@@ -879,7 +971,7 @@ function renderBedCard(bed) {
         patientHtml = `
             <div class="bed-patient-info" style="border-left: 3px solid #64748b;">
                 <div style="font-size: 12px; font-weight: 700; color: #475569;">
-                    ⚙️ Out of Service Hold
+                    âš™ï¸ Out of Service Hold
                 </div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
                     Facility maintenance or telemetry monitor repair underway.
@@ -890,7 +982,7 @@ function renderBedCard(bed) {
         patientHtml = `
             <div class="bed-patient-info" style="border-left: 3px solid #10b981;">
                 <div style="font-size: 12px; font-weight: 700; color: #166534;">
-                    ✨ Sanitized & Ready
+                    âœ¨ Sanitized & Ready
                 </div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
                     Features: ${esc(bed.features || 'Standard acute monitoring, nurse call, oxygen port')}
@@ -904,11 +996,14 @@ function renderBedCard(bed) {
     if (bed.status === 'Available') {
         actionsHtml = `
             <button class="bed-action-btn btn-act-admit" data-act="admit" data-bed-id="${bed.id}">
-                ➕ Admit Patient
+                âž• Admit Patient
             </button>
         `;
     } else if (bed.status === 'Occupied') {
         actionsHtml = `
+            <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}" aria-label="Document daily doctor ward round">
+                🩺 Doctor Round
+            </button>
             <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">
                 🔄 Transfer
             </button>
@@ -926,6 +1021,9 @@ function renderBedCard(bed) {
         `;
     } else if (bed.status === 'Pending Discharge') {
         actionsHtml = `
+            <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}" aria-label="Document daily doctor ward round">
+                🩺 Doctor Round
+            </button>
             <button class="bed-action-btn btn-act-discharge" style="width: 100%; justify-content: center; padding: 7px;" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Complete Discharge Orders
             </button>
@@ -936,13 +1034,13 @@ function renderBedCard(bed) {
     } else if (bed.status === 'Dirty / Turnover') {
         actionsHtml = `
             <button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">
-                🧹 Terminal Sanitize & Release Bed
+                ðŸ§¹ Terminal Sanitize & Release Bed
             </button>
         `;
     } else {
         actionsHtml = `
             <button class="bed-action-btn btn-act-maint" style="width: 100%; justify-content: center; padding: 7px;" data-act="return-service" data-bed-id="${bed.id}">
-                ✅ Return to Service
+                âœ… Return to Service
             </button>
         `;
     }
@@ -952,7 +1050,7 @@ function renderBedCard(bed) {
             <div class="bed-card-top">
                 <div class="bed-number-box">
                     <span class="bed-number">${esc(bed.bed_number)}</span>
-                    <span class="bed-room">${esc(bed.room_number)} • ${esc(bed.bed_type)}</span>
+                    <span class="bed-room">${esc(bed.room_number)} â€¢ ${esc(bed.bed_type)}</span>
                 </div>
                 <span class="bed-status-pill ${statusPillClass}">${statusText}</span>
             </div>
@@ -989,6 +1087,7 @@ function renderTable(beds) {
         } else if (bed.status === 'Occupied') {
             actionBtns = `
                 <div style="display: flex; gap: 4px;">
+                    <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button>
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
                     ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}">Labs</button>
@@ -997,7 +1096,7 @@ function renderTable(beds) {
                 </div>
             `;
         } else if (bed.status === 'Pending Discharge') {
-            actionBtns = `<div style="display: flex; gap: 4px;"><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
+            actionBtns = `<div style="display: flex; gap: 4px;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
                 <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button></div>`;
         } else if (bed.status === 'Dirty / Turnover') {
             actionBtns = `<button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">Sanitize</button>`;
@@ -1020,11 +1119,11 @@ function renderTable(beds) {
                     ` : '<span style="color: #94a3b8;">-- Vacant --</span>'}
                 </td>
                 <td>${bed.patient_age ? `${bed.patient_age}y / ${esc(bed.patient_gender || '')}` : '--'}</td>
-                <td>${esc(bed.attending_physician || '--')}${bed.patient_name ? `<br><span style="font-size: 11px; color: #64748b;">RN: ${esc(bed.shift_nurse_name || 'not assigned')}${bed.shift_cna_name ? ` · CNA: ${esc(bed.shift_cna_name)}` : ''}</span>` : ''}${bed.vitals_state ? `<br><span style="font-size: 11px;">Vitals: ${vitalsLabel(bed)}</span>` : ''}</td>
+                <td>${esc(bed.attending_physician || '--')}${bed.patient_name ? `<br><span style="font-size: 11px; color: #64748b;">RN: ${esc(bed.shift_nurse_name || 'not assigned')}${bed.shift_cna_name ? ` Â· CNA: ${esc(bed.shift_cna_name)}` : ''}</span>` : ''}${bed.vitals_state ? `<br><span style="font-size: 11px;">Vitals: ${vitalsLabel(bed)}</span>` : ''}</td>
                 <td>${bed.admission_date ? `${bed.admission_date.substring(0, 10)} (${bed.los_days || 0}d)` : '--'}</td>
                 <td>
                     ${bed.admitting_diagnosis ? esc(bed.admitting_diagnosis) : '--'}
-                    ${bed.isolation_precautions && bed.isolation_precautions !== 'Standard' ? `<br><span style="font-size: 10px; color: #dc2626; font-weight: 700;">⚠️ ${esc(bed.isolation_precautions)}</span>` : ''}
+                    ${bed.isolation_precautions && bed.isolation_precautions !== 'Standard' ? `<br><span style="font-size: 10px; color: #dc2626; font-weight: 700;">âš ï¸ ${esc(bed.isolation_precautions)}</span>` : ''}
                 </td>
                 <td>${actionBtns}</td>
             </tr>
@@ -1056,33 +1155,33 @@ function renderActivityFeed(transfers) {
         if (isPending) {
             statusBadge = `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 700; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">Pending Acceptance</span>`;
             actionButtons = `
-                <button class="bed-action-btn btn-act-accept-handover" data-transfer-id="${t.id}" style="background: #10b981; color: #fff; border-color: #10b981; padding: 4px 8px;">🤝 Accept & Sign</button>
-                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; padding: 4px 8px;">📜 SBAR</button>
+                <button class="bed-action-btn btn-act-accept-handover" data-transfer-id="${t.id}" style="background: #10b981; color: #fff; border-color: #10b981; padding: 4px 8px;">ðŸ¤ Accept & Sign</button>
+                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; padding: 4px 8px;">ðŸ“œ SBAR</button>
             `;
         } else if (isAccepted) {
             statusBadge = `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 700; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">Dual Signed</span>`;
             actionButtons = `
-                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #f1f5f9; color: #334155; border-color: #cbd5e1; padding: 4px 8px;">📜 Certificate</button>
+                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #f1f5f9; color: #334155; border-color: #cbd5e1; padding: 4px 8px;">ðŸ“œ Certificate</button>
             `;
         } else if (t.handover_status === 'Rejected') {
             statusBadge = `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 700; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">Disputed</span>`;
             actionButtons = `
-                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #f1f5f9; color: #334155; border-color: #cbd5e1; padding: 4px 8px;">📜 Review</button>
+                <button class="bed-action-btn btn-act-view-handover" data-transfer-id="${t.id}" style="background: #f1f5f9; color: #334155; border-color: #cbd5e1; padding: 4px 8px;">ðŸ“œ Review</button>
             `;
         }
 
         html += `
             <div class="activity-item" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9;">
-                <div class="activity-icon icon-transfer" style="margin-right: 4px;">🔄</div>
+                <div class="activity-icon icon-transfer" style="margin-right: 4px;">ðŸ”„</div>
                 <div style="flex: 1;">
                     <div style="font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span>${esc(t.patient_name)} (${esc(t.patient_mrn || '')})</span>
-                        <span>${esc(t.from_ward_name)} [${esc(t.from_bed_number)}] ➔ ${esc(t.to_ward_name)} [${esc(t.to_bed_number)}]</span>
+                        <span>${esc(t.from_ward_name)} [${esc(t.from_bed_number)}] âž” ${esc(t.to_ward_name)} [${esc(t.to_bed_number)}]</span>
                         ${statusBadge}
                     </div>
                     <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
-                        Reason: ${esc(t.transfer_reason || 'Clinical transfer')} • Sending RN: ${esc(t.sending_nurse_name || t.transferred_by || 'Staff')}
-                        ${t.receiving_nurse_name ? ` • Receiving RN: ${esc(t.receiving_nurse_name)}` : ''}
+                        Reason: ${esc(t.transfer_reason || 'Clinical transfer')} â€¢ Sending RN: ${esc(t.sending_nurse_name || t.transferred_by || 'Staff')}
+                        ${t.receiving_nurse_name ? ` â€¢ Receiving RN: ${esc(t.receiving_nurse_name)}` : ''}
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -1125,6 +1224,12 @@ function attachBedCardListeners(container) {
     });
 
     // Admit Action
+    container.querySelectorAll('[data-act="ward-round"]').forEach(btn => {
+        btn.onclick = () => {
+            const admId = btn.getAttribute('data-adm-id');
+            openDailyWardRoundModal(admId);
+        };
+    });
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
         btn.addEventListener('click', () => {
             import('../code-blue/code-blue.js?v=6').then((m) => m.openCallCodeBlue({ admission_id: Number(btn.dataset.admId), from: 'census' }));
@@ -1226,7 +1331,7 @@ function openAdmitModal(preselectedBedId = null) {
             if (b.status === 'Available' || b.id == preselectedBedId) {
                 const opt = document.createElement('option');
                 opt.value = b.id;
-                opt.textContent = `${b.ward_name} (${b.ward_code}) — Room ${b.room_number}, Bed ${b.bed_number} [${b.bed_type}]`;
+                opt.textContent = `${b.ward_name} (${b.ward_code}) â€” Room ${b.room_number}, Bed ${b.bed_number} [${b.bed_type}]`;
                 if (preselectedBedId && b.id == preselectedBedId) {
                     opt.selected = true;
                 }
@@ -1251,7 +1356,7 @@ function openTransferModal(preselectedAdmId = null) {
             if (b.admission_id && (b.status === 'Occupied' || b.status === 'Pending Discharge')) {
                 const opt = document.createElement('option');
                 opt.value = b.admission_id;
-                opt.textContent = `${b.patient_name} (${b.patient_mrn || 'NO MRN'}) — Current: ${b.ward_code} ${b.bed_number}`;
+                opt.textContent = `${b.patient_name} (${b.patient_mrn || 'NO MRN'}) â€” Current: ${b.ward_code} ${b.bed_number}`;
                 if (preselectedAdmId && b.admission_id == preselectedAdmId) {
                     opt.selected = true;
                 }
@@ -1269,7 +1374,7 @@ function openTransferModal(preselectedAdmId = null) {
             if (b.status === 'Available') {
                 const opt = document.createElement('option');
                 opt.value = b.id;
-                opt.textContent = `${b.ward_name} (${b.ward_code}) — Room ${b.room_number}, Bed ${b.bed_number} [${b.bed_type}]`;
+                opt.textContent = `${b.ward_name} (${b.ward_code}) â€” Room ${b.room_number}, Bed ${b.bed_number} [${b.bed_type}]`;
                 toBedSel.appendChild(opt);
             }
         });
@@ -1351,7 +1456,7 @@ export async function openAcceptHandoverModal(transferId) {
                         <div><strong>BP:</strong> ${esc(vitals.bp || '--')}</div>
                         <div><strong>HR:</strong> ${esc(vitals.hr || '--')} bpm</div>
                         <div><strong>RR:</strong> ${esc(vitals.rr || '--')} /min</div>
-                        <div><strong>Temp:</strong> ${esc(vitals.temp || '--')} °C</div>
+                        <div><strong>Temp:</strong> ${esc(vitals.temp || '--')} Â°C</div>
                         <div><strong>SpO2:</strong> ${esc(vitals.spo2 || '--')}%</div>
                         <div><strong>Pain:</strong> ${esc(vitals.pain || '--')}</div>
                     </div>
@@ -1413,7 +1518,7 @@ export async function openHandoverReportModal(transferId) {
                     <div>
                         <div style="font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">USINTELLIX HEALTH SYSTEM</div>
                         <div style="font-size: 13px; font-weight: 600; color: #475569;">INPATIENT CLINICAL TRANSFER &amp; NURSE HANDOVER CERTIFICATE</div>
-                        <div style="font-size: 11px; color: #64748b;">JCAHO Standard NPSG.02.05.01 • Structured Bedside SBAR Protocol</div>
+                        <div style="font-size: 11px; color: #64748b;">JCAHO Standard NPSG.02.05.01 â€¢ Structured Bedside SBAR Protocol</div>
                     </div>
                     <div style="text-align: right;">
                         <span style="display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; ${isAccepted ? 'background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;' : isPending ? 'background: #fef3c7; color: #b45309; border: 1px solid #fde68a;' : 'background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;'}">
@@ -1454,29 +1559,29 @@ export async function openHandoverReportModal(transferId) {
                     </div>
                     <div style="padding: 12px 14px; font-size: 13px; line-height: 1.5;">
                         <div style="margin-bottom: 10px;">
-                            <strong style="color: #0369a1;">S — Situation:</strong>
+                            <strong style="color: #0369a1;">S â€” Situation:</strong>
                             <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_situation || 'No situation provided.')}</div>
                         </div>
                         <div style="margin-bottom: 10px;">
-                            <strong style="color: #0369a1;">B — Background:</strong>
+                            <strong style="color: #0369a1;">B â€” Background:</strong>
                             <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_background || 'No background provided.')}</div>
                         </div>
                         <div style="margin-bottom: 10px;">
-                            <strong style="color: #0369a1;">A — Assessment &amp; Bedside Vitals:</strong>
+                            <strong style="color: #0369a1;">A â€” Assessment &amp; Bedside Vitals:</strong>
                             <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_assessment || 'No clinical assessment provided.')}</div>
                             ${vitals ? `
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 6px; background: #f8fafc; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; margin-top: 6px; font-size: 12px;">
                                     <div><span style="color:#64748b;">BP:</span> <strong>${esc(vitals.bp || '--')}</strong></div>
                                     <div><span style="color:#64748b;">HR:</span> <strong>${esc(vitals.hr || '--')}</strong></div>
                                     <div><span style="color:#64748b;">RR:</span> <strong>${esc(vitals.rr || '--')}</strong></div>
-                                    <div><span style="color:#64748b;">Temp:</span> <strong>${esc(vitals.temp || '--')}°C</strong></div>
+                                    <div><span style="color:#64748b;">Temp:</span> <strong>${esc(vitals.temp || '--')}Â°C</strong></div>
                                     <div><span style="color:#64748b;">SpO2:</span> <strong>${esc(vitals.spo2 || '--')}%</strong></div>
                                     <div><span style="color:#64748b;">Pain:</span> <strong>${esc(vitals.pain || '--')}</strong></div>
                                 </div>
                             ` : ''}
                         </div>
                         <div>
-                            <strong style="color: #0369a1;">R — Recommendation &amp; Next Actions:</strong>
+                            <strong style="color: #0369a1;">R â€” Recommendation &amp; Next Actions:</strong>
                             <div style="margin-top: 2px; color: #334155;">${esc(t.sbar_recommendation || 'No recommendations provided.')}</div>
                         </div>
                     </div>
@@ -1492,7 +1597,7 @@ export async function openHandoverReportModal(transferId) {
                         <div style="font-size: 12.5px; margin-bottom: 4px;"><strong>Nurse:</strong> ${esc(t.sending_nurse_name || t.transferred_by || '--')}</div>
                         <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">Signed: ${esc(t.sending_nurse_signed_at || t.created_at || '--')}</div>
                         <div style="font-family: monospace; font-size: 10px; color: #059669; word-break: break-all; background: #ecfdf5; padding: 4px 6px; border-radius: 4px; border: 1px solid #a7f3d0;">
-                            ✓ ${esc(t.sending_nurse_signature || 'ELECTRONICALLY_SIGNED')}
+                            âœ“ ${esc(t.sending_nurse_signature || 'ELECTRONICALLY_SIGNED')}
                         </div>
                     </div>
 
@@ -1505,17 +1610,17 @@ export async function openHandoverReportModal(transferId) {
                             <div style="font-size: 12.5px; margin-bottom: 4px;"><strong>Nurse:</strong> ${esc(t.receiving_nurse_name || '--')}</div>
                             <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">Signed: ${esc(t.receiving_nurse_signed_at || '--')}</div>
                             <div style="font-family: monospace; font-size: 10px; color: #059669; word-break: break-all; background: #ecfdf5; padding: 4px 6px; border-radius: 4px; border: 1px solid #a7f3d0; margin-bottom: 6px;">
-                                ✓ ${esc(t.receiving_nurse_signature || 'ELECTRONICALLY_SIGNED')}
+                                âœ“ ${esc(t.receiving_nurse_signature || 'ELECTRONICALLY_SIGNED')}
                             </div>
                             ${t.receiving_acceptance_notes ? `<div style="font-size: 11.5px; color: #475569; font-style: italic;">"${esc(t.receiving_acceptance_notes)}"</div>` : ''}
                         ` : isPending ? `
                             <div style="text-align: center; padding: 16px 8px; color: #b45309;">
-                                <div style="font-size: 13px; font-weight: 700;">⏳ Awaiting Acceptance</div>
+                                <div style="font-size: 13px; font-weight: 700;">â³ Awaiting Acceptance</div>
                                 <div style="font-size: 11px; margin-top: 4px;">Receiving nurse bedside sign-off has not yet been executed.</div>
                             </div>
                         ` : `
                             <div style="text-align: center; padding: 16px 8px; color: #b91c1c;">
-                                <div style="font-size: 13px; font-weight: 700;">❌ Disputed / Rejected</div>
+                                <div style="font-size: 13px; font-weight: 700;">âŒ Disputed / Rejected</div>
                                 <div style="font-size: 11.5px; margin-top: 4px;">${esc(t.receiving_acceptance_notes || 'Handover rejected.')}</div>
                             </div>
                         `}
@@ -1638,13 +1743,267 @@ function openConfigModal() {
 function vitalsLabel(bed) {
     const t = String(bed.vitals_next_due || '').slice(11, 16);
     const map = {
-        overdue: ['#b91c1c', '⏰ Overdue'],
-        due: ['#b45309', '● Due now'],
-        due_soon: ['inherit', `◔ Due ${t}`],
-        ok: ['#15803d', `✓ Next ${t}`],
+        overdue: ['#b91c1c', 'â° Overdue'],
+        due: ['#b45309', 'â— Due now'],
+        due_soon: ['inherit', `â—” Due ${t}`],
+        ok: ['#15803d', `âœ“ Next ${t}`],
     };
     const [color, label] = map[bed.vitals_state] || map.ok;
-    const news = bed.news2_score == null ? '' : bed.news2_risk === 'high' ? ` <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-weight:700">⚠ NEWS2 ${bed.news2_score}</span>`
-        : ['medium', 'low_medium'].includes(bed.news2_risk) ? ` <span style="color:#c2410c;font-weight:700">▲ NEWS2 ${bed.news2_score}</span>` : ` <span style="color:#64748b">NEWS2 ${bed.news2_score}</span>`;
+    const news = bed.news2_score == null ? '' : bed.news2_risk === 'high' ? ` <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-weight:700">âš  NEWS2 ${bed.news2_score}</span>`
+        : ['medium', 'low_medium'].includes(bed.news2_risk) ? ` <span style="color:#c2410c;font-weight:700">â–² NEWS2 ${bed.news2_score}</span>` : ` <span style="color:#64748b">NEWS2 ${bed.news2_score}</span>`;
     return `<span style="font-weight:700;color:${color}">${label}</span>${news}${bed.vitals_every_hours ? ` <span style="color:#64748b;font-weight:400">(every ${bed.vitals_every_hours} h)</span>` : ''}`;
+}
+
+
+/**
+ * Daily Doctor Ward Rounds (inpatient_daily_rounds)
+ */
+async function openDailyWardRoundModal(admissionId) {
+    const modal = document.getElementById('modalDailyWardRound');
+    if (!modal) return;
+
+    const bed = (currentCensusData.beds || []).find(b => b.admission_id == admissionId);
+    if (!bed) {
+        showToast('Inpatient admission data not found', 'error');
+        return;
+    }
+
+    // Reset Form
+    const form = document.getElementById('formDailyWardRound');
+    if (form) form.reset();
+
+    // Populate Banner Info
+    document.getElementById('roundAdmissionId').value = admissionId;
+    document.getElementById('roundPatientId').value = bed.patient_id || '';
+    document.getElementById('roundRecordId').value = '';
+    document.getElementById('roundPatientName').textContent = bed.patient_name || 'Patient';
+    document.getElementById('roundPatientMrn').textContent = bed.patient_mrn || bed.patient_id || '--';
+    document.getElementById('roundPatientAgeGender').textContent = `${bed.patient_age ? bed.patient_age + 'y' : '--'} / ${bed.patient_gender || bed.gender || '--'}`;
+    document.getElementById('roundBedNo').textContent = `${bed.ward_code || ''} - ${bed.bed_number || '--'}`;
+    document.getElementById('roundLos').textContent = `${bed.los_days != null ? bed.los_days : 0} days`;
+    document.getElementById('roundAdmittingDiag').textContent = bed.admitting_diagnosis || 'Under Observation';
+    document.getElementById('roundAttendingPhysician').textContent = bed.attending_physician || 'Attending Physician';
+    document.getElementById('dailyRoundNumberBadge').textContent = 'New Round';
+
+    // Set Default Round DateTime to now
+    const nowIso = systemNow ? systemNow().slice(0, 16) : new Date().toISOString().slice(0, 16);
+    document.getElementById('roundDateTimeInput').value = nowIso;
+
+    // Prefill Physician Name
+    const u = currentUser || getUser();
+    const docName = (u?.first_name || u?.last_name) ? `Dr. ${((u.first_name || '') + ' ' + (u.last_name || '')).trim()}` : (bed.attending_physician || '');
+    document.getElementById('roundPhysicianNameInput').value = docName;
+
+    // Prefill Target Discharge Date if available
+    if (bed.expected_discharge_date) {
+        document.getElementById('roundTargetDischargeInput').value = bed.expected_discharge_date.slice(0, 10);
+    } else {
+        document.getElementById('roundTargetDischargeInput').value = '';
+    }
+
+    // Reset Trajectory buttons to Stable
+    selectTrajectoryButton('Stable');
+
+    // Default to Tab 1
+    const tab1 = document.getElementById('tabBtnNewRound');
+    if (tab1) tab1.click();
+
+    // Open Modal
+    modal.classList.add('open');
+
+    // Load Previous Rounds
+    await loadDailyRoundHistory(admissionId);
+}
+
+function selectTrajectoryButton(val) {
+    const trajectoryButtonGroup = document.getElementById('roundTrajectoryButtonGroup');
+    if (!trajectoryButtonGroup) return;
+
+    const input = document.getElementById('roundTrajectoryInput');
+    if (input) input.value = val;
+
+    const trajectoryDescriptions = {
+        'Critical': 'Unstable vital signs or organ failure risk; intensive monitoring required.',
+        'Guarded': 'Serious condition; high risk of acute complication or clinical change.',
+        'Stable': 'Vital signs stable, acute symptoms controlled, progressing on regimen.',
+        'Improving': 'Clear objective clinical recovery, positive response to inpatient treatment.',
+        'Discharge Ready': 'Clinical discharge criteria achieved; pending final discharge processing.'
+    };
+    const trajectoryColors = {
+        'Critical': { border: '#dc2626', bg: '#fee2e2', text: '#991b1b' },
+        'Guarded': { border: '#ea580c', bg: '#ffedd5', text: '#9a3412' },
+        'Stable': { border: '#ca8a04', bg: '#fef9c3', text: '#854d0e' },
+        'Improving': { border: '#16a34a', bg: '#dcfce7', text: '#166534' },
+        'Discharge Ready': { border: '#0284c7', bg: '#e0f2fe', text: '#075985' }
+    };
+
+    trajectoryButtonGroup.querySelectorAll('.trajectory-btn').forEach(btn => {
+        const bVal = btn.getAttribute('data-val');
+        if (bVal === val) {
+            const cfg = trajectoryColors[val] || { border: '#2563eb', bg: '#eff6ff', text: '#1d4ed8' };
+            btn.classList.add('active-trajectory');
+            btn.style.border = `2px solid ${cfg.border}`;
+            btn.style.background = cfg.bg;
+            btn.style.color = cfg.text;
+        } else {
+            btn.classList.remove('active-trajectory');
+            btn.style.border = '2px solid #e2e8f0';
+            btn.style.background = '#fff';
+            const defaultTextColors = {
+                'Critical': '#dc2626',
+                'Guarded': '#ea580c',
+                'Stable': '#ca8a04',
+                'Improving': '#16a34a',
+                'Discharge Ready': '#0284c7'
+            };
+            btn.style.color = defaultTextColors[bVal] || '#475569';
+        }
+    });
+
+    const descBox = document.getElementById('roundTrajectoryDesc');
+    if (descBox) {
+        descBox.textContent = trajectoryDescriptions[val] || '';
+    }
+}
+
+async function loadDailyRoundHistory(admissionId) {
+    const listEl = document.getElementById('dailyRoundHistoryList');
+    const countEl = document.getElementById('roundHistoryCount');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div style="text-align: center; color: #64748b; padding: 20px;">⏳ Loading daily round history...</div>';
+
+    try {
+        const res = await fetchDailyRounds(admissionId);
+        const rounds = (res && res.success && res.data?.rounds) ? res.data.rounds : [];
+        if (countEl) countEl.textContent = rounds.length;
+
+        if (rounds.length === 0) {
+            listEl.innerHTML = `
+                <div style="text-align: center; padding: 32px 16px; color: #64748b; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">📋</div>
+                    <div style="font-weight: 600; font-size: 14px; color: #334155;">No Previous Daily Rounds Documented</div>
+                    <div style="font-size: 12px; margin-top: 4px;">Use the "Document Today\'s Round" tab to record the initial doctor ward round for this admission.</div>
+                </div>
+            `;
+            return;
+        }
+
+        const trajectoryBadges = {
+            'Critical': '<span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🔴 Critical</span>',
+            'Guarded': '<span style="background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🟠 Guarded</span>',
+            'Stable': '<span style="background: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🟡 Stable</span>',
+            'Improving': '<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🟢 Improving</span>',
+            'Discharge Ready': '<span style="background: #e0f2fe; color: #075985; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🔵 Discharge Ready</span>'
+        };
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 14px;">';
+        rounds.forEach((rnd) => {
+            const dt = rnd.round_datetime ? new Date(rnd.round_datetime).toLocaleString() : '--';
+            const badge = trajectoryBadges[rnd.clinical_trajectory] || `<span style="background:#e2e8f0;padding:2px 8px;border-radius:12px;font-size:11px;">${esc(rnd.clinical_trajectory)}</span>`;
+
+            html += `
+                <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-weight: 700; color: #0f172a; font-size: 14px;">#${esc(rnd.round_number || `RND-${rnd.id}`)}</span>
+                            ${badge}
+                            <span style="font-size: 12px; color: #64748b;">🕒 ${esc(dt)}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12px; font-weight: 600; color: #334155;">👨‍⚕️ ${esc(rnd.rounding_physician_name || 'Physician')}</span>
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary btn-edit-round" data-round-id="${rnd.id}" style="padding: 3px 8px; font-size: 11px;">✏️ Edit</button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; font-size: 12px;">
+                        <div style="background: #f8fafc; padding: 8px 12px; border-radius: 6px;">
+                            <strong style="color: #475569;">Diet:</strong> ${esc(rnd.diet_order || 'Regular Diet')}
+                        </div>
+                        <div style="background: #f8fafc; padding: 8px 12px; border-radius: 6px;">
+                            <strong style="color: #475569;">Activity:</strong> ${esc(rnd.activity_order || 'Ambulate as tolerated')}
+                        </div>
+                    </div>
+
+                    ${rnd.subjective ? `
+                        <div style="margin-bottom: 8px; font-size: 12px;">
+                            <strong style="color: #334155;">🗣️ Subjective:</strong>
+                            <div style="color: #475569; margin-top: 2px; white-space: pre-line; background: #fafafa; padding: 6px 10px; border-radius: 4px;">${esc(rnd.subjective)}</div>
+                        </div>
+                    ` : ''}
+
+                    ${rnd.objective ? `
+                        <div style="margin-bottom: 8px; font-size: 12px;">
+                            <strong style="color: #334155;">🔬 Objective / Physical Exam:</strong>
+                            <div style="color: #475569; margin-top: 2px; white-space: pre-line; background: #fafafa; padding: 6px 10px; border-radius: 4px;">${esc(rnd.objective)}</div>
+                        </div>
+                    ` : ''}
+
+                    <div style="margin-bottom: 8px; font-size: 12px;">
+                        <strong style="color: #1e293b;">🧠 Assessment:</strong>
+                        <div style="color: #0f172a; font-weight: 500; margin-top: 2px; white-space: pre-line; background: #f0fdf4; border-left: 3px solid #22c55e; padding: 6px 10px; border-radius: 0 4px 4px 0;">${esc(rnd.assessment)}</div>
+                    </div>
+
+                    <div style="font-size: 12px;">
+                        <strong style="color: #1e293b;">📋 Daily Treatment Plan:</strong>
+                        <div style="color: #0f172a; margin-top: 2px; white-space: pre-line; background: #eff6ff; border-left: 3px solid #3b82f6; padding: 6px 10px; border-radius: 0 4px 4px 0;">${esc(rnd.plan)}</div>
+                    </div>
+
+                    ${rnd.target_discharge_date ? `
+                        <div style="margin-top: 8px; font-size: 11px; color: #64748b; text-align: right;">
+                            🎯 Target Discharge Date: <strong style="color: #0f172a;">${esc(rnd.target_discharge_date)}</strong>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        listEl.innerHTML = html;
+
+        // Wire Edit buttons
+        listEl.querySelectorAll('.btn-edit-round').forEach(btn => {
+            btn.onclick = () => {
+                const rId = btn.getAttribute('data-round-id');
+                const targetRound = rounds.find(r => r.id == rId);
+                if (targetRound) {
+                    populateRoundForEdit(targetRound);
+                }
+            };
+        });
+
+    } catch (err) {
+        listEl.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading rounds history: ${esc(err.message)}</div>`;
+    }
+}
+
+function populateRoundForEdit(rnd) {
+    document.getElementById('roundRecordId').value = rnd.id;
+    document.getElementById('dailyRoundNumberBadge').textContent = rnd.round_number ? `Edit ${rnd.round_number}` : `Edit Round #${rnd.id}`;
+
+    if (rnd.round_datetime) {
+        document.getElementById('roundDateTimeInput').value = rnd.round_datetime.replace(' ', 'T').slice(0, 16);
+    }
+    if (rnd.rounding_physician_name) {
+        document.getElementById('roundPhysicianNameInput').value = rnd.rounding_physician_name;
+    }
+    if (rnd.target_discharge_date) {
+        document.getElementById('roundTargetDischargeInput').value = rnd.target_discharge_date.slice(0, 10);
+    }
+    if (rnd.diet_order) {
+        document.getElementById('roundDietSelect').value = rnd.diet_order;
+    }
+    if (rnd.activity_order) {
+        document.getElementById('roundActivitySelect').value = rnd.activity_order;
+    }
+    document.getElementById('roundSubjectiveInput').value = rnd.subjective || '';
+    document.getElementById('roundObjectiveInput').value = rnd.objective || '';
+    document.getElementById('roundAssessmentInput').value = rnd.assessment || '';
+    document.getElementById('roundPlanInput').value = rnd.plan || '';
+
+    selectTrajectoryButton(rnd.clinical_trajectory || 'Stable');
+
+    // Switch to Document tab
+    const tab1 = document.getElementById('tabBtnNewRound');
+    if (tab1) tab1.click();
 }
