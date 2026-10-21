@@ -11,6 +11,7 @@ $router->get('/dispensing', [DispensingController::class, 'index'], $dispensingR
 $router->get('/dispensing/show', [DispensingController::class, 'show'], $dispensingRoles);
 $router->get('/dispensing/options', [DispensingController::class, 'options'], $dispensingRoles);
 $router->get('/dispensing/labels', [DispensingController::class, 'labels'], $dispensingRoles);
+$router->post('/dispensing/labels/customize', [DispensingController::class, 'saveAuxiliaryLabel'], $dispensingRoles);
 $router->post('/dispensing', [DispensingController::class, 'store'], $dispensingRoles);
 $router->post('/dispensing/void', [DispensingController::class, 'void'], $dispensingRoles);
 $router->post('/dispensing/check', [DispensingController::class, 'check'], $dispensingRoles);

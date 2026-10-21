@@ -825,7 +825,9 @@ class DispensingService
                     GROUP_CONCAT(CONCAT(l.lot_number, IF(l.expires_date IS NULL, '', CONCAT(' exp ', DATE_FORMAT(l.expires_date, '%Y-%m-%d')))) ORDER BY i.id SEPARATOR '; ') AS lots,
                     MIN(l.expires_date) AS earliest_expiry,
                     pp.title, pp.dosage, pp.frequency, pp.route, pp.directions,
-                    dr.name AS drug_name, dr.generic_name, dr.brand_name, dr.strength, df.name AS dosage_form, du.name AS unit_name
+                    dr.name AS drug_name, dr.generic_name, dr.brand_name, dr.strength,
+                    dr.is_high_alert, dr.controlled_class,
+                    df.name AS dosage_form, du.name AS unit_name
              FROM prescription_dispense_items i
              JOIN drug_inventory_lots l ON l.id = i.lot_id
              JOIN patient_prescriptions pp ON pp.id = i.prescription_item_id
@@ -837,10 +839,15 @@ class DispensingService
              ORDER BY MIN(pp.line_no)"
         );
         $stmt->execute(['id' => $dispenseId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $auxGenerator = new AuxiliaryLabelGeneratorService();
+        $savedMap = $auxGenerator->getSavedForDispense($dispenseId);
 
         $business = PrescriptionService::business();
 
         return [
+            'dispense_id' => (int) $d['id'],
             'dispense_number' => $d['dispense_number'],
             'dispensed_date' => $d['dispensed_date'],
             'status' => $d['status'],
@@ -851,13 +858,31 @@ class DispensingService
             'warehouse_name' => $d['warehouse_name'],
             // The hospital as set up under Business Settings.
             'facility' => ['name' => $business['name'], 'phone' => $business['phone'], 'address' => $business['address'], 'email' => $business['email'], 'logo' => $business['logo']],
-            'items' => array_map(fn($r) => [
-                'title' => $r['title'], 'drug_name' => $r['drug_name'], 'generic_name' => $r['generic_name'], 'brand_name' => $r['brand_name'],
-                'strength' => $r['strength'], 'dosage_form' => $r['dosage_form'], 'unit_name' => $r['unit_name'],
-                'quantity' => (float) $r['quantity'], 'dosage' => $r['dosage'], 'frequency' => $r['frequency'], 'route' => $r['route'],
-                'directions' => $r['directions'], 'lots' => $r['lots'], 'earliest_expiry' => $r['earliest_expiry'],
-                'fill_label' => (int) $r['fill_number'] > 1 ? 'Refill ' . ((int) $r['fill_number'] - 1) . ' of ' . (int) $r['refills'] : null
-            ], $stmt->fetchAll(PDO::FETCH_ASSOC))
+            'auxiliary_catalog' => array_values(AuxiliaryLabelGeneratorService::AUXILIARY_STICKERS),
+            'items' => array_map(function ($r) use ($auxGenerator, $savedMap) {
+                $rxItemId = (int) $r['prescription_item_id'];
+                $generated = $auxGenerator->generateForDispenseItem($r, $savedMap[$rxItemId] ?? null);
+                return array_merge([
+                    'prescription_item_id' => $rxItemId,
+                    'title' => $r['title'],
+                    'drug_name' => $r['drug_name'],
+                    'generic_name' => $r['generic_name'],
+                    'brand_name' => $r['brand_name'],
+                    'strength' => $r['strength'],
+                    'dosage_form' => $r['dosage_form'],
+                    'unit_name' => $r['unit_name'],
+                    'quantity' => (float) $r['quantity'],
+                    'dosage' => $r['dosage'],
+                    'frequency' => $r['frequency'],
+                    'route' => $r['route'],
+                    'directions' => $r['directions'],
+                    'lots' => $r['lots'],
+                    'earliest_expiry' => $r['earliest_expiry'],
+                    'is_high_alert' => (int) ($r['is_high_alert'] ?? 0) === 1,
+                    'controlled_class' => $r['controlled_class'] ?? 'none',
+                    'fill_label' => (int) $r['fill_number'] > 1 ? 'Refill ' . ((int) $r['fill_number'] - 1) . ' of ' . (int) $r['refills'] : null,
+                ], $generated);
+            }, $rows)
         ];
     }
 

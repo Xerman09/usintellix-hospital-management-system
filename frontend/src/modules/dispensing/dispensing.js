@@ -1,8 +1,8 @@
 import {
     fetchDispensingQueue, fetchDispensingDetail, fetchDispensingOptions, dispensePrescription,
-    voidDispense, closePrescription, fetchDispenseLabels, declineRefillRequest, recordDispensePayment, fetchChargeSlip, checkDispense,
+    voidDispense, closePrescription, fetchDispenseLabels, saveDispenseAuxiliaryLabel, declineRefillRequest, recordDispensePayment, fetchChargeSlip, checkDispense,
     saveClinicalVerification
-} from "./dispensing.service.js?v=8";
+} from "./dispensing.service.js?v=9";
 import { formatQty, formatDate, formatMoney, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 
@@ -183,11 +183,11 @@ function renderDetail() {
         const held = h && h.status === "completed" && h.check_status === "awaiting";
         banners.push(held
             ? `<div class="dp-banner warn" style="justify-content:space-between;flex-wrap:wrap;"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>. It has a <strong>high-alert medicine</strong>: label it, then have someone else do the second check before handing it over and taking payment.</span>
-                <span class="dp-actions"><button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">Print labels</button></span></div>`
+                <span class="dp-actions"><button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">&#127991; Dosing &amp; Auxiliary Labels</button></span></div>`
             : `<div class="dp-banner ok"><span>&#10003; Dispensed under <strong>${escapeHtml(lastDispensed.number)}</strong>${h ? ` — ${h.balance > 0.004 ? `<strong>${formatMoney(h.balance)}</strong> to pay` : h.net_amount > 0 ? "paid" : "no charge"}` : ""}.</span>
             <span class="dp-actions">${h && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
             <button type="button" class="dp-btn small" data-dp-slip="${lastDispensed.id}">Print charge slip</button>
-            <button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">Print labels</button></span></div>`);
+            <button type="button" class="dp-btn small" data-dp-labels="${lastDispensed.id}">&#127991; Dosing &amp; Auxiliary Labels</button></span></div>`);
     } else if (d.awaiting_check) {
         banners.push(`<div class="dp-banner warn">&#9888; ${d.awaiting_check === 1 ? "A dispensing" : `${d.awaiting_check} dispensings`} below ${d.awaiting_check === 1 ? "has" : "have"} a high-alert medicine waiting for its second check. Don't hand ${d.awaiting_check === 1 ? "it" : "them"} over until checked.</div>`);
     }
@@ -305,7 +305,7 @@ function renderDetail() {
                             ${h.can_check ? `<button type="button" class="dp-btn small primary" data-dp-check="${h.id}">Second check…</button>` : ""}
                             ${h.status === "completed" && h.check_status !== "awaiting" && h.balance > 0.004 ? `<button type="button" class="dp-btn small primary" data-dp-pay="${h.id}">Record payment</button>` : ""}
                             ${h.status === "completed" && h.check_status === "awaiting" ? "" : `<button type="button" class="dp-btn small" data-dp-slip="${h.id}">Charge slip</button>`}
-                            ${h.status === "completed" ? `<button type="button" class="dp-btn small" data-dp-labels="${h.id}">Print labels</button>
+                            ${h.status === "completed" ? `<button type="button" class="dp-btn small" data-dp-labels="${h.id}">&#127991; Dosing &amp; Auxiliary Labels</button>
                                 <button type="button" class="dp-btn small" data-dp-void="${h.id}">Undo…</button>` : ""}
                         </div>
                     </div>
@@ -942,17 +942,17 @@ function openDialog({ title, body, okLabel, okClass = "primary", check = null, r
 }
 
 /* ---------------------------------------------------------------
- * Labels
+ * Standardized Dosing & Auxiliary Label Generator (Thermal Printer Ready)
  * ------------------------------------------------------------- */
 
 async function printLabels(dispenseId) {
     // Open first, while the click still counts, so pop-up blockers allow it.
-    const win = window.open("", "_blank", "width=900,height=900");
+    const win = window.open("", "_blank", "width=1080,height=920");
     if (!win) {
         showToast("Pop-up blocked. Allow pop-ups for this site to print.", "error");
         return;
     }
-    win.document.write(`<p style="font-family:Arial;padding:20px;">Preparing labels...</p>`);
+    win.document.write(`<p style="font-family:Arial,sans-serif;padding:20px;">Generating standardized dosing &amp; auxiliary warning labels...</p>`);
 
     const result = await fetchDispenseLabels(dispenseId);
     if (!result?.success) {
@@ -962,37 +962,687 @@ async function printLabels(dispenseId) {
     }
 
     const l = result.data;
-    const name = (i) => i.generic_name
-        ? `<strong>${escapeHtml(i.generic_name.toUpperCase())}</strong>${i.brand_name ? ` (${escapeHtml(i.brand_name)})` : ""} ${escapeHtml([i.strength, i.dosage_form].filter(Boolean).join(" "))}`
-        : `<strong>${escapeHtml(i.title)}</strong>`;
+    const catalog = Array.isArray(l.auxiliary_catalog) ? l.auxiliary_catalog : [];
+    const defaultFormat = l.items?.[0]?.label_format || "thermal_80x50";
+
+    // Expose save handler so the print studio window can persist custom auxiliary stickers & SIG
+    win.__saveAuxiliaryLabelItem = async (payload) => {
+        try {
+            return await saveDispenseAuxiliaryLabel(payload);
+        } catch (err) {
+            return { success: false, message: err?.message || "Save failed." };
+        }
+    };
+
+    const initialPayloadJson = JSON.stringify({
+        dispense_id: l.dispense_id || dispenseId,
+        dispense_number: l.dispense_number,
+        dispensed_date: formatDate(l.dispensed_date),
+        rx_number: l.rx_number,
+        patient_name: l.patient_name,
+        patient_no: l.patient_no,
+        prescriber_name: l.prescriber_name,
+        warehouse_name: l.warehouse_name,
+        facility: l.facility || {},
+        catalog,
+        default_format: defaultFormat,
+        items: (l.items || []).map((item) => ({
+            ...item,
+            formatted_qty: `${formatQty(item.quantity)} ${item.unit_name || "units"}`.trim(),
+            formatted_expiry: item.earliest_expiry ? formatDate(item.earliest_expiry) : ""
+        }))
+    }).replace(/<\//g, "<\\/");
 
     win.document.open();
-    win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Labels ${escapeHtml(l.dispense_number)}</title>
+    win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thermal Dosing & Auxiliary Labels — ${escapeHtml(l.dispense_number)}</title>
+<style id="dynamicPageStyle">
+    @page { size: 80mm 55mm; margin: 2mm; }
+</style>
 <style>
-    @page { size: A4 portrait; margin: 10mm; } * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111827; margin: 0; padding: 10px; }
-    .sheet { display: flex; flex-wrap: wrap; gap: 6mm; }
-    .label { width: 90mm; min-height: 50mm; border: 1px solid #111827; border-radius: 3mm; padding: 3mm 4mm; font-size: 10.5px; page-break-inside: avoid; display: flex; flex-direction: column; gap: 1.5mm; }
-    .fac { font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; border-bottom: 1px solid #d1d5db; padding-bottom: 1mm; }
-    .pt { font-size: 12px; font-weight: 700; }
-    .med { font-size: 12px; } .qty { font-weight: 700; }
-    .sig { font-size: 12px; border: 1px dashed #9ca3af; padding: 1.5mm 2mm; border-radius: 2mm; }
-    .meta { font-size: 9.5px; color: #374151; display: flex; justify-content: space-between; gap: 4px; flex-wrap: wrap; }
-    .warn { font-size: 9px; color: #374151; margin-top: auto; }
-</style></head><body><div class="sheet">
-${l.items.map((i) => `
-    <div class="label">
-        <div class="fac">${escapeHtml(l.facility?.name || "Pharmacy")}${l.facility?.phone ? ` · ${escapeHtml(l.facility.phone)}` : ""}</div>
-        <div class="pt">${escapeHtml(l.patient_name)}</div>
-        <div class="med">${name(i)} — <span class="qty">${formatQty(i.quantity)} ${escapeHtml(i.unit_name || "")}</span></div>
-        <div class="sig">${escapeHtml([i.dosage, i.frequency, i.route && i.route !== "Oral" ? i.route : null].filter(Boolean).join(", ") || "As directed")}${i.directions ? ` — ${escapeHtml(i.directions)}` : ""}</div>
-        <div class="meta"><span>Lot ${escapeHtml(i.lots || "")}</span>${i.fill_label ? `<span><strong>${escapeHtml(i.fill_label)}</strong></span>` : ""}</div>
-        <div class="meta"><span>${escapeHtml(l.rx_number)} · ${escapeHtml(l.dispense_number)}</span><span>${escapeHtml(formatDate(l.dispensed_date))}</span></div>
-        <div class="meta"><span>Dr. ${escapeHtml(l.prescriber_name || "")}</span></div>
-        <div class="warn">Keep out of reach of children. Store as directed.</div>
-    </div>`).join("")}
-</div>
-<script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script></body></html>`);
+    * { box-sizing: border-box; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #0f172a;
+        background: #f1f5f9;
+        margin: 0;
+        padding: 0;
+    }
+    .studio-bar {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        border-bottom: 3px solid #2563eb;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    .studio-bar h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .studio-bar small {
+        color: #94a3b8;
+        font-size: 12px;
+        display: block;
+        margin-top: 2px;
+    }
+    .studio-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .studio-controls select, .studio-btn {
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 6px;
+        font-size: 12.5px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        border: 1px solid #334155;
+    }
+    .studio-controls select {
+        background: #1e293b;
+        color: #f8fafc;
+    }
+    .studio-btn {
+        background: #1e293b;
+        color: #f8fafc;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .studio-btn.primary {
+        background: #2563eb;
+        border-color: #1d4ed8;
+        color: #ffffff;
+    }
+    .studio-btn.success {
+        background: #16a34a;
+        border-color: #15803d;
+        color: #ffffff;
+    }
+    .studio-workspace {
+        max-width: 1120px;
+        margin: 16px auto;
+        padding: 0 16px 32px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .customizer-card {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .customizer-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .customizer-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .customizer-field label {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #475569;
+        margin-bottom: 4px;
+    }
+    .customizer-field input {
+        width: 100%;
+        height: 32px;
+        padding: 0 9px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 12.5px;
+    }
+    .ums-inputs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .sticker-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .sticker-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1.5px solid #cbd5e1;
+        background: #f8fafc;
+        color: #334155;
+        user-select: none;
+        transition: all .12s ease;
+    }
+    .sticker-pill.active {
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+        transform: translateY(-1px);
+    }
+
+    /* Thermal Label Sheet Layout */
+    .sheet {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6mm;
+        justify-content: center;
+    }
+    .sheet.fmt-thermal_80x50 .thermal-label {
+        width: 80mm;
+        min-height: 50mm;
+    }
+    .sheet.fmt-thermal_100x60 .thermal-label {
+        width: 100mm;
+        min-height: 60mm;
+    }
+    .sheet.fmt-a4_sheet .thermal-label {
+        width: 92mm;
+        min-height: 54mm;
+    }
+
+    .thermal-label {
+        background: #ffffff;
+        color: #000000;
+        border: 1.8px solid #000000;
+        border-radius: 2.5mm;
+        padding: 2.5mm 3mm;
+        font-size: 10px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        display: flex;
+        flex-direction: column;
+        gap: 1.4mm;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .tl-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1.5px solid #000;
+        padding-bottom: 1mm;
+        font-size: 8.5px;
+        line-height: 1.2;
+    }
+    .tl-fac-name {
+        font-weight: 900;
+        text-transform: uppercase;
+        font-size: 9.5px;
+        letter-spacing: 0.3px;
+    }
+    .tl-rx-strip {
+        font-family: "Courier New", Courier, monospace;
+        font-weight: 800;
+        font-size: 9px;
+        text-align: right;
+    }
+    .tl-patient-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 4px;
+        background: #f1f5f9;
+        border: 1px solid #000;
+        padding: 1mm 1.8mm;
+        border-radius: 1.2mm;
+    }
+    .tl-patient-name {
+        font-size: 11.5px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+    .tl-patient-mrn {
+        font-size: 9px;
+        font-weight: 700;
+    }
+    .tl-drug-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 6px;
+        padding: 0.5mm 0;
+    }
+    .tl-drug-title {
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1.2;
+    }
+    .tl-drug-qty {
+        font-size: 10.5px;
+        font-weight: 900;
+        border: 1.2px solid #000;
+        padding: 0.4mm 1.6mm;
+        border-radius: 1.2mm;
+        white-space: nowrap;
+    }
+    .tl-sig-box {
+        border: 1.5px solid #000;
+        border-radius: 1.5mm;
+        padding: 1.4mm 2mm;
+        background: #fffbeb;
+    }
+    .tl-sig-label {
+        font-size: 7.5px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #334155;
+        margin-bottom: 0.5mm;
+    }
+    .tl-sig-text {
+        font-size: 10.5px;
+        font-weight: 900;
+        line-height: 1.25;
+        color: #000;
+    }
+    .tl-ums-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1px solid #000;
+        border-radius: 1.2mm;
+        overflow: hidden;
+        font-size: 8px;
+        text-align: center;
+    }
+    .tl-ums-cell {
+        border-right: 1px solid #000;
+        padding: 0.7mm 1mm;
+        background: #ffffff;
+    }
+    .tl-ums-cell:last-child {
+        border-right: none;
+    }
+    .tl-ums-cell.active {
+        background: #dbeafe;
+        font-weight: 900;
+    }
+    .tl-ums-period {
+        font-size: 7px;
+        font-weight: 800;
+        text-transform: uppercase;
+        display: block;
+    }
+    .tl-ums-dose {
+        font-size: 8.5px;
+        font-weight: 900;
+        display: block;
+        margin-top: 0.3mm;
+    }
+    .tl-aux-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1mm;
+        margin-top: 0.5mm;
+    }
+    .tl-aux-sticker {
+        display: flex;
+        align-items: center;
+        gap: 1.8mm;
+        padding: 0.9mm 1.8mm;
+        border-radius: 1.2mm;
+        border: 1.2px solid #000;
+        font-size: 8.5px;
+        font-weight: 900;
+        line-height: 1.15;
+        text-transform: uppercase;
+        letter-spacing: 0.2px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .tl-aux-icon {
+        font-size: 11px;
+        line-height: 1;
+        flex: none;
+    }
+    .tl-meta-foot {
+        margin-top: auto;
+        padding-top: 1mm;
+        border-top: 1px dashed #64748b;
+        font-size: 8px;
+        display: flex;
+        justify-content: space-between;
+        gap: 4px;
+        flex-wrap: wrap;
+        color: #1e293b;
+    }
+
+    @media print {
+        body { background: #ffffff; }
+        .no-print { display: none !important; }
+        .studio-workspace { margin: 0; padding: 0; max-width: none; }
+        .sheet { gap: 3mm; justify-content: flex-start; }
+        .thermal-label {
+            box-shadow: none;
+            page-break-after: always;
+            break-after: page;
+        }
+        .sheet.fmt-a4_sheet .thermal-label {
+            page-break-after: auto;
+            break-after: auto;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="studio-bar no-print">
+        <div>
+            <h1>&#127991; Standardized Dosing &amp; Auxiliary Thermal Label Generator</h1>
+            <small>Rx ${escapeHtml(l.rx_number)} · Dispense ${escapeHtml(l.dispense_number)} · Patient: ${escapeHtml(l.patient_name)} (${escapeHtml(l.patient_no)})</small>
+        </div>
+        <div class="studio-controls">
+            <label style="font-size:12px;font-weight:700;color:#cbd5e1;">Printer Format:
+                <select id="labelFormatSelect">
+                    <option value="thermal_80x50">80×50mm Direct Thermal Roll (Zebra / Brother)</option>
+                    <option value="thermal_100x60">100×60mm Large Thermal Rx Label</option>
+                    <option value="a4_sheet">A4 Multi-Up Pharmacy Sticker Sheet</option>
+                </select>
+            </label>
+            <button type="button" class="studio-btn success" id="saveAllLabelsBtn">&#128190; Save Customizations</button>
+            <button type="button" class="studio-btn primary" id="printThermalBtn">&#128424; Print Thermal Labels</button>
+        </div>
+    </div>
+
+    <div class="studio-workspace">
+        <div id="customizerContainer" class="no-print" style="display:flex;flex-direction:column;gap:12px;"></div>
+        <div id="thermalSheet" class="sheet fmt-thermal_80x50"></div>
+    </div>
+
+<script>
+(function() {
+    const state = ${initialPayloadJson};
+    let currentFormat = state.default_format || "thermal_80x50";
+
+    const fmtSelect = document.getElementById("labelFormatSelect");
+    const pageStyle = document.getElementById("dynamicPageStyle");
+    const customizerContainer = document.getElementById("customizerContainer");
+    const thermalSheet = document.getElementById("thermalSheet");
+
+    fmtSelect.value = currentFormat;
+
+    function esc(s) {
+        return String(s ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    function updatePageSizeStyle() {
+        thermalSheet.className = "sheet fmt-" + currentFormat;
+        if (currentFormat === "thermal_80x50") {
+            pageStyle.textContent = "@page { size: 80mm 55mm; margin: 2mm; }";
+        } else if (currentFormat === "thermal_100x60") {
+            pageStyle.textContent = "@page { size: 100mm 65mm; margin: 2mm; }";
+        } else {
+            pageStyle.textContent = "@page { size: A4 portrait; margin: 8mm; }";
+        }
+    }
+
+    function renderCustomizers() {
+        customizerContainer.innerHTML = state.items.map((item, idx) => {
+            const ums = item.ums_schedule || { morning: "", noon: "", evening: "", bedtime: "" };
+            const activeCodes = new Set(item.auxiliary_codes || []);
+            const medTitle = item.generic_name
+                ? (item.generic_name.toUpperCase() + (item.brand_name ? " (" + item.brand_name + ")" : "") + " " + [item.strength, item.dosage_form].filter(Boolean).join(" "))
+                : item.title;
+
+            return \`
+                <div class="customizer-card" data-item-idx="\${idx}">
+                    <div class="customizer-head">
+                        <div>
+                            <strong style="font-size:13.5px;color:#0f172a;">Line #\${idx + 1}: \${esc(medTitle)}</strong>
+                            <span style="margin-left:8px;font-size:12px;color:#475569;font-weight:700;">Qty: \${esc(item.formatted_qty)}</span>
+                        </div>
+                        <span id="saveStatus_\${idx}" style="font-size:11.5px;color:#16a34a;font-weight:700;">\${item.is_customized ? "✓ Customized" : "Auto-detected"}</span>
+                    </div>
+
+                    <div class="customizer-grid">
+                        <div class="customizer-field">
+                            <label>Standardized Patient Dosing Directions (SIG)</label>
+                            <input type="text" data-field="standardized_sig" data-idx="\${idx}" value="\${esc(item.standardized_sig || "")}">
+                        </div>
+                        <div class="customizer-field">
+                            <label>Additional Custom Warning Note (Optional)</label>
+                            <input type="text" data-field="custom_warning_note" data-idx="\${idx}" value="\${esc(item.custom_warning_note || "")}" placeholder="e.g. Discard remaining suspension after 14 days">
+                        </div>
+                    </div>
+
+                    <div class="ums-inputs">
+                        <div class="customizer-field">
+                            <label>🌅 Morning Dose</label>
+                            <input type="text" data-ums="morning" data-idx="\${idx}" value="\${esc(ums.morning || "")}" placeholder="e.g. 1 tab">
+                        </div>
+                        <div class="customizer-field">
+                            <label>☀️ Noon Dose</label>
+                            <input type="text" data-ums="noon" data-idx="\${idx}" value="\${esc(ums.noon || "")}" placeholder="e.g. 1 tab">
+                        </div>
+                        <div class="customizer-field">
+                            <label>🌆 Evening Dose</label>
+                            <input type="text" data-ums="evening" data-idx="\${idx}" value="\${esc(ums.evening || "")}" placeholder="e.g. 1 tab">
+                        </div>
+                        <div class="customizer-field">
+                            <label>🌙 Bedtime Dose</label>
+                            <input type="text" data-ums="bedtime" data-idx="\${idx}" value="\${esc(ums.bedtime || "")}" placeholder="e.g. 1 tab">
+                        </div>
+                    </div>
+
+                    <div class="customizer-field">
+                        <label>Standardized Auxiliary Warning Stickers (Click to Toggle on Thermal Label)</label>
+                        <div class="sticker-pills">
+                            \${state.catalog.map((st) => {
+                                const isOn = activeCodes.has(st.code);
+                                const style = isOn
+                                    ? \`background:\${st.bg_color};border-color:\${st.border_color};color:\${st.text_color};\`
+                                    : "";
+                                return \`<button type="button" class="sticker-pill \${isOn ? "active" : ""}" style="\${style}" data-toggle-sticker="\${esc(st.code)}" data-idx="\${idx}">
+                                    <span>\${st.icon}</span> <span>\${esc(st.short_label)}</span>
+                                </button>\`;
+                            }).join("")}
+                        </div>
+                    </div>
+                </div>
+            \`;
+        }).join("");
+    }
+
+    function renderThermalLabels() {
+        updatePageSizeStyle();
+        thermalSheet.innerHTML = state.items.map((item) => {
+            const ums = item.ums_schedule || { morning: "", noon: "", evening: "", bedtime: "" };
+            const hasUms = Boolean(ums.morning || ums.noon || ums.evening || ums.bedtime);
+            const activeCodes = item.auxiliary_codes || [];
+            const stickers = activeCodes
+                .map((code) => state.catalog.find((c) => c.code === code))
+                .filter(Boolean);
+
+            const drugDisplay = item.generic_name
+                ? \`<strong>\${esc(item.generic_name.toUpperCase())}</strong>\${item.brand_name ? " (" + esc(item.brand_name) + ")" : ""} \${esc([item.strength, item.dosage_form].filter(Boolean).join(" "))}\`
+                : \`<strong>\${esc(item.title)}</strong>\`;
+
+            return \`
+                <div class="thermal-label">
+                    <div class="tl-header">
+                        <div>
+                            <div class="tl-fac-name">\${esc(state.facility?.name || "HOSPITAL PHARMACY")}</div>
+                            <div>\${esc([state.facility?.address, state.facility?.phone].filter(Boolean).join(" · "))}</div>
+                        </div>
+                        <div class="tl-rx-strip">
+                            <div>\${esc(state.rx_number)}</div>
+                            <div>\${esc(state.dispense_number)}</div>
+                        </div>
+                    </div>
+
+                    <div class="tl-patient-row">
+                        <span class="tl-patient-name">\${esc(state.patient_name)}</span>
+                        <span class="tl-patient-mrn">MRN: \${esc(state.patient_no)} · \${esc(state.dispensed_date)}</span>
+                    </div>
+
+                    <div class="tl-drug-row">
+                        <div class="tl-drug-title">\${drugDisplay}</div>
+                        <div class="tl-drug-qty">QTY: \${esc(item.formatted_qty)}</div>
+                    </div>
+
+                    <div class="tl-sig-box">
+                        <div class="tl-sig-label">Standardized Dosing Instructions</div>
+                        <div class="tl-sig-text">\${esc(item.standardized_sig || "TAKE AS DIRECTED BY PHYSICIAN")}</div>
+                    </div>
+
+                    \${hasUms ? \`
+                    <div class="tl-ums-grid">
+                        <div class="tl-ums-cell \${ums.morning ? "active" : ""}">
+                            <span class="tl-ums-period">🌅 Morning</span>
+                            <span class="tl-ums-dose">\${esc(ums.morning || "—")}</span>
+                        </div>
+                        <div class="tl-ums-cell \${ums.noon ? "active" : ""}">
+                            <span class="tl-ums-period">☀️ Noon</span>
+                            <span class="tl-ums-dose">\${esc(ums.noon || "—")}</span>
+                        </div>
+                        <div class="tl-ums-cell \${ums.evening ? "active" : ""}">
+                            <span class="tl-ums-period">🌆 Evening</span>
+                            <span class="tl-ums-dose">\${esc(ums.evening || "—")}</span>
+                        </div>
+                        <div class="tl-ums-cell \${ums.bedtime ? "active" : ""}">
+                            <span class="tl-ums-period">🌙 Bedtime</span>
+                            <span class="tl-ums-dose">\${esc(ums.bedtime || "—")}</span>
+                        </div>
+                    </div>\` : ""}
+
+                    <div class="tl-aux-stack">
+                        \${stickers.map((st) => \`
+                            <div class="tl-aux-sticker" style="background:\${st.bg_color};border-color:\${st.border_color};color:\${st.text_color};">
+                                <span class="tl-aux-icon">\${st.icon}</span>
+                                <span>\${esc(st.banner_text)}</span>
+                            </div>
+                        \`).join("")}
+                        \${item.custom_warning_note ? \`
+                            <div class="tl-aux-sticker" style="background:#f1f5f9;border-color:#334155;color:#0f172a;">
+                                <span class="tl-aux-icon">📌</span>
+                                <span>\${esc(item.custom_warning_note)}</span>
+                            </div>
+                        \` : ""}
+                    </div>
+
+                    <div class="tl-meta-foot">
+                        <span>Lot: \${esc(item.lots || "—")}\${item.fill_label ? " · " + esc(item.fill_label) : ""}</span>
+                        <span>Prescriber: Dr. \${esc(state.prescriber_name || "—")}</span>
+                        <span>Keep out of reach of children</span>
+                    </div>
+                </div>
+            \`;
+        }).join("");
+    }
+
+    customizerContainer.addEventListener("input", function(e) {
+        const idx = Number(e.target.dataset.idx);
+        if (!Number.isFinite(idx) || !state.items[idx]) return;
+
+        if (e.target.dataset.field) {
+            state.items[idx][e.target.dataset.field] = e.target.value;
+            renderThermalLabels();
+        } else if (e.target.dataset.ums) {
+            if (!state.items[idx].ums_schedule) {
+                state.items[idx].ums_schedule = { morning: "", noon: "", evening: "", bedtime: "" };
+            }
+            state.items[idx].ums_schedule[e.target.dataset.ums] = e.target.value;
+            renderThermalLabels();
+        }
+    });
+
+    customizerContainer.addEventListener("click", function(e) {
+        const pill = e.target.closest("[data-toggle-sticker]");
+        if (!pill) return;
+        const idx = Number(pill.dataset.idx);
+        const code = pill.dataset.toggleSticker;
+        if (!Number.isFinite(idx) || !state.items[idx]) return;
+
+        const list = Array.isArray(state.items[idx].auxiliary_codes) ? [...state.items[idx].auxiliary_codes] : [];
+        const pos = list.indexOf(code);
+        if (pos >= 0) {
+            list.splice(pos, 1);
+        } else {
+            list.push(code);
+        }
+        state.items[idx].auxiliary_codes = list;
+        renderCustomizers();
+        renderThermalLabels();
+    });
+
+    fmtSelect.addEventListener("change", function() {
+        currentFormat = fmtSelect.value;
+        renderThermalLabels();
+    });
+
+    document.getElementById("saveAllLabelsBtn").addEventListener("click", async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+        for (let idx = 0; idx < state.items.length; idx++) {
+            const item = state.items[idx];
+            if (typeof window.__saveAuxiliaryLabelItem === "function") {
+                const res = await window.__saveAuxiliaryLabelItem({
+                    dispense_id: state.dispense_id,
+                    prescription_item_id: item.prescription_item_id,
+                    standardized_sig: item.standardized_sig,
+                    ums_schedule: item.ums_schedule,
+                    auxiliary_codes: item.auxiliary_codes,
+                    custom_warning_note: item.custom_warning_note,
+                    label_format: currentFormat
+                });
+                const badge = document.getElementById("saveStatus_" + idx);
+                if (badge && res?.success) {
+                    badge.textContent = "✓ Saved to Rx Label Record";
+                }
+            }
+        }
+        btn.disabled = false;
+        btn.innerHTML = "&#10003; Saved Customizations";
+        setTimeout(() => { btn.innerHTML = "&#128190; Save Customizations"; }, 2000);
+    });
+
+    document.getElementById("printThermalBtn").addEventListener("click", function() {
+        window.focus();
+        window.print();
+    });
+
+    renderCustomizers();
+    renderThermalLabels();
+})();
+<\/script>
+</body>
+</html>`);
     win.document.close();
 }
 

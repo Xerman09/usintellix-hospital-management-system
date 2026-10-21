@@ -52,6 +52,10 @@ export async function fetchDispenseLabels(dispenseId) {
     return api(`/dispensing/labels${query({ id: dispenseId })}`);
 }
 
+export async function saveDispenseAuxiliaryLabel(data) {
+    return api("/dispensing/labels/customize", { method: "POST", body: JSON.stringify(data) });
+}
+
 /** Pharmacist Clinical Verification Queue (prescription_verifications) */
 export async function fetchClinicalVerification(prescriptionId) {
     return api(`/dispensing/clinical-verifications${query({ prescription_id: prescriptionId })}`);

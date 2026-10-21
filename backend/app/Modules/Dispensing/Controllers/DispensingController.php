@@ -5,6 +5,7 @@ namespace App\Modules\Dispensing\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\Dispensing\Services\AuxiliaryLabelGeneratorService;
 use App\Modules\Dispensing\Services\DispensingService;
 
 class DispensingController extends Controller
@@ -127,6 +128,18 @@ class DispensingController extends Controller
         }
 
         $this->success($labels, 'Labels retrieved successfully.');
+    }
+
+    /**
+     * Body: dispense_id, prescription_item_id, standardized_sig, ums_schedule?, auxiliary_codes[], custom_warning_note?, label_format?
+     */
+    public function saveAuxiliaryLabel(): void
+    {
+        $request = new Request();
+        $user = Session::get('user');
+        $generator = new AuxiliaryLabelGeneratorService();
+        $result = $generator->saveCustomLabel($request->all(), isset($user['id']) ? (int) $user['id'] : null);
+        $this->respond($result);
     }
 
     private function respond(array $result, int $successStatus = 200): void
