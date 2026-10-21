@@ -1831,6 +1831,7 @@ export function InpatientAdmissionsView() {
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="button" id="btnRoundViewNcp" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">📋 Nursing Care Plans</button>
                         <button type="button" id="btnRoundViewMpn" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">🤝 Allied Health Notes</button>
                         <span id="dailyRoundNumberBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #38bdf8; color: #0f172a; font-family: monospace;">New Round</span>
                         <button class="inpatient-modal-close" data-close-modal style="color: #cbd5e1;">&times;</button>
@@ -2213,6 +2214,225 @@ export function InpatientAdmissionsView() {
                 </div>
             </div>
         </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL: STRUCTURED NURSING CARE PLANS (inpatient_care_plans)    -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalNursingCarePlans">
+            <div class="inpatient-modal-content" style="max-width: 980px; width: 96%; max-height: 94vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #4338ca 0%, #312e81 100%); color: #fff;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">📋</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">Structured Nursing Care Plans (NANDA-I / NOC / NIC)</h3>
+                            <span style="font-size: 11px; color: #c7d2fe;">Accreditation-ready nursing diagnoses, SMART measurable goals, interventions &amp; shift outcome evaluations</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="ncpTotalBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #e0e7ff; color: #312e81; font-family: monospace;">0 Care Plans</span>
+                        <button class="inpatient-modal-close" data-close-modal style="color: #c7d2fe;">&times;</button>
+                    </div>
+                </div>
+
+                <!-- Patient Demographic & Evaluation KPI Banner -->
+                <div style="background: #eef2ff; padding: 12px 20px; border-bottom: 1px solid #c7d2fe; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                    <div>
+                        <div style="font-size: 15px; font-weight: 700; color: #1e1b4b;" id="ncpPatientName">Patient Name</div>
+                        <div style="font-size: 12px; color: #4338ca; margin-top: 2px;">
+                            MRN: <strong id="ncpPatientMrn" style="color: #1e1b4b;">--</strong> |
+                            Age/Gender: <strong id="ncpPatientAgeGender" style="color: #1e1b4b;">--</strong> |
+                            Ward/Bed: <strong id="ncpBedNo" style="color: #1e1b4b;">--</strong> |
+                            LOS: <strong id="ncpLos" style="color: #1e1b4b;">--</strong>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700;">
+                            🟢 Goal Met: <span id="ncpCountMet">0</span>
+                        </span>
+                        <span style="background: #fef9c3; color: #854d0e; border: 1px solid #fde047; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700;">
+                            🟡 Partially Met: <span id="ncpCountPartial">0</span>
+                        </span>
+                        <span style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700;">
+                            🔴 Unmet/Revised: <span id="ncpCountUnmet">0</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Top Navigation Tabs -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 0 20px; flex-shrink: 0; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" id="tabBtnNcpList" class="ncp-tab active" style="padding: 10px 16px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #4338ca; border-bottom: 2px solid #4338ca; cursor: pointer;">
+                            📑 Active Care Plans &amp; Shift Evaluations
+                        </button>
+                        <button type="button" id="tabBtnNcpForm" class="ncp-tab" style="padding: 10px 16px; border: none; background: transparent; font-weight: 600; font-size: 13px; color: #64748b; border-bottom: 2px solid transparent; cursor: pointer;">
+                            ✍️ Document / Revise NANDA Care Plan
+                        </button>
+                    </div>
+                    <div style="padding: 6px 0;">
+                        <button type="button" id="btnQuickNewNcp" class="btn-inpatient btn-inpatient-primary" style="padding: 5px 12px; font-size: 12px; background: #4338ca; border-color: #4338ca; cursor: pointer;">
+                            ➕ New NANDA Care Plan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Evaluation State Filter Bar -->
+                <div id="ncpEvalFilterBar" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 20px; display: flex; align-items: center; gap: 6px; overflow-x: auto; flex-shrink: 0;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-right: 6px; white-space: nowrap;">Filter Evaluation State:</span>
+                    <button type="button" class="ncp-filter-chip active-chip" data-eval="all" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; border: 1px solid #4338ca; background: #4338ca; color: #fff; cursor: pointer; white-space: nowrap;">
+                        All Care Plans
+                    </button>
+                    <button type="button" class="ncp-filter-chip" data-eval="In Progress" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🔵 In Progress
+                    </button>
+                    <button type="button" class="ncp-filter-chip" data-eval="Goal Met" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🟢 Goal Met
+                    </button>
+                    <button type="button" class="ncp-filter-chip" data-eval="Partially Met" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🟡 Partially Met
+                    </button>
+                    <button type="button" class="ncp-filter-chip" data-eval="Unmet/Revised" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🔴 Unmet/Revised
+                    </button>
+                </div>
+
+                <!-- PANE 1: ACTIVE CARE PLANS & SHIFT EVALUATIONS -->
+                <div id="paneNcpList" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 20px 24px; background: #f8fafc;">
+                    <div id="ncpListContainer">
+                        <!-- Populated dynamically via loadNursingCarePlans() -->
+                    </div>
+                </div>
+
+                <!-- PANE 2: CREATE / EDIT NANDA CARE PLAN -->
+                <div id="paneNcpForm" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 20px 24px; display: none;">
+                    <form id="formNursingCarePlan" style="margin: 0;">
+                        <input type="hidden" name="admission_id" id="ncpFormAdmissionId" />
+                        <input type="hidden" name="patient_id" id="ncpFormPatientId" />
+                        <input type="hidden" name="id" id="ncpFormRecordId" />
+
+                        <!-- NANDA-I Evidence-Based Template Selector -->
+                        <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                                <label style="font-size: 12px; font-weight: 700; color: #312e81; text-transform: uppercase; letter-spacing: 0.4px;">
+                                    ⚡ Quick NANDA-I Clinical Care Plan Template Picker
+                                </label>
+                                <span style="font-size: 11px; color: #4338ca;">Select an accredited template to auto-populate NANDA diagnosis, SMART goals &amp; NIC interventions</span>
+                            </div>
+                            <select id="ncpTemplateSelect" class="form-control" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #a5b4fc; background: #fff; font-size: 13px; font-weight: 600; color: #1e1b4b;">
+                                <option value="">-- Choose a Standard NANDA-I Nursing Diagnosis Template (or type custom below) --</option>
+                            </select>
+                        </div>
+
+                        <!-- Row 1: Date/Time, Shift, Priority, Nurse -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Date &amp; Time <span style="color: red;">*</span></label>
+                                <input type="datetime-local" class="form-control" name="plan_datetime" id="ncpFormDateTime" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Nursing Shift <span style="color: red;">*</span></label>
+                                <select class="form-control" name="shift" id="ncpFormShift" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Day Shift (07:00-15:00)">☀️ Day Shift (07:00-15:00)</option>
+                                    <option value="Evening Shift (15:00-23:00)">🌇 Evening Shift (15:00-23:00)</option>
+                                    <option value="Night Shift (23:00-07:00)">🌙 Night Shift (23:00-07:00)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Clinical Priority <span style="color: red;">*</span></label>
+                                <select class="form-control" name="priority_level" id="ncpFormPriority" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="High / Acute">🔴 High / Acute</option>
+                                    <option value="Medium / Standard" selected>🟡 Medium / Standard</option>
+                                    <option value="Low / Maintenance">🟢 Low / Maintenance</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Documenting RN <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" name="nurse_name" id="ncpFormNurseName" required placeholder="Nurse Name, RN" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                        </div>
+
+                        <!-- Row 2: NANDA Code, NANDA Domain, Nursing Diagnosis Statement -->
+                        <div style="display: grid; grid-template-columns: 120px 220px 1fr; gap: 12px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">NANDA Code</label>
+                                <input type="text" class="form-control" name="nanda_code" id="ncpFormNandaCode" placeholder="e.g. 00132" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: monospace;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">NANDA-I Domain</label>
+                                <input type="text" class="form-control" name="nanda_domain" id="ncpFormNandaDomain" placeholder="e.g. Domain 12: Comfort" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 4px; display: block;">NANDA Nursing Diagnosis Statement <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" name="nursing_diagnosis" id="ncpFormDiagnosis" required placeholder="e.g. Acute Pain / Ineffective Breathing Pattern / Risk for Falls" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600;" />
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Related To (R/T) and As Evidenced By (AEB) -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Related To (Etiology / R/T Factors)</label>
+                                <textarea class="form-control" name="related_to" id="ncpFormRelatedTo" rows="2" placeholder="Surgical incision, physical immobility, inflammatory process..." style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">As Evidenced By (Defining Characteristics / AEB)</label>
+                                <textarea class="form-control" name="as_evidenced_by" id="ncpFormAeb" rows="2" placeholder="Pain score 7/10, guarding, tachypnea RR 24, Morse Fall Score 55..." style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Row 4: Measurable Goals (NOC) & Nursing Interventions (NIC) -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                                    <span>🎯 Measurable Patient Goals (NOC / SMART) <span style="color: red;">*</span></span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #64748b;">Specific criteria &amp; timeframe</span>
+                                </label>
+                                <textarea class="form-control" name="measurable_goals" id="ncpFormGoals" rows="4" required placeholder="Patient will verbalize pain <= 3/10 within 60 minutes of intervention and maintain SpO2 >= 95% throughout the 8-hour shift..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                                    <span>🩺 Nursing Interventions (NIC) <span style="color: red;">*</span></span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #64748b;">Independent &amp; collaborative</span>
+                                </label>
+                                <textarea class="form-control" name="nursing_interventions" id="ncpFormInterventions" rows="4" required placeholder="1. Assess pain using NRS every 2-4 hours.&#10;2. Administer prescribed analgesia and reassess after 45 mins.&#10;3. Reposition every 2 hours..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Row 5: Rationale & Shift Evaluation Status -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">🔬 Scientific Clinical Rationale</label>
+                                <textarea class="form-control" name="rationale" id="ncpFormRationale" rows="3" placeholder="Evidence-based physiological rationale for selected nursing interventions..." style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                                <label style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 6px; display: block;">📊 Shift Evaluation State &amp; Outcome Notes</label>
+                                <select class="form-control" name="evaluation_status" id="ncpFormEvalStatus" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+                                    <option value="In Progress">🔵 In Progress (Active Monitoring)</option>
+                                    <option value="Goal Met">🟢 Goal Met (Target Outcome Achieved)</option>
+                                    <option value="Partially Met">🟡 Partially Met (Progressing — Continue Plan)</option>
+                                    <option value="Unmet/Revised">🔴 Unmet/Revised (Modify Interventions)</option>
+                                </select>
+                                <textarea class="form-control" name="shift_evaluation_notes" id="ncpFormEvalNotes" rows="2" placeholder="End-of-shift evaluation summary, patient response to interventions, or plan revisions..." style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" id="btnCancelNcpForm">Cancel</button>
+                            <button type="submit" class="btn-inpatient btn-inpatient-primary" id="btnSubmitNcpForm" style="background: #4338ca; border-color: #4338ca; cursor: pointer;">
+                                💾 Save Nursing Care Plan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="inpatient-modal-footer" style="padding: 10px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                        <span>🔒</span> NANDA-I / NOC / NIC care plans and shift evaluations are audit-tracked for hospital accreditation compliance.
+                    </div>
+                    <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
+                </div>
+            </div>
+        </div>
+
 
 
 

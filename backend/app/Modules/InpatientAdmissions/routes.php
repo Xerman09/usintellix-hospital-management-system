@@ -4,6 +4,7 @@ use App\Modules\InpatientAdmissions\Controllers\InpatientAdmissionsController;
 use App\Modules\InpatientAdmissions\Controllers\DischargeSummaryController;
 use App\Modules\InpatientAdmissions\Controllers\DailyRoundController;
 use App\Modules\InpatientAdmissions\Controllers\ProgressNoteController;
+use App\Modules\InpatientAdmissions\Controllers\CarePlanController;
 
 /** @var \App\Core\Router $router */
 
@@ -157,6 +158,42 @@ $router->post('/inpatient-admissions/progress-notes/delete', [ProgressNoteContro
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'doctor', 'clinician']]
 ]);
+
+$router->get('/inpatient-admissions/care-plans', [CarePlanController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/care-plans/show', [CarePlanController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/care-plans/options', [CarePlanController::class, 'options'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->post('/inpatient-admissions/care-plans', [CarePlanController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/care-plans/update', [CarePlanController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/care-plans/evaluate', [CarePlanController::class, 'evaluate'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/care-plans/delete', [CarePlanController::class, 'destroy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician']]
+]);
+
 
 
 

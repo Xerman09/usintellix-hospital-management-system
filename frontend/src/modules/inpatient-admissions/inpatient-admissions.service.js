@@ -294,3 +294,69 @@ export async function deleteProgressNote(id) {
         body: JSON.stringify({ id })
     });
 }
+
+
+/**
+ * Fetch structured NANDA nursing care plans for an inpatient admission
+ */
+export async function fetchCarePlans(admissionId, evaluationStatus = null) {
+    const params = new URLSearchParams({ admission_id: admissionId });
+    if (evaluationStatus && evaluationStatus !== 'all') {
+        params.set('evaluation_status', evaluationStatus);
+    }
+    return await api(`/inpatient-admissions/care-plans?${params.toString()}`);
+}
+
+/**
+ * Fetch a single nursing care plan by ID
+ */
+export async function fetchCarePlan(id) {
+    return await api(`/inpatient-admissions/care-plans/show?id=${id}`);
+}
+
+/**
+ * Fetch nursing care plan options (NANDA templates, evaluation states, priority levels, shifts)
+ */
+export async function fetchCarePlanOptions() {
+    return await api('/inpatient-admissions/care-plans/options');
+}
+
+/**
+ * Create a new structured NANDA nursing care plan
+ */
+export async function saveCarePlan(payload) {
+    return await api('/inpatient-admissions/care-plans', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Update an existing nursing care plan
+ */
+export async function updateCarePlan(payload) {
+    return await api('/inpatient-admissions/care-plans/update', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Record shift evaluation status (Goal Met, Partially Met, Unmet/Revised, In Progress) and shift notes
+ */
+export async function evaluateCarePlan(payload) {
+    return await api('/inpatient-admissions/care-plans/evaluate', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Delete a nursing care plan
+ */
+export async function deleteCarePlan(id) {
+    return await api('/inpatient-admissions/care-plans/delete', {
+        method: 'POST',
+        body: JSON.stringify({ id })
+    });
+}

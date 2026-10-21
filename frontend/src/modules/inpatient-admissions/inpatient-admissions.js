@@ -29,8 +29,15 @@ import {
     saveProgressNote,
     updateProgressNote,
     cosignProgressNote,
-    deleteProgressNote
-} from './inpatient-admissions.service.js?v=6';
+    deleteProgressNote,
+    fetchCarePlans,
+    fetchCarePlan,
+    fetchCarePlanOptions,
+    saveCarePlan,
+    updateCarePlan,
+    evaluateCarePlan,
+    deleteCarePlan
+} from './inpatient-admissions.service.js?v=7';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=41';
 import { systemNow } from "../../core/timezone.js";
@@ -405,6 +412,106 @@ function setupEventListeners() {
             if (roleInput && (!roleInput.value || Object.values(defaultRoles).includes(roleInput.value))) {
                 roleInput.value = defaultRoles[disc] || '';
             }
+        };
+    }
+
+    // Modal Daily Ward Round -> Open Nursing Care Plans
+    const btnRoundViewNcp = document.getElementById('btnRoundViewNcp');
+    if (btnRoundViewNcp) {
+        btnRoundViewNcp.onclick = () => {
+            if (currentRoundsAdmissionId) {
+                openNursingCarePlansModal(currentRoundsAdmissionId);
+            }
+        };
+    }
+
+    // Modal Structured Nursing Care Plans Tabs
+    const tabBtnNcpList = document.getElementById('tabBtnNcpList');
+    const tabBtnNcpForm = document.getElementById('tabBtnNcpForm');
+    const paneNcpList = document.getElementById('paneNcpList');
+    const paneNcpForm = document.getElementById('paneNcpForm');
+
+    if (tabBtnNcpList && tabBtnNcpForm) {
+        tabBtnNcpList.onclick = () => {
+            tabBtnNcpList.classList.add('active');
+            tabBtnNcpList.style.color = '#4338ca';
+            tabBtnNcpList.style.borderBottom = '2px solid #4338ca';
+            tabBtnNcpForm.classList.remove('active');
+            tabBtnNcpForm.style.color = '#64748b';
+            tabBtnNcpForm.style.borderBottom = '2px solid transparent';
+            if (paneNcpList) paneNcpList.style.display = 'block';
+            if (paneNcpForm) paneNcpForm.style.display = 'none';
+        };
+
+        tabBtnNcpForm.onclick = () => {
+            tabBtnNcpForm.classList.add('active');
+            tabBtnNcpForm.style.color = '#4338ca';
+            tabBtnNcpForm.style.borderBottom = '2px solid #4338ca';
+            tabBtnNcpList.classList.remove('active');
+            tabBtnNcpList.style.color = '#64748b';
+            tabBtnNcpList.style.borderBottom = '2px solid transparent';
+            if (paneNcpList) paneNcpList.style.display = 'none';
+            if (paneNcpForm) paneNcpForm.style.display = 'block';
+        };
+    }
+
+    const btnQuickNewNcp = document.getElementById('btnQuickNewNcp');
+    if (btnQuickNewNcp) {
+        btnQuickNewNcp.onclick = () => {
+            resetNcpFormForNew();
+            if (tabBtnNcpForm) tabBtnNcpForm.click();
+        };
+    }
+
+    const btnCancelNcpForm = document.getElementById('btnCancelNcpForm');
+    if (btnCancelNcpForm) {
+        btnCancelNcpForm.onclick = () => {
+            if (tabBtnNcpList) tabBtnNcpList.click();
+        };
+    }
+
+    // Evaluation State Filter Chips in Nursing Care Plan Modal
+    const ncpEvalFilterBar = document.getElementById('ncpEvalFilterBar');
+    if (ncpEvalFilterBar) {
+        ncpEvalFilterBar.querySelectorAll('.ncp-filter-chip').forEach(chip => {
+            chip.onclick = () => {
+                const evalState = chip.getAttribute('data-eval');
+                activeNcpEvalFilter = evalState;
+
+                ncpEvalFilterBar.querySelectorAll('.ncp-filter-chip').forEach(c => {
+                    c.classList.remove('active-chip');
+                    c.style.border = '1px solid #cbd5e1';
+                    c.style.background = '#fff';
+                    c.style.color = '#1e293b';
+                });
+                chip.classList.add('active-chip');
+                chip.style.border = '1px solid #4338ca';
+                chip.style.background = '#4338ca';
+                chip.style.color = '#fff';
+
+                if (currentNcpAdmissionId) {
+                    loadNursingCarePlans(currentNcpAdmissionId, evalState);
+                }
+            };
+        });
+    }
+
+    // NANDA-I Template Picker auto-fill
+    const ncpTemplateSelect = document.getElementById('ncpTemplateSelect');
+    if (ncpTemplateSelect) {
+        ncpTemplateSelect.onchange = () => {
+            const idx = ncpTemplateSelect.value;
+            if (idx === '' || !cachedNandaTemplates[idx]) return;
+            const tpl = cachedNandaTemplates[idx];
+            document.getElementById('ncpFormNandaCode').value = tpl.code || '';
+            document.getElementById('ncpFormNandaDomain').value = tpl.domain || '';
+            document.getElementById('ncpFormDiagnosis').value = tpl.diagnosis || '';
+            document.getElementById('ncpFormPriority').value = tpl.priority || 'Medium / Standard';
+            document.getElementById('ncpFormRelatedTo').value = tpl.related_to || '';
+            document.getElementById('ncpFormAeb').value = tpl.as_evidenced_by || '';
+            document.getElementById('ncpFormGoals').value = tpl.measurable_goals || '';
+            document.getElementById('ncpFormInterventions').value = tpl.nursing_interventions || '';
+            document.getElementById('ncpFormRationale').value = tpl.rationale || '';
         };
     }
 
@@ -856,6 +963,58 @@ function setupFormSubmissions() {
             }
         };
     }
+
+    // 9. Form Structured Nursing Care Plan (inpatient_care_plans)
+    const formNcp = document.getElementById('formNursingCarePlan');
+    if (formNcp) {
+        formNcp.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(formNcp);
+            const payload = Object.fromEntries(formData.entries());
+
+            if (!payload.nursing_diagnosis || !payload.nursing_diagnosis.trim()) {
+                showToast('NANDA Nursing Diagnosis statement is required.', 'error');
+                return;
+            }
+            if (!payload.measurable_goals || !payload.measurable_goals.trim()) {
+                showToast('Measurable Patient Goals (NOC / SMART) are required.', 'error');
+                return;
+            }
+            if (!payload.nursing_interventions || !payload.nursing_interventions.trim()) {
+                showToast('Nursing Interventions (NIC) are required.', 'error');
+                return;
+            }
+
+            const isEdit = Boolean(payload.id && Number(payload.id) > 0);
+            const submitBtn = document.getElementById('btnSubmitNcpForm');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = isEdit ? 'Updating Care Plan...' : 'Saving Care Plan...';
+            }
+
+            try {
+                const res = isEdit ? await updateCarePlan(payload) : await saveCarePlan(payload);
+                if (res && res.success) {
+                    showToast(isEdit ? 'Nursing care plan updated successfully!' : 'Structured NANDA nursing care plan documented!', 'success');
+                    resetNcpFormForNew();
+                    const tabList = document.getElementById('tabBtnNcpList');
+                    if (tabList) tabList.click();
+                    if (payload.admission_id) {
+                        await loadNursingCarePlans(payload.admission_id, activeNcpEvalFilter);
+                    }
+                } else {
+                    showToast('Failed to save care plan: ' + (res?.message || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                showToast('Error saving care plan: ' + (err.message || 'Server error'), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Save Nursing Care Plan';
+                }
+            }
+        };
+    }
 }
 
 export async function fetchWhiteboard(isSilent = false) {
@@ -1162,6 +1321,9 @@ function renderBedCard(bed) {
             <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}" aria-label="Multidisciplinary progress notes and treatment logs">
                 🤝 Allied Notes
             </button>
+            <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}" aria-label="Structured NANDA nursing care plans">
+                📋 Care Plan
+            </button>
             <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">
                 🔄 Transfer
             </button>
@@ -1184,6 +1346,9 @@ function renderBedCard(bed) {
             </button>
             <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}" aria-label="Multidisciplinary progress notes and treatment logs">
                 🤝 Allied Notes
+            </button>
+            <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}" aria-label="Structured NANDA nursing care plans">
+                📋 Care Plan
             </button>
             <button class="bed-action-btn btn-act-discharge" style="width: 100%; justify-content: center; padding: 7px;" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Complete Discharge Orders
@@ -1250,6 +1415,7 @@ function renderTable(beds) {
                 <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                     <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button>
                     <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button>
+                    <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button>
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
                     ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}">Labs</button>
@@ -1258,7 +1424,7 @@ function renderTable(beds) {
                 </div>
             `;
         } else if (bed.status === 'Pending Discharge') {
-            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
+            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
                 <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button></div>`;
         } else if (bed.status === 'Dirty / Turnover') {
             actionBtns = `<button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">Sanitize</button>`;
@@ -1396,6 +1562,12 @@ function attachBedCardListeners(container) {
         btn.onclick = () => {
             const admId = btn.getAttribute('data-adm-id');
             openMultidisciplinaryNotesModal(admId);
+        };
+    });
+    container.querySelectorAll('[data-act="care-plan"]').forEach(btn => {
+        btn.onclick = () => {
+            const admId = btn.getAttribute('data-adm-id');
+            openNursingCarePlansModal(admId);
         };
     });
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
@@ -2465,4 +2637,373 @@ function populateProgressNoteForEdit(note) {
 
     const tabNew = document.getElementById('tabBtnMpnNewNote');
     if (tabNew) tabNew.click();
+}
+
+
+
+/**
+ * Structured Nursing Care Plans (inpatient_care_plans)
+ */
+let currentNcpAdmissionId = null;
+let activeNcpEvalFilter = 'all';
+let cachedNandaTemplates = [];
+
+const NCP_EVAL_META = {
+    'In Progress': { icon: '🔵', color: '#0284c7', bg: '#e0f2fe', border: '#bae6fd' },
+    'Goal Met': { icon: '🟢', color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
+    'Partially Met': { icon: '🟡', color: '#ca8a04', bg: '#fef9c3', border: '#fde047' },
+    'Unmet/Revised': { icon: '🔴', color: '#dc2626', bg: '#fee2e2', border: '#fecaca' }
+};
+
+async function openNursingCarePlansModal(admissionId) {
+    const modal = document.getElementById('modalNursingCarePlans');
+    if (!modal) return;
+
+    const bed = (currentCensusData.beds || []).find(b => b.admission_id == admissionId);
+    if (!bed) {
+        showToast('Inpatient admission data not found', 'error');
+        return;
+    }
+
+    currentNcpAdmissionId = admissionId;
+    activeNcpEvalFilter = 'all';
+
+    // Populate Patient Demographic Banner
+    document.getElementById('ncpPatientName').textContent = bed.patient_name || 'Patient';
+    document.getElementById('ncpPatientMrn').textContent = bed.patient_mrn || bed.patient_id || '--';
+    document.getElementById('ncpPatientAgeGender').textContent = `${bed.patient_age ? bed.patient_age + 'y' : '--'} / ${bed.patient_gender || bed.gender || '--'}`;
+    document.getElementById('ncpBedNo').textContent = `${bed.ward_code || ''} - ${bed.bed_number || '--'}`;
+    document.getElementById('ncpLos').textContent = `${bed.los_days != null ? bed.los_days : 0} days`;
+
+    // Reset filter chips to 'all'
+    const filterBar = document.getElementById('ncpEvalFilterBar');
+    if (filterBar) {
+        filterBar.querySelectorAll('.ncp-filter-chip').forEach(c => {
+            const isAll = c.getAttribute('data-eval') === 'all';
+            c.classList.toggle('active-chip', isAll);
+            c.style.border = isAll ? '1px solid #4338ca' : '1px solid #cbd5e1';
+            c.style.background = isAll ? '#4338ca' : '#fff';
+            c.style.color = isAll ? '#fff' : '#1e293b';
+        });
+    }
+
+    resetNcpFormForNew(bed);
+
+    const tabList = document.getElementById('tabBtnNcpList');
+    if (tabList) tabList.click();
+
+    modal.classList.add('open');
+
+    await loadNursingCarePlans(admissionId, 'all');
+}
+
+function resetNcpFormForNew(bed = null) {
+    const form = document.getElementById('formNursingCarePlan');
+    if (form) form.reset();
+
+    if (!bed && currentNcpAdmissionId) {
+        bed = (currentCensusData.beds || []).find(b => b.admission_id == currentNcpAdmissionId);
+    }
+
+    const admInput = document.getElementById('ncpFormAdmissionId');
+    if (admInput) admInput.value = currentNcpAdmissionId || '';
+
+    const patInput = document.getElementById('ncpFormPatientId');
+    if (patInput) patInput.value = bed?.patient_id || '';
+
+    const recInput = document.getElementById('ncpFormRecordId');
+    if (recInput) recInput.value = '';
+
+    const nowIso = systemNow ? systemNow().slice(0, 16) : new Date().toISOString().slice(0, 16);
+    const dtInput = document.getElementById('ncpFormDateTime');
+    if (dtInput) dtInput.value = nowIso;
+
+    const u = currentUser || getUser();
+    const nurseName = (u?.first_name || u?.last_name)
+        ? `${(u.first_name || '')} ${(u.last_name || '')}`.trim()
+        : (bed?.shift_nurse_name || bed?.primary_nurse || u?.username || 'Registered Nurse, RN');
+    const nurseInput = document.getElementById('ncpFormNurseName');
+    if (nurseInput) nurseInput.value = nurseName;
+
+    const tplSelect = document.getElementById('ncpTemplateSelect');
+    if (tplSelect) tplSelect.value = '';
+
+    const submitBtn = document.getElementById('btnSubmitNcpForm');
+    if (submitBtn) submitBtn.textContent = '💾 Save Nursing Care Plan';
+}
+
+function populateNandaTemplateDropdown(templates) {
+    if (!Array.isArray(templates) || templates.length === 0) return;
+    cachedNandaTemplates = templates;
+    const select = document.getElementById('ncpTemplateSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Choose a Standard NANDA-I Nursing Diagnosis Template (or type custom below) --</option>';
+    templates.forEach((tpl, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = `[NANDA ${tpl.code}] ${tpl.diagnosis} — (${tpl.domain})`;
+        select.appendChild(opt);
+    });
+}
+
+async function loadNursingCarePlans(admissionId, evalStatus = 'all') {
+    const container = document.getElementById('ncpListContainer');
+    const badge = document.getElementById('ncpTotalBadge');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 30px;">⏳ Loading structured nursing care plans...</div>';
+
+    try {
+        const res = await fetchCarePlans(admissionId, evalStatus);
+        const plans = (res && res.success && res.data?.plans) ? res.data.plans : [];
+        const options = (res && res.success && res.data?.options) ? res.data.options : null;
+
+        if (options?.nanda_templates) {
+            populateNandaTemplateDropdown(options.nanda_templates);
+        }
+
+        if (badge) badge.textContent = `${plans.length} ${plans.length === 1 ? 'Care Plan' : 'Care Plans'}`;
+
+        // Update KPI counters when viewing all plans
+        if (!evalStatus || evalStatus === 'all') {
+            const countMet = plans.filter(p => p.evaluation_status === 'Goal Met').length;
+            const countPartial = plans.filter(p => p.evaluation_status === 'Partially Met').length;
+            const countUnmet = plans.filter(p => p.evaluation_status === 'Unmet/Revised').length;
+            const elMet = document.getElementById('ncpCountMet');
+            const elPartial = document.getElementById('ncpCountPartial');
+            const elUnmet = document.getElementById('ncpCountUnmet');
+            if (elMet) elMet.textContent = countMet;
+            if (elPartial) elPartial.textContent = countPartial;
+            if (elUnmet) elUnmet.textContent = countUnmet;
+        }
+
+        if (plans.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; background: #fff; border-radius: 10px; border: 1px dashed #cbd5e1; color: #64748b;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">📋</div>
+                    <div style="font-weight: 700; font-size: 15px; color: #1e293b;">No Nursing Care Plans Documented${evalStatus && evalStatus !== 'all' ? ` with state "${esc(evalStatus)}"` : ''}</div>
+                    <div style="font-size: 12.5px; margin-top: 6px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                        Use the "Document / Revise NANDA Care Plan" tab to initiate an accredited nursing care plan with NANDA-I diagnosis, measurable SMART goals, and shift evaluations.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const priorityStyles = {
+            'High / Acute': 'background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;',
+            'Medium / Standard': 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;',
+            'Low / Maintenance': 'background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;'
+        };
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 16px;">';
+
+        plans.forEach(plan => {
+            const evalMeta = NCP_EVAL_META[plan.evaluation_status] || NCP_EVAL_META['In Progress'];
+            const pStyle = priorityStyles[plan.priority_level] || priorityStyles['Medium / Standard'];
+            const dt = plan.plan_datetime ? new Date(plan.plan_datetime).toLocaleString() : '--';
+            const evalDt = plan.evaluated_at ? new Date(plan.evaluated_at).toLocaleString() : null;
+
+            html += `
+                <div style="background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid ${evalMeta.color}; border-radius: 10px; padding: 16px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+                    <!-- Card Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 12px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                ${plan.nanda_code ? `<span style="background: #eef2ff; color: #312e81; border: 1px solid #c7d2fe; padding: 2px 8px; border-radius: 6px; font-family: monospace; font-weight: 700; font-size: 11px;">NANDA ${esc(plan.nanda_code)}</span>` : ''}
+                                <span style="font-size: 15px; font-weight: 800; color: #0f172a;">${esc(plan.nursing_diagnosis)}</span>
+                                <span style="${pStyle} padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">${esc(plan.priority_level)}</span>
+                            </div>
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 4px;">
+                                ${plan.nanda_domain ? `<strong>${esc(plan.nanda_domain)}</strong> • ` : ''}
+                                Plan #${esc(plan.care_plan_number || `NCP-${plan.id}`)} • ${esc(plan.shift || '')} • Initiated by <strong>${esc(plan.nurse_name)}</strong> (${esc(dt)})
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: ${evalMeta.bg}; color: ${evalMeta.color}; border: 1px solid ${evalMeta.border}; padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 800;">
+                                ${evalMeta.icon} ${esc(plan.evaluation_status)}
+                            </span>
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary btn-edit-ncp" data-plan-id="${plan.id}" style="padding: 4px 9px; font-size: 11px;">✏️ Edit</button>
+                            <button type="button" class="btn-inpatient btn-delete-ncp" data-plan-id="${plan.id}" style="padding: 4px 8px; font-size: 11px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">🗑️</button>
+                        </div>
+                    </div>
+
+                    <!-- Etiology (R/T) & Defining Characteristics (AEB) -->
+                    ${(plan.related_to || plan.as_evidenced_by) ? `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; font-size: 12px;">
+                            <div style="background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #f1f5f9;">
+                                <strong style="color: #475569;">Related To (R/T):</strong>
+                                <div style="color: #1e293b; margin-top: 2px;">${esc(plan.related_to || 'Not specified')}</div>
+                            </div>
+                            <div style="background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #f1f5f9;">
+                                <strong style="color: #475569;">As Evidenced By (AEB):</strong>
+                                <div style="color: #1e293b; margin-top: 2px;">${esc(plan.as_evidenced_by || 'Not specified')}</div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Goals & Interventions Grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; font-size: 12.5px;">
+                        <div>
+                            <strong style="color: #1e1b4b; display: block; margin-bottom: 4px;">🎯 Measurable Patient Goals (NOC / SMART):</strong>
+                            <div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 8px 12px; border-radius: 0 6px 6px 0; color: #0f172a; white-space: pre-line;">${esc(plan.measurable_goals)}</div>
+                        </div>
+                        <div>
+                            <strong style="color: #1e1b4b; display: block; margin-bottom: 4px;">🩺 Nursing Interventions (NIC):</strong>
+                            <div style="background: #eff6ff; border-left: 3px solid #2563eb; padding: 8px 12px; border-radius: 0 6px 6px 0; color: #0f172a; white-space: pre-line;">${esc(plan.nursing_interventions)}</div>
+                        </div>
+                    </div>
+
+                    ${plan.rationale ? `
+                        <div style="font-size: 12px; color: #475569; background: #f8fafc; padding: 7px 12px; border-radius: 6px; margin-bottom: 12px;">
+                            <strong>🔬 Clinical Rationale:</strong> ${esc(plan.rationale)}
+                        </div>
+                    ` : ''}
+
+                    <!-- Interactive Shift Outcome Evaluation Box -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                            <div style="font-size: 12px; font-weight: 700; color: #1e293b;">
+                                📊 Shift Outcome Evaluation
+                                ${evalDt ? `<span style="font-weight: 400; font-size: 11px; color: #64748b; margin-left: 6px;">(Last evaluated by ${esc(plan.evaluated_by_name || 'RN')} at ${esc(evalDt)})</span>` : ''}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <button type="button" class="btn-quick-eval-ncp" data-plan-id="${plan.id}" data-status="Goal Met" style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #16a34a; background: ${plan.evaluation_status === 'Goal Met' ? '#16a34a' : '#fff'}; color: ${plan.evaluation_status === 'Goal Met' ? '#fff' : '#16a34a'};">
+                                    🟢 Goal Met
+                                </button>
+                                <button type="button" class="btn-quick-eval-ncp" data-plan-id="${plan.id}" data-status="Partially Met" style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #ca8a04; background: ${plan.evaluation_status === 'Partially Met' ? '#ca8a04' : '#fff'}; color: ${plan.evaluation_status === 'Partially Met' ? '#fff' : '#854d0e'};">
+                                    🟡 Partially Met
+                                </button>
+                                <button type="button" class="btn-quick-eval-ncp" data-plan-id="${plan.id}" data-status="Unmet/Revised" style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid #dc2626; background: ${plan.evaluation_status === 'Unmet/Revised' ? '#dc2626' : '#fff'}; color: ${plan.evaluation_status === 'Unmet/Revised' ? '#fff' : '#dc2626'};">
+                                    🔴 Unmet/Revised
+                                </button>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="ncpEvalNoteInput_${plan.id}" value="${esc(plan.shift_evaluation_notes || '')}" placeholder="Enter shift evaluation findings, patient response, or care plan revision notes..." style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #fff;" />
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary btn-save-eval-note-ncp" data-plan-id="${plan.id}" data-current-status="${esc(plan.evaluation_status)}" style="padding: 5px 10px; font-size: 11px; white-space: nowrap;">
+                                💾 Save Eval Note
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Wire Quick Evaluation State Buttons (Goal Met, Partially Met, Unmet/Revised)
+        container.querySelectorAll('.btn-quick-eval-ncp').forEach(btn => {
+            btn.onclick = async () => {
+                const pId = btn.getAttribute('data-plan-id');
+                const newStatus = btn.getAttribute('data-status');
+                const noteInput = document.getElementById(`ncpEvalNoteInput_${pId}`);
+                const evalNotes = noteInput ? noteInput.value : '';
+
+                try {
+                    const eRes = await evaluateCarePlan({
+                        id: pId,
+                        evaluation_status: newStatus,
+                        shift_evaluation_notes: evalNotes
+                    });
+                    if (eRes && eRes.success) {
+                        showToast(`Care plan evaluated as "${newStatus}"`, 'success');
+                        await loadNursingCarePlans(admissionId, activeNcpEvalFilter);
+                    } else {
+                        showToast('Evaluation update failed: ' + (eRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Evaluation error: ' + err.message, 'error');
+                }
+            };
+        });
+
+        // Wire Save Eval Note Button
+        container.querySelectorAll('.btn-save-eval-note-ncp').forEach(btn => {
+            btn.onclick = async () => {
+                const pId = btn.getAttribute('data-plan-id');
+                const currentStatus = btn.getAttribute('data-current-status') || 'In Progress';
+                const noteInput = document.getElementById(`ncpEvalNoteInput_${pId}`);
+                const evalNotes = noteInput ? noteInput.value : '';
+
+                try {
+                    const eRes = await evaluateCarePlan({
+                        id: pId,
+                        evaluation_status: currentStatus,
+                        shift_evaluation_notes: evalNotes
+                    });
+                    if (eRes && eRes.success) {
+                        showToast('Shift evaluation note saved', 'success');
+                        await loadNursingCarePlans(admissionId, activeNcpEvalFilter);
+                    } else {
+                        showToast('Failed to save evaluation note: ' + (eRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Error saving evaluation note: ' + err.message, 'error');
+                }
+            };
+        });
+
+        // Wire Edit Buttons
+        container.querySelectorAll('.btn-edit-ncp').forEach(btn => {
+            btn.onclick = () => {
+                const pId = btn.getAttribute('data-plan-id');
+                const target = plans.find(p => p.id == pId);
+                if (target) populateCarePlanForEdit(target);
+            };
+        });
+
+        // Wire Delete Buttons
+        container.querySelectorAll('.btn-delete-ncp').forEach(btn => {
+            btn.onclick = async () => {
+                const pId = btn.getAttribute('data-plan-id');
+                if (!confirm('Remove this nursing care plan?')) return;
+                try {
+                    const dRes = await deleteCarePlan(pId);
+                    if (dRes && dRes.success) {
+                        showToast('Nursing care plan removed', 'success');
+                        await loadNursingCarePlans(admissionId, activeNcpEvalFilter);
+                    } else {
+                        showToast('Delete failed: ' + (dRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Delete error: ' + err.message, 'error');
+                }
+            };
+        });
+
+    } catch (err) {
+        container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading nursing care plans: ${esc(err.message)}</div>`;
+    }
+}
+
+function populateCarePlanForEdit(plan) {
+    document.getElementById('ncpFormRecordId').value = plan.id;
+    document.getElementById('ncpFormAdmissionId').value = plan.admission_id;
+    document.getElementById('ncpFormPatientId').value = plan.patient_id || '';
+
+    if (plan.plan_datetime) {
+        document.getElementById('ncpFormDateTime').value = plan.plan_datetime.replace(' ', 'T').slice(0, 16);
+    }
+    document.getElementById('ncpFormShift').value = plan.shift || 'Day Shift (07:00-15:00)';
+    document.getElementById('ncpFormPriority').value = plan.priority_level || 'Medium / Standard';
+    document.getElementById('ncpFormNurseName').value = plan.nurse_name || '';
+    document.getElementById('ncpFormNandaCode').value = plan.nanda_code || '';
+    document.getElementById('ncpFormNandaDomain').value = plan.nanda_domain || '';
+    document.getElementById('ncpFormDiagnosis').value = plan.nursing_diagnosis || '';
+    document.getElementById('ncpFormRelatedTo').value = plan.related_to || '';
+    document.getElementById('ncpFormAeb').value = plan.as_evidenced_by || '';
+    document.getElementById('ncpFormGoals').value = plan.measurable_goals || '';
+    document.getElementById('ncpFormInterventions').value = plan.nursing_interventions || '';
+    document.getElementById('ncpFormRationale').value = plan.rationale || '';
+    document.getElementById('ncpFormEvalStatus').value = plan.evaluation_status || 'In Progress';
+    document.getElementById('ncpFormEvalNotes').value = plan.shift_evaluation_notes || '';
+
+    const submitBtn = document.getElementById('btnSubmitNcpForm');
+    if (submitBtn) submitBtn.textContent = `💾 Update Care Plan (${plan.care_plan_number || '#' + plan.id})`;
+
+    const tabForm = document.getElementById('tabBtnNcpForm');
+    if (tabForm) tabForm.click();
 }
