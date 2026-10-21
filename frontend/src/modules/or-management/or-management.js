@@ -358,12 +358,15 @@ function setupEventListeners() {
 
     // Electronic Anesthesia Record Modal Triggers
     setupAnesthesiaModal();
+    // Surgical Sponge, Sharps & Needle Count Reconciliation Modal Triggers
+    setupSpongeCountModal();
 
     // Expose global helpers
     // Details and Advance open the case record (stages in order, WHO checklist, intra-op record).
     window.__orOpenDetail = (id) => openOrCase(Number(id), { onChange: () => fetchSchedule(true) });
     window.__orOpenStage = (id) => openOrCase(Number(id), { onChange: () => fetchSchedule(true) });
     window.__orOpenAnesthesia = (id) => openAnesthesiaModal(Number(id));
+    window.__orOpenSpongeCount = (id) => openSpongeCountModal(Number(id));
     window.__orOpenSuiteStatus = openSuiteModal;
     window.__orOpenBookForSuite = openBookModal;
     window.__orOpenRegisterSuite = openRegSuiteModal;
@@ -507,6 +510,9 @@ function renderSuitesGrid(suites) {
                 </button>
                 <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${s.current_case_id})" style="padding:4px 9px;font-size:11px;background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;" title="Open Electronic Anesthesia Record">
                     &#128137; Anesthesia
+                </button>
+                <button type="button" class="or-btn-view" onclick="window.__orOpenSpongeCount(${s.current_case_id})" style="padding:4px 9px;font-size:11px;background:#f0fdfa;color:#0f766e;border-color:#99f6e4;" title="Open Sponge, Sharps &amp; Needle Count Reconciliation">
+                    &#129527; Counts
                 </button>
                 <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${s.current_case_id}, '${esc(ac.perioperative_stage)}')" style="padding:4px 10px;font-size:11px;">
                     Advance &rarr;
@@ -785,6 +791,18 @@ function renderWhiteboardKanban(cases) {
                 anesChip = `<span class="or-chip or-chip-purple" title="Electronic Anesthesia Record: ${esc(asaTxt)} &bull; Mallampati ${esc(ar.mallampati_class || 'Class I')} &bull; Aldrete ${ar.aldrete_total_score ?? 10}/10">&#128137; ${esc(asaTxt)} &bull; M-${esc((ar.mallampati_class || 'I').replace('Class ', ''))}</span>`;
             }
 
+            let countChip = '';
+            if (c.sponge_count_record) {
+                const cr = c.sponge_count_record;
+                if (Number(cr.has_discrepancy)) {
+                    countChip = `<span class="or-chip or-chip-red" title="Sponge/Needle Count Discrepancy">${esc('🚨 Count Discrepancy')}</span>`;
+                } else if (cr.overall_reconciliation_status === 'All Counts Correct & Dual-Signed') {
+                    countChip = `<span class="or-chip or-chip-green" title="Sponge, Sharps &amp; Needle Counts Reconciled &amp; Dual-Signed">&#129527; Counts Dual-Signed</span>`;
+                } else {
+                    countChip = `<span class="or-chip or-chip-amber" title="Sponge &amp; Needle Count In Progress">&#129527; Count In Progress</span>`;
+                }
+            }
+
             return `
                 <div class="or-case-card ${priorityClass}">
                     <div class="or-card-header">
@@ -814,12 +832,14 @@ function renderWhiteboardKanban(cases) {
                         <span class="or-chip or-chip-blue">${esc(c.surgical_specialty)}</span>
                         ${readyChip}
                         ${anesChip}
+                        ${countChip}
                         ${liveTimerChip}
                     </div>
 
                     <div class="or-card-actions">
                         <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})">Details</button>
-                        <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${c.id})" style="background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;" title="Electronic Anesthesia Record (ASA, Mallampati, Drugs, EBL, Aldrete)">&#128137; Anesthesia</button>
+                        <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${c.id})" style="background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;" title="Electronic Anesthesia Record">&#128137; Anesthesia</button>
+                        <button type="button" class="or-btn-view" onclick="window.__orOpenSpongeCount(${c.id})" style="background:#f0fdfa;color:#0f766e;border-color:#99f6e4;" title="Surgical Sponge, Sharps &amp; Needle Count Reconciliation">&#129527; Counts</button>
                         <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')">Advance &rarr;</button>
                     </div>
                 </div>
@@ -914,6 +934,7 @@ function renderScheduleTable(cases) {
                 <td style="text-align:right;white-space:nowrap;">
                     <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})" style="padding:3px 8px;font-size:11px;margin-right:4px;">Details</button>
                     <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${c.id})" style="padding:3px 8px;font-size:11px;margin-right:4px;background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;">&#128137; Anesthesia</button>
+                    <button type="button" class="or-btn-view" onclick="window.__orOpenSpongeCount(${c.id})" style="padding:3px 8px;font-size:11px;margin-right:4px;background:#f0fdfa;color:#0f766e;border-color:#99f6e4;">&#129527; Counts</button>
                     <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')" style="padding:3px 9px;font-size:11px;">Advance</button>
                 </td>
             </tr>
@@ -2022,5 +2043,420 @@ async function handleAnesthesiaSubmit(e, finalize = false) {
     } finally {
         if (saveBtn) saveBtn.disabled = false;
         if (finBtn) finBtn.disabled = false;
+    }
+}
+
+
+/* ============================================================================
+ * SURGICAL SPONGE, SHARPS & NEEDLE COUNT RECONCILIATION (or_sponge_needle_counts)
+ * Dual Scrub Nurse + Circulating Nurse Sign-Offs across Initial, Closure & Final Counts
+ * ============================================================================ */
+
+const SPONGE_COUNT_CATEGORIES = [
+    'lap_sponges',
+    'raytec_sponges',
+    'suture_needles',
+    'blades_sharps',
+    'instruments',
+];
+
+function setupSpongeCountModal() {
+    const modal = document.getElementById('orSpongeCountModal');
+    const closeX = document.getElementById('orCloseSpongeCountModal');
+    const cancelBtn = document.getElementById('orCancelSpongeCountBtn');
+    const form = document.getElementById('orSpongeCountForm');
+    const dualSignAllBtn = document.getElementById('orDualSignAllCountsBtn');
+    const autoMatchBtn = document.getElementById('orCntAutoMatchAllBtn');
+
+    const closeCnt = () => {
+        if (modal) modal.style.display = 'none';
+    };
+
+    if (closeX) closeX.addEventListener('click', closeCnt);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeCnt);
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeCnt();
+        });
+    }
+
+    // Live itemized expected & variance calculation
+    document.querySelectorAll('.or-cnt-input').forEach((inp) => {
+        inp.addEventListener('input', updateSpongeCountLiveCalculations);
+    });
+
+    // 1-Click Surgical Pack Presets
+    document.querySelectorAll('.or-cnt-preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const preset = btn.getAttribute('data-preset');
+            if (preset) applySpongeCountPreset(preset);
+        });
+    });
+
+    // Reconcile All Closure & Final Counts to Expected Total
+    if (autoMatchBtn) {
+        autoMatchBtn.addEventListener('click', () => {
+            SPONGE_COUNT_CATEGORIES.forEach((key) => {
+                const init = Math.max(0, parseInt(document.getElementById(`orCnt_${key}_initial`)?.value || '0', 10) || 0);
+                const add = Math.max(0, parseInt(document.getElementById(`orCnt_${key}_added`)?.value || '0', 10) || 0);
+                const expected = init + add;
+                const closEl = document.getElementById(`orCnt_${key}_closure_counted`);
+                const finEl = document.getElementById(`orCnt_${key}_final_counted`);
+                if (closEl) closEl.value = String(expected);
+                if (finEl) finEl.value = String(expected);
+            });
+            updateSpongeCountLiveCalculations();
+            showToast('Reconciled all Cavity Closure & Final Skin counts to Expected Totals.', 'success');
+        });
+    }
+
+    // 1-Click Dual-Sign per Phase buttons (Scrub Nurse + Circulating Nurse)
+    document.querySelectorAll('.or-cnt-sign-phase-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const phase = btn.getAttribute('data-phase');
+            const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (phase === 'initial') {
+                const sName = document.getElementById('orCntInitScrubName')?.value || 'RN Maria Santos';
+                const cName = document.getElementById('orCntInitCircName')?.value || 'RN Angela Reyes';
+                document.getElementById('orCntInitScrubSig').value = `Signed: ${sName} (${ts})`;
+                document.getElementById('orCntInitCircSig').value = `Verified: ${cName} (${ts})`;
+            } else if (phase === 'closure') {
+                const sName = document.getElementById('orCntClosScrubName')?.value || 'RN Maria Santos';
+                const cName = document.getElementById('orCntClosCircName')?.value || 'RN Angela Reyes';
+                document.getElementById('orCntClosScrubSig').value = `Signed: ${sName} (${ts})`;
+                document.getElementById('orCntClosCircSig').value = `Verified: ${cName} (${ts})`;
+            } else if (phase === 'final') {
+                const sName = document.getElementById('orCntFinScrubName')?.value || 'RN Maria Santos';
+                const cName = document.getElementById('orCntFinCircName')?.value || 'RN Angela Reyes';
+                document.getElementById('orCntFinScrubSig').value = `Signed: ${sName} (${ts})`;
+                document.getElementById('orCntFinCircSig').value = `Verified: ${cName} (${ts})`;
+            }
+            updateSpongeCountLiveCalculations();
+            showToast(`Dual Scrub & Circulating Nurse signatures applied for ${phase.toUpperCase()} count.`, 'info');
+        });
+    });
+
+    if (form) {
+        form.addEventListener('submit', (e) => handleSpongeCountSubmit(e, false));
+    }
+    if (dualSignAllBtn) {
+        dualSignAllBtn.addEventListener('click', (e) => handleSpongeCountSubmit(e, true));
+    }
+}
+
+function updateSpongeCountLiveCalculations() {
+    let anyDiscrepancy = false;
+
+    SPONGE_COUNT_CATEGORIES.forEach((key) => {
+        const init = Math.max(0, parseInt(document.getElementById(`orCnt_${key}_initial`)?.value || '0', 10) || 0);
+        const add = Math.max(0, parseInt(document.getElementById(`orCnt_${key}_added`)?.value || '0', 10) || 0);
+        const expected = init + add;
+        const clos = Math.max(0, parseInt(document.getElementById(`orCnt_${key}_closure_counted`)?.value || '0', 10) || 0);
+        const fin = Math.max(0, parseInt(document.getElementById(`orCnt_${key}_final_counted`)?.value || '0', 10) || 0);
+
+        const expEl = document.getElementById(`orCnt_${key}_expected`);
+        if (expEl) expEl.textContent = String(expected);
+
+        const closVar = clos - expected;
+        const finVar = fin - expected;
+
+        if (closVar !== 0 || finVar !== 0) {
+            anyDiscrepancy = true;
+        }
+
+        const closBadge = document.getElementById(`orCnt_${key}_closure_badge`);
+        if (closBadge) {
+            if (closVar === 0) {
+                closBadge.textContent = '✓ OK';
+                closBadge.style.background = '#dcfce7';
+                closBadge.style.color = '#166534';
+            } else {
+                closBadge.textContent = `🚨 ${closVar > 0 ? '+' : ''}${closVar}`;
+                closBadge.style.background = '#fee2e2';
+                closBadge.style.color = '#991b1b';
+            }
+        }
+
+        const finBadge = document.getElementById(`orCnt_${key}_final_badge`);
+        if (finBadge) {
+            if (finVar === 0) {
+                finBadge.textContent = '✓ OK';
+                finBadge.style.background = '#dcfce7';
+                finBadge.style.color = '#166534';
+            } else {
+                finBadge.textContent = `🚨 ${finVar > 0 ? '+' : ''}${finVar}`;
+                finBadge.style.background = '#fee2e2';
+                finBadge.style.color = '#991b1b';
+            }
+        }
+    });
+
+    const alertBox = document.getElementById('orCntDiscrepancyAlertBox');
+    if (alertBox) {
+        alertBox.style.display = anyDiscrepancy ? 'block' : 'none';
+    }
+
+    const statusBadge = document.getElementById('orCntOverallStatusBadge');
+    if (statusBadge) {
+        if (anyDiscrepancy) {
+            statusBadge.textContent = '🚨 Count Discrepancy — X-Ray Protocol Active';
+            statusBadge.style.background = '#fee2e2';
+            statusBadge.style.color = '#991b1b';
+        } else {
+            const allSigned = [
+                'orCntInitScrubSig', 'orCntInitCircSig',
+                'orCntClosScrubSig', 'orCntClosCircSig',
+                'orCntFinScrubSig', 'orCntFinCircSig'
+            ].every((id) => (document.getElementById(id)?.value || '').trim() !== '');
+
+            if (allSigned) {
+                statusBadge.textContent = '✓ All Counts Correct & Dual-Signed';
+                statusBadge.style.background = '#dcfce7';
+                statusBadge.style.color = '#166534';
+            } else {
+                statusBadge.textContent = 'Counts Match — Awaiting Dual Signatures';
+                statusBadge.style.background = '#fef3c7';
+                statusBadge.style.color = '#92400e';
+            }
+        }
+    }
+}
+
+function applySpongeCountPreset(preset) {
+    const setRow = (key, init, add) => {
+        const exp = init + add;
+        const iEl = document.getElementById(`orCnt_${key}_initial`);
+        const aEl = document.getElementById(`orCnt_${key}_added`);
+        const cEl = document.getElementById(`orCnt_${key}_closure_counted`);
+        const fEl = document.getElementById(`orCnt_${key}_final_counted`);
+        if (iEl) iEl.value = String(init);
+        if (aEl) aEl.value = String(add);
+        if (cEl) cEl.value = String(exp);
+        if (fEl) fEl.value = String(exp);
+    };
+
+    if (preset === 'major_laparotomy') {
+        setRow('lap_sponges', 15, 5);
+        setRow('raytec_sponges', 20, 10);
+        setRow('suture_needles', 16, 4);
+        setRow('blades_sharps', 4, 1);
+        setRow('instruments', 60, 4);
+    } else if (preset === 'laparoscopic') {
+        setRow('lap_sponges', 5, 0);
+        setRow('raytec_sponges', 10, 0);
+        setRow('suture_needles', 6, 2);
+        setRow('blades_sharps', 3, 0);
+        setRow('instruments', 32, 0);
+    } else if (preset === 'obgyn_cesarean') {
+        setRow('lap_sponges', 10, 5);
+        setRow('raytec_sponges', 10, 0);
+        setRow('suture_needles', 12, 3);
+        setRow('blades_sharps', 4, 0);
+        setRow('instruments', 42, 0);
+    }
+
+    updateSpongeCountLiveCalculations();
+    showToast('Applied surgical count pack preset.', 'info');
+}
+
+async function openSpongeCountModal(caseId) {
+    const modal = document.getElementById('orSpongeCountModal');
+    if (!modal || !caseId) return;
+
+    try {
+        const res = await api(`/or-management/sponge-counts?surgical_case_id=${encodeURIComponent(caseId)}`);
+        const payload = res?.data || {};
+        const localCase = (currentScheduleData.cases || []).find((c) => Number(c.id) === Number(caseId)) || {};
+        const surgicalCase = payload.surgical_case || localCase;
+        const record = payload.record || null;
+
+        populateSpongeCountModal(surgicalCase, record);
+        modal.style.display = 'flex';
+    } catch (err) {
+        console.error('Error loading Sponge Count Reconciliation:', err);
+        const localCase = (currentScheduleData.cases || []).find((c) => Number(c.id) === Number(caseId)) || { id: caseId };
+        populateSpongeCountModal(localCase, null);
+        modal.style.display = 'flex';
+    }
+}
+
+function populateSpongeCountModal(surgicalCase, record) {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val !== null && val !== undefined ? val : '';
+    };
+    const setChk = (id, checked) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = Boolean(checked);
+    };
+
+    const caseId = surgicalCase?.id || record?.surgical_case_id || '';
+    const patientId = surgicalCase?.patient_id || record?.patient_id || '';
+    setVal('orCntSurgicalCaseId', caseId);
+    setVal('orCntPatientId', patientId);
+    setVal('orCntRecordId', record?.id || '');
+
+    const patBanner = document.getElementById('orCntPatientBanner');
+    if (patBanner) {
+        patBanner.textContent = `${surgicalCase?.patient_name || 'Patient'} (${surgicalCase?.patient_mrn || 'MRN'}) • ${surgicalCase?.case_number || `Case #${caseId}`}`;
+    }
+    const caseBanner = document.getElementById('orCntCaseBanner');
+    if (caseBanner) {
+        caseBanner.textContent = `${surgicalCase?.procedure_name || 'Surgical Procedure'} • ${surgicalCase?.suite_code || surgicalCase?.or_suite_name || 'OR Suite'} • Lead Surgeon: ${surgicalCase?.lead_surgeon || '--'}`;
+    }
+
+    const numBadge = document.getElementById('orCntRecordNumBadge');
+    if (numBadge) {
+        numBadge.textContent = record?.count_record_number || 'NEW COUNT SHEET';
+    }
+
+    const defaultScrub = surgicalCase?.scrub_nurse || 'RN Maria Santos (Scrub Nurse)';
+    const defaultCirc = surgicalCase?.circulating_nurse || 'RN Angela Reyes (Circulating Nurse)';
+    const defaultSurgeonAck = surgicalCase?.lead_surgeon
+        ? `Verbal & Written Count Verification Acknowledged by ${surgicalCase.lead_surgeon}`
+        : 'Verbal & Written Count Verification Acknowledged by Attending Surgeon';
+
+    if (record) {
+        SPONGE_COUNT_CATEGORIES.forEach((key) => {
+            setVal(`orCnt_${key}_initial`, record[`${key}_initial`] ?? 0);
+            setVal(`orCnt_${key}_added`, record[`${key}_added`] ?? 0);
+            setVal(`orCnt_${key}_closure_counted`, record[`${key}_closure_counted`] ?? 0);
+            setVal(`orCnt_${key}_final_counted`, record[`${key}_final_counted`] ?? 0);
+        });
+
+        setVal('orCntInitScrubName', record.initial_scrub_nurse_name || defaultScrub);
+        setVal('orCntInitScrubSig', record.initial_scrub_signature || '');
+        setVal('orCntInitCircName', record.initial_circulating_nurse_name || defaultCirc);
+        setVal('orCntInitCircSig', record.initial_circulating_signature || '');
+
+        setVal('orCntClosScrubName', record.closure_scrub_nurse_name || defaultScrub);
+        setVal('orCntClosScrubSig', record.closure_scrub_signature || '');
+        setVal('orCntClosCircName', record.closure_circulating_nurse_name || defaultCirc);
+        setVal('orCntClosCircSig', record.closure_circulating_signature || '');
+
+        setVal('orCntFinScrubName', record.final_scrub_nurse_name || defaultScrub);
+        setVal('orCntFinScrubSig', record.final_scrub_signature || '');
+        setVal('orCntFinCircName', record.final_circulating_nurse_name || defaultCirc);
+        setVal('orCntFinCircSig', record.final_circulating_signature || '');
+
+        setChk('orCntSurgeonNotified', Number(record.surgeon_notified_of_count ?? 1) === 1);
+        setChk('orCntXrayOrdered', Number(record.intraop_xray_ordered ?? 0) === 1);
+        setVal('orCntSurgeonAck', record.attending_surgeon_acknowledgment || defaultSurgeonAck);
+        setVal('orCntXrayFindings', record.intraop_xray_findings || '');
+        setVal('orCntResolutionNotes', record.discrepancy_resolution_notes || 'All surgical sponges, Raytec gauze, suture needles, blades/sharps, and instruments accounted for across Initial, Closure, and Final counts.');
+    } else {
+        const defaults = {
+            lap_sponges: 10,
+            raytec_sponges: 20,
+            suture_needles: 12,
+            blades_sharps: 4,
+            instruments: 45,
+        };
+        SPONGE_COUNT_CATEGORIES.forEach((key) => {
+            const v = defaults[key] ?? 10;
+            setVal(`orCnt_${key}_initial`, v);
+            setVal(`orCnt_${key}_added`, 0);
+            setVal(`orCnt_${key}_closure_counted`, v);
+            setVal(`orCnt_${key}_final_counted`, v);
+        });
+
+        setVal('orCntInitScrubName', defaultScrub);
+        setVal('orCntInitScrubSig', `Signed: ${defaultScrub} [Initial]`);
+        setVal('orCntInitCircName', defaultCirc);
+        setVal('orCntInitCircSig', `Verified: ${defaultCirc} [Initial]`);
+
+        setVal('orCntClosScrubName', defaultScrub);
+        setVal('orCntClosScrubSig', '');
+        setVal('orCntClosCircName', defaultCirc);
+        setVal('orCntClosCircSig', '');
+
+        setVal('orCntFinScrubName', defaultScrub);
+        setVal('orCntFinScrubSig', '');
+        setVal('orCntFinCircName', defaultCirc);
+        setVal('orCntFinCircSig', '');
+
+        setChk('orCntSurgeonNotified', true);
+        setChk('orCntXrayOrdered', false);
+        setVal('orCntSurgeonAck', defaultSurgeonAck);
+        setVal('orCntXrayFindings', '');
+        setVal('orCntResolutionNotes', 'All surgical sponges, Raytec gauze, suture needles, blades/sharps, and instruments accounted for across Initial, Closure, and Final counts.');
+    }
+
+    updateSpongeCountLiveCalculations();
+}
+
+async function handleSpongeCountSubmit(e, dualSignAllPhases = false) {
+    if (e) e.preventDefault();
+
+    const saveBtn = document.getElementById('orSaveSpongeCountBtn');
+    const signAllBtn = document.getElementById('orDualSignAllCountsBtn');
+    const g = (id) => document.getElementById(id)?.value ?? '';
+    const chk = (id) => (document.getElementById(id)?.checked ? 1 : 0);
+
+    const surgicalCaseId = Number(g('orCntSurgicalCaseId'));
+    if (!surgicalCaseId) {
+        showToast('Missing surgical case ID for Sponge Count Reconciliation.', 'error');
+        return;
+    }
+
+    const payload = {
+        surgical_case_id:                 surgicalCaseId,
+        patient_id:                       g('orCntPatientId') || null,
+        dual_sign_all_phases:             dualSignAllPhases ? 1 : 0,
+        initial_scrub_nurse_name:         g('orCntInitScrubName'),
+        initial_scrub_signature:          g('orCntInitScrubSig'),
+        initial_circulating_nurse_name:   g('orCntInitCircName'),
+        initial_circulating_signature:    g('orCntInitCircSig'),
+        closure_scrub_nurse_name:         g('orCntClosScrubName'),
+        closure_scrub_signature:          g('orCntClosScrubSig'),
+        closure_circulating_nurse_name:   g('orCntClosCircName'),
+        closure_circulating_signature:    g('orCntClosCircSig'),
+        final_scrub_nurse_name:           g('orCntFinScrubName'),
+        final_scrub_signature:            g('orCntFinScrubSig'),
+        final_circulating_nurse_name:     g('orCntFinCircName'),
+        final_circulating_signature:      g('orCntFinCircSig'),
+        surgeon_notified_of_count:        chk('orCntSurgeonNotified'),
+        intraop_xray_ordered:             chk('orCntXrayOrdered'),
+        attending_surgeon_acknowledgment: g('orCntSurgeonAck'),
+        intraop_xray_findings:            g('orCntXrayFindings'),
+        discrepancy_resolution_notes:     g('orCntResolutionNotes'),
+    };
+
+    SPONGE_COUNT_CATEGORIES.forEach((key) => {
+        payload[`${key}_initial`] = g(`orCnt_${key}_initial`);
+        payload[`${key}_added`] = g(`orCnt_${key}_added`);
+        payload[`${key}_closure_counted`] = g(`orCnt_${key}_closure_counted`);
+        payload[`${key}_final_counted`] = g(`orCnt_${key}_final_counted`);
+    });
+
+    if (saveBtn) saveBtn.disabled = true;
+    if (signAllBtn) signAllBtn.disabled = true;
+
+    try {
+        const res = await api('/or-management/sponge-counts/save', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+
+        if (res && (res.success || res.data)) {
+            const saved = res.data || {};
+            showToast(
+                dualSignAllPhases
+                    ? `Sponge, Sharps & Needle Count ${saved.count_record_number || ''} reconciled & dual-signed across Initial, Closure & Final counts!`
+                    : `Sponge, Sharps & Needle Count ${saved.count_record_number || ''} saved (${saved.overall_reconciliation_status || 'Updated'}).`,
+                Number(saved.has_discrepancy) ? 'warning' : 'success'
+            );
+            const modal = document.getElementById('orSpongeCountModal');
+            if (modal) modal.style.display = 'none';
+            await fetchSchedule(true);
+        } else {
+            showToast(res?.message || 'Failed to save Sponge Count Reconciliation.', 'error');
+        }
+    } catch (err) {
+        console.error('Error saving Sponge Count Reconciliation:', err);
+        showToast(err?.message || 'Error saving Sponge Count Reconciliation.', 'error');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+        if (signAllBtn) signAllBtn.disabled = false;
     }
 }

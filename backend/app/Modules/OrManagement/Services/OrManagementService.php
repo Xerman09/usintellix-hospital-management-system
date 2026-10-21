@@ -89,6 +89,26 @@ class OrManagementService
                     $caseRow['anesthesia_record'] = $anesMap[$cid] ?? null;
                 }
                 unset($caseRow);
+
+                // Attach Surgical Sponge, Sharps & Needle Count Reconciliation summary
+                SpongeNeedleCountService::ensureTableExists($db);
+                $cntStmt = $db->prepare("
+                    SELECT surgical_case_id, id AS sponge_count_id, count_record_number,
+                           initial_count_status, closure_count_status, final_count_status,
+                           has_discrepancy, overall_reconciliation_status
+                    FROM or_sponge_needle_counts
+                    WHERE surgical_case_id IN ({$placeholders})
+                ");
+                $cntStmt->execute($caseIds);
+                $cntMap = [];
+                foreach ($cntStmt->fetchAll(PDO::FETCH_ASSOC) as $cr) {
+                    $cntMap[(int) $cr['surgical_case_id']] = $cr;
+                }
+                foreach ($cases as &$caseRow) {
+                    $cid = (int) $caseRow['id'];
+                    $caseRow['sponge_count_record'] = $cntMap[$cid] ?? null;
+                }
+                unset($caseRow);
             }
         } catch (\Throwable $e) {
             // Non-fatal
@@ -191,6 +211,16 @@ class OrManagementService
             $row['anesthesia_record'] = $anesRow ? \App\Modules\OrManagement\Models\OrAnesthesiaRecord::formatRecord($anesRow) : null;
         } catch (\Throwable $e) {
             $row['anesthesia_record'] = null;
+        }
+
+        try {
+            SpongeNeedleCountService::ensureTableExists($db);
+            $cntStmt = $db->prepare("SELECT * FROM or_sponge_needle_counts WHERE surgical_case_id = :cid ORDER BY id DESC LIMIT 1");
+            $cntStmt->execute(['cid' => $id]);
+            $cntRow = $cntStmt->fetch(PDO::FETCH_ASSOC);
+            $row['sponge_count_record'] = $cntRow ? \App\Modules\OrManagement\Models\OrSpongeNeedleCount::formatRecord($cntRow) : null;
+        } catch (\Throwable $e) {
+            $row['sponge_count_record'] = null;
         }
 
         return $row;

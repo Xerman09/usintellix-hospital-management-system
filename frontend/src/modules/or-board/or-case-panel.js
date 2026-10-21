@@ -564,9 +564,28 @@ function renderChecklist(body) {
     const d = state.data;
     const cl = d.checklist;
     body.innerHTML = `
+        <div style="background:linear-gradient(135deg,#f0fdfa 0%,#ecfdf5 100%);border:1px solid #99f6e4;border-left:4px solid #0d9488;border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+                <div style="font-weight:800;font-size:13.5px;color:#065f46;">&#129527; Surgical Sponge, Sharps, Needle &amp; Instrument Count Reconciliation (Initial, Cavity Closure &amp; Final Skin)</div>
+                <div style="font-size:12px;color:#0f766e;margin-top:2px;">
+                    Reconcile Laparotomy sponges, Raytec gauze, suture needles, blades/sharps &amp; instruments with dual Scrub + Circulating Nurse signatures.
+                </div>
+            </div>
+            <button type="button" class="orc-btn primary" id="orcOpenSpongeCountWorkspaceBtn" style="background:#0d9488;border-color:#0f766e;">
+                &#129527; Open Sponge &amp; Needle Count Sheet
+            </button>
+        </div>
         <p class="orc-note" style="margin:0 0 10px;">WHO Surgical Safety Checklist. Each part is done once, read aloud with the team, and saved with your name and the time.
             The Sign-In is needed before the patient goes into the room, the Time-Out before the incision, and the Sign-Out before the patient leaves the room.</p>
         <div class="orc-phases">${["sign_in", "time_out", "sign_out"].map((p) => phaseCard(p, cl.definition[p], cl.done?.[p], cl.available[p], cl.blocked_reason[p])).join("")}</div>`;
+    $("orcOpenSpongeCountWorkspaceBtn")?.addEventListener("click", () => {
+        if (typeof window.__orOpenSpongeCount === "function") {
+            closeCase();
+            window.__orOpenSpongeCount(d.case.id);
+        } else {
+            showToast("Switch to OR Management Board to launch the Sponge & Needle Count Reconciliation modal.", "info");
+        }
+    });
     body.querySelectorAll("form[data-orc-phase]").forEach(bindPhaseForm);
 }
 

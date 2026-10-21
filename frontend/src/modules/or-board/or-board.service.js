@@ -42,3 +42,6 @@ export const voidOrCharge = (id, reason) => post("/or-live/charges/void", { id, 
 export const fetchOrAnesthesiaRecord = (surgicalCaseId) => api(`/or-management/anesthesia-records${query({ surgical_case_id: surgicalCaseId })}`);
 export const saveOrAnesthesiaRecord = (data) => post("/or-management/anesthesia-records/save", data);
 export const finalizeOrAnesthesiaRecord = (data) => post("/or-management/anesthesia-records/finalize", data);
+/* Surgical Sponge, Sharps & Needle Count Reconciliation (or_sponge_needle_counts) */
+export const fetchOrSpongeCounts = (surgicalCaseId) => api(`/or-management/sponge-counts${query({ surgical_case_id: surgicalCaseId })}`);
+export const saveOrSpongeCounts = (data) => post("/or-management/sponge-counts/save", data);

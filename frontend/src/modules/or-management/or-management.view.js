@@ -2237,5 +2237,310 @@ export function OrManagementView() {
             </form>
         </div>
     </div>
+
+    <!-- =========================================================
+         MODAL 7: SURGICAL SPONGE, SHARPS & NEEDLE COUNT RECONCILIATION
+         (or_sponge_needle_counts) — Dual Scrub + Circulating Nurse Sign-Offs
+         across Initial, Cavity Closure, and Final Skin Closure Counts
+         ========================================================= -->
+    <div class="or-modal-overlay" id="orSpongeCountModal">
+        <div class="or-modal-box" style="max-width: 1080px; width: 96%;">
+            <div class="or-modal-header" style="background: linear-gradient(135deg, #064e3b 0%, #0f766e 100%); color: #fff; border-bottom: 1px solid #115e59;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span style="font-size: 20px;">&#129527;</span>
+                    <div>
+                        <h3 style="margin: 0; color: #fff; font-size: 16px; font-weight: 800;">
+                            Surgical Sponge, Sharps, Needle &amp; Instrument Count Reconciliation
+                        </h3>
+                        <div style="font-size: 11px; color: #ccfbf1; margin-top: 2px;">
+                            Retained Surgical Item (RSI) Prevention &bull; Mandatory Dual Scrub Nurse + Circulating Nurse Sign-Offs (Initial, Cavity Closure &amp; Final Skin)
+                        </div>
+                    </div>
+                    <span id="orCntRecordNumBadge" style="background: rgba(255,255,255,0.18); color: #f0fdfa; padding: 3px 10px; border-radius: 999px; font-family: monospace; font-size: 11px; font-weight: 700;">
+                        NEW COUNT SHEET
+                    </span>
+                    <span id="orCntOverallStatusBadge" style="background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;">
+                        All Counts Correct
+                    </span>
+                </div>
+                <button type="button" class="or-modal-close-x" id="orCloseSpongeCountModal" style="color: #ccfbf1;">&times;</button>
+            </div>
+
+            <form id="orSpongeCountForm">
+                <input type="hidden" id="orCntRecordId" value="" />
+                <input type="hidden" id="orCntSurgicalCaseId" value="" />
+                <input type="hidden" id="orCntPatientId" value="" />
+
+                <div class="or-modal-body" style="max-height: 78vh; overflow-y: auto; padding: 18px 22px;">
+                    <!-- Patient & Surgical Case Context Banner + 1-Click Pack Presets -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0d9488; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 800; color: #0f172a;" id="orCntPatientBanner">Patient Name (MRN)</div>
+                            <div style="font-size: 12px; color: #475569; margin-top: 2px;" id="orCntCaseBanner">Procedure &bull; OR Suite &bull; Lead Surgeon</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">Surgical Pack Preset:</span>
+                            <button type="button" class="or-btn-secondary or-cnt-preset-btn" data-preset="major_laparotomy" style="padding: 4px 9px; font-size: 11px; background: #f0fdfa; color: #0f766e; border-color: #99f6e4;">
+                                &#9889; Major Laparotomy
+                            </button>
+                            <button type="button" class="or-btn-secondary or-cnt-preset-btn" data-preset="laparoscopic" style="padding: 4px 9px; font-size: 11px; background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">
+                                &#9889; Laparoscopic / MIS
+                            </button>
+                            <button type="button" class="or-btn-secondary or-cnt-preset-btn" data-preset="obgyn_cesarean" style="padding: 4px 9px; font-size: 11px; background: #fdf2f8; color: #be185d; border-color: #fbcfe8;">
+                                &#9889; Cesarean / OB-GYN
+                            </button>
+                            <button type="button" class="or-btn-secondary" id="orCntAutoMatchAllBtn" style="padding: 4px 10px; font-size: 11px; background: #dcfce7; color: #166534; border-color: #86efac; font-weight: 700;">
+                                &#10003; Reconcile All to Expected
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 1: Itemized Sponge, Sharps, Needle & Instrument Count Matrix -->
+                    <div class="or-form-section-title" style="color: #0f766e; border-bottom-color: #99f6e4;">
+                        1. Itemized Surgical Sponge, Sharps, Suture Needle &amp; Instrument Count Matrix
+                    </div>
+                    <div style="overflow-x: auto; margin-bottom: 18px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;">
+                        <table class="or-table" style="margin: 0; width: 100%; font-size: 12px;">
+                            <thead>
+                                <tr style="background: #f1f5f9;">
+                                    <th style="width: 28%;">Surgical Item Category</th>
+                                    <th style="text-align: center; width: 12%;">Initial Count<br><small style="color:#64748b;font-weight:500;">(Baseline)</small></th>
+                                    <th style="text-align: center; width: 12%;">+ Added<br><small style="color:#64748b;font-weight:500;">(Intra-Op)</small></th>
+                                    <th style="text-align: center; width: 12%; background: #f8fafc;">= Expected<br><small style="color:#0284c7;font-weight:700;">(Init + Added)</small></th>
+                                    <th style="text-align: center; width: 18%;">1st Closure Count<br><small style="color:#64748b;font-weight:500;">(Cavity Closure)</small></th>
+                                    <th style="text-align: center; width: 18%;">2nd Final Count<br><small style="color:#64748b;font-weight:500;">(Skin Closure)</small></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Row 1: Laparotomy Sponges -->
+                                <tr>
+                                    <td>
+                                        <strong style="color:#0f172a;">1. Laparotomy Sponges / Packs</strong>
+                                        <small style="display:block;color:#64748b;">X-Ray Detectable Radiopaque Tape</small>
+                                    </td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_lap_sponges_initial" class="or-cnt-input" min="0" value="10" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_lap_sponges_added" class="or-cnt-input" min="0" value="0" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;background:#f8fafc;font-weight:800;font-size:14px;color:#0284c7;" id="orCnt_lap_sponges_expected">10</td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_lap_sponges_closure_counted" class="or-cnt-input" min="0" value="10" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_lap_sponges_closure_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_lap_sponges_final_counted" class="or-cnt-input" min="0" value="10" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_lap_sponges_final_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Row 2: Raytec / 4x4 Gauze Sponges -->
+                                <tr>
+                                    <td>
+                                        <strong style="color:#0f172a;">2. Raytec / 4x4 Gauze Sponges</strong>
+                                        <small style="display:block;color:#64748b;">Radiopaque Strip Surgical Gauze</small>
+                                    </td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_raytec_sponges_initial" class="or-cnt-input" min="0" value="20" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_raytec_sponges_added" class="or-cnt-input" min="0" value="0" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;background:#f8fafc;font-weight:800;font-size:14px;color:#0284c7;" id="orCnt_raytec_sponges_expected">20</td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_raytec_sponges_closure_counted" class="or-cnt-input" min="0" value="20" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_raytec_sponges_closure_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_raytec_sponges_final_counted" class="or-cnt-input" min="0" value="20" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_raytec_sponges_final_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Row 3: Suture Needles -->
+                                <tr>
+                                    <td>
+                                        <strong style="color:#0f172a;">3. Suture Needles</strong>
+                                        <small style="display:block;color:#64748b;">Atraumatic Swaged &amp; Free Surgical Needles</small>
+                                    </td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_suture_needles_initial" class="or-cnt-input" min="0" value="12" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_suture_needles_added" class="or-cnt-input" min="0" value="0" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;background:#f8fafc;font-weight:800;font-size:14px;color:#0284c7;" id="orCnt_suture_needles_expected">12</td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_suture_needles_closure_counted" class="or-cnt-input" min="0" value="12" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_suture_needles_closure_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_suture_needles_final_counted" class="or-cnt-input" min="0" value="12" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_suture_needles_final_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Row 4: Scalpel Blades & Sharps -->
+                                <tr>
+                                    <td>
+                                        <strong style="color:#0f172a;">4. Scalpel Blades &amp; Sharps</strong>
+                                        <small style="display:block;color:#64748b;">#10/#11/#15 Blades, Hypodermic Needles, Bovie Tips</small>
+                                    </td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_blades_sharps_initial" class="or-cnt-input" min="0" value="4" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_blades_sharps_added" class="or-cnt-input" min="0" value="0" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;background:#f8fafc;font-weight:800;font-size:14px;color:#0284c7;" id="orCnt_blades_sharps_expected">4</td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_blades_sharps_closure_counted" class="or-cnt-input" min="0" value="4" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_blades_sharps_closure_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_blades_sharps_final_counted" class="or-cnt-input" min="0" value="4" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_blades_sharps_final_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Row 5: Surgical Instruments -->
+                                <tr>
+                                    <td>
+                                        <strong style="color:#0f172a;">5. Surgical Instruments</strong>
+                                        <small style="display:block;color:#64748b;">Hemostats, Forceps, Retractors, Needle Holders</small>
+                                    </td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_instruments_initial" class="or-cnt-input" min="0" value="45" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;"><input type="number" id="orCnt_instruments_added" class="or-cnt-input" min="0" value="0" style="width:70px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" /></td>
+                                    <td style="text-align:center;background:#f8fafc;font-weight:800;font-size:14px;color:#0284c7;" id="orCnt_instruments_expected">45</td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_instruments_closure_counted" class="or-cnt-input" min="0" value="45" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_instruments_closure_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                            <input type="number" id="orCnt_instruments_final_counted" class="or-cnt-input" min="0" value="45" style="width:68px;text-align:center;font-weight:700;padding:5px;border:1px solid #cbd5e1;border-radius:6px;" />
+                                            <span id="orCnt_instruments_final_badge" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:#dcfce7;color:#166534;">&#10003; OK</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- SECTION 2: 3-Phase Dual Nurse Reconciliation Signatures (Initial, Cavity Closure, Final Skin) -->
+                    <div class="or-form-section-title" style="color: #0284c7; border-bottom-color: #bae6fd;">
+                        2. Mandatory Dual Nurse Reconciliation Signatures (Scrub Nurse + Circulating Nurse)
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-bottom: 18px;">
+                        <!-- Phase 1: Initial Baseline Count -->
+                        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0284c7; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <strong style="font-size: 12px; color: #0f172a;">PHASE 1: INITIAL BASELINE COUNT</strong>
+                                <button type="button" class="or-btn-secondary or-cnt-sign-phase-btn" data-phase="initial" style="font-size: 10px; padding: 3px 8px; background: #e0f2fe; color: #0369a1; border-color: #7dd3fc;">
+                                    &#9998; Dual-Sign Initial
+                                </button>
+                            </div>
+                            <div class="or-form-group" style="margin-bottom: 8px;">
+                                <label style="font-size: 11px;">Scrub Nurse Name &amp; Digital Signature *</label>
+                                <input type="text" id="orCntInitScrubName" value="RN Maria Santos (Scrub Nurse)" placeholder="Scrub Nurse Name" style="margin-bottom: 4px;" />
+                                <input type="text" id="orCntInitScrubSig" placeholder="Scrub Nurse Digital Signature / PIN" style="font-size: 11px; background: #fff;" />
+                            </div>
+                            <div class="or-form-group">
+                                <label style="font-size: 11px;">Circulating Nurse Name &amp; Digital Signature *</label>
+                                <input type="text" id="orCntInitCircName" value="RN Angela Reyes (Circulating Nurse)" placeholder="Circulating Nurse Name" style="margin-bottom: 4px;" />
+                                <input type="text" id="orCntInitCircSig" placeholder="Circulating Nurse Digital Signature / PIN" style="font-size: 11px; background: #fff;" />
+                            </div>
+                        </div>
+
+                        <!-- Phase 2: Cavity / Peritoneal Closure Count -->
+                        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #7c3aed; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <strong style="font-size: 12px; color: #0f172a;">PHASE 2: CAVITY CLOSURE COUNT</strong>
+                                <button type="button" class="or-btn-secondary or-cnt-sign-phase-btn" data-phase="closure" style="font-size: 10px; padding: 3px 8px; background: #f3e8ff; color: #6d28d9; border-color: #d8b4fe;">
+                                    &#9998; Dual-Sign Closure
+                                </button>
+                            </div>
+                            <div class="or-form-group" style="margin-bottom: 8px;">
+                                <label style="font-size: 11px;">Scrub Nurse Name &amp; Digital Signature *</label>
+                                <input type="text" id="orCntClosScrubName" value="RN Maria Santos (Scrub Nurse)" placeholder="Scrub Nurse Name" style="margin-bottom: 4px;" />
+                                <input type="text" id="orCntClosScrubSig" placeholder="Scrub Nurse Digital Signature / PIN" style="font-size: 11px; background: #fff;" />
+                            </div>
+                            <div class="or-form-group">
+                                <label style="font-size: 11px;">Circulating Nurse Name &amp; Digital Signature *</label>
+                                <input type="text" id="orCntClosCircName" value="RN Angela Reyes (Circulating Nurse)" placeholder="Circulating Nurse Name" style="margin-bottom: 4px;" />
+                                <input type="text" id="orCntClosCircSig" placeholder="Circulating Nurse Digital Signature / PIN" style="font-size: 11px; background: #fff;" />
+                            </div>
+                        </div>
+
+                        <!-- Phase 3: Final Skin Closure Count -->
+                        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #059669; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <strong style="font-size: 12px; color: #0f172a;">PHASE 3: FINAL SKIN CLOSURE COUNT</strong>
+                                <button type="button" class="or-btn-secondary or-cnt-sign-phase-btn" data-phase="final" style="font-size: 10px; padding: 3px 8px; background: #dcfce7; color: #15803d; border-color: #86efac;">
+                                    &#9998; Dual-Sign Final
+                                </button>
+                            </div>
+                            <div class="or-form-group" style="margin-bottom: 8px;">
+                                <label style="font-size: 11px;">Scrub Nurse Name &amp; Digital Signature *</label>
+                                <input type="text" id="orCntFinScrubName" value="RN Maria Santos (Scrub Nurse)" placeholder="Scrub Nurse Name" style="margin-bottom: 4px;" />
+                                <input type="text" id="orCntFinScrubSig" placeholder="Scrub Nurse Digital Signature / PIN" style="font-size: 11px; background: #fff;" />
+                            </div>
+                            <div class="or-form-group">
+                                <label style="font-size: 11px;">Circulating Nurse Name &amp; Digital Signature *</label>
+                                <input type="text" id="orCntFinCircName" value="RN Angela Reyes (Circulating Nurse)" placeholder="Circulating Nurse Name" style="margin-bottom: 4px;" />
+                                <input type="text" id="orCntFinCircSig" placeholder="Circulating Nurse Digital Signature / PIN" style="font-size: 11px; background: #fff;" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 3: Surgeon Notification & Discrepancy / Intra-Op X-Ray Escalation Protocol -->
+                    <div class="or-form-section-title" style="color: #dc2626; border-bottom-color: #fecaca;">
+                        3. Attending Surgeon Verification &amp; Discrepancy / Intra-Op X-Ray Protocol
+                    </div>
+                    <div id="orCntDiscrepancyAlertBox" style="display: none; background: #fef2f2; border: 1px solid #f87171; border-left: 4px solid #dc2626; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; color: #991b1b; font-size: 12px; font-weight: 700;">
+                        &#128680; COUNT DISCREPANCY DETECTED: Cavity/Skin closure must pause! Perform full room/field search, order Intra-Operative Portable X-Ray / C-Arm Fluoroscopy, and document Attending Surgeon sign-off below.
+                    </div>
+                    <div class="or-form-grid">
+                        <div class="or-form-group">
+                            <label>Surgeon Notification &amp; Intra-Op X-Ray</label>
+                            <div style="display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; font-weight: 700; color: #0f172a; font-size: 12px;">
+                                    <input type="checkbox" id="orCntSurgeonNotified" checked style="width: 16px; height: 16px;" />
+                                    Attending Surgeon Verbally Notified of Count Reconciliation
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; font-weight: 700; color: #dc2626; font-size: 12px;">
+                                    <input type="checkbox" id="orCntXrayOrdered" style="width: 16px; height: 16px;" />
+                                    Intra-Op Portable X-Ray / C-Arm Performed for Count Verification
+                                </label>
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Attending Surgeon Acknowledgment &amp; X-Ray Result</label>
+                            <input type="text" id="orCntSurgeonAck" placeholder="e.g. Verbal &amp; Written Acknowledgment by Lead Surgeon" style="margin-bottom: 6px;" />
+                            <input type="text" id="orCntXrayFindings" placeholder="Intra-Op X-Ray Findings (e.g. N/A or Negative for Retained Radiopaque Item)" />
+                        </div>
+                        <div class="or-form-group full-width">
+                            <label>Count Reconciliation / Discrepancy Resolution Notes</label>
+                            <input type="text" id="orCntResolutionNotes" value="All surgical sponges, Raytec gauze, suture needles, blades/sharps, and instruments accounted for across Initial, Closure, and Final counts." />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="or-modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="font-size: 11px; color: #64748b;">
+                        Both <strong>Scrub Nurse &amp; Circulating Nurse</strong> signatures are recorded across Initial, Cavity Closure, and Final counts.
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="or-btn-secondary" id="orCancelSpongeCountBtn">Close</button>
+                        <button type="submit" class="or-btn-primary" id="orSaveSpongeCountBtn" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                            &#128190; Save Count Sheet
+                        </button>
+                        <button type="button" class="or-btn-primary" id="orDualSignAllCountsBtn" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);">
+                            &#9998; Dual-Sign All 3 Phases &amp; Finalize
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     `;
 }

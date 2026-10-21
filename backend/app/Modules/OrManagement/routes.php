@@ -131,3 +131,14 @@ use App\Modules\OrManagement\Controllers\AnesthesiaRecordController;
 $router->get('/or-management/anesthesia-records', [AnesthesiaRecordController::class, 'index'], $orScheduleRoles);
 $router->post('/or-management/anesthesia-records/save', [AnesthesiaRecordController::class, 'save'], $orScheduleRoles);
 $router->post('/or-management/anesthesia-records/finalize', [AnesthesiaRecordController::class, 'finalize'], $orScheduleRoles);
+
+
+// ---------------------------------------------------------------
+// Surgical Sponge, Sharps & Needle Count Reconciliation (or_sponge_needle_counts):
+// Dual Scrub Nurse + Circulating Nurse sign-offs across Initial,
+// Cavity Closure, and Final Skin Closure counts.
+// ---------------------------------------------------------------
+use App\Modules\OrManagement\Controllers\SpongeNeedleCountController;
+
+$router->get('/or-management/sponge-counts', [SpongeNeedleCountController::class, 'index'], $orScheduleRoles);
+$router->post('/or-management/sponge-counts/save', [SpongeNeedleCountController::class, 'save'], $orScheduleRoles);
