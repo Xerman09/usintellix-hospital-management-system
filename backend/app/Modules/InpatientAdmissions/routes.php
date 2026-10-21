@@ -6,6 +6,7 @@ use App\Modules\InpatientAdmissions\Controllers\DailyRoundController;
 use App\Modules\InpatientAdmissions\Controllers\ProgressNoteController;
 use App\Modules\InpatientAdmissions\Controllers\CarePlanController;
 use App\Modules\InpatientAdmissions\Controllers\FluidBalanceController;
+use App\Modules\InpatientAdmissions\Controllers\ShiftHandoverController;
 
 /** @var \App\Core\Router $router */
 
@@ -216,6 +217,36 @@ $router->post('/inpatient-admissions/fluid-balance/update', [FluidBalanceControl
 ]);
 
 $router->post('/inpatient-admissions/fluid-balance/delete', [FluidBalanceController::class, 'destroy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician']]
+]);
+
+$router->get('/inpatient-admissions/shift-handovers', [ShiftHandoverController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/shift-handovers/show', [ShiftHandoverController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->post('/inpatient-admissions/shift-handovers', [ShiftHandoverController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/shift-handovers/update', [ShiftHandoverController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/shift-handovers/sign-incoming', [ShiftHandoverController::class, 'signIncoming'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/shift-handovers/delete', [ShiftHandoverController::class, 'destroy'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician']]
 ]);

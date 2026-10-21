@@ -41,8 +41,14 @@ import {
     fetchFluidBalanceEntry,
     saveFluidBalance,
     updateFluidBalance,
-    deleteFluidBalance
-} from './inpatient-admissions.service.js?v=8';
+    deleteFluidBalance,
+    fetchShiftHandovers,
+    fetchShiftHandover,
+    saveShiftHandover,
+    updateShiftHandover,
+    signIncomingShiftHandover,
+    deleteShiftHandover
+} from './inpatient-admissions.service.js?v=9';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=41';
 import { systemNow } from "../../core/timezone.js";
@@ -579,6 +585,101 @@ function setupEventListeners() {
     document.querySelectorAll('#formFluidBalance .fbc-vol-input').forEach(inp => {
         inp.addEventListener('input', () => recalculateLiveFbcForm());
     });
+
+    // Modal Daily Ward Round -> Open SBAR Nurse Shift Handovers
+    const btnRoundViewSbar = document.getElementById('btnRoundViewSbar');
+    if (btnRoundViewSbar) {
+        btnRoundViewSbar.onclick = () => {
+            if (currentRoundsAdmissionId) {
+                openShiftHandoverModal(currentRoundsAdmissionId);
+            }
+        };
+    }
+
+    // Modal SBAR Nurse Shift Handovers Tabs & Filter Chips
+    const tabBtnSbarLog = document.getElementById('tabBtnSbarLog');
+    const tabBtnSbarNew = document.getElementById('tabBtnSbarNew');
+    const paneSbarLog = document.getElementById('paneSbarLog');
+    const paneSbarForm = document.getElementById('paneSbarForm');
+    const sbarFilterBar = document.getElementById('sbarStatusFilterBar');
+
+    if (tabBtnSbarLog && tabBtnSbarNew) {
+        tabBtnSbarLog.onclick = () => {
+            tabBtnSbarLog.classList.add('active');
+            tabBtnSbarLog.style.color = '#4f46e5';
+            tabBtnSbarLog.style.borderBottom = '2px solid #4f46e5';
+            tabBtnSbarNew.classList.remove('active');
+            tabBtnSbarNew.style.color = '#64748b';
+            tabBtnSbarNew.style.borderBottom = '2px solid transparent';
+            if (paneSbarLog) paneSbarLog.style.display = 'block';
+            if (paneSbarForm) paneSbarForm.style.display = 'none';
+            if (sbarFilterBar) sbarFilterBar.style.display = 'flex';
+        };
+
+        tabBtnSbarNew.onclick = () => {
+            tabBtnSbarNew.classList.add('active');
+            tabBtnSbarNew.style.color = '#4f46e5';
+            tabBtnSbarNew.style.borderBottom = '2px solid #4f46e5';
+            tabBtnSbarLog.classList.remove('active');
+            tabBtnSbarLog.style.color = '#64748b';
+            tabBtnSbarLog.style.borderBottom = '2px solid transparent';
+            if (paneSbarLog) paneSbarLog.style.display = 'none';
+            if (paneSbarForm) paneSbarForm.style.display = 'block';
+            if (sbarFilterBar) sbarFilterBar.style.display = 'none';
+        };
+    }
+
+    if (sbarFilterBar) {
+        sbarFilterBar.querySelectorAll('.sbar-filter-chip').forEach(chip => {
+            chip.onclick = () => {
+                const statusVal = chip.getAttribute('data-status') || 'all';
+                activeSbarStatusFilter = statusVal;
+                sbarFilterBar.querySelectorAll('.sbar-filter-chip').forEach(c => {
+                    c.classList.remove('active');
+                    c.style.border = '1px solid #cbd5e1';
+                    c.style.background = '#fff';
+                    c.style.color = '#475569';
+                });
+                chip.classList.add('active');
+                chip.style.border = '1px solid #4f46e5';
+                chip.style.background = '#4f46e5';
+                chip.style.color = '#fff';
+
+                if (currentSbarAdmissionId) {
+                    loadShiftHandovers(currentSbarAdmissionId, statusVal);
+                }
+            };
+        });
+    }
+
+    const btnCancelSbarForm = document.getElementById('btnCancelSbarForm');
+    if (btnCancelSbarForm) {
+        btnCancelSbarForm.onclick = () => {
+            if (tabBtnSbarLog) tabBtnSbarLog.click();
+        };
+    }
+
+    const btnAutofillSbarChart = document.getElementById('btnAutofillSbarChart');
+    if (btnAutofillSbarChart) {
+        btnAutofillSbarChart.onclick = () => {
+            autofillSbarFromChart();
+        };
+    }
+
+    const sbarOutNameInput = document.getElementById('sbarOutgoingNurseName');
+    if (sbarOutNameInput) {
+        sbarOutNameInput.addEventListener('input', () => {
+            const preview = document.getElementById('sbarOutgoingSigPreview');
+            if (!preview) return;
+            const val = sbarOutNameInput.value.trim();
+            if (val) {
+                const stamp = val.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+                preview.textContent = `🔒 ESIGN_OUTGOING_RN_${stamp}`;
+            } else {
+                preview.textContent = '🔒 Digital Stamp: Will be signed upon submission';
+            }
+        });
+    }
 
     // Transfer Admission Select Change
     const transAdmSel = document.getElementById('transferAdmissionSelect');
@@ -1142,6 +1243,68 @@ function setupFormSubmissions() {
             }
         };
     }
+
+    // 11. Form SBAR Nurse Shift Handover (nursing_shift_handovers)
+    const formSbar = document.getElementById('formShiftHandover');
+    if (formSbar) {
+        formSbar.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(formSbar);
+            const payload = Object.fromEntries(formData.entries());
+
+            if (!payload.sbar_situation?.trim() || !payload.sbar_background?.trim() || !payload.sbar_assessment?.trim() || !payload.sbar_recommendation?.trim()) {
+                showToast('Please complete all four SBAR sections (Situation, Background, Assessment, Recommendation).', 'error');
+                return;
+            }
+            if (!payload.outgoing_nurse_name?.trim()) {
+                showToast('Outgoing Nurse name and credentials are required for digital sign-off.', 'error');
+                return;
+            }
+
+            // Collect checked bedside safety verification items
+            const checkedSafety = [];
+            formSbar.querySelectorAll('.sbar-safety-chk:checked').forEach(chk => {
+                checkedSafety.push(chk.value);
+            });
+            payload.safety_checks = checkedSafety;
+
+            const isEdit = Boolean(payload.id && Number(payload.id) > 0);
+            const submitBtn = document.getElementById('btnSubmitSbarForm');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = isEdit ? 'Updating Handover...' : 'Signing & Saving Handover...';
+            }
+
+            try {
+                const res = isEdit ? await updateShiftHandover(payload) : await saveShiftHandover(payload);
+                if (res && res.success) {
+                    const isDual = res.data?.handover_status === 'Dual-Signed / Completed';
+                    showToast(
+                        isDual
+                            ? 'SBAR shift handover completed with Dual Digital Sign-Off (Outgoing & Incoming RN)!'
+                            : 'SBAR shift handover signed by Outgoing RN — awaiting Incoming RN sign-off.',
+                        'success'
+                    );
+                    resetSbarFormForNew();
+                    const tabLog = document.getElementById('tabBtnSbarLog');
+                    if (tabLog) tabLog.click();
+                    if (payload.admission_id) {
+                        await loadShiftHandovers(payload.admission_id, activeSbarStatusFilter);
+                    }
+                    await fetchWhiteboard(true);
+                } else {
+                    showToast('Failed to save shift handover: ' + (res?.message || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                showToast('Error saving shift handover: ' + (err.message || 'Server error'), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '✍️ Sign & Submit SBAR Shift Handover';
+                }
+            }
+        };
+    }
 }
 
 export async function fetchWhiteboard(isSilent = false) {
@@ -1454,6 +1617,9 @@ function renderBedCard(bed) {
             <button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}" aria-label="24-hour fluid balance intake and output chart">
                 💧 Fluid I&amp;O
             </button>
+            <button class="bed-action-btn" style="background:#4f46e5;color:#fff;border-color:#4f46e5;font-weight:700" data-act="shift-handover" data-adm-id="${bed.admission_id}" aria-label="SBAR nurse shift handover with dual digital sign-off">
+                🔁 SBAR Handover
+            </button>
             <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">
                 🔄 Transfer
             </button>
@@ -1482,6 +1648,9 @@ function renderBedCard(bed) {
             </button>
             <button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}" aria-label="24-hour fluid balance intake and output chart">
                 💧 Fluid I&amp;O
+            </button>
+            <button class="bed-action-btn" style="background:#4f46e5;color:#fff;border-color:#4f46e5;font-weight:700" data-act="shift-handover" data-adm-id="${bed.admission_id}" aria-label="SBAR nurse shift handover with dual digital sign-off">
+                🔁 SBAR Handover
             </button>
             <button class="bed-action-btn btn-act-discharge" style="width: 100%; justify-content: center; padding: 7px;" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Complete Discharge Orders
@@ -1550,6 +1719,7 @@ function renderTable(beds) {
                     <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button>
                     <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button>
                     <button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}">💧 Fluid I&amp;O</button>
+                    <button class="bed-action-btn" style="background:#4f46e5;color:#fff;border-color:#4f46e5;font-weight:700" data-act="shift-handover" data-adm-id="${bed.admission_id}">🔁 SBAR</button>
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
                     ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}">Labs</button>
@@ -1558,7 +1728,7 @@ function renderTable(beds) {
                 </div>
             `;
         } else if (bed.status === 'Pending Discharge') {
-            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button><button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}">💧 Fluid I&amp;O</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
+            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button><button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}">💧 Fluid I&amp;O</button><button class="bed-action-btn" style="background:#4f46e5;color:#fff;border-color:#4f46e5;font-weight:700" data-act="shift-handover" data-adm-id="${bed.admission_id}">🔁 SBAR</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
                 <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button></div>`;
         } else if (bed.status === 'Dirty / Turnover') {
             actionBtns = `<button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">Sanitize</button>`;
@@ -1708,6 +1878,12 @@ function attachBedCardListeners(container) {
         btn.onclick = () => {
             const admId = btn.getAttribute('data-adm-id');
             openFluidBalanceModal(admId);
+        };
+    });
+    container.querySelectorAll('[data-act="shift-handover"]').forEach(btn => {
+        btn.onclick = () => {
+            const admId = btn.getAttribute('data-adm-id');
+            openShiftHandoverModal(admId);
         };
     });
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
@@ -3497,4 +3673,457 @@ function populateFluidEntryForEdit(row) {
 
     const tabRec = document.getElementById('tabBtnFbcRecord');
     if (tabRec) tabRec.click();
+}
+
+
+/**
+ * SBAR Nurse Shift Handovers (nursing_shift_handovers)
+ * Standardized Situation, Background, Assessment, Recommendation with Dual Digital Sign-Off
+ */
+let currentSbarAdmissionId = null;
+let activeSbarStatusFilter = 'all';
+let cachedSbarClinicalContext = null;
+
+async function openShiftHandoverModal(admissionId) {
+    const modal = document.getElementById('modalShiftHandover');
+    if (!modal) return;
+
+    const bed = (currentCensusData.beds || []).find(b => b.admission_id == admissionId);
+    if (!bed) {
+        showToast('Inpatient admission data not found', 'error');
+        return;
+    }
+
+    currentSbarAdmissionId = admissionId;
+    activeSbarStatusFilter = 'all';
+
+    // Populate Patient Demographic Banner
+    document.getElementById('sbarPatientName').textContent = bed.patient_name || 'Patient';
+    document.getElementById('sbarPatientMrn').textContent = bed.patient_mrn || bed.patient_id || '--';
+    document.getElementById('sbarPatientAgeGender').textContent = `${bed.patient_age ? bed.patient_age + 'y' : '--'} / ${bed.patient_gender || bed.gender || '--'}`;
+    document.getElementById('sbarBedNo').textContent = `${bed.ward_code || ''} - ${bed.bed_number || '--'}`;
+    document.getElementById('sbarLos').textContent = `${bed.los_days != null ? bed.los_days : 0} days`;
+    document.getElementById('sbarAdmittingDiag').textContent = bed.admitting_diagnosis || 'Under Observation';
+    document.getElementById('sbarAttendingPhysician').textContent = bed.attending_physician || 'Attending Physician';
+    document.getElementById('sbarCurrentNurse').textContent = bed.shift_nurse_name || bed.primary_nurse || 'Nurse On-Duty';
+
+    // Reset filter chips to 'all'
+    const filterBar = document.getElementById('sbarStatusFilterBar');
+    if (filterBar) {
+        filterBar.querySelectorAll('.sbar-filter-chip').forEach(c => {
+            const isAll = c.getAttribute('data-status') === 'all';
+            c.classList.toggle('active', isAll);
+            c.style.border = isAll ? '1px solid #4f46e5' : '1px solid #cbd5e1';
+            c.style.background = isAll ? '#4f46e5' : '#fff';
+            c.style.color = isAll ? '#fff' : '#475569';
+        });
+    }
+
+    resetSbarFormForNew(bed);
+
+    const tabLog = document.getElementById('tabBtnSbarLog');
+    if (tabLog) tabLog.click();
+
+    modal.classList.add('open');
+
+    await loadShiftHandovers(admissionId, 'all');
+}
+
+function resetSbarFormForNew(bed = null) {
+    const form = document.getElementById('formShiftHandover');
+    if (form) form.reset();
+
+    if (!bed && currentSbarAdmissionId) {
+        bed = (currentCensusData.beds || []).find(b => b.admission_id == currentSbarAdmissionId);
+    }
+
+    document.getElementById('sbarFormRecordId').value = '';
+    document.getElementById('sbarFormAdmissionId').value = currentSbarAdmissionId || (bed ? bed.admission_id : '');
+    document.getElementById('sbarFormPatientId').value = bed?.patient_id || '';
+
+    const now = systemNow();
+    const dtInput = document.getElementById('sbarDateTime');
+    if (dtInput) {
+        const pad = n => String(n).padStart(2, '0');
+        dtInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+
+    // Default shift transition based on current hour
+    const hr = now.getHours();
+    const transSel = document.getElementById('sbarShiftTransition');
+    if (transSel) {
+        if (hr >= 6 && hr < 14) {
+            transSel.value = 'Morning to Afternoon (07:00 → 15:00)';
+        } else if (hr >= 14 && hr < 22) {
+            transSel.value = 'Afternoon to Night (15:00 → 23:00)';
+        } else {
+            transSel.value = 'Night to Morning (23:00 → 07:00)';
+        }
+    }
+
+    if (bed) {
+        const isoInput = document.getElementById('sbarIsolation');
+        if (isoInput) isoInput.value = bed.isolation_precautions || 'Standard';
+    }
+
+    const outNameInput = document.getElementById('sbarOutgoingNurseName');
+    const preview = document.getElementById('sbarOutgoingSigPreview');
+    if (outNameInput) {
+        const defaultNurse = currentUser?.full_name || currentUser?.name || bed?.shift_nurse_name || bed?.primary_nurse || '';
+        outNameInput.value = defaultNurse ? (defaultNurse.includes('RN') ? defaultNurse : `${defaultNurse}, RN`) : '';
+        if (preview) {
+            if (outNameInput.value) {
+                const stamp = outNameInput.value.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+                preview.textContent = `🔒 ESIGN_OUTGOING_RN_${stamp}`;
+            } else {
+                preview.textContent = '🔒 Digital Stamp: Will be signed upon submission';
+            }
+        }
+    }
+
+    document.querySelectorAll('#formShiftHandover .sbar-safety-chk').forEach(chk => {
+        chk.checked = true;
+    });
+
+    const submitBtn = document.getElementById('btnSubmitSbarForm');
+    if (submitBtn) submitBtn.textContent = '✍️ Sign & Submit SBAR Shift Handover';
+}
+
+function autofillSbarFromChart() {
+    const bed = (currentCensusData.beds || []).find(b => b.admission_id == currentSbarAdmissionId);
+    const ctx = cachedSbarClinicalContext || {};
+    const rnd = ctx.latest_round || null;
+    const fb = ctx.fluid_24h_summary || null;
+    const cps = ctx.active_care_plans || [];
+
+    const ptName = bed?.patient_name || 'Patient';
+    const ageSex = `${bed?.patient_age ? bed.patient_age + 'y' : ''}/${bed?.patient_gender || ''}`;
+    const dx = bed?.admitting_diagnosis || ctx.admission?.admitting_diagnosis || 'Inpatient medical management';
+    const los = bed?.los_days != null ? `${bed.los_days} day(s)` : 'active stay';
+    const traj = rnd?.clinical_trajectory || 'Stable';
+
+    // S - Situation
+    const sitText = `${ptName} (${ageSex}) admitted to ${bed?.ward_name || 'Ward'} [${bed?.bed_number || '--'}] for ${dx} (LOS: ${los}). Current clinical trajectory per rounding physician (${rnd?.rounding_physician_name || bed?.attending_physician || 'Attending MD'}): ${traj}. Isolation: ${bed?.isolation_precautions || 'Standard'}.`;
+
+    // B - Background
+    const diet = rnd?.diet_order || 'Regular / Per Orders';
+    const activity = rnd?.activity_order || 'As tolerated';
+    const bgText = `Admitted under ${bed?.attending_physician || 'Attending Physician'}. Diet Order: ${diet}. Activity Order: ${activity}. Patent peripheral IV access maintained; scheduled MAR medications up to date.${rnd?.assessment ? ' Physician Round Summary: ' + rnd.assessment : ''}`;
+
+    // A - Assessment
+    let fluidStr = '24h Fluid Balance: Monitoring active.';
+    if (fb) {
+        const netSign = fb.net_24h_ml > 0 ? '+' : '';
+        fluidStr = `24h Fluid I&O Summary: Intake ${fb.intake_24h_ml} mL | Output ${fb.output_24h_ml} mL (Urine: ${fb.urine_24h_ml} mL) | Running 24h Net Balance: ${netSign}${fb.net_24h_ml} mL.`;
+    }
+    const vitalsStr = bed?.vitals_state ? `Vitals Status: ${bed.vitals_state}.` : 'Vital signs stable and charted on schedule.';
+    const assText = `${vitalsStr} ${fluidStr} Patient alert, oriented, pain controlled, call bell and fall precautions in place.`;
+
+    // R - Recommendation
+    const recParts = [];
+    if (rnd?.plan) {
+        recParts.push(`Daily MD Plan: ${rnd.plan}`);
+    }
+    if (cps.length > 0) {
+        const cpSummary = cps.map(c => `${c.nursing_diagnosis} (${c.evaluation_status || 'In Progress'})`).join('; ');
+        recParts.push(`Continue NANDA Care Plans: ${cpSummary}.`);
+    }
+    if (rnd?.target_discharge_date) {
+        recParts.push(`Target Discharge Date: ${rnd.target_discharge_date}.`);
+    }
+    recParts.push('Continue scheduled vital signs, strict I&O charting, and notify on-call physician for acute deterioration or NEWS2 ≥ 5.');
+
+    document.getElementById('sbarInputSituation').value = sitText;
+    document.getElementById('sbarInputBackground').value = bgText;
+    document.getElementById('sbarInputAssessment').value = assText;
+    document.getElementById('sbarInputRecommendation').value = recParts.join('\n');
+
+    showToast('SBAR sections auto-populated from live inpatient chart!', 'success');
+}
+
+async function loadShiftHandovers(admissionId, statusFilter = 'all') {
+    const container = document.getElementById('sbarHandoverListContainer');
+    if (!container) return;
+
+    container.innerHTML = `<div style="text-align: center; padding: 30px; color: #64748b;">Loading SBAR shift handovers...</div>`;
+
+    try {
+        const res = await fetchShiftHandovers(admissionId, statusFilter);
+        if (!res || !res.success || !res.data) {
+            container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Failed to load SBAR shift handovers.</div>`;
+            return;
+        }
+
+        const { handovers = [], summary = {}, clinical_autofill = null } = res.data;
+        cachedSbarClinicalContext = clinical_autofill;
+
+        // Update KPI strip
+        document.getElementById('sbarKpiTotal').textContent = summary.total_count ?? 0;
+        document.getElementById('sbarKpiDualSigned').textContent = summary.dual_signed_count ?? 0;
+        document.getElementById('sbarKpiPending').textContent = summary.pending_count ?? 0;
+        document.getElementById('sbarKpiClarify').textContent = summary.clarification_count ?? 0;
+        document.getElementById('sbarLogCountBadge').textContent = handovers.length;
+
+        if (handovers.length === 0) {
+            container.innerHTML = `
+                <div style="background: #fff; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 36px 24px; text-align: center;">
+                    <div style="font-size: 34px; margin-bottom: 8px;">🔁</div>
+                    <div style="font-size: 15px; font-weight: 700; color: #1e293b;">No SBAR Nurse Shift Handovers Recorded Yet</div>
+                    <p style="font-size: 12.5px; color: #64748b; max-width: 520px; margin: 6px auto 14px;">
+                        Ensure uninterrupted continuity of care across Morning → Afternoon → Night shifts by documenting a standardized SBAR handover with outgoing and incoming nurse digital sign-offs.
+                    </p>
+                    <button type="button" class="btn-inpatient btn-inpatient-primary" id="btnEmptySbarStart" style="background: #4f46e5; border-color: #4f46e5;">
+                        ➕ Document First SBAR Shift Handover
+                    </button>
+                </div>
+            `;
+            document.getElementById('btnEmptySbarStart')?.addEventListener('click', () => {
+                document.getElementById('tabBtnSbarNew')?.click();
+            });
+            return;
+        }
+
+        let html = `<div style="display: flex; flex-direction: column; gap: 14px;">`;
+
+        handovers.forEach(h => {
+            const dt = h.handover_datetime ? new Date(h.handover_datetime).toLocaleString() : '--';
+            const isDualSigned = h.handover_status === 'Dual-Signed / Completed';
+            const isPending = h.handover_status === 'Pending Incoming Sign-Off';
+            const isClarify = h.handover_status === 'Clarification Requested';
+
+            let statusBadge = `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;">⏳ Pending Incoming Sign-Off</span>`;
+            if (isDualSigned) {
+                statusBadge = `<span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;">✅ Dual-Signed &amp; Verified</span>`;
+            } else if (isClarify) {
+                statusBadge = `<span style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;">⚠️ Clarification Requested</span>`;
+            }
+
+            const safetyList = Array.isArray(h.safety_checks) ? h.safety_checks : [];
+            const safetyPills = safetyList.map(item =>
+                `<span style="font-size: 10.5px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 10px;">✔️ ${esc(item)}</span>`
+            ).join(' ');
+
+            html += `
+                <div style="background: #fff; border: 1px solid ${isPending ? '#fcd34d' : '#cbd5e1'}; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                    <!-- Card Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 12px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-family: monospace; font-size: 12px; font-weight: 800; background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 6px;">${esc(h.handover_number)}</span>
+                                <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${esc(h.shift_transition)}</span>
+                                ${statusBadge}
+                            </div>
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 4px;">
+                                🕒 ${esc(dt)} · Acuity: <strong style="color: #1e293b;">${esc(h.acuity_level)}</strong> · Code: <strong>${esc(h.code_status)}</strong> · Fall Risk: <strong>${esc(h.fall_risk_level)}</strong> · Allergies: <strong>${esc(h.allergies_summary || 'NKDA')}</strong>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary btn-edit-sbar" data-handover-id="${h.id}" style="padding: 4px 9px; font-size: 11.5px;">✏️ Edit</button>
+                            <button type="button" class="btn-inpatient btn-delete-sbar" data-handover-id="${h.id}" style="padding: 4px 9px; font-size: 11.5px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">🗑️</button>
+                        </div>
+                    </div>
+
+                    <!-- 4-Quadrant SBAR Display Grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                        <div style="background: #eff6ff; border-left: 4px solid #2563eb; padding: 8px 12px; border-radius: 0 6px 6px 0;">
+                            <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 3px;">🟦 S — Situation</div>
+                            <div style="font-size: 12.5px; color: #1e293b; white-space: pre-line;">${esc(h.sbar_situation)}</div>
+                        </div>
+                        <div style="background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 8px 12px; border-radius: 0 6px 6px 0;">
+                            <div style="font-size: 11px; font-weight: 800; color: #4c1d95; text-transform: uppercase; margin-bottom: 3px;">🟪 B — Background</div>
+                            <div style="font-size: 12.5px; color: #1e293b; white-space: pre-line;">${esc(h.sbar_background)}</div>
+                        </div>
+                        <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 8px 12px; border-radius: 0 6px 6px 0;">
+                            <div style="font-size: 11px; font-weight: 800; color: #14532d; text-transform: uppercase; margin-bottom: 3px;">🟩 A — Assessment</div>
+                            <div style="font-size: 12.5px; color: #1e293b; white-space: pre-line;">${esc(h.sbar_assessment)}</div>
+                        </div>
+                        <div style="background: #fffbeb; border-left: 4px solid #d97706; padding: 8px 12px; border-radius: 0 6px 6px 0;">
+                            <div style="font-size: 11px; font-weight: 800; color: #78350f; text-transform: uppercase; margin-bottom: 3px;">🟧 R — Recommendation</div>
+                            <div style="font-size: 12.5px; color: #1e293b; white-space: pre-line;">${esc(h.sbar_recommendation)}</div>
+                        </div>
+                    </div>
+
+                    ${safetyPills ? `
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">
+                            ${safetyPills}
+                        </div>
+                    ` : ''}
+
+                    <!-- Dual Digital Sign-Off Audit Box -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px;">
+                        <!-- Outgoing Nurse Signature -->
+                        <div style="border-right: 1px solid #e2e8f0; padding-right: 10px;">
+                            <div style="font-size: 10.5px; font-weight: 800; color: #0369a1; text-transform: uppercase;">1. Outgoing Shift Nurse (${esc(h.outgoing_shift)})</div>
+                            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">👩‍⚕️ ${esc(h.outgoing_nurse_name)}</div>
+                            <div style="font-size: 10.5px; font-family: monospace; color: #0284c7; margin-top: 2px;">🔒 ${esc(h.outgoing_nurse_signature)}</div>
+                            <div style="font-size: 10.5px; color: #64748b;">Signed: ${esc(h.outgoing_signed_at || dt)}</div>
+                        </div>
+
+                        <!-- Incoming Nurse Signature or Interactive Co-Sign Box -->
+                        <div>
+                            <div style="font-size: 10.5px; font-weight: 800; color: #15803d; text-transform: uppercase;">2. Incoming Shift Nurse (${esc(h.incoming_shift)})</div>
+                            ${isDualSigned ? `
+                                <div style="font-size: 13px; font-weight: 700; color: #166534; margin-top: 2px;">👩‍⚕️ ${esc(h.incoming_nurse_name)}</div>
+                                <div style="font-size: 10.5px; font-family: monospace; color: #15803d; margin-top: 2px;">🔒 ${esc(h.incoming_nurse_signature)}</div>
+                                <div style="font-size: 10.5px; color: #64748b;">Co-Signed: ${esc(h.incoming_signed_at || '--')}</div>
+                                ${h.incoming_acknowledgment_notes ? `<div style="font-size: 11px; color: #334155; margin-top: 3px; font-style: italic;">"${esc(h.incoming_acknowledgment_notes)}"</div>` : ''}
+                            ` : `
+                                <div style="margin-top: 6px; background: #fff; border: 1px solid #86efac; border-radius: 6px; padding: 8px 10px;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                                        <input type="text" class="form-control inp-cosign-name" data-handover-id="${h.id}" placeholder="Incoming Nurse Name, RN *" value="${esc(currentUser?.full_name || currentUser?.name || '')}" style="padding: 5px 8px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;" />
+                                        <input type="text" class="form-control inp-cosign-notes" data-handover-id="${h.id}" placeholder="Bedside verification remarks..." value="${esc(h.incoming_acknowledgment_notes || '')}" style="padding: 5px 8px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;" />
+                                    </div>
+                                    <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                                        <button type="button" class="btn-inpatient btn-cosign-clarify" data-handover-id="${h.id}" style="padding: 4px 9px; font-size: 11px; background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; cursor: pointer;">⚠️ Request Clarification</button>
+                                        <button type="button" class="btn-inpatient btn-cosign-accept" data-handover-id="${h.id}" style="padding: 4px 11px; font-size: 11px; background: #16a34a; color: #fff; border: 1px solid #16a34a; font-weight: 700; cursor: pointer;">✍️ Co-Sign &amp; Accept Shift Handover</button>
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+
+        // Wire Incoming Nurse Co-Sign Accept buttons
+        container.querySelectorAll('.btn-cosign-accept').forEach(btn => {
+            btn.onclick = async () => {
+                const hId = btn.getAttribute('data-handover-id');
+                const nameInp = container.querySelector(`.inp-cosign-name[data-handover-id="${hId}"]`);
+                const notesInp = container.querySelector(`.inp-cosign-notes[data-handover-id="${hId}"]`);
+                const incName = nameInp?.value?.trim() || '';
+
+                if (!incName) {
+                    showToast('Please enter the Incoming Nurse Full Name & Credentials to digitally co-sign.', 'error');
+                    nameInp?.focus();
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.textContent = 'Signing...';
+                try {
+                    const sRes = await signIncomingShiftHandover({
+                        id: hId,
+                        incoming_nurse_name: incName,
+                        incoming_acknowledgment_notes: notesInp?.value?.trim() || 'Bedside SBAR reviewed and patient accepted for incoming shift.',
+                        handover_status: 'Dual-Signed / Completed'
+                    });
+                    if (sRes && sRes.success) {
+                        showToast('Dual Digital Sign-Off completed! Incoming shift nurse updated.', 'success');
+                        await loadShiftHandovers(admissionId, activeSbarStatusFilter);
+                        await fetchWhiteboard(true);
+                    } else {
+                        showToast('Co-sign failed: ' + (sRes?.message || 'Error'), 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✍️ Co-Sign & Accept Shift Handover';
+                    }
+                } catch (err) {
+                    showToast('Co-sign error: ' + err.message, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '✍️ Co-Sign & Accept Shift Handover';
+                }
+            };
+        });
+
+        // Wire Request Clarification buttons
+        container.querySelectorAll('.btn-cosign-clarify').forEach(btn => {
+            btn.onclick = async () => {
+                const hId = btn.getAttribute('data-handover-id');
+                const nameInp = container.querySelector(`.inp-cosign-name[data-handover-id="${hId}"]`);
+                const notesInp = container.querySelector(`.inp-cosign-notes[data-handover-id="${hId}"]`);
+                const incName = nameInp?.value?.trim() || '';
+
+                if (!incName) {
+                    showToast('Please enter Incoming Nurse Name to log clarification request.', 'error');
+                    nameInp?.focus();
+                    return;
+                }
+
+                try {
+                    const sRes = await signIncomingShiftHandover({
+                        id: hId,
+                        incoming_nurse_name: incName,
+                        incoming_acknowledgment_notes: notesInp?.value?.trim() || 'Clarification requested at shift change.',
+                        handover_status: 'Clarification Requested'
+                    });
+                    if (sRes && sRes.success) {
+                        showToast('Handover flagged for clinical clarification.', 'warning');
+                        await loadShiftHandovers(admissionId, activeSbarStatusFilter);
+                    }
+                } catch (err) {
+                    showToast('Error: ' + err.message, 'error');
+                }
+            };
+        });
+
+        // Wire Edit buttons
+        container.querySelectorAll('.btn-edit-sbar').forEach(btn => {
+            btn.onclick = () => {
+                const hId = btn.getAttribute('data-handover-id');
+                const target = handovers.find(x => x.id == hId);
+                if (target) populateHandoverForEdit(target);
+            };
+        });
+
+        // Wire Delete buttons
+        container.querySelectorAll('.btn-delete-sbar').forEach(btn => {
+            btn.onclick = async () => {
+                const hId = btn.getAttribute('data-handover-id');
+                if (!confirm('Delete this SBAR shift handover record?')) return;
+                try {
+                    const dRes = await deleteShiftHandover(hId);
+                    if (dRes && dRes.success) {
+                        showToast('Shift handover record deleted', 'success');
+                        await loadShiftHandovers(admissionId, activeSbarStatusFilter);
+                    } else {
+                        showToast('Delete failed: ' + (dRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Delete error: ' + err.message, 'error');
+                }
+            };
+        });
+
+    } catch (err) {
+        container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading SBAR shift handovers: ${esc(err.message)}</div>`;
+    }
+}
+
+function populateHandoverForEdit(row) {
+    document.getElementById('sbarFormRecordId').value = row.id;
+    document.getElementById('sbarFormAdmissionId').value = row.admission_id;
+    document.getElementById('sbarFormPatientId').value = row.patient_id || '';
+
+    if (row.handover_datetime) {
+        document.getElementById('sbarDateTime').value = row.handover_datetime.replace(' ', 'T').slice(0, 16);
+    }
+    document.getElementById('sbarShiftTransition').value = row.shift_transition || 'Morning to Afternoon (07:00 → 15:00)';
+    document.getElementById('sbarAcuityLevel').value = row.acuity_level || 'Level 2 - Moderate Acuity';
+    document.getElementById('sbarFallRisk').value = row.fall_risk_level || 'Low';
+    document.getElementById('sbarCodeStatus').value = row.code_status || 'Full Code';
+    document.getElementById('sbarIsolation').value = row.isolation_precautions || 'Standard';
+    document.getElementById('sbarAllergies').value = row.allergies_summary || 'NKDA';
+
+    document.getElementById('sbarInputSituation').value = row.sbar_situation || '';
+    document.getElementById('sbarInputBackground').value = row.sbar_background || '';
+    document.getElementById('sbarInputAssessment').value = row.sbar_assessment || '';
+    document.getElementById('sbarInputRecommendation').value = row.sbar_recommendation || '';
+
+    document.getElementById('sbarOutgoingNurseName').value = row.outgoing_nurse_name || '';
+    document.getElementById('sbarIncomingNurseName').value = row.incoming_nurse_name || '';
+    document.getElementById('sbarIncomingNotes').value = row.incoming_acknowledgment_notes || '';
+
+    const safetySet = new Set(Array.isArray(row.safety_checks) ? row.safety_checks : []);
+    document.querySelectorAll('#formShiftHandover .sbar-safety-chk').forEach(chk => {
+        chk.checked = safetySet.size === 0 ? true : safetySet.has(chk.value);
+    });
+
+    const submitBtn = document.getElementById('btnSubmitSbarForm');
+    if (submitBtn) submitBtn.textContent = `💾 Update SBAR Handover (${row.handover_number || '#' + row.id})`;
+
+    const tabNew = document.getElementById('tabBtnSbarNew');
+    if (tabNew) tabNew.click();
 }

@@ -1831,9 +1831,10 @@ export function InpatientAdmissionsView() {
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="button" id="btnRoundViewSbar" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">🔁 SBAR Handover</button>
                         <button type="button" id="btnRoundViewFluid" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">💧 Fluid I&amp;O</button>
                         <button type="button" id="btnRoundViewNcp" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">📋 Nursing Care Plans</button>
-                        <button type="button" id="btnRoundViewMpn" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">🤝 Allied Health Notes</button>
+                        <button type="button" id="btnRoundViewMpn" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">🤝 Allied Health Notes</button>
                         <span id="dailyRoundNumberBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #38bdf8; color: #0f172a; font-family: monospace;">New Round</span>
                         <button class="inpatient-modal-close" data-close-modal style="color: #cbd5e1;">&times;</button>
                     </div>
@@ -2668,6 +2669,308 @@ export function InpatientAdmissionsView() {
                 <div class="inpatient-modal-footer" style="padding: 10px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                     <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
                         <span>⚠️</span> Automatic thresholds: Fluid Overload Warning ≥ +1,000 mL/24h (Critical ≥ +2,000 mL) | Negative Balance Warning ≤ -800 mL/24h (Critical ≤ -1,500 mL).
+                    </div>
+                    <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL: SBAR NURSE SHIFT HANDOVERS (nursing_shift_handovers)     -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalShiftHandover">
+            <div class="inpatient-modal-content" style="max-width: 1080px; width: 96%; max-height: 94vh; display: flex; flex-direction: column;">
+                <!-- Header -->
+                <div class="inpatient-modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); color: #fff;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 22px;">🔁</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">SBAR Nurse Shift Handovers (Morning → Afternoon → Night)</h3>
+                            <span style="font-size: 11.5px; color: #c7d2fe;">Standardized Situation • Background • Assessment • Recommendation Protocol with Dual Digital Sign-Off</span>
+                        </div>
+                    </div>
+                    <button class="inpatient-modal-close" data-close-modal style="color: #e0e7ff;">&times;</button>
+                </div>
+
+                <!-- Patient Demographic & Clinical Context Banner -->
+                <div style="background: #eef2ff; padding: 11px 22px; border-bottom: 1px solid #c7d2fe; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                    <div>
+                        <div style="font-size: 15px; font-weight: 700; color: #1e1b4b;" id="sbarPatientName">Patient Name</div>
+                        <div style="font-size: 12px; color: #3730a3; margin-top: 2px;">
+                            MRN: <strong id="sbarPatientMrn" style="color: #1e1b4b;">--</strong> |
+                            Age/Sex: <strong id="sbarPatientAgeGender" style="color: #1e1b4b;">--</strong> |
+                            Ward/Bed: <strong id="sbarBedNo" style="color: #1e1b4b;">--</strong> |
+                            LOS: <strong id="sbarLos" style="color: #1e1b4b;">--</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #312e81;">
+                            Admitting Dx: <strong id="sbarAdmittingDiag" style="color: #1e1b4b;">--</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #4338ca; margin-top: 2px;">
+                            Attending MD: <span id="sbarAttendingPhysician">--</span> | Current RN: <strong id="sbarCurrentNurse">--</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shift Continuity Summary KPI Strip -->
+                <div style="background: #fff; padding: 10px 22px; border-bottom: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; flex-shrink: 0;">
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Shift Handovers</div>
+                            <div id="sbarKpiTotal" style="font-size: 18px; font-weight: 800; color: #0f172a; font-family: monospace;">0</div>
+                        </div>
+                        <span style="font-size: 20px;">📋</span>
+                    </div>
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 10.5px; font-weight: 700; color: #166534; text-transform: uppercase;">Dual-Signed (Completed)</div>
+                            <div id="sbarKpiDualSigned" style="font-size: 18px; font-weight: 800; color: #15803d; font-family: monospace;">0</div>
+                        </div>
+                        <span style="font-size: 20px;">✅</span>
+                    </div>
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 10.5px; font-weight: 700; color: #92400e; text-transform: uppercase;">Pending Incoming Sign-Off</div>
+                            <div id="sbarKpiPending" style="font-size: 18px; font-weight: 800; color: #b45309; font-family: monospace;">0</div>
+                        </div>
+                        <span style="font-size: 20px;">⏳</span>
+                    </div>
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 10.5px; font-weight: 700; color: #991b1b; text-transform: uppercase;">Clarification Requested</div>
+                            <div id="sbarKpiClarify" style="font-size: 18px; font-weight: 800; color: #dc2626; font-family: monospace;">0</div>
+                        </div>
+                        <span style="font-size: 20px;">⚠️</span>
+                    </div>
+                </div>
+
+                <!-- Tabs: Handover Log vs New SBAR Handover -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; background: #f8fafc; padding: 0 22px; flex-shrink: 0;">
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" id="tabBtnSbarLog" class="sbar-tab active" style="padding: 10px 16px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #4f46e5; border-bottom: 2px solid #4f46e5; cursor: pointer;">
+                            📜 Shift Handover Log &amp; Dual Sign-Offs (<span id="sbarLogCountBadge">0</span>)
+                        </button>
+                        <button type="button" id="tabBtnSbarNew" class="sbar-tab" style="padding: 10px 16px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #64748b; border-bottom: 2px solid transparent; cursor: pointer;">
+                            ➕ Document Shift Handover (SBAR)
+                        </button>
+                    </div>
+                    <!-- Status Filter Chips -->
+                    <div id="sbarStatusFilterBar" style="display: flex; gap: 6px; padding: 6px 0;">
+                        <button type="button" class="sbar-filter-chip active" data-status="all" style="padding: 3px 10px; font-size: 11px; border-radius: 12px; border: 1px solid #4f46e5; background: #4f46e5; color: #fff; font-weight: 600; cursor: pointer;">All Shifts</button>
+                        <button type="button" class="sbar-filter-chip" data-status="Pending Incoming Sign-Off" style="padding: 3px 10px; font-size: 11px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 600; cursor: pointer;">⏳ Pending Sign-Off</button>
+                        <button type="button" class="sbar-filter-chip" data-status="Dual-Signed / Completed" style="padding: 3px 10px; font-size: 11px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 600; cursor: pointer;">✅ Dual-Signed</button>
+                    </div>
+                </div>
+
+                <!-- TAB PANE 1: SBAR HANDOVER LOG & INCOMING CO-SIGN -->
+                <div id="paneSbarLog" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 16px 22px; background: #f8fafc;">
+                    <div id="sbarHandoverListContainer">
+                        <div style="text-align: center; padding: 30px; color: #64748b;">Loading SBAR shift handovers...</div>
+                    </div>
+                </div>
+
+                <!-- TAB PANE 2: CREATE / EDIT SBAR SHIFT HANDOVER -->
+                <div id="paneSbarForm" class="inpatient-modal-body" style="display: none; overflow-y: auto; flex: 1; padding: 18px 24px; background: #fff;">
+                    <form id="formShiftHandover" style="margin: 0;">
+                        <input type="hidden" name="id" id="sbarFormRecordId" />
+                        <input type="hidden" name="admission_id" id="sbarFormAdmissionId" />
+                        <input type="hidden" name="patient_id" id="sbarFormPatientId" />
+
+                        <!-- Auto-Draft Helper Bar -->
+                        <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="font-size: 12px; color: #312e81;">
+                                <strong>⚡ Smart Clinical Continuity Assistant:</strong> Auto-populate SBAR sections from this patient's latest Doctor Ward Round, 24h Fluid Balance (I&amp;O), and active NANDA Care Plans.
+                            </div>
+                            <button type="button" id="btnAutofillSbarChart" class="btn-inpatient btn-inpatient-primary" style="background: #4f46e5; border-color: #4f46e5; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                                ✨ Auto-Draft SBAR from Live Chart
+                            </button>
+                        </div>
+
+                        <!-- Shift Transition & Acuity Metadata Grid -->
+                        <div style="display: grid; grid-template-columns: 1.4fr 1fr 1.2fr 0.8fr; gap: 12px; margin-bottom: 12px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Shift Transition <span style="color: red;">*</span></label>
+                                <select class="form-control" name="shift_transition" id="sbarShiftTransition" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600;">
+                                    <option value="Morning to Afternoon (07:00 → 15:00)">☀️→🌇 Morning to Afternoon (07:00 → 15:00)</option>
+                                    <option value="Afternoon to Night (15:00 → 23:00)">🌇→🌙 Afternoon to Night (15:00 → 23:00)</option>
+                                    <option value="Night to Morning (23:00 → 07:00)">🌙→☀️ Night to Morning (23:00 → 07:00)</option>
+                                    <option value="Interim / Relief Handover">🔄 Interim / Relief Handover</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Handover Date &amp; Time <span style="color: red;">*</span></label>
+                                <input type="datetime-local" class="form-control" name="handover_datetime" id="sbarDateTime" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Patient Acuity Level <span style="color: red;">*</span></label>
+                                <select class="form-control" name="acuity_level" id="sbarAcuityLevel" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Level 1 - Stable">🟢 Level 1 - Stable</option>
+                                    <option value="Level 2 - Moderate Acuity" selected>🔵 Level 2 - Moderate Acuity</option>
+                                    <option value="Level 3 - High Acuity / Close Monitoring">🟠 Level 3 - High Acuity / Close Monitoring</option>
+                                    <option value="Level 4 - Critical / ICU 1:1">🔴 Level 4 - Critical / ICU 1:1</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Fall Risk</label>
+                                <select class="form-control" name="fall_risk_level" id="sbarFallRisk" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Low">Low Risk</option>
+                                    <option value="Moderate">Moderate Risk</option>
+                                    <option value="High">⚠️ High Fall Risk</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <label style="font-size: 11.5px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Code Status</label>
+                                <select class="form-control" name="code_status" id="sbarCodeStatus" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12.5px;">
+                                    <option value="Full Code">Full Code (CPR &amp; Intubation)</option>
+                                    <option value="DNR / DNI">DNR / DNI (Do Not Resuscitate / Intubate)</option>
+                                    <option value="DNR - Chemical Code Only">DNR - Chemical Code Only</option>
+                                    <option value="Comfort Measures Only">Comfort Measures / Palliative</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 11.5px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Isolation Precautions</label>
+                                <input type="text" class="form-control" name="isolation_precautions" id="sbarIsolation" value="Standard" placeholder="Standard, Contact, Droplet, Airborne" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12.5px;" />
+                            </div>
+                            <div>
+                                <label style="font-size: 11.5px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Known Allergies</label>
+                                <input type="text" class="form-control" name="allergies_summary" id="sbarAllergies" value="NKDA" placeholder="e.g. Penicillin (Anaphylaxis), NKDA" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12.5px;" />
+                            </div>
+                        </div>
+
+                        <!-- ========================================================= -->
+                        <!-- 4-QUADRANT SBAR STANDARDIZED CLINICAL PROTOCOL            -->
+                        <!-- ========================================================= -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <!-- S: SITUATION -->
+                            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 8px; padding: 12px 14px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="background: #2563eb; color: #fff; font-weight: 800; font-size: 13px; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;">S</span>
+                                    <div>
+                                        <div style="font-size: 13px; font-weight: 800; color: #1e3a8a;">SITUATION <span style="color: #dc2626;">*</span></div>
+                                        <div style="font-size: 11px; color: #3b82f6;">Primary diagnosis, current patient status, &amp; key events this shift</div>
+                                    </div>
+                                </div>
+                                <textarea class="form-control" name="sbar_situation" id="sbarInputSituation" rows="3" required placeholder="State admitting diagnosis, current clinical trajectory, and any acute changes or events during the outgoing shift..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #93c5fd; font-size: 12.5px; font-family: inherit; resize: vertical; background: #fff;"></textarea>
+                            </div>
+
+                            <!-- B: BACKGROUND -->
+                            <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-left: 5px solid #7c3aed; border-radius: 8px; padding: 12px 14px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="background: #7c3aed; color: #fff; font-weight: 800; font-size: 13px; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;">B</span>
+                                    <div>
+                                        <div style="font-size: 13px; font-weight: 800; color: #4c1d95;">BACKGROUND <span style="color: #dc2626;">*</span></div>
+                                        <div style="font-size: 11px; color: #6d28d9;">Pertinent history, active IV lines/infusions, drains, &amp; oxygen/airway</div>
+                                    </div>
+                                </div>
+                                <textarea class="form-control" name="sbar_background" id="sbarInputBackground" rows="3" required placeholder="Summarize relevant comorbidities, surgical procedures, IV access (peripheral/central), running infusions, catheters/drains, diet &amp; mobility..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #c4b5fd; font-size: 12.5px; font-family: inherit; resize: vertical; background: #fff;"></textarea>
+                            </div>
+
+                            <!-- A: ASSESSMENT -->
+                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 8px; padding: 12px 14px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="background: #16a34a; color: #fff; font-weight: 800; font-size: 13px; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;">A</span>
+                                    <div>
+                                        <div style="font-size: 13px; font-weight: 800; color: #14532d;">ASSESSMENT <span style="color: #dc2626;">*</span></div>
+                                        <div style="font-size: 11px; color: #15803d;">Latest vitals, NEWS2, pain score, 24h fluid I&amp;O net, &amp; abnormal labs</div>
+                                    </div>
+                                </div>
+                                <textarea class="form-control" name="sbar_assessment" id="sbarInputAssessment" rows="3" required placeholder="Document current vital signs, pain level, neurological/cardiopulmonary assessment, 24h fluid balance (Intake vs Output net mL), and critical lab/imaging results..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #86efac; font-size: 12.5px; font-family: inherit; resize: vertical; background: #fff;"></textarea>
+                            </div>
+
+                            <!-- R: RECOMMENDATION -->
+                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 8px; padding: 12px 14px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="background: #d97706; color: #fff; font-weight: 800; font-size: 13px; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;">R</span>
+                                    <div>
+                                        <div style="font-size: 13px; font-weight: 800; color: #78350f;">RECOMMENDATION <span style="color: #dc2626;">*</span></div>
+                                        <div style="font-size: 11px; color: #b45309;">Incoming shift priorities, due meds/labs, consults, &amp; MD call parameters</div>
+                                    </div>
+                                </div>
+                                <textarea class="form-control" name="sbar_recommendation" id="sbarInputRecommendation" rows="3" required placeholder="List pending tasks for the incoming nurse (timed antibiotics, lab draws, dressing changes, pending consults, NANDA care plan goals, and physician notification parameters)..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 12.5px; font-family: inherit; resize: vertical; background: #fff;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Bedside Safety & Continuity Verification Checklist -->
+                        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+                            <div style="font-size: 12.5px; font-weight: 800; color: #1e293b; margin-bottom: 8px;">
+                                🛡️ Bedside Continuity &amp; Safety Verification Checklist
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; font-size: 12px; color: #334155;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" class="sbar-safety-chk" value="Patient ID Band & Allergy Band Verified" checked />
+                                    <span>Patient ID &amp; Allergy Wristband Verified</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" class="sbar-safety-chk" value="IV Infusions, Pump Rates & Line Sites Inspected" checked />
+                                    <span>IV Infusions, Pump Rates &amp; Sites Checked</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" class="sbar-safety-chk" value="MAR Reviewed (Scheduled & PRN Meds Reconciled)" checked />
+                                    <span>MAR Reviewed (Scheduled &amp; PRNs)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" class="sbar-safety-chk" value="Surgical Drains, Foley & 24h Fluid I&O Verified" checked />
+                                    <span>Drains, Catheter &amp; 24h Fluid I&amp;O Verified</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" class="sbar-safety-chk" value="Bed Rails, Fall Alarms & Call Bell Within Reach" checked />
+                                    <span>Fall Alarms, Bed Rails &amp; Call Bell in Reach</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- ========================================================= -->
+                        <!-- DUAL DIGITAL SIGN-OFF PANEL (OUTGOING + INCOMING NURSES)  -->
+                        <!-- ========================================================= -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <!-- 1. OUTGOING NURSE SIGN-OFF -->
+                            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 14px 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-size: 13px; font-weight: 800; color: #0c4a6e;">👩‍⚕️ 1. Outgoing Nurse Digital Sign-Off <span style="color: #dc2626;">*</span></span>
+                                    <span style="font-size: 10.5px; background: #0284c7; color: #fff; padding: 2px 8px; border-radius: 10px; font-weight: 700;">Required</span>
+                                </div>
+                                <div style="margin-bottom: 8px;">
+                                    <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">Outgoing Nurse Full Name &amp; Credentials</label>
+                                    <input type="text" class="form-control" name="outgoing_nurse_name" id="sbarOutgoingNurseName" required placeholder="e.g. Maria Santos, BSN, RN" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 13px; background: #fff;" />
+                                </div>
+                                <div style="font-size: 11px; color: #0369a1; font-family: monospace; background: #e0f2fe; padding: 6px 10px; border-radius: 6px;" id="sbarOutgoingSigPreview">
+                                    🔒 Digital Stamp: Will be signed upon submission
+                                </div>
+                            </div>
+
+                            <!-- 2. INCOMING NURSE DIGITAL SIGN-OFF (BEDSIDE DUAL SIGN-OFF OR DEFERRED) -->
+                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-size: 13px; font-weight: 800; color: #14532d;">👩‍⚕️ 2. Incoming Nurse Digital Sign-Off</span>
+                                    <span style="font-size: 10.5px; background: #16a34a; color: #fff; padding: 2px 8px; border-radius: 10px; font-weight: 700;">Bedside Co-Sign or Defer</span>
+                                </div>
+                                <div style="margin-bottom: 8px;">
+                                    <label style="font-size: 11.5px; font-weight: 600; color: #14532d; display: block; margin-bottom: 3px;">Incoming Nurse Full Name &amp; Credentials (Leave blank if signing later)</label>
+                                    <input type="text" class="form-control" name="incoming_nurse_name" id="sbarIncomingNurseName" placeholder="e.g. Angela Reyes, BSN, RN (Co-sign now at bedside)" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #86efac; font-size: 13px; background: #fff;" />
+                                </div>
+                                <div>
+                                    <input type="text" class="form-control" name="incoming_acknowledgment_notes" id="sbarIncomingNotes" placeholder="Incoming RN bedside verification remarks (optional)..." style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #86efac; font-size: 12px; background: #fff;" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" id="btnCancelSbarForm">Cancel</button>
+                            <button type="submit" class="btn-inpatient btn-inpatient-primary" id="btnSubmitSbarForm" style="background: #4f46e5; border-color: #4f46e5; cursor: pointer;">
+                                ✍️ Sign &amp; Submit SBAR Shift Handover
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="inpatient-modal-footer" style="padding: 10px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="font-size: 12px; color: #64748b;">
+                        <span>🔒</span> Joint Commission (JCAHO) National Patient Safety Goal NPSG.02.05.01 — Standardized SBAR Shift-to-Shift Handover with Dual RN Sign-Off.
                     </div>
                     <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
                 </div>

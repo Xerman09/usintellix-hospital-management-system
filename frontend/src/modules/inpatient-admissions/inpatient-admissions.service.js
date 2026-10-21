@@ -405,3 +405,58 @@ export async function deleteFluidBalance(id) {
         body: JSON.stringify({ id })
     });
 }
+
+/**
+ * Fetch SBAR nurse shift handovers and clinical autofill context for an inpatient admission
+ */
+export async function fetchShiftHandovers(admissionId, status = 'all') {
+    const qs = status && status !== 'all' ? `&status=${encodeURIComponent(status)}` : '';
+    return await api(`/inpatient-admissions/shift-handovers?admission_id=${admissionId}${qs}`);
+}
+
+/**
+ * Fetch a single SBAR nurse shift handover record by ID
+ */
+export async function fetchShiftHandover(id) {
+    return await api(`/inpatient-admissions/shift-handovers/show?id=${id}`);
+}
+
+/**
+ * Create a new SBAR nurse shift handover (with outgoing nurse sign-off and optional incoming dual sign-off)
+ */
+export async function saveShiftHandover(payload) {
+    return await api('/inpatient-admissions/shift-handovers', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Update an existing SBAR nurse shift handover record
+ */
+export async function updateShiftHandover(payload) {
+    return await api('/inpatient-admissions/shift-handovers/update', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Incoming nurse digital sign-off (dual sign-off completion or clarification request)
+ */
+export async function signIncomingShiftHandover(payload) {
+    return await api('/inpatient-admissions/shift-handovers/sign-incoming', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Delete a shift handover record
+ */
+export async function deleteShiftHandover(id) {
+    return await api('/inpatient-admissions/shift-handovers/delete', {
+        method: 'POST',
+        body: JSON.stringify({ id })
+    });
+}
