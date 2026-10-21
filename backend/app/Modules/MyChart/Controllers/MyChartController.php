@@ -11,6 +11,7 @@ use App\Modules\MyChart\Services\PortalAudit;
 use App\Modules\MyChart\Services\PortalGuard;
 use App\Modules\MyChart\Services\PortalResultService;
 use App\Modules\MyChart\Services\PortalExplanationService;
+use App\Modules\MyChart\Services\PortalVisitService;
 
 /**
  * My Chart, the patient's own view of their record.
@@ -156,6 +157,72 @@ class MyChartController extends Controller
             ['conversation_id' => (int) $conversation['data']['conversation_id']],
             'Your question was sent to your doctor. The reply will appear in Messaging.'
         );
+    }
+
+    /** GET /mychart/visits -- what is coming up, and what has already happened. */
+    public function visits(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Visits Viewed');
+
+        if ($patientId === null) {
+            $this->error('Visits are not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalVisitService::list($patientId), 'Visits retrieved successfully.');
+    }
+
+    /** GET /mychart/visits/avs?encounter_id= -- the after-visit summary of one clinic visit. */
+    public function afterVisitSummary(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'After-Visit Summary Viewed');
+
+        if ($patientId === null) {
+            $this->error('Visits are not available for this account.', 403);
+            return;
+        }
+
+        $encounterId = (int) $request->input('encounter_id');
+        $avs = $encounterId ? PortalVisitService::avs($patientId, $encounterId) : null;
+
+        if ($avs === null) {
+            $this->error('That visit summary is not available.', 404);
+            return;
+        }
+
+        $this->success($avs, 'Visit summary retrieved successfully.');
+    }
+
+    /**
+     * GET /mychart/visits/discharge-summary?admission_id= -- the signed discharge summary
+     * of one hospital stay. A summary still being written is not offered.
+     */
+    public function dischargeSummary(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Discharge Summary Viewed');
+
+        if ($patientId === null) {
+            $this->error('Visits are not available for this account.', 403);
+            return;
+        }
+
+        $admissionId = (int) $request->input('admission_id');
+        $summary = $admissionId ? PortalVisitService::dischargeSummary($patientId, $admissionId) : null;
+
+        if ($summary === null) {
+            $this->error('That discharge summary is not available yet. It appears here once your doctor has signed it.', 404);
+            return;
+        }
+
+        $this->success($summary, 'Discharge summary retrieved successfully.');
     }
 
     /**

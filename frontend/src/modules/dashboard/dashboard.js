@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=9";
 import { TabManager } from "../../core/tabs.js?v=5";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=187";
+import { getNavLinks } from "./dashboard.view.js?v=188";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -307,7 +307,8 @@ import { LabWorklistView, initLabWorklist } from "../lab/lab-worklist.js?v=7";
 import { LabReportView, initLabReport } from "../lab/lab-report.js?v=4";
 import { RadWorklistView, initRadWorklist } from "../radiology/rad-worklist.js?v=7";
 import { RadStatsView, initRadStats } from "../radiology/rad-stats.js?v=4";
-import { MyChartResultsView, initMyChartResults } from "../mychart/mychart-results.js?v=3";
+import { MyChartResultsView, initMyChartResults } from "../mychart/mychart-results.js?v=4";
+import { MyChartVisitsView, initMyChartVisits } from "../mychart/mychart-visits.js?v=2";
 import { PortalExplanationsView, initPortalExplanations } from "../mychart/portal-explanations.js?v=2";
 import { NursingStaffView } from "../nursing-staff/nursing-staff.view.js?v=3";
 import { initNursingStaff } from "../nursing-staff/nursing-staff.js?v=3";
@@ -1280,6 +1281,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title, () => {
                 setTimeout(initGeneralSettings, 0);
                 return GeneralSettingsView();
+            }, activate);
+        } else if (tabId === 'mychart_visits' && user.role === 'patient') {
+            tabManager.openTab(tabId, title || 'Visits', () => {
+                setTimeout(initMyChartVisits, 0);
+                return MyChartVisitsView();
             }, activate);
         } else if (tabId === 'mychart_results' && user.role === 'patient') {
             tabManager.openTab(tabId, title || 'Test Results', () => {

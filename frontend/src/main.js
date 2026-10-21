@@ -1,6 +1,6 @@
 console.log("MAIN FILE LOADED");
 
-import { router } from "./core/router.js?v=240";
+import { router } from "./core/router.js?v=241";
 import { initTheme } from "./core/theme.js";
 import { initInactivityGuard } from "./core/inactivity-guard.js?v=4";
 import { initBreakGlassListener } from "./core/break-glass-modal.js?v=4";

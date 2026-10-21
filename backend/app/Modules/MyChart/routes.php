@@ -33,6 +33,25 @@ $router->post('/mychart/results/ask', [MyChartController::class, 'askAboutResult
 ]);
 
 // ---------------------------------------------------------------
+// Visits: what is booked, what has happened, and the summary of each.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/visits', [MyChartController::class, 'visits'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/visits/avs', [MyChartController::class, 'afterVisitSummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/visits/discharge-summary', [MyChartController::class, 'dischargeSummary'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// ---------------------------------------------------------------
 // The staff side of My Chart: the plain-language explanations a
 // patient reads under a result, edited under Laboratory settings.
 // ---------------------------------------------------------------

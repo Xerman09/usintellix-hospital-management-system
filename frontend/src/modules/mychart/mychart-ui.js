@@ -109,6 +109,21 @@ const CSS = `
 .mc-ask .mc-askrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .mc-err { color: #b91c1c; font-size: 12.5px; }
 :root[data-theme="dark"] .mc-err { color: #fca5a5; }
+/* visits (Phase 3) */
+.mc-h2 { font-size: 17px; margin: 18px 0 8px; }
+.mc-row.static { cursor: default; display: flex; }
+.mc-row.static:hover { border-color: var(--border-color); }
+.mc-row .mc-b { margin-top: 8px; }
+.mc-prep { margin-top: 8px; border-left: 3px solid #1d4ed8; background: var(--bg-surface-alt); border-radius: 0 8px 8px 0; padding: 7px 10px; font-size: 12.5px; }
+.mc-prep b { display: block; margin-bottom: 2px; }
+.mc-prep ul { margin: 0; padding-left: 18px; }
+.mc-panel h2 { margin: 0 0 2px; }
+.mc-panel .mc-lead { margin: 8px 0 12px; }
+.mc-sec { margin-top: 14px; }
+.mc-sec h3 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-bottom: 1px solid var(--border-color); padding-bottom: 3px; }
+.mc-sec p { margin: 0; white-space: pre-wrap; }
+.mc-sec ul { margin: 0; padding-left: 20px; }
+.mc-sec li { margin-bottom: 3px; }
 .mc-note { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border-color); border-left: 3px solid #1d4ed8; border-radius: 8px; background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
 `;
 
