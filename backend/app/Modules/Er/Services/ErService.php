@@ -57,8 +57,11 @@ class ErService
         )->fetchAll(PDO::FETCH_COLUMN);
         $visits = array_map(fn($id) => $this->show((int) $id), $open);
         $counts = ['waiting' => 0, 'triaged' => 0, 'by_acuity' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0], 'unidentified' => 0, 'over_target' => 0,
-            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0, 'protocols' => 0, 'protocol_late' => 0, 'boarding' => 0];
+            'triage_over' => 0, 'doctor_over' => 0, 'no_doctor' => 0, 'in_beds' => 0, 'protocols' => 0, 'protocol_late' => 0, 'boarding' => 0, 'trauma_cases' => 0];
         foreach ($visits as $v) {
+            if (!empty($v['trauma_summary'])) {
+                $counts['trauma_cases']++;
+            }
             $counts[$v['status']]++;
             if ($v['acuity']) {
                 $counts['by_acuity'][$v['acuity']]++;
@@ -602,6 +605,8 @@ class ErService
             'protocols' => (new ErProtocolService())->forVisit($v),
             // Phase 4: where the patient went (or, admitted without a bed yet, is waiting to go).
             'disposition' => ErDispositionService::shape($v),
+            // Phase 5: Trauma & Resuscitation Fast-Sheet summary (GCS, ATLS, FAST Ultrasound).
+            'trauma_summary' => (new ErTraumaService())->summaryForVisit((int) $v['id']),
         ];
     }
 

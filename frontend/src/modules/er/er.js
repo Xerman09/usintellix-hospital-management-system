@@ -288,9 +288,24 @@ function protocolChips(v) {
     }).join("")}</div>`;
 }
 
+function traumaSummaryChip(v) {
+    const ts = v.trauma_summary;
+    if (!ts) return "";
+    const gcsTxt = `GCS ${ts.gcs_total}${ts.gcs_intubated_flag ? "T" : ""}/15 (E${ts.gcs_eye}V${ts.gcs_verbal}M${ts.gcs_motor})`;
+    const isCriticalGcs = ts.gcs_total <= 8;
+    const isPosFast = ts.fast_exam_result === "Positive Free Fluid";
+    const bg = isCriticalGcs || isPosFast ? "#fef2f2" : "#fff7ed";
+    const border = isCriticalGcs || isPosFast ? "#fca5a5" : "#fdba74";
+    const color = isCriticalGcs || isPosFast ? "#991b1b" : "#9a3412";
+    return `<div style="margin:3px 0"><button type="button" data-trauma="${v.id}" style="font:inherit;font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid ${border};background:${bg};color:${color};text-align:left">
+        🚑 Trauma · ${esc(gcsTxt)} · FAST: ${esc(ts.fast_exam_result)}${ts.shock_index ? ` · SI ${ts.shock_index}` : ""}
+    </button></div>`;
+}
+
 function actions(v) {
     const unk = v.patient.registration_status === "unidentified";
     return `<div class="acts">
+        ${data.can_triage ? `<button type="button" class="erp-b sm" style="background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700" data-trauma="${v.id}">🚑 Trauma Fast-Sheet</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm" data-proto="${v.id}">Protocols…</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm ${v.status === "waiting" ? "go" : ""}" data-triage="${v.id}">${v.status === "waiting" ? "Triage" : "Re-triage"}</button>` : ""}
         ${data.can_assign ? `<button type="button" class="erp-b sm" data-assign="${v.id}">Bed / staff…</button>` : ""}
@@ -317,7 +332,7 @@ function bedCard(b, v) {
         ${v.triage?.chief_complaint || v.chief_complaint ? `<div>${esc(v.triage?.chief_complaint || v.chief_complaint)}</div>` : ""}
         ${v.allergies?.length ? `<div style="font-size:12px;color:#b91c1c;font-weight:700">Allergies: ${esc(v.allergies.map((a) => a.name).join(", "))}</div>` : ""}
         <div>${waitText(v.wait)} <span class="muted">· in ER ${mins(v.minutes_in_er)}</span></div>
-        ${boardingHtml(v)}${protocolChips(v)}${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
+        ${boardingHtml(v)}${traumaSummaryChip(v)}${protocolChips(v)}${careTeam(v)}${ordersHtml(v.orders)}${actions(v)}</div>`;
 }
 
 function render(root) {
@@ -341,6 +356,7 @@ function render(root) {
             <div class="erp-count" role="listitem"><b>${free}</b>free bed${free === 1 ? "" : "s"} of ${data.beds.length}</div>
             ${c.unidentified ? `<div class="erp-count warn" role="listitem"><b>${c.unidentified}</b>unidentified</div>` : ""}
             ${c.boarding ? `<div class="erp-count warn" role="listitem"><b>${c.boarding}</b>admitted, waiting for a ward bed</div>` : ""}
+            ${c.trauma_cases ? `<div class="erp-count bad" role="listitem"><b>${c.trauma_cases}</b>🚑 active trauma resuscitation${c.trauma_cases === 1 ? "" : "s"}</div>` : ""}
             ${c.protocols ? `<div class="erp-count ${c.protocol_late ? "bad" : ""}" role="listitem"><b>${c.protocols}</b>protocol${c.protocols === 1 ? "" : "s"} running${c.protocol_late ? ` · ${c.protocol_late} step${c.protocol_late === 1 ? "" : "s"} late` : ""}</div>` : ""}
         </div>`;
     const wrTable = (list, title) => `<h2>${title} (${list.length})</h2>
@@ -348,7 +364,7 @@ function render(root) {
             ${list.map((v) => `<tr data-row="${v.id}"><td class="nw">${esc(hm(v.arrived_at))}<div class="muted">${esc(v.arrival_mode)}</div></td>
                 <td>${patientCell(v)}</td><td>${v.acuity ? lvl(v.acuity) : `<span class="er-tag">Not triaged</span>`}</td>
                 <td>${esc(v.triage?.chief_complaint || v.chief_complaint || "—")}${v.triage?.undertriage_reason ? `<div class="muted" style="font-size:12px">Level kept: ${esc(v.triage.undertriage_reason)}</div>` : ""}</td>
-                <td>${waitText(v.wait)}${boardingHtml(v)}${protocolChips(v)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
+                <td>${waitText(v.wait)}${boardingHtml(v)}${traumaSummaryChip(v)}${protocolChips(v)}${ordersHtml(v.orders)}</td><td>${careTeam(v)}</td>
                 ${view === "list" ? `<td>${esc(v.bed_name || "Waiting room")}</td><td>${vitals(v.triage)}</td>` : ""}<td>${actions(v)}</td></tr>`).join("")}</tbody></table></div>`
             : `<div class="erp-empty">Nobody here.</div>`}`;
     const board = `
@@ -432,6 +448,8 @@ async function onBoardClick(e) {
     if (as) return openAssign(Number(as.dataset.assign));
     const pr = t.closest("[data-proto]");
     if (pr) return openProtocols(Number(pr.dataset.proto));
+    const trm = t.closest("[data-trauma]");
+    if (trm) return openTraumaFastSheet(Number(trm.dataset.trauma));
     const dp = t.closest("[data-dispo]");
     if (dp) return openDisposition(Number(dp.dataset.dispo));
     const lb = t.closest("[data-labs]");
@@ -1118,4 +1136,583 @@ export async function openAdmitBed(id) {
         showToast(res.message, "success", 6000);
         load();
     });
+}
+
+/* ---------------- Phase 5: Trauma & Resuscitation Fast-Sheet (er_trauma_records) ---------------- */
+
+const ATLS_INTERVENTIONS = [
+    "Rigid Cervical Collar & Inline C-Spine Stabilization",
+    "2x Large-Bore IVs (14G/16G) or Intraosseous (IO) Access",
+    "Supplemental High-Flow O₂ / Airway Adjunct",
+    "Tranexamic Acid (TXA) 1g IV Loading Dose",
+    "Type & Crossmatch + Uncrossed O-Neg Blood Ready",
+    "Massive Transfusion Protocol (MTP) Activated",
+    "Pelvic Binder / Direct Hemorrhage Tourniquet",
+    "Warming Blanket / Warmed IV Crystalloids (39°C)",
+    "Tetanus Toxoid / Antibiotic Prophylaxis",
+    "Portable Chest & Pelvis X-Ray at Bedside"
+];
+
+export async function openTraumaFastSheet(visitId) {
+    const [vRes, tRes] = await Promise.all([
+        api(`/er/show?id=${visitId}`).catch(() => null),
+        api(`/er/trauma?visit_id=${visitId}`).catch(() => null)
+    ]);
+
+    if (!vRes?.success) {
+        return showToast(vRes?.message || "Could not open ER visit.", "error");
+    }
+
+    const v = vRes.data;
+    const tData = tRes?.data || { records: [], options: {} };
+    let records = tData.records || [];
+    const me = getUser() || {};
+    const defaultLeader = v.doctor_name || me.full_name || me.name || me.username || "Trauma Team Leader, MD";
+    const tri = v.triage || {};
+
+    const m = modal(
+        `🚑 Trauma & Resuscitation Fast-Sheet — ${esc(v.patient.name)}`,
+        `${esc(v.visit_no)} · ${ageSex(v.patient)}${v.acuity ? ` · ESI Level ${v.acuity}` : ""} · Bed: ${esc(v.bed_name || "Resus Bay")}`,
+        `
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-color);padding-bottom:8px;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;gap:6px">
+                <button type="button" class="erp-b sm blue" id="btnTabTraumaForm">⚡ Fast-Sheet Assessment (GCS · ATLS · FAST)</button>
+                <button type="button" class="erp-b sm" id="btnTabTraumaHistory">📜 Resuscitation Log (<span id="trmLogCount">${records.length}</span>)</button>
+            </div>
+            <span id="trmEditingBadge" style="font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:12px;background:#fee2e2;color:#991b1b">New Resuscitation Entry</span>
+        </div>
+
+        <!-- PANE 1: FAST-SHEET FORM -->
+        <div id="paneTraumaForm" style="display:grid;gap:12px">
+            <input type="hidden" id="trmRecordId" value="">
+
+            <!-- Section 0: Trauma Activation & Mechanism of Injury -->
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 12px">
+                <div style="font-size:12px;font-weight:800;color:#991b1b;text-transform:uppercase;margin-bottom:8px">🚨 Trauma Activation &amp; Mechanism of Injury (MOI)</div>
+                <div class="erx-grid two">
+                    <div>
+                        <label for="trmActivationLevel">Trauma Activation Level *</label>
+                        <select id="trmActivationLevel" name="trauma_activation_level">
+                            <option value="Level 1 - Full Trauma Team Activation">🔴 Level 1 - Full Trauma Team Activation</option>
+                            <option value="Level 2 - Modified Trauma Activation">🟠 Level 2 - Modified Trauma Activation</option>
+                            <option value="Level 3 - Trauma Consult / Fast-Track">🟡 Level 3 - Trauma Consult / Fast-Track</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="trmMechanism">Mechanism of Injury (MOI) *</label>
+                        <input type="text" id="trmMechanism" name="mechanism_of_injury" list="trmMoiList" placeholder="e.g. High-Velocity MVC, Fall >20ft, GSW..." value="${esc(tri.chief_complaint || v.chief_complaint || "")}">
+                        <datalist id="trmMoiList">
+                            ${(tData.options?.mechanisms_of_injury || [
+                                "High-Velocity MVC (Motor Vehicle Collision)",
+                                "Motorcycle / Bicycle Collision",
+                                "Pedestrian Struck by Vehicle",
+                                "Fall from Height (>20 ft / >6 m)",
+                                "Ground-Level Fall with Head Trauma",
+                                "Penetrating Trauma — Gunshot Wound (GSW)",
+                                "Penetrating Trauma — Stab / Impale Wound",
+                                "Blunt Assault / Crush Injury",
+                                "Blast / Thermal / Electrical Burn Trauma"
+                            ]).map((x) => `<option value="${esc(x)}"></option>`).join("")}
+                        </datalist>
+                    </div>
+                </div>
+                <div style="margin-top:8px">
+                    <label for="trmInjuryDetails">Pre-Hospital / EMS &amp; Injury Kinematics</label>
+                    <input type="text" id="trmInjuryDetails" name="injury_details" placeholder="e.g. Unrestrained driver, 70mph rollover, +LOC at scene, EMS applied C-collar &amp; 500mL LR...">
+                </div>
+            </div>
+
+            <!-- ================================================================== -->
+            <!-- SECTION 1: GLASGOW COMA SCALE (GCS) CALCULATOR (E 1-4, V 1-5, M 1-6)-->
+            <!-- ================================================================== -->
+            <div style="border:1px solid #93c5fd;background:#eff6ff;border-radius:10px;padding:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+                    <div>
+                        <div style="font-size:13px;font-weight:800;color:#1e3a8a">🧠 1. GLASGOW COMA SCALE (GCS) CALCULATOR</div>
+                        <div style="font-size:11.5px;color:#1d4ed8">Eye (1–4) + Verbal (1–5) + Motor (1–6) = Total Score (3–15)</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <label style="display:inline-flex;align-items:center;gap:5px;margin:0;font-size:12px;color:#1e3a8a;cursor:pointer">
+                            <input type="checkbox" id="trmGcsIntubated"> Intubated (T)
+                        </label>
+                        <div id="trmGcsLiveBadge" style="padding:5px 12px;border-radius:8px;font-weight:800;font-size:14px;background:#16a34a;color:#fff;font-variant-numeric:tabular-nums">
+                            GCS 15/15 (E4 V5 M6) · Mild / Alert
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px">
+                    <!-- Eye Opening (1-4) -->
+                    <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px">
+                        <label for="trmGcsEye" style="color:#1e3a8a;font-weight:700">👁️ Eye Opening (E: 1–4)</label>
+                        <select id="trmGcsEye" name="gcs_eye">
+                            <option value="4" selected>4 — Spontaneous opening</option>
+                            <option value="3">3 — To verbal command / speech</option>
+                            <option value="2">2 — To pain / pressure stimulus</option>
+                            <option value="1">1 — No eye opening</option>
+                        </select>
+                    </div>
+                    <!-- Verbal Response (1-5) -->
+                    <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px">
+                        <label for="trmGcsVerbal" style="color:#1e3a8a;font-weight:700">🗣️ Verbal Response (V: 1–5)</label>
+                        <select id="trmGcsVerbal" name="gcs_verbal">
+                            <option value="5" selected>5 — Oriented &amp; conversing</option>
+                            <option value="4">4 — Confused / disoriented</option>
+                            <option value="3">3 — Inappropriate words</option>
+                            <option value="2">2 — Incomprehensible sounds / moans</option>
+                            <option value="1">1 — No verbal response / Intubated (1T)</option>
+                        </select>
+                    </div>
+                    <!-- Motor Response (1-6) -->
+                    <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px">
+                        <label for="trmGcsMotor" style="color:#1e3a8a;font-weight:700">💪 Motor Response (M: 1–6)</label>
+                        <select id="trmGcsMotor" name="gcs_motor">
+                            <option value="6" selected>6 — Obeys commands</option>
+                            <option value="5">5 — Localizes supraorbital/trapezius pain</option>
+                            <option value="4">4 — Normal flexion / withdrawal from pain</option>
+                            <option value="3">3 — Abnormal flexion (Decorticate)</option>
+                            <option value="2">2 — Extension to pain (Decerebrate)</option>
+                            <option value="1">1 — No motor response (Flaccid)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================================================== -->
+            <!-- SECTION 2: ATLS PRIMARY SURVEY CHECKLIST (A - B - C - D - E)        -->
+            <!-- ================================================================== -->
+            <div style="border:1px solid var(--border-color);background:var(--bg-surface-alt);border-radius:10px;padding:12px">
+                <div style="font-size:13px;font-weight:800;color:var(--text-primary);margin-bottom:8px">
+                    🛡️ 2. ATLS PRIMARY SURVEY CHECKLIST (A · B · C · D · E)
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                    <!-- A: Airway with C-Spine -->
+                    <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-left:4px solid #dc2626;border-radius:8px;padding:9px 11px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                            <span style="font-weight:800;font-size:12.5px;color:#dc2626">A — Airway &amp; C-Spine Protection</span>
+                            <label style="display:inline-flex;align-items:center;gap:4px;margin:0;font-size:11.5px;color:#991b1b;cursor:pointer">
+                                <input type="checkbox" id="trmCspine" checked> Rigid C-Collar On
+                            </label>
+                        </div>
+                        <select id="trmAirwayStatus" style="margin-bottom:5px">
+                            <option value="Patent & Self-Maintaining">Patent &amp; Self-Maintaining</option>
+                            <option value="Partial Obstruction — Suctioned / Jaw Thrust">Partial Obstruction — Suctioned / Jaw Thrust</option>
+                            <option value="Oropharyngeal / Nasopharyngeal Airway (OPA/NPA)">Oropharyngeal / Nasopharyngeal Airway (OPA/NPA)</option>
+                            <option value="Rapid Sequence Intubation (RSI) — ETT Secured">Rapid Sequence Intubation (RSI) — ETT Secured</option>
+                            <option value="Surgical Cricothyrotomy / Tracheostomy">Surgical Cricothyrotomy / Tracheostomy</option>
+                        </select>
+                        <input type="text" id="trmAirwayNotes" placeholder="Airway/C-spine notes (e.g. ETT 7.5mm @ 22cm lip, EtCO2+)">
+                    </div>
+
+                    <!-- B: Breathing & Ventilation -->
+                    <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-left:4px solid #2563eb;border-radius:8px;padding:9px 11px">
+                        <div style="font-weight:800;font-size:12.5px;color:#2563eb;margin-bottom:4px">B — Breathing &amp; Ventilation</div>
+                        <select id="trmBreathingStatus" style="margin-bottom:5px">
+                            <option value="Bilateral Equal Breath Sounds">Bilateral Equal Breath Sounds</option>
+                            <option value="Diminished / Absent Left Breath Sounds">Diminished / Absent Left Breath Sounds</option>
+                            <option value="Diminished / Absent Right Breath Sounds">Diminished / Absent Right Breath Sounds</option>
+                            <option value="Tension Pneumothorax — Needle Decompression">Tension Pneumothorax — Needle Decompression</option>
+                            <option value="Tube Thoracostomy (Chest Tube) Inserted">Tube Thoracostomy (Chest Tube) Inserted</option>
+                            <option value="Flail Chest / Open Pneumothorax (3-Sided Dressing)">Flail Chest / Open Pneumothorax</option>
+                        </select>
+                        <input type="text" id="trmBreathingNotes" placeholder="Trachea midline, chest wall excursion, O₂ flow / vent settings...">
+                    </div>
+
+                    <!-- C: Circulation & Hemorrhage Control -->
+                    <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-left:4px solid #e11d48;border-radius:8px;padding:9px 11px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                            <span style="font-weight:800;font-size:12.5px;color:#e11d48">C — Circulation &amp; Hemorrhage</span>
+                            <span id="trmShockIndexBadge" style="font-size:11px;font-weight:800;padding:1px 7px;border-radius:10px;background:#f1f5f9;color:#475569">Shock Index: --</span>
+                        </div>
+                        <select id="trmCirculationStatus" style="margin-bottom:5px">
+                            <option value="Hemodynamically Stable — Strong Central/Distal Pulses">Hemodynamically Stable — Strong Pulses</option>
+                            <option value="Class I–II Hemorrhagic Shock (Tachycardic)">Class I–II Hemorrhagic Shock (Tachycardic)</option>
+                            <option value="Class III–IV Severe Hemorrhagic Shock (Hypotensive)">Class III–IV Severe Hemorrhagic Shock (Hypotensive)</option>
+                            <option value="Active External Hemorrhage — Direct Pressure / Tourniquet">Active External Hemorrhage — Tourniquet Applied</option>
+                            <option value="Unstable Pelvic Ring — Pelvic Binder Applied">Unstable Pelvic Ring — Pelvic Binder Applied</option>
+                            <option value="Traumatic Arrest — Resuscitative Thoracotomy / CPR">Traumatic Arrest — CPR / MTP Running</option>
+                        </select>
+                        <input type="text" id="trmCirculationNotes" placeholder="Pulses, cap refill, tourniquet time, IV/IO lines, blood products...">
+                    </div>
+
+                    <!-- D: Disability / Pupils -->
+                    <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-left:4px solid #7c3aed;border-radius:8px;padding:9px 11px">
+                        <div style="font-weight:800;font-size:12.5px;color:#7c3aed;margin-bottom:4px">D — Disability &amp; Pupillary Exam</div>
+                        <select id="trmDisabilityPupils" style="margin-bottom:5px">
+                            <option value="PERRLA (Equal, Round, Reactive 3mm/3mm)">PERRLA (Equal, Round, Reactive 3mm/3mm)</option>
+                            <option value="Anisocoria — Unilateral Fixed & Dilated (Blown Pupil!)">⚠️ Anisocoria — Unilateral Fixed &amp; Dilated (Blown Pupil!)</option>
+                            <option value="Bilateral Fixed & Dilated Pupils">🚨 Bilateral Fixed &amp; Dilated Pupils</option>
+                            <option value="Sluggish / Pinpoint Pupils">Sluggish / Pinpoint Pupils</option>
+                        </select>
+                        <input type="text" id="trmDisabilityNotes" placeholder="Pupil size L/R (mm), gross motor/sensory lateralizing signs...">
+                    </div>
+                </div>
+
+                <!-- E: Exposure & Environmental Control -->
+                <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-left:4px solid #d97706;border-radius:8px;padding:9px 11px;margin-bottom:10px">
+                    <div style="font-weight:800;font-size:12.5px;color:#d97706;margin-bottom:4px">E — Exposure, Log-Roll Spine Exam &amp; Hypothermia Prevention</div>
+                    <input type="text" id="trmExposureNotes" placeholder="Full exposure completed, log-roll thoracic/lumbar tenderness/step-off, long-bone deformities, active warming blanket applied...">
+                </div>
+
+                <!-- ATLS Immediate Resuscitation Checklist -->
+                <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:8px;padding:9px 11px">
+                    <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px">✅ ATLS Primary Resuscitation Interventions Performed</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:5px;font-size:12px">
+                        ${ATLS_INTERVENTIONS.map((item, idx) => `
+                            <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:500;color:var(--text-primary);cursor:pointer">
+                                <input type="checkbox" class="trm-atls-chk" value="${esc(item)}" ${idx < 3 ? "checked" : ""}>
+                                <span>${esc(item)}</span>
+                            </label>
+                        `).join("")}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================================================================== -->
+            <!-- SECTION 3: FAST / eFAST BEDSIDE ULTRASOUND RESULT                  -->
+            <!-- ================================================================== -->
+            <div style="border:1px solid #fcd34d;background:#fffbeb;border-radius:10px;padding:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                    <div>
+                        <div style="font-size:13px;font-weight:800;color:#78350f">📡 3. FAST / eFAST BEDSIDE ULTRASOUND EXAM</div>
+                        <div style="font-size:11.5px;color:#92400e">Focused Assessment with Sonography for Trauma (Pericardial, RUQ, LUQ, Pelvis, Thorax)</div>
+                    </div>
+                    <div style="min-width:220px">
+                        <select id="trmFastOverall" name="fast_exam_result" style="font-weight:800">
+                            <option value="Negative">🟢 Negative (No Free Fluid)</option>
+                            <option value="Positive Free Fluid">🔴 POSITIVE FREE FLUID (Hemoperitoneum/Tamponade)</option>
+                            <option value="Indeterminate">🟡 Indeterminate / Repeat Exam Needed</option>
+                            <option value="Not Performed">⚪ Not Performed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-bottom:8px">
+                    <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:6px 8px">
+                        <label for="trmFastRuq" style="font-size:11px;color:#78350f">RUQ (Morison's Pouch)</label>
+                        <select id="trmFastRuq" class="trm-fast-win">
+                            <option value="Negative">Negative</option>
+                            <option value="Positive Free Fluid">🔴 Positive Free Fluid</option>
+                            <option value="Indeterminate">Indeterminate</option>
+                        </select>
+                    </div>
+                    <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:6px 8px">
+                        <label for="trmFastLuq" style="font-size:11px;color:#78350f">LUQ (Splenorenal)</label>
+                        <select id="trmFastLuq" class="trm-fast-win">
+                            <option value="Negative">Negative</option>
+                            <option value="Positive Free Fluid">🔴 Positive Free Fluid</option>
+                            <option value="Indeterminate">Indeterminate</option>
+                        </select>
+                    </div>
+                    <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:6px 8px">
+                        <label for="trmFastPelvis" style="font-size:11px;color:#78350f">Pelvis (Pouch of Douglas)</label>
+                        <select id="trmFastPelvis" class="trm-fast-win">
+                            <option value="Negative">Negative</option>
+                            <option value="Positive Free Fluid">🔴 Positive Free Fluid</option>
+                            <option value="Indeterminate">Indeterminate</option>
+                        </select>
+                    </div>
+                    <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:6px 8px">
+                        <label for="trmFastPeri" style="font-size:11px;color:#78350f">Subxiphoid (Pericardial)</label>
+                        <select id="trmFastPeri" class="trm-fast-win">
+                            <option value="Negative">Negative</option>
+                            <option value="Positive Free Fluid">🔴 Positive Effusion</option>
+                            <option value="Indeterminate">Indeterminate</option>
+                        </select>
+                    </div>
+                    <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:6px 8px">
+                        <label for="trmEfastThorax" style="font-size:11px;color:#78350f">eFAST Thorax (Lung Slide)</label>
+                        <select id="trmEfastThorax">
+                            <option value="Normal Lung Sliding B/L">Normal Sliding B/L</option>
+                            <option value="Absent Sliding — Pneumothorax L">🔴 Absent Slide Left</option>
+                            <option value="Absent Sliding — Pneumothorax R">🔴 Absent Slide Right</option>
+                            <option value="Hemothorax Fluid Seen">🔴 Hemothorax Fluid</option>
+                        </select>
+                    </div>
+                </div>
+                <input type="text" id="trmFastNotes" placeholder="Sonographer / FAST findings (e.g. Anechoic stripe in Morison's pouch -> STAT OR exploratory laparotomy)...">
+            </div>
+
+            <!-- Resuscitation Hemodynamics, Plan & Team Leader Sign-Off -->
+            <div class="erx-grid" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+                <div><label for="trmSbp">Systolic BP</label><input type="number" id="trmSbp" value="${esc(tri.bp_systolic ?? "")}" placeholder="mmHg"></div>
+                <div><label for="trmDbp">Diastolic BP</label><input type="number" id="trmDbp" value="${esc(tri.bp_diastolic ?? "")}" placeholder="mmHg"></div>
+                <div><label for="trmHr">Heart Rate</label><input type="number" id="trmHr" value="${esc(tri.heart_rate ?? "")}" placeholder="bpm"></div>
+                <div><label for="trmRr">Resp Rate</label><input type="number" id="trmRr" value="${esc(tri.resp_rate ?? "")}" placeholder="/min"></div>
+                <div><label for="trmSpo2">SpO₂ (%)</label><input type="number" id="trmSpo2" value="${esc(tri.spo2 ?? "")}" placeholder="%"></div>
+            </div>
+
+            <div class="erx-grid two">
+                <div>
+                    <label for="trmDispositionPlan">Immediate Trauma Disposition Plan</label>
+                    <select id="trmDispositionPlan">
+                        <option value="CT Trauma Pan-Scan (Hemodynamically Stable)">CT Trauma Pan-Scan (Hemodynamically Stable)</option>
+                        <option value="STAT Operating Room — Exploratory Laparotomy / Thoracotomy">🚨 STAT Operating Room — Damage Control Surgery</option>
+                        <option value="Interventional Radiology — Angioembolization">Interventional Radiology — Angioembolization</option>
+                        <option value="Trauma ICU / Surgical Critical Care Admission">Trauma ICU / Surgical Critical Care Admission</option>
+                        <option value="Neurosurgery Emergent Craniotomy / ICP Monitor">Neurosurgery Emergent Craniotomy / EVD</option>
+                        <option value="Continue Resuscitation Bay Serial Monitoring">Continue Resuscitation Bay Serial Monitoring</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="trmLeaderName">Trauma Team Leader / Attending MD *</label>
+                    <input type="text" id="trmLeaderName" name="trauma_team_leader_name" value="${esc(defaultLeader)}" placeholder="Dr. Name, MD">
+                </div>
+            </div>
+
+            <div>
+                <label for="trmSummary">Secondary Survey &amp; Resuscitation Summary Notes</label>
+                <textarea id="trmSummary" placeholder="Secondary head-to-toe findings, lacerations/fractures splinted, blood products infused, family notification..."></textarea>
+            </div>
+        </div>
+
+        <!-- PANE 2: SERIAL RESUSCITATION LOG -->
+        <div id="paneTraumaHistory" style="display:none"></div>
+        `,
+        `<button type="button" class="erp-b" data-x>Close</button><button type="button" class="erp-b go" id="btnSaveTraumaFastSheet">💾 Save Trauma &amp; Resuscitation Fast-Sheet</button>`
+    );
+
+    m.ov.querySelector(".erx").style.maxWidth = "960px";
+
+    // Tab switching
+    const tabForm = m.$("#btnTabTraumaForm");
+    const tabHist = m.$("#btnTabTraumaHistory");
+    const paneForm = m.$("#paneTraumaForm");
+    const paneHist = m.$("#paneTraumaHistory");
+    const saveBtn = m.$("#btnSaveTraumaFastSheet");
+
+    const showTab = (which) => {
+        const isForm = which === "form";
+        paneForm.style.display = isForm ? "grid" : "none";
+        paneHist.style.display = isForm ? "none" : "block";
+        saveBtn.style.display = isForm ? "inline-block" : "none";
+        tabForm.classList.toggle("blue", isForm);
+        tabHist.classList.toggle("blue", !isForm);
+        if (!isForm) renderTraumaHistory();
+    };
+    tabForm.onclick = () => showTab("form");
+    tabHist.onclick = () => showTab("history");
+
+    // Live GCS Calculator
+    const updateGcsCalculator = () => {
+        const e = Number(m.$("#trmGcsEye").value) || 4;
+        const vScore = Number(m.$("#trmGcsVerbal").value) || 5;
+        const mScore = Number(m.$("#trmGcsMotor").value) || 6;
+        const intub = m.$("#trmGcsIntubated").checked;
+        const total = e + vScore + mScore;
+        const badge = m.$("#trmGcsLiveBadge");
+        let bg = "#16a34a";
+        let label = "Mild / Alert";
+        if (total <= 8) {
+            bg = "#dc2626";
+            label = "🚨 SEVERE TBI / COMA (≤8: INTUBATE!)";
+        } else if (total <= 12) {
+            bg = "#d97706";
+            label = "⚠️ Moderate TBI (9–12)";
+        }
+        badge.style.background = bg;
+        badge.textContent = `GCS ${total}${intub ? "T" : ""}/15 (E${e} V${vScore} M${mScore}) · ${label}`;
+    };
+
+    m.$("#trmGcsEye").addEventListener("change", updateGcsCalculator);
+    m.$("#trmGcsVerbal").addEventListener("change", updateGcsCalculator);
+    m.$("#trmGcsMotor").addEventListener("change", updateGcsCalculator);
+    m.$("#trmGcsIntubated").addEventListener("change", updateGcsCalculator);
+
+    // Live Shock Index Calculator (HR / SBP)
+    const updateShockIndex = () => {
+        const sbp = Number(m.$("#trmSbp").value) || 0;
+        const hr = Number(m.$("#trmHr").value) || 0;
+        const badge = m.$("#trmShockIndexBadge");
+        if (sbp > 0 && hr > 0) {
+            const si = (hr / sbp).toFixed(2);
+            const high = Number(si) > 0.9;
+            badge.style.background = high ? "#fee2e2" : "#dcfce7";
+            badge.style.color = high ? "#991b1b" : "#166534";
+            badge.textContent = `Shock Index: ${si}${high ? " (⚠️ >0.9 Shock!)" : " (Normal)"}`;
+        } else {
+            badge.style.background = "#f1f5f9";
+            badge.style.color = "#475569";
+            badge.textContent = "Shock Index: --";
+        }
+    };
+    m.$("#trmSbp").addEventListener("input", updateShockIndex);
+    m.$("#trmHr").addEventListener("input", updateShockIndex);
+    updateShockIndex();
+
+    // Auto-upgrade overall FAST result when any window is Positive Free Fluid
+    m.ov.querySelectorAll(".trm-fast-win").forEach((sel) => {
+        sel.addEventListener("change", () => {
+            const anyPos = Array.from(m.ov.querySelectorAll(".trm-fast-win")).some((s) => s.value === "Positive Free Fluid");
+            if (anyPos) {
+                m.$("#trmFastOverall").value = "Positive Free Fluid";
+            }
+        });
+    });
+
+    const populateFormFromRecord = (rec) => {
+        m.$("#trmRecordId").value = rec.id;
+        m.$("#trmEditingBadge").textContent = `Editing ${rec.trauma_record_no}`;
+        m.$("#trmActivationLevel").value = rec.trauma_activation_level || "Level 1 - Full Trauma Team Activation";
+        m.$("#trmMechanism").value = rec.mechanism_of_injury || "";
+        m.$("#trmInjuryDetails").value = rec.injury_details || "";
+        m.$("#trmGcsEye").value = rec.gcs_eye || 4;
+        m.$("#trmGcsVerbal").value = rec.gcs_verbal || 5;
+        m.$("#trmGcsMotor").value = rec.gcs_motor || 6;
+        m.$("#trmGcsIntubated").checked = Boolean(rec.gcs_intubated_flag);
+        updateGcsCalculator();
+
+        m.$("#trmAirwayStatus").value = rec.atls_airway_status || "Patent & Self-Maintaining";
+        m.$("#trmCspine").checked = Boolean(rec.atls_cspine_immobilized);
+        m.$("#trmAirwayNotes").value = rec.atls_airway_notes || "";
+        m.$("#trmBreathingStatus").value = rec.atls_breathing_status || "Bilateral Equal Breath Sounds";
+        m.$("#trmBreathingNotes").value = rec.atls_breathing_notes || "";
+        m.$("#trmCirculationStatus").value = rec.atls_circulation_status || "Hemodynamically Stable — Strong Central/Distal Pulses";
+        m.$("#trmCirculationNotes").value = rec.atls_circulation_notes || "";
+        m.$("#trmDisabilityPupils").value = rec.atls_disability_pupils || "PERRLA (Equal, Round, Reactive 3mm/3mm)";
+        m.$("#trmDisabilityNotes").value = rec.atls_disability_notes || "";
+        m.$("#trmExposureNotes").value = rec.atls_exposure_notes || "";
+
+        const chkSet = new Set(Array.isArray(rec.atls_checklist) ? rec.atls_checklist : []);
+        m.ov.querySelectorAll(".trm-atls-chk").forEach((c) => {
+            c.checked = chkSet.has(c.value);
+        });
+
+        m.$("#trmFastOverall").value = rec.fast_exam_result || "Negative";
+        m.$("#trmFastRuq").value = rec.fast_ruq_morison || "Negative";
+        m.$("#trmFastLuq").value = rec.fast_luq_splenorenal || "Negative";
+        m.$("#trmFastPelvis").value = rec.fast_pelvis_pouch || "Negative";
+        m.$("#trmFastPeri").value = rec.fast_pericardial || "Negative";
+        m.$("#trmEfastThorax").value = rec.efast_thorax_pneumo || "Normal Lung Sliding B/L";
+        m.$("#trmFastNotes").value = rec.fast_notes || "";
+
+        m.$("#trmSbp").value = rec.bp_systolic ?? "";
+        m.$("#trmDbp").value = rec.bp_diastolic ?? "";
+        m.$("#trmHr").value = rec.heart_rate ?? "";
+        m.$("#trmRr").value = rec.resp_rate ?? "";
+        m.$("#trmSpo2").value = rec.spo2 ?? "";
+        updateShockIndex();
+
+        m.$("#trmDispositionPlan").value = rec.trauma_disposition_plan || "CT Trauma Pan-Scan (Hemodynamically Stable)";
+        m.$("#trmLeaderName").value = rec.trauma_team_leader_name || defaultLeader;
+        m.$("#trmSummary").value = rec.resuscitation_summary || "";
+        showTab("form");
+    };
+
+    const renderTraumaHistory = () => {
+        if (!records.length) {
+            paneHist.innerHTML = `<div class="erp-empty">No trauma resuscitation surveys recorded for this visit yet.</div>`;
+            return;
+        }
+        paneHist.innerHTML = `<div style="display:grid;gap:10px">${records.map((r) => {
+            const gcsBadgeColor = r.gcs_total <= 8 ? "#dc2626" : r.gcs_total <= 12 ? "#d97706" : "#16a34a";
+            const fastColor = r.fast_exam_result === "Positive Free Fluid" ? "#dc2626" : r.fast_exam_result === "Indeterminate" ? "#d97706" : "#15803d";
+            const chkList = Array.isArray(r.atls_checklist) ? r.atls_checklist : [];
+            return `
+            <div style="border:1px solid var(--border-color);border-radius:10px;padding:12px;background:var(--bg-surface)">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border-color);padding-bottom:8px;margin-bottom:8px">
+                    <div>
+                        <span style="font-family:monospace;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:6px;font-size:12px">${esc(r.trauma_record_no)}</span>
+                        <b style="margin-left:6px">${esc(r.trauma_activation_level)}</b>
+                        <div class="muted" style="font-size:12px;margin-top:2px">🕒 ${esc(r.resuscitation_timestamp)} · MOI: <b>${esc(r.mechanism_of_injury)}</b> · Team Leader: <b>${esc(r.trauma_team_leader_name)}</b></div>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <span style="background:${gcsBadgeColor};color:#fff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:800">GCS ${r.gcs_total}${r.gcs_intubated_flag ? "T" : ""}/15 (E${r.gcs_eye}V${r.gcs_verbal}M${r.gcs_motor})</span>
+                        <span style="background:${fastColor};color:#fff;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:800">FAST: ${esc(r.fast_exam_result)}</span>
+                        <button type="button" class="erp-b sm" data-edit-trm="${r.id}">Edit</button>
+                        <button type="button" class="erp-b sm" data-del-trm="${r.id}">Delete</button>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:12.5px;margin-bottom:8px">
+                    <div><b>A (Airway/C-Spine):</b> ${esc(r.atls_airway_status)} (${r.atls_cspine_immobilized ? "C-Collar On" : "Cleared"})${r.atls_airway_notes ? ` — ${esc(r.atls_airway_notes)}` : ""}</div>
+                    <div><b>B (Breathing):</b> ${esc(r.atls_breathing_status)}${r.atls_breathing_notes ? ` — ${esc(r.atls_breathing_notes)}` : ""}</div>
+                    <div><b>C (Circulation):</b> ${esc(r.atls_circulation_status)}${r.shock_index ? ` (SI: ${r.shock_index})` : ""}${r.atls_circulation_notes ? ` — ${esc(r.atls_circulation_notes)}` : ""}</div>
+                    <div><b>D (Pupils/Neuro):</b> ${esc(r.atls_disability_pupils)}${r.atls_disability_notes ? ` — ${esc(r.atls_disability_notes)}` : ""}</div>
+                    <div><b>E (Exposure):</b> ${esc(r.atls_exposure_notes || "Full exposure & warming")}</div>
+                    <div><b>FAST Windows:</b> RUQ: ${esc(r.fast_ruq_morison)} · LUQ: ${esc(r.fast_luq_splenorenal)} · Pelvis: ${esc(r.fast_pelvis_pouch)} · Pericardial: ${esc(r.fast_pericardial)} · eFAST: ${esc(r.efast_thorax_pneumo)}</div>
+                </div>
+                ${chkList.length ? `<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:4px"><b>Interventions:</b> ${chkList.map((c) => `✓ ${esc(c)}`).join(" · ")}</div>` : ""}
+                ${r.trauma_disposition_plan ? `<div style="font-size:12px"><b>Plan:</b> ${esc(r.trauma_disposition_plan)}${r.resuscitation_summary ? ` — ${esc(r.resuscitation_summary)}` : ""}</div>` : ""}
+            </div>`;
+        }).join("")}</div>`;
+
+        paneHist.querySelectorAll("[data-edit-trm]").forEach((b) => {
+            b.onclick = () => {
+                const target = records.find((x) => x.id === Number(b.dataset.editTrm));
+                if (target) populateFormFromRecord(target);
+            };
+        });
+        paneHist.querySelectorAll("[data-del-trm]").forEach((b) => {
+            b.onclick = async () => {
+                if (!confirm("Delete this trauma resuscitation record?")) return;
+                const dRes = await post("/er/trauma/delete", { id: Number(b.dataset.delTrm) });
+                if (dRes?.success) {
+                    records = dRes.data?.records || [];
+                    m.$("#trmLogCount").textContent = records.length;
+                    renderTraumaHistory();
+                    showToast(dRes.message, "success");
+                    load();
+                } else {
+                    showToast(dRes?.message || "Could not delete.", "error");
+                }
+            };
+        });
+    };
+
+    saveBtn.onclick = async () => {
+        const checklist = Array.from(m.ov.querySelectorAll(".trm-atls-chk:checked")).map((c) => c.value);
+        const payload = {
+            id: m.$("#trmRecordId").value ? Number(m.$("#trmRecordId").value) : null,
+            visit_id: visitId,
+            trauma_activation_level: m.$("#trmActivationLevel").value,
+            mechanism_of_injury: m.$("#trmMechanism").value.trim(),
+            injury_details: m.$("#trmInjuryDetails").value.trim(),
+            gcs_eye: Number(m.$("#trmGcsEye").value),
+            gcs_verbal: Number(m.$("#trmGcsVerbal").value),
+            gcs_motor: Number(m.$("#trmGcsMotor").value),
+            gcs_intubated_flag: m.$("#trmGcsIntubated").checked ? 1 : 0,
+            atls_airway_status: m.$("#trmAirwayStatus").value,
+            atls_cspine_immobilized: m.$("#trmCspine").checked ? 1 : 0,
+            atls_airway_notes: m.$("#trmAirwayNotes").value.trim(),
+            atls_breathing_status: m.$("#trmBreathingStatus").value,
+            atls_breathing_notes: m.$("#trmBreathingNotes").value.trim(),
+            atls_circulation_status: m.$("#trmCirculationStatus").value,
+            atls_circulation_notes: m.$("#trmCirculationNotes").value.trim(),
+            atls_disability_pupils: m.$("#trmDisabilityPupils").value,
+            atls_disability_notes: m.$("#trmDisabilityNotes").value.trim(),
+            atls_exposure_notes: m.$("#trmExposureNotes").value.trim(),
+            atls_checklist: checklist,
+            fast_exam_result: m.$("#trmFastOverall").value,
+            fast_ruq_morison: m.$("#trmFastRuq").value,
+            fast_luq_splenorenal: m.$("#trmFastLuq").value,
+            fast_pelvis_pouch: m.$("#trmFastPelvis").value,
+            fast_pericardial: m.$("#trmFastPeri").value,
+            efast_thorax_pneumo: m.$("#trmEfastThorax").value,
+            fast_notes: m.$("#trmFastNotes").value.trim(),
+            bp_systolic: m.$("#trmSbp").value,
+            bp_diastolic: m.$("#trmDbp").value,
+            heart_rate: m.$("#trmHr").value,
+            resp_rate: m.$("#trmRr").value,
+            spo2: m.$("#trmSpo2").value,
+            trauma_disposition_plan: m.$("#trmDispositionPlan").value,
+            trauma_team_leader_name: m.$("#trmLeaderName").value.trim(),
+            resuscitation_summary: m.$("#trmSummary").value.trim()
+        };
+
+        saveBtn.disabled = true;
+        const res = await post("/er/trauma/save", payload);
+        saveBtn.disabled = false;
+        if (!res?.success) {
+            return m.err(res?.message || "Could not save trauma record.", res?.errors);
+        }
+        m.err("");
+        records = res.data?.records || [];
+        m.$("#trmLogCount").textContent = records.length;
+        m.$("#trmRecordId").value = "";
+        m.$("#trmEditingBadge").textContent = "New Resuscitation Entry";
+        showToast(res.message, "success", 5000);
+        showTab("history");
+        load();
+    };
 }

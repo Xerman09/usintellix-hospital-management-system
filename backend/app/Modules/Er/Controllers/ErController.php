@@ -10,6 +10,7 @@ use App\Modules\Er\Services\ErDispositionService;
 use App\Modules\Er\Services\ErReportService;
 use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
+use App\Modules\Er\Services\ErTraumaService;
 
 class ErController extends Controller
 {
@@ -153,6 +154,30 @@ class ErController extends Controller
     {
         $r = new Request();
         $this->success((new ErReportService())->report((string) ($r->input('from') ?? ''), (string) ($r->input('to') ?? '')), 'Retrieved.');
+    }
+
+    /** GET /er/trauma?visit_id=123 -- Trauma & Resuscitation Fast-Sheet records for an ER visit */
+    public function traumaIndex(): void
+    {
+        $visitId = (int) ((new Request())->input('visit_id') ?? 0);
+        if ($visitId <= 0) {
+            $this->json(['success' => false, 'message' => 'Valid visit_id is required.'], 422);
+            return;
+        }
+        $this->success((new ErTraumaService())->listByVisit($visitId), 'Trauma records retrieved.');
+    }
+
+    /** POST /er/trauma/save -- Record or update a Trauma & Resuscitation Fast-Sheet */
+    public function traumaSave(): void
+    {
+        $this->respond((new ErTraumaService())->save((new Request())->all(), Session::get('user') ?? []));
+    }
+
+    /** POST /er/trauma/delete -- Delete a trauma record */
+    public function traumaDelete(): void
+    {
+        $id = (int) ((new Request())->input('id') ?? 0);
+        $this->respond((new ErTraumaService())->delete($id, Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

@@ -6,6 +6,7 @@ use App\Modules\Er\Services\ErDispositionService;
 use App\Modules\Er\Services\ErReportService;
 use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
+use App\Modules\Er\Services\ErTraumaService;
 
 /** @var \App\Core\Router $router */
 
@@ -39,3 +40,8 @@ $router->get('/er/disposition/options', [ErController::class, 'dispositionOption
 $router->post('/er/disposition', [ErController::class, 'disposition'], [AuthMiddleware::class, [RoleMiddleware::class, ErDispositionService::DECIDE_ROLES]]);
 $router->post('/er/admit-bed', [ErController::class, 'admitToBed'], [AuthMiddleware::class, [RoleMiddleware::class, ErDispositionService::BED_ROLES]]);
 $router->get('/er/report', [ErController::class, 'report'], [AuthMiddleware::class, [RoleMiddleware::class, ErReportService::ROLES]]);
+// Phase 5: Trauma & Resuscitation Fast-Sheet (GCS Calculator, ATLS Primary Survey, FAST Bedside Ultrasound).
+$erTrauma = [AuthMiddleware::class, [RoleMiddleware::class, ErTraumaService::ROLES]];
+$router->get('/er/trauma', [ErController::class, 'traumaIndex'], $erView);
+$router->post('/er/trauma/save', [ErController::class, 'traumaSave'], $erTrauma);
+$router->post('/er/trauma/delete', [ErController::class, 'traumaDelete'], $erTrauma);
