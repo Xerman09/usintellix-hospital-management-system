@@ -22,7 +22,14 @@ import {
     fetchDailyRoundOptions,
     saveDailyRound,
     updateDailyRound,
-    deleteDailyRound
+    deleteDailyRound,
+    fetchProgressNotes,
+    fetchProgressNote,
+    fetchProgressNoteOptions,
+    saveProgressNote,
+    updateProgressNote,
+    cosignProgressNote,
+    deleteProgressNote
 } from './inpatient-admissions.service.js?v=6';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=41';
@@ -295,6 +302,110 @@ function setupEventListeners() {
                 selectTrajectoryButton(val);
             };
         });
+    }
+
+    // Modal Daily Ward Round -> Open Multidisciplinary Notes
+    const btnRoundViewMpn = document.getElementById('btnRoundViewMpn');
+    if (btnRoundViewMpn) {
+        btnRoundViewMpn.onclick = () => {
+            if (currentRoundsAdmissionId) {
+                openMultidisciplinaryNotesModal(currentRoundsAdmissionId);
+            }
+        };
+    }
+
+    // Modal Multidisciplinary Progress Notes Tabs
+    const tabBtnMpnTimeline = document.getElementById('tabBtnMpnTimeline');
+    const tabBtnMpnNewNote = document.getElementById('tabBtnMpnNewNote');
+    const paneMpnTimeline = document.getElementById('paneMpnTimeline');
+    const paneMpnNewNote = document.getElementById('paneMpnNewNote');
+
+    if (tabBtnMpnTimeline && tabBtnMpnNewNote) {
+        tabBtnMpnTimeline.onclick = () => {
+            tabBtnMpnTimeline.classList.add('active');
+            tabBtnMpnTimeline.style.color = '#0d9488';
+            tabBtnMpnTimeline.style.borderBottom = '2px solid #0d9488';
+            tabBtnMpnNewNote.classList.remove('active');
+            tabBtnMpnNewNote.style.color = '#64748b';
+            tabBtnMpnNewNote.style.borderBottom = '2px solid transparent';
+            if (paneMpnTimeline) paneMpnTimeline.style.display = 'block';
+            if (paneMpnNewNote) paneMpnNewNote.style.display = 'none';
+        };
+
+        tabBtnMpnNewNote.onclick = () => {
+            tabBtnMpnNewNote.classList.add('active');
+            tabBtnMpnNewNote.style.color = '#0d9488';
+            tabBtnMpnNewNote.style.borderBottom = '2px solid #0d9488';
+            tabBtnMpnTimeline.classList.remove('active');
+            tabBtnMpnTimeline.style.color = '#64748b';
+            tabBtnMpnTimeline.style.borderBottom = '2px solid transparent';
+            if (paneMpnTimeline) paneMpnTimeline.style.display = 'none';
+            if (paneMpnNewNote) paneMpnNewNote.style.display = 'block';
+        };
+    }
+
+    const btnQuickNewMpn = document.getElementById('btnQuickNewMpn');
+    if (btnQuickNewMpn) {
+        btnQuickNewMpn.onclick = () => {
+            resetMpnFormForNew();
+            if (tabBtnMpnNewNote) tabBtnMpnNewNote.click();
+        };
+    }
+
+    const btnCancelMpnForm = document.getElementById('btnCancelMpnForm');
+    if (btnCancelMpnForm) {
+        btnCancelMpnForm.onclick = () => {
+            if (tabBtnMpnTimeline) tabBtnMpnTimeline.click();
+        };
+    }
+
+    // Discipline Filter Chips in Multidisciplinary Modal
+    const filterBar = document.getElementById('mpnDisciplineFilterBar');
+    if (filterBar) {
+        filterBar.querySelectorAll('.mpn-filter-chip').forEach(chip => {
+            chip.onclick = () => {
+                const disc = chip.getAttribute('data-discipline');
+                activeMpnDisciplineFilter = disc;
+
+                filterBar.querySelectorAll('.mpn-filter-chip').forEach(c => {
+                    c.classList.remove('active-chip');
+                    c.style.border = '1px solid #cbd5e1';
+                    c.style.background = '#fff';
+                    c.style.color = '#1e293b';
+                });
+                chip.classList.add('active-chip');
+                chip.style.border = '1px solid #0d9488';
+                chip.style.background = '#0d9488';
+                chip.style.color = '#fff';
+
+                if (currentMpnAdmissionId) {
+                    loadMultidisciplinaryTimeline(currentMpnAdmissionId, disc);
+                }
+            };
+        });
+    }
+
+    // Auto-suggest role when discipline changes in form
+    const formDiscSelect = document.getElementById('mpnFormDiscipline');
+    if (formDiscSelect) {
+        formDiscSelect.onchange = () => {
+            const disc = formDiscSelect.value;
+            const roleInput = document.getElementById('mpnFormProviderRole');
+            const defaultRoles = {
+                'Physical Therapy': 'Physical Therapist (DPT)',
+                'Occupational Therapy': 'Occupational Therapist (OTR/L)',
+                'Clinical Nutrition': 'Registered Dietitian / Nutritionist (RD)',
+                'Clinical Pharmacy': 'Clinical Specialist Pharmacist (PharmD)',
+                'Medical Social Work': 'Medical Social Worker (LCSW)',
+                'Respiratory Therapy': 'Respiratory Therapist (RRT)',
+                'Speech-Language Pathology': 'Speech-Language Pathologist (CCC-SLP)',
+                'Wound Care': 'Wound & Ostomy Care Nurse (CWOCN)',
+                'General Allied Health': 'Allied Health Practitioner'
+            };
+            if (roleInput && (!roleInput.value || Object.values(defaultRoles).includes(roleInput.value))) {
+                roleInput.value = defaultRoles[disc] || '';
+            }
+        };
     }
 
     // Transfer Admission Select Change
@@ -701,6 +812,50 @@ function setupFormSubmissions() {
             }
         };
     }
+
+    // 8. Form Multidisciplinary Progress Note (inpatient_progress_notes)
+    const formMpn = document.getElementById('formMultidisciplinaryNote');
+    if (formMpn) {
+        formMpn.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(formMpn);
+            const payload = Object.fromEntries(formData.entries());
+
+            if (!payload.plan || !payload.plan.trim()) {
+                showToast('Intervention Treatment Plan & Goals are required.', 'error');
+                return;
+            }
+
+            const isEdit = Boolean(payload.id && Number(payload.id) > 0);
+            const submitBtn = document.getElementById('btnSubmitMpnForm');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = isEdit ? 'Updating Note...' : 'Saving Note...';
+            }
+
+            try {
+                const res = isEdit ? await updateProgressNote(payload) : await saveProgressNote(payload);
+                if (res && res.success) {
+                    showToast(isEdit ? 'Progress note updated successfully!' : 'Allied health progress note documented successfully!', 'success');
+                    resetMpnFormForNew();
+                    const tabTimeline = document.getElementById('tabBtnMpnTimeline');
+                    if (tabTimeline) tabTimeline.click();
+                    if (payload.admission_id) {
+                        await loadMultidisciplinaryTimeline(payload.admission_id, activeMpnDisciplineFilter);
+                    }
+                } else {
+                    showToast('Failed to save progress note: ' + (res?.message || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                showToast('Error saving progress note: ' + (err.message || 'Server error'), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Save Progress Note';
+                }
+            }
+        };
+    }
 }
 
 export async function fetchWhiteboard(isSilent = false) {
@@ -1004,6 +1159,9 @@ function renderBedCard(bed) {
             <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}" aria-label="Document daily doctor ward round">
                 🩺 Doctor Round
             </button>
+            <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}" aria-label="Multidisciplinary progress notes and treatment logs">
+                🤝 Allied Notes
+            </button>
             <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">
                 🔄 Transfer
             </button>
@@ -1023,6 +1181,9 @@ function renderBedCard(bed) {
         actionsHtml = `
             <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}" aria-label="Document daily doctor ward round">
                 🩺 Doctor Round
+            </button>
+            <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}" aria-label="Multidisciplinary progress notes and treatment logs">
+                🤝 Allied Notes
             </button>
             <button class="bed-action-btn btn-act-discharge" style="width: 100%; justify-content: center; padding: 7px;" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Complete Discharge Orders
@@ -1086,8 +1247,9 @@ function renderTable(beds) {
             actionBtns = `<button class="bed-action-btn btn-act-admit" data-act="admit" data-bed-id="${bed.id}">Admit</button>`;
         } else if (bed.status === 'Occupied') {
             actionBtns = `
-                <div style="display: flex; gap: 4px;">
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                     <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button>
+                    <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button>
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
                     ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}">Labs</button>
@@ -1096,7 +1258,7 @@ function renderTable(beds) {
                 </div>
             `;
         } else if (bed.status === 'Pending Discharge') {
-            actionBtns = `<div style="display: flex; gap: 4px;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
+            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
                 <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button></div>`;
         } else if (bed.status === 'Dirty / Turnover') {
             actionBtns = `<button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">Sanitize</button>`;
@@ -1228,6 +1390,12 @@ function attachBedCardListeners(container) {
         btn.onclick = () => {
             const admId = btn.getAttribute('data-adm-id');
             openDailyWardRoundModal(admId);
+        };
+    });
+    container.querySelectorAll('[data-act="progress-notes"]').forEach(btn => {
+        btn.onclick = () => {
+            const admId = btn.getAttribute('data-adm-id');
+            openMultidisciplinaryNotesModal(admId);
         };
     });
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
@@ -1758,6 +1926,8 @@ function vitalsLabel(bed) {
 /**
  * Daily Doctor Ward Rounds (inpatient_daily_rounds)
  */
+let currentRoundsAdmissionId = null;
+
 async function openDailyWardRoundModal(admissionId) {
     const modal = document.getElementById('modalDailyWardRound');
     if (!modal) return;
@@ -1767,6 +1937,8 @@ async function openDailyWardRoundModal(admissionId) {
         showToast('Inpatient admission data not found', 'error');
         return;
     }
+
+    currentRoundsAdmissionId = admissionId;
 
     // Reset Form
     const form = document.getElementById('formDailyWardRound');
@@ -2006,4 +2178,291 @@ function populateRoundForEdit(rnd) {
     // Switch to Document tab
     const tab1 = document.getElementById('tabBtnNewRound');
     if (tab1) tab1.click();
+}
+
+
+
+/**
+ * Multidisciplinary Progress Notes & Treatment Logs (inpatient_progress_notes)
+ */
+let currentMpnAdmissionId = null;
+let activeMpnDisciplineFilter = 'all';
+
+const MPN_DISCIPLINE_META = {
+    'Physical Therapy': { icon: '🏃', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', short: 'PT' },
+    'Occupational Therapy': { icon: '🖐️', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', short: 'OT' },
+    'Clinical Nutrition': { icon: '🥗', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', short: 'RD' },
+    'Clinical Pharmacy': { icon: '💊', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc', short: 'PharmD' },
+    'Medical Social Work': { icon: '🤝', color: '#d97706', bg: '#fffbeb', border: '#fde68a', short: 'SW' },
+    'Respiratory Therapy': { icon: '🫁', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe', short: 'RT' },
+    'Speech-Language Pathology': { icon: '🗣️', color: '#db2777', bg: '#fdf2f8', border: '#fbcfe8', short: 'SLP' },
+    'Wound Care': { icon: '🩹', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', short: 'WOCN' },
+    'General Allied Health': { icon: '📋', color: '#475569', bg: '#f8fafc', border: '#e2e8f0', short: 'AHP' }
+};
+
+async function openMultidisciplinaryNotesModal(admissionId) {
+    const modal = document.getElementById('modalMultidisciplinaryNotes');
+    if (!modal) return;
+
+    const bed = (currentCensusData.beds || []).find(b => b.admission_id == admissionId);
+    if (!bed) {
+        showToast('Inpatient admission data not found', 'error');
+        return;
+    }
+
+    currentMpnAdmissionId = admissionId;
+    activeMpnDisciplineFilter = 'all';
+
+    // Populate Patient Demographic Banner
+    document.getElementById('mpnPatientName').textContent = bed.patient_name || 'Patient';
+    document.getElementById('mpnPatientMrn').textContent = bed.patient_mrn || bed.patient_id || '--';
+    document.getElementById('mpnPatientAgeGender').textContent = `${bed.patient_age ? bed.patient_age + 'y' : '--'} / ${bed.patient_gender || bed.gender || '--'}`;
+    document.getElementById('mpnBedNo').textContent = `${bed.ward_code || ''} - ${bed.bed_number || '--'}`;
+    document.getElementById('mpnLos').textContent = `${bed.los_days != null ? bed.los_days : 0} days`;
+    document.getElementById('mpnAdmittingDiag').textContent = bed.admitting_diagnosis || 'Under Observation';
+    document.getElementById('mpnAttendingPhysician').textContent = bed.attending_physician || 'Attending Physician';
+
+    // Reset filter chips to 'all'
+    const filterBar = document.getElementById('mpnDisciplineFilterBar');
+    if (filterBar) {
+        filterBar.querySelectorAll('.mpn-filter-chip').forEach(c => {
+            const isAll = c.getAttribute('data-discipline') === 'all';
+            c.classList.toggle('active-chip', isAll);
+            c.style.border = isAll ? '1px solid #0d9488' : '1px solid #cbd5e1';
+            c.style.background = isAll ? '#0d9488' : '#fff';
+            c.style.color = isAll ? '#fff' : '#1e293b';
+        });
+    }
+
+    // Prepare New Note Form defaults
+    resetMpnFormForNew(bed);
+
+    // Default to Timeline Tab
+    const tabTimeline = document.getElementById('tabBtnMpnTimeline');
+    if (tabTimeline) tabTimeline.click();
+
+    modal.classList.add('open');
+
+    await loadMultidisciplinaryTimeline(admissionId, 'all');
+}
+
+function resetMpnFormForNew(bed = null) {
+    const form = document.getElementById('formMultidisciplinaryNote');
+    if (form) form.reset();
+
+    if (!bed && currentMpnAdmissionId) {
+        bed = (currentCensusData.beds || []).find(b => b.admission_id == currentMpnAdmissionId);
+    }
+
+    const admInput = document.getElementById('mpnFormAdmissionId');
+    if (admInput) admInput.value = currentMpnAdmissionId || '';
+
+    const patInput = document.getElementById('mpnFormPatientId');
+    if (patInput) patInput.value = bed?.patient_id || '';
+
+    const recInput = document.getElementById('mpnFormRecordId');
+    if (recInput) recInput.value = '';
+
+    const nowIso = systemNow ? systemNow().slice(0, 16) : new Date().toISOString().slice(0, 16);
+    const dtInput = document.getElementById('mpnFormDateTime');
+    if (dtInput) dtInput.value = nowIso;
+
+    const u = currentUser || getUser();
+    const provName = (u?.first_name || u?.last_name)
+        ? `${(u.first_name || '')} ${(u.last_name || '')}`.trim()
+        : (u?.username || '');
+    const provInput = document.getElementById('mpnFormProviderName');
+    if (provInput) provInput.value = provName;
+
+    const roleInput = document.getElementById('mpnFormProviderRole');
+    if (roleInput) roleInput.value = 'Physical Therapist (DPT)';
+
+    const submitBtn = document.getElementById('btnSubmitMpnForm');
+    if (submitBtn) submitBtn.textContent = '💾 Save Progress Note';
+}
+
+async function loadMultidisciplinaryTimeline(admissionId, discipline = 'all') {
+    const container = document.getElementById('mpnTimelineContainer');
+    const badge = document.getElementById('mpnTotalBadge');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 30px;">⏳ Loading multidisciplinary clinical timeline...</div>';
+
+    try {
+        const res = await fetchProgressNotes(admissionId, discipline);
+        const notes = (res && res.success && res.data?.notes) ? res.data.notes : [];
+        if (badge) badge.textContent = `${notes.length} ${notes.length === 1 ? 'Note' : 'Notes'}`;
+
+        if (notes.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; background: #fff; border-radius: 10px; border: 1px dashed #cbd5e1; color: #64748b;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">🤝</div>
+                    <div style="font-weight: 700; font-size: 15px; color: #1e293b;">No Multidisciplinary Interventions Logged${discipline && discipline !== 'all' ? ` for ${esc(discipline)}` : ''}</div>
+                    <div style="font-size: 12.5px; margin-top: 6px; max-width: 460px; margin-left: auto; margin-right: auto;">
+                        Allied health professionals (Physical Therapy, Nutrition, Pharmacy, Social Work, Respiratory Therapy) can log their assessments and daily interventions here.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const u = currentUser || getUser();
+        const canCosign = ['admin', 'doctor', 'clinician'].includes(u?.role);
+
+        let html = '<div style="position: relative; padding-left: 26px; border-left: 3px solid #cbd5e1; margin-left: 10px; display: flex; flex-direction: column; gap: 18px;">';
+
+        notes.forEach(note => {
+            const meta = MPN_DISCIPLINE_META[note.discipline] || MPN_DISCIPLINE_META['General Allied Health'];
+            const dt = note.note_datetime ? new Date(note.note_datetime).toLocaleString() : '--';
+            const isCosigned = Number(note.is_cosigned) === 1;
+
+            html += `
+                <div style="position: relative; background: #fff; border: 1px solid ${meta.border}; border-radius: 10px; padding: 16px 18px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+                    <!-- Timeline Node Dot -->
+                    <div style="position: absolute; left: -37px; top: 18px; width: 18px; height: 18px; border-radius: 50%; background: ${meta.color}; border: 3px solid #fff; box-shadow: 0 0 0 2px ${meta.border};"></div>
+
+                    <!-- Top Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="background: ${meta.bg}; color: ${meta.color}; border: 1px solid ${meta.border}; padding: 3px 10px; border-radius: 14px; font-weight: 700; font-size: 12px;">
+                                ${meta.icon} ${esc(note.discipline)}
+                            </span>
+                            <span style="background: #f1f5f9; color: #334155; padding: 3px 9px; border-radius: 6px; font-weight: 600; font-size: 11px;">
+                                ${esc(note.note_type || 'Daily Intervention')}
+                            </span>
+                            <span style="font-family: monospace; font-size: 11px; color: #64748b;">#${esc(note.note_number || `MPN-${note.id}`)}</span>
+                            <span style="font-size: 12px; color: #64748b;">🕒 ${esc(dt)}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            ${isCosigned
+                                ? `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">✓ Cosigned by ${esc(note.cosigned_by_name || 'MD')}</span>`
+                                : (canCosign ? `<button type="button" class="btn-inpatient btn-cosign-mpn" data-note-id="${note.id}" style="padding: 3px 8px; font-size: 11px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; cursor: pointer;">✒️ Cosign</button>` : '')
+                            }
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary btn-edit-mpn" data-note-id="${note.id}" style="padding: 3px 8px; font-size: 11px;">✏️ Edit</button>
+                            ${canCosign ? `<button type="button" class="btn-inpatient btn-delete-mpn" data-note-id="${note.id}" style="padding: 3px 8px; font-size: 11px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">🗑️</button>` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Provider Attribution -->
+                    <div style="font-size: 12px; color: #475569; margin-bottom: 10px;">
+                        👩‍⚕️ Documented by: <strong style="color: #0f172a;">${esc(note.provider_name)}</strong>
+                        ${note.provider_role ? `<span style="color: #64748b;">(${esc(note.provider_role)})</span>` : ''}
+                    </div>
+
+                    <!-- Clinical Content Grid -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12.5px;">
+                        ${note.subjective ? `
+                            <div>
+                                <strong style="color: #334155;">🗣️ Subjective &amp; Tolerance:</strong>
+                                <div style="color: #475569; margin-top: 2px; white-space: pre-line; background: #f8fafc; padding: 6px 10px; border-radius: 6px;">${esc(note.subjective)}</div>
+                            </div>
+                        ` : ''}
+
+                        ${note.objective ? `
+                            <div>
+                                <strong style="color: #334155;">🔬 Objective Interventions &amp; Metrics:</strong>
+                                <div style="color: #0f172a; margin-top: 2px; white-space: pre-line; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border-left: 3px solid ${meta.color};">${esc(note.objective)}</div>
+                            </div>
+                        ` : ''}
+
+                        ${note.assessment ? `
+                            <div>
+                                <strong style="color: #334155;">🧠 Clinical Assessment:</strong>
+                                <div style="color: #334155; margin-top: 2px; white-space: pre-line; background: #f8fafc; padding: 6px 10px; border-radius: 6px;">${esc(note.assessment)}</div>
+                            </div>
+                        ` : ''}
+
+                        <div>
+                            <strong style="color: #0f172a;">📋 Treatment Plan &amp; Goals:</strong>
+                            <div style="color: #0f172a; font-weight: 500; margin-top: 2px; white-space: pre-line; background: ${meta.bg}; border-left: 3px solid ${meta.color}; padding: 7px 10px; border-radius: 0 6px 6px 0;">${esc(note.plan)}</div>
+                        </div>
+
+                        ${note.recommendations ? `
+                            <div style="margin-top: 4px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px;">
+                                <strong style="color: #b45309; font-size: 11.5px; text-transform: uppercase;">💡 Actionable Recommendation for Medical / Nursing Team:</strong>
+                                <div style="color: #92400e; font-weight: 600; margin-top: 2px; white-space: pre-line;">${esc(note.recommendations)}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Wire Edit buttons
+        container.querySelectorAll('.btn-edit-mpn').forEach(btn => {
+            btn.onclick = () => {
+                const nId = btn.getAttribute('data-note-id');
+                const target = notes.find(n => n.id == nId);
+                if (target) populateProgressNoteForEdit(target);
+            };
+        });
+
+        // Wire Cosign buttons
+        container.querySelectorAll('.btn-cosign-mpn').forEach(btn => {
+            btn.onclick = async () => {
+                const nId = btn.getAttribute('data-note-id');
+                try {
+                    const cRes = await cosignProgressNote(nId);
+                    if (cRes && cRes.success) {
+                        showToast('Progress note cosigned!', 'success');
+                        await loadMultidisciplinaryTimeline(admissionId, activeMpnDisciplineFilter);
+                    } else {
+                        showToast('Cosign failed: ' + (cRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Cosign error: ' + err.message, 'error');
+                }
+            };
+        });
+
+        // Wire Delete buttons
+        container.querySelectorAll('.btn-delete-mpn').forEach(btn => {
+            btn.onclick = async () => {
+                const nId = btn.getAttribute('data-note-id');
+                if (!confirm('Remove this multidisciplinary progress note from the timeline?')) return;
+                try {
+                    const dRes = await deleteProgressNote(nId);
+                    if (dRes && dRes.success) {
+                        showToast('Progress note removed', 'success');
+                        await loadMultidisciplinaryTimeline(admissionId, activeMpnDisciplineFilter);
+                    } else {
+                        showToast('Delete failed: ' + (dRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Delete error: ' + err.message, 'error');
+                }
+            };
+        });
+
+    } catch (err) {
+        container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading multidisciplinary timeline: ${esc(err.message)}</div>`;
+    }
+}
+
+function populateProgressNoteForEdit(note) {
+    document.getElementById('mpnFormRecordId').value = note.id;
+    document.getElementById('mpnFormAdmissionId').value = note.admission_id;
+    document.getElementById('mpnFormPatientId').value = note.patient_id || '';
+    document.getElementById('mpnFormDiscipline').value = note.discipline || 'Physical Therapy';
+    document.getElementById('mpnFormNoteType').value = note.note_type || 'Daily Treatment / Intervention';
+
+    if (note.note_datetime) {
+        document.getElementById('mpnFormDateTime').value = note.note_datetime.replace(' ', 'T').slice(0, 16);
+    }
+    document.getElementById('mpnFormProviderName').value = note.provider_name || '';
+    document.getElementById('mpnFormProviderRole').value = note.provider_role || '';
+    document.getElementById('mpnFormSubjective').value = note.subjective || '';
+    document.getElementById('mpnFormObjective').value = note.objective || '';
+    document.getElementById('mpnFormAssessment').value = note.assessment || '';
+    document.getElementById('mpnFormPlan').value = note.plan || '';
+    document.getElementById('mpnFormRecommendations').value = note.recommendations || '';
+
+    const submitBtn = document.getElementById('btnSubmitMpnForm');
+    if (submitBtn) submitBtn.textContent = `💾 Update Note (${note.note_number || '#' + note.id})`;
+
+    const tabNew = document.getElementById('tabBtnMpnNewNote');
+    if (tabNew) tabNew.click();
 }

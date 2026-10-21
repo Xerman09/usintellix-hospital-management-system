@@ -228,3 +228,69 @@ export async function deleteDailyRound(id) {
         body: JSON.stringify({ id })
     });
 }
+
+
+/**
+ * Fetch multidisciplinary progress notes for an inpatient admission
+ */
+export async function fetchProgressNotes(admissionId, discipline = null) {
+    const params = new URLSearchParams({ admission_id: admissionId });
+    if (discipline && discipline !== 'all') {
+        params.set('discipline', discipline);
+    }
+    return await api(`/inpatient-admissions/progress-notes?${params.toString()}`);
+}
+
+/**
+ * Fetch single multidisciplinary progress note
+ */
+export async function fetchProgressNote(id) {
+    return await api(`/inpatient-admissions/progress-notes/show?id=${id}`);
+}
+
+/**
+ * Fetch multidisciplinary progress note metadata options (disciplines, note types)
+ */
+export async function fetchProgressNoteOptions() {
+    return await api('/inpatient-admissions/progress-notes/options');
+}
+
+/**
+ * Save / Document a new multidisciplinary progress note or treatment log
+ */
+export async function saveProgressNote(payload) {
+    return await api('/inpatient-admissions/progress-notes', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Update an existing multidisciplinary progress note
+ */
+export async function updateProgressNote(payload) {
+    return await api('/inpatient-admissions/progress-notes/update', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Cosign a multidisciplinary progress note
+ */
+export async function cosignProgressNote(id) {
+    return await api('/inpatient-admissions/progress-notes/cosign', {
+        method: 'POST',
+        body: JSON.stringify({ id })
+    });
+}
+
+/**
+ * Delete a multidisciplinary progress note
+ */
+export async function deleteProgressNote(id) {
+    return await api('/inpatient-admissions/progress-notes/delete', {
+        method: 'POST',
+        body: JSON.stringify({ id })
+    });
+}

@@ -1831,6 +1831,7 @@ export function InpatientAdmissionsView() {
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="button" id="btnRoundViewMpn" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">🤝 Allied Health Notes</button>
                         <span id="dailyRoundNumberBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #38bdf8; color: #0f172a; font-family: monospace;">New Round</span>
                         <button class="inpatient-modal-close" data-close-modal style="color: #cbd5e1;">&times;</button>
                     </div>
@@ -2005,6 +2006,214 @@ export function InpatientAdmissionsView() {
                 </form>
             </div>
         </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL: MULTIDISCIPLINARY PROGRESS NOTES & TIMELINE (288)        -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalMultidisciplinaryNotes">
+            <div class="inpatient-modal-content" style="max-width: 960px; width: 96%; max-height: 94vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); color: #fff;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">🤝</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">Multidisciplinary Progress Notes &amp; Treatment Logs</h3>
+                            <span style="font-size: 11px; color: #ccfbf1;">Unified chronological care timeline for PT, OT, Nutrition, Pharmacy, Social Work &amp; RT</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="mpnTotalBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #99f6e4; color: #115e59; font-family: monospace;">0 Notes</span>
+                        <button class="inpatient-modal-close" data-close-modal style="color: #ccfbf1;">&times;</button>
+                    </div>
+                </div>
+
+                <!-- Patient Demographic Banner -->
+                <div style="background: #f0fdfa; padding: 12px 20px; border-bottom: 1px solid #ccfbf1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                    <div>
+                        <div style="font-size: 15px; font-weight: 700; color: #134e4a;" id="mpnPatientName">Patient Name</div>
+                        <div style="font-size: 12px; color: #0d9488; margin-top: 2px;">
+                            MRN: <strong id="mpnPatientMrn" style="color: #134e4a;">--</strong> |
+                            Age/Gender: <strong id="mpnPatientAgeGender" style="color: #134e4a;">--</strong> |
+                            Ward/Bed: <strong id="mpnBedNo" style="color: #134e4a;">--</strong> |
+                            LOS: <strong id="mpnLos" style="color: #134e4a;">--</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #134e4a;">
+                            Diagnosis: <strong id="mpnAdmittingDiag" style="color: #134e4a;">--</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #0f766e; margin-top: 2px;">
+                            Attending MD: <span id="mpnAttendingPhysician">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Controls: Navigation Tabs & Actions -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 0 20px; flex-shrink: 0; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" id="tabBtnMpnTimeline" class="mpn-tab active" style="padding: 10px 16px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #0d9488; border-bottom: 2px solid #0d9488; cursor: pointer;">
+                            ⏱️ Unified Chronological Timeline
+                        </button>
+                        <button type="button" id="tabBtnMpnNewNote" class="mpn-tab" style="padding: 10px 16px; border: none; background: transparent; font-weight: 600; font-size: 13px; color: #64748b; border-bottom: 2px solid transparent; cursor: pointer;">
+                            ✍️ Log New Intervention Note
+                        </button>
+                    </div>
+                    <div style="padding: 6px 0;">
+                        <button type="button" id="btnQuickNewMpn" class="btn-inpatient btn-inpatient-primary" style="padding: 5px 12px; font-size: 12px; background: #0d9488; border-color: #0d9488; cursor: pointer;">
+                            ➕ New Allied Health Note
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Discipline Filter Bar (For Timeline View) -->
+                <div id="mpnDisciplineFilterBar" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 20px; display: flex; align-items: center; gap: 6px; overflow-x: auto; flex-shrink: 0;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-right: 6px; white-space: nowrap;">Filter Discipline:</span>
+                    <button type="button" class="mpn-filter-chip active-chip" data-discipline="all" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; border: 1px solid #0d9488; background: #0d9488; color: #fff; cursor: pointer; white-space: nowrap;">
+                        All Disciplines
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Physical Therapy" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🏃 Physical Therapy
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Occupational Therapy" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🖐️ Occupational Therapy
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Clinical Nutrition" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🥗 Clinical Nutrition
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Clinical Pharmacy" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        💊 Clinical Pharmacy
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Medical Social Work" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🤝 Medical Social Work
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Respiratory Therapy" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🫁 Respiratory Therapy
+                    </button>
+                    <button type="button" class="mpn-filter-chip" data-discipline="Wound Care" style="padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #1e293b; cursor: pointer; white-space: nowrap;">
+                        🩹 Wound Care
+                    </button>
+                </div>
+
+                <!-- PANE 1: UNIFIED CHRONOLOGICAL TIMELINE -->
+                <div id="paneMpnTimeline" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 20px 24px; background: #f8fafc;">
+                    <div id="mpnTimelineContainer">
+                        <!-- Populated dynamically via renderProgressNotesTimeline() -->
+                    </div>
+                </div>
+
+                <!-- PANE 2: DOCUMENT NEW PROGRESS NOTE / INTERVENTION -->
+                <div id="paneMpnNewNote" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 20px 24px; display: none;">
+                    <form id="formMultidisciplinaryNote" style="margin: 0;">
+                        <input type="hidden" name="admission_id" id="mpnFormAdmissionId" />
+                        <input type="hidden" name="patient_id" id="mpnFormPatientId" />
+                        <input type="hidden" name="id" id="mpnFormRecordId" />
+
+                        <!-- Row 1: Discipline, Note Type, Date/Time -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Clinical Discipline <span style="color: red;">*</span></label>
+                                <select class="form-control" name="discipline" id="mpnFormDiscipline" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Physical Therapy">🏃 Physical Therapy</option>
+                                    <option value="Occupational Therapy">🖐️ Occupational Therapy</option>
+                                    <option value="Clinical Nutrition">🥗 Clinical Nutrition / Dietetics</option>
+                                    <option value="Clinical Pharmacy">💊 Clinical Pharmacy</option>
+                                    <option value="Medical Social Work">🤝 Medical Social Work</option>
+                                    <option value="Respiratory Therapy">🫁 Respiratory Therapy</option>
+                                    <option value="Speech-Language Pathology">🗣️ Speech-Language Pathology</option>
+                                    <option value="Wound Care">🩹 Wound &amp; Ostomy Care</option>
+                                    <option value="General Allied Health">📋 General Allied Health</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Note / Encounter Type <span style="color: red;">*</span></label>
+                                <select class="form-control" name="note_type" id="mpnFormNoteType" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Daily Treatment / Intervention">Daily Treatment / Intervention</option>
+                                    <option value="Initial Assessment">Initial Assessment</option>
+                                    <option value="Progress Review">Progress Review</option>
+                                    <option value="Consultation Note">Consultation Note</option>
+                                    <option value="Discharge Planning">Discharge Planning / Transition</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Intervention Date &amp; Time <span style="color: red;">*</span></label>
+                                <input type="datetime-local" class="form-control" name="note_datetime" id="mpnFormDateTime" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Clinician Name, Title/Role -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Documenting Clinician <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" name="provider_name" id="mpnFormProviderName" required placeholder="Clinician Name, Credential" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Professional Credential / Role</label>
+                                <input type="text" class="form-control" name="provider_role" id="mpnFormProviderRole" placeholder="e.g. Physical Therapist (DPT), Registered Dietitian (RD)" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                        </div>
+
+                        <!-- Structured Interventions & Clinical Observations -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>🗣️ Subjective Observations &amp; Tolerance</span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Patient report, symptoms, effort</span>
+                                </label>
+                                <textarea class="form-control" name="subjective" id="mpnFormSubjective" rows="3" placeholder="Patient states feeling stronger today. Reports 3/10 fatigue during gait exercises. Verbalized understanding of low-sodium meal selections..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>🔬 Objective Interventions &amp; Measurable Metrics</span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Exercises, intake, drug levels, distances</span>
+                                </label>
+                                <textarea class="form-control" name="objective" id="mpnFormObjective" rows="3" placeholder="Gait training: Ambulated 200 feet x2 with rolling walker and contact guard assist. Caloric intake: 1,650 kcal (82% of goal), 70g protein. Trough level: 14.8 mcg/mL (therapeutic)..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>🧠 Clinical Assessment &amp; Progress</span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Functional status, barrier identification</span>
+                                </label>
+                                <textarea class="form-control" name="assessment" id="mpnFormAssessment" rows="3" placeholder="Demonstrates improved quad strength and dynamic balance. Nutritional repletion progressing without aspiration signs. Therapeutic drug target reached with stable eGFR..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>📋 Treatment Plan &amp; Goals <span style="color: red;">*</span></span>
+                                    <span style="font-weight: 400; font-size: 11px; color: #94a3b8;">Session frequency, discharge readiness</span>
+                                </label>
+                                <textarea class="form-control" name="plan" id="mpnFormPlan" rows="3" required placeholder="Continue physical therapy daily (5x/week). Advance to stairs training tomorrow. Maintain renal diet with free water restriction. Screen for home physical therapy post-discharge..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Actionable Recommendations for Medical / Nursing Team -->
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="font-size: 12px; font-weight: 700; color: #0f766e; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                                <span>💡 Actionable Recommendations for Attending MD &amp; Nursing Staff</span>
+                                <span style="font-weight: 400; font-size: 11px; color: #64748b;">Cross-disciplinary orders or adjustments</span>
+                            </label>
+                            <textarea class="form-control" name="recommendations" id="mpnFormRecommendations" rows="2" placeholder="e.g. Recommend discontinuing urinary catheter to enhance ambulation; Recommend speech swallow eval before advancing to regular solids; Recommend renal dosing adjustment on next order..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #99f6e4; background: #f0fdfa; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" id="btnCancelMpnForm">Cancel</button>
+                            <button type="submit" class="btn-inpatient btn-inpatient-primary" id="btnSubmitMpnForm" style="background: #0d9488; border-color: #0d9488; cursor: pointer;">
+                                💾 Save Progress Note
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="inpatient-modal-footer" style="padding: 10px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                        <span>🔒</span> Electronic audit logging enabled. Notes are stamped with provider credentials and JCAHO multidisciplinary compliance.
+                    </div>
+                    <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
+                </div>
+            </div>
+        </div>
+
 
 
     </div>
