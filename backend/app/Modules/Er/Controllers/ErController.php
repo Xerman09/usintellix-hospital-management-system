@@ -11,6 +11,7 @@ use App\Modules\Er\Services\ErReportService;
 use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
 use App\Modules\Er\Services\ErTraumaService;
+use App\Modules\Er\Services\ErResuscitationBundleService;
 
 class ErController extends Controller
 {
@@ -178,6 +179,23 @@ class ErController extends Controller
     {
         $id = (int) ((new Request())->input('id') ?? 0);
         $this->respond((new ErTraumaService())->delete($id, Session::get('user') ?? []));
+    }
+
+    /** GET /er/resuscitation-bundles?visit_id=123 -- List STAT Resuscitation Order Bundles and catalog */
+    public function resuscitationBundlesIndex(): void
+    {
+        $visitId = (int) ((new Request())->input('visit_id') ?? 0);
+        if ($visitId <= 0) {
+            $this->json(['success' => false, 'message' => 'Valid visit_id is required.'], 422);
+            return;
+        }
+        $this->success((new ErResuscitationBundleService())->listByVisit($visitId), 'STAT resuscitation bundles retrieved.');
+    }
+
+    /** POST /er/resuscitation-bundles/order -- Instant 1-click order for MTP, Trauma Lab Panel, or Emergency Bedside Imaging */
+    public function resuscitationBundleOrder(): void
+    {
+        $this->respond((new ErResuscitationBundleService())->orderBundle((new Request())->all(), Session::get('user') ?? []));
     }
 
     private function respond(array $r): void

@@ -306,6 +306,7 @@ function actions(v) {
     const unk = v.patient.registration_status === "unidentified";
     return `<div class="acts">
         ${data.can_triage ? `<button type="button" class="erp-b sm" style="background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700" data-trauma="${v.id}">🚑 Trauma Fast-Sheet</button>` : ""}
+        ${data.can_triage ? `<button type="button" class="erp-b sm" style="background:#7c3aed;border-color:#7c3aed;color:#fff;font-weight:700" data-statbundles="${v.id}">⚡ STAT Bundles</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm" data-proto="${v.id}">Protocols…</button>` : ""}
         ${data.can_triage ? `<button type="button" class="erp-b sm ${v.status === "waiting" ? "go" : ""}" data-triage="${v.id}">${v.status === "waiting" ? "Triage" : "Re-triage"}</button>` : ""}
         ${data.can_assign ? `<button type="button" class="erp-b sm" data-assign="${v.id}">Bed / staff…</button>` : ""}
@@ -450,6 +451,8 @@ async function onBoardClick(e) {
     if (pr) return openProtocols(Number(pr.dataset.proto));
     const trm = t.closest("[data-trauma]");
     if (trm) return openTraumaFastSheet(Number(trm.dataset.trauma));
+    const sb = t.closest("[data-statbundles]");
+    if (sb) return openTraumaFastSheet(Number(sb.dataset.statbundles), "bundles");
     const dp = t.closest("[data-dispo]");
     if (dp) return openDisposition(Number(dp.dataset.dispo));
     const lb = t.closest("[data-labs]");
@@ -1153,10 +1156,11 @@ const ATLS_INTERVENTIONS = [
     "Portable Chest & Pelvis X-Ray at Bedside"
 ];
 
-export async function openTraumaFastSheet(visitId) {
-    const [vRes, tRes] = await Promise.all([
+export async function openTraumaFastSheet(visitId, initialTab = "form") {
+    const [vRes, tRes, bRes] = await Promise.all([
         api(`/er/show?id=${visitId}`).catch(() => null),
-        api(`/er/trauma?visit_id=${visitId}`).catch(() => null)
+        api(`/er/trauma?visit_id=${visitId}`).catch(() => null),
+        api(`/er/resuscitation-bundles?visit_id=${visitId}`).catch(() => null)
     ]);
 
     if (!vRes?.success) {
@@ -1166,6 +1170,9 @@ export async function openTraumaFastSheet(visitId) {
     const v = vRes.data;
     const tData = tRes?.data || { records: [], options: {} };
     let records = tData.records || [];
+    const bData = bRes?.data || { orders: [], catalog: [] };
+    let bundleOrders = bData.orders || [];
+    const bundleCatalog = bData.catalog || [];
     const me = getUser() || {};
     const defaultLeader = v.doctor_name || me.full_name || me.name || me.username || "Trauma Team Leader, MD";
     const tri = v.triage || {};
@@ -1174,9 +1181,41 @@ export async function openTraumaFastSheet(visitId) {
         `🚑 Trauma & Resuscitation Fast-Sheet — ${esc(v.patient.name)}`,
         `${esc(v.visit_no)} · ${ageSex(v.patient)}${v.acuity ? ` · ESI Level ${v.acuity}` : ""} · Bed: ${esc(v.bed_name || "Resus Bay")}`,
         `
+        <!-- INSTANT 1-CLICK STAT RESUSCITATION ORDER BUNDLES BAR -->
+        <div style="background:linear-gradient(135deg,#1e1b4b 0%,#31102f 100%);border:1px solid #6366f1;border-radius:10px;padding:10px 12px;color:#fff">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                <div>
+                    <div style="font-size:12.5px;font-weight:800;color:#fde047;letter-spacing:.02em">⚡ INSTANT 1-CLICK STAT RESUSCITATION ORDER BUNDLES</div>
+                    <div style="font-size:11px;color:#cbd5e1">Dispatches immediate STAT requisitions to Blood Bank, Clinical Lab &amp; Bedside Radiology</div>
+                </div>
+                <span id="trmBundleQuickStatus" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.14);color:#e2e8f0">
+                    ${bundleOrders.length} STAT Bundle${bundleOrders.length === 1 ? "" : "s"} Ordered
+                </span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+                <button type="button" class="erp-b sm" data-fire-bundle="mtp_activation" style="background:#dc2626;border-color:#f87171;color:#fff;font-weight:800;text-align:left;padding:7px 10px">
+                    🩸 1-Click Massive Transfusion (MTP)
+                    <div style="font-size:10.5px;font-weight:500;opacity:.92;margin-top:2px">4u PRBC · 4u FFP · 1u Plt · TXA 1g · Ca²⁺</div>
+                </button>
+                <button type="button" class="erp-b sm" data-fire-bundle="trauma_lab_panel" style="background:#0284c7;border-color:#38bdf8;color:#fff;font-weight:800;text-align:left;padding:7px 10px">
+                    🧪 1-Click STAT Trauma Lab Panel
+                    <div style="font-size:10.5px;font-weight:500;opacity:.92;margin-top:2px">Type/Cross · CBC · Coags/Fibr · ABG/Lactate · CMP</div>
+                </button>
+                <button type="button" class="erp-b sm" data-fire-bundle="emergency_bedside_imaging" style="background:#7c3aed;border-color:#a78bfa;color:#fff;font-weight:800;text-align:left;padding:7px 10px">
+                    🩻 1-Click Emergency Bedside Imaging
+                    <div style="font-size:10.5px;font-weight:500;opacity:.92;margin-top:2px">Portable CXR &amp; Pelvis · eFAST · Trauma CT Pan-Scan</div>
+                </button>
+                <button type="button" class="erp-b sm" data-fire-bundle="full_trauma_megabundle" style="background:#b45309;border-color:#fbbf24;color:#fff;font-weight:800;text-align:left;padding:7px 10px">
+                    🚨 1-Click Full Trauma Mega-Bundle
+                    <div style="font-size:10.5px;font-weight:500;opacity:.92;margin-top:2px">Simultaneous MTP + Trauma Labs + Bedside Imaging</div>
+                </button>
+            </div>
+        </div>
+
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-color);padding-bottom:8px;gap:8px;flex-wrap:wrap">
-            <div style="display:flex;gap:6px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <button type="button" class="erp-b sm blue" id="btnTabTraumaForm">⚡ Fast-Sheet Assessment (GCS · ATLS · FAST)</button>
+                <button type="button" class="erp-b sm" id="btnTabTraumaBundles">🧪 STAT Order Bundles (<span id="trmBundleCount">${bundleOrders.length}</span>)</button>
                 <button type="button" class="erp-b sm" id="btnTabTraumaHistory">📜 Resuscitation Log (<span id="trmLogCount">${records.length}</span>)</button>
             </div>
             <span id="trmEditingBadge" style="font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:12px;background:#fee2e2;color:#991b1b">New Resuscitation Entry</span>
@@ -1467,7 +1506,10 @@ export async function openTraumaFastSheet(visitId) {
             </div>
         </div>
 
-        <!-- PANE 2: SERIAL RESUSCITATION LOG -->
+        <!-- PANE 2: STAT RESUSCITATION ORDER BUNDLES -->
+        <div id="paneTraumaBundles" style="display:none;gap:12px"></div>
+
+        <!-- PANE 3: SERIAL RESUSCITATION LOG -->
         <div id="paneTraumaHistory" style="display:none"></div>
         `,
         `<button type="button" class="erp-b" data-x>Close</button><button type="button" class="erp-b go" id="btnSaveTraumaFastSheet">💾 Save Trauma &amp; Resuscitation Fast-Sheet</button>`
@@ -1477,22 +1519,122 @@ export async function openTraumaFastSheet(visitId) {
 
     // Tab switching
     const tabForm = m.$("#btnTabTraumaForm");
+    const tabBundles = m.$("#btnTabTraumaBundles");
     const tabHist = m.$("#btnTabTraumaHistory");
     const paneForm = m.$("#paneTraumaForm");
+    const paneBundles = m.$("#paneTraumaBundles");
     const paneHist = m.$("#paneTraumaHistory");
     const saveBtn = m.$("#btnSaveTraumaFastSheet");
 
     const showTab = (which) => {
-        const isForm = which === "form";
-        paneForm.style.display = isForm ? "grid" : "none";
-        paneHist.style.display = isForm ? "none" : "block";
-        saveBtn.style.display = isForm ? "inline-block" : "none";
-        tabForm.classList.toggle("blue", isForm);
-        tabHist.classList.toggle("blue", !isForm);
-        if (!isForm) renderTraumaHistory();
+        paneForm.style.display = which === "form" ? "grid" : "none";
+        paneBundles.style.display = which === "bundles" ? "grid" : "none";
+        paneHist.style.display = which === "history" ? "block" : "none";
+        saveBtn.style.display = which === "form" ? "inline-block" : "none";
+        tabForm.classList.toggle("blue", which === "form");
+        tabBundles.classList.toggle("blue", which === "bundles");
+        tabHist.classList.toggle("blue", which === "history");
+        if (which === "bundles") renderBundlesPane();
+        if (which === "history") renderTraumaHistory();
     };
     tabForm.onclick = () => showTab("form");
+    tabBundles.onclick = () => showTab("bundles");
     tabHist.onclick = () => showTab("history");
+
+    const fireStatBundle = async (bundleCode, triggerBtn = null) => {
+        const indication = m.$("#trmMechanism")?.value?.trim() || tri.chief_complaint || v.chief_complaint || "Emergency Trauma / Resuscitation STAT";
+        if (triggerBtn) triggerBtn.disabled = true;
+        const res = await post("/er/resuscitation-bundles/order", {
+            visit_id: visitId,
+            bundle_code: bundleCode,
+            clinical_indication: indication
+        });
+        if (triggerBtn) triggerBtn.disabled = false;
+
+        if (!res?.success) {
+            return showToast(res?.message || "Could not dispatch STAT resuscitation bundle.", "error");
+        }
+
+        bundleOrders = res.data?.orders || [];
+        m.$("#trmBundleCount").textContent = bundleOrders.length;
+        m.$("#trmBundleQuickStatus").textContent = `${bundleOrders.length} STAT Bundle${bundleOrders.length === 1 ? "" : "s"} Ordered`;
+
+        // Auto-check corresponding ATLS intervention boxes when MTP or Imaging/Labs are fired
+        if (bundleCode === "mtp_activation" || bundleCode === "full_trauma_megabundle") {
+            m.ov.querySelectorAll(".trm-atls-chk").forEach((c) => {
+                if (c.value.includes("Massive Transfusion") || c.value.includes("Tranexamic") || c.value.includes("Type & Crossmatch")) {
+                    c.checked = true;
+                }
+            });
+        }
+        if (bundleCode === "emergency_bedside_imaging" || bundleCode === "full_trauma_megabundle") {
+            m.ov.querySelectorAll(".trm-atls-chk").forEach((c) => {
+                if (c.value.includes("Portable Chest & Pelvis")) {
+                    c.checked = true;
+                }
+            });
+        }
+
+        showToast(res.message, "success", 6000);
+        if (paneBundles.style.display !== "none") {
+            renderBundlesPane();
+        }
+        load();
+    };
+
+    m.ov.querySelectorAll("[data-fire-bundle]").forEach((btn) => {
+        btn.onclick = () => fireStatBundle(btn.dataset.fireBundle, btn);
+    });
+
+    const renderBundlesPane = () => {
+        paneBundles.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px">
+                ${bundleCatalog.map((b) => `
+                    <div style="border:1px solid var(--border-color);border-top:4px solid ${esc(b.badge_color || "#dc2626")};border-radius:10px;padding:12px;background:var(--bg-surface);display:flex;flex-direction:column;justify-content:space-between;gap:8px">
+                        <div>
+                            <div style="font-weight:800;font-size:13.5px;color:var(--text-primary)">${esc(b.icon || "⚡")} ${esc(b.title)}</div>
+                            <div class="muted" style="font-size:11.5px;margin:4px 0 8px">${esc(b.description)}</div>
+                            <div style="display:grid;gap:3px;font-size:11.5px">
+                                ${(b.items || []).map((it) => `<div>• <b>${esc(it.type)}:</b> ${esc(it.name)}</div>`).join("")}
+                            </div>
+                        </div>
+                        <button type="button" class="erp-b sm" data-pane-fire="${esc(b.code)}" style="background:${esc(b.badge_color || "#dc2626")};border-color:${esc(b.badge_color || "#dc2626")};color:#fff;font-weight:800;width:100%">
+                            ⚡ Order ${esc(b.category)} STAT
+                        </button>
+                    </div>
+                `).join("")}
+            </div>
+
+            <div style="margin-top:6px">
+                <div style="font-weight:800;font-size:13px;margin-bottom:8px">📋 Dispatched STAT Resuscitation Bundles for This Visit (${bundleOrders.length})</div>
+                ${bundleOrders.length ? `<div style="display:grid;gap:8px">${bundleOrders.map((o) => `
+                    <div style="border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;background:var(--bg-surface-alt)">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                            <div>
+                                <span style="font-family:monospace;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:5px;font-size:12px">${esc(o.bundle_order_no)}</span>
+                                <b style="margin-left:6px">${esc(o.bundle_title)}</b>
+                            </div>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11.5px;font-weight:700">
+                                ${o.linked_lab_request_no ? `<span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:6px">🧪 Lab Req: ${esc(o.linked_lab_request_no)}</span>` : ""}
+                                ${o.linked_rad_request_no ? `<span style="background:#f3e8ff;color:#6d28d9;padding:2px 8px;border-radius:6px">🩻 Rad Req: ${esc(o.linked_rad_request_no)}</span>` : ""}
+                                <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px">✅ ${esc(o.status)}</span>
+                            </div>
+                        </div>
+                        ${o.blood_bank_status ? `<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:4px">🩸 Blood Bank: ${esc(o.blood_bank_status)}</div>` : ""}
+                        <div class="muted" style="font-size:11.5px;margin-top:4px">Ordered at ${esc(o.ordered_at)} by <b>${esc(o.ordered_by_name)}</b> · Indication: ${esc(o.clinical_indication || "STAT Resuscitation")}</div>
+                    </div>
+                `).join("")}</div>` : `<div class="erp-empty">No STAT resuscitation bundles ordered for this visit yet. Click any bundle above to dispatch in one click.</div>`}
+            </div>
+        `;
+
+        paneBundles.querySelectorAll("[data-pane-fire]").forEach((btn) => {
+            btn.onclick = () => fireStatBundle(btn.dataset.paneFire, btn);
+        });
+    };
+
+    if (initialTab !== "form") {
+        showTab(initialTab);
+    }
 
     // Live GCS Calculator
     const updateGcsCalculator = () => {

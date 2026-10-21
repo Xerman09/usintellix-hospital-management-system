@@ -7,6 +7,7 @@ use App\Modules\Er\Services\ErReportService;
 use App\Modules\Er\Services\ErProtocolService;
 use App\Modules\Er\Services\ErService;
 use App\Modules\Er\Services\ErTraumaService;
+use App\Modules\Er\Services\ErResuscitationBundleService;
 
 /** @var \App\Core\Router $router */
 
@@ -45,3 +46,7 @@ $erTrauma = [AuthMiddleware::class, [RoleMiddleware::class, ErTraumaService::ROL
 $router->get('/er/trauma', [ErController::class, 'traumaIndex'], $erView);
 $router->post('/er/trauma/save', [ErController::class, 'traumaSave'], $erTrauma);
 $router->post('/er/trauma/delete', [ErController::class, 'traumaDelete'], $erTrauma);
+// Phase 5B: Instant 1-click STAT Resuscitation Order Bundles (MTP, Trauma Lab Panel, Emergency Bedside Imaging).
+$erResusBundle = [AuthMiddleware::class, [RoleMiddleware::class, ErResuscitationBundleService::ROLES]];
+$router->get('/er/resuscitation-bundles', [ErController::class, 'resuscitationBundlesIndex'], $erView);
+$router->post('/er/resuscitation-bundles/order', [ErController::class, 'resuscitationBundleOrder'], $erResusBundle);
