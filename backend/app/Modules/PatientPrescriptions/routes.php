@@ -75,3 +75,8 @@ $router->post('/prescriptions/cancel', [PrescriptionController::class, 'cancel']
     AuthMiddleware::class,
     [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
 ]);
+
+$router->post('/prescriptions/evaluate-dosage-limits', [PrescriptionController::class, 'evaluateDosageLimits'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PrescriptionService::WRITER_ROLES]
+]);

@@ -128,6 +128,8 @@ class PrescriptionService
         $stmt->execute(['id' => $patientId]);
         $assigned = (int) $stmt->fetchColumn();
 
+        $ruleEngine = new DrugDosageLimitRuleEngine();
+
         return [
             'encounters' => array_map(fn($e) => [
                 'id' => (int) $e['id'],
@@ -138,7 +140,9 @@ class PrescriptionService
             'prescribers' => $prescribers,
             'default_prescriber_user_id' => $self ? $self[0]['user_id'] : ($assigned ?: null),
             'today' => date('Y-m-d'),
-            'validity_days' => GeneralSettingService::prescriptionValidityDays()
+            'validity_days' => GeneralSettingService::prescriptionValidityDays(),
+            'patient_dosing_context' => $ruleEngine->getPatientDosingContext($patientId),
+            'drug_dosage_limits' => $ruleEngine->getAllLimits(),
         ];
     }
 
@@ -509,10 +513,19 @@ class PrescriptionService
         $drugIds = array_values(array_unique(array_filter(array_map(fn($l) => (int) ($l['drug_id'] ?? 0), $rawLines))));
         $drugs = [];
         if ($drugIds) {
-            foreach ($db->query("SELECT id, name, is_active, deleted_at, controlled_class FROM drugs WHERE id IN (" . implode(',', $drugIds) . ")")->fetchAll(PDO::FETCH_ASSOC) as $d) {
+            foreach ($db->query("SELECT id, name, generic_name, strength, is_active, deleted_at, controlled_class FROM drugs WHERE id IN (" . implode(',', $drugIds) . ")")->fetchAll(PDO::FETCH_ASSOC) as $d) {
                 $drugs[(int) $d['id']] = $d;
             }
         }
+
+        // Automated Dosage Limits & Pediatric/Renal Thresholds Rules Engine
+        $ruleEngine = new DrugDosageLimitRuleEngine();
+        $allDosageLimits = $ruleEngine->getAllLimits();
+        $patientDosingContext = $ruleEngine->getPatientDosingContext($patientId, [
+            'patient_weight_kg' => $data['patient_weight_kg'] ?? null,
+            'patient_egfr_ml_min' => $data['patient_egfr_ml_min'] ?? null,
+        ]);
+        $globalOverrideAck = !empty($data['dosage_override_acknowledged']) && trim((string) ($data['dosage_override_reason'] ?? '')) !== '';
 
         $lines = [];
         $seenDrugs = [];
@@ -583,6 +596,18 @@ class PrescriptionService
             }
             foreach (['directions', 'comments', 'coding'] as $field) {
                 $line[$field] = $this->text($line[$field], 5000);
+            }
+
+            // Evaluate Automated Dosage Limits, Pediatric mg/kg/dose, & Renal Thresholds
+            $eval = $ruleEngine->evaluateLine($line, $patientDosingContext, $drug, $allDosageLimits);
+            $lineOverrideAck = $globalOverrideAck || !empty($raw['dosage_override_acknowledged']);
+            if ($eval['has_critical_block']) {
+                // Critical 10-fold / >=2x overdose is a hard safety block
+                $topAlert = $eval['alerts'][0];
+                $errors["{$key}.dosage"] = $topAlert['title'] . ' — ' . $topAlert['message'];
+            } elseif ($eval['has_violation'] && !$lineOverrideAck) {
+                $topAlert = $eval['alerts'][0];
+                $errors["{$key}.dosage"] = $topAlert['title'] . ' — ' . $topAlert['message'] . ' (Adjust dose/interval or acknowledge clinical override below.)';
             }
 
             $lines[] = $line;

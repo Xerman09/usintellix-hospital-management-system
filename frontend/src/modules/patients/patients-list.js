@@ -11067,6 +11067,13 @@ function setupPrescriptionModals()
     });
     document.getElementById("rxPrescriber").addEventListener("change", updatePrescriptionRules);
     document.getElementById("rxPrescribedDate").addEventListener("change", updatePrescriptionValidityHint);
+    ["rxPatientWeightKg", "rxPatientEgfr", "rxForcePediatricCheck"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener("input", evaluateAllPrescriptionDosageLimits);
+            el.addEventListener("change", evaluateAllPrescriptionDosageLimits);
+        }
+    });
 
     document.getElementById("rxEncounter").addEventListener("change", () => {
         const visit = rxFormOptions?.encounters.find((e) => String(e.id) === document.getElementById("rxEncounter").value);
@@ -11242,6 +11249,19 @@ async function openPrescriptionFormModal(slip)
     document.getElementById("rxDiagnosis").value = slip?.diagnosis || "";
     document.getElementById("rxNotes").value = slip?.notes || "";
 
+    // Populate patient weight, renal eGFR, and pediatric mode from server context
+    const ctx = rxFormOptions.patient_dosing_context || {};
+    const weightInput = document.getElementById("rxPatientWeightKg");
+    const egfrInput = document.getElementById("rxPatientEgfr");
+    const pedCheck = document.getElementById("rxForcePediatricCheck");
+    const overAck = document.getElementById("rxDosageOverrideAck");
+    const overReason = document.getElementById("rxDosageOverrideReason");
+    if (weightInput) weightInput.value = ctx.patient_weight_kg ?? 68;
+    if (egfrInput) egfrInput.value = ctx.patient_egfr_ml_min ?? 90;
+    if (pedCheck) pedCheck.checked = Boolean(ctx.is_pediatric);
+    if (overAck) overAck.checked = false;
+    if (overReason) overReason.value = "";
+
     if (slip) {
         slip.items.forEach((item) => addPrescriptionLine(item));
     } else {
@@ -11252,6 +11272,7 @@ async function openPrescriptionFormModal(slip)
     document.getElementById("rxPrintBtn").hidden = !slip || slip.display_status === "cancelled";
     updatePrescriptionValidityHint();
     updatePrescriptionRules();
+    evaluateAllPrescriptionDosageLimits();
     setPrescriptionFormReadOnly(readOnly);
     if (!readOnly && !slip) {
         document.querySelector("#rxLines [data-rx-search]")?.focus();
@@ -11309,7 +11330,7 @@ function addPrescriptionLine(item = null)
             <div class="two"><label>Name on the prescription</label><input class="form-input" data-f="title" value="${value("title")}" maxlength="255" placeholder="e.g. Amoxicillin 500 mg capsule"><span class="rx-err" data-rx-err="title"></span></div>
             <div><label>Quantity <span data-rx-unit style="font-weight:400;color:var(--text-muted);"></span></label><input class="form-input" data-f="quantity" value="${value("quantity")}" maxlength="50" placeholder="e.g. 21"></div>
             <div><label>Refills</label><input class="form-input" data-f="refills" type="number" min="0" max="99" value="${item?.refills ?? ""}" placeholder="0"><span class="rx-err" data-rx-err="refills"></span></div>
-            <div><label>Dose</label><input class="form-input" data-f="dosage" value="${value("dosage")}" maxlength="100" placeholder="e.g. 1 capsule"></div>
+            <div><label>Dose</label><input class="form-input" data-f="dosage" value="${value("dosage")}" maxlength="100" placeholder="e.g. 500 mg or 1 tablet"><span class="rx-err" data-rx-err="dosage"></span></div>
             <div><label>Frequency</label><input class="form-input" data-f="frequency" value="${value("frequency")}" maxlength="100" placeholder="e.g. 3 times a day"></div>
             <div><label>Route</label>${select("route", routeOptions, item?.route ?? "")}</div>
             <div><label>&nbsp;</label><label class="rx-check"><input type="checkbox" data-f="substitution_allowed"${!item || Number(item.substitution_allowed) ? " checked" : ""}> Substitution allowed</label></div>
@@ -11317,6 +11338,7 @@ function addPrescriptionLine(item = null)
             <div><label>End</label><input class="form-input" type="date" data-f="end_date" value="${value("end_date")}"><span class="rx-err" data-rx-err="end_date"></span></div>
             <div class="two"><label>Directions (sig)</label><input class="form-input" data-f="directions" value="${value("directions")}" placeholder="e.g. Take after meals for 7 days"></div>
         </div>
+        <div class="rx-dosage-panel" data-rx-dosage-check hidden></div>
         <button type="button" class="rx-more-toggle" data-rx-more aria-expanded="false">Show more fields</button>
         <div class="rx-line-grid" data-rx-more-fields hidden>
             <div class="two"><label>Pharmacy</label><input class="form-input" data-f="pharmacy" value="${value("pharmacy")}" maxlength="255"></div>
@@ -11403,6 +11425,20 @@ function onPrescriptionLineClick(event)
     const template = event.target.closest("[data-rx-template]");
     if (template) {
         applyPrescriptionTemplate(line, JSON.parse(template.dataset.rxTemplate));
+        evaluateAllPrescriptionDosageLimits();
+        return;
+    }
+    const applySafe = event.target.closest("[data-rx-apply-safe-dose]");
+    if (applySafe) {
+        const safeDose = applySafe.dataset.rxApplySafeDose;
+        const doseInput = line.querySelector('[data-f="dosage"]');
+        if (doseInput && safeDose) {
+            doseInput.value = safeDose;
+            const err = line.querySelector('[data-rx-err="dosage"]');
+            if (err) err.textContent = "";
+            line.classList.remove("has-error");
+            evaluateAllPrescriptionDosageLimits();
+        }
     }
 }
 
@@ -11416,6 +11452,9 @@ function onPrescriptionLineInput(event)
         return;
     }
     if (event.target.dataset.f === "title") updatePrescriptionRules();
+    if (["title", "dosage", "frequency", "directions"].includes(event.target.dataset.f)) {
+        evaluateAllPrescriptionDosageLimits();
+    }
 
     // Typing clears that field's error.
     const field = event.target.dataset.f;
@@ -11590,9 +11629,11 @@ function choosePrescriptionDrug(line, drug, opts = {})
         if (!line.querySelector(".rx-err:not(:empty)")) line.classList.remove("has-error");
     }
     state.autoTitle = drug.name;
+    state.chosenDrug = drug;
 
     renderPrescriptionLineDrug(line, drug);
     if (!opts.keepFields) updatePrescriptionRules();
+    evaluateAllPrescriptionDosageLimits();
 }
 
 function renderPrescriptionLineDrug(line, drug)
@@ -11636,13 +11677,16 @@ async function refreshPrescriptionLineDrug(line, drugId, name)
     const drug = result?.success ? result.data.find((d) => d.id === drugId) : null;
 
     if (drug && line.isConnected && String(line.querySelector('[data-f="drug_id"]').value) === String(drugId)) {
+        rxPickerState(line).chosenDrug = drug;
         renderPrescriptionLineDrug(line, drug);
+        evaluateAllPrescriptionDosageLimits();
     }
 }
 
 function clearPrescriptionDrug(line, clearAutoTitle)
 {
     const state = rxPickerState(line);
+    state.chosenDrug = null;
     const title = line.querySelector('[data-f="title"]');
     if (clearAutoTitle && state.autoTitle && title.value === state.autoTitle) title.value = "";
 
@@ -11657,6 +11701,7 @@ function clearPrescriptionDrug(line, clearAutoTitle)
     line.querySelector("[data-rx-templates]").innerHTML = "";
     line.querySelector("[data-rx-unit]").textContent = "";
     closePrescriptionDrugResults(line);
+    evaluateAllPrescriptionDosageLimits();
 }
 
 function prescriptionTemplateLabel(t)
@@ -11726,6 +11771,270 @@ function updatePrescriptionValidityHint()
     const untilIso = `${until.getFullYear()}-${String(until.getMonth() + 1).padStart(2, "0")}-${String(until.getDate()).padStart(2, "0")}`;
 
     hint.textContent = `Valid for filling until ${formatDate(untilIso)} (${days} days)${untilIso < todayISO() ? " — already expired" : ""}`;
+}
+
+/* ---------- Automated Dosage Limits & Pediatric/Renal Thresholds Rules Engine ---------- */
+
+function parseRxStrengthMg(text)
+{
+    const m = String(text || "").match(/(\d+(?:\.\d+)?)\s*(mg|g|mcg|ug)\b/i);
+    if (!m) return null;
+    const val = parseFloat(m[1]);
+    const unit = m[2].toLowerCase();
+    if (unit === "g") return val * 1000;
+    if (unit === "mcg" || unit === "ug") return val / 1000;
+    return val;
+}
+
+function parseRxPrescribedSingleDoseMg(dosageStr, unitStrengthMg, titleStr)
+{
+    const d = String(dosageStr || "").trim().replace(/,/g, "");
+    if (d) {
+        const massMatch = d.match(/(\d+(?:\.\d+)?)\s*(mg|g|gram|grams|mcg|ug)\b/i);
+        if (massMatch) {
+            const val = parseFloat(massMatch[1]);
+            const unit = massMatch[2].toLowerCase();
+            if (unit === "g" || unit === "gram" || unit === "grams") return val * 1000;
+            if (unit === "mcg" || unit === "ug") return val / 1000;
+            return val;
+        }
+        const unitMatch = d.match(/^(\d+(?:\.\d+)?)\s*(?:tab|tablet|tablets|cap|caps|capsule|capsules|pill|pills|vial|amp|ampule|dose|doses|sachet|suppository)?\b/i);
+        if (unitMatch) {
+            const count = parseFloat(unitMatch[1]);
+            if (count >= 25 && !/(tab|cap|pill|vial|amp|dose|sachet)/i.test(d)) {
+                return count;
+            }
+            if (count > 0 && unitStrengthMg > 0) {
+                return count * unitStrengthMg;
+            }
+        }
+    }
+    const titleGramMatch = String(titleStr || "").replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*(g|gram|grams)\b/i);
+    if (titleGramMatch) {
+        return parseFloat(titleGramMatch[1]) * 1000;
+    }
+    return unitStrengthMg > 0 ? unitStrengthMg : null;
+}
+
+function parseRxDosesPerDay(freqStr, dirStr)
+{
+    const f = `${freqStr || ""} ${dirStr || ""}`.toUpperCase().trim();
+    if (!f) return 1;
+    if (/\b(Q4H|EVERY 4 HOURS|6 TIMES A DAY|6X DAILY|6X\/DAY)\b/.test(f)) return 6;
+    if (/\b(QID|Q6H|EVERY 6 HOURS|4 TIMES A DAY|FOUR TIMES A DAY|4X DAILY|4X\/DAY)\b/.test(f)) return 4;
+    if (/\b(TID|Q8H|EVERY 8 HOURS|3 TIMES A DAY|THREE TIMES A DAY|3X DAILY|3X\/DAY)\b/.test(f)) return 3;
+    if (/\b(BID|Q12H|EVERY 12 HOURS|2 TIMES A DAY|TWICE A DAY|TWICE DAILY|2X DAILY|2X\/DAY)\b/.test(f)) return 2;
+    if (/\b(OD|QD|Q24H|EVERY 24 HOURS|ONCE A DAY|ONCE DAILY|DAILY|EVERY DAY|HS|AT BEDTIME)\b/.test(f)) return 1;
+    const timesMatch = f.match(/(\d+)\s*(?:TIMES|X)\s*(?:A|PER)?\s*DAY/);
+    if (timesMatch) return Math.max(1, parseFloat(timesMatch[1]));
+    const hrsMatch = f.match(/EVERY\s*(\d+)\s*HOURS?/);
+    if (hrsMatch && parseInt(hrsMatch[1], 10) > 0) return Math.round((24 / parseInt(hrsMatch[1], 10)) * 100) / 100;
+    return 1;
+}
+
+function formatMgAndGrams(mg)
+{
+    const n = Number(mg || 0);
+    if (n >= 1000) {
+        const g = Math.round((n / 1000) * 100) / 100;
+        return `${n.toLocaleString("en-US", { maximumFractionDigits: 0 })} mg (${g} g)`;
+    }
+    return `${n.toLocaleString("en-US", { maximumFractionDigits: n < 1 ? 2 : 0 })} mg`;
+}
+
+function findDosageLimitRuleForLine(line)
+{
+    const state = rxPickerState(line);
+    if (state?.chosenDrug?.dosage_limit) {
+        return state.chosenDrug.dosage_limit;
+    }
+    const rules = rxFormOptions?.drug_dosage_limits || [];
+    const drugId = Number(line.querySelector('[data-f="drug_id"]')?.value || 0);
+    if (drugId) {
+        const byId = rules.find((r) => Number(r.drug_id) === drugId);
+        if (byId) return byId;
+    }
+    const title = (line.querySelector('[data-f="title"]')?.value || "").toLowerCase();
+    const generic = (state?.chosenDrug?.generic_name || "").toLowerCase();
+    const hay = `${generic} ${title}`.trim();
+    if (!hay) return null;
+    return rules.find((r) => r.generic_keyword && hay.includes(String(r.generic_keyword).toLowerCase())) || null;
+}
+
+function evaluateAllPrescriptionDosageLimits()
+{
+    const weightKg = Math.max(1, parseFloat(document.getElementById("rxPatientWeightKg")?.value || "68") || 68);
+    const egfrMlMin = Math.max(1, parseFloat(document.getElementById("rxPatientEgfr")?.value || "90") || 90);
+    const forcePed = Boolean(document.getElementById("rxForcePediatricCheck")?.checked);
+    const ageYears = rxFormOptions?.patient_dosing_context?.age_years ?? null;
+    const isPediatric = forcePed || (ageYears != null && ageYears < 18) || weightKg < 40;
+
+    const modeBadge = document.getElementById("rxPatientDosingModeBadge");
+    if (modeBadge) {
+        modeBadge.className = isPediatric ? "rx-badge warn" : "rx-badge ok";
+        modeBadge.textContent = isPediatric
+            ? `👶 Pediatric Mode (${weightKg} kg${ageYears != null ? ` · ${ageYears} yrs` : ""})`
+            : `🧑 Adult Mode (${weightKg} kg · eGFR ${egfrMlMin} mL/min)`;
+    }
+
+    let hasAnyModerateOrHighWarning = false;
+    const lines = [...document.querySelectorAll("#rxLines .rx-line")];
+
+    lines.forEach((line) => {
+        const panel = line.querySelector("[data-rx-dosage-check]");
+        if (!panel) return;
+
+        const rule = findDosageLimitRuleForLine(line);
+        if (!rule) {
+            panel.hidden = true;
+            panel.innerHTML = "";
+            return;
+        }
+
+        const state = rxPickerState(line);
+        const title = line.querySelector('[data-f="title"]')?.value || "";
+        const dosage = line.querySelector('[data-f="dosage"]')?.value || "";
+        const frequency = line.querySelector('[data-f="frequency"]')?.value || "";
+        const directions = line.querySelector('[data-f="directions"]')?.value || "";
+        const strengthStr = state?.chosenDrug?.strength || title;
+
+        const unitStrengthMg = parseRxStrengthMg(strengthStr) || Number(rule.default_unit_strength_mg) || 500;
+        const singleDoseMg = parseRxPrescribedSingleDoseMg(dosage, unitStrengthMg, title);
+        const dosesPerDay = parseRxDosesPerDay(frequency, directions);
+        const dailyDoseMg = singleDoseMg != null ? Math.round(singleDoseMg * dosesPerDay * 100) / 100 : null;
+        const mgKgPerDose = singleDoseMg != null && weightKg > 0 ? Math.round((singleDoseMg / weightKg) * 100) / 100 : null;
+        const mgKgPerDay = dailyDoseMg != null && weightKg > 0 ? Math.round((dailyDoseMg / weightKg) * 100) / 100 : null;
+
+        const maxSingleMg = Number(rule.max_single_dose_mg);
+        const maxDailyMg = Number(rule.max_daily_dose_mg);
+        const pedRecMgKg = rule.pediatric_mg_kg_per_dose != null ? Number(rule.pediatric_mg_kg_per_dose) : null;
+        const pedMaxMgKg = rule.pediatric_max_mg_kg_per_dose != null ? Number(rule.pediatric_max_mg_kg_per_dose) : null;
+        const pedMaxDayMgKg = rule.pediatric_max_mg_kg_per_day != null ? Number(rule.pediatric_max_mg_kg_per_day) : null;
+
+        const alerts = [];
+        let severity = "ok";
+        let hasCritical = false;
+
+        // 1. Single Dose Limit & 10-Fold Overdose Detection (e.g. Paracetamol 40 g instead of 4 g)
+        if (singleDoseMg != null && maxSingleMg > 0 && singleDoseMg > maxSingleMg) {
+            const foldSingle = Math.round((singleDoseMg / maxSingleMg) * 10) / 10;
+            const foldDaily = maxDailyMg > 0 ? Math.round((singleDoseMg / maxDailyMg) * 10) / 10 : foldSingle;
+            if (foldSingle >= 2 || foldDaily >= 2) {
+                hasCritical = true;
+                severity = "critical_block";
+                alerts.push({
+                    icon: "🚨",
+                    title: foldSingle >= 10 || foldDaily >= 10
+                        ? `10-FOLD / MASSIVE OVERDOSE BLOCKED (${foldSingle}× Max Single Dose / ${foldDaily}× Max Daily Limit)`
+                        : `CRITICAL SINGLE-DOSE OVERDOSE BLOCKED (${foldSingle}× Max Single Dose)`,
+                    message: `Prescribed single dose of ${formatMgAndGrams(singleDoseMg)} exceeds max_single_dose of ${formatMgAndGrams(maxSingleMg)}. ${rule.clinical_overdose_warning || ""}`
+                });
+            } else {
+                severity = "high_warning";
+                hasAnyModerateOrHighWarning = true;
+                alerts.push({
+                    icon: "⚠️",
+                    title: `Exceeds Max Single Dose (${formatMgAndGrams(maxSingleMg)})`,
+                    message: `Prescribed single dose (${formatMgAndGrams(singleDoseMg)}) exceeds standard adult max_single_dose (${formatMgAndGrams(maxSingleMg)}).`
+                });
+            }
+        }
+
+        // 2. Cumulative 24-Hour Daily Dose Limit
+        if (dailyDoseMg != null && maxDailyMg > 0 && dailyDoseMg > maxDailyMg) {
+            const foldDaily = Math.round((dailyDoseMg / maxDailyMg) * 10) / 10;
+            if (foldDaily >= 2) {
+                hasCritical = true;
+                severity = "critical_block";
+            } else if (severity !== "critical_block") {
+                severity = "high_warning";
+                hasAnyModerateOrHighWarning = true;
+            }
+            alerts.push({
+                icon: foldDaily >= 2 ? "🚨" : "⚠️",
+                title: foldDaily >= 10
+                    ? `10-FOLD DAILY OVERDOSE (${foldDaily}× Max Daily Dose)`
+                    : `Exceeds 24-Hour Max Daily Dose (${formatMgAndGrams(maxDailyMg)}/day)`,
+                message: `24-hour cumulative dose is ${formatMgAndGrams(dailyDoseMg)}/day (${formatMgAndGrams(singleDoseMg)} × ${dosesPerDay} doses/day), exceeding max_daily_dose of ${formatMgAndGrams(maxDailyMg)}/day.`
+            });
+        }
+
+        // 3. Pediatric mg/kg/dose & mg/kg/day Limits
+        if (isPediatric && mgKgPerDose != null && pedMaxMgKg != null && mgKgPerDose > pedMaxMgKg) {
+            const recDoseMg = Math.min(maxSingleMg, Math.round((pedRecMgKg || pedMaxMgKg) * weightKg));
+            if (mgKgPerDose >= pedMaxMgKg * 2) {
+                hasCritical = true;
+                severity = "critical_block";
+            } else if (severity !== "critical_block") {
+                severity = "high_warning";
+                hasAnyModerateOrHighWarning = true;
+            }
+            alerts.push({
+                icon: "👶",
+                title: `Pediatric mg/kg/dose Limit Exceeded (${mgKgPerDose} mg/kg/dose > ${pedMaxMgKg} mg/kg/dose)`,
+                message: `For a ${weightKg} kg pediatric patient, ${formatMgAndGrams(singleDoseMg)} equals ${mgKgPerDose} mg/kg/dose (safe pediatric ceiling: ${pedMaxMgKg} mg/kg/dose; recommended single dose: ${recDoseMg} mg).`
+            });
+        } else if (isPediatric && mgKgPerDay != null && pedMaxDayMgKg != null && mgKgPerDay > pedMaxDayMgKg) {
+            if (severity !== "critical_block") {
+                severity = "high_warning";
+                hasAnyModerateOrHighWarning = true;
+            }
+            alerts.push({
+                icon: "👶",
+                title: `Pediatric Daily Limit Exceeded (${mgKgPerDay} mg/kg/day > ${pedMaxDayMgKg} mg/kg/day)`,
+                message: `For a ${weightKg} kg pediatric patient, ${formatMgAndGrams(dailyDoseMg)}/day equals ${mgKgPerDay} mg/kg/day (max pediatric daily limit: ${pedMaxDayMgKg} mg/kg/day).`
+            });
+        }
+
+        // 4. Impaired Renal Clearance Thresholds (eGFR / CrCl)
+        const renalContra = rule.renal_egfr_contraindicated_threshold != null ? Number(rule.renal_egfr_contraindicated_threshold) : null;
+        const renalWarn = rule.renal_egfr_warning_threshold != null ? Number(rule.renal_egfr_warning_threshold) : null;
+        if (renalContra != null && egfrMlMin < renalContra) {
+            if (severity === "ok") severity = "high_warning";
+            hasAnyModerateOrHighWarning = true;
+            alerts.push({
+                icon: "🫘",
+                title: `Severe Renal Clearance Impairment Alert (Patient eGFR ${egfrMlMin} < ${renalContra} mL/min)`,
+                message: rule.renal_adjustment_guidance || `Severe renal impairment (eGFR ${egfrMlMin} mL/min): Contraindicated or requires major renal dose reduction.`
+            });
+        } else if (renalWarn != null && egfrMlMin < renalWarn) {
+            if (severity === "ok") severity = "moderate_warning";
+            hasAnyModerateOrHighWarning = true;
+            alerts.push({
+                icon: "🫘",
+                title: `Impaired Renal Clearance Prompt (Patient eGFR ${egfrMlMin} < ${renalWarn} mL/min)`,
+                message: rule.renal_adjustment_guidance || `Impaired renal clearance (eGFR ${egfrMlMin} mL/min): Verify renal dosing interval / dose reduction.`
+            });
+        }
+
+        const safeAdultDoseStr = `${unitStrengthMg <= maxSingleMg ? unitStrengthMg : maxSingleMg} mg`;
+        const safePedDoseMg = pedRecMgKg != null ? Math.min(maxSingleMg, Math.max(1, Math.round(pedRecMgKg * weightKg))) : null;
+
+        panel.hidden = false;
+        panel.className = `rx-dosage-panel ${severity}`;
+        panel.innerHTML = `
+            <div class="rx-dosage-metrics">
+                <span><strong>${escapeHtml(rule.display_name)}</strong></span>
+                <span>Single Dose: <strong>${singleDoseMg != null ? escapeHtml(formatMgAndGrams(singleDoseMg)) : "—"}</strong> <small>(max ${escapeHtml(formatMgAndGrams(maxSingleMg))})</small></span>
+                <span>24h Total: <strong>${dailyDoseMg != null ? escapeHtml(formatMgAndGrams(dailyDoseMg)) + "/day" : "—"}</strong> <small>(max ${escapeHtml(formatMgAndGrams(maxDailyMg))}/day)</small></span>
+                <span>Weight-Based: <strong>${mgKgPerDose != null ? `${mgKgPerDose} mg/kg/dose` : "—"}</strong>${pedMaxMgKg != null ? ` <small>(ped max ${pedMaxMgKg} mg/kg/dose)</small>` : ""}</span>
+                <span>Renal eGFR: <strong>${egfrMlMin} mL/min</strong></span>
+            </div>
+            ${alerts.length
+                ? alerts.map((a) => `<div class="rx-dosage-alert-item"><strong>${a.icon} ${escapeHtml(a.title)}:</strong> ${escapeHtml(a.message)}</div>`).join("")
+                  + `<div style="margin-top:4px;">
+                        <button type="button" class="rx-dosage-fix-btn" data-rx-apply-safe-dose="${escapeHtml(safeAdultDoseStr)}">&#10003; Apply Standard Safe Dose (${escapeHtml(safeAdultDoseStr)})</button>
+                        ${safePedDoseMg != null ? `<button type="button" class="rx-dosage-fix-btn" data-rx-apply-safe-dose="${safePedDoseMg} mg">&#128118; Apply Pediatric Dose (${safePedDoseMg} mg · ${pedRecMgKg} mg/kg)</button>` : ""}
+                     </div>`
+                : `<div>&#10003; <strong>Within Safe Dosing &amp; Renal Thresholds:</strong> Single dose, 24-hour daily ceiling, weight-based mg/kg/dose, and renal clearance verified.</div>`
+            }
+        `;
+    });
+
+    const overrideWrap = document.getElementById("rxDosageOverrideWrap");
+    if (overrideWrap) {
+        overrideWrap.hidden = !hasAnyModerateOrHighWarning;
+    }
 }
 
 /* ---------- printing ---------- */
@@ -11926,6 +12235,10 @@ async function savePrescriptionSlip()
         encounter_id: document.getElementById("rxEncounter").value || null,
         diagnosis: document.getElementById("rxDiagnosis").value.trim(),
         notes: document.getElementById("rxNotes").value.trim(),
+        patient_weight_kg: document.getElementById("rxPatientWeightKg")?.value || null,
+        patient_egfr_ml_min: document.getElementById("rxPatientEgfr")?.value || null,
+        dosage_override_acknowledged: document.getElementById("rxDosageOverrideAck")?.checked ? 1 : 0,
+        dosage_override_reason: document.getElementById("rxDosageOverrideReason")?.value?.trim() || "",
         items: sent.map(({ item }) => item)
     };
 

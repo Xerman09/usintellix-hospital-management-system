@@ -103,3 +103,8 @@ export async function cancelPrescriptionSlip(id, reason, version)
 {
     return await api("/prescriptions/cancel", { method: "POST", body: JSON.stringify({ id, reason, version }) });
 }
+
+export async function evaluatePrescriptionDosageLimits(payload)
+{
+    return await api("/prescriptions/evaluate-dosage-limits", { method: "POST", body: JSON.stringify(payload) });
+}

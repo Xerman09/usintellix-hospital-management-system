@@ -5,6 +5,7 @@ namespace App\Modules\PatientPrescriptions\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\PatientPrescriptions\Services\DrugDosageLimitRuleEngine;
 use App\Modules\PatientPrescriptions\Services\PrescriptionService;
 use App\Modules\Patients\Models\Patient;
 use App\Modules\Patients\Services\PatientAccessService;
@@ -63,7 +64,10 @@ class PrescriptionController extends Controller
     {
         $request = new Request();
         $user = Session::get('user');
-        $data = $request->only(['patient_id', 'prescriber_user_id', 'encounter_id', 'prescribed_date', 'diagnosis', 'notes', 'items']);
+        $data = $request->only([
+            'patient_id', 'prescriber_user_id', 'encounter_id', 'prescribed_date', 'diagnosis', 'notes', 'items',
+            'patient_weight_kg', 'patient_egfr_ml_min', 'dosage_override_acknowledged', 'dosage_override_reason'
+        ]);
 
         if (!$this->ownsPatient($user, (int) ($data['patient_id'] ?? 0))) {
             $this->error('Patient not found.', 404);
@@ -87,9 +91,41 @@ class PrescriptionController extends Controller
 
         $this->respond($this->service->update(
             $id,
-            $request->only(['id', 'prescriber_user_id', 'encounter_id', 'prescribed_date', 'diagnosis', 'notes', 'items', 'version']),
+            $request->only([
+                'id', 'prescriber_user_id', 'encounter_id', 'prescribed_date', 'diagnosis', 'notes', 'items', 'version',
+                'patient_weight_kg', 'patient_egfr_ml_min', 'dosage_override_acknowledged', 'dosage_override_reason'
+            ]),
             $user
         ));
+    }
+
+    /**
+     * Evaluate automated dosage limits, pediatric mg/kg/dose, and renal eGFR thresholds.
+     * Body: patient_id, patient_weight_kg?, patient_egfr_ml_min?, items[]
+     */
+    public function evaluateDosageLimits(): void
+    {
+        $request = new Request();
+        $patientId = (int) $request->input('patient_id');
+        $engine = new DrugDosageLimitRuleEngine();
+        $allLimits = $engine->getAllLimits();
+        $context = $engine->getPatientDosingContext($patientId, [
+            'patient_weight_kg' => $request->input('patient_weight_kg'),
+            'patient_egfr_ml_min' => $request->input('patient_egfr_ml_min'),
+            'is_pediatric' => $request->input('is_pediatric'),
+        ]);
+
+        $rawItems = is_array($request->input('items')) ? $request->input('items') : [];
+        $evaluations = [];
+        foreach ($rawItems as $idx => $item) {
+            if (!is_array($item)) continue;
+            $evaluations[$idx] = $engine->evaluateLine($item, $context, null, $allLimits);
+        }
+
+        $this->success([
+            'patient_dosing_context' => $context,
+            'evaluations' => $evaluations,
+        ], 'Dosage limits evaluated successfully.');
     }
 
     /** Query: id -- what the printed prescription shows. */

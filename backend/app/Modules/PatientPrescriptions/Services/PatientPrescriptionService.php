@@ -321,6 +321,9 @@ class PatientPrescriptionService
             }
         }
 
+        $ruleEngine = new DrugDosageLimitRuleEngine();
+        $allLimits = $ruleEngine->getAllLimits();
+
         return array_map(fn($d) => [
             'id' => (int) $d['id'],
             'name' => $d['name'],
@@ -338,7 +341,8 @@ class PatientPrescriptionService
             'is_stocked' => (bool) $d['allow_inventory'],
             'usable' => round((float) $d['usable'], 3),
             'locations' => (int) $d['locations'],
-            'templates' => $templates[(int) $d['id']] ?? []
+            'templates' => $templates[(int) $d['id']] ?? [],
+            'dosage_limit' => $ruleEngine->findLimitForDrug((int) $d['id'], (string) $d['name'], $d['generic_name'], $allLimits),
         ], $drugs);
     }
 

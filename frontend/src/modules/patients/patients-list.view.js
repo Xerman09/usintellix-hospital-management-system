@@ -11960,6 +11960,26 @@ textarea.pd-sdoh-readonly {
 .rx-dash-slip-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-muted); }
 .rx-dash-slip ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-primary); font-size: 13px; }
 
+/* Automated Dosage Limits & Pediatric/Renal Thresholds Rules Engine UI */
+.rx-safety-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 10px 14px; border-radius: 9px; border: 1px solid #bae6fd; background: #f0f9ff; margin-bottom: 10px; font-size: 12.5px; color: #0c4a6e; }
+:root[data-theme="dark"] .rx-safety-bar { background: rgba(14,165,233,.12); border-color: rgba(14,165,233,.35); color: #e0f2fe; }
+.rx-safety-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.rx-safety-inputs label { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .25px; margin: 0; }
+.rx-safety-inputs input[type="number"] { width: 82px; height: 28px; padding: 0 7px; border-radius: 5px; border: 1px solid #7dd3fc; background: var(--bg-surface); color: var(--text-primary); font-size: 12.5px; font-weight: 700; }
+.rx-dosage-panel { margin-top: 8px; border-radius: 8px; padding: 9px 12px; font-size: 12.5px; border: 1px solid var(--border-color); background: var(--bg-surface-alt); }
+.rx-dosage-panel.ok { border-color: #86efac; background: #f0fdf4; color: #14532d; }
+.rx-dosage-panel.moderate_warning { border-color: #fcd34d; background: #fffbeb; color: #78350f; }
+.rx-dosage-panel.high_warning { border-color: #fdba74; background: #fff7ed; color: #7c2d12; }
+.rx-dosage-panel.critical_block { border-color: #ef4444; background: #fef2f2; color: #7f1d1d; border-width: 2px; }
+:root[data-theme="dark"] .rx-dosage-panel.ok { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.4); color: #dcfce7; }
+:root[data-theme="dark"] .rx-dosage-panel.moderate_warning { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.45); color: #fef3c7; }
+:root[data-theme="dark"] .rx-dosage-panel.high_warning { background: rgba(249,115,22,.14); border-color: rgba(249,115,22,.45); color: #ffedd5; }
+:root[data-theme="dark"] .rx-dosage-panel.critical_block { background: rgba(239,68,68,.18); border-color: #f87171; color: #fee2e2; }
+.rx-dosage-metrics { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px dashed rgba(100,116,139,.35); }
+.rx-dosage-alert-item { margin-top: 5px; line-height: 1.35; }
+.rx-dosage-fix-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; margin-right: 6px; padding: 3px 9px; border-radius: 5px; border: 1px solid #0284c7; background: #e0f2fe; color: #0369a1; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.rx-dosage-fix-btn:hover { background: #bae6fd; }
+
 @media (max-width: 760px) {
     .rx-head-grid, .rx-line-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .rx-head-grid .two, .rx-line-grid .two { grid-column: 1 / -1; }
@@ -12044,7 +12064,32 @@ textarea.pd-sdoh-readonly {
             </div>
 
             <div class="rx-section-title"><span>Medicines</span><span id="rxLineCount" style="text-transform:none;font-weight:400;"></span></div>
+            <div class="rx-safety-bar" id="rxDosageSafetyContextBar">
+                <div>
+                    <strong>&#128737; Automated Dosage Limits, Pediatric (mg/kg) &amp; Renal Guardrails</strong>
+                    <span id="rxPatientDosingModeBadge" class="rx-badge ok" style="margin-left:6px;">Adult Mode</span>
+                </div>
+                <div class="rx-safety-inputs">
+                    <label>Weight (kg):
+                        <input type="number" id="rxPatientWeightKg" step="0.1" min="1" max="350" value="68">
+                    </label>
+                    <label>Renal eGFR (mL/min):
+                        <input type="number" id="rxPatientEgfr" step="1" min="2" max="180" value="90">
+                    </label>
+                    <label style="text-transform:none;font-weight:600;cursor:pointer;">
+                        <input type="checkbox" id="rxForcePediatricCheck"> Pediatric mg/kg check
+                    </label>
+                </div>
+            </div>
             <div class="rx-dd-banner" id="rxDangerousBanner" hidden></div>
+            <div class="rx-dd-banner" id="rxDosageOverrideWrap" hidden style="border-color:#f59e0b;background:#fffbeb;color:#92400e;">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;margin:0;">
+                        <input type="checkbox" id="rxDosageOverrideAck"> Acknowledge &amp; Override Non-Lethal Dosage / Renal Threshold Warning
+                    </label>
+                    <input type="text" id="rxDosageOverrideReason" class="form-input" style="max-width:360px;height:30px;font-size:12px;" placeholder="Required clinical reason for threshold override...">
+                </div>
+            </div>
             <span class="rx-err" data-rx-err="items" style="margin-bottom:8px;"></span>
             <div class="rx-lines" id="rxLines"></div>
             <button type="button" class="rx-add-line" id="rxAddLine" style="margin-top: 12px;">+ Add medicine</button>
