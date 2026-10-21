@@ -38,3 +38,7 @@ export const fetchOrReportPrint = (id) => api(`/or-live/report/print${query({ id
 /** data: id (case), lines [{charge_type, item_id?, description, quantity, unit_price, provider_user_id?}], discount_type?, discount_id_no?, discount_rate?, discount_reason? */
 export const postOrCharges = (data) => post("/or-live/charges", data);
 export const voidOrCharge = (id, reason) => post("/or-live/charges/void", { id, reason });
+/* Electronic Anesthesia Record (or_anesthesia_records) */
+export const fetchOrAnesthesiaRecord = (surgicalCaseId) => api(`/or-management/anesthesia-records${query({ surgical_case_id: surgicalCaseId })}`);
+export const saveOrAnesthesiaRecord = (data) => post("/or-management/anesthesia-records/save", data);
+export const finalizeOrAnesthesiaRecord = (data) => post("/or-management/anesthesia-records/finalize", data);

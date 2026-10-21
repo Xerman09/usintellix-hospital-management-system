@@ -356,10 +356,14 @@ function setupEventListeners() {
 
     if (regSuiteForm) regSuiteForm.addEventListener('submit', handleRegisterSuiteSubmit);
 
+    // Electronic Anesthesia Record Modal Triggers
+    setupAnesthesiaModal();
+
     // Expose global helpers
     // Details and Advance open the case record (stages in order, WHO checklist, intra-op record).
     window.__orOpenDetail = (id) => openOrCase(Number(id), { onChange: () => fetchSchedule(true) });
     window.__orOpenStage = (id) => openOrCase(Number(id), { onChange: () => fetchSchedule(true) });
+    window.__orOpenAnesthesia = (id) => openAnesthesiaModal(Number(id));
     window.__orOpenSuiteStatus = openSuiteModal;
     window.__orOpenBookForSuite = openBookModal;
     window.__orOpenRegisterSuite = openRegSuiteModal;
@@ -500,6 +504,9 @@ function renderSuitesGrid(suites) {
             actionButtonsHtml = `
                 <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${s.current_case_id})" style="padding:4px 9px;font-size:11px;">
                     Case Details
+                </button>
+                <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${s.current_case_id})" style="padding:4px 9px;font-size:11px;background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;" title="Open Electronic Anesthesia Record">
+                    &#128137; Anesthesia
                 </button>
                 <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${s.current_case_id}, '${esc(ac.perioperative_stage)}')" style="padding:4px 10px;font-size:11px;">
                     Advance &rarr;
@@ -771,6 +778,13 @@ function renderWhiteboardKanban(cases) {
 
             const initials = getInitials(c.patient_name);
 
+            let anesChip = '';
+            if (c.anesthesia_record) {
+                const ar = c.anesthesia_record;
+                const asaTxt = `${ar.asa_status || 'ASA II'}${Number(ar.asa_emergency_modifier) ? '-E' : ''}`;
+                anesChip = `<span class="or-chip or-chip-purple" title="Electronic Anesthesia Record: ${esc(asaTxt)} &bull; Mallampati ${esc(ar.mallampati_class || 'Class I')} &bull; Aldrete ${ar.aldrete_total_score ?? 10}/10">&#128137; ${esc(asaTxt)} &bull; M-${esc((ar.mallampati_class || 'I').replace('Class ', ''))}</span>`;
+            }
+
             return `
                 <div class="or-case-card ${priorityClass}">
                     <div class="or-card-header">
@@ -799,11 +813,13 @@ function renderWhiteboardKanban(cases) {
                         <span class="or-chip ${priorityChip}">${esc(c.case_priority)}</span>
                         <span class="or-chip or-chip-blue">${esc(c.surgical_specialty)}</span>
                         ${readyChip}
+                        ${anesChip}
                         ${liveTimerChip}
                     </div>
 
                     <div class="or-card-actions">
                         <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})">Details</button>
+                        <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${c.id})" style="background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;" title="Electronic Anesthesia Record (ASA, Mallampati, Drugs, EBL, Aldrete)">&#128137; Anesthesia</button>
                         <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')">Advance &rarr;</button>
                     </div>
                 </div>
@@ -887,6 +903,7 @@ function renderScheduleTable(cases) {
                 <td>
                     ${esc(c.anesthesia_type || 'General')}
                     <small style="display:block;color:#64748b;">${esc(c.anesthesiologist || '')}</small>
+                    ${c.anesthesia_record ? `<span style="display:inline-block;margin-top:2px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:#f3e8ff;color:#6b21a8;">${esc(c.anesthesia_record.asa_status)}${Number(c.anesthesia_record.asa_emergency_modifier) ? '-E' : ''} &bull; ${esc(c.anesthesia_record.mallampati_class)} &bull; Aldrete ${c.anesthesia_record.aldrete_total_score ?? 10}/10</span>` : ''}
                 </td>
                 <td>${priorityBadge}</td>
                 <td>
@@ -896,6 +913,7 @@ function renderScheduleTable(cases) {
                 <td style="font-size:11px;white-space:nowrap;">${readinessIcons}</td>
                 <td style="text-align:right;white-space:nowrap;">
                     <button type="button" class="or-btn-view" onclick="window.__orOpenDetail(${c.id})" style="padding:3px 8px;font-size:11px;margin-right:4px;">Details</button>
+                    <button type="button" class="or-btn-view" onclick="window.__orOpenAnesthesia(${c.id})" style="padding:3px 8px;font-size:11px;margin-right:4px;background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;">&#128137; Anesthesia</button>
                     <button type="button" class="or-btn-advance" onclick="window.__orOpenStage(${c.id}, '${esc(c.perioperative_stage)}')" style="padding:3px 9px;font-size:11px;">Advance</button>
                 </td>
             </tr>
@@ -1538,5 +1556,471 @@ async function handleRegisterSuiteSubmit(e) {
             submitBtn.disabled = false;
             submitBtn.textContent = editId ? 'Update OR Suite Configuration' : 'Save & Register OR Suite';
         }
+    }
+}
+
+
+/* ============================================================================
+ * ELECTRONIC ANESTHESIA RECORD WORKSPACE (or_anesthesia_records)
+ * ASA I–VI + E, Mallampati Class I–IV, Modality, Drugs, EBL & PACU Aldrete 0–10
+ * ============================================================================ */
+
+function setupAnesthesiaModal() {
+    const modal = document.getElementById('orAnesthesiaModal');
+    const closeX = document.getElementById('orCloseAnesthesiaModal');
+    const cancelBtn = document.getElementById('orCancelAnesthesiaBtn');
+    const form = document.getElementById('orAnesthesiaForm');
+    const finalizeBtn = document.getElementById('orFinalizeAnesthesiaBtn');
+
+    const closeAnes = () => {
+        if (modal) modal.style.display = 'none';
+    };
+
+    if (closeX) closeX.addEventListener('click', closeAnes);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeAnes);
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeAnes();
+        });
+    }
+
+    // Live ASA Physical Status + Emergency 'E' badge
+    const asaSelect = document.getElementById('orAnesAsaStatus');
+    const asaEmerg = document.getElementById('orAnesAsaEmergency');
+    if (asaSelect) asaSelect.addEventListener('change', updateAnesthesiaLiveCalculations);
+    if (asaEmerg) asaEmerg.addEventListener('change', updateAnesthesiaLiveCalculations);
+
+    // Live Intra-Op Fluid Net Balance calculation
+    document.querySelectorAll('.or-anes-fluid-input').forEach((inp) => {
+        inp.addEventListener('input', updateAnesthesiaLiveCalculations);
+    });
+
+    // Live 5-Domain PACU Aldrete Recovery Score (0-10) calculation
+    document.querySelectorAll('.or-anes-aldrete-select').forEach((sel) => {
+        sel.addEventListener('change', updateAnesthesiaLiveCalculations);
+    });
+
+    // 1-Click Clinical Protocol Presets
+    document.querySelectorAll('.or-anes-preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const preset = btn.getAttribute('data-preset');
+            if (preset) applyAnesthesiaPreset(preset);
+        });
+    });
+
+    // Quick-Add Drug Chips
+    document.querySelectorAll('.or-anes-drug-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            const targetId = chip.getAttribute('data-target');
+            const drugText = chip.getAttribute('data-drug');
+            const targetEl = targetId ? document.getElementById(targetId) : null;
+            if (!targetEl || !drugText) return;
+            const cur = targetEl.value.trim();
+            targetEl.value = cur ? `${cur}, ${drugText}` : drugText;
+        });
+    });
+
+    if (form) {
+        form.addEventListener('submit', (e) => handleAnesthesiaSubmit(e, false));
+    }
+    if (finalizeBtn) {
+        finalizeBtn.addEventListener('click', (e) => handleAnesthesiaSubmit(e, true));
+    }
+}
+
+function updateAnesthesiaLiveCalculations() {
+    // 1. ASA Physical Status Badge
+    const asa = document.getElementById('orAnesAsaStatus')?.value || 'ASA II';
+    const isEmerg = document.getElementById('orAnesAsaEmergency')?.checked;
+    const asaBadge = document.getElementById('orAnesAsaLiveBadge');
+    if (asaBadge) {
+        const display = `${asa}${isEmerg ? '-E' : ''}`;
+        asaBadge.textContent = display;
+        if (isEmerg || asa === 'ASA IV' || asa === 'ASA V' || asa === 'ASA VI') {
+            asaBadge.style.background = '#fee2e2';
+            asaBadge.style.color = '#991b1b';
+        } else if (asa === 'ASA III') {
+            asaBadge.style.background = '#fef3c7';
+            asaBadge.style.color = '#92400e';
+        } else {
+            asaBadge.style.background = '#dbeafe';
+            asaBadge.style.color = '#1e40af';
+        }
+    }
+
+    // 2. Intra-Op Fluid Balance
+    const num = (id) => Math.max(0, parseInt(document.getElementById(id)?.value || '0', 10) || 0);
+    const ebl = num('orAnesEblMl');
+    const urine = num('orAnesUrineMl');
+    const cryst = num('orAnesCrystalloidsMl');
+    const coll = num('orAnesColloidsMl');
+    const blood = num('orAnesBloodProductsMl');
+
+    const totalIn = cryst + coll + blood;
+    const totalOut = ebl + urine;
+    const net = totalIn - totalOut;
+
+    const netBadge = document.getElementById('orAnesNetFluidBadge');
+    if (netBadge) {
+        const sign = net >= 0 ? '+' : '';
+        netBadge.textContent = `${sign}${net} mL (In: ${totalIn} / Out: ${totalOut})`;
+        if (ebl >= 1000 || net < -500) {
+            netBadge.style.background = '#fef2f2';
+            netBadge.style.color = '#991b1b';
+            netBadge.style.borderColor = '#fecaca';
+        } else {
+            netBadge.style.background = '#ecfdf5';
+            netBadge.style.color = '#065f46';
+            netBadge.style.borderColor = '#a7f3d0';
+        }
+    }
+
+    // 3. 5-Domain PACU Aldrete Score (0-10)
+    const aldActivity = parseInt(document.getElementById('orAnesAldreteActivity')?.value ?? '2', 10) || 0;
+    const aldResp = parseInt(document.getElementById('orAnesAldreteRespiration')?.value ?? '2', 10) || 0;
+    const aldCirc = parseInt(document.getElementById('orAnesAldreteCirculation')?.value ?? '2', 10) || 0;
+    const aldConsc = parseInt(document.getElementById('orAnesAldreteConsciousness')?.value ?? '2', 10) || 0;
+    const aldOxy = parseInt(document.getElementById('orAnesAldreteOxygenation')?.value ?? '2', 10) || 0;
+
+    const totalAldrete = aldActivity + aldResp + aldCirc + aldConsc + aldOxy;
+    const aldBadge = document.getElementById('orAnesAldreteTotalBadge');
+    const aldText = document.getElementById('orAnesAldreteReadinessText');
+
+    if (aldBadge && aldText) {
+        aldBadge.textContent = `Aldrete Score: ${totalAldrete} / 10`;
+        if (totalAldrete >= 9) {
+            aldBadge.style.background = '#16a34a';
+            aldText.textContent = '✓ Ready for PACU Discharge (Score >= 9/10)';
+            aldText.style.color = '#15803d';
+        } else if (totalAldrete >= 7) {
+            aldBadge.style.background = '#d97706';
+            aldText.textContent = '⚠ Continued PACU Monitoring Required (Score 7–8/10)';
+            aldText.style.color = '#b45309';
+        } else {
+            aldBadge.style.background = '#dc2626';
+            aldText.textContent = '🚨 Critical Post-Op Recovery — Do Not Discharge (Score <= 6/10)';
+            aldText.style.color = '#b91c1c';
+        }
+    }
+}
+
+function applyAnesthesiaPreset(preset) {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+    };
+
+    if (preset === 'general_ett') {
+        setVal('orAnesType', 'General');
+        setVal('orAnesAirwayDevice', 'ETT Cuffed');
+        setVal('orAnesEttSize', '7.5');
+        setVal('orAnesEttDepth', '21');
+        setVal('orAnesLaryngoscopy', 'Video Laryngoscope (GlideScope/C-MAC)');
+        setVal('orAnesCormackGrade', 'Grade I');
+        setVal('orAnesVentilatorMode', 'VCV / PCV (TV 450mL, RR 12, PEEP 5, FiO2 50%)');
+        setVal('orAnesInductionDrugs', 'Midazolam 2mg IV, Fentanyl 100mcg IV, Lidocaine 1% 60mg IV, Propofol 160mg IV, Rocuronium 50mg IV');
+        setVal('orAnesMaintenanceAgents', 'Sevoflurane 2.0% End-Tidal (1.0 MAC) in 50% O2/Air at 2L/min FGF; Fentanyl 50mcg IV bolus');
+        setVal('orAnesRegionalDetails', 'N/A — General Endotracheal Anesthesia');
+        setVal('orAnesReversalDrugs', 'Sugammadex 200mg IV (TOF ratio > 0.9), Ondansetron 4mg IV, Dexamethasone 8mg IV');
+    } else if (preset === 'spinal_heavy') {
+        setVal('orAnesType', 'Spinal');
+        setVal('orAnesAirwayDevice', 'Nasal Cannula O2');
+        setVal('orAnesEttSize', 'N/A');
+        setVal('orAnesEttDepth', 'N/A');
+        setVal('orAnesLaryngoscopy', 'N/A (No Laryngoscopy)');
+        setVal('orAnesCormackGrade', 'N/A (Neuraxial/MAC)');
+        setVal('orAnesVentilatorMode', 'Spontaneous Respiration on O2 2–3 L/min via Nasal Cannula');
+        setVal('orAnesInductionDrugs', 'Midazolam 1.5mg IV anxiolysis; Cefazolin 2g IV prophylaxis');
+        setVal('orAnesMaintenanceAgents', 'Spontaneous ventilation; Phenylephrine 50–100mcg IV PRN MAP >= 65 mmHg');
+        setVal('orAnesRegionalDetails', 'Subarachnoid Block at L3-L4 midline, 25G Pencan spinal needle, Bupivacaine 0.5% Heavy 12.5mg (2.5mL) + Fentanyl 15mcg IT; Bilateral T4 sensory block achieved');
+        setVal('orAnesReversalDrugs', 'Ondansetron 4mg IV, Ketorolac 30mg IV (neuraxial motor regression monitored in PACU)');
+    } else if (preset === 'epidural_cse') {
+        setVal('orAnesType', 'Combined Spinal-Epidural (CSE)');
+        setVal('orAnesAirwayDevice', 'Nasal Cannula O2');
+        setVal('orAnesEttSize', 'N/A');
+        setVal('orAnesEttDepth', 'N/A');
+        setVal('orAnesLaryngoscopy', 'N/A (No Laryngoscopy)');
+        setVal('orAnesCormackGrade', 'N/A (Neuraxial/MAC)');
+        setVal('orAnesVentilatorMode', 'Spontaneous Respiration on Nasal Cannula 2 L/min');
+        setVal('orAnesInductionDrugs', 'Intrathecal Bupivacaine 0.5% Heavy 10mg + Morphine 100mcg IT');
+        setVal('orAnesMaintenanceAgents', 'Epidural Ropivacaine 0.2% + Fentanyl 2mcg/mL at 6–8 mL/hr PCEA');
+        setVal('orAnesRegionalDetails', 'L3-L4 Tuohy 18G Epidural Catheter threaded 4cm into epidural space (negative test dose w/ Lidocaine 1.5% + Epi 1:200k); sensory block T4');
+        setVal('orAnesReversalDrugs', 'Ondansetron 4mg IV; Epidural catheter secured at 9cm skin mark for post-op analgesia');
+    } else if (preset === 'mac_sedation') {
+        setVal('orAnesType', 'MAC');
+        setVal('orAnesAirwayDevice', 'Nasal Cannula O2');
+        setVal('orAnesEttSize', 'N/A');
+        setVal('orAnesEttDepth', 'N/A');
+        setVal('orAnesLaryngoscopy', 'N/A (No Laryngoscopy)');
+        setVal('orAnesCormackGrade', 'N/A (Neuraxial/MAC)');
+        setVal('orAnesVentilatorMode', 'Spontaneous Respiration on Capnography Nasal Cannula O2 3 L/min');
+        setVal('orAnesInductionDrugs', 'Midazolam 2mg IV, Fentanyl 50mcg IV, Propofol 40mg IV titrated bolus');
+        setVal('orAnesMaintenanceAgents', 'Propofol Sedation Infusion 50–75 mcg/kg/min + Dexmedetomidine 0.4 mcg/kg/hr');
+        setVal('orAnesRegionalDetails', 'Surgeon local field infiltration with 1% Lidocaine / 0.25% Bupivacaine');
+        setVal('orAnesReversalDrugs', 'Ondansetron 4mg IV');
+    }
+
+    updateAnesthesiaLiveCalculations();
+    showToast('Applied anesthesia clinical protocol preset.', 'info');
+}
+
+async function openAnesthesiaModal(caseId) {
+    const modal = document.getElementById('orAnesthesiaModal');
+    if (!modal || !caseId) return;
+
+    try {
+        const res = await api(`/or-management/anesthesia-records?surgical_case_id=${encodeURIComponent(caseId)}`);
+        const payload = res?.data || {};
+        const localCase = (currentScheduleData.cases || []).find((c) => Number(c.id) === Number(caseId)) || {};
+        const surgicalCase = payload.surgical_case || localCase;
+        const record = payload.record || null;
+
+        populateAnesthesiaModal(surgicalCase, record);
+        modal.style.display = 'flex';
+    } catch (err) {
+        console.error('Error loading Electronic Anesthesia Record:', err);
+        const localCase = (currentScheduleData.cases || []).find((c) => Number(c.id) === Number(caseId)) || { id: caseId };
+        populateAnesthesiaModal(localCase, null);
+        modal.style.display = 'flex';
+    }
+}
+
+function populateAnesthesiaModal(surgicalCase, record) {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val !== null && val !== undefined ? val : '';
+    };
+    const setChk = (id, checked) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = Boolean(checked);
+    };
+
+    const caseId = surgicalCase?.id || record?.surgical_case_id || '';
+    const patientId = surgicalCase?.patient_id || record?.patient_id || '';
+    setVal('orAnesSurgicalCaseId', caseId);
+    setVal('orAnesPatientId', patientId);
+    setVal('orAnesRecordId', record?.id || '');
+
+    // Patient & Case Context Banner
+    const patBanner = document.getElementById('orAnesPatientBanner');
+    if (patBanner) {
+        patBanner.textContent = `${surgicalCase?.patient_name || 'Patient'} (${surgicalCase?.patient_mrn || 'MRN'}) • ${surgicalCase?.case_number || `Case #${caseId}`}`;
+    }
+    const caseBanner = document.getElementById('orAnesCaseBanner');
+    if (caseBanner) {
+        caseBanner.textContent = `${surgicalCase?.procedure_name || 'Surgical Procedure'} • ${surgicalCase?.suite_code || surgicalCase?.or_suite_name || 'OR Suite'} • Surgeon: ${surgicalCase?.lead_surgeon || '--'} • Priority: ${surgicalCase?.case_priority || 'Elective'}`;
+    }
+
+    const numBadge = document.getElementById('orAnesRecordNumBadge');
+    if (numBadge) {
+        numBadge.textContent = record?.record_number || 'NEW ANESTHESIA RECORD';
+    }
+    const statusBadge = document.getElementById('orAnesStatusBadge');
+    if (statusBadge) {
+        const st = record?.record_status || 'Draft / Intra-Op';
+        statusBadge.textContent = st;
+        if (st === 'Signed & Finalized') {
+            statusBadge.style.background = '#dcfce7';
+            statusBadge.style.color = '#166534';
+        } else {
+            statusBadge.style.background = '#fef3c7';
+            statusBadge.style.color = '#92400e';
+        }
+    }
+
+    const isEmergencyCase = (surgicalCase?.case_priority || '').toLowerCase().includes('emergency');
+
+    if (record) {
+        setVal('orAnesAsaStatus', record.asa_status || 'ASA II');
+        setChk('orAnesAsaEmergency', Number(record.asa_emergency_modifier) === 1);
+        setVal('orAnesMallampati', record.mallampati_class || 'Class I');
+        setVal('orAnesThyromental', record.thyromental_distance || '>= 6.5 cm (Normal)');
+        setVal('orAnesNeckMobility', record.neck_mobility || 'Full Range of Motion');
+        setVal('orAnesDentition', record.dentition_status || 'Intact / Normal');
+        setVal('orAnesNpoHours', record.npo_status_hours ?? 8);
+        setChk('orAnesDifficultAirway', Number(record.difficult_airway_anticipated) === 1);
+
+        setVal('orAnesType', record.anesthesia_type || 'General');
+        setVal('orAnesAirwayDevice', record.airway_device || 'ETT Cuffed');
+        setVal('orAnesEttSize', record.ett_size_mm || '7.5');
+        setVal('orAnesEttDepth', record.ett_depth_cm || '21');
+        setVal('orAnesLaryngoscopy', record.laryngoscopy_type || 'Video Laryngoscope (GlideScope/C-MAC)');
+        setVal('orAnesCormackGrade', record.cormack_lehane_grade || 'Grade I');
+        setVal('orAnesIntubationAttempts', record.intubation_attempts ?? 1);
+        setVal('orAnesVentilatorMode', record.ventilator_mode || 'VCV / PCV (TV 450mL, RR 12, PEEP 5, FiO2 50%)');
+
+        setVal('orAnesInductionDrugs', record.induction_drugs || '');
+        setVal('orAnesMaintenanceAgents', record.maintenance_agents || '');
+        setVal('orAnesRegionalDetails', record.regional_neuraxial_details || '');
+        setVal('orAnesReversalDrugs', record.reversal_emergence_drugs || '');
+
+        setVal('orAnesEblMl', record.estimated_blood_loss_ml ?? 0);
+        setVal('orAnesUrineMl', record.urine_output_ml ?? 0);
+        setVal('orAnesCrystalloidsMl', record.crystalloids_ml ?? 1000);
+        setVal('orAnesColloidsMl', record.colloids_ml ?? 0);
+        setVal('orAnesBloodProductsMl', record.blood_products_ml ?? 0);
+
+        setVal('orAnesAldreteActivity', String(record.aldrete_activity ?? 2));
+        setVal('orAnesAldreteRespiration', String(record.aldrete_respiration ?? 2));
+        setVal('orAnesAldreteCirculation', String(record.aldrete_circulation ?? 2));
+        setVal('orAnesAldreteConsciousness', String(record.aldrete_consciousness ?? 2));
+        setVal('orAnesAldreteOxygenation', String(record.aldrete_oxygenation ?? 2));
+        setVal('orAnesPacuNotes', record.pacu_handoff_notes || '');
+
+        setVal('orAnesStartTime', record.anesthesia_start_time ? record.anesthesia_start_time.replace(' ', 'T').substring(0, 16) : '');
+        setVal('orAnesEndTime', record.anesthesia_end_time ? record.anesthesia_end_time.replace(' ', 'T').substring(0, 16) : '');
+        setVal('orAnesAnesthesiologist', record.anesthesiologist_name || surgicalCase?.anesthesiologist || 'Dr. Elena Rostova (Anesthesiology)');
+        setVal('orAnesComplications', record.intraop_complications || 'None — Hemodynamically stable throughout procedure');
+        setVal('orAnesRecordStatus', record.record_status || 'Draft / Intra-Op');
+        setVal('orAnesSignature', record.anesthesiologist_signature || '');
+    } else {
+        // Initialize from surgicalCase defaults
+        setVal('orAnesAsaStatus', isEmergencyCase ? 'ASA III' : 'ASA II');
+        setChk('orAnesAsaEmergency', isEmergencyCase);
+        setVal('orAnesMallampati', 'Class I');
+        setVal('orAnesThyromental', '>= 6.5 cm (Normal)');
+        setVal('orAnesNeckMobility', 'Full Range of Motion');
+        setVal('orAnesDentition', 'Intact / Normal');
+        setVal('orAnesNpoHours', 8);
+        setChk('orAnesDifficultAirway', false);
+
+        const defaultModality = (surgicalCase?.anesthesia_type || 'General').includes('Spinal')
+            ? 'Spinal'
+            : (surgicalCase?.anesthesia_type || 'General').includes('Epidural')
+                ? 'Epidural'
+                : (surgicalCase?.anesthesia_type || 'General').includes('MAC')
+                    ? 'MAC'
+                    : (surgicalCase?.anesthesia_type || 'General').includes('Regional')
+                        ? 'Regional Nerve Block'
+                        : (surgicalCase?.anesthesia_type || 'General').includes('Local')
+                            ? 'Local'
+                            : 'General';
+
+        setVal('orAnesType', defaultModality);
+        setVal('orAnesAirwayDevice', defaultModality === 'General' ? 'ETT Cuffed' : 'Nasal Cannula O2');
+        setVal('orAnesEttSize', defaultModality === 'General' ? '7.5' : 'N/A');
+        setVal('orAnesEttDepth', defaultModality === 'General' ? '21' : 'N/A');
+        setVal('orAnesLaryngoscopy', defaultModality === 'General' ? 'Video Laryngoscope (GlideScope/C-MAC)' : 'N/A (No Laryngoscopy)');
+        setVal('orAnesCormackGrade', defaultModality === 'General' ? 'Grade I' : 'N/A (Neuraxial/MAC)');
+        setVal('orAnesIntubationAttempts', defaultModality === 'General' ? 1 : 0);
+        setVal('orAnesVentilatorMode', defaultModality === 'General' ? 'VCV / PCV (TV 450mL, RR 12, PEEP 5, FiO2 50%)' : 'Spontaneous Respiration on O2 2L/min');
+
+        setVal('orAnesInductionDrugs', 'Midazolam 2mg IV, Fentanyl 100mcg IV, Lidocaine 60mg IV, Propofol 160mg IV, Rocuronium 50mg IV');
+        setVal('orAnesMaintenanceAgents', 'Sevoflurane 2.0% End-Tidal (1.0 MAC) in 50% O2/Air');
+        setVal('orAnesRegionalDetails', '');
+        setVal('orAnesReversalDrugs', 'Sugammadex 200mg IV, Ondansetron 4mg IV, Dexamethasone 8mg IV');
+
+        setVal('orAnesEblMl', surgicalCase?.estimated_blood_loss_ml ?? 150);
+        setVal('orAnesUrineMl', 300);
+        setVal('orAnesCrystalloidsMl', 1200);
+        setVal('orAnesColloidsMl', 0);
+        setVal('orAnesBloodProductsMl', 0);
+
+        setVal('orAnesAldreteActivity', '2');
+        setVal('orAnesAldreteRespiration', '2');
+        setVal('orAnesAldreteCirculation', '2');
+        setVal('orAnesAldreteConsciousness', '2');
+        setVal('orAnesAldreteOxygenation', '2');
+        setVal('orAnesPacuNotes', 'Maintain SpO2 > 94%, monitor vitals q15min in PACU, multimodal analgesia ordered.');
+
+        const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().substring(0, 16);
+        setVal('orAnesStartTime', surgicalCase?.actual_in_room_time ? surgicalCase.actual_in_room_time.replace(' ', 'T').substring(0, 16) : nowLocal);
+        setVal('orAnesEndTime', surgicalCase?.actual_out_room_time ? surgicalCase.actual_out_room_time.replace(' ', 'T').substring(0, 16) : '');
+        setVal('orAnesAnesthesiologist', surgicalCase?.anesthesiologist || 'Dr. Elena Rostova (Anesthesiology)');
+        setVal('orAnesComplications', 'None — Hemodynamically stable throughout procedure');
+        setVal('orAnesRecordStatus', 'Draft / Intra-Op');
+        setVal('orAnesSignature', '');
+    }
+
+    updateAnesthesiaLiveCalculations();
+}
+
+async function handleAnesthesiaSubmit(e, finalize = false) {
+    if (e) e.preventDefault();
+
+    const saveBtn = document.getElementById('orSaveAnesthesiaDraftBtn');
+    const finBtn = document.getElementById('orFinalizeAnesthesiaBtn');
+    const g = (id) => document.getElementById(id)?.value ?? '';
+    const chk = (id) => (document.getElementById(id)?.checked ? 1 : 0);
+
+    const surgicalCaseId = Number(g('orAnesSurgicalCaseId'));
+    if (!surgicalCaseId) {
+        showToast('Missing surgical case ID for Anesthesia Record.', 'error');
+        return;
+    }
+
+    const statusVal = finalize ? 'Signed & Finalized' : (g('orAnesRecordStatus') || 'Draft / Intra-Op');
+
+    const payload = {
+        surgical_case_id:             surgicalCaseId,
+        patient_id:                   g('orAnesPatientId') || null,
+        asa_status:                   g('orAnesAsaStatus'),
+        asa_emergency_modifier:       chk('orAnesAsaEmergency'),
+        mallampati_class:             g('orAnesMallampati'),
+        thyromental_distance:         g('orAnesThyromental'),
+        neck_mobility:                g('orAnesNeckMobility'),
+        dentition_status:             g('orAnesDentition'),
+        npo_status_hours:             g('orAnesNpoHours'),
+        difficult_airway_anticipated: chk('orAnesDifficultAirway'),
+        anesthesia_type:              g('orAnesType'),
+        airway_device:                g('orAnesAirwayDevice'),
+        ett_size_mm:                  g('orAnesEttSize'),
+        ett_depth_cm:                 g('orAnesEttDepth'),
+        laryngoscopy_type:            g('orAnesLaryngoscopy'),
+        cormack_lehane_grade:         g('orAnesCormackGrade'),
+        intubation_attempts:          g('orAnesIntubationAttempts'),
+        ventilator_mode:              g('orAnesVentilatorMode'),
+        induction_drugs:              g('orAnesInductionDrugs'),
+        maintenance_agents:           g('orAnesMaintenanceAgents'),
+        regional_neuraxial_details:   g('orAnesRegionalDetails'),
+        reversal_emergence_drugs:     g('orAnesReversalDrugs'),
+        estimated_blood_loss_ml:      g('orAnesEblMl'),
+        urine_output_ml:              g('orAnesUrineMl'),
+        crystalloids_ml:              g('orAnesCrystalloidsMl'),
+        colloids_ml:                  g('orAnesColloidsMl'),
+        blood_products_ml:            g('orAnesBloodProductsMl'),
+        aldrete_activity:             g('orAnesAldreteActivity'),
+        aldrete_respiration:          g('orAnesAldreteRespiration'),
+        aldrete_circulation:          g('orAnesAldreteCirculation'),
+        aldrete_consciousness:        g('orAnesAldreteConsciousness'),
+        aldrete_oxygenation:          g('orAnesAldreteOxygenation'),
+        pacu_handoff_notes:           g('orAnesPacuNotes'),
+        anesthesia_start_time:        g('orAnesStartTime'),
+        anesthesia_end_time:          g('orAnesEndTime'),
+        anesthesiologist_name:        g('orAnesAnesthesiologist'),
+        intraop_complications:        g('orAnesComplications'),
+        record_status:                statusVal,
+        anesthesiologist_signature:   g('orAnesSignature'),
+    };
+
+    if (saveBtn) saveBtn.disabled = true;
+    if (finBtn) finBtn.disabled = true;
+
+    try {
+        const res = await api('/or-management/anesthesia-records/save', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+
+        if (res && (res.success || res.data)) {
+            const saved = res.data || {};
+            showToast(
+                finalize
+                    ? `Electronic Anesthesia Record ${saved.record_number || ''} signed & finalized (Aldrete ${saved.aldrete_total_score ?? 10}/10).`
+                    : `Electronic Anesthesia Record ${saved.record_number || ''} saved & synced to OR Case.`,
+                'success'
+            );
+            const modal = document.getElementById('orAnesthesiaModal');
+            if (modal) modal.style.display = 'none';
+            await fetchSchedule(true);
+        } else {
+            showToast(res?.message || 'Failed to save Electronic Anesthesia Record.', 'error');
+        }
+    } catch (err) {
+        console.error('Error saving Electronic Anesthesia Record:', err);
+        showToast(err?.message || 'Error saving Electronic Anesthesia Record.', 'error');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+        if (finBtn) finBtn.disabled = false;
     }
 }

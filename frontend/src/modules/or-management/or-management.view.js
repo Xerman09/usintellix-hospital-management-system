@@ -1698,6 +1698,9 @@ export function OrManagementView() {
                 <!-- Surgical Safety Checklist Link -->
                 <div id="orDSafetyChecklistLink" style="margin-bottom: 14px;"></div>
 
+                <!-- Electronic Anesthesia Record Summary -->
+                <div id="orDAnesthesiaRecordSummary" style="margin-bottom: 14px;"></div>
+
                 <!-- Clinical Notes -->
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 12px;">
                     <strong style="color: #64748b; font-size: 11px; display: block; margin-bottom: 4px;">NOTES / OBSERVATIONS</strong>
@@ -1705,6 +1708,9 @@ export function OrManagementView() {
                 </div>
             </div>
             <div class="or-modal-footer">
+                <button type="button" class="or-btn-primary" id="orOpenAnesthesiaFromDetailBtn" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);">
+                    &#128137; Electronic Anesthesia Record
+                </button>
                 <button type="button" class="or-btn-secondary" id="orCloseDetailBtn">Close</button>
             </div>
         </div>
@@ -1833,6 +1839,402 @@ export function OrManagementView() {
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- =========================================================
+         MODAL 6: ELECTRONIC ANESTHESIA RECORD WORKSPACE (or_anesthesia_records)
+         ASA I-VI + E, Mallampati I-IV, Modality, Drugs, EBL & PACU Aldrete 0-10
+         ========================================================= -->
+    <div class="or-modal-overlay" id="orAnesthesiaModal">
+        <div class="or-modal-box" style="max-width: 1040px; width: 96%;">
+            <div class="or-modal-header" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #fff; border-bottom: 1px solid #4338ca;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span style="font-size: 20px;">&#128137;</span>
+                    <div>
+                        <h3 style="margin: 0; color: #fff; font-size: 16px; font-weight: 800;">
+                            Electronic Anesthesia Record &amp; PACU Aldrete Scoring Workspace
+                        </h3>
+                        <div style="font-size: 11px; color: #c7d2fe; margin-top: 2px;" id="orAnesHeaderSubtitle">
+                            Pre-Op ASA Physical Status (I&ndash;VI + E) &bull; Mallampati Airway (I&ndash;IV) &bull; Intra-Op Pharmacology &amp; Fluid/EBL &bull; PACU Aldrete Recovery (0&ndash;10)
+                        </div>
+                    </div>
+                    <span id="orAnesRecordNumBadge" style="background: rgba(255,255,255,0.15); color: #e0e7ff; padding: 3px 10px; border-radius: 999px; font-family: monospace; font-size: 11px; font-weight: 700;">
+                        NEW RECORD
+                    </span>
+                    <span id="orAnesStatusBadge" style="background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
+                        Draft / Intra-Op
+                    </span>
+                </div>
+                <button type="button" class="or-modal-close-x" id="orCloseAnesthesiaModal" style="color: #e0e7ff;">&times;</button>
+            </div>
+
+            <form id="orAnesthesiaForm">
+                <input type="hidden" id="orAnesRecordId" value="" />
+                <input type="hidden" id="orAnesSurgicalCaseId" value="" />
+                <input type="hidden" id="orAnesPatientId" value="" />
+
+                <div class="or-modal-body" style="max-height: 78vh; overflow-y: auto; padding: 18px 22px;">
+                    <!-- Patient & Surgical Case Context Banner -->
+                    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #4f46e5; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 800; color: #0f172a;" id="orAnesPatientBanner">Patient Name (MRN)</div>
+                            <div style="font-size: 12px; color: #475569; margin-top: 2px;" id="orAnesCaseBanner">Procedure &bull; OR Suite &bull; Lead Surgeon</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569;">1-Click Protocol Preset:</span>
+                            <button type="button" class="or-btn-secondary or-anes-preset-btn" data-preset="general_ett" style="padding: 4px 10px; font-size: 11px; background: #eef2ff; color: #3730a3; border-color: #c7d2fe;">
+                                &#9889; General ETT
+                            </button>
+                            <button type="button" class="or-btn-secondary or-anes-preset-btn" data-preset="spinal_heavy" style="padding: 4px 10px; font-size: 11px; background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
+                                &#9889; Spinal 0.5% Heavy
+                            </button>
+                            <button type="button" class="or-btn-secondary or-anes-preset-btn" data-preset="epidural_cse" style="padding: 4px 10px; font-size: 11px; background: #ecfeff; color: #155e75; border-color: #a5f3fc;">
+                                &#9889; Epidural / CSE
+                            </button>
+                            <button type="button" class="or-btn-secondary or-anes-preset-btn" data-preset="mac_sedation" style="padding: 4px 10px; font-size: 11px; background: #fffbeb; color: #92400e; border-color: #fde68a;">
+                                &#9889; MAC Sedation
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 1: ASA Physical Status (I-VI + E) & Mallampati Airway Classification (Class I-IV) -->
+                    <div class="or-form-section-title" style="color: #4338ca; border-bottom-color: #e0e7ff;">
+                        1. Pre-Anesthesia ASA Physical Status (I&ndash;VI + Emergency E) &amp; Mallampati Airway Classification (Class I&ndash;IV)
+                    </div>
+                    <div class="or-form-grid" style="margin-bottom: 18px;">
+                        <div class="or-form-group">
+                            <label>ASA Physical Status Classification *</label>
+                            <select id="orAnesAsaStatus" required style="font-weight: 700;">
+                                <option value="ASA I">ASA I &mdash; Normal healthy patient</option>
+                                <option value="ASA II" selected>ASA II &mdash; Mild systemic disease (e.g. controlled HTN/DM)</option>
+                                <option value="ASA III">ASA III &mdash; Severe systemic disease (substantive limitation)</option>
+                                <option value="ASA IV">ASA IV &mdash; Severe systemic disease (constant threat to life)</option>
+                                <option value="ASA V">ASA V &mdash; Moribund patient not expected to survive without surgery</option>
+                                <option value="ASA VI">ASA VI &mdash; Declared brain-dead organ donor</option>
+                            </select>
+                        </div>
+                        <div class="or-form-group">
+                            <label>ASA Emergency Modifier (&lsquo;E&rsquo;) &amp; Live Classification</label>
+                            <div style="display: flex; align-items: center; gap: 12px; height: 38px; background: #f8fafc; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-weight: 700; color: #dc2626; font-size: 12px;">
+                                    <input type="checkbox" id="orAnesAsaEmergency" style="width: 16px; height: 16px;" />
+                                    Emergency Case (&lsquo;-E&rsquo; Suffix)
+                                </label>
+                                <span id="orAnesAsaLiveBadge" style="margin-left: auto; background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 999px; font-weight: 800; font-size: 12px;">
+                                    ASA II
+                                </span>
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Mallampati Airway Score (Class I&ndash;IV) *</label>
+                            <select id="orAnesMallampati" required style="font-weight: 700;">
+                                <option value="Class I" selected>Class I &mdash; Soft palate, uvula, fauces, pillars fully visible</option>
+                                <option value="Class II">Class II &mdash; Soft palate, major part of uvula, fauces visible</option>
+                                <option value="Class III">Class III &mdash; Soft palate &amp; base of uvula visible only</option>
+                                <option value="Class IV">Class IV &mdash; Hard palate only visible (Difficult Airway Risk)</option>
+                            </select>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Thyromental Distance &amp; Neck Mobility</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <select id="orAnesThyromental">
+                                    <option value=">= 6.5 cm (Normal)">TMD &ge; 6.5 cm (Normal)</option>
+                                    <option value="6.0 - 6.5 cm (Borderline)">TMD 6.0&ndash;6.5 cm</option>
+                                    <option value="< 6.0 cm (Short / Difficult)">TMD &lt; 6.0 cm (Short)</option>
+                                </select>
+                                <select id="orAnesNeckMobility">
+                                    <option value="Full Range of Motion">Neck: Full ROM</option>
+                                    <option value="Mildly Restricted">Neck: Mild Restriction</option>
+                                    <option value="Severely Limited / C-Collar">Neck: Limited / C-Spine</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Dentition Status &amp; NPO Fasting Hours</label>
+                            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px;">
+                                <input type="text" id="orAnesDentition" value="Intact / Normal" placeholder="e.g. Intact, Upper dentures removed, Loose incisors" />
+                                <input type="number" id="orAnesNpoHours" step="0.5" min="0" max="72" value="8" placeholder="NPO hrs" title="NPO Fasting Hours" />
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Anticipated Difficult Airway Alert</label>
+                            <div style="display: flex; align-items: center; gap: 10px; height: 38px; background: #fff1f2; padding: 0 12px; border: 1px solid #fecdd3; border-radius: 6px;">
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; font-weight: 700; color: #be123c; font-size: 12px;">
+                                    <input type="checkbox" id="orAnesDifficultAirway" style="width: 16px; height: 16px;" />
+                                    &#9888; Difficult Airway Anticipated (Video Laryngoscope / Bougie Standby)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 2: Anesthesia Technique & Airway Management -->
+                    <div class="or-form-section-title" style="color: #0284c7; border-bottom-color: #bae6fd;">
+                        2. Anesthesia Modality, Airway Device &amp; Laryngoscopy
+                    </div>
+                    <div class="or-form-grid" style="margin-bottom: 18px;">
+                        <div class="or-form-group">
+                            <label>Anesthesia Modality / Technique *</label>
+                            <select id="orAnesType" required style="font-weight: 700;">
+                                <option value="General" selected>General Anesthesia (GA)</option>
+                                <option value="Spinal">Spinal (Subarachnoid Neuraxial Block)</option>
+                                <option value="Epidural">Epidural Anesthesia / Analgesia</option>
+                                <option value="Combined Spinal-Epidural (CSE)">Combined Spinal-Epidural (CSE)</option>
+                                <option value="MAC">MAC (Monitored Anesthesia Care / Conscious Sedation)</option>
+                                <option value="Regional Nerve Block">Regional Peripheral Nerve Block (Ultrasound-Guided)</option>
+                                <option value="Local">Local Infiltration Only</option>
+                            </select>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Airway Device</label>
+                            <select id="orAnesAirwayDevice">
+                                <option value="ETT Cuffed" selected>Endotracheal Tube (ETT Cuffed Oral)</option>
+                                <option value="ETT Reinforced">Reinforced / Armored ETT</option>
+                                <option value="Double-Lumen ETT">Double-Lumen ETT (One-Lung Ventilation)</option>
+                                <option value="LMA (Supraglottic)">Laryngeal Mask Airway (LMA / i-gel)</option>
+                                <option value="Nasal Cannula O2">Nasal Cannula O2 (Spontaneous Breathing)</option>
+                                <option value="Simple Face Mask O2">Simple / Hudson Face Mask O2</option>
+                                <option value="Room Air">Room Air (Spontaneous)</option>
+                            </select>
+                        </div>
+                        <div class="or-form-group">
+                            <label>ETT / LMA Size (mm) &amp; Lip Depth (cm)</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <input type="text" id="orAnesEttSize" value="7.5" placeholder="Size e.g. 7.5 mm" />
+                                <input type="text" id="orAnesEttDepth" value="21" placeholder="Depth e.g. 21 cm" />
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Laryngoscopy &amp; Cormack-Lehane Grade</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <select id="orAnesLaryngoscopy">
+                                    <option value="Video Laryngoscope (GlideScope/C-MAC)">Video Laryngoscope</option>
+                                    <option value="Direct Macintosh #3/#4">Direct Macintosh Blade</option>
+                                    <option value="Direct Miller Blade">Direct Miller Blade</option>
+                                    <option value="Fiberoptic Bronchoscope">Awake Fiberoptic</option>
+                                    <option value="N/A (No Laryngoscopy)">N/A (Neuraxial / MAC)</option>
+                                </select>
+                                <select id="orAnesCormackGrade">
+                                    <option value="Grade I">Cormack-Lehane Grade I</option>
+                                    <option value="Grade IIa">Cormack-Lehane Grade IIa</option>
+                                    <option value="Grade IIb">Cormack-Lehane Grade IIb</option>
+                                    <option value="Grade III">Cormack-Lehane Grade III</option>
+                                    <option value="Grade IV">Cormack-Lehane Grade IV</option>
+                                    <option value="N/A (Neuraxial/MAC)">N/A (Neuraxial/MAC)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Intubation Attempts</label>
+                            <input type="number" id="orAnesIntubationAttempts" min="0" max="10" value="1" />
+                        </div>
+                        <div class="or-form-group">
+                            <label>Ventilator Mode &amp; Settings</label>
+                            <input type="text" id="orAnesVentilatorMode" value="VCV / PCV (TV 450mL, RR 12, PEEP 5, FiO2 50%)" placeholder="e.g. VCV TV 450mL, RR 12, PEEP 5, FiO2 50%" />
+                        </div>
+                    </div>
+
+                    <!-- SECTION 3: Induction, Maintenance, Regional & Reversal Drugs -->
+                    <div class="or-form-section-title" style="color: #0d9488; border-bottom-color: #99f6e4;">
+                        3. Anesthesia Pharmacology: Induction, Maintenance, Neuraxial &amp; Reversal Agents
+                    </div>
+                    <div class="or-form-grid" style="margin-bottom: 18px;">
+                        <div class="or-form-group full-width">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+                                <label style="margin: 0;">Induction Agents &amp; Neuromuscular Blockers (IV Boluses)</label>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Propofol 160mg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Propofol 160mg</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Fentanyl 100mcg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Fentanyl 100mcg</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Midazolam 2mg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Midazolam 2mg</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Rocuronium 50mg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Rocuronium 50mg</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Lidocaine 1% 60mg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Lidocaine 60mg</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Ketamine 50mg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Ketamine 50mg</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesInductionDrugs" data-drug="Etomidate 20mg IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Etomidate 20mg</button>
+                                </div>
+                            </div>
+                            <textarea id="orAnesInductionDrugs" rows="2" placeholder="e.g. Midazolam 2mg IV, Fentanyl 100mcg IV, Lidocaine 60mg IV, Propofol 160mg IV, Rocuronium 50mg IV"></textarea>
+                        </div>
+
+                        <div class="or-form-group full-width">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+                                <label style="margin: 0;">Maintenance Agents (Volatile Inhalational / TIVA Infusions)</label>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesMaintenanceAgents" data-drug="Sevoflurane 2.0% End-Tidal (1.0 MAC) in O2/Air 50%" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Sevoflurane 2.0%</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesMaintenanceAgents" data-drug="Desflurane 6.0% in O2/Air" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Desflurane 6%</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesMaintenanceAgents" data-drug="Propofol TIVA 100mcg/kg/min" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Propofol TIVA</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesMaintenanceAgents" data-drug="Remifentanil 0.1mcg/kg/min IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Remifentanil</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesMaintenanceAgents" data-drug="Dexmedetomidine 0.4mcg/kg/hr IV" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Dexmedetomidine</button>
+                                </div>
+                            </div>
+                            <textarea id="orAnesMaintenanceAgents" rows="2" placeholder="e.g. Sevoflurane 2.0% ET in 50% O2 / Air at 2L/min fresh gas flow; Fentanyl 50mcg IV redose"></textarea>
+                        </div>
+
+                        <div class="or-form-group">
+                            <label>Spinal / Epidural / Regional Block Details (If Applicable)</label>
+                            <textarea id="orAnesRegionalDetails" rows="2" placeholder="e.g. L3-L4 interspace, 25G Pencan Quincke needle, Bupivacaine 0.5% Heavy 12.5mg + Morphine 100mcg IT, T4 sensory block"></textarea>
+                        </div>
+
+                        <div class="or-form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label style="margin: 0;">Reversal, Emergence &amp; PONV Prophylaxis</label>
+                                <div style="display: flex; gap: 4px;">
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesReversalDrugs" data-drug="Sugammadex 200mg IV" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ Sugammadex</button>
+                                    <button type="button" class="or-anes-drug-chip" data-target="orAnesReversalDrugs" data-drug="Ondansetron 4mg IV + Dexamethasone 8mg IV" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;">+ PONV Dual</button>
+                                </div>
+                            </div>
+                            <textarea id="orAnesReversalDrugs" rows="2" placeholder="e.g. Sugammadex 200mg IV (TOF > 0.9), Ondansetron 4mg IV, Dexamethasone 8mg IV, Ketorolac 30mg IV"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 4: Intraoperative Fluid Balance & Estimated Blood Loss (EBL) -->
+                    <div class="or-form-section-title" style="color: #dc2626; border-bottom-color: #fecaca;">
+                        4. Intraoperative Fluid Balance &amp; Estimated Blood Loss (EBL)
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                        <div class="or-form-group">
+                            <label style="color: #dc2626; font-weight: 800;">Estimated Blood Loss (EBL mL) *</label>
+                            <input type="number" id="orAnesEblMl" min="0" step="10" value="150" class="or-anes-fluid-input" style="border-color: #fca5a5; background: #fef2f2; font-weight: 800; color: #991b1b;" />
+                        </div>
+                        <div class="or-form-group">
+                            <label>Urine Output (Foley mL)</label>
+                            <input type="number" id="orAnesUrineMl" min="0" step="10" value="300" class="or-anes-fluid-input" />
+                        </div>
+                        <div class="or-form-group">
+                            <label style="color: #0284c7;">Crystalloids In (LR / NaCl mL)</label>
+                            <input type="number" id="orAnesCrystalloidsMl" min="0" step="50" value="1200" class="or-anes-fluid-input" />
+                        </div>
+                        <div class="or-form-group">
+                            <label style="color: #0284c7;">Colloids / Albumin In (mL)</label>
+                            <input type="number" id="orAnesColloidsMl" min="0" step="50" value="0" class="or-anes-fluid-input" />
+                        </div>
+                        <div class="or-form-group">
+                            <label style="color: #be123c;">Blood Products In (pRBC/FFP mL)</label>
+                            <input type="number" id="orAnesBloodProductsMl" min="0" step="50" value="0" class="or-anes-fluid-input" />
+                        </div>
+                        <div class="or-form-group">
+                            <label>Net Intra-Op Fluid Balance</label>
+                            <div id="orAnesNetFluidBadge" style="height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-weight: 800; font-size: 13px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;">
+                                +750 mL
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 5: PACU Aldrete Recovery Score Calculator (0–10) -->
+                    <div class="or-form-section-title" style="color: #7c3aed; border-bottom-color: #ddd6fe;">
+                        5. PACU Post-Anesthesia Aldrete Recovery Score Calculator (0&ndash;10)
+                    </div>
+                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #5b21b6; font-weight: 600;">
+                                Score each of the 5 physiological recovery parameters from <strong>0 to 2</strong> (Score &ge; 9/10 required for safe PACU discharge):
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span id="orAnesAldreteTotalBadge" style="background: #16a34a; color: #fff; padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 800;">
+                                    Aldrete Score: 10 / 10
+                                </span>
+                                <span id="orAnesAldreteReadinessText" style="font-size: 12px; font-weight: 700; color: #15803d;">
+                                    &#10003; Ready for PACU Discharge
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                            <div class="or-form-group" style="background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff;">
+                                <label style="color: #6d28d9;">1. Activity (Motor)</label>
+                                <select id="orAnesAldreteActivity" class="or-anes-aldrete-select">
+                                    <option value="2" selected>2 &mdash; Moves 4 extremities voluntarily</option>
+                                    <option value="1">1 &mdash; Moves 2 extremities voluntarily</option>
+                                    <option value="0">0 &mdash; Unable to move extremities (0)</option>
+                                </select>
+                            </div>
+                            <div class="or-form-group" style="background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff;">
+                                <label style="color: #6d28d9;">2. Respiration</label>
+                                <select id="orAnesAldreteRespiration" class="or-anes-aldrete-select">
+                                    <option value="2" selected>2 &mdash; Breathes deeply &amp; coughs freely</option>
+                                    <option value="1">1 &mdash; Dyspnea or limited breathing</option>
+                                    <option value="0">0 &mdash; Apneic / Mechanical ventilation</option>
+                                </select>
+                            </div>
+                            <div class="or-form-group" style="background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff;">
+                                <label style="color: #6d28d9;">3. Circulation (BP)</label>
+                                <select id="orAnesAldreteCirculation" class="or-anes-aldrete-select">
+                                    <option value="2" selected>2 &mdash; BP &plusmn;20% of pre-anesthetic level</option>
+                                    <option value="1">1 &mdash; BP &plusmn;20&ndash;49% of pre-anesthetic</option>
+                                    <option value="0">0 &mdash; BP &plusmn;50% of pre-anesthetic level</option>
+                                </select>
+                            </div>
+                            <div class="or-form-group" style="background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff;">
+                                <label style="color: #6d28d9;">4. Consciousness</label>
+                                <select id="orAnesAldreteConsciousness" class="or-anes-aldrete-select">
+                                    <option value="2" selected>2 &mdash; Fully awake &amp; oriented</option>
+                                    <option value="1">1 &mdash; Arousable on calling name</option>
+                                    <option value="0">0 &mdash; Not responding to stimuli</option>
+                                </select>
+                            </div>
+                            <div class="or-form-group" style="background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff;">
+                                <label style="color: #6d28d9;">5. Oxygenation (SpO2)</label>
+                                <select id="orAnesAldreteOxygenation" class="or-anes-aldrete-select">
+                                    <option value="2" selected>2 &mdash; SpO2 &gt; 92% on room air</option>
+                                    <option value="1">1 &mdash; Needs O2 to keep SpO2 &gt; 90%</option>
+                                    <option value="0">0 &mdash; SpO2 &lt; 90% even with O2</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="or-form-group" style="margin-top: 10px;">
+                            <label>PACU Handoff &amp; Recovery Orders (Analgesia, O2, Monitoring)</label>
+                            <input type="text" id="orAnesPacuNotes" placeholder="e.g. Maintain O2 2L/min via NC, monitor vitals q15min x 1hr, Morphine 2mg IV PRN severe pain (NRS >= 7)" />
+                        </div>
+                    </div>
+
+                    <!-- SECTION 6: Anesthesia Milestones, Complications & Sign-Off -->
+                    <div class="or-form-section-title" style="color: #334155; border-bottom-color: #cbd5e1;">
+                        6. Anesthesia Timestamps, Intra-Op Complications &amp; Attending Sign-Off
+                    </div>
+                    <div class="or-form-grid">
+                        <div class="or-form-group">
+                            <label>Anesthesia Start / Induction / Emergence / End</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <input type="datetime-local" id="orAnesStartTime" title="Anesthesia Start Time" />
+                                <input type="datetime-local" id="orAnesEndTime" title="Anesthesia End Time" />
+                            </div>
+                        </div>
+                        <div class="or-form-group">
+                            <label>Attending Anesthesiologist *</label>
+                            <input type="text" id="orAnesAnesthesiologist" required placeholder="e.g. Dr. Elena Rostova (Anesthesiology)" />
+                        </div>
+                        <div class="or-form-group">
+                            <label>Intraoperative Complications / Adverse Events</label>
+                            <input type="text" id="orAnesComplications" value="None — Hemodynamically stable throughout procedure" placeholder="e.g. None, or transient post-induction hypotension responsive to Phenylephrine 100mcg" />
+                        </div>
+                        <div class="or-form-group">
+                            <label>Record Status &amp; Digital Signature</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <select id="orAnesRecordStatus">
+                                    <option value="Draft / Intra-Op">Draft / Intra-Op</option>
+                                    <option value="Signed & Finalized">Signed &amp; Finalized</option>
+                                </select>
+                                <input type="text" id="orAnesSignature" placeholder="Digital signature / PIN" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="or-modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="font-size: 11px; color: #64748b;">
+                        Saving automatically syncs <strong>Anesthesia Type, EBL (mL), &amp; PACU Aldrete Score</strong> to the OR Case Board.
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="or-btn-secondary" id="orCancelAnesthesiaBtn">Close</button>
+                        <button type="submit" class="or-btn-primary" id="orSaveAnesthesiaDraftBtn" data-finalize="0" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                            &#128190; Save Anesthesia Record
+                        </button>
+                        <button type="button" class="or-btn-primary" id="orFinalizeAnesthesiaBtn" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);">
+                            &#9998; Sign &amp; Finalize Record
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
     `;

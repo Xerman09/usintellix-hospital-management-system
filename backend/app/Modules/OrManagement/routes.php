@@ -119,3 +119,15 @@ foreach (['utilization', 'timeliness', 'cancellations', 'volume', 'compliance', 
 
 // The day's OR list to print (time, room, surgeon, anesthesiologist, specialization).
 $router->get('/or-list', [\App\Modules\OrManagement\Controllers\OrListController::class, 'index'], $orScheduleRoles);
+
+
+// ---------------------------------------------------------------
+// Electronic Anesthesia Record (or_anesthesia_records):
+// ASA I–VI + E, Mallampati I–IV, Anesthesia Modality, Pharmacology,
+// Intra-op Fluid Balance & EBL, and PACU Aldrete Scoring (0–10).
+// ---------------------------------------------------------------
+use App\Modules\OrManagement\Controllers\AnesthesiaRecordController;
+
+$router->get('/or-management/anesthesia-records', [AnesthesiaRecordController::class, 'index'], $orScheduleRoles);
+$router->post('/or-management/anesthesia-records/save', [AnesthesiaRecordController::class, 'save'], $orScheduleRoles);
+$router->post('/or-management/anesthesia-records/finalize', [AnesthesiaRecordController::class, 'finalize'], $orScheduleRoles);

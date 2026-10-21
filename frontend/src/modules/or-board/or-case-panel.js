@@ -705,6 +705,17 @@ function renderAnesthesia(body) {
     const milestones = [["In room", c.actual_in_room_time], ["Incision", c.actual_incision_time], ["Closing", c.actual_closing_time], ["Out of room", c.actual_out_room_time]];
     const anesMin = c.anesthesia_start_time ? ((parseDT(c.anesthesia_end_time) || systemNow()) - parseDT(c.anesthesia_start_time)) / 60000 : null;
     body.innerHTML = `
+        <div style="background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%);border:1px solid #c7d2fe;border-left:4px solid #4f46e5;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+                <div style="font-weight:800;font-size:13.5px;color:#312e81;">&#128137; Electronic Anesthesia Record (ASA I&ndash;VI + E &bull; Mallampati I&ndash;IV &bull; Pharmacology &bull; PACU Aldrete 0&ndash;10)</div>
+                <div style="font-size:12px;color:#4338ca;margin-top:2px;">
+                    Document ASA physical status, airway Mallampati class, induction/maintenance/reversal drugs, fluid balance/EBL, and 5-domain PACU Aldrete recovery score.
+                </div>
+            </div>
+            <button type="button" class="orc-btn primary" id="orcOpenElectronicAnesthesiaBtn" style="background:#4f46e5;border-color:#4338ca;">
+                &#128137; Open Electronic Anesthesia Workspace
+            </button>
+        </div>
         <div class="orc-section">Times, blood loss and urine output</div>
         <form id="orcTimes" class="orc-grid" novalidate style="margin-top:8px;">
             <label class="orc-field" data-key="anesthesia_start_time"><span>Anesthesia start</span><div class="orc-inline"><input type="datetime-local" name="anesthesia_start_time" value="${esc(toInput(c.anesthesia_start_time))}" ${d.can_record ? "" : "disabled"}>
@@ -733,6 +744,14 @@ function renderAnesthesia(body) {
                 <td><button type="button" class="x" data-rm-vital="${v.id}">Remove</button></td></tr>`).join("")}</tbody></table></div>` : ""}`;
 
     const times = $("orcTimes");
+    $("orcOpenElectronicAnesthesiaBtn")?.addEventListener("click", () => {
+        if (typeof window.__orOpenAnesthesia === "function") {
+            closeCase();
+            window.__orOpenAnesthesia(c.id);
+        } else {
+            showToast("Switch to OR Management Board to launch the Electronic Anesthesia Record modal.", "info");
+        }
+    });
     times.querySelectorAll("[data-now]").forEach((b) => b.addEventListener("click", () => { times.querySelector(`[name="${b.dataset.now}"]`).value = nowInput(); }));
     times.addEventListener("submit", async (e) => {
         e.preventDefault();

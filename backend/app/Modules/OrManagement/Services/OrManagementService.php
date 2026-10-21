@@ -66,6 +66,34 @@ class OrManagementService
         $stmt->execute($params);
         $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Attach Electronic Anesthesia Record summary (ASA I-VI + E, Mallampati I-IV, Aldrete 0-10)
+        try {
+            AnesthesiaRecordService::ensureTableExists($db);
+            if (!empty($cases)) {
+                $caseIds = array_values(array_unique(array_map(static fn($r) => (int) $r['id'], $cases)));
+                $placeholders = implode(',', array_fill(0, count($caseIds), '?'));
+                $anesStmt = $db->prepare("
+                    SELECT surgical_case_id, id AS anesthesia_record_id, record_number AS anesthesia_record_number,
+                           asa_status, asa_emergency_modifier, mallampati_class, anesthesia_type AS anesthesia_record_type,
+                           estimated_blood_loss_ml AS anesthesia_ebl_ml, aldrete_total_score, record_status AS anesthesia_record_status
+                    FROM or_anesthesia_records
+                    WHERE surgical_case_id IN ({$placeholders})
+                ");
+                $anesStmt->execute($caseIds);
+                $anesMap = [];
+                foreach ($anesStmt->fetchAll(PDO::FETCH_ASSOC) as $ar) {
+                    $anesMap[(int) $ar['surgical_case_id']] = $ar;
+                }
+                foreach ($cases as &$caseRow) {
+                    $cid = (int) $caseRow['id'];
+                    $caseRow['anesthesia_record'] = $anesMap[$cid] ?? null;
+                }
+                unset($caseRow);
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
         // Fetch all suites with their live operational status
         $suites = $this->getSuites();
 
@@ -153,6 +181,16 @@ class OrManagementService
             $row['linked_safety_checklist'] = $sscStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         } else {
             $row['linked_safety_checklist'] = null;
+        }
+
+        try {
+            AnesthesiaRecordService::ensureTableExists($db);
+            $anesStmt = $db->prepare("SELECT * FROM or_anesthesia_records WHERE surgical_case_id = :cid ORDER BY id DESC LIMIT 1");
+            $anesStmt->execute(['cid' => $id]);
+            $anesRow = $anesStmt->fetch(PDO::FETCH_ASSOC);
+            $row['anesthesia_record'] = $anesRow ? \App\Modules\OrManagement\Models\OrAnesthesiaRecord::formatRecord($anesRow) : null;
+        } catch (\Throwable $e) {
+            $row['anesthesia_record'] = null;
         }
 
         return $row;
