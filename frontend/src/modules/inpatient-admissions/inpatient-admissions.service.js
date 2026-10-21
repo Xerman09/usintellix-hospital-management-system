@@ -360,3 +360,48 @@ export async function deleteCarePlan(id) {
         body: JSON.stringify({ id })
     });
 }
+
+
+/**
+ * Fetch 24-hour fluid balance entries and running summary for an inpatient admission
+ */
+export async function fetchFluidBalance(admissionId) {
+    return await api(`/inpatient-admissions/fluid-balance?admission_id=${admissionId}`);
+}
+
+/**
+ * Fetch a single fluid balance entry by ID
+ */
+export async function fetchFluidBalanceEntry(id) {
+    return await api(`/inpatient-admissions/fluid-balance/show?id=${id}`);
+}
+
+/**
+ * Record a new Intake & Output (I&O) fluid balance entry
+ */
+export async function saveFluidBalance(payload) {
+    return await api('/inpatient-admissions/fluid-balance', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Update an existing fluid balance entry
+ */
+export async function updateFluidBalance(payload) {
+    return await api('/inpatient-admissions/fluid-balance/update', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Delete a fluid balance entry
+ */
+export async function deleteFluidBalance(id) {
+    return await api('/inpatient-admissions/fluid-balance/delete', {
+        method: 'POST',
+        body: JSON.stringify({ id })
+    });
+}

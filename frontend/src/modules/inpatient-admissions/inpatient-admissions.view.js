@@ -1831,6 +1831,7 @@ export function InpatientAdmissionsView() {
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="button" id="btnRoundViewFluid" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">💧 Fluid I&amp;O</button>
                         <button type="button" id="btnRoundViewNcp" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">📋 Nursing Care Plans</button>
                         <button type="button" id="btnRoundViewMpn" class="btn-inpatient btn-inpatient-secondary" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer;">🤝 Allied Health Notes</button>
                         <span id="dailyRoundNumberBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #38bdf8; color: #0f172a; font-family: monospace;">New Round</span>
@@ -2432,6 +2433,247 @@ export function InpatientAdmissionsView() {
                 </div>
             </div>
         </div>
+
+        <!-- ============================================================== -->
+        <!-- MODAL: 24-HOUR FLUID BALANCE CHART (inpatient_fluid_balance)   -->
+        <!-- ============================================================== -->
+        <div class="inpatient-modal-backdrop" id="modalFluidBalance">
+            <div class="inpatient-modal-content" style="max-width: 1040px; width: 96%; max-height: 94vh; display: flex; flex-direction: column;">
+                <div class="inpatient-modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%); color: #fff;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">💧</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fff;">24-Hour Fluid Balance Chart (Intake &amp; Output / I&amp;O Flowsheet)</h3>
+                            <span style="font-size: 11px; color: #bae6fd;">Post-op, Cardiac, Renal &amp; ICU fluid surveillance with automatic 24-hour running net balance</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="fbcAlertBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; background: #dcfce7; color: #166534;">🟢 Normal / Euvolemic</span>
+                        <button class="inpatient-modal-close" data-close-modal style="color: #bae6fd;">&times;</button>
+                    </div>
+                </div>
+
+                <!-- Patient Demographic Banner -->
+                <div style="background: #f0f9ff; padding: 10px 20px; border-bottom: 1px solid #bae6fd; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                    <div>
+                        <div style="font-size: 15px; font-weight: 700; color: #0c4a6e;" id="fbcPatientName">Patient Name</div>
+                        <div style="font-size: 12px; color: #0284c7; margin-top: 2px;">
+                            MRN: <strong id="fbcPatientMrn" style="color: #0c4a6e;">--</strong> |
+                            Age/Gender: <strong id="fbcPatientAgeGender" style="color: #0c4a6e;">--</strong> |
+                            Ward/Bed: <strong id="fbcBedNo" style="color: #0c4a6e;">--</strong> |
+                            LOS: <strong id="fbcLos" style="color: #0c4a6e;">--</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #0c4a6e;">
+                            Diagnosis: <strong id="fbcAdmittingDiag" style="color: #0c4a6e;">--</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #0369a1; margin-top: 2px;">
+                            Attending MD: <span id="fbcAttendingPhysician">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 24-Hour Running Fluid Balance KPI & Clinical Warning Banner -->
+                <div style="background: #fff; padding: 12px 20px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 12px;">
+                        <!-- 24h Intake Card -->
+                        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; font-weight: 700; color: #0369a1; text-transform: uppercase;">📥 24h Total Intake (∑ Intake)</span>
+                                <span id="fbcSummaryIntakeTotal" style="font-size: 18px; font-weight: 800; color: #0c4a6e; font-family: monospace;">0 mL</span>
+                            </div>
+                            <div id="fbcSummaryIntakeSub" style="font-size: 11px; color: #0284c7; margin-top: 4px;">
+                                Oral: 0 · IV: 0 · Blood: 0 · Tube: 0 mL
+                            </div>
+                        </div>
+
+                        <!-- 24h Output Card -->
+                        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; font-weight: 700; color: #b45309; text-transform: uppercase;">📤 24h Total Output (∑ Output)</span>
+                                <span id="fbcSummaryOutputTotal" style="font-size: 18px; font-weight: 800; color: #92400e; font-family: monospace;">0 mL</span>
+                            </div>
+                            <div id="fbcSummaryOutputSub" style="font-size: 11px; color: #b45309; margin-top: 4px;">
+                                Urine: 0 · Drain: 0 · Emesis: 0 · NG: 0 · Chest: 0 mL
+                            </div>
+                        </div>
+
+                        <!-- Running 24h Net Balance Card -->
+                        <div id="fbcNetBalanceCard" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase;">⚖️ 24h Net Balance (∑In − ∑Out)</span>
+                                <span id="fbcSummaryNetTotal" style="font-size: 18px; font-weight: 800; color: #166534; font-family: monospace;">0 mL</span>
+                            </div>
+                            <div id="fbcAlertMessageText" style="font-size: 11px; color: #166534; margin-top: 4px; font-weight: 600;">
+                                24-hour fluid intake and output are balanced within physiological target range.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 0 20px; flex-shrink: 0;">
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" id="tabBtnFbcChart" class="fbc-tab active" style="padding: 10px 16px; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #0284c7; border-bottom: 2px solid #0284c7; cursor: pointer;">
+                            📊 24-Hour Fluid Balance Flowsheet (<span id="fbcEntryCount">0</span>)
+                        </button>
+                        <button type="button" id="tabBtnFbcRecord" class="fbc-tab" style="padding: 10px 16px; border: none; background: transparent; font-weight: 600; font-size: 13px; color: #64748b; border-bottom: 2px solid transparent; cursor: pointer;">
+                            ➕ Record Intake &amp; Output (I&amp;O)
+                        </button>
+                    </div>
+                    <div style="padding: 6px 0;">
+                        <button type="button" id="btnQuickNewFbc" class="btn-inpatient btn-inpatient-primary" style="padding: 5px 12px; font-size: 12px; background: #0284c7; border-color: #0284c7; cursor: pointer;">
+                            💧 Log Hourly / Shift I&amp;O
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PANE 1: 24-HOUR FLUID BALANCE FLOWSHEET TABLE -->
+                <div id="paneFbcChart" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 18px 24px; background: #f8fafc;">
+                    <div id="fbcFlowsheetContainer">
+                        <!-- Populated dynamically via loadFluidBalanceChart() -->
+                    </div>
+                </div>
+
+                <!-- PANE 2: RECORD INTAKE & OUTPUT ENTRY -->
+                <div id="paneFbcRecord" class="inpatient-modal-body" style="overflow-y: auto; flex: 1; padding: 18px 24px; display: none;">
+                    <form id="formFluidBalance" style="margin: 0;">
+                        <input type="hidden" name="admission_id" id="fbcFormAdmissionId" />
+                        <input type="hidden" name="patient_id" id="fbcFormPatientId" />
+                        <input type="hidden" name="id" id="fbcFormRecordId" />
+
+                        <!-- Row 1: Date/Time, Nursing Shift, Recorded By -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Date &amp; Time <span style="color: red;">*</span></label>
+                                <input type="datetime-local" class="form-control" name="recorded_at" id="fbcFormDateTime" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Nursing Shift <span style="color: red;">*</span></label>
+                                <select class="form-control" name="shift" id="fbcFormShift" required style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                                    <option value="Day Shift (07:00-15:00)">☀️ Day Shift (07:00-15:00)</option>
+                                    <option value="Evening Shift (15:00-23:00)">🌇 Evening Shift (15:00-23:00)</option>
+                                    <option value="Night Shift (23:00-07:00)">🌙 Night Shift (23:00-07:00)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">Recorded By (RN) <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" name="recorded_by_name" id="fbcFormNurseName" required placeholder="Nurse Name, RN" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;" />
+                            </div>
+                        </div>
+
+                        <!-- Side-by-Side INTAKE (mL) and OUTPUT (mL) Panels -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <!-- INTAKE PANEL -->
+                            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 14px 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #bae6fd; padding-bottom: 8px; margin-bottom: 12px;">
+                                    <span style="font-size: 13px; font-weight: 800; color: #0c4a6e;">📥 FLUID INTAKE (mL)</span>
+                                    <span id="fbcLiveIntakeSum" style="font-size: 14px; font-weight: 800; color: #0284c7; font-family: monospace;">Subtotal: 0 mL</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">🥤 Oral Fluids (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="intake_oral_ml" id="fbcInOral" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">💉 IV Infusions (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="intake_iv_ml" id="fbcInIv" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">🩸 Blood Products (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="intake_blood_ml" id="fbcInBlood" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">🍼 Tube Feedings (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="intake_enteral_ml" id="fbcInEnteral" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 13px;" />
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px;">
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">Other (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="intake_other_ml" id="fbcInOther" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #0c4a6e; display: block; margin-bottom: 3px;">Intake Solution / Type Details</label>
+                                        <input type="text" class="form-control" name="intake_details" id="fbcInDetails" placeholder="e.g. 0.9% NaCl @ 100mL/hr, Water PO, PRBC 1 unit" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #7dd3fc; font-size: 12.5px;" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- OUTPUT PANEL -->
+                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #fde68a; padding-bottom: 8px; margin-bottom: 12px;">
+                                    <span style="font-size: 13px; font-weight: 800; color: #92400e;">📤 FLUID OUTPUT (mL)</span>
+                                    <span id="fbcLiveOutputSum" style="font-size: 14px; font-weight: 800; color: #b45309; font-family: monospace;">Subtotal: 0 mL</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">🚽 Urine / Catheter (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="output_urine_ml" id="fbcOutUrine" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">🩹 JP / Hemovac Drain (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="output_drain_ml" id="fbcOutDrain" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">🤮 Emesis / Vomitus (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="output_emesis_ml" id="fbcOutEmesis" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">🧪 NG Tube Aspirate (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="output_ng_ml" id="fbcOutNg" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 13px;" />
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 8px;">
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">🫁 Chest Tube (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="output_chest_tube_ml" id="fbcOutChest" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">Stool/Other (mL)</label>
+                                        <input type="number" min="0" step="1" class="form-control fbc-vol-input" name="output_stool_other_ml" id="fbcOutStool" value="0" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 13px;" />
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 11.5px; font-weight: 600; color: #92400e; display: block; margin-bottom: 3px;">Output Character / Drain #</label>
+                                        <input type="text" class="form-control" name="output_details" id="fbcOutDetails" placeholder="e.g. Foley clear amber, JP #1 serosanguinous" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 12.5px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Entry Net Calculation & Clinical Notes -->
+                        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: stretch; margin-bottom: 16px;">
+                            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; justify-content: center;">
+                                <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">This Entry Net Balance</span>
+                                <span id="fbcLiveEntryNet" style="font-size: 22px; font-weight: 800; color: #0f172a; font-family: monospace; margin-top: 4px;">0 mL</span>
+                                <span style="font-size: 11px; color: #64748b; margin-top: 2px;">Net = ∑Intake − ∑Output</span>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px; display: block;">🩺 Nursing Fluid Assessment &amp; Clinical Notes</label>
+                                <textarea class="form-control" name="clinical_notes" id="fbcFormNotes" rows="2" placeholder="Document edema grade, lung auscultation, diuretic response (e.g., Furosemide 40mg IV given), skin turgor, or bladder scan residual..." style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                            <button type="button" class="btn-inpatient btn-inpatient-secondary" id="btnCancelFbcForm">Cancel</button>
+                            <button type="submit" class="btn-inpatient btn-inpatient-primary" id="btnSubmitFbcForm" style="background: #0284c7; border-color: #0284c7; cursor: pointer;">
+                                💾 Save Fluid I&amp;O Entry
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="inpatient-modal-footer" style="padding: 10px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                    <div style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️</span> Automatic thresholds: Fluid Overload Warning ≥ +1,000 mL/24h (Critical ≥ +2,000 mL) | Negative Balance Warning ≤ -800 mL/24h (Critical ≤ -1,500 mL).
+                    </div>
+                    <button type="button" class="btn-inpatient btn-inpatient-secondary" data-close-modal>Close</button>
+                </div>
+            </div>
+        </div>
+
 
 
 

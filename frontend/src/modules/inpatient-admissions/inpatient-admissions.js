@@ -36,8 +36,13 @@ import {
     saveCarePlan,
     updateCarePlan,
     evaluateCarePlan,
-    deleteCarePlan
-} from './inpatient-admissions.service.js?v=7';
+    deleteCarePlan,
+    fetchFluidBalance,
+    fetchFluidBalanceEntry,
+    saveFluidBalance,
+    updateFluidBalance,
+    deleteFluidBalance
+} from './inpatient-admissions.service.js?v=8';
 import { showToast } from '../../core/toast.js';
 import { populatePatientSelector, calculateAgeFromDob } from '../../core/patient-chart-helper.js?v=41';
 import { systemNow } from "../../core/timezone.js";
@@ -514,6 +519,66 @@ function setupEventListeners() {
             document.getElementById('ncpFormRationale').value = tpl.rationale || '';
         };
     }
+
+    // Modal Daily Ward Round -> Open 24-Hour Fluid Balance Chart
+    const btnRoundViewFluid = document.getElementById('btnRoundViewFluid');
+    if (btnRoundViewFluid) {
+        btnRoundViewFluid.onclick = () => {
+            if (currentRoundsAdmissionId) {
+                openFluidBalanceModal(currentRoundsAdmissionId);
+            }
+        };
+    }
+
+    // Modal 24-Hour Fluid Balance Tabs
+    const tabBtnFbcChart = document.getElementById('tabBtnFbcChart');
+    const tabBtnFbcRecord = document.getElementById('tabBtnFbcRecord');
+    const paneFbcChart = document.getElementById('paneFbcChart');
+    const paneFbcRecord = document.getElementById('paneFbcRecord');
+
+    if (tabBtnFbcChart && tabBtnFbcRecord) {
+        tabBtnFbcChart.onclick = () => {
+            tabBtnFbcChart.classList.add('active');
+            tabBtnFbcChart.style.color = '#0284c7';
+            tabBtnFbcChart.style.borderBottom = '2px solid #0284c7';
+            tabBtnFbcRecord.classList.remove('active');
+            tabBtnFbcRecord.style.color = '#64748b';
+            tabBtnFbcRecord.style.borderBottom = '2px solid transparent';
+            if (paneFbcChart) paneFbcChart.style.display = 'block';
+            if (paneFbcRecord) paneFbcRecord.style.display = 'none';
+        };
+
+        tabBtnFbcRecord.onclick = () => {
+            tabBtnFbcRecord.classList.add('active');
+            tabBtnFbcRecord.style.color = '#0284c7';
+            tabBtnFbcRecord.style.borderBottom = '2px solid #0284c7';
+            tabBtnFbcChart.classList.remove('active');
+            tabBtnFbcChart.style.color = '#64748b';
+            tabBtnFbcChart.style.borderBottom = '2px solid transparent';
+            if (paneFbcChart) paneFbcChart.style.display = 'none';
+            if (paneFbcRecord) paneFbcRecord.style.display = 'block';
+        };
+    }
+
+    const btnQuickNewFbc = document.getElementById('btnQuickNewFbc');
+    if (btnQuickNewFbc) {
+        btnQuickNewFbc.onclick = () => {
+            resetFbcFormForNew();
+            if (tabBtnFbcRecord) tabBtnFbcRecord.click();
+        };
+    }
+
+    const btnCancelFbcForm = document.getElementById('btnCancelFbcForm');
+    if (btnCancelFbcForm) {
+        btnCancelFbcForm.onclick = () => {
+            if (tabBtnFbcChart) tabBtnFbcChart.click();
+        };
+    }
+
+    // Live subtotal and entry net calculator on Fluid Balance volume inputs
+    document.querySelectorAll('#formFluidBalance .fbc-vol-input').forEach(inp => {
+        inp.addEventListener('input', () => recalculateLiveFbcForm());
+    });
 
     // Transfer Admission Select Change
     const transAdmSel = document.getElementById('transferAdmissionSelect');
@@ -1015,6 +1080,68 @@ function setupFormSubmissions() {
             }
         };
     }
+
+    // 10. Form 24-Hour Fluid Balance (inpatient_fluid_balance)
+    const formFbc = document.getElementById('formFluidBalance');
+    if (formFbc) {
+        formFbc.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(formFbc);
+            const payload = Object.fromEntries(formData.entries());
+
+            const inSum = (Number(payload.intake_oral_ml) || 0)
+                + (Number(payload.intake_iv_ml) || 0)
+                + (Number(payload.intake_blood_ml) || 0)
+                + (Number(payload.intake_enteral_ml) || 0)
+                + (Number(payload.intake_other_ml) || 0);
+
+            const outSum = (Number(payload.output_urine_ml) || 0)
+                + (Number(payload.output_drain_ml) || 0)
+                + (Number(payload.output_emesis_ml) || 0)
+                + (Number(payload.output_ng_ml) || 0)
+                + (Number(payload.output_chest_tube_ml) || 0)
+                + (Number(payload.output_stool_other_ml) || 0);
+
+            if (inSum <= 0 && outSum <= 0) {
+                showToast('Please enter at least one fluid Intake or Output volume (mL) greater than 0.', 'error');
+                return;
+            }
+
+            const isEdit = Boolean(payload.id && Number(payload.id) > 0);
+            const submitBtn = document.getElementById('btnSubmitFbcForm');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = isEdit ? 'Updating Entry...' : 'Saving Entry...';
+            }
+
+            try {
+                const res = isEdit ? await updateFluidBalance(payload) : await saveFluidBalance(payload);
+                if (res && res.success) {
+                    const alertLvl = res.data?.balance_alert_level || '';
+                    if (alertLvl && alertLvl !== 'Normal / Euvolemic') {
+                        showToast(`Fluid I&O saved — ${alertLvl} (${res.data.running_24h_net_ml >= 0 ? '+' : ''}${res.data.running_24h_net_ml} mL/24h)`, 'warning');
+                    } else {
+                        showToast(isEdit ? 'Fluid balance entry updated!' : 'Fluid Intake & Output entry recorded!', 'success');
+                    }
+                    resetFbcFormForNew();
+                    const tabChart = document.getElementById('tabBtnFbcChart');
+                    if (tabChart) tabChart.click();
+                    if (payload.admission_id) {
+                        await loadFluidBalanceChart(payload.admission_id);
+                    }
+                } else {
+                    showToast('Failed to save fluid balance: ' + (res?.message || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                showToast('Error saving fluid balance: ' + (err.message || 'Server error'), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Save Fluid I&O Entry';
+                }
+            }
+        };
+    }
 }
 
 export async function fetchWhiteboard(isSilent = false) {
@@ -1324,6 +1451,9 @@ function renderBedCard(bed) {
             <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}" aria-label="Structured NANDA nursing care plans">
                 📋 Care Plan
             </button>
+            <button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}" aria-label="24-hour fluid balance intake and output chart">
+                💧 Fluid I&amp;O
+            </button>
             <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">
                 🔄 Transfer
             </button>
@@ -1349,6 +1479,9 @@ function renderBedCard(bed) {
             </button>
             <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}" aria-label="Structured NANDA nursing care plans">
                 📋 Care Plan
+            </button>
+            <button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}" aria-label="24-hour fluid balance intake and output chart">
+                💧 Fluid I&amp;O
             </button>
             <button class="bed-action-btn btn-act-discharge" style="width: 100%; justify-content: center; padding: 7px;" data-act="discharge" data-adm-id="${bed.admission_id}">
                 🚪 Complete Discharge Orders
@@ -1416,6 +1549,7 @@ function renderTable(beds) {
                     <button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button>
                     <button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button>
                     <button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button>
+                    <button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}">💧 Fluid I&amp;O</button>
                     <button class="bed-action-btn btn-act-transfer" data-act="transfer" data-adm-id="${bed.admission_id}">Transfer</button>
                     <button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Discharge</button>
                     ${LAB_ORDER_ROLES.includes(getUser()?.role) ? `<button class="bed-action-btn" data-act="labs" data-adm-id="${bed.admission_id}">Labs</button>
@@ -1424,7 +1558,7 @@ function renderTable(beds) {
                 </div>
             `;
         } else if (bed.status === 'Pending Discharge') {
-            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
+            actionBtns = `<div style="display: flex; gap: 4px; flex-wrap: wrap;"><button class="bed-action-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700" data-act="ward-round" data-adm-id="${bed.admission_id}">🩺 Round</button><button class="bed-action-btn" style="background:#0d9488;color:#fff;border-color:#0d9488;font-weight:700" data-act="progress-notes" data-adm-id="${bed.admission_id}">🤝 Notes</button><button class="bed-action-btn" style="background:#4338ca;color:#fff;border-color:#4338ca;font-weight:700" data-act="care-plan" data-adm-id="${bed.admission_id}">📋 Care Plan</button><button class="bed-action-btn" style="background:#0369a1;color:#fff;border-color:#0369a1;font-weight:700" data-act="fluid-balance" data-adm-id="${bed.admission_id}">💧 Fluid I&amp;O</button><button class="bed-action-btn btn-act-discharge" data-act="discharge" data-adm-id="${bed.admission_id}">Complete DC</button>
                 <button class="bed-action-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;font-weight:800" data-act="codeblue" data-adm-id="${bed.admission_id}" aria-label="Call a Code Blue for this bed">Code Blue</button></div>`;
         } else if (bed.status === 'Dirty / Turnover') {
             actionBtns = `<button class="bed-action-btn btn-act-sanitize" data-act="sanitize" data-bed-id="${bed.id}" data-bed-no="${esc(bed.bed_number)}">Sanitize</button>`;
@@ -1568,6 +1702,12 @@ function attachBedCardListeners(container) {
         btn.onclick = () => {
             const admId = btn.getAttribute('data-adm-id');
             openNursingCarePlansModal(admId);
+        };
+    });
+    container.querySelectorAll('[data-act="fluid-balance"]').forEach(btn => {
+        btn.onclick = () => {
+            const admId = btn.getAttribute('data-adm-id');
+            openFluidBalanceModal(admId);
         };
     });
     container.querySelectorAll('[data-act="codeblue"]').forEach(btn => {
@@ -3006,4 +3146,355 @@ function populateCarePlanForEdit(plan) {
 
     const tabForm = document.getElementById('tabBtnNcpForm');
     if (tabForm) tabForm.click();
+}
+
+
+
+/**
+ * 24-Hour Fluid Balance Charts (Intake & Output / I&O — inpatient_fluid_balance)
+ */
+let currentFbcAdmissionId = null;
+
+export async function openFluidBalanceModal(admissionId) {
+    const modal = document.getElementById('modalFluidBalance');
+    if (!modal) return;
+
+    const bed = (currentCensusData.beds || []).find(b => b.admission_id == admissionId);
+
+    currentFbcAdmissionId = admissionId;
+
+    // Populate Patient Demographic Banner
+    document.getElementById('fbcPatientName').textContent = bed?.patient_name || 'Inpatient';
+    document.getElementById('fbcPatientMrn').textContent = bed?.patient_mrn || bed?.patient_id || '--';
+    document.getElementById('fbcPatientAgeGender').textContent = `${bed?.patient_age ? bed.patient_age + 'y' : '--'} / ${bed?.patient_gender || bed?.gender || '--'}`;
+    document.getElementById('fbcBedNo').textContent = `${bed?.ward_code || ''} - ${bed?.bed_number || '--'}`;
+    document.getElementById('fbcLos').textContent = `${bed?.los_days != null ? bed.los_days : 0} days`;
+    document.getElementById('fbcAdmittingDiag').textContent = bed?.admitting_diagnosis || 'Under Observation';
+    document.getElementById('fbcAttendingPhysician').textContent = bed?.attending_physician || 'Attending Physician';
+
+    resetFbcFormForNew(bed);
+
+    const tabChart = document.getElementById('tabBtnFbcChart');
+    if (tabChart) tabChart.click();
+
+    modal.classList.add('open');
+
+    await loadFluidBalanceChart(admissionId);
+}
+
+function resetFbcFormForNew(bed = null) {
+    const form = document.getElementById('formFluidBalance');
+    if (form) form.reset();
+
+    if (!bed && currentFbcAdmissionId) {
+        bed = (currentCensusData.beds || []).find(b => b.admission_id == currentFbcAdmissionId);
+    }
+
+    const admInput = document.getElementById('fbcFormAdmissionId');
+    if (admInput) admInput.value = currentFbcAdmissionId || '';
+
+    const patInput = document.getElementById('fbcFormPatientId');
+    if (patInput) patInput.value = bed?.patient_id || '';
+
+    const recInput = document.getElementById('fbcFormRecordId');
+    if (recInput) recInput.value = '';
+
+    const nowIso = systemNow ? systemNow().slice(0, 16) : new Date().toISOString().slice(0, 16);
+    const dtInput = document.getElementById('fbcFormDateTime');
+    if (dtInput) dtInput.value = nowIso;
+
+    const u = currentUser || getUser();
+    const nurseName = (u?.first_name || u?.last_name)
+        ? `${(u.first_name || '')} ${(u.last_name || '')}`.trim()
+        : (bed?.shift_nurse_name || bed?.primary_nurse || u?.username || 'Registered Nurse, RN');
+    const nurseInput = document.getElementById('fbcFormNurseName');
+    if (nurseInput) nurseInput.value = nurseName;
+
+    ['fbcInOral', 'fbcInIv', 'fbcInBlood', 'fbcInEnteral', 'fbcInOther',
+     'fbcOutUrine', 'fbcOutDrain', 'fbcOutEmesis', 'fbcOutNg', 'fbcOutChest', 'fbcOutStool'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '0';
+    });
+
+    const submitBtn = document.getElementById('btnSubmitFbcForm');
+    if (submitBtn) submitBtn.textContent = '💾 Save Fluid I&O Entry';
+
+    recalculateLiveFbcForm();
+}
+
+function recalculateLiveFbcForm() {
+    const inSum = (Number(document.getElementById('fbcInOral')?.value) || 0)
+        + (Number(document.getElementById('fbcInIv')?.value) || 0)
+        + (Number(document.getElementById('fbcInBlood')?.value) || 0)
+        + (Number(document.getElementById('fbcInEnteral')?.value) || 0)
+        + (Number(document.getElementById('fbcInOther')?.value) || 0);
+
+    const outSum = (Number(document.getElementById('fbcOutUrine')?.value) || 0)
+        + (Number(document.getElementById('fbcOutDrain')?.value) || 0)
+        + (Number(document.getElementById('fbcOutEmesis')?.value) || 0)
+        + (Number(document.getElementById('fbcOutNg')?.value) || 0)
+        + (Number(document.getElementById('fbcOutChest')?.value) || 0)
+        + (Number(document.getElementById('fbcOutStool')?.value) || 0);
+
+    const net = inSum - outSum;
+
+    const inEl = document.getElementById('fbcLiveIntakeSum');
+    if (inEl) inEl.textContent = `Subtotal: ${inSum.toLocaleString()} mL`;
+
+    const outEl = document.getElementById('fbcLiveOutputSum');
+    if (outEl) outEl.textContent = `Subtotal: ${outSum.toLocaleString()} mL`;
+
+    const netEl = document.getElementById('fbcLiveEntryNet');
+    if (netEl) {
+        netEl.textContent = `${net > 0 ? '+' : ''}${net.toLocaleString()} mL`;
+        netEl.style.color = net > 500 ? '#ea580c' : net < -500 ? '#ca8a04' : '#0f172a';
+    }
+}
+
+async function loadFluidBalanceChart(admissionId) {
+    const container = document.getElementById('fbcFlowsheetContainer');
+    const countEl = document.getElementById('fbcEntryCount');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 30px;">⏳ Loading 24-hour fluid balance flowsheet...</div>';
+
+    try {
+        const res = await fetchFluidBalance(admissionId);
+        const entries = (res && res.success && res.data?.entries) ? res.data.entries : [];
+        const s = (res && res.success && res.data?.summary_24h) ? res.data.summary_24h : null;
+
+        if (countEl) countEl.textContent = entries.length;
+
+        // Update 24h Running Summary Cards & Alert Banner
+        if (s) {
+            const inTotal = s.intake_24h?.total_ml || 0;
+            const outTotal = s.output_24h?.total_ml || 0;
+            const net24h = s.net_balance_24h_ml || 0;
+            const meta = s.alert_meta || {
+                label: 'Normal / Euvolemic',
+                icon: '🟢',
+                color: '#16a34a',
+                bg: '#dcfce7',
+                border: '#bbf7d0',
+                message: '24-hour fluid intake and output are balanced within physiological target range.'
+            };
+
+            const inTotalEl = document.getElementById('fbcSummaryIntakeTotal');
+            if (inTotalEl) inTotalEl.textContent = `${inTotal.toLocaleString()} mL`;
+
+            const inSubEl = document.getElementById('fbcSummaryIntakeSub');
+            if (inSubEl) {
+                inSubEl.textContent = `Oral: ${s.intake_24h.oral_ml} · IV: ${s.intake_24h.iv_ml} · Blood: ${s.intake_24h.blood_ml} · Tube: ${s.intake_24h.enteral_ml}${s.intake_24h.other_ml ? ` · Other: ${s.intake_24h.other_ml}` : ''} mL`;
+            }
+
+            const outTotalEl = document.getElementById('fbcSummaryOutputTotal');
+            if (outTotalEl) outTotalEl.textContent = `${outTotal.toLocaleString()} mL`;
+
+            const outSubEl = document.getElementById('fbcSummaryOutputSub');
+            if (outSubEl) {
+                outSubEl.textContent = `Urine: ${s.output_24h.urine_ml} · Drain: ${s.output_24h.drain_ml} · Emesis: ${s.output_24h.emesis_ml} · NG: ${s.output_24h.ng_ml} · Chest: ${s.output_24h.chest_tube_ml} mL`;
+            }
+
+            const netTotalEl = document.getElementById('fbcSummaryNetTotal');
+            if (netTotalEl) {
+                netTotalEl.textContent = `${net24h > 0 ? '+' : ''}${net24h.toLocaleString()} mL`;
+                netTotalEl.style.color = meta.color;
+            }
+
+            const netCard = document.getElementById('fbcNetBalanceCard');
+            if (netCard) {
+                netCard.style.background = meta.bg;
+                netCard.style.borderColor = meta.border;
+            }
+
+            const msgEl = document.getElementById('fbcAlertMessageText');
+            if (msgEl) {
+                msgEl.textContent = `${meta.icon} ${meta.message}`;
+                msgEl.style.color = meta.color;
+            }
+
+            const badgeEl = document.getElementById('fbcAlertBadge');
+            if (badgeEl) {
+                badgeEl.textContent = `${meta.icon} ${meta.label}`;
+                badgeEl.style.background = meta.bg;
+                badgeEl.style.color = meta.color;
+            }
+        }
+
+        if (entries.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; background: #fff; border-radius: 10px; border: 1px dashed #cbd5e1; color: #64748b;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">💧</div>
+                    <div style="font-weight: 700; font-size: 15px; color: #1e293b;">No Fluid Intake &amp; Output (I&amp;O) Entries Recorded</div>
+                    <div style="font-size: 12.5px; margin-top: 6px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                        Use the "Record Intake &amp; Output (I&amp;O)" tab to log oral fluids, IV infusions, blood products, tube feedings, urinary catheter output, surgical drains, and chest tube volumes.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const alertPills = {
+            'Normal / Euvolemic': '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;">🟢 Euvolemic</span>',
+            'Fluid Overload Warning': '<span style="background:#ffedd5;color:#9a3412;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;">🟠 Overload Warn</span>',
+            'Critical Fluid Overload': '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;">🔴 Critical Overload</span>',
+            'Negative Balance / Dehydration Warning': '<span style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;">🟡 Negative Bal</span>',
+            'Critical Negative Balance / Oliguria': '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;">🔴 Critical Deficit</span>'
+        };
+
+        let html = `
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr style="background: #f1f5f9; color: #334155; text-align: left; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 10px 12px; white-space: nowrap;">Date / Time &amp; Shift</th>
+                            <th style="padding: 10px 10px; background: #e0f2fe; color: #0c4a6e;">📥 Intake Breakdown (mL)</th>
+                            <th style="padding: 10px 10px; background: #bae6fd; color: #0c4a6e; text-align: right; white-space: nowrap;">∑ Intake</th>
+                            <th style="padding: 10px 10px; background: #fef3c7; color: #92400e;">📤 Output Breakdown (mL)</th>
+                            <th style="padding: 10px 10px; background: #fde68a; color: #92400e; text-align: right; white-space: nowrap;">∑ Output</th>
+                            <th style="padding: 10px 10px; text-align: right; white-space: nowrap;">Entry Net</th>
+                            <th style="padding: 10px 10px; text-align: right; white-space: nowrap;">24h Running Net</th>
+                            <th style="padding: 10px 10px;">RN &amp; Notes</th>
+                            <th style="padding: 10px 10px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        entries.forEach(row => {
+            const dt = row.recorded_at ? new Date(row.recorded_at).toLocaleString() : '--';
+            const inParts = [];
+            if (Number(row.intake_oral_ml) > 0) inParts.push(`Oral: <b>${row.intake_oral_ml}</b>`);
+            if (Number(row.intake_iv_ml) > 0) inParts.push(`IV: <b>${row.intake_iv_ml}</b>`);
+            if (Number(row.intake_blood_ml) > 0) inParts.push(`Blood: <b>${row.intake_blood_ml}</b>`);
+            if (Number(row.intake_enteral_ml) > 0) inParts.push(`Tube: <b>${row.intake_enteral_ml}</b>`);
+            if (Number(row.intake_other_ml) > 0) inParts.push(`Other: <b>${row.intake_other_ml}</b>`);
+
+            const outParts = [];
+            if (Number(row.output_urine_ml) > 0) outParts.push(`Urine: <b>${row.output_urine_ml}</b>`);
+            if (Number(row.output_drain_ml) > 0) outParts.push(`Drain (JP/Hemo): <b>${row.output_drain_ml}</b>`);
+            if (Number(row.output_emesis_ml) > 0) outParts.push(`Emesis: <b>${row.output_emesis_ml}</b>`);
+            if (Number(row.output_ng_ml) > 0) outParts.push(`NG: <b>${row.output_ng_ml}</b>`);
+            if (Number(row.output_chest_tube_ml) > 0) outParts.push(`Chest: <b>${row.output_chest_tube_ml}</b>`);
+            if (Number(row.output_stool_other_ml) > 0) outParts.push(`Other: <b>${row.output_stool_other_ml}</b>`);
+
+            const eNet = Number(row.entry_net_ml) || 0;
+            const rNet = Number(row.running_24h_net_ml) || 0;
+            const pill = alertPills[row.balance_alert_level] || '';
+
+            html += `
+                <tr style="border-bottom: 1px solid #e2e8f0; vertical-align: top;">
+                    <td style="padding: 9px 12px; white-space: nowrap;">
+                        <div style="font-weight: 700; color: #0f172a;">${esc(dt)}</div>
+                        <div style="font-size: 11px; color: #64748b;">${esc(row.shift || '')} · <span style="font-family:monospace;">#${esc(row.entry_number || row.id)}</span></div>
+                    </td>
+                    <td style="padding: 9px 10px; background: #f8fafc;">
+                        <div>${inParts.length ? inParts.join(' · ') : '<span style="color:#94a3b8;">0 mL</span>'}</div>
+                        ${row.intake_details ? `<div style="font-size: 11px; color: #0369a1; margin-top: 2px;">${esc(row.intake_details)}</div>` : ''}
+                    </td>
+                    <td style="padding: 9px 10px; text-align: right; font-family: monospace; font-weight: 800; color: #0369a1; background: #f0f9ff; white-space: nowrap;">
+                        ${Number(row.intake_total_ml || 0).toLocaleString()} mL
+                    </td>
+                    <td style="padding: 9px 10px; background: #f8fafc;">
+                        <div>${outParts.length ? outParts.join(' · ') : '<span style="color:#94a3b8;">0 mL</span>'}</div>
+                        ${row.output_details ? `<div style="font-size: 11px; color: #b45309; margin-top: 2px;">${esc(row.output_details)}</div>` : ''}
+                    </td>
+                    <td style="padding: 9px 10px; text-align: right; font-family: monospace; font-weight: 800; color: #b45309; background: #fffbeb; white-space: nowrap;">
+                        ${Number(row.output_total_ml || 0).toLocaleString()} mL
+                    </td>
+                    <td style="padding: 9px 10px; text-align: right; font-family: monospace; font-weight: 700; color: ${eNet > 0 ? '#0284c7' : eNet < 0 ? '#b45309' : '#334155'}; white-space: nowrap;">
+                        ${eNet > 0 ? '+' : ''}${eNet.toLocaleString()} mL
+                    </td>
+                    <td style="padding: 9px 10px; text-align: right; white-space: nowrap;">
+                        <div style="font-family: monospace; font-weight: 800; font-size: 13px; color: #0f172a;">${rNet > 0 ? '+' : ''}${rNet.toLocaleString()} mL</div>
+                        <div style="margin-top: 2px;">${pill}</div>
+                    </td>
+                    <td style="padding: 9px 10px;">
+                        <div style="font-weight: 600; color: #334155;">👩‍⚕️ ${esc(row.recorded_by_name || 'RN')}</div>
+                        ${row.clinical_notes ? `<div style="font-size: 11px; color: #475569; margin-top: 2px;">${esc(row.clinical_notes)}</div>` : ''}
+                    </td>
+                    <td style="padding: 9px 10px; text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn-inpatient btn-inpatient-secondary btn-edit-fbc" data-entry-id="${row.id}" style="padding: 3px 7px; font-size: 11px;">✏️</button>
+                        <button type="button" class="btn-inpatient btn-delete-fbc" data-entry-id="${row.id}" style="padding: 3px 7px; font-size: 11px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Wire Edit buttons
+        container.querySelectorAll('.btn-edit-fbc').forEach(btn => {
+            btn.onclick = () => {
+                const eId = btn.getAttribute('data-entry-id');
+                const target = entries.find(x => x.id == eId);
+                if (target) populateFluidEntryForEdit(target);
+            };
+        });
+
+        // Wire Delete buttons
+        container.querySelectorAll('.btn-delete-fbc').forEach(btn => {
+            btn.onclick = async () => {
+                const eId = btn.getAttribute('data-entry-id');
+                if (!confirm('Remove this fluid balance entry from the 24-hour flowsheet?')) return;
+                try {
+                    const dRes = await deleteFluidBalance(eId);
+                    if (dRes && dRes.success) {
+                        showToast('Fluid balance entry removed', 'success');
+                        await loadFluidBalanceChart(admissionId);
+                    } else {
+                        showToast('Delete failed: ' + (dRes?.message || 'Error'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Delete error: ' + err.message, 'error');
+                }
+            };
+        });
+
+    } catch (err) {
+        container.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Error loading 24-hour fluid balance chart: ${esc(err.message)}</div>`;
+    }
+}
+
+function populateFluidEntryForEdit(row) {
+    document.getElementById('fbcFormRecordId').value = row.id;
+    document.getElementById('fbcFormAdmissionId').value = row.admission_id;
+    document.getElementById('fbcFormPatientId').value = row.patient_id || '';
+
+    if (row.recorded_at) {
+        document.getElementById('fbcFormDateTime').value = row.recorded_at.replace(' ', 'T').slice(0, 16);
+    }
+    document.getElementById('fbcFormShift').value = row.shift || 'Day Shift (07:00-15:00)';
+    document.getElementById('fbcFormNurseName').value = row.recorded_by_name || '';
+
+    document.getElementById('fbcInOral').value = row.intake_oral_ml ?? 0;
+    document.getElementById('fbcInIv').value = row.intake_iv_ml ?? 0;
+    document.getElementById('fbcInBlood').value = row.intake_blood_ml ?? 0;
+    document.getElementById('fbcInEnteral').value = row.intake_enteral_ml ?? 0;
+    document.getElementById('fbcInOther').value = row.intake_other_ml ?? 0;
+    document.getElementById('fbcInDetails').value = row.intake_details || '';
+
+    document.getElementById('fbcOutUrine').value = row.output_urine_ml ?? 0;
+    document.getElementById('fbcOutDrain').value = row.output_drain_ml ?? 0;
+    document.getElementById('fbcOutEmesis').value = row.output_emesis_ml ?? 0;
+    document.getElementById('fbcOutNg').value = row.output_ng_ml ?? 0;
+    document.getElementById('fbcOutChest').value = row.output_chest_tube_ml ?? 0;
+    document.getElementById('fbcOutStool').value = row.output_stool_other_ml ?? 0;
+    document.getElementById('fbcOutDetails').value = row.output_details || '';
+
+    document.getElementById('fbcFormNotes').value = row.clinical_notes || '';
+
+    recalculateLiveFbcForm();
+
+    const submitBtn = document.getElementById('btnSubmitFbcForm');
+    if (submitBtn) submitBtn.textContent = `💾 Update Fluid Entry (${row.entry_number || '#' + row.id})`;
+
+    const tabRec = document.getElementById('tabBtnFbcRecord');
+    if (tabRec) tabRec.click();
 }

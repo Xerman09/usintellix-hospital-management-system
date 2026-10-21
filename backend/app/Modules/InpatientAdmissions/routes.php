@@ -5,6 +5,7 @@ use App\Modules\InpatientAdmissions\Controllers\DischargeSummaryController;
 use App\Modules\InpatientAdmissions\Controllers\DailyRoundController;
 use App\Modules\InpatientAdmissions\Controllers\ProgressNoteController;
 use App\Modules\InpatientAdmissions\Controllers\CarePlanController;
+use App\Modules\InpatientAdmissions\Controllers\FluidBalanceController;
 
 /** @var \App\Core\Router $router */
 
@@ -193,6 +194,32 @@ $router->post('/inpatient-admissions/care-plans/delete', [CarePlanController::cl
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'clinician']]
 ]);
+
+$router->get('/inpatient-admissions/fluid-balance', [FluidBalanceController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->get('/inpatient-admissions/fluid-balance/show', [FluidBalanceController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff', 'receptionist']]
+]);
+
+$router->post('/inpatient-admissions/fluid-balance', [FluidBalanceController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/fluid-balance/update', [FluidBalanceController::class, 'update'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician', 'staff']]
+]);
+
+$router->post('/inpatient-admissions/fluid-balance/delete', [FluidBalanceController::class, 'destroy'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'doctor', 'nurse', 'charge_nurse', 'clinician']]
+]);
+
 
 
 
