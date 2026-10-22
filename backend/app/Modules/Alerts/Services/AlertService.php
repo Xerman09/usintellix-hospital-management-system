@@ -43,6 +43,7 @@ class AlertService
         'er_protocol'  => 'ER protocol step late',
         'lab_stat'     => 'STAT lab to collect',
         'imaging_stat' => 'STAT imaging to schedule',
+        'patient_reading' => 'Patient-reported reading',
     ];
 
     /** Roles that never get staff alerts ("everyone" means all staff). */

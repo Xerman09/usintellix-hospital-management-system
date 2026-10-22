@@ -5,15 +5,18 @@ namespace App\Modules\StockLevels\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\StockLevels\Services\PharmacyReorderPolicyService;
 use App\Modules\StockLevels\Services\StockLevelService;
 
 class StockLevelController extends Controller
 {
     private StockLevelService $service;
+    private PharmacyReorderPolicyService $reorderService;
 
     public function __construct()
     {
         $this->service = new StockLevelService();
+        $this->reorderService = new PharmacyReorderPolicyService();
     }
 
     public function options(): void
@@ -67,6 +70,57 @@ class StockLevelController extends Controller
         $request = new Request();
 
         $this->success($this->service->lowStock(['warehouse_id' => $request->input('warehouse_id')]), 'Low stock retrieved successfully.');
+    }
+
+    /** Query: warehouse_id */
+    public function reorderPolicies(): void
+    {
+        $request = new Request();
+        $warehouseId = (int) $request->input('warehouse_id');
+        if ($warehouseId <= 0) {
+            $this->error('Storage location is required.', 422);
+            return;
+        }
+
+        $this->success($this->reorderService->getPoliciesForWarehouse($warehouseId), 'Reorder policies retrieved successfully.');
+    }
+
+    /** Body: warehouse_id, policies: [{drug_id, avg_daily_consumption, lead_time_days, safety_stock, max_stock_level?, reorder_quantity?, auto_generate_draft_pr?}] */
+    public function saveReorderPolicies(): void
+    {
+        $request = new Request();
+        $policies = $request->input('policies');
+
+        $this->respond($this->reorderService->savePolicies(
+            (int) $request->input('warehouse_id'),
+            is_array($policies) ? array_values(array_filter($policies, 'is_array')) : [],
+            (int) (Session::get('user')['id'] ?? 0)
+        ));
+    }
+
+    /** Body: warehouse_id */
+    public function evaluateReorder(): void
+    {
+        $request = new Request();
+        $warehouseId = (int) $request->input('warehouse_id');
+        if ($warehouseId <= 0) {
+            $this->error('Storage location is required.', 422);
+            return;
+        }
+
+        $eval = $this->reorderService->evaluateAndTriggerReorder(
+            $warehouseId,
+            (int) (Session::get('user')['id'] ?? 1),
+            'manual_check'
+        );
+
+        $msg = $eval['breached_count'] > 0
+            ? ($eval['draft_pr_number']
+                ? "Reorder check complete: {$eval['breached_count']} item(s) at/below Reorder Point. Draft Purchase Requisition {$eval['draft_pr_number']} generated/updated ({$eval['drafted_items_count']} item(s))."
+                : "Reorder check complete: {$eval['breached_count']} item(s) at/below Reorder Point (already covered on open requisitions).")
+            : 'All tracked medicines at this location are above their Reorder Point.';
+
+        $this->success($eval, $msg);
     }
 
     private function respond(array $result): void

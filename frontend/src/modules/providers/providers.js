@@ -1,6 +1,6 @@
 import { getUser } from "../../core/session.js?v=5";
 import { fetchProviders, createProvider, updateProvider, deleteProvider } from "./providers.service.js?v=5";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 import { fetchEmployeesByRole } from "../employees/employees.service.js";
 import { escapeHtml } from "../appointments/appointment-format.js?v=4";
 import { fetchSpecializations } from "../specializations/specializations.service.js?v=4";

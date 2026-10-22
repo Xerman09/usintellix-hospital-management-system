@@ -4,7 +4,7 @@ import {
 } from "./or-schedule.service.js?v=4";
 import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 import { openOrCase } from "../or-board/or-case-panel.js?v=7";
 import { printOrList } from "./or-list-print.js?v=4";
 

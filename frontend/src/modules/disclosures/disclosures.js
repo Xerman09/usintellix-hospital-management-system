@@ -9,7 +9,7 @@ import {
 } from "./disclosures.service.js?v=9";
 import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { showToast } from "../../core/toast.js";
-import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js?v=3";
 
 const LEGAL_BASIS_LABELS = {
     court_order_subpoena: "Court Order / Subpoena (§ 164.512(e))",

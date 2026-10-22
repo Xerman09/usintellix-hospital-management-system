@@ -4,7 +4,7 @@ import {
 } from "./stock-transfers.service.js?v=4";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 import { custodianHint } from "../../core/custodian.js";
 
 const STATUS_LABELS = { draft: "Draft", requested: "Requested", in_transit: "In transit", received: "Received", cancelled: "Cancelled" };

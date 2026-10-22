@@ -1,4 +1,4 @@
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 export function PaymentProcessingView() {
     const now = systemNow();

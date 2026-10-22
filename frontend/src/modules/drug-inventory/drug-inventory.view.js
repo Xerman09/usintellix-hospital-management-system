@@ -823,6 +823,7 @@ export function DrugInventoryView() {
             </button>
             <button type="button" class="di-btn" id="diImportBtn">Import CSV</button>
             <button type="button" class="di-btn" id="diReceiveBtn">Receive Stock</button>
+            <button type="button" class="di-btn" id="diInitiateRecallBtn" style="border-color:#fca5a5;color:#b91c1c;">&#9888; Initiate Batch Recall</button>
             <button type="button" class="di-btn primary" id="diAddDrugBtn">+ Register Drug</button>
         </div>
     </div>
@@ -830,6 +831,7 @@ export function DrugInventoryView() {
     <div class="di-view-tabs" role="tablist">
         <button type="button" class="di-view-tab active" data-di-view="catalog" role="tab">Drug Catalog</button>
         <button type="button" class="di-view-tab" data-di-view="stock" role="tab">Stock on Hand</button>
+        <button type="button" class="di-view-tab" data-di-view="recalls" role="tab">&#9888; Batch Recalls &amp; Quarantine</button>
     </div>
 
     <div class="di-panel active" id="diCatalogPanel">
@@ -852,6 +854,40 @@ export function DrugInventoryView() {
                     </tr>
                 </thead>
                 <tbody id="diCatalogBody"><tr><td colspan="7" class="di-empty-state">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+        <div class="di-panel" id="diRecallsPanel">
+        <div class="di-list-bar">
+            <div class="di-filters">
+                <input type="text" id="diRecallsSearch" placeholder="Search recall #, medicine, lot #, reason...">
+                <select id="diRecallsStatusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="quarantined">Quarantined / Active</option>
+                    <option value="returned_to_supplier">Returned to Supplier</option>
+                    <option value="closed">Closed</option>
+                </select>
+                <button type="button" class="di-btn" id="diRecallsRefreshBtn">Refresh</button>
+            </div>
+            <div class="di-footer-info" id="diRecallsCount"></div>
+        </div>
+
+        <div class="di-table-wrap">
+            <table class="di-table">
+                <thead>
+                    <tr>
+                        <th>Recall #</th>
+                        <th>Classification</th>
+                        <th>Medicine &amp; Lot</th>
+                        <th>Quarantined Stock</th>
+                        <th>Affected Patients</th>
+                        <th>Reason &amp; FDA Ref</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="diRecallsBody"><tr><td colspan="8" class="di-empty-state">Loading recalls...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -1289,6 +1325,67 @@ export function DrugInventoryView() {
                 <button class="login-btn" type="submit">Transfer</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Initiate Batch Recall Modal -->
+<div class="modal-overlay" id="diInitiateRecallModalOverlay">
+    <div class="modal-box" style="max-width: 620px;">
+        <div class="modal-header">
+            <h2 style="color:#b91c1c;">&#9888; Initiate Drug Batch / Lot Recall</h2>
+            <button type="button" class="modal-close" id="diCloseInitiateRecallModal">&times;</button>
+        </div>
+        <p style="margin:0 0 12px;font-size:12.5px;color:var(--text-muted);">
+            Initiating a recall immediately marks matching on-hand inventory lots inactive/quarantined across all storage locations and scans for all patients who received this batch.
+        </p>
+        <div id="diInitiateRecallAlert"></div>
+        <form id="diInitiateRecallForm">
+            <div class="di-form-grid">
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>Select Drug / Medicine <span class="di-req">*</span></label>
+                    <select id="di_recall_drug_id" required><option value="">-- Choose Medicine --</option></select>
+                </div>
+                <div class="di-field">
+                    <label>Recalled Lot / Batch Number <span class="di-req">*</span></label>
+                    <input type="text" id="di_recall_lot_number" placeholder="e.g. LOT-2026-X99" required>
+                </div>
+                <div class="di-field">
+                    <label>FDA Recall Classification <span class="di-req">*</span></label>
+                    <select id="di_recall_class" required>
+                        <option value="Class II">Class II - Temporary/Reversible Health Hazard</option>
+                        <option value="Class I">Class I - Dangerous / Life-Threatening</option>
+                        <option value="Class III">Class III - Minor / Unlikely Health Hazard</option>
+                    </select>
+                </div>
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>FDA Advisory / Regulatory Reference</label>
+                    <input type="text" id="di_recall_fda_ref" placeholder="e.g. FDA Advisory No. 2026-0881">
+                </div>
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>Recall Reason / Defect Description <span class="di-req">*</span></label>
+                    <input type="text" id="di_recall_reason" placeholder="e.g. Sub-potency detected, particulate contamination, packaging defect" required>
+                </div>
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>Additional Notes / Hospital Actions</label>
+                    <input type="text" id="di_recall_notes" placeholder="e.g. Immediate quarantine issued to ward cabinets, notify attending physicians">
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top:14px;">
+                <button type="button" class="btn-secondary" id="diCancelInitiateRecall">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#dc2626;border-color:#dc2626;">Quarantine Batch &amp; Trace Patients</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Recall Details & Patient Traceability Modal -->
+<div class="modal-overlay" id="diRecallDetailModalOverlay">
+    <div class="modal-box di-modal-wide" style="max-width: 920px;">
+        <div class="modal-header">
+            <h2 id="diRecallDetailTitle">Batch Recall Details &amp; Patient Trace</h2>
+            <button type="button" class="modal-close" id="diCloseRecallDetailModal">&times;</button>
+        </div>
+        <div id="diRecallDetailBody">Loading details...</div>
     </div>
 </div>
 

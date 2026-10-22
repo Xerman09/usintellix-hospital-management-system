@@ -1,7 +1,7 @@
 import { fetchGeneralSettings, updateGeneralSettings, fetchTimezones, updateTimezone, fetchApprovalLimits, updateApprovalLimits, updatePrescriptionSettings, updateNotificationSettings, updateOperationalPolicies } from "./general-settings.service.js?v=7";
 import { fetchRoles } from "../role-management/role-management.service.js";
 import { showToast } from "../../core/toast.js";
-import { setSystemTimezone, systemParts } from "../../core/timezone.js";
+import { setSystemTimezone, systemParts } from "../../core/timezone.js?v=3";
 import { setInactivityTimeoutMinutes } from "../../core/inactivity-guard.js?v=4";
 
 let currentSettings = null;

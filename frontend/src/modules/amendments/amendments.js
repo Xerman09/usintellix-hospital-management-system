@@ -14,7 +14,7 @@ import {
 } from "./amendments.service.js?v=5";
 import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { AmendmentsView } from "./amendments.view.js?v=3";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let currentFilters = {
     search: "",

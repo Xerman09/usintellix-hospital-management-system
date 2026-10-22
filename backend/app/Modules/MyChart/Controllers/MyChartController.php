@@ -14,6 +14,7 @@ use App\Modules\MyChart\Services\PortalNotificationService;
 use App\Modules\MyChart\Services\PortalTodoService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalResultService;
+use App\Modules\MyChart\Services\PortalSelfReadingService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
@@ -334,6 +335,98 @@ class MyChartController extends Controller
         }
 
         $this->respond(PortalPaymentService::cancel($patientId, (int) $request->input('attempt_id')));
+    }
+
+    // ------------------------------------------------------------------
+    // Track My Health (Phase 7)
+    // ------------------------------------------------------------------
+
+    /** GET /mychart/readings?kind=&days= -- the readings the patient takes at home. */
+    public function readings(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Track My Health Viewed', PortalGuard::CAP_SELF_TRACKING);
+
+        if ($patientId === null) {
+            $this->error('Tracking your own readings is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(
+            PortalSelfReadingService::list(
+                $patientId,
+                (string) $request->input('kind', ''),
+                (int) ($request->input('days') ?: PortalSelfReadingService::DEFAULT_DAYS)
+            ),
+            'Readings retrieved successfully.'
+        );
+    }
+
+    /** POST /mychart/readings -- Body: kind, value_1, value_2?, taken_at?, note? */
+    public function recordReading(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Reading Recorded', PortalGuard::CAP_SELF_TRACKING);
+
+        if ($patientId === null) {
+            $this->error('Tracking your own readings is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalSelfReadingService::record($patientId, [
+            'kind' => (string) $request->input('kind', ''),
+            'value_1' => $request->input('value_1'),
+            'value_2' => $request->input('value_2'),
+            'taken_at' => (string) $request->input('taken_at', ''),
+            'note' => (string) $request->input('note', ''),
+        ], (int) ($user['id'] ?? 0) ?: null));
+    }
+
+    /** POST /mychart/readings/delete -- Body: id. A reading entered by mistake. */
+    public function deleteReading(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Reading Removed', PortalGuard::CAP_SELF_TRACKING);
+
+        if ($patientId === null) {
+            $this->error('Tracking your own readings is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalSelfReadingService::remove(
+            $patientId,
+            (int) $request->input('id'),
+            (int) ($user['id'] ?? 0) ?: null
+        ));
+    }
+
+    /** POST /mychart/reading-goals -- Body: kind, target_low?, target_high?. Empty clears it. */
+    public function saveReadingGoal(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Reading Goal Changed', PortalGuard::CAP_SELF_TRACKING);
+
+        if ($patientId === null) {
+            $this->error('Tracking your own readings is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalSelfReadingService::saveGoal(
+            $patientId,
+            (string) $request->input('kind', ''),
+            $request->input('target_low'),
+            $request->input('target_high'),
+            'patient',
+            (int) ($user['id'] ?? 0) ?: null
+        ));
     }
 
     // ------------------------------------------------------------------

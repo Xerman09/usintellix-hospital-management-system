@@ -4,7 +4,7 @@ import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { fetchRemindersForPatient } from "./clinical-reminders.service.js";
 import { fetchReminderActions, addReminderAction } from "../patient-reminders/patient-reminders.service.js";
 import { showToast } from "../../core/toast.js";
-import { systemNow, toDateTimeInput } from "../../core/timezone.js";
+import { systemNow, toDateTimeInput } from "../../core/timezone.js?v=3";
 
 let currentPatient = null;
 let currentReminders = [];

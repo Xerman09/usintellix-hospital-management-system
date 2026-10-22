@@ -1,7 +1,7 @@
 import { fetchMarBoard, fetchMar, giveDose, holdDose, refuseDose, voidDose, recheckPain, fetchSupply, fetchSupplySettings, saveSupplySettings } from "./mar.service.js?v=6";
 import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { systemNow, toDateTimeInput } from "../../core/timezone.js";
+import { systemNow, toDateTimeInput } from "../../core/timezone.js?v=3";
 
 /*
  * Medicine administration record (MAR).

@@ -57,10 +57,42 @@ class StockLevelService
 
         $items = $this->rows([$warehouseId], false)[$warehouseId] ?? [];
 
+        $policyService = new PharmacyReorderPolicyService();
+        $policyData = $policyService->getPoliciesForWarehouse($warehouseId);
+        $policiesByDrug = $policyData['policies_by_drug'] ?? [];
+        $consumption30d = $policyData['consumption_30d_by_drug'] ?? [];
+        $alertsByDrug = [];
+        foreach ($policyData['active_alerts'] ?? [] as $alert) {
+            $alertsByDrug[(int) $alert['drug_id']] = $alert;
+        }
+
+        foreach ($items as &$item) {
+            $dId = (int) $item['drug_id'];
+            $pol = $policiesByDrug[$dId] ?? null;
+            $obs = $consumption30d[$dId]['avg_daily_30d'] ?? 0.0;
+            $item['reorder_policy'] = $pol ?: [
+                'id' => null,
+                'warehouse_id' => $warehouseId,
+                'drug_id' => $dId,
+                'avg_daily_consumption' => $item['min_level'] !== null ? round(max($item['min_level'] * 0.60 / 7, $obs), 3) : round($obs, 3),
+                'observed_30d_daily' => round($obs, 3),
+                'use_auto_consumption' => true,
+                'lead_time_days' => 7,
+                'safety_stock' => $item['min_level'] !== null ? round($item['min_level'] * 0.40, 3) : 0.0,
+                'reorder_point' => $item['min_level'] ?? 0.0,
+                'max_stock_level' => $item['max_level'],
+                'reorder_quantity' => $item['min_level'] !== null ? round(max(($item['max_level'] ?? ($item['min_level'] * 2)) - $item['min_level'], 10.0), 3) : 0.0,
+                'auto_generate_draft_pr' => true,
+            ];
+            $item['active_reorder_alert'] = $alertsByDrug[$dId] ?? null;
+        }
+        unset($item);
+
         return [
             'location' => $location,
             'items' => $items,
-            'counts' => $this->counts($items)
+            'counts' => $this->counts($items),
+            'reorder_alerts' => $policyData['active_alerts'] ?? []
         ];
     }
 
@@ -170,11 +202,30 @@ class StockLevelService
             throw $e;
         }
 
+        $eval = null;
+        if ($upserts) {
+            $eval = (new PharmacyReorderPolicyService())->evaluateAndTriggerReorder(
+                $warehouseId,
+                $userId,
+                'stock_level_save',
+                array_map(fn($u) => (int) $u['drug_id'], $upserts)
+            );
+        }
+
         $parts = [];
         if ($upserts) $parts[] = count($upserts) . ' level' . (count($upserts) === 1 ? '' : 's') . ' saved';
         if ($removed) $parts[] = "{$removed} cleared";
 
-        return ['success' => true, 'message' => ucfirst(implode(', ', $parts ?: ['Nothing changed'])) . '.', 'data' => ['saved' => count($upserts), 'removed' => $removed]];
+        $msg = ucfirst(implode(', ', $parts ?: ['Nothing changed'])) . '.';
+        if (!empty($eval['draft_pr_number'])) {
+            $msg .= " Reorder threshold breached: Draft Purchase Requisition {$eval['draft_pr_number']} automatically generated.";
+        }
+
+        return [
+            'success' => true,
+            'message' => $msg,
+            'data' => ['saved' => count($upserts), 'removed' => $removed, 'reorder_evaluation' => $eval]
+        ];
     }
 
     /** Copies from_warehouse's levels to to_warehouse. overwrite = also replace levels already set there. */

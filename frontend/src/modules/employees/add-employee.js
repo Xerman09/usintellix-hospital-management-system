@@ -13,7 +13,7 @@ import {
     revokeAllSessions
 } from "./employees.service.js";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
-import { systemNow, todayISO } from "../../core/timezone.js";
+import { systemNow, todayISO } from "../../core/timezone.js?v=3";
 
 const FIELDS = [
     "username", "password", "role_id", "department_id", "secondary_department_id",

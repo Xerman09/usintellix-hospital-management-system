@@ -9,7 +9,7 @@ import {
     getBackupsExportUrl,
     getDrillsExportUrl
 } from "./backup-recovery.service.js?v=4";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 export function initBackupRecovery(container = document) {
     // Top-level elements

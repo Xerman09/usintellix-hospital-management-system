@@ -2,7 +2,7 @@ import { fetchVitalsBoard, fetchVitalsHistory, recordVitals, voidVitals, setVita
 import { openFallRisk, fallBadge } from "./fall-risk.js?v=4";
 import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { systemNow, toDateTimeInput } from "../../core/timezone.js";
+import { systemNow, toDateTimeInput } from "../../core/timezone.js?v=3";
 
 /*
  * Inpatient vital signs.

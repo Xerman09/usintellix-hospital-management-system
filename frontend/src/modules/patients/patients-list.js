@@ -25,7 +25,7 @@ import { ClinicalRemindersView } from "../clinical-reminders/clinical-reminders.
 import { initClinicalReminders } from "../clinical-reminders/clinical-reminders.js?v=7";
 import { fetchPatientExternalData, uploadPatientExternalData, deletePatientExternalData } from "../patient-external-data/patient-external-data.service.js";
 import { fetchRooms } from "../rooms/rooms.service.js";
-import { PatientChartView } from "./patients-list.view.js?v=87";
+import { PatientChartView } from "./patients-list.view.js?v=88";
 import { initGeneralHistory } from "./patient-general-history.js?v=4";
 import { initFamilyHistory } from "./patient-family-history.js?v=4";
 import { initRelativesHistory } from "./patient-relatives-history.js?v=4";
@@ -190,7 +190,7 @@ import {
 } from "../patient-insurances/patient-insurances.service.js";
 import { openCodePicker } from "./code-picker.js";
 import { showToast } from "../../core/toast.js";
-import { systemNow, todayISO, toDateInput, toDateTimeInput, nowDateTime } from "../../core/timezone.js";
+import { systemNow, todayISO, toDateInput, toDateTimeInput, nowDateTime } from "../../core/timezone.js?v=3";
 
 const ALLERGY_DETAIL_FIELDS = [
     "begin_date", "end_date", "reaction", "severity", "comments", "coding",
@@ -2972,7 +2972,7 @@ async function loadPatientDashboardWidgets(patient)
         }
 
         if (data._hipaa_minimum_necessary?.applied) {
-            const clinicalBodyIds = ["pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody", "pdEncountersBody", "pdVitalsHistoryBody", "pdImmunizationsBody"];
+            const clinicalBodyIds = ["pdAllergiesBody", "pdProblemsBody", "pdHealthConcernsBody", "pdMedicationsBody", "pdPrescriptionsBody", "pdEncountersBody", "pdVitalsHistoryBody", "pdSelfReadingsBody", "pdImmunizationsBody"];
             clinicalBodyIds.forEach(id => {
                 const body = document.getElementById(id);
                 if (body) {
@@ -2988,6 +2988,7 @@ async function loadPatientDashboardWidgets(patient)
             renderDashboardEncounters(data.encounters || []);
             renderDashboardVitalsHistory(data.vitals_history || []);
             renderDashboardImmunizations(data.immunizations || []);
+            loadDashboardSelfReadings(patient);
         }
 
         // Not clinical: shown for every role (the server leaves out what a role may not see).
@@ -6458,6 +6459,114 @@ function renderDashboardInsurance(insurances)
     if (canManage) {
         wireDashboardItemClicks(body, "data-insurance-id", insurances, openInsuranceFormModal);
     }
+}
+
+/**
+ * The readings the patient took at home, from My Chart (Track My Health).
+ *
+ * Read-only on purpose. These are NOT vitals: nobody from the hospital measured
+ * them, so they are kept in their own table and labelled self-reported wherever
+ * they appear. They are here so a consultation can use them, not so they can be
+ * mistaken for the clinical record.
+ */
+async function loadDashboardSelfReadings(patient)
+{
+    const body = document.getElementById("pdSelfReadingsBody");
+
+    if (!body) {
+        return;
+    }
+
+    try {
+        const result = await api(`/patient-self-readings?${new URLSearchParams({ patient_id: patient.id })}`);
+
+        renderDashboardSelfReadings(result.success ? result.data : { items: [] });
+    } catch (error) {
+        console.error("Failed to load self-reported readings", error);
+        body.innerHTML = `<div class="pd-widget-empty"><p>Unable to load home readings right now.</p></div>`;
+    }
+}
+
+function selfReadingValue(item)
+{
+    const latest = item.latest;
+
+    if (!latest) {
+        return "-";
+    }
+
+    const value = latest.value_2 === null
+        ? `${latest.value_1}`
+        : `${latest.value_1}/${latest.value_2}`;
+
+    return `${value} ${item.units}`;
+}
+
+/** A small line per kind: enough to see the shape without opening anything. */
+function selfReadingSpark(item)
+{
+    const points = (item.points || []).filter((p) => p.value_1 !== null);
+
+    if (points.length < 2) {
+        return "";
+    }
+
+    const W = 104;
+    const H = 24;
+    const values = points.flatMap((p) => (p.value_2 === null ? [p.value_1] : [p.value_1, p.value_2]));
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    const span = (hi - lo) || 1;
+    const x = (i) => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * (W - 2) + 1);
+    const y = (v) => H - 2 - ((v - lo) / span) * (H - 4);
+
+    const path = (pick) => points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(pick(p)).toFixed(1)}`).join("");
+
+    return `<svg class="pd-selfread-spark" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+            <path d="${path((p) => p.value_1)}"></path>
+            ${item.pair ? `<path class="second" d="${path((p) => p.value_2)}"></path>` : ""}
+        </svg>`;
+}
+
+function renderDashboardSelfReadings(data)
+{
+    const body = document.getElementById("pdSelfReadingsBody");
+
+    if (!body) {
+        return;
+    }
+
+    const items = data.items || [];
+    const count = document.getElementById("pdSelfReadingsBodyCount");
+
+    if (count) {
+        count.hidden = items.length === 0;
+        count.textContent = String(items.length);
+    }
+
+    if (!items.length) {
+        body.innerHTML = `<div class="pd-widget-empty">
+                <p>No home readings recorded.</p>
+                <p style="font-size:11px;color:#64748b;">Patients enter these themselves in My Chart.</p>
+            </div>`;
+        return;
+    }
+
+    body.innerHTML = `
+        <div class="pd-selfread-note">Entered by the patient at home. Self-reported &mdash; not a clinical measurement.</div>
+        <div class="pd-allergy-list">
+            ${items.map((item) => `
+                <div class="pd-allergy-row pd-selfread-row">
+                    <span class="pd-allergy-name">
+                        ${escapeHtml(item.label)} &middot; <strong>${escapeHtml(selfReadingValue(item))}</strong>
+                        ${item.out_of_band ? `<span class="pd-selfread-flag">${item.out_of_band} outside the safety band</span>` : ""}
+                        <span class="pd-selfread-meta">${escapeHtml(formatDate(item.latest_at) || "-")} &middot; ${item.count} recorded${
+                            item.goal ? ` &middot; goal ${[item.goal.target_low, item.goal.target_high].filter((v) => v !== null).join("-")} ${escapeHtml(item.units)}` : ""}</span>
+                    </span>
+                    ${selfReadingSpark(item)}
+                </div>
+            `).join("")}
+        </div>`;
 }
 
 async function loadDashboardVitalsHistory(patient)

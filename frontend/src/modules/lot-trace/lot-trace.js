@@ -1,7 +1,7 @@
 import { searchBatches, fetchTrace } from "./lot-trace.service.js?v=4";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 /** Movement type -> badge style (same as the Medicine Ledger). */
 const TYPE_STYLE = {

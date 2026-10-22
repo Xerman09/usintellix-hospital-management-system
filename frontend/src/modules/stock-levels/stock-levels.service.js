@@ -26,3 +26,21 @@ export async function copyLocationLevels(fromId, toId, overwrite) {
 export async function fetchLowStock(filters = {}) {
     return api(`/stock-levels/low-stock${query(filters)}`);
 }
+
+export async function fetchReorderPolicies(warehouseId) {
+    return api(`/stock-levels/reorder-policies${query({ warehouse_id: warehouseId })}`);
+}
+
+export async function saveReorderPolicies(warehouseId, policies) {
+    return api("/stock-levels/reorder-policies", {
+        method: "POST",
+        body: JSON.stringify({ warehouse_id: warehouseId, policies })
+    });
+}
+
+export async function evaluateReorderThresholds(warehouseId) {
+    return api("/stock-levels/evaluate-reorder", {
+        method: "POST",
+        body: JSON.stringify({ warehouse_id: warehouseId })
+    });
+}

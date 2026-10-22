@@ -8,7 +8,7 @@ import { AppointmentsListView } from "../appointments/appointments-list.view.js?
 import { initAppointmentsList } from "../appointments/appointments-list.js?v=9";
 import { DoctorCalendarView } from "../appointments/doctor-calendar.view.js?v=9";
 import { initDoctorCalendar } from "../appointments/doctor-calendar.js?v=9";
-import { systemNow, toDateInput } from "../../core/timezone.js";
+import { systemNow, toDateInput } from "../../core/timezone.js?v=3";
 
 const RECALL_STATUS_LABELS = {
     pending: "Pending",

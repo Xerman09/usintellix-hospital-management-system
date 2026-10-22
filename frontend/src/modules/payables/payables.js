@@ -4,7 +4,7 @@ import {
 } from "./payables.service.js?v=6";
 import { formatMoney, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { todayISO, systemNow, toDateInput } from "../../core/timezone.js";
+import { todayISO, systemNow, toDateInput } from "../../core/timezone.js?v=3";
 import { getUser } from "../../core/session.js?v=5";
 
 const METHOD_LABELS = { check: "Check", bank_transfer: "Bank transfer", cash: "Cash", other: "Other" };

@@ -6558,6 +6558,68 @@ textarea.pd-sdoh-readonly {
     color: #8b98ac;
 }
 
+/* Home readings (self-reported, My Chart Track My Health). Read-only, and never
+   styled like the clinical vitals widget -- the point is that they look different. */
+.pd-selfread-note {
+    font-size: 11px;
+    color: #8b98ac;
+    border-left: 3px solid #cbd5e1;
+    padding: 2px 0 2px 8px;
+    margin-bottom: 8px;
+}
+
+.pd-selfread-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pd-selfread-meta {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: #8b98ac;
+}
+
+.pd-selfread-flag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fffaf0;
+    border: 1px solid #fcd34d;
+    color: #78350f;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.pd-selfread-spark {
+    flex: 0 0 auto;
+    width: 104px;
+    height: 24px;
+}
+
+.pd-selfread-spark path {
+    fill: none;
+    stroke: #1d4ed8;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.pd-selfread-spark path.second {
+    stroke: #0f766e;
+    stroke-dasharray: 3 2;
+}
+
+:root[data-theme="dark"] .pd-selfread-note,
+:root[data-theme="dark"] .pd-selfread-meta { color: var(--text-muted); }
+:root[data-theme="dark"] .pd-selfread-note { border-left-color: var(--border-color); }
+:root[data-theme="dark"] .pd-selfread-flag { background: rgba(217, 119, 6, .14); border-color: #92400e; color: #fde68a; }
+:root[data-theme="dark"] .pd-selfread-spark path { stroke: #60a5fa; }
+:root[data-theme="dark"] .pd-selfread-spark path.second { stroke: #5eead4; }
+
 .pd-severity-badge {
     flex-shrink: 0;
     padding: 2px 9px;
@@ -7922,6 +7984,7 @@ textarea.pd-sdoh-readonly {
                     ${dashboardWidget("Related Persons", '<circle cx="9" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"></path><circle cx="17" cy="7" r="3"></circle><path d="M22 21v-2a3.99 3.99 0 0 0-3-3.87"></path>', "No related persons recorded.", { bodyId: "pdRelatedPersonsBody", addBtnId: "pdRelatedPersonsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Immunizations", '<path d="M18 11.5 22 6l-4-4-5.5 4M18 11.5 8 21H3v-5l10-10 5 5.5Z"></path>', "No immunization records yet.", { bodyId: "pdImmunizationsBody", addBtnId: "pdImmunizationsAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Vitals", '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>', "No vitals recorded yet.", { bodyId: "pdVitalsHistoryBody", addBtnId: "pdVitalsHistoryAddBtn", addBtnLabel: "View All", addBtnDisabled: false, extraButtons: [{ id: "pdVitalsGraphBtn", label: "View Graph" }] })}
+                    ${dashboardWidget("Home Readings (self-reported)", '<path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path><path d="M9 16h6"></path>', "No home readings recorded.", { bodyId: "pdSelfReadingsBody", addBtnLabel: "Read-only", addBtnDisabled: true, widgetId: "pdWidget-selfReadings" })}
                     ${dashboardWidget("Insurance", '<path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"></path>', "No insurance on file.", { bodyId: "pdInsuranceBody", addBtnId: "pdInsuranceAddBtn", addBtnLabel: "Edit", addBtnDisabled: false })}
                     ${dashboardWidget("Appointments", '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>', "No upcoming appointments.", { bodyId: "pdAppointmentsBody", addBtnId: "pdAppointmentsAddBtn", addBtnLabel: "+ Add", addBtnDisabled: false })}
                     ${dashboardWidget("Documents", '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>', "No documents uploaded yet.", { bodyId: "pdDocumentsBody", addBtnId: "pdDocumentsAddBtn", addBtnLabel: "Upload", addBtnDisabled: false, widgetId: "pdWidget-documents" })}

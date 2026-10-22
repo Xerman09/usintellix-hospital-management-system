@@ -11,7 +11,7 @@ import {
 } from "./surgery-requests.service.js?v=3";
 import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 const REQUEST_ROLES = ["admin", "doctor"];
 const SPEC_GROUPS = [["surgical", "Surgical"], ["anesthesiology", "Anesthesiology"], ["medical", "Medical"], ["other", "Other"]];

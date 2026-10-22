@@ -1,4 +1,4 @@
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 /**
  * Lightweight pure-JavaScript DICOM Parser & Medical Image Processor

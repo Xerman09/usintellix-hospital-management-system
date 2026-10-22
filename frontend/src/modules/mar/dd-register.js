@@ -1,6 +1,6 @@
 import { fetchDdRegister } from "./mar.service.js?v=6";
 import { showToast } from "../../core/toast.js";
-import { todayISO, nowDateTime } from "../../core/timezone.js";
+import { todayISO, nowDateTime } from "../../core/timezone.js?v=3";
 
 /*
  * Dangerous-drugs (DD) register (tab "dd_register"): every dose of a dangerous drug

@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { fetchDuplicateGroups, dismissDuplicateGroup } from "./patient-duplicates.service.js";
 import { mergePatients } from "../patient-merge/patient-merge.service.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let groups = [];
 let pendingMerge = null;

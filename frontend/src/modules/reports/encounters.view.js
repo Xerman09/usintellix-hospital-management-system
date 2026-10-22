@@ -1,4 +1,4 @@
-import { systemNow, toDateInput } from "../../core/timezone.js";
+import { systemNow, toDateInput } from "../../core/timezone.js?v=3";
 
 export function EncountersReportView() {
     const now = systemNow();

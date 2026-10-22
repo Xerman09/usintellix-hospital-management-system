@@ -3,7 +3,7 @@ import {
     openOrCase, advanceStage, ensureOrCaseRoot, esc, parseDT, fmtTime, fmtTimeOfDay, fmtDate, fmtMin, minutesSince, STAGE_SHORT, GATES, PHASE_LABELS
 } from "./or-case-panel.js?v=7";
 import { showToast } from "../../core/toast.js";
-import { systemNow, todayISO } from "../../core/timezone.js";
+import { systemNow, todayISO } from "../../core/timezone.js?v=3";
 
 const IN_ROOM = ["In Room / Induction", "Incision / In Progress", "Closing / Extubation"];
 const WAITING = ["Scheduled", "Pre-Op Holding"];

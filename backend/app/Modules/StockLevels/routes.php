@@ -12,5 +12,8 @@ $router->get('/stock-levels/options', [StockLevelController::class, 'options'], 
 $router->get('/stock-levels', [StockLevelController::class, 'levels'], $levelView);
 // Items below their minimum at every location (the pharmacy dashboard's list).
 $router->get('/stock-levels/low-stock', [StockLevelController::class, 'lowStock'], $levelView);
+$router->get('/stock-levels/reorder-policies', [StockLevelController::class, 'reorderPolicies'], $levelView);
 $router->post('/stock-levels', [StockLevelController::class, 'save'], $levelEdit);
 $router->post('/stock-levels/copy', [StockLevelController::class, 'copy'], $levelEdit);
+$router->post('/stock-levels/reorder-policies', [StockLevelController::class, 'saveReorderPolicies'], $levelEdit);
+$router->post('/stock-levels/evaluate-reorder', [StockLevelController::class, 'evaluateReorder'], $levelView);

@@ -11,7 +11,7 @@ import { fetchMyRecalls, createRecall } from "../recalls/recalls.service.js";
 import { RecallsView } from "../recalls/recalls.view.js";
 import { initRecalls } from "../recalls/recalls.js";
 import { fetchMyReminders, createReminder, completeReminder } from "../reminders/reminders.service.js";
-import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js?v=3";
 
 let messagesCache = [];
 let selectedIds = new Set();

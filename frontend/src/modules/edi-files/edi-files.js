@@ -3,7 +3,7 @@ import {
     fetchCsvTable, fetchOlderThanReport, bulkArchiveOlderThan
 } from "./edi-files.service.js";
 import { showToast } from "../../core/toast.js";
-import { systemNow, toDateInput } from "../../core/timezone.js";
+import { systemNow, toDateInput } from "../../core/timezone.js?v=3";
 
 let allFiles = [];
 let selectedPreviewFileId = null;

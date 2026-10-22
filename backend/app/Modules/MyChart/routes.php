@@ -1,9 +1,11 @@
 <?php
 
 use App\Modules\MyChart\Controllers\MyChartController;
+use App\Modules\MyChart\Controllers\SelfReadingChartController;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
+use App\Modules\MyChart\Services\PortalSelfReadingService;
 
 /** @var \App\Core\Router $router */
 
@@ -92,6 +94,36 @@ $router->get('/portal-payments', [MyChartController::class, 'portalPayments'], [
 $router->post('/portal-payments/settle', [MyChartController::class, 'portalPaymentSettle'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalPaymentService::SETTLE_ROLES]
+]);
+
+// ---------------------------------------------------------------
+// Track My Health: readings taken at home, their goal band, and the
+// read-only panel the clinician sees in the chart.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/readings', [MyChartController::class, 'readings'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/readings', [MyChartController::class, 'recordReading'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/readings/delete', [MyChartController::class, 'deleteReading'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/reading-goals', [MyChartController::class, 'saveReadingGoal'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/patient-self-readings', [SelfReadingChartController::class, 'show'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalSelfReadingService::CHART_ROLES]
 ]);
 
 // ---------------------------------------------------------------

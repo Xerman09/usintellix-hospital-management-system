@@ -5,7 +5,7 @@ import {
 import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { fetchPatientEncounters } from "../encounters/encounters.service.js";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 const HEADER_FIELDS = [
     "payment_date", "post_to_date", "payment_method", "check_number", "payment_amount",

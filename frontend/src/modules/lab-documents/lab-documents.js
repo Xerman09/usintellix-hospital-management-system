@@ -1,7 +1,7 @@
 import { getUser } from "../../core/session.js?v=5";
 import { fetchLabDocuments } from "../patient-documents/patient-documents.service.js";
 import { API_URL } from "../../core/api.js?v=10";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 // Real data: every "Lab Result" category document uploaded for any
 // patient, across the whole practice. Note: this app has no

@@ -2,7 +2,7 @@ import { getUser } from "../../core/session.js?v=5";
 import { createPatient } from "./patients.service.js?v=9";
 import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { enablePasswordToggles } from "../../core/password-toggle.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 const FIELDS = [
     "username", "password", "first_name", "middle_name",

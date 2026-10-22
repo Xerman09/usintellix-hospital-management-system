@@ -4,7 +4,7 @@ import {
 } from "./stock-counts.service.js?v=4";
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 const STATUS_LABELS = { counting: "Counting", submitted: "For approval", rejected: "Recount", approved: "Approved", cancelled: "Cancelled" };
 const HISTORY_LABELS = {

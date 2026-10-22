@@ -5,7 +5,7 @@ import { showToast } from "../../core/toast.js";
 import { createCsvImport } from "../../core/csv-import.js?v=3";
 import { fetchSupplierPrices, deleteSupplierPrice } from "../supplier-prices/supplier-prices.service.js?v=5";
 import { createSupplierPriceForm, renderDiscountTag, formatMoney as formatPrice } from "../supplier-prices/supplier-price-form.js?v=5";
-import { systemNow, toDateInput } from "../../core/timezone.js";
+import { systemNow, toDateInput } from "../../core/timezone.js?v=3";
 
 const IMPORT_COLUMNS = [
     "name", "supplier_type", "product_types", "contact_person", "phone", "mobile", "email", "website",

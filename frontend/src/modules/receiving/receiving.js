@@ -4,7 +4,7 @@ import {
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js?v=5";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 import { custodianHint } from "../../core/custodian.js";
 
 // Keep in step with PurchaseOrderService::CREATOR_ROLES (the receiving

@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { logReportRun } from "./report-history.js";
-import { systemNow, toDateInput } from "../../core/timezone.js";
+import { systemNow, toDateInput } from "../../core/timezone.js?v=3";
 
 async function startReport() {
     const startBtn = document.getElementById("rwtStartBtn");

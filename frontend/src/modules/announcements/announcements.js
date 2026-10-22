@@ -9,7 +9,7 @@ import {
 } from "./announcements.service.js";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js?v=5";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 let currentUser = null;
 let availableRoles = [];

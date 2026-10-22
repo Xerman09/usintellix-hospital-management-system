@@ -13,7 +13,7 @@ import { renderMiniCalendar } from "./appointment-mini-calendar.js";
 import { renderTimeline } from "./appointment-timeline.js?v=5";
 import { renderWeekView } from "./appointment-week-view.js?v=4";
 import { renderMonthView } from "./appointment-month-view.js?v=4";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 let monthCache = {};
 let currentYear;

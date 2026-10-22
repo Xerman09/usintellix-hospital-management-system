@@ -74,3 +74,30 @@ export async function destroyDrugLot(lotId, details) {
         body: JSON.stringify({ lot_id: lotId, ...details })
     });
 }
+
+export async function fetchRecalls(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/recalls${q ? `?${q}` : ""}`);
+}
+
+export async function fetchRecallDetail(id) {
+    return api(`/drug-inventory/recalls/detail?id=${encodeURIComponent(id)}`);
+}
+
+export async function createRecall(data) {
+    return api("/drug-inventory/recalls", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}
+
+export async function updateRecallStatus(id, status, notes = null) {
+    return api("/drug-inventory/recalls/status", {
+        method: "POST",
+        body: JSON.stringify({ id, status, notes })
+    });
+}

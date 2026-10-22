@@ -1,5 +1,5 @@
 import { api } from "../../core/api.js?v=10";
-import { systemNow, toDateTimeInput } from "../../core/timezone.js";
+import { systemNow, toDateTimeInput } from "../../core/timezone.js?v=3";
 
 /*
  * The read-back form for a critical lab result, used where a critical lab alert is

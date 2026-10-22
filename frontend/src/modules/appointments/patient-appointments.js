@@ -3,7 +3,7 @@ import { formatApptTime, statusLabel, escapeHtml, toDateStr, formatMonthLabel } 
 import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchFacilities } from "../facilities/facilities.service.js";
 import { showToast } from "../../core/toast.js";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 const WEEKDAY_FORMAT = { weekday: "short" };
 const MONTH_FORMAT = { month: "short" };

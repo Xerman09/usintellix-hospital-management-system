@@ -13,7 +13,7 @@ import {
 import { API_URL } from "../../core/api.js?v=10";
 import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { systemNow, toDateTimeInput, todayISO } from "../../core/timezone.js";
+import { systemNow, toDateTimeInput, todayISO } from "../../core/timezone.js?v=3";
 
 export const STAGES = ["Scheduled", "Pre-Op Holding", "In Room / Induction", "Incision / In Progress", "Closing / Extubation", "In PACU", "Transferred / Discharged"];
 export const STAGE_SHORT = {

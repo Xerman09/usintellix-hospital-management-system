@@ -94,13 +94,14 @@ export function StockLevelsView() {
 <div class="sl-page">
     <div class="sl-header">
         <div>
-            <h1>Stock Levels</h1>
-            <p>Set the minimum (reorder point) and maximum of each item at each storage location. An item is <b>low</b> when its usable stock — not counting expired lots — falls below the minimum, and <b>out</b> when none is left.</p>
+            <h1>Stock Levels &amp; Automated Reorder Policies</h1>
+            <p>Set minimum stock levels or configure automated reorder policies using <b>Reorder Point = (Avg Daily Consumption &times; Lead Time Days) + Safety Stock</b>. Breaching the reorder line automatically triggers alerts and Draft Purchase Requisitions.</p>
         </div>
     </div>
     <div class="sl-tabs" role="tablist" id="slTabs">
         <button type="button" data-sl-tab="low" class="active">Low Stock</button>
         <button type="button" data-sl-tab="set">Set Levels</button>
+        <button type="button" data-sl-tab="policies">Automated Reorder Policies (ROP)</button>
     </div>
 
     <div id="slLowPanel">
@@ -133,6 +134,22 @@ export function StockLevelsView() {
             </div>
         </div>
         <div id="slSetBody"><div class="sl-empty">Loading...</div></div>
+    </div>
+
+    <div id="slPolicyPanel" hidden>
+        <div class="sl-filters">
+            <label>Location<select id="slPolicyLocation"></select></label>
+            <label class="sl-grow">Item<input type="search" id="slPolicySearch" placeholder="Filter by item name..."></label>
+            <label>Filter<select id="slPolicyShow">
+                <option value="all">All items</option>
+                <option value="breached">Breached (Usable &le; ROP)</option>
+                <option value="configured">Configured policies</option>
+            </select></label>
+            <div class="sl-actions">
+                <button type="button" class="sl-btn primary" id="slRunReorderEval">Run Reorder Check &amp; Generate Draft PR</button>
+            </div>
+        </div>
+        <div id="slPolicyBody"><div class="sl-empty">Loading...</div></div>
     </div>
 </div>
 

@@ -1,7 +1,7 @@
 import { getUser } from "../../core/session.js?v=5";
 import { fetchPatients } from "./patients.service.js?v=9";
-import { openPatientChartTab, initPatientsList } from "./patients-list.js?v=116";
-import { PatientsListView } from "./patients-list.view.js?v=87";
+import { openPatientChartTab, initPatientsList } from "./patients-list.js?v=117";
+import { PatientsListView } from "./patients-list.view.js?v=88";
 import { consumePendingFinderSearch } from "../../core/pending-finder-search.js";
 import { setPendingPatientView } from "../../core/pending-patient-view.js";
 import { getRecentPatients } from "../../core/recent-patients.js";

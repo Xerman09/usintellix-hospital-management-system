@@ -3,7 +3,7 @@ import { escapeHtml } from "../appointments/appointment-format.js?v=4";
 import { api, API_URL } from "../../core/api.js?v=10";
 import { getUser } from "../../core/session.js?v=5";
 import { showToast } from "../../core/toast.js";
-import { systemNow, todayISO } from "../../core/timezone.js";
+import { systemNow, todayISO } from "../../core/timezone.js?v=3";
 
 export async function initDocuments() {
     const container = document.getElementById("docsListContainer");

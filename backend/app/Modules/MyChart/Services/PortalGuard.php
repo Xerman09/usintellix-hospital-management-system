@@ -26,6 +26,7 @@ class PortalGuard
     public const CAP_CHECKIN = 'mychart_checkin';
     public const CAP_PROXY_REQUEST = 'mychart_proxy_request';
     public const CAP_RECORDS_SHARE = 'mychart_records_share';
+    public const CAP_SELF_TRACKING = 'mychart_self_tracking';
 
     /**
      * The patient this user may act as: their own record, or the one they switched

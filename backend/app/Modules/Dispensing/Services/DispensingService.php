@@ -3,9 +3,11 @@
 namespace App\Modules\Dispensing\Services;
 
 use App\Core\Database;
+use App\Modules\DrugInventory\Services\PharmacyBatchRecallService;
 use App\Modules\DrugInventory\Services\StockLedgerService;
 use App\Modules\PatientPrescriptions\Services\DuplicateTherapyScreenService;
 use App\Modules\PatientPrescriptions\Services\PrescriptionService;
+use App\Modules\StockLevels\Services\PharmacyReorderPolicyService;
 use PDO;
 
 /**
@@ -508,6 +510,23 @@ class DispensingService
                 $stmt->execute(['drug' => $line['drug_id'], 'wh' => $warehouseId, 'today' => $today] + ($lotId ? ['lot' => $lotId] : []));
                 $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+                // Filter out any lot that is under active recall
+                $validLots = [];
+                foreach ($lots as $candidateLot) {
+                    $recalled = PharmacyBatchRecallService::isLotRecalled((int) $line['drug_id'], (string) $candidateLot['lot_number']);
+                    if ($recalled) {
+                        if ($lotId) {
+                            $errors[$key] = "Lot {$candidateLot['lot_number']} is quarantined under active recall {$recalled['recall_number']} ({$recalled['reason']}).";
+                        }
+                        continue;
+                    }
+                    $validLots[] = $candidateLot;
+                }
+                if ($lotId && isset($errors[$key])) {
+                    continue;
+                }
+                $lots = $validLots;
+
                 // Stock already promised to an earlier line of this request (same medicine twice can't happen, but be safe).
                 $available = array_sum(array_map(fn($l) => (float) $l['quantity_on_hand'], $lots));
                 if ($quantity > $available + self::EPSILON) {
@@ -619,12 +638,41 @@ class DispensingService
             throw $e;
         }
 
+        // Automatically evaluate Reorder Thresholds (Reorder Point = Avg Daily Consumption * Lead Time + Safety Stock)
+        // for the dispensed medicines and generate an alert / Draft Purchase Requisition if stock breached the reorder line.
+        $dispensedDrugIds = array_values(array_unique(array_map(fn($p) => (int) $p['line']['drug_id'], $plan)));
+        $reorderEval = null;
+        try {
+            $reorderEval = (new PharmacyReorderPolicyService())->evaluateAndTriggerReorder(
+                $warehouseId,
+                $userId,
+                'dispensing',
+                $dispensedDrugIds
+            );
+        } catch (\Throwable $ignored) {
+            // Non-blocking reorder evaluation
+        }
+
+        $reorderMsg = '';
+        if (!empty($reorderEval['draft_pr_number'])) {
+            $reorderMsg = " Reorder threshold breached: Draft Purchase Requisition {$reorderEval['draft_pr_number']} automatically generated.";
+        } elseif (!empty($reorderEval['breached_count'])) {
+            $reorderMsg = " Reorder alert: {$reorderEval['breached_count']} dispensed medicine(s) are now at or below Reorder Point.";
+        }
+
         return [
             'success' => true,
             'message' => "Dispensed under {$number}." . ($status === 'partial' ? ' Some medicines are still to be given.' : '')
-                . ($needsCheck ? ' It includes a high-alert medicine: a second person must check it before it\'s handed over.' : ''),
-            'data' => ['dispense_id' => $dispenseId, 'dispense_number' => $number, 'dispense_status' => $status, 'net_amount' => $totals['net'],
-                'needs_check' => $needsCheck]
+                . ($needsCheck ? ' It includes a high-alert medicine: a second person must check it before it\'s handed over.' : '')
+                . $reorderMsg,
+            'data' => [
+                'dispense_id' => $dispenseId,
+                'dispense_number' => $number,
+                'dispense_status' => $status,
+                'net_amount' => $totals['net'],
+                'needs_check' => $needsCheck,
+                'reorder_evaluation' => $reorderEval,
+            ]
         ];
     }
 

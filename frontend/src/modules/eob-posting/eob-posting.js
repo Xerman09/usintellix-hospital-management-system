@@ -1,6 +1,6 @@
 import { searchInvoices, postEobPayment } from "./eob-posting.service.js";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 const TYPE_LABELS = { unassigned: "Open", cleared: "Closed" };
 

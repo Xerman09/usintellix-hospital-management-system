@@ -1,5 +1,5 @@
 import { fetchDrugInventory, fetchDrugInventoryOptions } from "../drug-inventory/drug-inventory.service.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let allRows = [];
 

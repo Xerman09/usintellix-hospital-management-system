@@ -10,7 +10,7 @@ import {
     getDrsRegistryExportCsvUrl
 } from "./drs-requests.service.js?v=4";
 import { fetchPatients } from "../patients/patients.service.js?v=9";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let currentFilters = {
     search: "",

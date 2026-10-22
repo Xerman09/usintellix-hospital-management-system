@@ -6,7 +6,7 @@ import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-pric
 import { showToast } from "../../core/toast.js";
 import { limitNote, isFirstLevelOnly } from "../../core/approval-limits.js";
 import { getUser } from "../../core/session.js?v=5";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 // Keep in step with SupplierInvoiceService::RECORDER_ROLES / APPROVER_ROLES.
 const RECORDER_ROLES = ["admin", "receptionist", "doctor", "accountant"];

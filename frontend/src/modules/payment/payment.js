@@ -2,7 +2,7 @@ import { api } from "../../core/api.js?v=10";
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { PaymentPopupMarkup, PaymentView } from "./payment.view.js";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let modalReady = false;
 

@@ -154,7 +154,7 @@ const CSS = `
 .mc-form { padding: 0 14px 14px; display: grid; gap: 10px; }
 .mc-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .mc-field label, .mc-qlabel { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 3px; }
-.mc-field input[type=text], .mc-field input[type=tel], .mc-field input[type=email], .mc-field input[type=file], .mc-field select, .mc-field textarea {
+.mc-field input[type=text], .mc-field input[type=tel], .mc-field input[type=email], .mc-field input[type=file], .mc-field input[type=number], .mc-field input[type=datetime-local], .mc-field input[type=date], .mc-field select, .mc-field textarea {
     width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13.5px; background: var(--bg-surface); color: var(--text-primary); }
 .mc-field textarea { min-height: 70px; resize: vertical; }
 .mc-check { display: block; font-size: 13px; margin-bottom: 4px; }
@@ -180,6 +180,30 @@ const CSS = `
 .mc-switch input:focus-visible + span { outline: 3px solid #93c5fd; outline-offset: 2px; }
 .mc-wrap { overflow-x: auto; }
 .mc-note { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border-color); border-left: 3px solid #1d4ed8; border-radius: 8px; background: var(--bg-surface-alt); font-size: 12.5px; color: var(--text-muted); }
+/* track my health (Phase 7) */
+.mc-kinds { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom: 14px; }
+.mc-kind { text-align: left; border: 1px solid var(--border-color); background: var(--bg-surface); color: inherit; border-radius: 12px; padding: 10px 12px; font: inherit; cursor: pointer; display: grid; gap: 2px; }
+.mc-kind:hover { border-color: #93c5fd; }
+.mc-kind:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.mc-kind.on { border-color: #1d4ed8; box-shadow: inset 0 0 0 1px #1d4ed8; }
+:root[data-theme="dark"] .mc-kind.on { border-color: #60a5fa; box-shadow: inset 0 0 0 1px #60a5fa; }
+.mc-kind-label { font-weight: 600; }
+.mc-kind-val { font-size: 13px; }
+.mc-kind-meta { font-size: 12px; color: var(--text-muted); }
+/* "self-reported" is never left to be inferred: it is on the heading, the graph and the panel */
+.mc-chip.self { background: var(--bg-surface-alt); color: var(--text-muted); font-weight: 600; letter-spacing: .02em; }
+.mc-trackform { padding: 12px 0 0; }
+.mc-goalrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface-alt); font-size: 13px; }
+.mc-goalrow > span { flex: 1 1 240px; }
+.mc-goalform { margin-top: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface-alt); display: grid; gap: 10px; }
+/* the second number of a paired reading (blood pressure's diastolic) */
+.mc-trend svg .line.second { stroke: #0f766e; stroke-dasharray: 4 3; }
+.mc-trend svg .pt.second { fill: #0f766e; }
+:root[data-theme="dark"] .mc-trend svg .line.second { stroke: #5eead4; }
+:root[data-theme="dark"] .mc-trend svg .pt.second { fill: #5eead4; }
+.mc-flag { border: 1px solid #fcd34d; background: #fffbeb; color: #78350f; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-weight: 600; }
+:root[data-theme="dark"] .mc-flag { background: #2a2208; border-color: #92400e; color: #fde68a; }
+.mc-confirm { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
 `;
 
 export function ensureCss() {

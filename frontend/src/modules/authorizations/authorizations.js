@@ -1,7 +1,7 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js?v=3";
 
 let currentActivePatientNo = null;
 let isAllPatientsScope = false;

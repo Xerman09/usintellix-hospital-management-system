@@ -7,7 +7,7 @@ import { fetchProviders } from "../providers/providers.service.js?v=5";
 import { fetchDocumentTemplates } from "../document-templates/document-templates.service.js";
 import { savePatientLetter, updatePatientLetter } from "../patient-letters/patient-letters.service.js";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let modalReady = false;
 let currentPatient = null;

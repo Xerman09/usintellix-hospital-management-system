@@ -1,7 +1,7 @@
 import { getLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 const RESOURCE_SEARCH_URLS = {
     emedicine: (q) => q ? `https://search.medscape.com/search?q=${encodeURIComponent(q)}` : `https://search.medscape.com/`,

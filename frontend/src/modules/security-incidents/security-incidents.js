@@ -15,7 +15,7 @@ import {
 } from "./security-incidents.service.js?v=4";
 import { fetchPatients } from "../patients/patients.service.js?v=9";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 const TYPE_LABELS = {
     unauthorized_access_snooping: "Unauthorized Access / Snooping",

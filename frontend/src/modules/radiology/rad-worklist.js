@@ -1,6 +1,6 @@
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 import { getUser } from "../../core/session.js?v=5";
 import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=6";
 import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=6";

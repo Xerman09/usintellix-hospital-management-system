@@ -1,4 +1,4 @@
-import { systemNow, todayISO, toDateInput } from "../../core/timezone.js";
+import { systemNow, todayISO, toDateInput } from "../../core/timezone.js?v=3";
 
 export function PatientListCreationView() {
     const today = todayISO() + ' 13:00:20';

@@ -5,7 +5,7 @@ import {
 import { formatMoney, formatQty, formatDate, escapeHtml } from "../supplier-prices/supplier-price-form.js?v=5";
 import { showToast } from "../../core/toast.js";
 import { getUser } from "../../core/session.js?v=5";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 // Keep in step with SupplierReturnService::PREPARER_ROLES / APPROVER_ROLES.
 const PREPARER_ROLES = ["admin", "receptionist", "doctor"];

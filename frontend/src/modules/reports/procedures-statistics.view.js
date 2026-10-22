@@ -1,4 +1,4 @@
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 export function ProcedureStatisticsReportView() {
     return `

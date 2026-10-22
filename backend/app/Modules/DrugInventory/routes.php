@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\DrugInventory\Controllers\DrugInventoryController;
+use App\Modules\DrugInventory\Controllers\PharmacyBatchRecallController;
 use App\Modules\DrugInventory\Controllers\WarehouseController;
 
 /** @var \App\Core\Router $router */
@@ -61,6 +62,24 @@ $router->post('/drug-inventory/destroy', [DrugInventoryController::class, 'destr
 ]);
 
 $router->get('/drug-inventory/destroyed', [DrugInventoryController::class, 'destroyedList'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Drug Batch / Lot Recalls & Quarantine
+$router->get('/drug-inventory/recalls', [PharmacyBatchRecallController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/recalls/detail', [PharmacyBatchRecallController::class, 'detail'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/recalls', [PharmacyBatchRecallController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/recalls/status', [PharmacyBatchRecallController::class, 'updateStatus'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);

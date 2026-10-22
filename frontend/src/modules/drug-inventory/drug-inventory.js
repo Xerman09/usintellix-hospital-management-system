@@ -1,9 +1,10 @@
 import {
     fetchDrugInventory, fetchDrugInventoryOptions, fetchDrugCatalog, fetchDrug,
-    createDrug, updateDrug, deleteDrug, receiveStock, importDrugs, transferDrugLot, destroyDrugLot
+    createDrug, updateDrug, deleteDrug, receiveStock, importDrugs, transferDrugLot, destroyDrugLot,
+    fetchRecalls, fetchRecallDetail, createRecall, updateRecallStatus
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 import { custodianHint } from "../../core/custodian.js";
 
 const EMPTY_OPTIONS = {
@@ -71,6 +72,7 @@ export async function initDrugInventory() {
     setupImportModal();
     setupTransferModal();
     setupDestroyModal();
+    setupRecalls();
 
     await Promise.all([loadCatalog(), loadInventory()]);
 }
@@ -137,6 +139,11 @@ function showView(view) {
     });
     document.getElementById("diCatalogPanel").classList.toggle("active", view === "catalog");
     document.getElementById("diStockPanel").classList.toggle("active", view === "stock");
+    const recallsPanel = document.getElementById("diRecallsPanel");
+    if (recallsPanel) {
+        recallsPanel.classList.toggle("active", view === "recalls");
+        if (view === "recalls") loadRecalls();
+    }
 }
 
 /* ---------------------------------------------------------------
@@ -1431,4 +1438,388 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+/* ---------------------------------------------------------------
+ * Drug Batch / Lot Recalls & Quarantine
+ * ------------------------------------------------------------- */
+
+let allRecalls = [];
+
+function setupRecalls() {
+    const initBtn = document.getElementById("diInitiateRecallBtn");
+    if (initBtn) initBtn.addEventListener("click", openInitiateRecallModal);
+
+    const closeInitBtn = document.getElementById("diCloseInitiateRecallModal");
+    if (closeInitBtn) closeInitBtn.addEventListener("click", closeInitiateRecallModal);
+
+    const cancelInitBtn = document.getElementById("diCancelInitiateRecall");
+    if (cancelInitBtn) cancelInitBtn.addEventListener("click", closeInitiateRecallModal);
+
+    const initForm = document.getElementById("diInitiateRecallForm");
+    if (initForm) initForm.addEventListener("submit", handleInitiateRecallSubmit);
+
+    const closeDetailBtn = document.getElementById("diCloseRecallDetailModal");
+    if (closeDetailBtn) closeDetailBtn.addEventListener("click", () => {
+        document.getElementById("diRecallDetailModalOverlay")?.classList.remove("open");
+    });
+
+    const refreshBtn = document.getElementById("diRecallsRefreshBtn");
+    if (refreshBtn) refreshBtn.addEventListener("click", loadRecalls);
+
+    const searchInput = document.getElementById("diRecallsSearch");
+    if (searchInput) searchInput.addEventListener("input", filterAndRenderRecalls);
+
+    const statusFilter = document.getElementById("diRecallsStatusFilter");
+    if (statusFilter) statusFilter.addEventListener("change", filterAndRenderRecalls);
+}
+
+async function loadRecalls() {
+    const tbody = document.getElementById("diRecallsBody");
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="8" class="di-empty-state">Loading recalls...</td></tr>';
+
+    const res = await fetchRecalls();
+    if (!res?.success) {
+        tbody.innerHTML = `<tr><td colspan="8" class="di-empty-state">${escapeHtml(res?.message || "Failed to load recalls.")}</td></tr>`;
+        return;
+    }
+
+    allRecalls = res.data || [];
+    filterAndRenderRecalls();
+}
+
+function filterAndRenderRecalls() {
+    const tbody = document.getElementById("diRecallsBody");
+    if (!tbody) return;
+
+    const term = (document.getElementById("diRecallsSearch")?.value || "").trim().toLowerCase();
+    const status = document.getElementById("diRecallsStatusFilter")?.value || "";
+
+    const filtered = allRecalls.filter((r) => {
+        if (status && r.status !== status) return false;
+        if (!term) return true;
+        return (
+            (r.recall_number || "").toLowerCase().includes(term) ||
+            (r.drug_name || "").toLowerCase().includes(term) ||
+            (r.lot_number || "").toLowerCase().includes(term) ||
+            (r.reason || "").toLowerCase().includes(term) ||
+            (r.fda_advisory_ref || "").toLowerCase().includes(term)
+        );
+    });
+
+    const countEl = document.getElementById("diRecallsCount");
+    if (countEl) countEl.textContent = `Showing ${filtered.length} of ${allRecalls.length} recall(s)`;
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="di-empty-state">No batch recalls match your criteria.</td></tr>';
+        return;
+    }
+
+    const classBadge = (cls) => {
+        if (cls === "Class I") return '<span class="di-badge alert" style="font-weight:700;">Class I (Life Threat)</span>';
+        if (cls === "Class II") return '<span class="di-badge low" style="font-weight:600;">Class II (Serious)</span>';
+        return '<span class="di-badge cold">Class III (Minor)</span>';
+    };
+
+    const statusBadge = (st) => {
+        if (st === "quarantined" || st === "active") return '<span class="di-badge alert" style="font-weight:700;">QUARANTINED</span>';
+        if (st === "returned_to_supplier") return '<span class="di-badge low">Returned to Supplier</span>';
+        if (st === "closed") return '<span class="di-badge" style="background:#e5e7eb;color:#374151;">Closed</span>';
+        return `<span class="di-badge">${escapeHtml(st)}</span>`;
+    };
+
+    tbody.innerHTML = filtered.map((r) => `
+        <tr>
+            <td><strong>${escapeHtml(r.recall_number)}</strong><span class="di-sub">${formatDate(r.initiated_at)}</span></td>
+            <td>${classBadge(r.recall_class)}</td>
+            <td>
+                <strong>${escapeHtml(r.drug_name)}</strong>
+                <span class="di-sub">Lot: <code style="font-weight:700;color:#b91c1c;">${escapeHtml(r.lot_number)}</code> ${r.strength ? '· ' + escapeHtml(r.strength) : ''}</span>
+            </td>
+            <td>
+                <strong>${r.quarantined_quantity} ${escapeHtml(r.unit_name || "units")}</strong>
+                <span class="di-sub">${r.quarantined_lots_count} storage lot(s) locked</span>
+            </td>
+            <td>
+                <strong style="color:${r.affected_patients_count > 0 ? '#b91c1c' : 'inherit'}; font-size:14px;">${r.affected_patients_count}</strong>
+                <span class="di-sub">${r.affected_patients_count === 1 ? 'patient' : 'patients'} dispensed</span>
+            </td>
+            <td>
+                <span>${escapeHtml(r.reason)}</span>
+                ${r.fda_advisory_ref ? `<span class="di-sub">Ref: ${escapeHtml(r.fda_advisory_ref)}</span>` : ''}
+            </td>
+            <td>${statusBadge(r.status)}</td>
+            <td>
+                <button type="button" class="di-btn small primary" data-recall-id="${r.id}">View &amp; Trace</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-recall-id]").forEach((btn) => {
+        btn.addEventListener("click", () => viewRecallDetail(Number(btn.dataset.recallId)));
+    });
+}
+
+function openInitiateRecallModal() {
+    const overlay = document.getElementById("diInitiateRecallModalOverlay");
+    if (!overlay) return;
+
+    // Populate drugs dropdown
+    const select = document.getElementById("di_recall_drug_id");
+    if (select) {
+        select.innerHTML = '<option value="">-- Choose Medicine --</option>';
+        catalog.forEach((d) => {
+            select.appendChild(new Option(d.name + (d.strength ? ' (' + d.strength + ')' : ''), d.id));
+        });
+    }
+
+    document.getElementById("diInitiateRecallForm")?.reset();
+    const alertEl = document.getElementById("diInitiateRecallAlert");
+    if (alertEl) alertEl.innerHTML = "";
+
+    overlay.classList.add("open");
+}
+
+function closeInitiateRecallModal() {
+    document.getElementById("diInitiateRecallModalOverlay")?.classList.remove("open");
+}
+
+async function handleInitiateRecallSubmit(e) {
+    e.preventDefault();
+    const alertEl = document.getElementById("diInitiateRecallAlert");
+    if (alertEl) alertEl.innerHTML = "";
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const data = {
+        drug_id: document.getElementById("di_recall_drug_id").value,
+        lot_number: document.getElementById("di_recall_lot_number").value.trim(),
+        recall_class: document.getElementById("di_recall_class").value,
+        fda_advisory_ref: document.getElementById("di_recall_fda_ref").value.trim(),
+        reason: document.getElementById("di_recall_reason").value.trim(),
+        notes: document.getElementById("di_recall_notes").value.trim()
+    };
+
+    const res = await createRecall(data);
+    if (submitBtn) submitBtn.disabled = false;
+
+    if (!res?.success) {
+        if (alertEl) alertEl.innerHTML = `<div class="form-alert error" style="margin-bottom:12px;">${escapeHtml(res?.message || "Failed to initiate recall.")}</div>`;
+        return;
+    }
+
+    showToast(res.message, "success");
+    closeInitiateRecallModal();
+    showView("recalls");
+    await Promise.all([loadRecalls(), loadInventory()]);
+
+    if (res.data?.id) {
+        viewRecallDetail(res.data.id);
+    }
+}
+
+async function viewRecallDetail(recallId) {
+    const overlay = document.getElementById("diRecallDetailModalOverlay");
+    const body = document.getElementById("diRecallDetailBody");
+    if (!overlay || !body) return;
+
+    overlay.classList.add("open");
+    body.innerHTML = '<div class="di-empty-state">Loading recall details &amp; tracing affected patients...</div>';
+
+    const res = await fetchRecallDetail(recallId);
+    if (!res?.success) {
+        body.innerHTML = `<div class="di-empty-state">${escapeHtml(res?.message || "Failed to load recall details.")}</div>`;
+        return;
+    }
+
+    const { recall, quarantined_lots, affected_patients } = res.data;
+    document.getElementById("diRecallDetailTitle").innerHTML = `Batch Recall ${escapeHtml(recall.recall_number)} <span class="di-sub" style="display:inline;font-size:13px;font-weight:normal;">(${escapeHtml(recall.recall_class)})</span>`;
+
+    const lotRows = (quarantined_lots || []).map((l) => `
+        <tr>
+            <td><strong>${escapeHtml(l.warehouse_name)}</strong></td>
+            <td><code>${escapeHtml(l.lot_number)}</code></td>
+            <td class="num"><strong>${l.quantity_on_hand}</strong></td>
+            <td>${l.expires_date ? formatDate(l.expires_date) : '—'}</td>
+            <td><span class="di-badge alert">QUARANTINED</span></td>
+        </tr>
+    `).join("");
+
+    const patientRows = (affected_patients || []).map((p, idx) => `
+        <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${escapeHtml(p.patient_name)}</strong><span class="di-sub">MRN: ${escapeHtml(p.patient_no || '—')}</span></td>
+            <td><strong style="color:#0284c7;">${escapeHtml(p.phone_number)}</strong></td>
+            <td>${p.sex || '—'} / ${p.age != null ? p.age + ' yo' : '—'}</td>
+            <td class="num"><strong>${p.quantity_dispensed}</strong></td>
+            <td>${formatDate(p.dispensed_date)}<span class="di-sub">${escapeHtml(p.dispense_number)}</span></td>
+            <td>${escapeHtml(p.prescribing_doctor)}<span class="di-sub">Rx: ${escapeHtml(p.rx_number)}</span></td>
+        </tr>
+    `).join("");
+
+    body.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">
+            <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                <span class="di-sub" style="margin:0;">Medicine</span>
+                <strong style="font-size:14px;">${escapeHtml(recall.drug_name)}</strong>
+            </div>
+            <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                <span class="di-sub" style="margin:0;">Recalled Lot</span>
+                <strong style="font-size:14px; color:#b91c1c;">${escapeHtml(recall.lot_number)}</strong>
+            </div>
+            <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                <span class="di-sub" style="margin:0;">Quarantined In-Stock</span>
+                <strong style="font-size:14px;">${recall.quarantined_quantity} ${escapeHtml(recall.unit_name || 'units')}</strong>
+            </div>
+            <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                <span class="di-sub" style="margin:0;">Affected Patients Traced</span>
+                <strong style="font-size:14px; color:${affected_patients.length > 0 ? '#b91c1c' : 'inherit'};">${affected_patients.length}</strong>
+            </div>
+        </div>
+
+        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px 14px; margin-bottom:16px; font-size:13px; color:#991b1b;">
+            <strong>Reason for Recall:</strong> ${escapeHtml(recall.reason)}
+            ${recall.fda_advisory_ref ? `<div style="margin-top:4px;"><strong>FDA Reference:</strong> ${escapeHtml(recall.fda_advisory_ref)}</div>` : ''}
+            ${recall.notes ? `<div style="margin-top:4px;"><strong>Hospital Action Notes:</strong> ${escapeHtml(recall.notes)}</div>` : ''}
+        </div>
+
+        <!-- Quarantined Lots Table -->
+        <h3 style="font-size:14px; margin:0 0 8px;">1. Quarantined Storage Lots (Locked Across All Locations)</h3>
+        <div class="di-table-wrap" style="margin-bottom:18px;">
+            <table class="di-table">
+                <thead>
+                    <tr><th>Storage Location</th><th>Lot Number</th><th class="num">Quarantined Qty</th><th>Expiry Date</th><th>Status</th></tr>
+                </thead>
+                <tbody>${lotRows || '<tr><td colspan="5" class="di-empty-state">No on-hand stock found for this lot.</td></tr>'}</tbody>
+            </table>
+        </div>
+
+        <!-- Affected Patients Traceability -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+            <h3 style="font-size:14px; margin:0;">2. Patient Traceability &amp; Notification List (${affected_patients.length})</h3>
+            ${affected_patients.length > 0 ? `<button type="button" class="di-btn small" id="diPrintTraceListBtn">&#128424; Print Patient Call List</button>` : ''}
+        </div>
+        <div class="di-table-wrap" style="max-height:260px; overflow-y:auto; margin-bottom:18px;">
+            <table class="di-table">
+                <thead>
+                    <tr><th>#</th><th>Patient Name &amp; MRN</th><th>Phone Number</th><th>Demographics</th><th class="num">Qty Dispensed</th><th>Dispense Date</th><th>Prescriber</th></tr>
+                </thead>
+                <tbody>${patientRows || '<tr><td colspan="7" class="di-empty-state" style="color:#15803d;">&#10003; No patients were dispensed medication from this recalled lot.</td></tr>'}</tbody>
+            </table>
+        </div>
+
+        <!-- Status Management Action Footer -->
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:14px; border-top:1px solid var(--border-color);">
+            <div style="font-size:12.5px; color:var(--text-muted);">
+                Current Status: <strong>${escapeHtml(recall.status)}</strong> · Initiated by ${escapeHtml(recall.initiated_by_name || 'Staff')} on ${formatDate(recall.initiated_at)}
+            </div>
+            <div style="display:flex; gap:8px;">
+                ${recall.status !== 'returned_to_supplier' && recall.status !== 'closed' ? `
+                    <button type="button" class="di-btn small" id="diMarkReturnedBtn">Mark Returned to Supplier</button>
+                ` : ''}
+                ${recall.status !== 'closed' ? `
+                    <button type="button" class="di-btn small primary" id="diCloseRecallBtn">Close Recall</button>
+                ` : `<span class="di-badge" style="background:#dcfce7;color:#166534;">Closed on ${formatDate(recall.closed_at)}</span>`}
+            </div>
+        </div>
+    `;
+
+    const printBtn = document.getElementById("diPrintTraceListBtn");
+    if (printBtn) {
+        printBtn.addEventListener("click", () => printPatientTraceList(recall, affected_patients));
+    }
+
+    const returnBtn = document.getElementById("diMarkReturnedBtn");
+    if (returnBtn) {
+        returnBtn.addEventListener("click", async () => {
+            if (!confirm(`Confirm marking remaining ${recall.quarantined_quantity} units of lot ${recall.lot_number} as Returned to Supplier?`)) return;
+            const upRes = await updateRecallStatus(recall.id, "returned_to_supplier", "Stock returned to manufacturer / distributor.");
+            if (upRes?.success) {
+                showToast(upRes.message, "success");
+                viewRecallDetail(recall.id);
+                loadRecalls();
+            } else {
+                showToast(upRes?.message || "Failed to update status", "error");
+            }
+        });
+    }
+
+    const closeBtn = document.getElementById("diCloseRecallBtn");
+    if (closeBtn) {
+        closeBtn.addEventListener("click", async () => {
+            const note = prompt("Enter closing resolution note:", "All quarantined units reconciled and affected patients notified.");
+            if (note === null) return;
+            const upRes = await updateRecallStatus(recall.id, "closed", note);
+            if (upRes?.success) {
+                showToast(upRes.message, "success");
+                viewRecallDetail(recall.id);
+                loadRecalls();
+            } else {
+                showToast(upRes?.message || "Failed to close recall", "error");
+            }
+        });
+    }
+}
+
+function printPatientTraceList(recall, patients) {
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) {
+        showToast("Pop-up blocked. Please allow pop-ups to print the patient call list.", "error");
+        return;
+    }
+
+    const rows = patients.map((p, idx) => `
+        <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${escapeHtml(p.patient_name)}</strong> (MRN: ${escapeHtml(p.patient_no || '—')})</td>
+            <td><strong>${escapeHtml(p.phone_number)}</strong></td>
+            <td>${escapeHtml(p.dispensed_date)}</td>
+            <td>${p.quantity_dispensed}</td>
+            <td>${escapeHtml(p.prescribing_doctor)}</td>
+            <td style="width:140px; border-bottom:1px solid #000;">&nbsp;</td>
+        </tr>
+    `).join("");
+
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Patient Recall Call List - ${escapeHtml(recall.recall_number)}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #111; }
+        h1 { margin: 0 0 4px; font-size: 18px; color: #b91c1c; }
+        .meta { margin-bottom: 16px; font-size: 12px; border-bottom: 2px solid #ccc; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background: #f3f4f6; text-transform: uppercase; font-size: 10px; }
+    </style>
+</head>
+<body>
+    <h1>DRUG BATCH RECALL - PATIENT NOTIFICATION LIST</h1>
+    <div class="meta">
+        <strong>Recall #:</strong> ${escapeHtml(recall.recall_number)} (${escapeHtml(recall.recall_class)})<br>
+        <strong>Medicine:</strong> ${escapeHtml(recall.drug_name)} · <strong>Lot Number:</strong> ${escapeHtml(recall.lot_number)}<br>
+        <strong>Reason:</strong> ${escapeHtml(recall.reason)}<br>
+        <strong>Total Traced Patients:</strong> ${patients.length}
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Patient Name</th>
+                <th>Phone Number</th>
+                <th>Dispensed Date</th>
+                <th>Qty</th>
+                <th>Prescriber</th>
+                <th>Call Result / Notes</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>
+    <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>`);
+    win.document.close();
 }

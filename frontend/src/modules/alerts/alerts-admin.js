@@ -1,7 +1,7 @@
 import { fetchEscalation, saveEscalation, removeEscalation, fetchAlertReport, fetchAlertOptions } from "./alerts.service.js?v=5";
 import { esc, fmtDateTime, URGENCY_LABEL } from "./alert-bell.js?v=15";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 /*
  * Admin parts of the Alerts page (Phase 2):

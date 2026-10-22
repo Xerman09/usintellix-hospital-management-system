@@ -9,7 +9,7 @@ import {
     fetchSanctionDossier
 } from "./workforce-governance.service.js";
 import { showToast } from "../../core/toast.js";
-import { todayISO } from "../../core/timezone.js";
+import { todayISO } from "../../core/timezone.js?v=3";
 
 let currentStaffList = [];
 let currentSanctionsList = [];

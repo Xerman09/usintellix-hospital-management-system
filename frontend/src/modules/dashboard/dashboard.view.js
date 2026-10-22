@@ -529,6 +529,7 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="mychart_checkin">Check In</a>
     <a data-tab="mychart_visits">Visits</a>
     <a data-tab="mychart_results">Test Results</a>
+    <a data-tab="mychart_track">Track My Health</a>
     <div class="nav-dropdown">
         <span>Patient Health Records</span>
         <div class="dropdown-content">

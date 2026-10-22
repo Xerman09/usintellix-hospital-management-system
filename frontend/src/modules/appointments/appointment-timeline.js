@@ -1,5 +1,5 @@
 import { formatApptTime, statusLabel, escapeHtml } from "./appointment-format.js?v=4";
-import { systemNow } from "../../core/timezone.js";
+import { systemNow } from "../../core/timezone.js?v=3";
 
 const SLOT_MINUTES = 15;
 const DEFAULT_START_HOUR = 7;
