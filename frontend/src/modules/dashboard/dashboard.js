@@ -5,7 +5,7 @@ import { initBranding } from "../../core/branding.js";
 import { logout } from "../auth/auth.service.js?v=9";
 import { TabManager } from "../../core/tabs.js?v=5";
 import { DashboardHomeView } from "./dashboard-home.view.js";
-import { getNavLinks } from "./dashboard.view.js?v=192";
+import { getNavLinks } from "./dashboard.view.js?v=193";
 import { getLastActivePatientChart, clearLastActivePatientChart } from "../../core/pending-patient-view.js";
 import { setPendingFinderSearch } from "../../core/pending-finder-search.js";
 import { showToast } from "../../core/toast.js";
@@ -307,12 +307,14 @@ import { LabWorklistView, initLabWorklist } from "../lab/lab-worklist.js?v=7";
 import { LabReportView, initLabReport } from "../lab/lab-report.js?v=4";
 import { RadWorklistView, initRadWorklist } from "../radiology/rad-worklist.js?v=7";
 import { RadStatsView, initRadStats } from "../radiology/rad-stats.js?v=4";
-import { MyChartResultsView, initMyChartResults } from "../mychart/mychart-results.js?v=9";
-import { MyChartVisitsView, initMyChartVisits } from "../mychart/mychart-visits.js?v=7";
-import { MyChartBillingView, initMyChartBilling } from "../mychart/mychart-billing.js?v=6";
-import { MyChartCheckinView, initMyChartCheckin } from "../mychart/mychart-checkin.js?v=5";
-import { MyChartTodoView, initMyChartTodo } from "../mychart/mychart-todo.js?v=4";
-import { MyChartTrackView, initMyChartTrack } from "../mychart/mychart-track.js?v=3";
+import { MyChartResultsView, initMyChartResults } from "../mychart/mychart-results.js?v=10";
+import { MyChartVisitsView, initMyChartVisits } from "../mychart/mychart-visits.js?v=8";
+import { MyChartBillingView, initMyChartBilling } from "../mychart/mychart-billing.js?v=7";
+import { MyChartCheckinView, initMyChartCheckin } from "../mychart/mychart-checkin.js?v=6";
+import { MyChartTodoView, initMyChartTodo } from "../mychart/mychart-todo.js?v=5";
+import { MyChartTrackView, initMyChartTrack } from "../mychart/mychart-track.js?v=4";
+import { MyChartAccountView, initMyChartAccount } from "../mychart/mychart-account.js?v=2";
+import { PortalProxyRequestsView, initPortalProxyRequests } from "../mychart/portal-proxy-requests.js?v=2";
 import { PortalExplanationsView, initPortalExplanations } from "../mychart/portal-explanations.js?v=2";
 import { PortalPaymentsView, initPortalPayments } from "../mychart/portal-payments.js?v=2";
 import { PortalCheckinsView, initPortalCheckins } from "../mychart/portal-checkins.js?v=2";
@@ -1303,6 +1305,11 @@ export function Dashboard()
                 setTimeout(initMyChartVisits, 0);
                 return MyChartVisitsView();
             }, activate);
+        } else if (tabId === 'mychart_account' && user.role === 'patient') {
+            tabManager.openTab(tabId, title || 'Account & Sharing', () => {
+                setTimeout(initMyChartAccount, 0);
+                return MyChartAccountView();
+            }, activate);
         } else if (tabId === 'mychart_track' && user.role === 'patient') {
             tabManager.openTab(tabId, title || 'Track My Health', () => {
                 setTimeout(initMyChartTrack, 0);
@@ -1619,6 +1626,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'OR Reports', () => {
                 setTimeout(initOrReports, 0);
                 return OrReportsView();
+            }, activate);
+        } else if (tabId === 'portal_proxy_requests') {
+            tabManager.openTab(tabId, title || 'Record Access Requests', () => {
+                setTimeout(initPortalProxyRequests, 0);
+                return PortalProxyRequestsView();
             }, activate);
         } else if (tabId === 'portal_checkins') {
             tabManager.openTab(tabId, title || 'Online Check-ins', () => {

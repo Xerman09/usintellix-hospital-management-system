@@ -302,7 +302,8 @@ class AuthService
 
         $settings = (new GeneralSettingService())->get();
 
-        if (!empty($settings['two_factor_enabled']) && in_array((int) $user['role_id'], $settings['two_factor_role_ids'], true)) {
+        if (!empty($settings['two_factor_enabled'])
+            && in_array($this->twoFactorRoleId($user), $settings['two_factor_role_ids'], true)) {
             return $this->beginTwoFactor($user, $employee, (string) $settings['two_factor_method']);
         }
 
@@ -859,11 +860,12 @@ class AuthService
 
         Session::put('pending_2fa_user_id', $user['id']);
 
+        $contact = $this->twoFactorContact($user, $employee);
         $emailSent = false;
 
-        if ($method === 'email' && !empty($employee['email'])) {
+        if ($method === 'email' && !empty($contact['email'])) {
             $emailSent = (new Mailer())->send(
-                $employee['email'],
+                $contact['email'],
                 'Your Intellix Hospital System verification code',
                 "Your verification code is: {$code}\n\n"
                     . "This code expires in " . self::CODE_TTL_MINUTES . " minutes. "
@@ -874,7 +876,7 @@ class AuthService
         $data = [
             'requires_2fa' => true,
             'method' => $method,
-            'destination' => $this->maskDestination($method, $employee),
+            'destination' => $this->maskDestination($method, $contact),
             'expires_in' => self::CODE_TTL_MINUTES * 60,
             'resend_in' => self::RESEND_COOLDOWN_SECONDS
         ];
@@ -882,6 +884,30 @@ class AuthService
         // Mail isn't configured yet (or the send failed) -- fall back to
         // handing the code back in the response so login still works
         // while MAIL_PASSWORD is pending, instead of locking everyone out.
+        //
+        // That fallback is for staff only. Handing the code back to whoever typed
+        // the password turns two factors into one, which is tolerable on an internal
+        // account a colleague can vouch for and is not tolerable for a patient
+        // account reached from the open internet: there, a failed send refuses the
+        // login instead.
+        if (!$emailSent && $contact['is_patient']) {
+            Session::forget('pending_2fa_user_id');
+
+            Database::connection()->prepare(
+                "UPDATE two_factor_codes SET expires_at = :now
+                 WHERE user_id = :user_id AND consumed_at IS NULL"
+            )->execute(['now' => date('Y-m-d H:i:s'), 'user_id' => $user['id']]);
+
+            return [
+                'success' => false,
+                'message' => empty($contact['email'])
+                    ? 'We have no email address on file for you, so we cannot send your verification code. '
+                        . 'Please ring the hospital to have it added.'
+                    : 'We could not send your verification code just now. Please try again in a few minutes, '
+                        . 'or ring the hospital.'
+            ];
+        }
+
         if (!$emailSent) {
             $data['dev_mode'] = true;
             $data['dev_code'] = $code;
@@ -898,10 +924,10 @@ class AuthService
      * Partially mask where the code was "sent" for display on the
      * verification step.
      */
-    private function maskDestination(string $method, ?array $employee): string
+    private function maskDestination(string $method, array $contact): string
     {
         if ($method === 'email') {
-            $email = $employee['email'] ?? '';
+            $email = $contact['email'] ?? '';
             [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
 
             if ($local === '') {
@@ -913,10 +939,73 @@ class AuthService
             return $domain !== '' ? "{$maskedLocal}@{$domain}" : $maskedLocal;
         }
 
-        $phone = $employee['phone'] ?? '';
+        $phone = $contact['phone'] ?? '';
         $lastFour = substr($phone, -4);
 
         return $lastFour !== '' ? str_repeat('*', max(strlen($phone) - 4, 0)) . $lastFour : 'your phone on file';
+    }
+
+    /**
+     * Which role the two-factor setting should be read against.
+     *
+     * Patient logins carry users.role_id = NULL (AuthService::resolveRole treats a
+     * missing role_id as "patient"), so the old check -- (int) NULL, which is 0 --
+     * could never match a row in general_settings_two_factor_roles and two-factor
+     * sign-in silently skipped every patient. The `patient` row in `roles` exists
+     * (seed 058, added for the capability matrix), so the setting can now be ticked
+     * for patients like any other role. Nothing changes for staff.
+     */
+    private function twoFactorRoleId(array $user): int
+    {
+        if (!empty($user['role_id'])) {
+            return (int) $user['role_id'];
+        }
+
+        $patient = (new Patient())->where('user_id', $user['id'])->first();
+
+        if (!$patient) {
+            return 0;
+        }
+
+        $role = (new Role())->where('name', 'patient')->first();
+
+        return $role ? (int) $role['id'] : 0;
+    }
+
+    /**
+     * Where a verification code goes: a member of staff's employee record, or a
+     * patient's own contact details. is_patient decides whether a failed send may
+     * fall back to showing the code.
+     */
+    private function twoFactorContact(array $user, ?array $employee): array
+    {
+        if ($employee) {
+            return [
+                'email' => $employee['email'] ?? null,
+                'phone' => $employee['phone'] ?? null,
+                'is_patient' => false,
+            ];
+        }
+
+        $stmt = Database::connection()->prepare(
+            "SELECT pc.email, pc.mobile_phone
+             FROM patients p
+             LEFT JOIN patient_contacts pc ON pc.patient_id = p.id
+             WHERE p.user_id = :u AND p.deleted_at IS NULL
+             LIMIT 1"
+        );
+        $stmt->execute(['u' => (int) $user['id']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return ['email' => null, 'phone' => null, 'is_patient' => false];
+        }
+
+        return [
+            'email' => $row['email'] ?? null,
+            'phone' => $row['mobile_phone'] ?? null,
+            'is_patient' => true,
+        ];
     }
 
     private function resolveRole(array $user, ?array $employee): string

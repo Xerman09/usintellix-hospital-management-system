@@ -14,6 +14,7 @@ function staffNavLinks(role)
         <a data-tab="patient_finder">Finder</a>
         <a data-tab="patient_flow">Flow</a>
         ${role === "admin" ? `<a data-tab="portal_checkins">Online Check-ins</a>` : ""}
+        ${role === "admin" ? `<a data-tab="portal_proxy_requests">Record Access</a>` : ""}
         <a data-tab="recalls">Recalls</a>
         <a data-tab="messaging">Messaging</a>
         <div class="nav-dropdown">
@@ -544,6 +545,7 @@ const PATIENT_NAV_LINKS = `
     <a data-tab="reports">Medical Reports</a>
     <a data-tab="documents">Documents</a>
     <a data-tab="misc_announcements">Announcements</a>
+    <a data-tab="mychart_account">Account &amp; Sharing</a>
     <a data-tab="profile">Profile</a>
     <a data-tab="settings">Settings</a>
     <a data-tab="help">Help</a>
@@ -554,6 +556,7 @@ const RECEPTIONIST_NAV_LINKS = `
     <a data-tab="patient_finder">Finder</a>
     <a data-tab="patient_flow">Flow</a>
     <a data-tab="portal_checkins">Online Check-ins</a>
+    <a data-tab="portal_proxy_requests">Record Access</a>
     <a data-tab="recalls">Recalls</a>
     <div class="nav-dropdown">
         <span>Patient</span>

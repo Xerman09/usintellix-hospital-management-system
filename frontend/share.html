@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Shared health record</title>
+<style>
+    body { margin: 0; background: #f1f5f9; }
+    .sh-bar { background: #1d4ed8; color: #fff; padding: 10px 16px; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+    .sh-bar b { font-size: 14px; }
+    .sh-card { max-width: 900px; margin: 18px auto; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+    .sh-msg { max-width: 560px; margin: 60px auto; background: #fff; border-radius: 12px; padding: 28px;
+        font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color: #1c2534; text-align: center;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+    .sh-actions { max-width: 900px; margin: 0 auto 18px; text-align: right; }
+    .sh-print { font: 13px/1 system-ui, Arial, sans-serif; font-weight: 600; border: 1px solid #cbd5e1; background: #fff;
+        border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+    @media print { .sh-bar, .sh-actions { display: none; } body { background: #fff; } .sh-card { box-shadow: none; margin: 0; } }
+</style>
+</head>
+<body>
+<div id="sh"><div class="sh-msg">Loading…</div></div>
+<script type="module">
+/*
+ * The page an outside doctor opens from a link a patient sent them (Phase 8).
+ *
+ * No login: the token in the address is the whole of the authorisation, so this page
+ * asks the server for the record and shows whatever the server is willing to give --
+ * only the sections the patient ticked, and only while the link is alive. The page
+ * itself decides nothing.
+ */
+import { recordPackBody, RECORD_PACK_CSS } from "./src/modules/mychart/mychart-record.js";
+import { API_URL } from "./src/core/api-url.js";
+
+const style = document.createElement("style");
+style.textContent = RECORD_PACK_CSS;
+document.head.appendChild(style);
+
+const token = new URLSearchParams(location.search).get("token") || "";
+const root = document.getElementById("sh");
+
+const message = (text) => {
+    root.innerHTML = `<div class="sh-msg"></div>`;
+    root.firstChild.textContent = text;
+};
+
+try {
+    const res = await fetch(`${API_URL}/record-share/open?token=${encodeURIComponent(token)}`).then((r) => r.json());
+
+    if (!res?.success) {
+        message(res?.message || "This link cannot be opened.");
+    } else {
+        const d = res.data;
+
+        root.innerHTML = `
+            <div class="sh-bar">
+                <b>Shared health record</b> — shared by the patient with ${escapeHtml(d.shared_with || "you")}.
+                This is part of their record, not the whole chart.
+            </div>
+            <div class="sh-actions" style="padding-top:12px"><button class="sh-print" id="shPrint">Print</button></div>
+            <div class="sh-card"><div class="rp" id="shBody"></div></div>`;
+
+        document.getElementById("shBody").innerHTML = recordPackBody(d, {
+            note: "The patient chose what this page shows. Ask them for anything else you need.",
+        });
+
+        document.getElementById("shPrint").onclick = () => window.print();
+    }
+} catch (e) {
+    message("This link could not be opened. Please check your connection and try again.");
+}
+
+function escapeHtml(v) {
+    return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+</body>
+</html>

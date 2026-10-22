@@ -204,6 +204,12 @@ const CSS = `
 .mc-flag { border: 1px solid #fcd34d; background: #fffbeb; color: #78350f; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-weight: 600; }
 :root[data-theme="dark"] .mc-flag { background: #2a2208; border-color: #92400e; color: #fde68a; }
 .mc-confirm { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+/* account and sharing (Phase 8) */
+.mc-checks { display: grid; gap: 4px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.mc-checks .mc-check { margin: 0; }
+.mc-row.mc-dim { opacity: .62; }
+.mc-link { display: block; margin-top: 4px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; color: var(--text-muted); word-break: break-all; }
+.mc-panel + .mc-panel { margin-top: 14px; }
 `;
 
 export function ensureCss() {

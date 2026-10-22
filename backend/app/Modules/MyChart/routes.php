@@ -1,7 +1,10 @@
 <?php
 
 use App\Modules\MyChart\Controllers\MyChartController;
+use App\Modules\MyChart\Controllers\ProxyRequestController;
+use App\Modules\MyChart\Controllers\RecordShareController;
 use App\Modules\MyChart\Controllers\SelfReadingChartController;
+use App\Modules\MyChart\Services\PortalProxyService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalCheckinService;
 use App\Modules\MyChart\Services\PortalPaymentService;
@@ -95,6 +98,61 @@ $router->post('/portal-payments/settle', [MyChartController::class, 'portalPayme
     AuthMiddleware::class,
     [RoleMiddleware::class, PortalPaymentService::SETTLE_ROLES]
 ]);
+
+// ---------------------------------------------------------------
+// Account, proxy access and sharing: who can see my record, the
+// links I have given out, and asking to see someone else's.
+// ---------------------------------------------------------------
+
+$router->get('/mychart/account', [MyChartController::class, 'account'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/access-log', [MyChartController::class, 'accessLog'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->get('/mychart/record-pack', [MyChartController::class, 'recordPack'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/shares', [MyChartController::class, 'createShare'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/shares/revoke', [MyChartController::class, 'revokeShare'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/proxy-requests', [MyChartController::class, 'requestProxyAccess'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+$router->post('/mychart/proxy-access/revoke', [MyChartController::class, 'revokeProxyAccess'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['patient']]
+]);
+
+// The desk: requests to see someone else's record, and the decision.
+$router->get('/proxy-requests', [ProxyRequestController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalProxyService::REVIEW_ROLES]
+]);
+
+$router->post('/proxy-requests/decide', [ProxyRequestController::class, 'decide'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, PortalProxyService::REVIEW_ROLES]
+]);
+
+// No login: the outside doctor opening a link the patient sent them. The token is
+// the whole of the authorisation, and every hit on it is recorded.
+$router->get('/record-share/open', [RecordShareController::class, 'open']);
 
 // ---------------------------------------------------------------
 // Track My Health: readings taken at home, their goal band, and the

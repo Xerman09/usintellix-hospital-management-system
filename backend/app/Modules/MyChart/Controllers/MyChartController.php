@@ -3,8 +3,10 @@
 namespace App\Modules\MyChart\Controllers;
 
 use App\Core\Controller;
+use App\Core\Database;
 use App\Core\Request;
 use App\Core\Session;
+use App\Modules\GeneralSettings\Services\GeneralSettingService;
 use App\Modules\Messaging\Models\MessageType;
 use App\Modules\Messaging\Services\MessagingService;
 use App\Modules\MyChart\Services\PortalAudit;
@@ -14,7 +16,9 @@ use App\Modules\MyChart\Services\PortalNotificationService;
 use App\Modules\MyChart\Services\PortalTodoService;
 use App\Modules\MyChart\Services\PortalPaymentService;
 use App\Modules\MyChart\Services\PortalResultService;
+use App\Modules\MyChart\Services\PortalProxyService;
 use App\Modules\MyChart\Services\PortalSelfReadingService;
+use App\Modules\MyChart\Services\PortalShareService;
 use App\Modules\MyChart\Services\PortalExplanationService;
 use App\Modules\MyChart\Services\PortalVisitService;
 
@@ -335,6 +339,190 @@ class MyChartController extends Controller
         }
 
         $this->respond(PortalPaymentService::cancel($patientId, (int) $request->input('attempt_id')));
+    }
+
+    // ------------------------------------------------------------------
+    // Account, proxy access and sharing (Phase 8)
+    // ------------------------------------------------------------------
+
+    /** GET /mychart/account -- who can see my record, my links, my requests, my sign-in. */
+    public function account(): void
+    {
+        $user = Session::get('user');
+
+        $patientId = PortalGuard::enter($user, 'Account And Sharing Viewed');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->success([
+            'access' => PortalProxyService::whoHasAccess($patientId),
+            'requests' => PortalProxyService::myRequests((int) ($user['id'] ?? 0)),
+            'relationships' => PortalProxyService::RELATIONSHIPS,
+            'shares' => PortalShareService::listFor($patientId),
+            'sections' => array_map(
+                static fn($k, $v) => ['key' => $k, 'label' => $v],
+                array_keys(PortalShareService::SECTIONS),
+                PortalShareService::SECTIONS
+            ),
+            'default_scope' => PortalShareService::DEFAULT_SCOPE,
+            'max_days' => PortalShareService::MAX_DAYS,
+            'default_days' => PortalShareService::DEFAULT_DAYS,
+            'security' => $this->securityBlock(),
+        ], 'Account retrieved successfully.');
+    }
+
+    /** GET /mychart/access-log?days= -- who has looked at my record. */
+    public function accessLog(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Access Log Viewed');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->success(PortalShareService::accessLog($patientId, (int) ($request->input('days') ?: 90)), 'Access log retrieved successfully.');
+    }
+
+    /** GET /mychart/record-pack?scope=a,b -- the patient's own copy, to read or print. */
+    public function recordPack(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Record Downloaded', PortalGuard::CAP_RECORDS_SHARE);
+
+        if ($patientId === null) {
+            $this->error('Downloading your record is not available for this account.', 403);
+            return;
+        }
+
+        $scope = PortalShareService::cleanScope($request->input('scope') ?? []);
+
+        if (!$scope) {
+            $scope = array_keys(PortalShareService::SECTIONS);
+        }
+
+        $this->success(PortalShareService::pack($patientId, $scope), 'Record retrieved successfully.');
+    }
+
+    /** POST /mychart/shares -- Body: label, days, scope[] */
+    public function createShare(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Record Share Created', PortalGuard::CAP_RECORDS_SHARE);
+
+        if ($patientId === null) {
+            $this->error('Sharing your record is not available for this account.', 403);
+            return;
+        }
+
+        $result = PortalShareService::create($patientId, [
+            'label' => (string) $request->input('label', ''),
+            'days' => $request->input('days'),
+            'scope' => $request->input('scope') ?? [],
+        ], (int) ($user['id'] ?? 0) ?: null);
+
+        if (!empty($result['success'])) {
+            PortalAudit::action($user, $patientId, 'Record Share Created',
+                'Shared ' . implode(', ', $result['data']['scope_words'] ?? []) . ' with ' . $request->input('label', ''));
+        }
+
+        $this->respond($result);
+    }
+
+    /** POST /mychart/shares/revoke -- Body: id */
+    public function revokeShare(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Record Share Revoked', PortalGuard::CAP_RECORDS_SHARE);
+
+        if ($patientId === null) {
+            $this->error('Sharing your record is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalShareService::revoke($patientId, (int) $request->input('id'), (int) ($user['id'] ?? 0) ?: null));
+    }
+
+    /** POST /mychart/proxy-requests -- ask for access to someone else's record. */
+    public function requestProxyAccess(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        if (($user['role'] ?? '') !== 'patient') {
+            $this->error('This is only for portal accounts.', 403);
+            return;
+        }
+
+        if (!PortalGuard::can($user, PortalGuard::CAP_PROXY_REQUEST)) {
+            PortalAudit::denied($user, null, 'Proxy Access Requested', 'Asking for access to another record is switched off for this account.');
+            $this->error('Asking for access to another record is not available for this account.', 403);
+            return;
+        }
+
+        $files = $request->files();
+
+        $result = PortalProxyService::request($user, [
+            'patient_no' => (string) $request->input('patient_no', ''),
+            'last_name' => (string) $request->input('last_name', ''),
+            'birthdate' => (string) $request->input('birthdate', ''),
+            'relationship' => (string) $request->input('relationship', ''),
+            'note' => (string) $request->input('note', ''),
+        ], $files['evidence'] ?? []);
+
+        PortalAudit::action($user, null, 'Proxy Access Requested',
+            ($result['success'] ? 'Asked for access to another record: ' : 'Could not ask for access: ') . ($result['message'] ?? ''));
+
+        $this->respond($result);
+    }
+
+    /** POST /mychart/proxy-access/revoke -- Body: related_person_id. The patient's own call. */
+    public function revokeProxyAccess(): void
+    {
+        $user = Session::get('user');
+        $request = new Request();
+
+        $patientId = PortalGuard::enter($user, 'Proxy Access Revoked');
+
+        if ($patientId === null) {
+            $this->error('My Chart is not available for this account.', 403);
+            return;
+        }
+
+        $this->respond(PortalProxyService::revokeAccess(
+            $patientId,
+            (int) $request->input('related_person_id'),
+            (int) ($user['id'] ?? 0)
+        ));
+    }
+
+    /** What the account screen says about signing in. */
+    private function securityBlock(): array
+    {
+        $settings = (new GeneralSettingService())->get();
+        $roleIds = $settings['two_factor_role_ids'] ?? [];
+
+        $patientRoleId = (int) (Database::connection()
+            ->query("SELECT id FROM roles WHERE name = 'patient' LIMIT 1")->fetchColumn() ?: 0);
+
+        return [
+            'two_factor_enabled' => !empty($settings['two_factor_enabled']),
+            'two_factor_method' => $settings['two_factor_method'] ?? 'email',
+            'applies_to_me' => !empty($settings['two_factor_enabled'])
+                && $patientRoleId > 0 && in_array($patientRoleId, array_map('intval', $roleIds), true),
+        ];
     }
 
     // ------------------------------------------------------------------
