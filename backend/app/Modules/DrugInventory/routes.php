@@ -2,6 +2,7 @@
 
 use App\Modules\DrugInventory\Controllers\DrugInventoryController;
 use App\Modules\DrugInventory\Controllers\PharmacyBatchRecallController;
+use App\Modules\DrugInventory\Controllers\PharmacyCompoundingController;
 use App\Modules\DrugInventory\Controllers\LotRecallTraceController;
 use App\Modules\DrugInventory\Controllers\NearExpiryQuarantineController;
 use App\Modules\DrugInventory\Controllers\WarehouseController;
@@ -130,6 +131,32 @@ $router->get('/drug-inventory/recall-trace/list', [LotRecallTraceController::cla
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 $router->get('/drug-inventory/recall-trace/export-csv', [LotRecallTraceController::class, 'exportCsv'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Extemporaneous Compounding & Specialized Formulations (pharmacy_compounding_records)
+$router->get('/drug-inventory/compounding', [PharmacyCompoundingController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/compounding/detail', [PharmacyCompoundingController::class, 'detail'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/compounding/formulas', [PharmacyCompoundingController::class, 'formulas'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/compounding', [PharmacyCompoundingController::class, 'store'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/compounding/inspect', [PharmacyCompoundingController::class, 'inspect'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/compounding/label', [PharmacyCompoundingController::class, 'label'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);

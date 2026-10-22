@@ -168,3 +168,42 @@ export async function fetchLotRecallsList(filters = {}) {
     const q = params.toString();
     return api(`/drug-inventory/recall-trace/list${q ? `?${q}` : ""}`);
 }
+
+/* ---------------------------------------------------------------
+ * Extemporaneous Compounding & Specialized Formulations
+ * ------------------------------------------------------------- */
+
+export async function fetchCompoundingRecords(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/compounding${q ? `?${q}` : ""}`);
+}
+
+export async function fetchCompoundingDetail(id) {
+    return api(`/drug-inventory/compounding/detail?id=${encodeURIComponent(id)}`);
+}
+
+export async function fetchCompoundingFormulas(type = null) {
+    return api(`/drug-inventory/compounding/formulas${type ? `?type=${encodeURIComponent(type)}` : ""}`);
+}
+
+export async function createCompoundingRecord(data) {
+    return api("/drug-inventory/compounding", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}
+
+export async function inspectCompoundingRecord(compoundingId, data) {
+    return api("/drug-inventory/compounding/inspect", {
+        method: "POST",
+        body: JSON.stringify({ compounding_id: compoundingId, ...data })
+    });
+}
+
+export async function fetchCompoundingLabel(id) {
+    return api(`/drug-inventory/compounding/label?id=${encodeURIComponent(id)}`);
+}

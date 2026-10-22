@@ -4,7 +4,9 @@ import {
     fetchRecalls, fetchRecallDetail, createRecall, updateRecallStatus,
     fetchQuarantineData, runQuarantineScan, releaseQuarantine, fetchQuarantineLogs,
     searchLotsForRecall, traceLotRecall, quarantineLotStockImmediate, createLotRecallRecord,
-    updatePatientOutreachStatus, fetchLotRecallsList
+    updatePatientOutreachStatus, fetchLotRecallsList,
+    fetchCompoundingRecords, fetchCompoundingDetail, fetchCompoundingFormulas,
+    createCompoundingRecord, inspectCompoundingRecord, fetchCompoundingLabel
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js?v=3";
@@ -76,6 +78,7 @@ export async function initDrugInventory() {
     setupTransferModal();
     setupDestroyModal();
     setupRecalls();
+    setupCompounding();
 
     await Promise.all([loadCatalog(), loadInventory()]);
 }
@@ -146,6 +149,11 @@ function showView(view) {
     if (recallsPanel) {
         recallsPanel.classList.toggle("active", view === "recalls");
         if (view === "recalls") { loadQuarantineData(); loadRecalls(); populateLotTraceAutocomplete(); }
+    }
+    const compoundingPanel = document.getElementById("diCompoundingPanel");
+    if (compoundingPanel) {
+        compoundingPanel.classList.toggle("active", view === "compounding");
+        if (view === "compounding") { loadCompoundingRecords(); loadMasterFormulas(); }
     }
 }
 
@@ -2556,4 +2564,720 @@ async function openQuarantineLogsModal() {
             <td><span class="di-sub" style="font-size:12px;">${escapeHtml(l.summary_notes || '—')}</span></td>
         </tr>
     `).join("");
+}
+
+
+/* ---------------------------------------------------------------
+ * Extemporaneous Compounding & Specialized Formulations Workbook
+ * ------------------------------------------------------------- */
+
+let allCompoundingRecords = [];
+let allMasterFormulas = [];
+
+function setupCompounding() {
+    const newBtn = document.getElementById("diNewCompoundBtn");
+    if (newBtn) newBtn.addEventListener("click", () => {
+        showView("compounding");
+        openNewCompoundingModal();
+    });
+
+    const openModalBtn = document.getElementById("diOpenCompoundingModalBtn");
+    if (openModalBtn) openModalBtn.addEventListener("click", openNewCompoundingModal);
+
+    const closeModalBtn = document.getElementById("diCloseCompoundingModal");
+    if (closeModalBtn) closeModalBtn.addEventListener("click", closeCompoundingModal);
+
+    const cancelModalBtn = document.getElementById("diCancelCompounding");
+    if (cancelModalBtn) cancelModalBtn.addEventListener("click", closeCompoundingModal);
+
+    const refreshBtn = document.getElementById("diCompoundingRefreshBtn");
+    if (refreshBtn) refreshBtn.addEventListener("click", loadCompoundingRecords);
+
+    const searchInput = document.getElementById("diCompoundSearch");
+    if (searchInput) searchInput.addEventListener("input", filterAndRenderCompounding);
+
+    const typeFilter = document.getElementById("diCompoundTypeFilter");
+    if (typeFilter) typeFilter.addEventListener("change", filterAndRenderCompounding);
+
+    const statusFilter = document.getElementById("diCompoundStatusFilter");
+    if (statusFilter) statusFilter.addEventListener("change", filterAndRenderCompounding);
+
+    const addIngBtn = document.getElementById("diAddIngredientRowBtn");
+    if (addIngBtn) addIngBtn.addEventListener("click", () => addIngredientRow());
+
+    const formulaSelect = document.getElementById("di_compound_formula_select");
+    if (formulaSelect) formulaSelect.addEventListener("change", applyMasterFormulaPreset);
+
+    const prepAtInput = document.getElementById("di_compound_prep_at");
+    if (prepAtInput) prepAtInput.addEventListener("change", updateBudPreview);
+
+    const budHoursInput = document.getElementById("di_compound_bud_hours");
+    if (budHoursInput) budHoursInput.addEventListener("input", updateBudPreview);
+
+    const compoundForm = document.getElementById("diCompoundingForm");
+    if (compoundForm) compoundForm.addEventListener("submit", handleCompoundingSubmit);
+
+    // Inspection modal
+    const closeInspectBtn = document.getElementById("diCloseInspectModal");
+    if (closeInspectBtn) closeInspectBtn.addEventListener("click", closeInspectModal);
+
+    const cancelInspectBtn = document.getElementById("diCancelInspect");
+    if (cancelInspectBtn) cancelInspectBtn.addEventListener("click", closeInspectModal);
+
+    const inspectForm = document.getElementById("diInspectForm");
+    if (inspectForm) inspectForm.addEventListener("submit", handleInspectSubmit);
+
+    // Detail modal
+    const closeDetailBtn = document.getElementById("diCloseCompoundDetailModal");
+    if (closeDetailBtn) closeDetailBtn.addEventListener("click", () => {
+        document.getElementById("diCompoundingDetailModalOverlay")?.classList.remove("open");
+    });
+}
+
+async function loadCompoundingRecords() {
+    const tbody = document.getElementById("diCompoundingBody");
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="8" class="di-empty-state">Loading compounding workbook...</td></tr>';
+
+    try {
+        const res = await fetchCompoundingRecords();
+        if (!res?.success) {
+            tbody.innerHTML = `<tr><td colspan="8" class="di-empty-state">${escapeHtml(res?.message || "Failed to load compounding records.")}</td></tr>`;
+            return;
+        }
+
+        allCompoundingRecords = res.data || [];
+
+        // Calculate metrics
+        const total = allCompoundingRecords.length;
+        const pending = allCompoundingRecords.filter((r) => r.status === "prepared" || r.inspection_status === "pending").length;
+        const approved = allCompoundingRecords.filter((r) => r.status === "inspected_approved").length;
+        const expired = allCompoundingRecords.filter((r) => r.is_expired).length;
+
+        const elTot = document.getElementById("diStatCompoundTotal");
+        if (elTot) elTot.textContent = total;
+        const elPen = document.getElementById("diStatCompoundPending");
+        if (elPen) elPen.textContent = pending;
+        const elApp = document.getElementById("diStatCompoundApproved");
+        if (elApp) elApp.textContent = approved;
+        const elExp = document.getElementById("diStatCompoundExpired");
+        if (elExp) elExp.textContent = expired;
+
+        filterAndRenderCompounding();
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" class="di-empty-state">Error: ${escapeHtml(err.message)}</td></tr>`;
+    }
+}
+
+async function loadMasterFormulas() {
+    const select = document.getElementById("di_compound_formula_select");
+    if (!select) return;
+
+    try {
+        const res = await fetchCompoundingFormulas();
+        if (res?.success && Array.isArray(res.data)) {
+            allMasterFormulas = res.data;
+            select.innerHTML = '<option value="">-- Custom Formulation (Enter details below) --</option>' +
+                allMasterFormulas.map((f) => `<option value="${f.id}">${escapeHtml(f.formula_code)}: ${escapeHtml(f.name)} (${f.standard_yield_quantity} ${f.yield_unit})</option>`).join("");
+        }
+    } catch (e) {
+        console.error("Failed to load master formulas", e);
+    }
+}
+
+function filterAndRenderCompounding() {
+    const tbody = document.getElementById("diCompoundingBody");
+    if (!tbody) return;
+
+    const term = (document.getElementById("diCompoundSearch")?.value || "").trim().toLowerCase();
+    const type = document.getElementById("diCompoundTypeFilter")?.value || "";
+    const status = document.getElementById("diCompoundStatusFilter")?.value || "";
+
+    const filtered = allCompoundingRecords.filter((r) => {
+        if (type && r.formulation_type !== type) return false;
+        if (status && r.status !== status) return false;
+        if (!term) return true;
+        return (
+            (r.compounding_number || "").toLowerCase().includes(term) ||
+            (r.formulation_name || "").toLowerCase().includes(term) ||
+            (r.patient_name || "").toLowerCase().includes(term) ||
+            (r.patient_no || "").toLowerCase().includes(term) ||
+            (r.cleanroom_hood_number || "").toLowerCase().includes(term)
+        );
+    });
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="di-empty-state">No compounding records match your filter.</td></tr>';
+        return;
+    }
+
+    const typeBadge = (t) => {
+        switch (t) {
+            case "tpn":
+                return '<span class="di-badge alert" style="font-weight:700;">TPN Parenteral</span>';
+            case "oncology_dilution":
+                return '<span class="di-badge alert" style="background:#fef2f2; color:#991b1b; font-weight:700;">Oncology Cytotoxic</span>';
+            case "iv_admixture":
+                return '<span class="di-badge ok" style="font-weight:600;">IV Admixture</span>';
+            case "pediatric_suspension":
+                return '<span class="di-badge cold">Pediatric Oral</span>';
+            default:
+                return `<span class="di-badge">${escapeHtml(t)}</span>`;
+        }
+    };
+
+    const budBadge = (r) => {
+        if (r.is_expired) {
+            return '<span class="di-badge alert" style="font-weight:800;">BUD EXPIRED</span>';
+        }
+        if (r.hours_until_bud !== null && r.hours_until_bud <= 12) {
+            return `<span class="di-badge alert" style="font-size:10.5px;">Expires in ${r.hours_until_bud}h</span>`;
+        }
+        if (r.hours_until_bud !== null && r.hours_until_bud <= 24) {
+            return `<span class="di-badge low" style="font-size:10.5px;">Expires in ${r.hours_until_bud}h</span>`;
+        }
+        return `<span class="di-badge ok" style="font-size:10.5px;">Valid (${r.hours_until_bud}h left)</span>`;
+    };
+
+    const dualSignBadge = (r) => {
+        if (r.inspection_status === "approved" || r.status === "inspected_approved") {
+            return `<span class="di-badge ok" style="font-weight:700;">&#10003; APPROVED</span><div class="di-sub" style="font-size:10px;">By ${escapeHtml(r.inspected_by_name || 'Pharmacist')}</div>`;
+        }
+        if (r.inspection_status === "rejected" || r.status === "inspected_rejected") {
+            return `<span class="di-badge alert" style="font-weight:700;">&#10007; REJECTED</span><div class="di-sub" style="font-size:10px;">By ${escapeHtml(r.inspected_by_name || 'Pharmacist')}</div>`;
+        }
+        return '<span class="di-badge low" style="font-weight:700; animation:di-pulse 1.5s infinite;">&#9888; PENDING 2ND CHECK</span>';
+    };
+
+    tbody.innerHTML = filtered.map((r) => `
+        <tr>
+            <td>
+                <a href="javascript:void(0)" class="di-view-compound-btn" data-record-id="${r.id}" style="font-weight:700; color:#1d4ed8; text-decoration:underline;">
+                    ${escapeHtml(r.compounding_number)}
+                </a>
+                <div class="di-sub">${formatDate(r.prepared_at)}</div>
+            </td>
+            <td>
+                <strong>${escapeHtml(r.formulation_name)}</strong>
+                <div style="margin-top:2px;">${typeBadge(r.formulation_type)}</div>
+                <div class="di-sub">${r.ingredients_count} raw ingredient(s) consumed</div>
+            </td>
+            <td>
+                ${r.patient_name ? `
+                    <strong>${escapeHtml(r.patient_name)}</strong>
+                    <div class="di-sub">MRN: ${escapeHtml(r.patient_no || '—')}</div>
+                ` : '<span class="di-badge cold" style="font-size:11px;">Ward / Floor Stock</span>'}
+            </td>
+            <td>
+                <strong>${r.yield_quantity} ${escapeHtml(r.yield_unit)}</strong>
+                <div class="di-sub">&#127973; ${escapeHtml(r.cleanroom_hood_number)}</div>
+            </td>
+            <td>
+                <div><strong>${formatDate(r.beyond_use_date)}</strong> <small>${String(r.beyond_use_date).slice(11, 16)}</small></div>
+                <div style="margin-top:2px;">${budBadge(r)}</div>
+                <div class="di-sub" style="font-size:10.5px;">${escapeHtml(r.storage_condition)}</div>
+            </td>
+            <td>
+                <div>${escapeHtml(r.prepared_by_name || 'Pharmacist')}</div>
+                <div class="di-sub">Prep User</div>
+            </td>
+            <td>
+                ${dualSignBadge(r)}
+            </td>
+            <td>
+                <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                    <button type="button" class="di-btn small di-view-compound-btn" data-record-id="${r.id}" title="View Workbook Log">
+                        Workbook
+                    </button>
+                    ${r.inspection_status === "pending" ? `
+                        <button type="button" class="di-btn small primary di-inspect-compound-btn" data-record-id="${r.id}" style="background:#15803d; border-color:#15803d; font-weight:600;" title="Dual Verification Sign-off">
+                            &#9989; Dual Check
+                        </button>
+                    ` : ''}
+                    <button type="button" class="di-btn small di-print-label-btn" data-record-id="${r.id}" title="Print Thermal Formulation Label">
+                        &#128438; Label
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+
+    // Bind event listeners
+    tbody.querySelectorAll(".di-view-compound-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = parseInt(btn.getAttribute("data-record-id"), 10);
+            viewCompoundingDetail(id);
+        });
+    });
+
+    tbody.querySelectorAll(".di-inspect-compound-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = parseInt(btn.getAttribute("data-record-id"), 10);
+            openInspectModal(id);
+        });
+    });
+
+    tbody.querySelectorAll(".di-print-label-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const id = parseInt(btn.getAttribute("data-record-id"), 10);
+            printCompoundingLabel(id);
+        });
+    });
+}
+
+function openNewCompoundingModal() {
+    const alertEl = document.getElementById("diCompoundingAlert");
+    if (alertEl) alertEl.innerHTML = "";
+
+    document.getElementById("di_compound_formula_select").value = "";
+    document.getElementById("di_compound_name").value = "";
+    document.getElementById("di_compound_type").value = "iv_admixture";
+    document.getElementById("di_compound_patient_search").value = "";
+    document.getElementById("di_compound_patient_id").value = "";
+    document.getElementById("di_compound_hood").value = "Laminar Flow Hood LFH-01";
+    document.getElementById("di_compound_yield_qty").value = "1000";
+    document.getElementById("di_compound_yield_unit").value = "mL";
+    document.getElementById("di_compound_bud_hours").value = "24";
+    document.getElementById("di_compound_storage").value = "Refrigerate (2-8°C)";
+    document.getElementById("di_compound_instructions").value = "";
+    document.getElementById("di_compound_prep_notes").value = "";
+
+    // Set default prepared_at to now in local datetime format
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const localNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    document.getElementById("di_compound_prep_at").value = localNow;
+
+    updateBudPreview();
+
+    // Clear ingredients and add 2 initial empty rows
+    const tbody = document.getElementById("diCompoundIngredientsBody");
+    if (tbody) {
+        tbody.innerHTML = "";
+        addIngredientRow({ name: "0.9% Sodium Chloride IV Bag (Vehicle)", lot: "", qty: 1000, unit: "mL" });
+        addIngredientRow({ name: "Active Pharmaceutical Ingredient / Concentrate", lot: "", qty: 20, unit: "mL" });
+    }
+
+    document.getElementById("diCompoundingModalOverlay")?.classList.add("open");
+}
+
+function closeCompoundingModal() {
+    document.getElementById("diCompoundingModalOverlay")?.classList.remove("open");
+}
+
+function addIngredientRow(preset = {}) {
+    const tbody = document.getElementById("diCompoundIngredientsBody");
+    if (!tbody) return;
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td>
+            <input type="text" class="di-ing-name" placeholder="Medicine / Ingredient Name" value="${escapeHtml(preset.name || '')}" required style="width:100%;">
+        </td>
+        <td>
+            <input type="text" class="di-ing-lot" placeholder="Raw Batch Lot #" value="${escapeHtml(preset.lot || '')}" required style="width:100%; font-weight:600;">
+        </td>
+        <td>
+            <input type="date" class="di-ing-exp" value="${preset.exp || ''}" style="width:100%;">
+        </td>
+        <td>
+            <div style="display:flex; gap:4px;">
+                <input type="number" step="0.001" min="0.001" class="di-ing-qty" placeholder="Qty" value="${preset.qty || 1}" required style="flex:2;">
+                <input type="text" class="di-ing-unit" placeholder="Unit" value="${escapeHtml(preset.unit || 'mL')}" required style="flex:1;">
+            </div>
+        </td>
+        <td style="text-align:center;">
+            <button type="button" class="di-btn small di-remove-ing-btn" style="color:#b91c1c; border-color:#fca5a5;" title="Remove Ingredient">&times;</button>
+        </td>
+    `;
+
+    row.querySelector(".di-remove-ing-btn").addEventListener("click", () => {
+        if (tbody.querySelectorAll("tr").length > 1) {
+            row.remove();
+        } else {
+            showToast("At least one raw ingredient is required.", "warning");
+        }
+    });
+
+    tbody.appendChild(row);
+}
+
+function applyMasterFormulaPreset() {
+    const formulaId = parseInt(document.getElementById("di_compound_formula_select")?.value, 10);
+    if (!formulaId) return;
+
+    const formula = allMasterFormulas.find((f) => f.id === formulaId);
+    if (!formula) return;
+
+    document.getElementById("di_compound_name").value = formula.name;
+    document.getElementById("di_compound_type").value = formula.formulation_type;
+    document.getElementById("di_compound_hood").value = formula.default_cleanroom_hood || "Laminar Flow Hood LFH-01";
+    document.getElementById("di_compound_yield_qty").value = formula.standard_yield_quantity;
+    document.getElementById("di_compound_yield_unit").value = formula.yield_unit;
+    document.getElementById("di_compound_bud_hours").value = formula.default_bud_hours;
+    document.getElementById("di_compound_storage").value = formula.default_storage_condition;
+    document.getElementById("di_compound_instructions").value = formula.standard_sop_instructions || "";
+
+    updateBudPreview();
+}
+
+function updateBudPreview() {
+    const prepAtVal = document.getElementById("di_compound_prep_at")?.value;
+    const hoursVal = parseInt(document.getElementById("di_compound_bud_hours")?.value, 10) || 24;
+    const previewEl = document.getElementById("di_compound_bud_preview");
+
+    if (!previewEl) return;
+
+    if (!prepAtVal) {
+        previewEl.value = "—";
+        return;
+    }
+
+    try {
+        const d = new Date(prepAtVal);
+        d.setHours(d.getHours() + hoursVal);
+        const pad = (n) => String(n).padStart(2, "0");
+        previewEl.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} (${hoursVal}h BUD)`;
+    } catch (e) {
+        previewEl.value = "—";
+    }
+}
+
+async function handleCompoundingSubmit(e) {
+    e.preventDefault();
+    const alertEl = document.getElementById("diCompoundingAlert");
+    if (alertEl) alertEl.innerHTML = "";
+
+    const rows = document.querySelectorAll("#diCompoundIngredientsBody tr");
+    const ingredients = [];
+    rows.forEach((r) => {
+        const name = r.querySelector(".di-ing-name")?.value.trim();
+        const lot = r.querySelector(".di-ing-lot")?.value.trim();
+        const exp = r.querySelector(".di-ing-exp")?.value;
+        const qty = parseFloat(r.querySelector(".di-ing-qty")?.value) || 0;
+        const unit = r.querySelector(".di-ing-unit")?.value.trim();
+
+        if (name && lot && qty > 0) {
+            ingredients.push({
+                ingredient_name: name,
+                source_lot_number: lot,
+                source_lot_expiry: exp || null,
+                quantity_consumed: qty,
+                unit: unit || "mL"
+            });
+        }
+    });
+
+    if (!ingredients.length) {
+        showToast("Please document at least one raw ingredient with lot number.", "warning");
+        return;
+    }
+
+    const payload = {
+        formula_id: parseInt(document.getElementById("di_compound_formula_select")?.value, 10) || null,
+        formulation_name: document.getElementById("di_compound_name")?.value.trim(),
+        formulation_type: document.getElementById("di_compound_type")?.value,
+        cleanroom_hood_number: document.getElementById("di_compound_hood")?.value.trim(),
+        yield_quantity: parseFloat(document.getElementById("di_compound_yield_qty")?.value) || 1,
+        yield_unit: document.getElementById("di_compound_yield_unit")?.value.trim(),
+        prepared_at: document.getElementById("di_compound_prep_at")?.value.replace("T", " ") + ":00",
+        bud_hours: parseInt(document.getElementById("di_compound_bud_hours")?.value, 10) || 24,
+        storage_condition: document.getElementById("di_compound_storage")?.value,
+        special_instructions: document.getElementById("di_compound_instructions")?.value.trim(),
+        preparation_notes: document.getElementById("di_compound_prep_notes")?.value.trim(),
+        ingredients
+    };
+
+    try {
+        const res = await createCompoundingRecord(payload);
+        if (!res?.success) {
+            if (alertEl) alertEl.innerHTML = `<div class="di-empty-state" style="color:#b91c1c; padding:8px; margin-bottom:8px;">${escapeHtml(res?.message || "Failed to create compounding record.")}</div>`;
+            showToast(res?.message || "Failed to log formulation", "error");
+            return;
+        }
+
+        showToast(res.message, "success");
+        closeCompoundingModal();
+        loadCompoundingRecords();
+    } catch (err) {
+        showToast("Error: " + err.message, "error");
+    }
+}
+
+async function openInspectModal(recordId) {
+    const summary = document.getElementById("diInspectSummary");
+    if (!summary) return;
+    summary.innerHTML = "Loading formulation details...";
+
+    document.getElementById("di_inspect_record_id").value = recordId;
+    document.getElementById("chk_particulate_free").checked = false;
+    document.getElementById("chk_container_intact").checked = false;
+    document.getElementById("chk_labeling_correct").checked = false;
+    document.getElementById("chk_volume_verified").checked = false;
+    document.getElementById("chk_bud_verified").checked = false;
+    document.getElementById("di_inspect_notes").value = "";
+    document.getElementById("di_inspect_decision").value = "approved";
+
+    document.getElementById("diCompoundingInspectModalOverlay")?.classList.add("open");
+
+    try {
+        const res = await fetchCompoundingDetail(recordId);
+        if (!res?.success) {
+            summary.innerHTML = `<span style="color:#b91c1c;">Failed to load: ${escapeHtml(res?.message)}</span>`;
+            return;
+        }
+
+        const { record, ingredients } = res.data;
+        summary.innerHTML = `
+            <div style="font-size:15px; font-weight:700; color:#1d4ed8; margin-bottom:4px;">
+                ${escapeHtml(record.compounding_number)}: ${escapeHtml(record.formulation_name)}
+            </div>
+            <div style="font-size:12.5px; color:var(--text-muted); margin-bottom:8px;">
+                Type: <strong>${escapeHtml(record.formulation_type)}</strong> · Yield: <strong>${record.yield_quantity} ${escapeHtml(record.yield_unit)}</strong><br>
+                Cleanroom Hood: <strong>${escapeHtml(record.cleanroom_hood_number)}</strong> (${escapeHtml(record.cleanroom_suite)})<br>
+                Prepared By: <strong>${escapeHtml(record.prepared_by_name || 'Pharmacist')}</strong> on ${formatDate(record.prepared_at)}<br>
+                Beyond-Use Date (BUD): <strong style="color:#b91c1c;">${formatDate(record.beyond_use_date)}</strong> · Storage: <strong>${escapeHtml(record.storage_condition)}</strong>
+            </div>
+            <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px; padding:6px 10px;">
+                <div style="font-weight:700; font-size:11.5px; text-transform:uppercase; margin-bottom:4px;">Consumed Raw Ingredients:</div>
+                ${ingredients.map((i) => `<div style="font-size:12px;">• ${escapeHtml(i.ingredient_name)}: <strong>${i.quantity_consumed} ${escapeHtml(i.unit)}</strong> (Lot: <code style="font-weight:700;">${escapeHtml(i.source_lot_number)}</code>)</div>`).join("")}
+            </div>
+        `;
+    } catch (e) {
+        summary.innerHTML = `<span style="color:#b91c1c;">Error: ${escapeHtml(e.message)}</span>`;
+    }
+}
+
+function closeInspectModal() {
+    document.getElementById("diCompoundingInspectModalOverlay")?.classList.remove("open");
+}
+
+async function handleInspectSubmit(e) {
+    e.preventDefault();
+    const recordId = parseInt(document.getElementById("di_inspect_record_id")?.value, 10);
+    if (!recordId) return;
+
+    const payload = {
+        decision: document.getElementById("di_inspect_decision")?.value,
+        particulate_free: document.getElementById("chk_particulate_free")?.checked,
+        container_intact: document.getElementById("chk_container_intact")?.checked,
+        labeling_correct: document.getElementById("chk_labeling_correct")?.checked,
+        volume_verified: document.getElementById("chk_volume_verified")?.checked,
+        bud_verified: document.getElementById("chk_bud_verified")?.checked,
+        inspection_notes: document.getElementById("di_inspect_notes")?.value.trim(),
+        emergency_self_sign_override: document.getElementById("di_inspect_emergency_override")?.checked
+    };
+
+    try {
+        const res = await inspectCompoundingRecord(recordId, payload);
+        if (!res?.success) {
+            showToast(res?.message || "Inspection sign-off failed", "error");
+            return;
+        }
+
+        showToast(res.message, "success");
+        closeInspectModal();
+        loadCompoundingRecords();
+    } catch (err) {
+        showToast("Error during inspection sign-off: " + err.message, "error");
+    }
+}
+
+async function viewCompoundingDetail(recordId) {
+    const overlay = document.getElementById("diCompoundingDetailModalOverlay");
+    const body = document.getElementById("diCompoundDetailBody");
+    if (!overlay || !body) return;
+
+    overlay.classList.add("open");
+    body.innerHTML = "Loading compounding workbook details...";
+
+    try {
+        const res = await fetchCompoundingDetail(recordId);
+        if (!res?.success) {
+            body.innerHTML = `<div class="di-empty-state" style="color:#b91c1c;">${escapeHtml(res?.message || "Failed to load record.")}</div>`;
+            return;
+        }
+
+        const { record, ingredients } = res.data;
+        const checks = record.visual_inspection_checks || {};
+
+        body.innerHTML = `
+            <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:16px; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <span class="di-badge alert" style="font-size:12px; font-weight:800;">${escapeHtml(record.compounding_number)}</span>
+                        <h3 style="margin:4px 0 0; font-size:18px; color:var(--text-primary);">${escapeHtml(record.formulation_name)}</h3>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="di-badge ${record.status === 'inspected_approved' ? 'ok' : (record.status === 'inspected_rejected' ? 'alert' : 'low')}" style="font-size:12px; font-weight:700;">
+                            ${escapeHtml(record.status.toUpperCase().replace('_', ' '))}
+                        </span>
+                        <div class="di-sub" style="margin-top:4px;">Lot: <strong>${escapeHtml(record.resulting_lot_number || '—')}</strong></div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:12.5px;">
+                    <div><strong>Formulation Type:</strong> ${escapeHtml(record.formulation_type)}</div>
+                    <div><strong>Total Yield:</strong> ${record.yield_quantity} ${escapeHtml(record.yield_unit)}</div>
+                    <div><strong>Cleanroom Hood:</strong> ${escapeHtml(record.cleanroom_hood_number)}</div>
+                    <div><strong>Cleanroom Suite:</strong> ${escapeHtml(record.cleanroom_suite)}</div>
+                    <div><strong>Prepared Date:</strong> ${formatDate(record.prepared_at)} ${String(record.prepared_at).slice(11, 16)}</div>
+                    <div><strong>Beyond-Use Date (BUD):</strong> <span style="font-weight:700; color:#b91c1c;">${formatDate(record.beyond_use_date)} ${String(record.beyond_use_date).slice(11, 16)}</span></div>
+                    <div><strong>Storage Condition:</strong> ${escapeHtml(record.storage_condition)}</div>
+                    <div><strong>Target Patient:</strong> ${escapeHtml(record.patient_name || 'Ward / Floor Stock')} ${record.patient_no ? '(' + escapeHtml(record.patient_no) + ')' : ''}</div>
+                </div>
+
+                ${record.special_instructions ? `
+                    <div style="margin-top:10px; font-size:12.5px; background:var(--bg-surface); padding:8px; border-radius:4px;">
+                        <strong>SOP Instructions:</strong> ${escapeHtml(record.special_instructions)}
+                    </div>
+                ` : ''}
+            </div>
+
+            <!-- Consumed Ingredients -->
+            <div style="margin-bottom:14px;">
+                <h4 style="margin:0 0 6px; font-size:14px;">Consumed Raw Ingredients &amp; Manufacturer Lots</h4>
+                <div class="di-table-wrap">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Ingredient Name</th>
+                                <th>Manufacturer Lot #</th>
+                                <th>Lot Expiry</th>
+                                <th class="num">Quantity Consumed</th>
+                                <th>Warehouse Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ingredients.map((i) => `
+                                <tr>
+                                    <td><strong>${escapeHtml(i.ingredient_name)}</strong></td>
+                                    <td><code style="font-weight:700;">${escapeHtml(i.source_lot_number)}</code></td>
+                                    <td>${i.source_lot_expiry || '—'}</td>
+                                    <td class="num"><strong>${i.quantity_consumed} ${escapeHtml(i.unit)}</strong></td>
+                                    <td>${escapeHtml(i.warehouse_name || 'Central Pharmacy')}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Dual Sign-Off Audit Trail -->
+            <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:14px;">
+                <h4 style="margin:0 0 10px; font-size:13.5px; color:var(--text-primary);">Mandatory Dual Pharmacist Sign-Off Audit Trail</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:12.5px;">
+                    <div style="border-right:1px solid var(--border-color); padding-right:10px;">
+                        <strong style="color:#1d4ed8;">1. Preparing Pharmacist Sign-Off</strong><br>
+                        Pharmacist: <strong>${escapeHtml(record.prepared_by_name || 'Pharmacist')}</strong><br>
+                        Timestamp: ${formatDate(record.prepared_at)} ${String(record.prepared_at).slice(11, 16)}<br>
+                        Notes: <em>${escapeHtml(record.preparation_notes || 'Preparation documented according to formula.')}</em>
+                    </div>
+                    <div>
+                        <strong style="color:${record.inspection_status === 'approved' ? '#15803d' : '#ea580c'};">2. Verifying Pharmacist Dual Sign-Off</strong><br>
+                        Status: <strong>${escapeHtml((record.inspection_status || 'PENDING').toUpperCase())}</strong><br>
+                        ${record.inspected_by_name ? `
+                            Pharmacist: <strong>${escapeHtml(record.inspected_by_name)}</strong><br>
+                            Timestamp: ${formatDate(record.inspected_at)} ${String(record.inspected_at).slice(11, 16)}<br>
+                            Notes: <em>${escapeHtml(record.inspection_notes || '—')}</em><br>
+                            <small>Visual checks verified: Clarity: ${checks.particulate_free ? '✔' : '—'}, Container: ${checks.container_intact ? '✔' : '—'}, Label: ${checks.labeling_correct ? '✔' : '—'}, Yield: ${checks.volume_verified ? '✔' : '—'}, BUD: ${checks.bud_verified ? '✔' : '—'}</small>
+                        ` : '<span class="di-badge low" style="margin-top:6px;">Awaiting second pharmacist visual check</span>'}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top:14px;">
+                <button type="button" class="btn-secondary" id="diCloseCompoundDetailBtn">Close</button>
+                <button type="button" class="di-btn" id="diPrintLabelFromDetailBtn">&#128438; Print Label</button>
+            </div>
+        `;
+
+        document.getElementById("diCloseCompoundDetailBtn")?.addEventListener("click", () => overlay.classList.remove("open"));
+        document.getElementById("diPrintLabelFromDetailBtn")?.addEventListener("click", () => printCompoundingLabel(recordId));
+    } catch (e) {
+        body.innerHTML = `<div class="di-empty-state" style="color:#b91c1c;">Error: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+async function printCompoundingLabel(recordId) {
+    try {
+        const res = await fetchCompoundingLabel(recordId);
+        if (!res?.success) {
+            showToast("Failed to fetch label data: " + res?.message, "error");
+            return;
+        }
+
+        const l = res.data;
+        const win = window.open("", "_blank");
+        if (!win) {
+            showToast("Please allow popups to print auxiliary formulation label.", "warning");
+            return;
+        }
+
+        win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Compounding Auxiliary Label - ${escapeHtml(l.compounding_number)}</title>
+    <style>
+        body { font-family: monospace, Arial, sans-serif; margin: 10px; font-size: 11px; }
+        .label-card { width: 380px; border: 2px solid #000; padding: 12px; border-radius: 4px; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+        .h-title { font-size: 13px; font-weight: bold; }
+        .h-sub { font-size: 9.5px; }
+        .drug-name { font-size: 14px; font-weight: bold; margin: 6px 0; }
+        .bud-box { background: #000; color: #fff; padding: 4px 6px; font-weight: bold; font-size: 11.5px; margin: 8px 0; text-align: center; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px; }
+        .signatures { margin-top: 8px; border-top: 1px dashed #000; padding-top: 6px; font-size: 9.5px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="label-card">
+        <div class="header">
+            <div class="h-title">HOSPITAL PHARMACY COMPOUNDING UNIT</div>
+            <div class="h-sub">Sterile Admixture &amp; Specialized Formulations</div>
+        </div>
+
+        <div><strong>CMP #:</strong> ${escapeHtml(l.compounding_number)} · <strong>LOT:</strong> ${escapeHtml(l.resulting_lot_number)}</div>
+        <div class="drug-name">${escapeHtml(l.formulation_name)}</div>
+        <div><strong>Total Volume / Yield:</strong> ${escapeHtml(l.yield_quantity)}</div>
+        <div><strong>Patient:</strong> ${escapeHtml(l.patient_name)} (${escapeHtml(l.patient_no)})</div>
+
+        <div class="bud-box">
+            BEYOND-USE DATE (BUD): ${escapeHtml(l.beyond_use_date)}
+        </div>
+
+        <div class="grid">
+            <div><strong>Storage:</strong> ${escapeHtml(l.storage_condition)}</div>
+            <div><strong>Hood #:</strong> ${escapeHtml(l.cleanroom_hood_number)}</div>
+            <div><strong>Prepared:</strong> ${escapeHtml(l.prepared_at)}</div>
+            <div><strong>Suite:</strong> Cleanroom ISO 5</div>
+        </div>
+
+        ${l.special_instructions ? `<div style="margin-top:6px; font-size:9.5px;"><strong>Directions:</strong> ${escapeHtml(l.special_instructions)}</div>` : ''}
+
+        <div class="signatures">
+            <div>
+                <strong>Prep Pharmacist:</strong><br>
+                ${escapeHtml(l.prepared_by)}<br>
+                <em>Initials / Verified</em>
+            </div>
+            <div>
+                <strong>Dual Check Pharmacist:</strong><br>
+                ${escapeHtml(l.inspected_by)}<br>
+                <em>${escapeHtml(l.inspection_status.toUpperCase())}</em>
+            </div>
+        </div>
+    </div>
+    <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>`);
+        win.document.close();
+    } catch (err) {
+        showToast("Error generating label: " + err.message, "error");
+    }
 }

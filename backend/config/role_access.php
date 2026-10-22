@@ -78,9 +78,24 @@ return [
 
         // Pharmacist: reads the patient chart (allergies, medicines, problems, visits) to verify
         // medicine orders; verifying itself is on the /med-orders routes.
+        // The pharmacy counter (dispensing, the stock it picks lots from, and the pharmacy
+        // reports) lists admin / receptionist / doctor on its own routes, from before there
+        // was a pharmacist role, so those paths are granted here instead. Reads cover the
+        // queue, stock and reports; writes are the dispensing workflow only -- receiving,
+        // transferring and destroying stock stay with admin.
         'pharmacist' => [
-            'GET' => array_merge($lookups, $chartRead, ['/inpatient-admissions/whiteboard', '/inpatient-admissions/details']),
-            'POST' => [],
+            'GET' => array_merge($lookups, $chartRead, [
+                '/inpatient-admissions/whiteboard', '/inpatient-admissions/details',
+                '/dispensing', '/dispensing/*',
+                '/drug-inventory', '/drug-inventory/*',
+                '/warehouses/*',
+                '/pharmacy-dashboard', '/pharmacy-reports/*',
+            ]),
+            'POST' => [
+                '/dispensing', '/dispensing/void', '/dispensing/check', '/dispensing/close',
+                '/dispensing/payment', '/dispensing/refill-request', '/dispensing/refill-decline',
+                '/dispensing/labels/customize', '/dispensing/clinical-verifications/save',
+            ],
             'PUT' => [],
             'DELETE' => [],
         ],

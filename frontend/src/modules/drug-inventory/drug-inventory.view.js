@@ -823,6 +823,7 @@ export function DrugInventoryView() {
             </button>
             <button type="button" class="di-btn" id="diImportBtn">Import CSV</button>
             <button type="button" class="di-btn" id="diReceiveBtn">Receive Stock</button>
+            <button type="button" class="di-btn" id="diNewCompoundBtn" style="border-color:#93c5fd;color:#1d4ed8;">&#129514; Compound Formulation</button>
             <button type="button" class="di-btn" id="diInitiateRecallBtn" style="border-color:#fca5a5;color:#b91c1c;">&#9888; Initiate Batch Recall</button>
             <button type="button" class="di-btn primary" id="diAddDrugBtn">+ Register Drug</button>
         </div>
@@ -832,6 +833,7 @@ export function DrugInventoryView() {
         <button type="button" class="di-view-tab active" data-di-view="catalog" role="tab">Drug Catalog</button>
         <button type="button" class="di-view-tab" data-di-view="stock" role="tab">Stock on Hand</button>
         <button type="button" class="di-view-tab" data-di-view="recalls" role="tab">&#9888; Recalls &amp; Quarantine Locks</button>
+        <button type="button" class="di-view-tab" data-di-view="compounding" role="tab">&#129514; Compounding Workbook</button>
     </div>
 
     <div class="di-panel active" id="diCatalogPanel">
@@ -993,6 +995,92 @@ export function DrugInventoryView() {
                 </thead>
                 <tbody id="diRecallsBody"><tr><td colspan="8" class="di-empty-state">Loading recalls...</td></tr></tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Extemporaneous Compounding & Specialized Formulations Panel -->
+    <div class="di-panel" id="diCompoundingPanel">
+        <div class="di-section" style="background:var(--bg-surface); padding:16px; margin-bottom:16px;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:12px;">
+                <div>
+                    <h2 style="margin:0 0 4px; font-size:16px; color:#1d4ed8; display:flex; align-items:center; gap:6px;">
+                        <span>&#129514;</span> Extemporaneous Compounding &amp; Specialized Formulations Workbook
+                    </h2>
+                    <p style="margin:0; font-size:12.5px; color:var(--text-muted);">
+                        Hospital sterile &amp; non-sterile compounding registry. Documents master formulas, raw ingredient batch lots, cleanroom hood specifications, Beyond-Use Dates (BUD), and mandatory dual pharmacist preparation &amp; visual inspection sign-offs (USP &lt;797&gt; / &lt;795&gt;).
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="di-btn" id="diCompoundingRefreshBtn">Refresh</button>
+                    <button type="button" class="di-btn primary" id="diOpenCompoundingModalBtn" style="background:#1d4ed8; border-color:#1d4ed8; font-weight:600;">
+                        + New Compounding Record
+                    </button>
+                </div>
+            </div>
+
+            <!-- Compounding KPI Metrics Cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:14px;" id="diCompoundingStats">
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Total Formulations</span>
+                    <strong style="font-size:18px;" id="diStatCompoundTotal">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Awaiting Dual Check</span>
+                    <strong style="font-size:18px; color:#ea580c;" id="diStatCompoundPending">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Approved &amp; Ready</span>
+                    <strong style="font-size:18px; color:#15803d;" id="diStatCompoundApproved">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Past Beyond-Use Date</span>
+                    <strong style="font-size:18px; color:#b91c1c;" id="diStatCompoundExpired">0</strong>
+                </div>
+            </div>
+
+            <!-- Compounding Filter Toolbar -->
+            <div class="di-list-bar" style="margin-bottom:12px;">
+                <div class="di-filters">
+                    <input type="text" id="diCompoundSearch" placeholder="Search compounding #, formula, patient MRN/name...">
+                    <select id="diCompoundTypeFilter">
+                        <option value="">All Formulation Types</option>
+                        <option value="iv_admixture">IV Admixtures</option>
+                        <option value="tpn">Total Parenteral Nutrition (TPN)</option>
+                        <option value="oncology_dilution">Oncology Dilutions</option>
+                        <option value="pediatric_suspension">Pediatric Suspensions</option>
+                        <option value="ophthalmic">Ophthalmic</option>
+                        <option value="topical">Topical / Dermatological</option>
+                    </select>
+                    <select id="diCompoundStatusFilter">
+                        <option value="">All Statuses</option>
+                        <option value="prepared">Prepared (Awaiting Dual Sign-Off)</option>
+                        <option value="inspected_approved">Inspected &amp; Approved</option>
+                        <option value="inspected_rejected">Inspected Rejected</option>
+                        <option value="dispensed">Dispensed</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Compounding Table -->
+            <div class="di-table-wrap">
+                <table class="di-table">
+                    <thead>
+                        <tr>
+                            <th>Compounding #</th>
+                            <th>Formulation &amp; Type</th>
+                            <th>Target Patient / Stock</th>
+                            <th>Yield &amp; Cleanroom Hood</th>
+                            <th>Beyond-Use Date (BUD)</th>
+                            <th>Prepared By</th>
+                            <th>Dual Verification Check</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diCompoundingBody">
+                        <tr><td colspan="8" class="di-empty-state">Loading compounding records...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -1593,6 +1681,219 @@ export function DrugInventoryView() {
                 <button class="login-btn" type="submit" style="background:#b91c1c; border-color:#b91c1c;">Save Outreach Log</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- New Extemporaneous Compounding Formulation Modal -->
+<div class="modal-overlay" id="diCompoundingModalOverlay">
+    <div class="modal-box di-modal-wide" style="max-width: 920px;">
+        <div class="modal-header">
+            <h2 style="color:#1d4ed8;">&#129514; New Extemporaneous Compounding Formulation</h2>
+            <button type="button" class="modal-close" id="diCloseCompoundingModal">&times;</button>
+        </div>
+        <p style="margin:0 0 12px; font-size:12.5px; color:var(--text-muted);">
+            Document sterile IV admixture, TPN, oncology dilution, or pediatric formulation. Raw ingredient manufacturer lots and cleanroom hood numbers are mandatory for audit compliance.
+        </p>
+        <div id="diCompoundingAlert"></div>
+        <form id="diCompoundingForm">
+            <!-- Master Formula Quick-Select -->
+            <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+                <label style="font-weight:600; font-size:12px; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:4px;">
+                    Select Standard Master Formula (Optional Recipe Preset)
+                </label>
+                <select id="di_compound_formula_select" style="width:100%;">
+                    <option value="">-- Custom Formulation (Enter details below) --</option>
+                </select>
+            </div>
+
+            <div class="di-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:10px; margin-bottom:12px;">
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>Formulation Name <span class="di-req">*</span></label>
+                    <input type="text" id="di_compound_name" placeholder="e.g. Total Parenteral Nutrition (TPN) Adult 2000 mL, Omeprazole 2mg/mL Oral Suspension" required>
+                </div>
+                <div class="di-field">
+                    <label>Formulation Type <span class="di-req">*</span></label>
+                    <select id="di_compound_type" required>
+                        <option value="iv_admixture">IV Admixture</option>
+                        <option value="tpn">Total Parenteral Nutrition (TPN)</option>
+                        <option value="oncology_dilution">Oncology Dilution</option>
+                        <option value="pediatric_suspension">Pediatric Oral Suspension</option>
+                        <option value="ophthalmic">Ophthalmic</option>
+                        <option value="topical">Topical / Dermatological</option>
+                        <option value="other">Other Compounded Preparation</option>
+                    </select>
+                </div>
+                <div class="di-field">
+                    <label>Target Patient (MRN / Name, or leave blank for Ward Stock)</label>
+                    <input type="text" id="di_compound_patient_search" placeholder="Search patient name or MRN...">
+                    <input type="hidden" id="di_compound_patient_id">
+                </div>
+                <div class="di-field">
+                    <label>Cleanroom Hood / Isolator Number <span class="di-req">*</span></label>
+                    <input type="text" id="di_compound_hood" placeholder="e.g. Laminar Flow Hood LFH-01, BSC Class II-02" value="Laminar Flow Hood LFH-01" required>
+                </div>
+                <div class="di-field">
+                    <label>Yield Quantity &amp; Unit <span class="di-req">*</span></label>
+                    <div style="display:flex; gap:6px;">
+                        <input type="number" step="0.001" min="0.001" id="di_compound_yield_qty" value="1000" style="flex:2;" required>
+                        <select id="di_compound_yield_unit" style="flex:1;">
+                            <option value="mL">mL</option>
+                            <option value="L">L</option>
+                            <option value="mg">mg</option>
+                            <option value="g">g</option>
+                            <option value="doses">doses</option>
+                            <option value="units">units</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="di-field">
+                    <label>Preparation Date &amp; Time <span class="di-req">*</span></label>
+                    <input type="datetime-local" id="di_compound_prep_at" required>
+                </div>
+                <div class="di-field">
+                    <label>Beyond-Use Date (BUD) Hours <span class="di-req">*</span></label>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="number" min="1" id="di_compound_bud_hours" value="24" style="flex:2;" required>
+                        <span style="font-size:12px; color:var(--text-muted); flex:1;">hours</span>
+                    </div>
+                </div>
+                <div class="di-field">
+                    <label>Calculated BUD Expiry</label>
+                    <input type="text" id="di_compound_bud_preview" readonly style="background:var(--bg-surface-alt); font-weight:700; color:#b91c1c;">
+                </div>
+                <div class="di-field">
+                    <label>Storage Condition <span class="di-req">*</span></label>
+                    <select id="di_compound_storage" required>
+                        <option value="Refrigerate (2-8°C)">Refrigerate (2-8°C)</option>
+                        <option value="Room Temperature (20-25°C)">Room Temperature (20-25°C)</option>
+                        <option value="Protect from Light">Protect from Light</option>
+                        <option value="Refrigerate &amp; Protect from Light">Refrigerate &amp; Protect from Light</option>
+                        <option value="Do Not Freeze">Do Not Freeze</option>
+                        <option value="Frozen (-20°C)">Frozen (-20°C)</option>
+                    </select>
+                </div>
+                <div class="di-field" style="grid-column:1 / -1;">
+                    <label>SOP / Preparation Instructions &amp; Vehicle</label>
+                    <textarea id="di_compound_instructions" rows="2" placeholder="e.g. Aseptically reconstitute vial with SWFI, transfer to 1000mL 0.9% NS using 0.22 micron filter." style="width:100%; border:1px solid var(--border-color); border-radius:6px; padding:6px; font-size:12.5px; background:var(--bg-surface); color:var(--text-primary);"></textarea>
+                </div>
+            </div>
+
+            <!-- Raw Ingredients Consumption Table -->
+            <div style="margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="font-weight:700; font-size:13px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                        <span>&#128230;</span> Raw Ingredient Batch Lot Consumption <span class="di-req">*</span>
+                    </label>
+                    <button type="button" class="di-btn small" id="diAddIngredientRowBtn" style="font-size:11.5px;">+ Add Raw Ingredient</button>
+                </div>
+                <div class="di-table-wrap" style="max-height:180px; overflow-y:auto;">
+                    <table class="di-table" style="font-size:12px;">
+                        <thead>
+                            <tr>
+                                <th style="width:30%;">Ingredient Name / Medicine</th>
+                                <th style="width:25%;">Raw Lot Number <span class="di-req">*</span></th>
+                                <th style="width:20%;">Lot Expiry</th>
+                                <th style="width:20%;">Quantity &amp; Unit <span class="di-req">*</span></th>
+                                <th style="width:5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="diCompoundIngredientsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="di-field" style="margin-bottom:14px;">
+                <label>Preparation Notes &amp; Observations</label>
+                <input type="text" id="di_compound_prep_notes" placeholder="e.g. Visual solution clear, free of precipitate. Initial compounding completed under laminar flow hood.">
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelCompounding">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#1d4ed8; border-color:#1d4ed8; font-weight:600;">
+                    Log Formulation &amp; Submit for Dual Inspection Check
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Dual Pharmacist Visual Inspection & Verification Modal -->
+<div class="modal-overlay" id="diCompoundingInspectModalOverlay">
+    <div class="modal-box" style="max-width: 620px;">
+        <div class="modal-header">
+            <h2 style="color:#1d4ed8;">&#9989; Dual Pharmacist Verification &amp; Inspection Sign-Off</h2>
+            <button type="button" class="modal-close" id="diCloseInspectModal">&times;</button>
+        </div>
+        <div id="diInspectSummary" class="di-modal-readonly" style="margin-bottom:12px;"></div>
+        <form id="diInspectForm">
+            <input type="hidden" id="di_inspect_record_id">
+            
+            <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:6px; padding:12px; margin-bottom:12px;">
+                <label style="font-weight:700; font-size:12.5px; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:8px;">
+                    Mandatory Visual &amp; Documentation Inspection Checklist (USP &lt;797&gt; / &lt;795&gt;)
+                </label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label class="di-checkbox-label">
+                        <input type="checkbox" id="chk_particulate_free" required>
+                        <strong>Visual Clarity:</strong> Solution is clear; completely free of visible particulates, precipitation, or haze
+                    </label>
+                    <label class="di-checkbox-label">
+                        <input type="checkbox" id="chk_container_intact" required>
+                        <strong>Container Integrity:</strong> Bag/vial closure intact, no leaks, seal hermetically sound
+                    </label>
+                    <label class="di-checkbox-label">
+                        <input type="checkbox" id="chk_labeling_correct" required>
+                        <strong>Labeling Accuracy:</strong> Formula name, ingredients, concentration, patient MRN verified against order
+                    </label>
+                    <label class="di-checkbox-label">
+                        <input type="checkbox" id="chk_volume_verified" required>
+                        <strong>Yield &amp; Volume:</strong> Final measured volume/weight corresponds exactly with calculated yield
+                    </label>
+                    <label class="di-checkbox-label">
+                        <input type="checkbox" id="chk_bud_verified" required>
+                        <strong>BUD &amp; Storage:</strong> Beyond-Use Date and storage condition verified against stability literature
+                    </label>
+                </div>
+            </div>
+
+            <div class="di-field" style="margin-bottom:10px;">
+                <label>Verification Decision <span class="di-req">*</span></label>
+                <select id="di_inspect_decision" required>
+                    <option value="approved">Approve &amp; Release Formulation for Patient Dispensing</option>
+                    <option value="rejected">Reject &amp; Quarantine / Discard Formulation</option>
+                </select>
+            </div>
+
+            <div class="di-field" style="margin-bottom:10px;">
+                <label>Inspection Notes / Verification Justification</label>
+                <textarea id="di_inspect_notes" rows="2" placeholder="e.g. Dual verification complete. Visual inspection clear. Label verified against CPOE order." style="width:100%; border:1px solid var(--border-color); border-radius:6px; padding:6px; font-size:12.5px; background:var(--bg-surface); color:var(--text-primary);"></textarea>
+            </div>
+
+            <div class="di-field" style="margin-bottom:14px;">
+                <label class="di-checkbox-label" style="font-size:11.5px; color:var(--text-muted);">
+                    <input type="checkbox" id="di_inspect_emergency_override">
+                    Solo-staffing / Emergency after-hours override (if single pharmacist on duty)
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelInspect">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#15803d; border-color:#15803d; font-weight:600;">
+                    Sign &amp; Authorize Dual Verification
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Compounding Record Detail Modal -->
+<div class="modal-overlay" id="diCompoundingDetailModalOverlay">
+    <div class="modal-box di-modal-wide" style="max-width: 820px;">
+        <div class="modal-header">
+            <h2 id="diCompoundDetailTitle" style="color:#1d4ed8;">Compounding Record Workbook</h2>
+            <button type="button" class="modal-close" id="diCloseCompoundDetailModal">&times;</button>
+        </div>
+        <div id="diCompoundDetailBody">Loading details...</div>
     </div>
 </div>
 
