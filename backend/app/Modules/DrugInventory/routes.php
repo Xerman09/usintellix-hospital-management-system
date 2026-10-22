@@ -2,6 +2,8 @@
 
 use App\Modules\DrugInventory\Controllers\DrugInventoryController;
 use App\Modules\DrugInventory\Controllers\PharmacyBatchRecallController;
+use App\Modules\DrugInventory\Controllers\LotRecallTraceController;
+use App\Modules\DrugInventory\Controllers\NearExpiryQuarantineController;
 use App\Modules\DrugInventory\Controllers\WarehouseController;
 
 /** @var \App\Core\Router $router */
@@ -98,6 +100,36 @@ $router->post('/drug-inventory/quarantine/release', [NearExpiryQuarantineControl
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 $router->get('/drug-inventory/quarantine/logs', [NearExpiryQuarantineController::class, 'logs'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Lot Recall Trace Engine & Patient Outreach (pharmacy_lot_recalls)
+$router->get('/drug-inventory/recall-trace/search-lots', [LotRecallTraceController::class, 'searchLots'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/recall-trace/trace', [LotRecallTraceController::class, 'trace'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/recall-trace/quarantine', [LotRecallTraceController::class, 'quarantine'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/recall-trace/create-recall', [LotRecallTraceController::class, 'createRecall'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/recall-trace/outreach-status', [LotRecallTraceController::class, 'updateOutreach'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/recall-trace/list', [LotRecallTraceController::class, 'list'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/recall-trace/export-csv', [LotRecallTraceController::class, 'exportCsv'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);

@@ -2,7 +2,9 @@ import {
     fetchDrugInventory, fetchDrugInventoryOptions, fetchDrugCatalog, fetchDrug,
     createDrug, updateDrug, deleteDrug, receiveStock, importDrugs, transferDrugLot, destroyDrugLot,
     fetchRecalls, fetchRecallDetail, createRecall, updateRecallStatus,
-    fetchQuarantineData, runQuarantineScan, releaseQuarantine, fetchQuarantineLogs
+    fetchQuarantineData, runQuarantineScan, releaseQuarantine, fetchQuarantineLogs,
+    searchLotsForRecall, traceLotRecall, quarantineLotStockImmediate, createLotRecallRecord,
+    updatePatientOutreachStatus, fetchLotRecallsList
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js?v=3";
@@ -143,7 +145,7 @@ function showView(view) {
     const recallsPanel = document.getElementById("diRecallsPanel");
     if (recallsPanel) {
         recallsPanel.classList.toggle("active", view === "recalls");
-        if (view === "recalls") { loadQuarantineData(); loadRecalls(); }
+        if (view === "recalls") { loadQuarantineData(); loadRecalls(); populateLotTraceAutocomplete(); }
     }
 }
 
@@ -1493,6 +1495,32 @@ function setupRecalls() {
 
     const statusFilter = document.getElementById("diRecallsStatusFilter");
     if (statusFilter) statusFilter.addEventListener("change", filterAndRenderRecalls);
+
+    // Lot Recall Trace Engine
+    const traceBtn = document.getElementById("diTraceLotBtn");
+    if (traceBtn) traceBtn.addEventListener("click", () => handleTraceLot());
+
+    const traceInput = document.getElementById("diTraceLotInput");
+    if (traceInput) {
+        traceInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                handleTraceLot();
+            }
+        });
+    }
+
+    const clearTraceBtn = document.getElementById("diClearTraceBtn");
+    if (clearTraceBtn) clearTraceBtn.addEventListener("click", clearLotTrace);
+
+    const closeOutreachBtn = document.getElementById("diCloseOutreachModal");
+    if (closeOutreachBtn) closeOutreachBtn.addEventListener("click", closeOutreachModal);
+
+    const cancelOutreachBtn = document.getElementById("diCancelOutreach");
+    if (cancelOutreachBtn) cancelOutreachBtn.addEventListener("click", closeOutreachModal);
+
+    const outreachForm = document.getElementById("diOutreachForm");
+    if (outreachForm) outreachForm.addEventListener("submit", handleOutreachSubmit);
 }
 
 async function loadRecalls() {
@@ -1843,6 +1871,516 @@ function printPatientTraceList(recall, patients) {
 </body>
 </html>`);
     win.document.close();
+}
+
+/* ---------------------------------------------------------------
+ * Lot Recall Trace Engine & Patient Outreach (pharmacy_lot_recalls)
+ * ------------------------------------------------------------- */
+
+let lastTracedLotData = null;
+
+async function populateLotTraceAutocomplete() {
+    const datalist = document.getElementById("diTraceLotsDatalist");
+    if (!datalist) return;
+
+    try {
+        const res = await searchLotsForRecall("", 50);
+        if (res?.success && Array.isArray(res.data)) {
+            datalist.innerHTML = res.data.map((l) =>
+                `<option value="${escapeHtml(l.lot_number)}">${escapeHtml(l.drug_name)} (${l.total_on_hand} on hand${l.is_quarantined ? ' - Quarantined' : ''})</option>`
+            ).join("");
+        }
+    } catch (e) {
+        console.error("Failed to populate trace datalist", e);
+    }
+}
+
+async function handleTraceLot(lotOverride = null) {
+    const input = document.getElementById("diTraceLotInput");
+    const lotNumber = (lotOverride || input?.value || "").trim();
+
+    if (!lotNumber) {
+        showToast("Please enter or select a lot number to trace.", "warning");
+        input?.focus();
+        return;
+    }
+
+    if (input) input.value = lotNumber;
+
+    const container = document.getElementById("diTraceResultsContainer");
+    if (!container) return;
+
+    container.style.display = "block";
+    container.innerHTML = `
+        <div style="padding:24px; text-align:center; color:var(--text-muted);">
+            <div class="di-spinner" style="margin:0 auto 12px; width:28px; height:28px; border:3px solid #ccc; border-top-color:#b91c1c; border-radius:50%; animation:di-spin 0.8s linear infinite;"></div>
+            Tracing hospital stock and patient distribution across all facilities for lot <strong>${escapeHtml(lotNumber)}</strong>...
+        </div>
+    `;
+
+    try {
+        const res = await traceLotRecall(lotNumber);
+        if (!res?.success) {
+            container.innerHTML = `
+                <div class="di-empty-state" style="color:#b91c1c; padding:20px; text-align:center;">
+                    &#9888; ${escapeHtml(res?.message || "Lot number not found in hospital inventory or dispensing records.")}
+                </div>
+            `;
+            return;
+        }
+
+        lastTracedLotData = res.data;
+        renderLotTraceResults(res.data);
+    } catch (err) {
+        container.innerHTML = `
+            <div class="di-empty-state" style="color:#b91c1c; padding:20px;">
+                Failed to communicate with recall trace engine: ${escapeHtml(err.message)}
+            </div>
+        `;
+    }
+}
+
+function clearLotTrace() {
+    const input = document.getElementById("diTraceLotInput");
+    if (input) input.value = "";
+    const container = document.getElementById("diTraceResultsContainer");
+    if (container) {
+        container.style.display = "none";
+        container.innerHTML = "";
+    }
+    lastTracedLotData = null;
+}
+
+function renderLotTraceResults(data) {
+    const container = document.getElementById("diTraceResultsContainer");
+    if (!container) return;
+
+    const { lot_number, drug, hospital_stock, patient_distribution, active_recall } = data;
+    const { total_remaining_units, total_quarantined_units, unquarantined_units, breakdown } = hospital_stock;
+    const { total_dispensed_units, unique_patients_count, contacted_count, pending_outreach_count, patients } = patient_distribution;
+
+    const hasUnquarantined = unquarantined_units > 0;
+
+    // Stock rows
+    const stockRows = breakdown.length ? breakdown.map((s) => `
+        <tr>
+            <td><strong>${escapeHtml(s.warehouse_name)}</strong> <span class="di-sub">(${escapeHtml(s.warehouse_code || 'WH-' + s.warehouse_id)})</span></td>
+            <td><code style="font-weight:700;">${escapeHtml(s.lot_number)}</code></td>
+            <td>${s.expires_date ? s.expires_date : '—'}</td>
+            <td>
+                ${s.days_to_expiry !== null ? (
+                    s.days_to_expiry <= 0 ? '<span class="di-badge alert" style="font-size:10px;">EXPIRED</span>' :
+                    s.days_to_expiry <= 30 ? `<span class="di-badge alert" style="font-size:10px;">${s.days_to_expiry}d left</span>` :
+                    s.days_to_expiry <= 60 ? `<span class="di-badge low" style="font-size:10px;">${s.days_to_expiry}d left</span>` :
+                    `<span class="di-badge" style="font-size:10px;">${s.days_to_expiry}d left</span>`
+                ) : '—'}
+            </td>
+            <td class="num"><strong style="font-size:14px;">${s.quantity_on_hand}</strong></td>
+            <td>
+                ${s.is_quarantined
+                    ? `<span class="di-badge alert" style="font-weight:700;">QUARANTINED LOCK</span><div class="di-sub" style="font-size:10.5px;">${escapeHtml(s.quarantine_reason || 'Locked')}</div>`
+                    : '<span class="di-badge ok" style="font-weight:600;">ACTIVE IN STOCK</span>'}
+            </td>
+        </tr>
+    `).join("") : '<tr><td colspan="6" class="di-empty-state">No on-hand units remaining in hospital storage locations.</td></tr>';
+
+    // Status badge mapper
+    const outreachBadge = (st) => {
+        switch (st) {
+            case 'contacted_informed':
+                return '<span class="di-badge ok" style="font-weight:600;">&#10003; Contacted &amp; Informed</span>';
+            case 'voicemail_left':
+                return '<span class="di-badge cold">Voicemail / Message Left</span>';
+            case 'product_returned':
+                return '<span class="di-badge" style="background:#e0e7ff; color:#3730a3; font-weight:600;">&#128230; Product Returned</span>';
+            case 'replacement_dispensed':
+                return '<span class="di-badge ok" style="background:#dcfce7; color:#166534; font-weight:600;">Replacement Dispensed</span>';
+            case 'adverse_event':
+                return '<span class="di-badge alert" style="font-weight:700;">&#9888; Adverse Event Reported</span>';
+            case 'unreachable':
+                return '<span class="di-badge" style="background:#fee2e2; color:#991b1b;">Unreachable</span>';
+            case 'pending':
+            default:
+                return '<span class="di-badge low" style="font-weight:600;">Pending Outreach</span>';
+        }
+    };
+
+    // Patient rows
+    const patientRows = patients.length ? patients.map((p, idx) => `
+        <tr data-patient-idx="${idx}">
+            <td>
+                <strong>${escapeHtml(p.patient_name)}</strong>
+                <div class="di-sub">MRN: <strong>${escapeHtml(p.patient_no)}</strong> · ${p.sex ? escapeHtml(p.sex) : ''}${p.age !== null ? `, ${p.age} y/o` : ''}</div>
+            </td>
+            <td>
+                ${p.primary_phone !== 'None Recorded'
+                    ? `<a href="tel:${escapeHtml(p.primary_phone)}" style="font-weight:700; color:#1d4ed8; text-decoration:underline;">&#128222; ${escapeHtml(p.primary_phone)}</a>`
+                    : '<span style="color:var(--text-muted);">None Recorded</span>'}
+                ${p.mobile_phone && p.mobile_phone !== p.primary_phone ? `<div class="di-sub">Mobile: ${escapeHtml(p.mobile_phone)}</div>` : ''}
+                ${p.home_phone && p.home_phone !== p.primary_phone ? `<div class="di-sub">Home: ${escapeHtml(p.home_phone)}</div>` : ''}
+                ${p.emergency_contact ? `<div class="di-sub" style="color:#b91c1c;">Emerg: ${escapeHtml(p.emergency_contact)}</div>` : ''}
+            </td>
+            <td>
+                <span class="di-badge" style="font-size:10.5px;">${escapeHtml(p.dispense_source)}</span>
+                <div class="di-sub">${p.dispensed_date || '—'} · Ref: ${escapeHtml(p.reference_number || '—')}</div>
+            </td>
+            <td class="num"><strong style="font-size:14px; color:#b91c1c;">${p.quantity_dispensed}</strong></td>
+            <td>
+                <div>Dr. ${escapeHtml(p.prescribing_doctor)}</div>
+                <div class="di-sub">Staff: ${escapeHtml(p.dispensing_staff)}</div>
+            </td>
+            <td>
+                <div>${outreachBadge(p.outreach_status)}</div>
+                ${p.last_contact_attempt_at ? `<div class="di-sub" style="font-size:10px;">Last Attempt: ${formatDate(p.last_contact_attempt_at)}</div>` : ''}
+                ${p.patient_response_notes ? `<div class="di-sub" style="font-style:italic; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">"${escapeHtml(p.patient_response_notes)}"</div>` : ''}
+            </td>
+            <td>
+                <button type="button" class="di-btn small di-log-outreach-btn" data-patient-idx="${idx}" style="font-size:11px;">
+                    &#9998; Log Call
+                </button>
+            </td>
+        </tr>
+    `).join("") : '<tr><td colspan="7" class="di-empty-state" style="color:#15803d;">&#10003; No patient dispensing or administration records found for this lot.</td></tr>';
+
+    container.innerHTML = `
+        <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:16px; margin-bottom:16px;">
+            <!-- Drug & Lot Header Banner -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span class="di-badge alert" style="font-size:13px; font-weight:800; padding:4px 10px;">LOT #${escapeHtml(lot_number)}</span>
+                        <h3 style="margin:0; font-size:18px; color:var(--text-primary);">${escapeHtml(drug.drug_name)}</h3>
+                    </div>
+                    <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
+                        Generic: <strong>${escapeHtml(drug.generic_name)}</strong> · Strength: <strong>${escapeHtml(drug.strength)}</strong> · Supplier: ${escapeHtml(drug.primary_supplier_name || '—')}
+                    </div>
+                    ${activeRecall ? `
+                        <div style="margin-top:6px; display:inline-block; background:#fee2e2; border:1px solid #f87171; border-radius:4px; padding:3px 8px; font-size:11.5px; color:#991b1b; font-weight:700;">
+                            &#9888; Active Recall: ${escapeHtml(activeRecall.recall_reference)} (${escapeHtml(activeRecall.recall_class)}) — ${escapeHtml(activeRecall.recall_reason)}
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Trace Top Actions -->
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    ${hasUnquarantined ? `
+                        <button type="button" class="di-btn primary" id="diQuarantineAllStockBtn" style="background:#dc2626; border-color:#dc2626; font-weight:700;">
+                            &#128274; Quarantine Remaining Stock (${unquarantined_units} units)
+                        </button>
+                    ` : `
+                        <span class="di-badge alert" style="font-size:12px; font-weight:700; padding:6px 12px;">
+                            &#128274; ALL REMAINING STOCK QUARANTINED
+                        </span>
+                    `}
+                    <button type="button" class="di-btn" id="diExportOutreachCsvBtn">
+                        &#128190; Export Outreach CSV
+                    </button>
+                    <button type="button" class="di-btn" id="diPrintOutreachSheetBtn">
+                        &#128438; Print Call Sheet
+                    </button>
+                    ${!activeRecall ? `
+                        <button type="button" class="di-btn" id="diInitFormalRecallBtn" style="border-color:#b91c1c; color:#b91c1c; font-weight:600;">
+                            &#9888; Initiate Formal Recall
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Trace Summary KPI Cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:16px;">
+                <div style="padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Remaining Hospital Stock</span>
+                    <strong style="font-size:18px; color:${hasUnquarantined ? '#b91c1c' : '#15803d'};">${total_remaining_units}</strong>
+                    <div class="di-sub" style="font-size:10.5px;">across ${hospital_stock.warehouses_count} storage location(s)</div>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Total Patients Dispensed</span>
+                    <strong style="font-size:18px; color:#1d4ed8;">${unique_patients_count}</strong>
+                    <div class="di-sub" style="font-size:10.5px;">require clinical outreach</div>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Total Doses / Units Dispensed</span>
+                    <strong style="font-size:18px;">${total_dispensed_units}</strong>
+                    <div class="di-sub" style="font-size:10.5px;">given to patients</div>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Outreach Progress</span>
+                    <strong style="font-size:18px; color:${pending_outreach_count === 0 && unique_patients_count > 0 ? '#15803d' : '#ea580c'};">
+                        ${contacted_count} / ${unique_patients_count}
+                    </strong>
+                    <div class="di-sub" style="font-size:10.5px;">${pending_outreach_count} pending calls</div>
+                </div>
+            </div>
+
+            <!-- Section 1A: Remaining Hospital Stock Breakdown -->
+            <div style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <h4 style="margin:0; font-size:14px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                        <span>&#127973;</span> Hospital On-Hand Stock by Storage Location
+                    </h4>
+                    ${hasUnquarantined ? `
+                        <span class="di-badge alert" style="font-size:11px;">⚠️ Active dispensing stock remains!</span>
+                    ` : ''}
+                </div>
+                <div class="di-table-wrap" style="max-height:180px; overflow-y:auto; background:var(--bg-surface);">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Warehouse / Storage Location</th>
+                                <th>Lot Number</th>
+                                <th>Expiry Date</th>
+                                <th>Shelf Life</th>
+                                <th class="num">On-Hand Qty</th>
+                                <th>Quarantine Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${stockRows}</tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Section 1B: Complete Patient Distribution History & Outreach -->
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                    <h4 style="margin:0; font-size:14px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                        <span>&#128101;</span> Patient Distribution History &amp; Outreach Roster (${unique_patients_count} Patients)
+                    </h4>
+                    <span class="di-sub">Instant telephone outreach directory for patient safety notification</span>
+                </div>
+                <div class="di-table-wrap" style="max-height:360px; overflow-y:auto; background:var(--bg-surface);">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Patient Name &amp; MRN</th>
+                                <th>Outreach Phone Number(s)</th>
+                                <th>Dispense Details</th>
+                                <th class="num">Qty Dispensed</th>
+                                <th>Prescriber / Staff</th>
+                                <th>Outreach Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>${patientRows}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Bind event listeners for actions
+    const quarantineAllBtn = document.getElementById("diQuarantineAllStockBtn");
+    if (quarantineAllBtn) {
+        quarantineAllBtn.addEventListener("click", () => handleQuarantineStockForTracedLot(lot_number));
+    }
+
+    const exportCsvBtn = document.getElementById("diExportOutreachCsvBtn");
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener("click", () => {
+            window.location.href = `/api/drug-inventory/recall-trace/export-csv?lot_number=${encodeURIComponent(lot_number)}`;
+        });
+    }
+
+    const printSheetBtn = document.getElementById("diPrintOutreachSheetBtn");
+    if (printSheetBtn) {
+        printSheetBtn.addEventListener("click", () => printRecallOutreachSheet(data));
+    }
+
+    const initRecallBtn = document.getElementById("diInitFormalRecallBtn");
+    if (initRecallBtn) {
+        initRecallBtn.addEventListener("click", () => {
+            openInitiateRecallModal();
+            const lotInput = document.getElementById("di_recall_lot_number");
+            if (lotInput) lotInput.value = lot_number;
+            const drugSelect = document.getElementById("di_recall_drug_id");
+            if (drugSelect && drug.drug_id) drugSelect.value = drug.drug_id;
+        });
+    }
+
+    container.querySelectorAll(".di-log-outreach-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const idx = parseInt(btn.getAttribute("data-patient-idx"), 10);
+            openOutreachModal(patients[idx], lot_number);
+        });
+    });
+}
+
+async function handleQuarantineStockForTracedLot(lotNumber) {
+    if (!confirm(`Are you sure you want to immediately lock and quarantine all remaining on-hand stock for lot '${lotNumber}' across all hospital locations? This will instantly prevent dispensing.`)) {
+        return;
+    }
+
+    try {
+        const res = await quarantineLotStockImmediate(lotNumber, "Manufacturer Recall Quarantine Lock");
+        if (res?.success) {
+            showToast(res.message, "success");
+            handleTraceLot(lotNumber);
+            loadQuarantineData();
+        } else {
+            showToast(res?.message || "Failed to quarantine lot stock.", "error");
+        }
+    } catch (e) {
+        showToast("Error quarantining lot stock: " + e.message, "error");
+    }
+}
+
+function openOutreachModal(patient, lotNumber) {
+    const summary = document.getElementById("diOutreachPatientSummary");
+    if (summary) {
+        summary.innerHTML = `
+            <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">
+                ${escapeHtml(patient.patient_name)} (MRN: ${escapeHtml(patient.patient_no)})
+            </div>
+            <div style="font-size:12.5px; color:var(--text-muted);">
+                Recalled Lot: <strong>${escapeHtml(lotNumber)}</strong> · Dispensed Qty: <strong>${patient.quantity_dispensed}</strong> on ${patient.dispensed_date || '—'}<br>
+                Address: ${escapeHtml(patient.address)}
+            </div>
+        `;
+    }
+
+    document.getElementById("di_outreach_id").value = patient.outreach_id || "";
+    document.getElementById("di_outreach_lot_number").value = lotNumber;
+    document.getElementById("di_outreach_status").value = patient.outreach_status || "contacted_informed";
+    document.getElementById("di_outreach_phone").value = patient.primary_phone !== "None Recorded" ? patient.primary_phone : "";
+    document.getElementById("di_outreach_returned_units").value = patient.units_returned || 0;
+    document.getElementById("di_outreach_replacement_issued").checked = !!patient.replacement_issued;
+    document.getElementById("di_outreach_notes").value = patient.patient_response_notes || "";
+
+    document.getElementById("diOutreachModalOverlay")?.classList.add("open");
+}
+
+function closeOutreachModal() {
+    document.getElementById("diOutreachModalOverlay")?.classList.remove("open");
+}
+
+async function handleOutreachSubmit(e) {
+    e.preventDefault();
+    const outreachId = parseInt(document.getElementById("di_outreach_id").value, 10);
+    const lotNumber = document.getElementById("di_outreach_lot_number").value;
+
+    const payload = {
+        outreach_status: document.getElementById("di_outreach_status").value,
+        contacted_phone: document.getElementById("di_outreach_phone").value.trim(),
+        units_returned: parseFloat(document.getElementById("di_outreach_returned_units").value) || 0,
+        replacement_issued: document.getElementById("di_outreach_replacement_issued").checked,
+        patient_response_notes: document.getElementById("di_outreach_notes").value.trim()
+    };
+
+    if (!outreachId) {
+        showToast("Please initiate a formal recall record first to track persistent outreach tasks across sessions.", "warning");
+        closeOutreachModal();
+        return;
+    }
+
+    try {
+        const res = await updatePatientOutreachStatus(outreachId, payload);
+        if (res?.success) {
+            showToast(res.message, "success");
+            closeOutreachModal();
+            if (lotNumber) handleTraceLot(lotNumber);
+        } else {
+            showToast(res?.message || "Failed to save outreach log.", "error");
+        }
+    } catch (err) {
+        showToast("Error updating outreach: " + err.message, "error");
+    }
+}
+
+function printRecallOutreachSheet(traceData) {
+    const { lot_number, drug, hospital_stock, patient_distribution, active_recall } = traceData;
+    const { patients } = patient_distribution;
+
+    const win = window.open("", "_blank");
+    if (!win) {
+        showToast("Popup blocked. Please allow popups to print outreach call sheet.", "warning");
+        return;
+    }
+
+    const rows = patients.map((p, idx) => `
+        <tr>
+            <td style="text-align:center;">${idx + 1}</td>
+            <td>
+                <strong>${escapeHtml(p.patient_name)}</strong><br>
+                <small>MRN: ${escapeHtml(p.patient_no)} · ${p.sex ? escapeHtml(p.sex) : ''}${p.age !== null ? `, ${p.age} y/o` : ''}</small><br>
+                <small>${escapeHtml(p.address)}</small>
+            </td>
+            <td>
+                <strong>${escapeHtml(p.primary_phone)}</strong>
+                ${p.emergency_contact ? `<br><small style="color:#b91c1c;">Emerg: ${escapeHtml(p.emergency_contact)}</small>` : ''}
+            </td>
+            <td>${p.dispensed_date || '—'}<br><small>${escapeHtml(p.dispense_source)}</small></td>
+            <td style="text-align:right;"><strong>${p.quantity_dispensed}</strong></td>
+            <td>Dr. ${escapeHtml(p.prescribing_doctor)}</td>
+            <td style="text-align:center; font-weight:700;">${escapeHtml(p.outreach_status.replace('_', ' ').toUpperCase())}</td>
+            <td style="width:160px; border-bottom:1px solid #000;">&nbsp;</td>
+        </tr>
+    `).join("");
+
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Patient Recall Outreach Call Sheet - Lot ${escapeHtml(lot_number)}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11.5px; margin: 20px; color: #111; }
+        h1 { margin: 0 0 2px; font-size: 17px; color: #b91c1c; }
+        .meta-box { border: 1px solid #ccc; background: #fafafa; padding: 10px 14px; margin-bottom: 14px; border-radius: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #bbb; padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background: #f3f4f6; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.5px; }
+        @media print {
+            body { margin: 10px; }
+            button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+        <div>
+            <h1>HOSPITAL PHARMACY - DRUG BATCH RECALL OUTREACH ROSTER</h1>
+            <div style="font-size:12px; color:#555;">Official Patient Safety Notification Directory</div>
+        </div>
+        <div style="text-align:right; font-size:11px;">
+            Printed on: <strong>${new Date().toLocaleString()}</strong><br>
+            Total Dispensed Patients: <strong>${patients.length}</strong>
+        </div>
+    </div>
+
+    <div class="meta-box">
+        <div class="grid">
+            <div>
+                <strong>Medicine:</strong> ${escapeHtml(drug.drug_name)}<br>
+                <strong>Generic / Strength:</strong> ${escapeHtml(drug.generic_name)} (${escapeHtml(drug.strength)})<br>
+                <strong>Recalled Lot Number:</strong> <span style="font-weight:700; color:#b91c1c;">${escapeHtml(lot_number)}</span>
+            </div>
+            <div>
+                <strong>Remaining Hospital Stock:</strong> ${hospital_stock.total_remaining_units} units (${hospital_stock.warehouses_count} location(s))<br>
+                <strong>Quarantine Status:</strong> ${hospital_stock.unquarantined_units > 0 ? '<span style="color:#b91c1c;">⚠️ UNQUARANTINED UNITS REMAIN</span>' : '<span style="color:#15803d;">✔ ALL ON-HAND UNITS LOCKED</span>'}<br>
+                ${activeRecall ? `<strong>Recall Advisory:</strong> ${escapeHtml(activeRecall.recall_reference)} (${escapeHtml(activeRecall.recall_class)})` : ''}
+            </div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:30px;">#</th>
+                <th>Patient Details &amp; Address</th>
+                <th>Contact Phone Numbers</th>
+                <th>Dispensed Date</th>
+                <th style="text-align:right;">Qty</th>
+                <th>Prescribing Doctor</th>
+                <th>Current Status</th>
+                <th>Call Signature &amp; Notes</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>
+    <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>`);
+    win.document.close();
+}
 }
 
 /* ---------------------------------------------------------------

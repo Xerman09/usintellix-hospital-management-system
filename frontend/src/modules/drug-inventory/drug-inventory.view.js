@@ -859,7 +859,39 @@ export function DrugInventoryView() {
     </div>
 
         <div class="di-panel" id="diRecallsPanel">
-        <!-- Near-Expiry Automated Quarantine Lock (<60 Days) Section -->
+        <!-- Section 1: Lot Recall Trace Engine (pharmacy_lot_recalls) -->
+        <div class="di-section" style="background:var(--bg-surface); padding:16px; margin-bottom:20px; border-left:4px solid #b91c1c;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:12px;">
+                <div>
+                    <h2 style="margin:0 0 4px; font-size:16px; color:#b91c1c; display:flex; align-items:center; gap:6px;">
+                        <span>&#128269;</span> Lot Recall Trace Engine
+                    </h2>
+                    <p style="margin:0; font-size:12.5px; color:var(--text-muted);">
+                        Instant manufacturer &amp; regulatory lot recall tracer. Enter a lot number to immediately retrieve remaining hospital stock by warehouse and the complete patient distribution history with direct phone numbers for patient outreach.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Trace Search Bar -->
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; background:var(--bg-surface-alt); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="flex:1; min-width:280px; position:relative;">
+                    <label style="display:block; font-size:11.5px; font-weight:600; text-transform:uppercase; margin-bottom:4px; color:var(--text-muted);">Manufacturer Lot / Batch Number</label>
+                    <input type="text" id="diTraceLotInput" list="diTraceLotsDatalist" placeholder="e.g. 221445, AMX-2026-A1, or search medicine..." style="width:100%; font-size:14px; font-weight:600; padding:8px 12px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-surface); color:var(--text-primary);">
+                    <datalist id="diTraceLotsDatalist"></datalist>
+                </div>
+                <div style="display:flex; gap:8px; align-items:flex-end;">
+                    <button type="button" class="di-btn primary" id="diTraceLotBtn" style="background:#b91c1c; border-color:#b91c1c; font-weight:600; padding:8px 16px;">
+                        &#128269; Trace Lot Stock &amp; Patients
+                    </button>
+                    <button type="button" class="di-btn" id="diClearTraceBtn">Clear</button>
+                </div>
+            </div>
+
+            <!-- Trace Results Container -->
+            <div id="diTraceResultsContainer" style="display:none;"></div>
+        </div>
+
+        <!-- Section 2: Near-Expiry Automated Quarantine Lock (<60 Days) -->
         <div class="di-section" style="background:var(--bg-surface); padding:16px; margin-bottom:20px;">
             <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:12px;">
                 <div>
@@ -1514,6 +1546,53 @@ export function DrugInventoryView() {
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<!-- Patient Outreach Log Modal -->
+<div class="modal-overlay" id="diOutreachModalOverlay">
+    <div class="modal-box" style="max-width: 520px;">
+        <div class="modal-header">
+            <h2>Document Patient Recall Outreach</h2>
+            <button type="button" class="modal-close" id="diCloseOutreachModal">&times;</button>
+        </div>
+        <div id="diOutreachPatientSummary" class="di-modal-readonly" style="margin-bottom:12px;"></div>
+        <form id="diOutreachForm">
+            <input type="hidden" id="di_outreach_id">
+            <input type="hidden" id="di_outreach_lot_number">
+            <div class="di-field" style="margin-bottom:10px;">
+                <label>Contact Outreach Status <span class="di-req">*</span></label>
+                <select id="di_outreach_status" required>
+                    <option value="contacted_informed">Contacted &amp; Informed (Patient notified)</option>
+                    <option value="voicemail_left">Voicemail / Message Left</option>
+                    <option value="product_returned">Product Returned by Patient</option>
+                    <option value="replacement_dispensed">Replacement Dose Dispensed</option>
+                    <option value="adverse_event">Adverse Event / Reaction Reported</option>
+                    <option value="unreachable">Unreachable (Invalid / No Answer)</option>
+                </select>
+            </div>
+            <div class="di-field" style="margin-bottom:10px;">
+                <label>Phone Number Called / Verified</label>
+                <input type="text" id="di_outreach_phone" placeholder="e.g. +63 917 123 4567">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div class="di-field">
+                    <label>Units Returned</label>
+                    <input type="number" step="0.001" min="0" id="di_outreach_returned_units" value="0">
+                </div>
+                <div class="di-field" style="display:flex; align-items:center; gap:8px; margin-top:24px;">
+                    <label class="di-checkbox-label"><input type="checkbox" id="di_outreach_replacement_issued"> Replacement issued</label>
+                </div>
+            </div>
+            <div class="di-field" style="margin-bottom:14px;">
+                <label>Clinical Notes / Patient Feedback</label>
+                <textarea id="di_outreach_notes" rows="3" placeholder="e.g. Patient instructed to stop taking immediately. Patient reports feeling well; returning 14 remaining tablets to pharmacy on Monday." style="width:100%; border:1px solid var(--border-color); border-radius:6px; padding:8px; background:var(--bg-surface); color:var(--text-primary);"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelOutreach">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#b91c1c; border-color:#b91c1c;">Save Outreach Log</button>
+            </div>
+        </form>
     </div>
 </div>
 

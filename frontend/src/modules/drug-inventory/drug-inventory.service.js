@@ -128,3 +128,43 @@ export async function releaseQuarantine(lotId, reason) {
 export async function fetchQuarantineLogs() {
     return api("/drug-inventory/quarantine/logs");
 }
+
+export async function searchLotsForRecall(query = "", limit = 20) {
+    return api(`/drug-inventory/recall-trace/search-lots?q=${encodeURIComponent(query)}&limit=${limit}`);
+}
+
+export async function traceLotRecall(lotNumber, drugId = null) {
+    let url = `/drug-inventory/recall-trace/trace?lot_number=${encodeURIComponent(lotNumber)}`;
+    if (drugId) url += `&drug_id=${encodeURIComponent(drugId)}`;
+    return api(url);
+}
+
+export async function quarantineLotStockImmediate(lotNumber, reason = "") {
+    return api("/drug-inventory/recall-trace/quarantine", {
+        method: "POST",
+        body: JSON.stringify({ lot_number: lotNumber, reason })
+    });
+}
+
+export async function createLotRecallRecord(data) {
+    return api("/drug-inventory/recall-trace/create-recall", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}
+
+export async function updatePatientOutreachStatus(outreachId, data) {
+    return api("/drug-inventory/recall-trace/outreach-status", {
+        method: "POST",
+        body: JSON.stringify({ outreach_id: outreachId, ...data })
+    });
+}
+
+export async function fetchLotRecallsList(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/recall-trace/list${q ? `?${q}` : ""}`);
+}
