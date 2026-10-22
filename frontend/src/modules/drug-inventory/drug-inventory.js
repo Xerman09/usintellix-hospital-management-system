@@ -1,7 +1,8 @@
 import {
     fetchDrugInventory, fetchDrugInventoryOptions, fetchDrugCatalog, fetchDrug,
     createDrug, updateDrug, deleteDrug, receiveStock, importDrugs, transferDrugLot, destroyDrugLot,
-    fetchRecalls, fetchRecallDetail, createRecall, updateRecallStatus
+    fetchRecalls, fetchRecallDetail, createRecall, updateRecallStatus,
+    fetchQuarantineData, runQuarantineScan, releaseQuarantine, fetchQuarantineLogs
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js?v=3";
@@ -142,7 +143,7 @@ function showView(view) {
     const recallsPanel = document.getElementById("diRecallsPanel");
     if (recallsPanel) {
         recallsPanel.classList.toggle("active", view === "recalls");
-        if (view === "recalls") loadRecalls();
+        if (view === "recalls") { loadQuarantineData(); loadRecalls(); }
     }
 }
 
@@ -1447,6 +1448,26 @@ function escapeHtml(value) {
 let allRecalls = [];
 
 function setupRecalls() {
+    const scanBtn = document.getElementById("diRunQuarantineScanBtn");
+    if (scanBtn) scanBtn.addEventListener("click", handleRunQuarantineScan);
+
+    const logsBtn = document.getElementById("diQuarantineLogsBtn");
+    if (logsBtn) logsBtn.addEventListener("click", openQuarantineLogsModal);
+
+    const closeLogsBtn = document.getElementById("diCloseQuarantineLogsModal");
+    if (closeLogsBtn) closeLogsBtn.addEventListener("click", () => {
+        document.getElementById("diQuarantineLogsModalOverlay")?.classList.remove("open");
+    });
+
+    const closeReleaseBtn = document.getElementById("diCloseReleaseQuarantineModal");
+    if (closeReleaseBtn) closeReleaseBtn.addEventListener("click", closeReleaseQuarantineModal);
+
+    const cancelReleaseBtn = document.getElementById("diCancelReleaseQuarantine");
+    if (cancelReleaseBtn) cancelReleaseBtn.addEventListener("click", closeReleaseQuarantineModal);
+
+    const releaseForm = document.getElementById("diReleaseQuarantineForm");
+    if (releaseForm) releaseForm.addEventListener("submit", handleReleaseQuarantineSubmit);
+
     const initBtn = document.getElementById("diInitiateRecallBtn");
     if (initBtn) initBtn.addEventListener("click", openInitiateRecallModal);
 
@@ -1822,4 +1843,179 @@ function printPatientTraceList(recall, patients) {
 </body>
 </html>`);
     win.document.close();
+}
+
+/* ---------------------------------------------------------------
+ * Near-Expiry Automated Quarantine Lock (<60 Days) Logic
+ * ------------------------------------------------------------- */
+
+let currentQuarantineData = null;
+
+async function loadQuarantineData() {
+    const tbody = document.getElementById("diQuarantineLotsBody");
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="8" class="di-empty-state">Scanning for near-expiry quarantined lots...</td></tr>';
+
+    const res = await fetchQuarantineData();
+    if (!res?.success) {
+        tbody.innerHTML = `<tr><td colspan="8" class="di-empty-state">${escapeHtml(res?.message || "Failed to load quarantine data.")}</td></tr>`;
+        return;
+    }
+
+    currentQuarantineData = res.data;
+    const { stats, lots } = res.data;
+
+    const elLocked = document.getElementById("diStatLockedLots");
+    if (elLocked) elLocked.textContent = stats.total_quarantined_lots;
+    const elExpired = document.getElementById("diStatExpired");
+    if (elExpired) elExpired.textContent = stats.expired_count;
+    const elCritical = document.getElementById("diStatCritical");
+    if (elCritical) elCritical.textContent = stats.under_30_days_count;
+    const elWarning = document.getElementById("diStatWarning");
+    if (elWarning) elWarning.textContent = stats.under_60_days_count;
+    const elQty = document.getElementById("diStatQuarantinedQty");
+    if (elQty) elQty.textContent = stats.total_quantity_quarantined;
+
+    if (!lots || !lots.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="di-empty-state" style="color:#15803d;">&#10003; No lots are currently locked under near-expiry quarantine. All active stock expires in &gt; 60 days.</td></tr>';
+        return;
+    }
+
+    const urgencyBadge = (lot) => {
+        if (lot.days_until_expiry < 0) {
+            return '<span class="di-badge alert" style="font-weight:700;">EXPIRED (' + Math.abs(lot.days_until_expiry) + 'd ago)</span>';
+        }
+        if (lot.days_until_expiry <= 30) {
+            return '<span class="di-badge alert" style="background:#ffedd5;color:#c2410c;font-weight:700;">CRITICAL (' + lot.days_until_expiry + 'd left)</span>';
+        }
+        return '<span class="di-badge low" style="font-weight:600;">&lt;60d WARNING (' + lot.days_until_expiry + 'd left)</span>';
+    };
+
+    tbody.innerHTML = lots.map((l) => `
+        <tr>
+            <td>
+                <strong>${escapeHtml(l.drug_name)}</strong>
+                <span class="di-sub">${escapeHtml([l.generic_name, l.strength].filter(Boolean).join(" · "))}</span>
+            </td>
+            <td><strong>${escapeHtml(l.warehouse_name)}</strong></td>
+            <td><code>${escapeHtml(l.lot_number)}</code></td>
+            <td><strong>${formatDate(l.expires_date)}</strong></td>
+            <td>${urgencyBadge(l)}</td>
+            <td class="num"><strong style="color:#b91c1c;">${l.quantity_on_hand}</strong> ${escapeHtml(l.unit_name)}</td>
+            <td>
+                <span class="di-badge alert" style="font-size:10.5px;">QUARANTINED LOCK</span>
+                <span class="di-sub">${escapeHtml(l.quarantine_reason)}</span>
+            </td>
+            <td>
+                <button type="button" class="di-btn small" data-release-lot-id="${l.id}">Release Override</button>
+            </td>
+        </tr>
+    `).join("");
+
+    tbody.querySelectorAll("[data-release-lot-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const lotId = Number(btn.dataset.releaseLotId);
+            const lot = (currentQuarantineData?.lots || []).find((x) => x.id === lotId);
+            if (lot) openReleaseQuarantineModal(lot);
+        });
+    });
+}
+
+async function handleRunQuarantineScan() {
+    const btn = document.getElementById("diRunQuarantineScanBtn");
+    if (btn) btn.disabled = true;
+
+    showToast("Running near-expiry automated quarantine scan (<60 days)...", "info");
+    const res = await runQuarantineScan(60);
+    if (btn) btn.disabled = false;
+
+    if (!res?.success) {
+        showToast(res?.message || "Quarantine scan failed.", "error");
+        return;
+    }
+
+    showToast(res.message, res.data?.lots_quarantined_count > 0 ? "warning" : "success");
+    await Promise.all([loadQuarantineData(), loadInventory(), loadCatalog()]);
+}
+
+function openReleaseQuarantineModal(lot) {
+    const overlay = document.getElementById("diReleaseQuarantineModalOverlay");
+    const summary = document.getElementById("diReleaseLotSummary");
+    const idInput = document.getElementById("di_release_lot_id");
+    const reasonInput = document.getElementById("di_release_reason");
+    if (!overlay || !summary || !idInput) return;
+
+    idInput.value = lot.id;
+    if (reasonInput) reasonInput.value = "";
+
+    summary.innerHTML = `
+        <div><strong>Medicine:</strong> ${escapeHtml(lot.drug_name)} (${escapeHtml(lot.strength || '')})</div>
+        <div><strong>Lot Number:</strong> <code>${escapeHtml(lot.lot_number)}</code> · <strong>Location:</strong> ${escapeHtml(lot.warehouse_name)}</div>
+        <div><strong>Expiry Date:</strong> ${formatDate(lot.expires_date)} (${lot.days_until_expiry} day(s) remaining)</div>
+        <div><strong>Quantity Locked:</strong> ${lot.quantity_on_hand} ${escapeHtml(lot.unit_name)}</div>
+    `;
+
+    overlay.classList.add("open");
+}
+
+function closeReleaseQuarantineModal() {
+    document.getElementById("diReleaseQuarantineModalOverlay")?.classList.remove("open");
+}
+
+async function handleReleaseQuarantineSubmit(e) {
+    e.preventDefault();
+    const lotId = Number(document.getElementById("di_release_lot_id")?.value);
+    const reason = (document.getElementById("di_release_reason")?.value || "").trim();
+    if (!lotId || !reason) {
+        showToast("Please provide a documented clinical justification.", "error");
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const res = await releaseQuarantine(lotId, reason);
+    if (submitBtn) submitBtn.disabled = false;
+
+    if (!res?.success) {
+        showToast(res?.message || "Failed to release quarantine.", "error");
+        return;
+    }
+
+    showToast(res.message, "success");
+    closeReleaseQuarantineModal();
+    await Promise.all([loadQuarantineData(), loadInventory(), loadCatalog()]);
+}
+
+async function openQuarantineLogsModal() {
+    const overlay = document.getElementById("diQuarantineLogsModalOverlay");
+    const tbody = document.getElementById("diQuarantineLogsBody");
+    if (!overlay || !tbody) return;
+
+    overlay.classList.add("open");
+    tbody.innerHTML = '<tr><td colspan="7" class="di-empty-state">Loading cron logs...</td></tr>';
+
+    const res = await fetchQuarantineLogs();
+    if (!res?.success) {
+        tbody.innerHTML = `<tr><td colspan="7" class="di-empty-state">${escapeHtml(res?.message || "Failed to load logs.")}</td></tr>`;
+        return;
+    }
+
+    const logs = res.data || [];
+    if (!logs.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="di-empty-state">No execution logs recorded yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = logs.map((l) => `
+        <tr>
+            <td><strong>${formatDate(l.executed_at)}</strong><span class="di-sub">${String(l.executed_at).slice(11, 19)}</span></td>
+            <td><code style="font-weight:600;">${escapeHtml(l.execution_type)}</code></td>
+            <td>&lt; ${l.threshold_days} days</td>
+            <td class="num"><strong style="color:${l.lots_quarantined_count > 0 ? '#b91c1c' : 'inherit'};">${l.lots_quarantined_count}</strong></td>
+            <td class="num"><strong>${l.total_quantity_quarantined}</strong></td>
+            <td>${escapeHtml(l.executed_by_name)}</td>
+            <td><span class="di-sub" style="font-size:12px;">${escapeHtml(l.summary_notes || '—')}</span></td>
+        </tr>
+    `).join("");
 }

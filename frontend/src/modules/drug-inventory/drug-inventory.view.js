@@ -831,7 +831,7 @@ export function DrugInventoryView() {
     <div class="di-view-tabs" role="tablist">
         <button type="button" class="di-view-tab active" data-di-view="catalog" role="tab">Drug Catalog</button>
         <button type="button" class="di-view-tab" data-di-view="stock" role="tab">Stock on Hand</button>
-        <button type="button" class="di-view-tab" data-di-view="recalls" role="tab">&#9888; Batch Recalls &amp; Quarantine</button>
+        <button type="button" class="di-view-tab" data-di-view="recalls" role="tab">&#9888; Recalls &amp; Quarantine Locks</button>
     </div>
 
     <div class="di-panel active" id="diCatalogPanel">
@@ -859,6 +859,79 @@ export function DrugInventoryView() {
     </div>
 
         <div class="di-panel" id="diRecallsPanel">
+        <!-- Near-Expiry Automated Quarantine Lock (<60 Days) Section -->
+        <div class="di-section" style="background:var(--bg-surface); padding:16px; margin-bottom:20px;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:12px;">
+                <div>
+                    <h2 style="margin:0 0 4px; font-size:16px; color:#b91c1c; display:flex; align-items:center; gap:6px;">
+                        <span>&#128274;</span> Near-Expiry Automated Quarantine Lock (&lt;60 Days)
+                    </h2>
+                    <p style="margin:0; font-size:12.5px; color:var(--text-muted);">
+                        Nightly cron job (<code>cron_near_expiry_quarantine.php</code>) automatically scans all lots and flags anything expiring within <b>&lt;60 days</b> as Quarantined. Quarantined lots are strictly blocked from being selected or dispensed during dispensing.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="di-btn" id="diQuarantineLogsBtn">Cron Run History</button>
+                    <button type="button" class="di-btn primary" id="diRunQuarantineScanBtn" style="background:#b91c1c; border-color:#b91c1c;">
+                        &#9654; Run Quarantine Scan Now (&lt;60d)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quarantine Summary Stats Cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:14px;" id="diQuarantineStats">
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Locked Lots (&lt;60d)</span>
+                    <strong style="font-size:18px; color:#b91c1c;" id="diStatLockedLots">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Expired (&le;0d)</span>
+                    <strong style="font-size:18px; color:#991b1b;" id="diStatExpired">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Critical (&le;30d)</span>
+                    <strong style="font-size:18px; color:#ea580c;" id="diStatCritical">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Warning (31-60d)</span>
+                    <strong style="font-size:18px; color:#ca8a04;" id="diStatWarning">0</strong>
+                </div>
+                <div style="padding:10px 14px; background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px;">
+                    <span class="di-sub" style="margin:0;">Quarantined Units</span>
+                    <strong style="font-size:18px;" id="diStatQuarantinedQty">0</strong>
+                </div>
+            </div>
+
+            <!-- Quarantined Lots Table -->
+            <div class="di-table-wrap" style="max-height:300px; overflow-y:auto;">
+                <table class="di-table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Storage Location</th>
+                            <th>Lot Number</th>
+                            <th>Expiry Date</th>
+                            <th>Remaining</th>
+                            <th class="num">Locked Qty</th>
+                            <th>Lock Status &amp; Reason</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diQuarantineLotsBody">
+                        <tr><td colspan="8" class="di-empty-state">Loading near-expiry quarantine status...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 2: Batch Recalls -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+            <h2 style="margin:0; font-size:15px; color:var(--text-primary);">
+                Regulatory &amp; Manufacturer Batch Recalls
+            </h2>
+            <div class="di-footer-info" id="diRecallsCount"></div>
+        </div>
+
         <div class="di-list-bar">
             <div class="di-filters">
                 <input type="text" id="diRecallsSearch" placeholder="Search recall #, medicine, lot #, reason...">
@@ -870,7 +943,6 @@ export function DrugInventoryView() {
                 </select>
                 <button type="button" class="di-btn" id="diRecallsRefreshBtn">Refresh</button>
             </div>
-            <div class="di-footer-info" id="diRecallsCount"></div>
         </div>
 
         <div class="di-table-wrap">
@@ -1386,6 +1458,62 @@ export function DrugInventoryView() {
             <button type="button" class="modal-close" id="diCloseRecallDetailModal">&times;</button>
         </div>
         <div id="diRecallDetailBody">Loading details...</div>
+    </div>
+</div>
+
+<!-- Release Quarantine Override Modal -->
+<div class="modal-overlay" id="diReleaseQuarantineModalOverlay">
+    <div class="modal-box" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2>Authorized Quarantine Release / Override</h2>
+            <button type="button" class="modal-close" id="diCloseReleaseQuarantineModal">&times;</button>
+        </div>
+        <div id="diReleaseLotSummary" class="di-modal-readonly" style="margin-bottom:12px;"></div>
+        <p style="margin:0 0 10px; font-size:12.5px; color:#b91c1c;">
+            &#9888; Releasing a near-expiry or quarantined lot permits it to be dispensed. Hospital policy requires documenting an authorized clinical or administrative justification.
+        </p>
+        <form id="diReleaseQuarantineForm">
+            <input type="hidden" id="di_release_lot_id">
+            <div class="di-field">
+                <label>Documented Clinical Justification <span class="di-req">*</span></label>
+                <input type="text" id="di_release_reason" placeholder="e.g. Life-saving antidote with no alternative lot; relabeled with stability extension" required>
+            </div>
+            <div class="form-actions" style="margin-top:14px;">
+                <button type="button" class="btn-secondary" id="diCancelReleaseQuarantine">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#15803d; border-color:#15803d;">Authorize &amp; Release to Stock</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Quarantine Cron Execution Logs Modal -->
+<div class="modal-overlay" id="diQuarantineLogsModalOverlay">
+    <div class="modal-box di-modal-wide" style="max-width: 860px;">
+        <div class="modal-header">
+            <h2>Nightly Quarantine Cron Job Execution Logs</h2>
+            <button type="button" class="modal-close" id="diCloseQuarantineLogsModal">&times;</button>
+        </div>
+        <div style="margin-bottom:12px; font-size:12.5px; color:var(--text-muted);">
+            Automated execution history of <code>cron_near_expiry_quarantine.php</code> and manual quarantine scans.
+        </div>
+        <div class="di-table-wrap" style="max-height:360px; overflow-y:auto;">
+            <table class="di-table">
+                <thead>
+                    <tr>
+                        <th>Execution Time</th>
+                        <th>Trigger Type</th>
+                        <th>Threshold</th>
+                        <th class="num">Lots Locked</th>
+                        <th class="num">Quantity Locked</th>
+                        <th>Executed By</th>
+                        <th>Summary</th>
+                    </tr>
+                </thead>
+                <tbody id="diQuarantineLogsBody">
+                    <tr><td colspan="7" class="di-empty-state">Loading execution logs...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

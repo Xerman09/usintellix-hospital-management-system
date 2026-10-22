@@ -101,3 +101,30 @@ export async function updateRecallStatus(id, status, notes = null) {
         body: JSON.stringify({ id, status, notes })
     });
 }
+
+export async function fetchQuarantineData(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/quarantine${q ? `?${q}` : ""}`);
+}
+
+export async function runQuarantineScan(thresholdDays = 60) {
+    return api("/drug-inventory/quarantine/scan", {
+        method: "POST",
+        body: JSON.stringify({ threshold_days: thresholdDays })
+    });
+}
+
+export async function releaseQuarantine(lotId, reason) {
+    return api("/drug-inventory/quarantine/release", {
+        method: "POST",
+        body: JSON.stringify({ lot_id: lotId, reason })
+    });
+}
+
+export async function fetchQuarantineLogs() {
+    return api("/drug-inventory/quarantine/logs");
+}

@@ -84,6 +84,24 @@ $router->post('/drug-inventory/recalls/status', [PharmacyBatchRecallController::
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
 ]);
 
+// Near-Expiry Automated Quarantine Lock (<60 days)
+$router->get('/drug-inventory/quarantine', [NearExpiryQuarantineController::class, 'index'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/quarantine/scan', [NearExpiryQuarantineController::class, 'scan'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->post('/drug-inventory/quarantine/release', [NearExpiryQuarantineController::class, 'release'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+$router->get('/drug-inventory/quarantine/logs', [NearExpiryQuarantineController::class, 'logs'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
 $router->get('/warehouses', [WarehouseController::class, 'index'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]

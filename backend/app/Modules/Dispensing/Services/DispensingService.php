@@ -3,6 +3,7 @@
 namespace App\Modules\Dispensing\Services;
 
 use App\Core\Database;
+use App\Modules\DrugInventory\Services\NearExpiryQuarantineService;
 use App\Modules\DrugInventory\Services\PharmacyBatchRecallService;
 use App\Modules\DrugInventory\Services\StockLedgerService;
 use App\Modules\PatientPrescriptions\Services\DuplicateTherapyScreenService;
@@ -243,8 +244,8 @@ class DispensingService
                 "SELECT l.id, l.drug_id, l.warehouse_id, l.lot_number, l.expires_date, l.quantity_on_hand, w.name AS warehouse_name
                  FROM drug_inventory_lots l
                  JOIN warehouses w ON w.id = l.warehouse_id AND w.deleted_at IS NULL AND w.is_active = 1
-                 WHERE l.deleted_at IS NULL AND l.is_active = 1 AND l.quantity_on_hand > 0
-                   AND (l.expires_date IS NULL OR l.expires_date >= :today)
+                 WHERE l.deleted_at IS NULL AND l.is_active = 1 AND l.is_quarantined = 0 AND l.quantity_on_hand > 0
+                   AND (l.expires_date IS NULL OR l.expires_date > DATE_ADD(:today, INTERVAL 60 DAY))
                    AND l.drug_id IN (" . implode(',', array_map('intval', $drugIds)) . ")
                  ORDER BY l.expires_date IS NULL, l.expires_date, l.id"
             );
@@ -501,18 +502,26 @@ class DispensingService
                 // Lots: the one chosen, else earliest expiry first. Locked until the end.
                 $lotId = (int) ($req['lot_id'] ?? 0) ?: null;
                 $stmt = $db->prepare(
-                    "SELECT id, lot_number, expires_date, quantity_on_hand FROM drug_inventory_lots
-                     WHERE drug_id = :drug AND warehouse_id = :wh AND deleted_at IS NULL AND is_active = 1 AND quantity_on_hand > 0
-                       AND (expires_date IS NULL OR expires_date >= :today)" . ($lotId ? " AND id = :lot" : "") . "
+                    "SELECT id, lot_number, expires_date, quantity_on_hand, is_quarantined, is_active, quarantine_reason FROM drug_inventory_lots
+                     WHERE drug_id = :drug AND warehouse_id = :wh AND deleted_at IS NULL AND quantity_on_hand > 0"
+                        . ($lotId ? " AND id = :lot" : " AND is_active = 1 AND is_quarantined = 0 AND (expires_date IS NULL OR expires_date > DATE_ADD(:today, INTERVAL 60 DAY))") . "
                      ORDER BY expires_date IS NULL, expires_date, id
                      FOR UPDATE"
                 );
                 $stmt->execute(['drug' => $line['drug_id'], 'wh' => $warehouseId, 'today' => $today] + ($lotId ? ['lot' => $lotId] : []));
                 $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                // Filter out any lot that is under active recall
+                // Filter out any lot that is under active recall or near-expiry quarantine lock (<60 days)
                 $validLots = [];
                 foreach ($lots as $candidateLot) {
+                    $quarantineBlock = NearExpiryQuarantineService::isLotBlocked($candidateLot, 60);
+                    if ($quarantineBlock) {
+                        if ($lotId) {
+                            $errors[$key] = "Lot {$candidateLot['lot_number']} cannot be dispensed: {$quarantineBlock}";
+                        }
+                        continue;
+                    }
+
                     $recalled = PharmacyBatchRecallService::isLotRecalled((int) $line['drug_id'], (string) $candidateLot['lot_number']);
                     if ($recalled) {
                         if ($lotId) {

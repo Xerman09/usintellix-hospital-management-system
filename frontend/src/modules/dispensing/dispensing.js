@@ -289,7 +289,7 @@ function renderDetail() {
                 ${d.can_close ? `<button type="button" class="dp-btn" id="dpClose">Close prescription…</button>` : ""}
                 <button type="button" class="dp-btn primary" id="dpDispense">Dispense</button>
             </div>
-            <p class="dp-note">Expired lots are never used. "Earliest expiry first" may take from several lots. Prices are the Drug Catalog selling price; the charge goes to the patient's ledger. Senior Citizen / PWD VAT exemption isn't worked out automatically.</p>`
+            <p class="dp-note">&#128274; <b>Near-Expiry Automated Quarantine Lock:</b> Lots expiring in &lt;60 days or past expiry are automatically quarantined and locked from dispensing. "Earliest expiry first" only selects safe lots with &gt;60 days shelf life. Prices are the Drug Catalog selling price.</p>`
             : d.can_close ? `<div class="dp-actions" style="margin-top:14px;justify-content:flex-end;"><button type="button" class="dp-btn" id="dpClose">Close prescription…</button></div>` : ""}
         </div>
         <div class="dp-card">
