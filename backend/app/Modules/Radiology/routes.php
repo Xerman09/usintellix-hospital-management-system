@@ -3,6 +3,7 @@
 use App\Modules\Radiology\Controllers\RadiologyController;
 use App\Modules\Radiology\Controllers\RisImagingOrderController;
 use App\Modules\Radiology\Controllers\RisPacsController;
+use App\Modules\Radiology\Controllers\RisRadiologyReportController;
 use App\Modules\Radiology\Services\RadiologyService;
 use App\Modules\Radiology\Services\RadChargeService;
 use App\Modules\Radiology\Services\RadReportService;
@@ -75,3 +76,10 @@ $router->post('/radiology/ris/schedule-room', [RisImagingOrderController::class,
 // ---------------------------------------------------------------
 $router->get('/radiology/pacs/studies', [RisPacsController::class, 'search'], $radView);
 $router->get('/radiology/pacs/study', [RisPacsController::class, 'study'], $radView);
+
+// ---------------------------------------------------------------
+// Structured Radiologist Reporting & Electronic Signatures
+// ---------------------------------------------------------------
+$router->get('/radiology/ris/report/form', [RisRadiologyReportController::class, 'form'], $radReport);
+$router->post('/radiology/ris/report/save', [RisRadiologyReportController::class, 'save'], $radReport);
+$router->post('/radiology/ris/report/read-back', [RisRadiologyReportController::class, 'readBack'], $radView);
