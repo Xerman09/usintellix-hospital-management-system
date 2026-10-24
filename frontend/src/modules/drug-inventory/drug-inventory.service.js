@@ -207,3 +207,66 @@ export async function inspectCompoundingRecord(compoundingId, data) {
 export async function fetchCompoundingLabel(id) {
     return api(`/drug-inventory/compounding/label?id=${encodeURIComponent(id)}`);
 }
+
+/* ---------------------------------------------------------------
+ * Central Pharmacy Narcotics Safe Perpetual Ledger & Dual-Custody
+ * ------------------------------------------------------------- */
+
+export async function fetchNarcoticsVaultStats() {
+    return api("/drug-inventory/narcotics-vault/stats");
+}
+
+export async function fetchNarcoticsVaultItems(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/narcotics-vault/items${q ? `?${q}` : ""}`);
+}
+
+export async function fetchNarcoticsVaultMovements(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/narcotics-vault/movements${q ? `?${q}` : ""}`);
+}
+
+export async function recordNarcoticsVaultMovement(data) {
+    return api("/drug-inventory/narcotics-vault/movements", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}
+
+export async function verifyWitnessCredentials(usernameOrId, pinOrPassword) {
+    return api("/drug-inventory/narcotics-vault/verify-witness", {
+        method: "POST",
+        body: JSON.stringify({ username_or_id: usernameOrId, pin: pinOrPassword })
+    });
+}
+
+export async function setSecurityPin(pin, currentPassword) {
+    return api("/drug-inventory/narcotics-vault/set-pin", {
+        method: "POST",
+        body: JSON.stringify({ pin, current_password: currentPassword })
+    });
+}
+
+export async function fetchShiftAudits(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined) params.set(k, v);
+    });
+    const q = params.toString();
+    return api(`/drug-inventory/narcotics-vault/shift-audits${q ? `?${q}` : ""}`);
+}
+
+export async function recordShiftAudit(data) {
+    return api("/drug-inventory/narcotics-vault/shift-audits", {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+}

@@ -823,6 +823,8 @@ export function DrugInventoryView() {
             </button>
             <button type="button" class="di-btn" id="diImportBtn">Import CSV</button>
             <button type="button" class="di-btn" id="diReceiveBtn">Receive Stock</button>
+            <button type="button" class="di-btn" id="diLogNarcoticBtn" style="border-color:#fbbf24;color:#b45309;">&#128272; Log Safe Movement</button>
+            <button type="button" class="di-btn" id="diAuditNarcoticBtn" style="border-color:#94a3b8;color:#334155;">&#128203; Shift Safe Count</button>
             <button type="button" class="di-btn" id="diNewCompoundBtn" style="border-color:#93c5fd;color:#1d4ed8;">&#129514; Compound Formulation</button>
             <button type="button" class="di-btn" id="diInitiateRecallBtn" style="border-color:#fca5a5;color:#b91c1c;">&#9888; Initiate Batch Recall</button>
             <button type="button" class="di-btn primary" id="diAddDrugBtn">+ Register Drug</button>
@@ -834,6 +836,7 @@ export function DrugInventoryView() {
         <button type="button" class="di-view-tab" data-di-view="stock" role="tab">Stock on Hand</button>
         <button type="button" class="di-view-tab" data-di-view="recalls" role="tab">&#9888; Recalls &amp; Quarantine Locks</button>
         <button type="button" class="di-view-tab" data-di-view="compounding" role="tab">&#129514; Compounding Workbook</button>
+        <button type="button" class="di-view-tab" data-di-view="narcotics" role="tab">&#128272; Narcotics Safe Vault</button>
     </div>
 
     <div class="di-panel active" id="diCatalogPanel">
@@ -1080,6 +1083,168 @@ export function DrugInventoryView() {
                         <tr><td colspan="8" class="di-empty-state">Loading compounding records...</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Central Pharmacy Narcotics Safe Perpetual Ledger Panel -->
+    <div class="di-panel" id="diNarcoticsVaultPanel">
+        <div class="di-section" style="background:var(--bg-surface); padding:16px; margin-bottom:16px; border-left:4px solid #f59e0b;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:12px;">
+                <div>
+                    <h2 style="margin:0 0 4px; font-size:16px; color:#b45309; display:flex; align-items:center; gap:6px;">
+                        <span>&#128272;</span> Central Pharmacy Narcotics Safe Perpetual Ledger
+                    </h2>
+                    <p style="margin:0; font-size:12.5px; color:var(--text-muted);">
+                        Strict dual-custody perpetual inventory safe log for DEA Schedule II&ndash;V &amp; RA 9165 Dangerous Drugs. Every safe intake, ward transfer, return, and waste destruction requires two authenticated witnesses (via Security PIN / Password) and daily end-of-shift safe count reconciliations.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="di-btn" id="diNarcoticsRefreshBtn">Refresh Vault</button>
+                    <button type="button" class="di-btn" id="diOpenPinSetupBtn" style="border-color:#cbd5e1;">&#128273; Configure My PIN</button>
+                    <button type="button" class="di-btn" id="diOpenShiftAuditBtn" style="border-color:#94a3b8; color:#1e293b; font-weight:600;">&#128203; Shift Safe Count</button>
+                    <button type="button" class="di-btn primary" id="diOpenMovementModalBtn" style="background:#b45309; border-color:#b45309; font-weight:600;">
+                        &#128272; + Log Safe Movement
+                    </button>
+                </div>
+            </div>
+
+            <!-- Narcotics Safe KPI Metrics -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Total Safe Stock</div>
+                    <div style="font-size:22px; font-weight:700; color:#1e293b;" id="diKpiVaultTotalUnits">--</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Ampoules / Tablets in Safe</div>
+                </div>
+                <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Schedule II Opioids</div>
+                    <div style="font-size:22px; font-weight:700; color:#dc2626;" id="diKpiVaultSched2">--</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">High-Alert Controlled Safe Items</div>
+                </div>
+                <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Low Par Breaches</div>
+                    <div style="font-size:22px; font-weight:700; color:#ea580c;" id="diKpiVaultLowStock">--</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Items at or below safe min</div>
+                </div>
+                <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Today's Dual Movements</div>
+                    <div style="font-size:22px; font-weight:700; color:#b45309;" id="diKpiVaultTodayMovements">--</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Witnessed Safe Transactions</div>
+                </div>
+                <div style="background:var(--bg-surface-alt); border:1px solid var(--border-color); border-radius:8px; padding:12px;">
+                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Daily Safe Audit Status</div>
+                    <div style="font-size:18px; font-weight:700; color:#16a34a; margin-top:2px;" id="diKpiVaultAuditStatus">Balanced</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Safe Seal &amp; Balance Verification</div>
+                </div>
+            </div>
+
+            <!-- Sub-Navigation Tabs within Narcotics Vault -->
+            <div style="display:flex; gap:8px; border-bottom:1px solid var(--border-color); margin-bottom:14px; padding-bottom:8px;">
+                <button type="button" class="di-btn active" id="diNvTabLedger" data-nv-tab="ledger" style="font-weight:600;">
+                    &#128221; Perpetual Transaction Ledger
+                </button>
+                <button type="button" class="di-btn" id="diNvTabInventory" data-nv-tab="inventory">
+                    &#128274; Safe Inventory Balances
+                </button>
+                <button type="button" class="di-btn" id="diNvTabAudits" data-nv-tab="audits">
+                    &#9989; Shift Safe Count Audits
+                </button>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="di-filters" style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <select id="diNvScheduleFilter">
+                    <option value="">All DEA / Controlled Schedules</option>
+                    <option value="Schedule II">Schedule II (High Narcotic / Opioids)</option>
+                    <option value="Schedule III">Schedule III</option>
+                    <option value="Schedule IV">Schedule IV (Benzodiazepines / Sedatives)</option>
+                    <option value="Schedule V">Schedule V</option>
+                    <option value="Dangerous Drug (RA 9165)">Dangerous Drug (RA 9165)</option>
+                </select>
+                <select id="diNvMovementTypeFilter">
+                    <option value="">All Movement Types</option>
+                    <option value="transfer_to_ward">Transfer to Ward / ICU Safe</option>
+                    <option value="receipt_po">Central Safe Intake (Receipt)</option>
+                    <option value="ward_return">Ward Return to Safe</option>
+                    <option value="destruction_waste">Witnessed Destruction / Waste</option>
+                    <option value="audit_adjustment">Safe Audit Count Adjustment</option>
+                    <option value="rx_direct_dispense">Direct Prescription Dispense</option>
+                </select>
+                <input type="text" id="diNarcoticsSearchInput" placeholder="Search Trans #, Drug, Lot, Ward, Reference..." style="flex:1; min-width:220px; height:32px; padding:0 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-surface); color:var(--text-primary); font-size:12.5px;">
+            </div>
+
+            <!-- Subpanel 1: Perpetual Transaction Ledger -->
+            <div id="diNvSubpanelLedger">
+                <div class="di-table-wrap">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Trans #</th>
+                                <th>Date &amp; Time</th>
+                                <th>Item &amp; Schedule</th>
+                                <th>Movement Type</th>
+                                <th>Lot # &amp; Expiry</th>
+                                <th>Quantity</th>
+                                <th>Safe Balance</th>
+                                <th>Ref / Destination Ward</th>
+                                <th>Dual Witnesses</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diNvLedgerBody">
+                            <tr><td colspan="10" class="di-empty-state">Loading perpetual safe ledger...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Subpanel 2: Safe Inventory Balances -->
+            <div id="diNvSubpanelInventory" style="display:none;">
+                <div class="di-table-wrap">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Item Code</th>
+                                <th>Drug &amp; Formulation</th>
+                                <th>DEA Schedule</th>
+                                <th>Safe Location / Compartment</th>
+                                <th>Unit Form</th>
+                                <th>Current Safe Balance</th>
+                                <th>Security Par (Min - Max)</th>
+                                <th>Status</th>
+                                <th>Quick Movement</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diNvInventoryBody">
+                            <tr><td colspan="9" class="di-empty-state">Loading safe inventory balances...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Subpanel 3: Shift Safe Count Audits -->
+            <div id="diNvSubpanelAudits" style="display:none;">
+                <div class="di-table-wrap">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Audit #</th>
+                                <th>Shift Name</th>
+                                <th>Audit Date</th>
+                                <th>Safe Seal</th>
+                                <th>Auditor 1 (Primary)</th>
+                                <th>Auditor 2 (Co-Witness)</th>
+                                <th>Items Counted</th>
+                                <th>Discrepancies</th>
+                                <th>Audit Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diNvAuditsBody">
+                            <tr><td colspan="10" class="di-empty-state">Loading shift safe count audits...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -1928,6 +2093,284 @@ export function DrugInventoryView() {
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="diCancelDestroy">Cancel</button>
                 <button class="login-btn" type="submit">Destroy</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Central Pharmacy Narcotics Safe Movement & Dual-Custody Modal -->
+<div class="modal-overlay" id="diNarcoticsMovementModalOverlay">
+    <div class="modal-box di-modal-wide" style="max-width: 820px;">
+        <div class="modal-header">
+            <h2 style="color:#b45309; display:flex; align-items:center; gap:8px;">
+                <span>&#128272;</span> Safe Movement &amp; Dual-Custody Witnessing
+            </h2>
+            <button type="button" class="modal-close" id="diCloseMovementModal">&times;</button>
+        </div>
+
+        <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:12.5px; color:#92400e;">
+            <strong>&#9888; Controlled Substances Mandate (DEA &amp; RA 9165):</strong>
+            All physical safe transactions (intake, ward transfers, returns, or waste destruction) require two authorized staff members physically observing the safe drawer and verifying the item count before signing.
+        </div>
+
+        <form id="diNarcoticsMovementForm">
+            <div class="di-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom:14px;">
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>Controlled Substance / Safe Item <span style="color:#dc2626;">*</span></label>
+                    <select id="di_mov_vault_item_id" required>
+                        <option value="">-- Select Narcotic Item from Central Safe --</option>
+                    </select>
+                    <div id="diMovItemInfo" style="font-size:11.5px; color:var(--text-muted); margin-top:4px;"></div>
+                </div>
+
+                <div class="di-field">
+                    <label>Movement Type <span style="color:#dc2626;">*</span></label>
+                    <select id="di_mov_type" required>
+                        <option value="transfer_to_ward">Transfer to Ward / ICU Satellite Safe</option>
+                        <option value="receipt_po">Central Safe Intake (Receipt from Supplier / PO)</option>
+                        <option value="ward_return">Ward Return to Central Safe</option>
+                        <option value="destruction_waste">Witnessed Destruction / Expired Waste</option>
+                        <option value="audit_adjustment">Physical Count Discrepancy Adjustment</option>
+                        <option value="rx_direct_dispense">Direct Special Prescription Dispense</option>
+                    </select>
+                </div>
+
+                <div class="di-field">
+                    <label>Quantity <span style="color:#dc2626;">*</span></label>
+                    <input type="number" step="1" min="1" id="di_mov_quantity" placeholder="Units / Ampoules" required>
+                </div>
+
+                <div class="di-field">
+                    <label>Manufacturer Batch / Lot # <span style="color:#dc2626;">*</span></label>
+                    <input type="text" id="di_mov_lot_number" placeholder="e.g. LOT-MOR-2026X" required>
+                </div>
+
+                <div class="di-field">
+                    <label>Lot Expiry Date</label>
+                    <input type="date" id="di_mov_lot_expiry">
+                </div>
+
+                <div class="di-field">
+                    <label>Reference # (PO, Requisition, Rx, Waste Form)</label>
+                    <input type="text" id="di_mov_reference_number" placeholder="e.g. REQ-ICU-0842, PO-7718">
+                </div>
+
+                <div class="di-field">
+                    <label>Destination Ward / Department</label>
+                    <input type="text" id="di_mov_ward_destination" placeholder="e.g. Surgical ICU Safe, Main OR Lockbox">
+                </div>
+
+                <div class="di-field" style="grid-column: 1 / -1;">
+                    <label>Dual-Custody Notes / Reason for Safe Access</label>
+                    <input type="text" id="di_mov_notes" placeholder="e.g. Restocking ICU satellite safe par; witnessed intact tamper-evident vials.">
+                </div>
+            </div>
+
+            <!-- Dual-Witness Authentication Card -->
+            <div style="background:var(--bg-surface-alt); border:2px solid #fde68a; border-radius:8px; padding:14px; margin-bottom:16px;">
+                <div style="font-weight:700; font-size:13px; color:#b45309; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span>&#128272;</span> Mandatory Dual-Witness PIN / Password Verification
+                </div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:12px;">
+                    Enter the Username and 4-6 digit Security PIN (or password) for both the primary safe custodian and the observing co-witness.
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <!-- Witness 1 -->
+                    <div style="border:1px solid var(--border-color); border-radius:6px; padding:10px; background:var(--bg-surface);">
+                        <div style="font-weight:600; font-size:12px; color:#1e293b; margin-bottom:8px;">
+                            Witness 1 &mdash; Primary Custodian
+                        </div>
+                        <div class="di-field" style="margin-bottom:8px;">
+                            <label style="font-size:11px;">Username or User ID</label>
+                            <input type="text" id="di_mov_w1_user" placeholder="Your username" required>
+                        </div>
+                        <div class="di-field">
+                            <label style="font-size:11px;">Security PIN or Password</label>
+                            <input type="password" id="di_mov_w1_pin" placeholder="Enter PIN or Password" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Witness 2 -->
+                    <div style="border:1px solid var(--border-color); border-radius:6px; padding:10px; background:var(--bg-surface);">
+                        <div style="font-weight:600; font-size:12px; color:#1e293b; margin-bottom:8px;">
+                            Witness 2 &mdash; Secondary Verifier / Co-Signer
+                        </div>
+                        <div class="di-field" style="margin-bottom:8px;">
+                            <label style="font-size:11px;">Username or User ID</label>
+                            <input type="text" id="di_mov_w2_user" placeholder="Witness username" required>
+                        </div>
+                        <div class="di-field">
+                            <label style="font-size:11px;">Security PIN or Password</label>
+                            <input type="password" id="di_mov_w2_pin" placeholder="Enter PIN or Password" required autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                <div id="diMovWitnessError" style="color:#dc2626; font-size:12px; margin-top:8px; display:none; font-weight:600;"></div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelMovement">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#b45309; border-color:#b45309; font-weight:600;">
+                    &#128272; Sign &amp; Execute Safe Transaction
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- End-of-Shift Safe Count Verification Audit Modal -->
+<div class="modal-overlay" id="diNarcoticsShiftAuditModalOverlay">
+    <div class="modal-box di-modal-wide" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2 style="color:#0f766e; display:flex; align-items:center; gap:8px;">
+                <span>&#128203;</span> End-of-Shift Safe Count Verification Audit
+            </h2>
+            <button type="button" class="modal-close" id="diCloseShiftAuditModal">&times;</button>
+        </div>
+
+        <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:12.5px; color:#0f766e;">
+            <strong>Mandatory Shift Handover Audit:</strong> Count all physical ampoules, vials, and tablets in Safe A &amp; Safe B. Verify physical count matches book balance before handing over keys.
+        </div>
+
+        <form id="diNarcoticsShiftAuditForm">
+            <div class="di-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom:14px;">
+                <div class="di-field">
+                    <label>Shift Period <span style="color:#dc2626;">*</span></label>
+                    <select id="di_audit_shift_name" required>
+                        <option value="Morning Shift (06:00 - 14:00)">Morning Shift (06:00 - 14:00)</option>
+                        <option value="Afternoon Shift (14:00 - 22:00)">Afternoon Shift (14:00 - 22:00)</option>
+                        <option value="Night Shift (22:00 - 06:00)">Night Shift (22:00 - 06:00)</option>
+                    </select>
+                </div>
+                <div class="di-field">
+                    <label>Audit Date <span style="color:#dc2626;">*</span></label>
+                    <input type="date" id="di_audit_date" required>
+                </div>
+                <div class="di-field">
+                    <label>Safe Seal Number</label>
+                    <input type="text" id="di_audit_seal_number" placeholder="e.g. SEAL-9901">
+                </div>
+                <div class="di-field" style="display:flex; align-items:flex-end; padding-bottom:6px;">
+                    <label class="di-checkbox-label">
+                        <input type="checkbox" id="di_audit_seal_intact" checked>
+                        <strong>Safe physical seal intact &amp; undamaged</strong>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Itemized Physical Count Table -->
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:700; font-size:12.5px; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:6px;">
+                    Itemized Physical Safe Count vs Perpetual Book Balance
+                </label>
+                <div class="di-table-wrap" style="max-height: 280px; overflow-y:auto;">
+                    <table class="di-table">
+                        <thead>
+                            <tr>
+                                <th>Item Code</th>
+                                <th>Drug &amp; Strength</th>
+                                <th>Safe Location</th>
+                                <th>Perpetual Book Balance</th>
+                                <th style="width:140px;">Physical Count <span style="color:#dc2626;">*</span></th>
+                                <th>Calculated Variance</th>
+                                <th>Variance Explanation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diAuditItemsCountBody">
+                            <tr><td colspan="7" class="di-empty-state">Loading items for count...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="di-field" style="margin-bottom:14px;">
+                <label>Shift Handover Notes &amp; Observations</label>
+                <input type="text" id="di_audit_notes" placeholder="e.g. Morning shift count 100% matched. Keys handed over to oncoming pharmacist.">
+            </div>
+
+            <!-- Dual-Auditor Sign-off Box -->
+            <div style="background:var(--bg-surface-alt); border:2px solid #ccfbf1; border-radius:8px; padding:14px; margin-bottom:16px;">
+                <div style="font-weight:700; font-size:13px; color:#0f766e; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span>&#128203;</span> Dual-Auditor Authentication &amp; Safe Seal Handover
+                </div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:12px;">
+                    Both counting pharmacists must authenticate using their Security PIN or password to finalize this count.
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <!-- Auditor 1 -->
+                    <div style="border:1px solid var(--border-color); border-radius:6px; padding:10px; background:var(--bg-surface);">
+                        <div style="font-weight:600; font-size:12px; color:#1e293b; margin-bottom:8px;">
+                            Auditor 1 &mdash; Primary Count Custodian
+                        </div>
+                        <div class="di-field" style="margin-bottom:8px;">
+                            <label style="font-size:11px;">Username or User ID</label>
+                            <input type="text" id="di_audit_a1_user" placeholder="Your username" required>
+                        </div>
+                        <div class="di-field">
+                            <label style="font-size:11px;">Security PIN or Password</label>
+                            <input type="password" id="di_audit_a1_pin" placeholder="Enter PIN or Password" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Auditor 2 -->
+                    <div style="border:1px solid var(--border-color); border-radius:6px; padding:10px; background:var(--bg-surface);">
+                        <div style="font-weight:600; font-size:12px; color:#1e293b; margin-bottom:8px;">
+                            Auditor 2 &mdash; Co-Witness / Oncoming Custodian
+                        </div>
+                        <div class="di-field" style="margin-bottom:8px;">
+                            <label style="font-size:11px;">Username or User ID</label>
+                            <input type="text" id="di_audit_a2_user" placeholder="Witness username" required>
+                        </div>
+                        <div class="di-field">
+                            <label style="font-size:11px;">Security PIN or Password</label>
+                            <input type="password" id="di_audit_a2_pin" placeholder="Enter PIN or Password" required autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                <div id="diAuditWitnessError" style="color:#dc2626; font-size:12px; margin-top:8px; display:none; font-weight:600;"></div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelShiftAudit">Cancel</button>
+                <button class="login-btn" type="submit" style="background:#0f766e; border-color:#0f766e; font-weight:600;">
+                    &#9989; Sign &amp; Finalize Shift Safe Count
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Configure Quick Security PIN Modal -->
+<div class="modal-overlay" id="diNarcoticsSetPinModalOverlay">
+    <div class="modal-box" style="max-width: 440px;">
+        <div class="modal-header">
+            <h2 style="color:#1e293b; display:flex; align-items:center; gap:8px;">
+                <span>&#128273;</span> Configure Quick Security PIN
+            </h2>
+            <button type="button" class="modal-close" id="diCloseSetPinModal">&times;</button>
+        </div>
+        <div style="font-size:12.5px; color:var(--text-muted); margin-bottom:14px;">
+            Set a 4 to 8-digit numeric Security PIN for quick witnessing during safe access, avoiding repeated password entries.
+        </div>
+        <form id="diSetPinForm">
+            <div class="di-field" style="margin-bottom:12px;">
+                <label>Current Account Password <span style="color:#dc2626;">*</span></label>
+                <input type="password" id="di_pin_curr_pwd" placeholder="Enter your current login password" required autocomplete="off">
+            </div>
+            <div class="di-field" style="margin-bottom:12px;">
+                <label>New 4-8 Digit Numeric PIN <span style="color:#dc2626;">*</span></label>
+                <input type="password" id="di_pin_val" maxlength="8" pattern="\d{4,8}" placeholder="4-8 digits (e.g. 1234)" required autocomplete="off">
+            </div>
+            <div class="di-field" style="margin-bottom:16px;">
+                <label>Confirm PIN <span style="color:#dc2626;">*</span></label>
+                <input type="password" id="di_pin_val_confirm" maxlength="8" pattern="\d{4,8}" placeholder="Re-enter 4-8 digits" required autocomplete="off">
+            </div>
+            <div id="diSetPinStatus" style="font-size:12px; margin-bottom:10px; display:none;"></div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="diCancelSetPin">Cancel</button>
+                <button class="login-btn" type="submit" style="font-weight:600;">Save Security PIN</button>
             </div>
         </form>
     </div>

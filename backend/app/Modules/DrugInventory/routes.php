@@ -3,6 +3,7 @@
 use App\Modules\DrugInventory\Controllers\DrugInventoryController;
 use App\Modules\DrugInventory\Controllers\PharmacyBatchRecallController;
 use App\Modules\DrugInventory\Controllers\PharmacyCompoundingController;
+use App\Modules\DrugInventory\Controllers\NarcoticsVaultController;
 use App\Modules\DrugInventory\Controllers\LotRecallTraceController;
 use App\Modules\DrugInventory\Controllers\NearExpiryQuarantineController;
 use App\Modules\DrugInventory\Controllers\WarehouseController;
@@ -159,6 +160,40 @@ $router->post('/drug-inventory/compounding/inspect', [PharmacyCompoundingControl
 $router->get('/drug-inventory/compounding/label', [PharmacyCompoundingController::class, 'label'], [
     AuthMiddleware::class,
     [RoleMiddleware::class, ['admin', 'receptionist', 'doctor']]
+]);
+
+// Central Pharmacy Narcotics Safe Perpetual Ledger & Dual-Custody Witnessing
+$router->get('/drug-inventory/narcotics-vault/stats', [NarcoticsVaultController::class, 'stats'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->get('/drug-inventory/narcotics-vault/items', [NarcoticsVaultController::class, 'items'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->get('/drug-inventory/narcotics-vault/movements', [NarcoticsVaultController::class, 'movements'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->post('/drug-inventory/narcotics-vault/movements', [NarcoticsVaultController::class, 'recordMovement'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->post('/drug-inventory/narcotics-vault/verify-witness', [NarcoticsVaultController::class, 'verifyWitness'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->post('/drug-inventory/narcotics-vault/set-pin', [NarcoticsVaultController::class, 'setPin'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->get('/drug-inventory/narcotics-vault/shift-audits', [NarcoticsVaultController::class, 'shiftAudits'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
+]);
+$router->post('/drug-inventory/narcotics-vault/shift-audits', [NarcoticsVaultController::class, 'recordShiftAudit'], [
+    AuthMiddleware::class,
+    [RoleMiddleware::class, ['admin', 'receptionist', 'doctor', 'pharmacist', 'charge_nurse']]
 ]);
 
 $router->get('/warehouses', [WarehouseController::class, 'index'], [

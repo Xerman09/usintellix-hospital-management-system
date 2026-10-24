@@ -6,7 +6,10 @@ import {
     searchLotsForRecall, traceLotRecall, quarantineLotStockImmediate, createLotRecallRecord,
     updatePatientOutreachStatus, fetchLotRecallsList,
     fetchCompoundingRecords, fetchCompoundingDetail, fetchCompoundingFormulas,
-    createCompoundingRecord, inspectCompoundingRecord, fetchCompoundingLabel
+    createCompoundingRecord, inspectCompoundingRecord, fetchCompoundingLabel,
+    fetchNarcoticsVaultStats, fetchNarcoticsVaultItems, fetchNarcoticsVaultMovements,
+    recordNarcoticsVaultMovement, verifyWitnessCredentials, setSecurityPin,
+    fetchShiftAudits, recordShiftAudit
 } from "./drug-inventory.service.js";
 import { showToast } from "../../core/toast.js";
 import { systemNow } from "../../core/timezone.js?v=3";
@@ -79,6 +82,7 @@ export async function initDrugInventory() {
     setupDestroyModal();
     setupRecalls();
     setupCompounding();
+    setupNarcoticsVault();
 
     await Promise.all([loadCatalog(), loadInventory()]);
 }
@@ -154,6 +158,16 @@ function showView(view) {
     if (compoundingPanel) {
         compoundingPanel.classList.toggle("active", view === "compounding");
         if (view === "compounding") { loadCompoundingRecords(); loadMasterFormulas(); }
+    }
+    const narcoticsPanel = document.getElementById("diNarcoticsVaultPanel");
+    if (narcoticsPanel) {
+        narcoticsPanel.classList.toggle("active", view === "narcotics");
+        if (view === "narcotics") {
+            loadNarcoticsStats();
+            loadNarcoticsItems();
+            loadNarcoticsMovements();
+            loadShiftAudits();
+        }
     }
 }
 
@@ -2389,7 +2403,6 @@ function printRecallOutreachSheet(traceData) {
 </html>`);
     win.document.close();
 }
-}
 
 /* ---------------------------------------------------------------
  * Near-Expiry Automated Quarantine Lock (<60 Days) Logic
@@ -3279,5 +3292,775 @@ async function printCompoundingLabel(recordId) {
         win.document.close();
     } catch (err) {
         showToast("Error generating label: " + err.message, "error");
+    }
+}
+
+/* ---------------------------------------------------------------
+ * Central Pharmacy Narcotics Safe Perpetual Ledger & Dual-Custody
+ * ------------------------------------------------------------- */
+
+let allVaultItems = [];
+let allVaultMovements = [];
+let allShiftAudits = [];
+let activeNvTab = "ledger";
+
+function setupNarcoticsVault() {
+    // Toolbar and Quick Buttons
+    const logBtn = document.getElementById("diLogNarcoticBtn");
+    if (logBtn) logBtn.addEventListener("click", () => {
+        showView("narcotics");
+        openNarcoticsMovementModal();
+    });
+
+    const openMovBtn = document.getElementById("diOpenMovementModalBtn");
+    if (openMovBtn) openMovBtn.addEventListener("click", () => openNarcoticsMovementModal());
+
+    const auditBtn = document.getElementById("diAuditNarcoticBtn");
+    if (auditBtn) auditBtn.addEventListener("click", () => {
+        showView("narcotics");
+        openShiftAuditModal();
+    });
+
+    const openAuditBtn = document.getElementById("diOpenShiftAuditBtn");
+    if (openAuditBtn) openAuditBtn.addEventListener("click", () => openShiftAuditModal());
+
+    const pinBtn = document.getElementById("diOpenPinSetupBtn");
+    if (pinBtn) pinBtn.addEventListener("click", () => openPinSetupModal());
+
+    const refreshBtn = document.getElementById("diNarcoticsRefreshBtn");
+    if (refreshBtn) refreshBtn.addEventListener("click", () => {
+        loadNarcoticsStats();
+        loadNarcoticsItems();
+        loadNarcoticsMovements();
+        loadShiftAudits();
+        showToast("Narcotics Safe Vault refreshed", "info");
+    });
+
+    // Sub-Navigation Tabs inside Narcotics Vault
+    const tabs = [
+        { id: "diNvTabLedger", name: "ledger" },
+        { id: "diNvTabInventory", name: "inventory" },
+        { id: "diNvTabAudits", name: "audits" }
+    ];
+    tabs.forEach(({ id, name }) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener("click", () => switchNarcoticsSubtab(name));
+    });
+
+    // Filters
+    const schedFilter = document.getElementById("diNvScheduleFilter");
+    if (schedFilter) schedFilter.addEventListener("change", () => {
+        renderNarcoticsLedger();
+        renderNarcoticsInventory();
+    });
+
+    const mtypeFilter = document.getElementById("diNvMovementTypeFilter");
+    if (mtypeFilter) mtypeFilter.addEventListener("change", renderNarcoticsLedger);
+
+    const searchInput = document.getElementById("diNarcoticsSearchInput");
+    if (searchInput) searchInput.addEventListener("input", () => {
+        renderNarcoticsLedger();
+        renderNarcoticsInventory();
+    });
+
+    // Movement Item Select Change
+    const itemSelect = document.getElementById("di_mov_vault_item_id");
+    if (itemSelect) itemSelect.addEventListener("change", () => {
+        const selectedId = parseInt(itemSelect.value, 10);
+        const item = allVaultItems.find(v => v.id === selectedId);
+        const info = document.getElementById("diMovItemInfo");
+        if (item && info) {
+            info.innerHTML = `<strong>Safe Location:</strong> ${escapeHtml(item.safe_location)} · <strong>Current Balance:</strong> <span style="font-weight:700; color:${item.is_low_stock ? '#dc2626' : '#16a34a'};">${item.current_balance} ${escapeHtml(item.package_form)}(s)</span> · <strong>Min Par:</strong> ${item.minimum_safe_par}`;
+        } else if (info) {
+            info.innerHTML = "";
+        }
+    });
+
+    // Movement Modal Form Submit
+    const movForm = document.getElementById("diNarcoticsMovementForm");
+    if (movForm) movForm.addEventListener("submit", handleNarcoticsMovementSubmit);
+
+    const closeMovBtn = document.getElementById("diCloseMovementModal");
+    if (closeMovBtn) closeMovBtn.addEventListener("click", closeNarcoticsMovementModal);
+
+    const cancelMovBtn = document.getElementById("diCancelMovement");
+    if (cancelMovBtn) cancelMovBtn.addEventListener("click", closeNarcoticsMovementModal);
+
+    // Shift Audit Modal Form Submit
+    const auditForm = document.getElementById("diNarcoticsShiftAuditForm");
+    if (auditForm) auditForm.addEventListener("submit", handleShiftAuditSubmit);
+
+    const closeAuditBtn = document.getElementById("diCloseShiftAuditModal");
+    if (closeAuditBtn) closeAuditBtn.addEventListener("click", closeShiftAuditModal);
+
+    const cancelAuditBtn = document.getElementById("diCancelShiftAudit");
+    if (cancelAuditBtn) cancelAuditBtn.addEventListener("click", closeShiftAuditModal);
+
+    // PIN Setup Form Submit
+    const pinForm = document.getElementById("diSetPinForm");
+    if (pinForm) pinForm.addEventListener("submit", handleSetPinSubmit);
+
+    const closePinBtn = document.getElementById("diCloseSetPinModal");
+    if (closePinBtn) closePinBtn.addEventListener("click", closePinSetupModal);
+
+    const cancelPinBtn = document.getElementById("diCancelSetPin");
+    if (cancelPinBtn) cancelPinBtn.addEventListener("click", closePinSetupModal);
+}
+
+function switchNarcoticsSubtab(tab) {
+    activeNvTab = tab;
+    ["ledger", "inventory", "audits"].forEach(t => {
+        const btn = document.getElementById(`diNvTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const panel = document.getElementById(`diNvSubpanel${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (btn) btn.classList.toggle("active", t === tab);
+        if (panel) panel.style.display = (t === tab) ? "block" : "none";
+    });
+
+    if (tab === "ledger") renderNarcoticsLedger();
+    if (tab === "inventory") renderNarcoticsInventory();
+    if (tab === "audits") renderShiftAudits();
+}
+
+async function loadNarcoticsStats() {
+    try {
+        const res = await fetchNarcoticsVaultStats();
+        if (res.success && res.data) {
+            const s = res.data;
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            setVal("diKpiVaultTotalUnits", s.total_units_in_safe.toLocaleString());
+            setVal("diKpiVaultSched2", s.schedule_ii_items.toLocaleString());
+            setVal("diKpiVaultLowStock", s.low_stock_items.toLocaleString());
+            setVal("diKpiVaultTodayMovements", s.today_movements.toLocaleString());
+            
+            const auditEl = document.getElementById("diKpiVaultAuditStatus");
+            if (auditEl) {
+                if (s.unresolved_discrepancies > 0) {
+                    auditEl.textContent = `${s.unresolved_discrepancies} Discrepancy`;
+                    auditEl.style.color = "#dc2626";
+                } else {
+                    auditEl.textContent = "100% Balanced";
+                    auditEl.style.color = "#16a34a";
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Failed to load narcotics stats", err);
+    }
+}
+
+async function loadNarcoticsItems() {
+    try {
+        const res = await fetchNarcoticsVaultItems();
+        if (res.success && Array.isArray(res.data)) {
+            allVaultItems = res.data;
+            renderNarcoticsInventory();
+            populateVaultItemSelect();
+        }
+    } catch (err) {
+        console.error("Failed to load narcotics items", err);
+    }
+}
+
+async function loadNarcoticsMovements() {
+    try {
+        const res = await fetchNarcoticsVaultMovements({ limit: 150 });
+        if (res.success && Array.isArray(res.data)) {
+            allVaultMovements = res.data;
+            renderNarcoticsLedger();
+        }
+    } catch (err) {
+        console.error("Failed to load narcotics movements", err);
+    }
+}
+
+async function loadShiftAudits() {
+    try {
+        const res = await fetchShiftAudits();
+        if (res.success && Array.isArray(res.data)) {
+            allShiftAudits = res.data;
+            renderShiftAudits();
+        }
+    } catch (err) {
+        console.error("Failed to load shift audits", err);
+    }
+}
+
+function populateVaultItemSelect() {
+    const sel = document.getElementById("di_mov_vault_item_id");
+    if (!sel) return;
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">-- Select Narcotic Item from Central Safe --</option>' +
+        allVaultItems.map(item => `
+            <option value="${item.id}">
+                ${escapeHtml(item.item_code)} &mdash; ${escapeHtml(item.brand_and_strength)} (${item.current_balance} ${escapeHtml(item.package_form)}s on hand)
+            </option>
+        `).join("");
+    if (currentVal) sel.value = currentVal;
+}
+
+function renderNarcoticsLedger() {
+    const tbody = document.getElementById("diNvLedgerBody");
+    if (!tbody) return;
+
+    const schedVal = document.getElementById("diNvScheduleFilter")?.value || "";
+    const mtypeVal = document.getElementById("diNvMovementTypeFilter")?.value || "";
+    const searchVal = (document.getElementById("diNarcoticsSearchInput")?.value || "").toLowerCase().trim();
+
+    const filtered = allVaultMovements.filter(m => {
+        if (schedVal && m.dea_schedule !== schedVal) return false;
+        if (mtypeVal && m.movement_type !== mtypeVal) return false;
+        if (searchVal) {
+            const haystack = `${m.transaction_number} ${m.item_code} ${m.brand_and_strength} ${m.lot_number} ${m.reference_number || ""} ${m.ward_destination || ""} ${m.witness_1_name} ${m.witness_2_name}`.toLowerCase();
+            if (!haystack.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="di-empty-state">No perpetual safe movements found matching filters.</td></tr>`;
+        return;
+    }
+
+    const typeConfig = {
+        transfer_to_ward: { label: "Ward Transfer Out", color: "#2563eb", bg: "#eff6ff" },
+        receipt_po: { label: "Safe Intake (PO)", color: "#16a34a", bg: "#f0fdf4" },
+        ward_return: { label: "Ward Return In", color: "#7c3aed", bg: "#f5f3ff" },
+        destruction_waste: { label: "Destruction / Waste", color: "#dc2626", bg: "#fef2f2" },
+        audit_adjustment: { label: "Audit Count Adj", color: "#d97706", bg: "#fffbeb" },
+        rx_direct_dispense: { label: "Direct Dispense", color: "#0d9488", bg: "#f0fdfa" }
+    };
+
+    tbody.innerHTML = filtered.map(m => {
+        const conf = typeConfig[m.movement_type] || { label: m.movement_type, color: "#475569", bg: "#f8fafc" };
+        const isIn = m.quantity_in > 0;
+        const qtyDisplay = isIn
+            ? `<span style="font-weight:700; color:#16a34a;">+${m.quantity_in}</span>`
+            : `<span style="font-weight:700; color:#dc2626;">-${m.quantity_out}</span>`;
+
+        const schedColor = m.dea_schedule === "Schedule II" ? "#dc2626" : "#b45309";
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(m.transaction_number)}</strong></td>
+                <td style="font-size:12px; white-space:nowrap;">${escapeHtml(m.created_at)}</td>
+                <td>
+                    <div style="font-weight:600; color:#1e293b;">${escapeHtml(m.brand_and_strength)}</div>
+                    <div style="font-size:11px; display:flex; gap:6px; align-items:center; margin-top:2px;">
+                        <span style="font-family:monospace; background:var(--bg-surface-alt); padding:1px 4px; border-radius:3px;">${escapeHtml(m.item_code)}</span>
+                        <span style="color:${schedColor}; font-weight:600;">${escapeHtml(m.dea_schedule)}</span>
+                    </div>
+                </td>
+                <td>
+                    <span style="display:inline-block; padding:3px 8px; border-radius:12px; font-size:11.5px; font-weight:600; background:${conf.bg}; color:${conf.color};">
+                        ${escapeHtml(conf.label)}
+                    </span>
+                </td>
+                <td style="font-size:12px;">
+                    <div><strong>Lot:</strong> ${escapeHtml(m.lot_number)}</div>
+                    <div style="color:var(--text-muted); font-size:11px;">Exp: ${m.lot_expiry ? escapeHtml(m.lot_expiry) : 'N/A'}</div>
+                </td>
+                <td style="font-size:13px; text-align:center;">
+                    ${qtyDisplay} <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(m.package_form || 'units')}</span>
+                </td>
+                <td style="font-size:12px;">
+                    <div style="color:var(--text-muted); font-size:11px;">Prev: ${m.balance_before}</div>
+                    <div style="font-weight:700; color:#1e293b;">New: ${m.balance_after}</div>
+                </td>
+                <td style="font-size:12px;">
+                    ${m.ward_destination ? `<div><strong>Ward:</strong> ${escapeHtml(m.ward_destination)}</div>` : ''}
+                    ${m.reference_number ? `<div style="font-size:11px; color:var(--text-muted);">Ref: ${escapeHtml(m.reference_number)}</div>` : ''}
+                    ${m.dual_custody_notes ? `<div style="font-style:italic; font-size:11px; color:var(--text-muted); margin-top:2px;">"${escapeHtml(m.dual_custody_notes)}"</div>` : ''}
+                </td>
+                <td>
+                    <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span style="color:#16a34a;">&#10003;</span>
+                            <strong>W1:</strong> ${escapeHtml(m.witness_1_name)}
+                            <span style="color:var(--text-muted); font-size:10px;">(${escapeHtml(m.witness_1_auth_method)})</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span style="color:#16a34a;">&#10003;</span>
+                            <strong>W2:</strong> ${escapeHtml(m.witness_2_name)}
+                            <span style="color:var(--text-muted); font-size:10px;">(${escapeHtml(m.witness_2_auth_method)})</span>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="di-btn" style="padding:2px 8px; font-size:11px;" onclick="window.diQuickTransferItem(${m.vault_item_id})">
+                        Transfer Out
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function renderNarcoticsInventory() {
+    const tbody = document.getElementById("diNvInventoryBody");
+    if (!tbody) return;
+
+    const schedVal = document.getElementById("diNvScheduleFilter")?.value || "";
+    const searchVal = (document.getElementById("diNarcoticsSearchInput")?.value || "").toLowerCase().trim();
+
+    const filtered = allVaultItems.filter(item => {
+        if (schedVal && item.dea_schedule !== schedVal) return false;
+        if (searchVal) {
+            const haystack = `${item.item_code} ${item.brand_and_strength} ${item.safe_location} ${item.catalog_drug_name}`.toLowerCase();
+            if (!haystack.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="di-empty-state">No controlled substances found in central safe.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(item => {
+        const schedColor = item.dea_schedule === "Schedule II" ? "#dc2626" : "#b45309";
+        const balColor = item.is_low_stock ? "#dc2626" : "#16a34a";
+        const statusBadge = item.is_low_stock
+            ? `<span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; background:#fef2f2; color:#dc2626;">&#9888; LOW PAR</span>`
+            : `<span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:#f0fdf4; color:#16a34a;">In Par</span>`;
+
+        return `
+            <tr>
+                <td><strong style="font-family:monospace;">${escapeHtml(item.item_code)}</strong></td>
+                <td>
+                    <div style="font-weight:600; color:#1e293b;">${escapeHtml(item.brand_and_strength)}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.catalog_drug_name)}</div>
+                </td>
+                <td><span style="font-weight:700; color:${schedColor};">${escapeHtml(item.dea_schedule)}</span></td>
+                <td style="font-size:12px;">${escapeHtml(item.safe_location)}</td>
+                <td style="font-size:12px; text-transform:capitalize;">${escapeHtml(item.package_form)}</td>
+                <td style="font-size:15px; font-weight:700; color:${balColor};">
+                    ${item.current_balance} <span style="font-size:11px; font-weight:normal; color:var(--text-muted);">${escapeHtml(item.package_form)}s</span>
+                </td>
+                <td style="font-size:12px;">
+                    Min: <strong>${item.minimum_safe_par}</strong> · Max: <strong>${item.maximum_safe_capacity}</strong>
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="di-btn primary" style="background:#b45309; border-color:#b45309; padding:2px 8px; font-size:11px;" onclick="window.diQuickTransferItem(${item.id})">
+                            &#128272; Transfer
+                        </button>
+                        <button type="button" class="di-btn" style="padding:2px 8px; font-size:11px;" onclick="window.diQuickReturnItem(${item.id})">
+                            Return
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function renderShiftAudits() {
+    const tbody = document.getElementById("diNvAuditsBody");
+    if (!tbody) return;
+
+    if (allShiftAudits.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="di-empty-state">No shift safe count audits recorded yet.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = allShiftAudits.map(a => {
+        const isBalanced = (a.discrepancies_detected === 0 && a.status === "balanced_verified");
+        const statusBadge = isBalanced
+            ? `<span style="padding:3px 8px; border-radius:12px; font-size:11.5px; font-weight:700; background:#f0fdf4; color:#16a34a;">&#9989; 100% Balanced</span>`
+            : `<span style="padding:3px 8px; border-radius:12px; font-size:11.5px; font-weight:700; background:#fef2f2; color:#dc2626;">&#9888; ${a.discrepancies_detected} Variance(s)</span>`;
+
+        const sealBadge = a.safe_seal_intact
+            ? `<span style="color:#16a34a; font-size:12px;">&#10003; Intact ${a.safe_seal_number ? `(${escapeHtml(a.safe_seal_number)})` : ''}</span>`
+            : `<span style="color:#dc2626; font-size:12px; font-weight:700;">&#9888; Broken / Replaced</span>`;
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(a.audit_number)}</strong></td>
+                <td style="font-weight:600;">${escapeHtml(a.shift_name)}</td>
+                <td style="font-size:12px;">${escapeHtml(a.audit_date)}</td>
+                <td>${sealBadge}</td>
+                <td style="font-size:12px;">
+                    <div>${escapeHtml(a.auditor_1_name)}</div>
+                    <div style="font-size:10px; color:var(--text-muted);">${escapeHtml(a.auditor_1_role)}</div>
+                </td>
+                <td style="font-size:12px;">
+                    <div>${escapeHtml(a.auditor_2_name)}</div>
+                    <div style="font-size:10px; color:var(--text-muted);">${escapeHtml(a.auditor_2_role)}</div>
+                </td>
+                <td style="text-align:center; font-weight:600;">${a.total_items_counted}</td>
+                <td style="text-align:center; font-weight:700; color:${a.discrepancies_detected > 0 ? '#dc2626' : '#16a34a'};">
+                    ${a.discrepancies_detected}
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <button type="button" class="di-btn" style="padding:2px 8px; font-size:11px;" onclick="window.diViewShiftAuditDetail(${a.id})">
+                        View Log
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+// Global quick actions for inline buttons
+window.diQuickTransferItem = function(itemId) {
+    openNarcoticsMovementModal(itemId, "transfer_to_ward");
+};
+
+window.diQuickReturnItem = function(itemId) {
+    openNarcoticsMovementModal(itemId, "ward_return");
+};
+
+window.diViewShiftAuditDetail = function(auditId) {
+    const audit = allShiftAudits.find(a => a.id === auditId);
+    if (!audit) return;
+    const itemsHtml = (audit.items || []).map(it => `
+        <tr>
+            <td><strong>${escapeHtml(it.item_code)}</strong></td>
+            <td>${escapeHtml(it.brand_and_strength)}</td>
+            <td>${it.book_balance}</td>
+            <td style="font-weight:700;">${it.physical_count}</td>
+            <td style="font-weight:700; color:${Math.abs(it.variance) > 0.001 ? '#dc2626' : '#16a34a'};">
+                ${it.variance > 0 ? `+${it.variance}` : it.variance}
+            </td>
+            <td>${it.variance_reason ? escapeHtml(it.variance_reason) : '&mdash;'}</td>
+        </tr>
+    `).join("");
+
+    alert(`Audit ${audit.audit_number} (${audit.shift_name} on ${audit.audit_date})\nAuditors: ${audit.auditor_1_name} & ${audit.auditor_2_name}\nSeal: ${audit.safe_seal_intact ? 'Intact' : 'Broken'}\nDiscrepancies: ${audit.discrepancies_detected}\nNotes: ${audit.audit_notes || 'None'}`);
+};
+
+function openNarcoticsMovementModal(itemId = null, defaultType = "transfer_to_ward") {
+    populateVaultItemSelect();
+    const sel = document.getElementById("di_mov_vault_item_id");
+    if (sel && itemId) {
+        sel.value = itemId;
+        sel.dispatchEvent(new Event("change"));
+    }
+
+    const typeSel = document.getElementById("di_mov_type");
+    if (typeSel && defaultType) typeSel.value = defaultType;
+
+    // Reset inputs
+    document.getElementById("di_mov_quantity").value = "";
+    document.getElementById("di_mov_lot_number").value = "";
+    document.getElementById("di_mov_lot_expiry").value = "";
+    document.getElementById("di_mov_reference_number").value = "";
+    document.getElementById("di_mov_ward_destination").value = "";
+    document.getElementById("di_mov_notes").value = "";
+    document.getElementById("di_mov_w1_user").value = "";
+    document.getElementById("di_mov_w1_pin").value = "";
+    document.getElementById("di_mov_w2_user").value = "";
+    document.getElementById("di_mov_w2_pin").value = "";
+
+    const err = document.getElementById("diMovWitnessError");
+    if (err) { err.style.display = "none"; err.textContent = ""; }
+
+    const overlay = document.getElementById("diNarcoticsMovementModalOverlay");
+    if (overlay) overlay.classList.add("active");
+}
+
+function closeNarcoticsMovementModal() {
+    const overlay = document.getElementById("diNarcoticsMovementModalOverlay");
+    if (overlay) overlay.classList.remove("active");
+}
+
+async function handleNarcoticsMovementSubmit(e) {
+    e.preventDefault();
+    const err = document.getElementById("diMovWitnessError");
+    if (err) err.style.display = "none";
+
+    const vaultItemId = parseInt(document.getElementById("di_mov_vault_item_id").value, 10);
+    const movementType = document.getElementById("di_mov_type").value;
+    const quantity = parseFloat(document.getElementById("di_mov_quantity").value);
+    const lotNumber = document.getElementById("di_mov_lot_number").value.trim();
+    const lotExpiry = document.getElementById("di_mov_lot_expiry").value;
+    const referenceNumber = document.getElementById("di_mov_reference_number").value.trim();
+    const wardDestination = document.getElementById("di_mov_ward_destination").value.trim();
+    const notes = document.getElementById("di_mov_notes").value.trim();
+
+    const w1User = document.getElementById("di_mov_w1_user").value.trim();
+    const w1Pin = document.getElementById("di_mov_w1_pin").value.trim();
+    const w2User = document.getElementById("di_mov_w2_user").value.trim();
+    const w2Pin = document.getElementById("di_mov_w2_pin").value.trim();
+
+    if (!vaultItemId || !movementType || !quantity || !lotNumber) {
+        showToast("Please fill all required movement fields.", "error");
+        return;
+    }
+
+    if (!w1User || !w1Pin || !w2User || !w2Pin) {
+        if (err) {
+            err.textContent = "Both Witness 1 and Witness 2 must provide their Username and Security PIN / Password.";
+            err.style.display = "block";
+        }
+        return;
+    }
+
+    if (w1User.toLowerCase() === w2User.toLowerCase()) {
+        if (err) {
+            err.textContent = "Dual Custody Mandate: Witness 1 and Witness 2 cannot be the same user account.";
+            err.style.display = "block";
+        }
+        return;
+    }
+
+    try {
+        const payload = {
+            vault_item_id: vaultItemId,
+            movement_type: movementType,
+            quantity: quantity,
+            lot_number: lotNumber,
+            lot_expiry: lotExpiry || null,
+            reference_number: referenceNumber || null,
+            ward_destination: wardDestination || null,
+            dual_custody_notes: notes || null,
+            witness_1_username: w1User,
+            witness_1_pin: w1Pin,
+            witness_2_username: w2User,
+            witness_2_pin: w2Pin
+        };
+
+        const res = await recordNarcoticsVaultMovement(payload);
+        if (res.success) {
+            showToast(res.message, "success");
+            closeNarcoticsMovementModal();
+            loadNarcoticsStats();
+            loadNarcoticsItems();
+            loadNarcoticsMovements();
+        } else {
+            if (err) {
+                err.textContent = res.message;
+                err.style.display = "block";
+            }
+            showToast(res.message, "error");
+        }
+    } catch (error) {
+        if (err) {
+            err.textContent = error.message;
+            err.style.display = "block";
+        }
+        showToast("Movement failed: " + error.message, "error");
+    }
+}
+
+function openShiftAuditModal() {
+    const dateInput = document.getElementById("di_audit_date");
+    if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+
+    document.getElementById("di_audit_seal_number").value = "";
+    document.getElementById("di_audit_seal_intact").checked = true;
+    document.getElementById("di_audit_notes").value = "";
+    document.getElementById("di_audit_a1_user").value = "";
+    document.getElementById("di_audit_a1_pin").value = "";
+    document.getElementById("di_audit_a2_user").value = "";
+    document.getElementById("di_audit_a2_pin").value = "";
+
+    const err = document.getElementById("diAuditWitnessError");
+    if (err) { err.style.display = "none"; err.textContent = ""; }
+
+    // Render count table
+    const tbody = document.getElementById("diAuditItemsCountBody");
+    if (tbody) {
+        if (allVaultItems.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="di-empty-state">No safe items to count.</td></tr>`;
+        } else {
+            tbody.innerHTML = allVaultItems.map(item => `
+                <tr data-vault-item-id="${item.id}" data-book-bal="${item.current_balance}">
+                    <td><strong>${escapeHtml(item.item_code)}</strong></td>
+                    <td>
+                        <div style="font-weight:600;">${escapeHtml(item.brand_and_strength)}</div>
+                        <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.dea_schedule)}</div>
+                    </td>
+                    <td style="font-size:12px;">${escapeHtml(item.safe_location)}</td>
+                    <td style="font-size:14px; font-weight:700; color:#1e293b;">
+                        ${item.current_balance} ${escapeHtml(item.package_form)}s
+                    </td>
+                    <td>
+                        <input type="number" step="1" min="0" class="di-phys-count-input" data-item-id="${item.id}" value="${item.current_balance}" style="width:100px; height:28px; padding:0 6px; font-weight:700; text-align:right;" required>
+                    </td>
+                    <td class="di-variance-cell" data-item-id="${item.id}" style="font-weight:700; color:#16a34a;">
+                        0.00
+                    </td>
+                    <td>
+                        <input type="text" class="di-variance-reason-input" data-item-id="${item.id}" placeholder="Required if variance != 0" style="width:100%; height:28px; padding:0 6px; font-size:12px;">
+                    </td>
+                </tr>
+            `).join("");
+
+            // Attach input event listeners for live variance updates
+            tbody.querySelectorAll(".di-phys-count-input").forEach(inp => {
+                inp.addEventListener("input", () => {
+                    const id = inp.getAttribute("data-item-id");
+                    const row = inp.closest("tr");
+                    const bookBal = parseFloat(row.getAttribute("data-book-bal") || "0");
+                    const phys = parseFloat(inp.value || "0");
+                    const diff = Math.round((phys - bookBal) * 100) / 100;
+                    const varCell = row.querySelector(".di-variance-cell");
+                    if (varCell) {
+                        varCell.textContent = diff > 0 ? `+${diff}` : `${diff}`;
+                        varCell.style.color = Math.abs(diff) > 0.001 ? "#dc2626" : "#16a34a";
+                    }
+                });
+            });
+        }
+    }
+
+    const overlay = document.getElementById("diNarcoticsShiftAuditModalOverlay");
+    if (overlay) overlay.classList.add("active");
+}
+
+function closeShiftAuditModal() {
+    const overlay = document.getElementById("diNarcoticsShiftAuditModalOverlay");
+    if (overlay) overlay.classList.remove("active");
+}
+
+async function handleShiftAuditSubmit(e) {
+    e.preventDefault();
+    const err = document.getElementById("diAuditWitnessError");
+    if (err) err.style.display = "none";
+
+    const shiftName = document.getElementById("di_audit_shift_name").value;
+    const auditDate = document.getElementById("di_audit_date").value;
+    const sealNumber = document.getElementById("di_audit_seal_number").value.trim();
+    const sealIntact = document.getElementById("di_audit_seal_intact").checked;
+    const notes = document.getElementById("di_audit_notes").value.trim();
+
+    const a1User = document.getElementById("di_audit_a1_user").value.trim();
+    const a1Pin = document.getElementById("di_audit_a1_pin").value.trim();
+    const a2User = document.getElementById("di_audit_a2_user").value.trim();
+    const a2Pin = document.getElementById("di_audit_a2_pin").value.trim();
+
+    if (!a1User || !a1Pin || !a2User || !a2Pin) {
+        if (err) {
+            err.textContent = "Both Auditor 1 and Auditor 2 must enter their Username and Security PIN / Password.";
+            err.style.display = "block";
+        }
+        return;
+    }
+
+    if (a1User.toLowerCase() === a2User.toLowerCase()) {
+        if (err) {
+            err.textContent = "Dual Auditor Mandate: End-of-shift safe count must be co-verified by two separate staff members.";
+            err.style.display = "block";
+        }
+        return;
+    }
+
+    // Collect physical counts
+    const countRows = document.querySelectorAll("#diAuditItemsCountBody tr[data-vault-item-id]");
+    const items = [];
+    for (const row of countRows) {
+        const vItemId = parseInt(row.getAttribute("data-vault-item-id"), 10);
+        const countInput = row.querySelector(".di-phys-count-input");
+        const reasonInput = row.querySelector(".di-variance-reason-input");
+        const physCount = countInput ? parseFloat(countInput.value || "0") : 0;
+        const reason = reasonInput ? reasonInput.value.trim() : "";
+
+        items.push({
+            vault_item_id: vItemId,
+            physical_count: physCount,
+            variance_reason: reason
+        });
+    }
+
+    try {
+        const payload = {
+            shift_name: shiftName,
+            audit_date: auditDate,
+            safe_seal_intact: sealIntact ? 1 : 0,
+            safe_seal_number: sealNumber || null,
+            audit_notes: notes || null,
+            auditor_1_username: a1User,
+            auditor_1_pin: a1Pin,
+            auditor_2_username: a2User,
+            auditor_2_pin: a2Pin,
+            items: items
+        };
+
+        const res = await recordShiftAudit(payload);
+        if (res.success) {
+            showToast(res.message, res.discrepancies_detected > 0 ? "warning" : "success");
+            closeShiftAuditModal();
+            loadNarcoticsStats();
+            loadShiftAudits();
+        } else {
+            if (err) {
+                err.textContent = res.message;
+                err.style.display = "block";
+            }
+            showToast(res.message, "error");
+        }
+    } catch (error) {
+        if (err) {
+            err.textContent = error.message;
+            err.style.display = "block";
+        }
+        showToast("Shift audit failed: " + error.message, "error");
+    }
+}
+
+function openPinSetupModal() {
+    document.getElementById("di_pin_curr_pwd").value = "";
+    document.getElementById("di_pin_val").value = "";
+    document.getElementById("di_pin_val_confirm").value = "";
+    const status = document.getElementById("diSetPinStatus");
+    if (status) { status.style.display = "none"; status.textContent = ""; }
+
+    const overlay = document.getElementById("diNarcoticsSetPinModalOverlay");
+    if (overlay) overlay.classList.add("active");
+}
+
+function closePinSetupModal() {
+    const overlay = document.getElementById("diNarcoticsSetPinModalOverlay");
+    if (overlay) overlay.classList.remove("active");
+}
+
+async function handleSetPinSubmit(e) {
+    e.preventDefault();
+    const status = document.getElementById("diSetPinStatus");
+    if (status) status.style.display = "none";
+
+    const currPwd = document.getElementById("di_pin_curr_pwd").value;
+    const newPin = document.getElementById("di_pin_val").value.trim();
+    const confirmPin = document.getElementById("di_pin_val_confirm").value.trim();
+
+    if (!/^\d{4,8}$/.test(newPin)) {
+        if (status) {
+            status.textContent = "Security PIN must be 4 to 8 numeric digits.";
+            status.style.color = "#dc2626";
+            status.style.display = "block";
+        }
+        return;
+    }
+
+    if (newPin !== confirmPin) {
+        if (status) {
+            status.textContent = "PIN confirmation does not match.";
+            status.style.color = "#dc2626";
+            status.style.display = "block";
+        }
+        return;
+    }
+
+    try {
+        const res = await setSecurityPin(newPin, currPwd);
+        if (res.success) {
+            showToast("Security PIN updated successfully!", "success");
+            closePinSetupModal();
+        } else {
+            if (status) {
+                status.textContent = res.message;
+                status.style.color = "#dc2626";
+                status.style.display = "block";
+            }
+        }
+    } catch (error) {
+        if (status) {
+            status.textContent = error.message;
+            status.style.color = "#dc2626";
+            status.style.display = "block";
+        }
     }
 }
