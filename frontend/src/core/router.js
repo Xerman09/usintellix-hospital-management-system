@@ -1,3 +1,5 @@
+import { BloodBankView, initBloodBank } from "../modules/blood-bank/blood-bank.js";
+import { DietaryView, initDietary } from "../modules/dietary/dietary.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -21,40 +23,29 @@ import { initDepartmentOrg } from "../modules/department-org/department-org.js";
 import { HipaaAuditView } from "../modules/hipaa-audit/hipaa-audit.view.js?v=4";
 import { initHipaaAudit } from "../modules/hipaa-audit/hipaa-audit.js?v=5";
 
-
 const app = document.getElementById("app");
 
-
 const routes = {
-
     "/login": {
         view: LoginView,
         afterRender: initLogin
     },
-
-
     "/dashboard": {
         view: DashboardView,
         afterRender: Dashboard
     },
-
-
     "/employees/create": {
         view: AddEmployeeView,
         afterRender: initAddEmployee
     },
-
-
     "/patients/create": {
         view: AddPatientView,
         afterRender: initAddPatient
     },
-
     "/privacy-policy": {
         view: PrivacyPolicyView,
         afterRender: initPrivacyPolicy
     },
-
     "/terms-conditions": {
         view: TermsConditionsView,
         afterRender: initTermsConditions
@@ -130,18 +121,29 @@ const routes = {
     "/system_logs": {
         view: () => HipaaAuditView({ initialTab: 'auth' }),
         afterRender: () => initHipaaAudit({ initialTab: 'auth' })
+    },
+    "/blood-bank": {
+        view: BloodBankView,
+        afterRender: initBloodBank
+    },
+    "/blood_bank": {
+        view: BloodBankView,
+        afterRender: initBloodBank
+    },
+    "/dietary": {
+        view: DietaryView,
+        afterRender: initDietary
+    },
+    "/nutrition": {
+        view: DietaryView,
+        afterRender: initDietary
     }
-
 };
-
-
 
 export function router()
 {
-
     function render()
     {
-
         let raw = window.location.hash.replace(/^#/, '').trim();
         if (!raw) {
             raw = '/login';
@@ -153,10 +155,8 @@ export function router()
 
         const route = routes[path];
 
-
         if (!route)
         {
-
             app.innerHTML = `
                 <div style="padding: 40px; text-align: center; font-family: sans-serif;">
                     <h1 style="color: #0f172a; margin-bottom: 12px;">404 - Page Not Found</h1>
@@ -164,32 +164,21 @@ export function router()
                     <a href="#/dashboard" style="display: inline-block; padding: 10px 20px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">Return to Dashboard</a>
                 </div>
             `;
-
             return;
-
         }
 
-
-
         app.innerHTML = route.view();
-
-
 
         if (route.afterRender)
         {
             route.afterRender();
         }
-
     }
-
-
 
     window.addEventListener(
         "hashchange",
         render
     );
 
-
     render();
-
 }
