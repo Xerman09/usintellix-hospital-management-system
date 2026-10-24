@@ -2,6 +2,7 @@
 
 use App\Modules\Radiology\Controllers\RadiologyController;
 use App\Modules\Radiology\Controllers\RisImagingOrderController;
+use App\Modules\Radiology\Controllers\RisPacsController;
 use App\Modules\Radiology\Services\RadiologyService;
 use App\Modules\Radiology\Services\RadChargeService;
 use App\Modules\Radiology\Services\RadReportService;
@@ -68,3 +69,9 @@ $router->get('/radiology/ris/stats', [RisImagingOrderController::class, 'stats']
 $router->post('/radiology/ris/orders', [RisImagingOrderController::class, 'create'], $radSchedule);
 $router->post('/radiology/ris/safety-clearance', [RisImagingOrderController::class, 'updateSafety'], $radSchedule);
 $router->post('/radiology/ris/schedule-room', [RisImagingOrderController::class, 'scheduleRoom'], $radSchedule);
+
+// ---------------------------------------------------------------
+// PACS (Picture Archiving and Communication System) & Web DICOM Integration
+// ---------------------------------------------------------------
+$router->get('/radiology/pacs/studies', [RisPacsController::class, 'search'], $radView);
+$router->get('/radiology/pacs/study', [RisPacsController::class, 'study'], $radView);

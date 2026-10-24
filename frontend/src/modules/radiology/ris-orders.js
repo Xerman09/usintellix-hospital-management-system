@@ -1,6 +1,7 @@
 import { api } from "../../core/api.js?v=10";
 import { showToast } from "../../core/toast.js";
 import { esc, hm, when, modal, modalityTag } from "./rad-ui.js?v=6";
+import { openViewer } from "./rad-report.js?v=6";
 
 export async function loadRisOrders(root, state, reload) {
     const q = new URLSearchParams(Object.entries({
@@ -95,7 +96,8 @@ function risRow(o) {
             </div>
 
             <div class="acts">
-                <button type="button" class="rad-b blue sm" data-ris-clear="${o.id}">Safety Clearance…</button>
+                <button type="button" class="rad-b blue sm" data-ris-viewer="${o.order_id}">Open PACS Viewer</button>
+                <button type="button" class="rad-b sm" data-ris-clear="${o.id}">Safety Clearance…</button>
                 <button type="button" class="rad-b sm" data-ris-schedule="${o.id}">Modality Room…</button>
             </div>
         </div>
@@ -103,6 +105,15 @@ function risRow(o) {
 }
 
 export async function onRisClick(e, reload, rooms) {
+    const viewerBtn = e.target.closest("[data-ris-viewer]");
+    if (viewerBtn) {
+        const orderId = Number(viewerBtn.dataset.risViewer);
+        // Automatically ensure PACS study registration before opening viewer
+        await api(`/radiology/pacs/study?order_id=${orderId}`).catch(() => null);
+        openViewer(orderId);
+        return true;
+    }
+
     const clearBtn = e.target.closest("[data-ris-clear]");
     if (clearBtn) {
         const id = Number(clearBtn.dataset.risClear);
