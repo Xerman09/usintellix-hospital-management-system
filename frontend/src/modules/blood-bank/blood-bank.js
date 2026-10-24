@@ -3,7 +3,16 @@ import { showToast } from "../../core/toast.js";
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-let state = { abo_group: "", rh_factor: "", eligibility_status: "", q: "" };
+let state = {
+    view: "inventory", // "inventory" | "donors" | "cold_chain"
+    component_type: "",
+    abo_group: "",
+    rh_factor: "",
+    status: "",
+    eligibility_status: "",
+    q: ""
+};
+
 let data = null;
 
 export function BloodBankView() {
@@ -19,7 +28,42 @@ async function load(quiet = false) {
     const root = document.getElementById("bloodBankRoot");
     if (!root) return;
 
-    const q = new URLSearchParams(Object.entries(state).filter(([, v]) => v));
+    if (state.view === "inventory" || state.view === "cold_chain") {
+        const q = new URLSearchParams(Object.entries({
+            component_type: state.component_type,
+            abo_group: state.abo_group,
+            rh_factor: state.rh_factor,
+            status: state.status,
+            q: state.q
+        }).filter(([, v]) => v));
+
+        const [unitsRes, statsRes, locsRes] = await Promise.all([
+            api(`/blood-bank/inventory?${q}`).catch(() => null),
+            api(`/blood-bank/inventory/stats`).catch(() => null),
+            api(`/blood-bank/inventory/storage-locations`).catch(() => null)
+        ]);
+
+        if (!unitsRes?.success) {
+            if (!quiet) root.innerHTML = `<div class="bb-empty">${esc(unitsRes?.message || "Failed to load blood inventory.")}</div>`;
+            return;
+        }
+
+        data = {
+            units: unitsRes.data || [],
+            stats: statsRes?.data || {},
+            locations: locsRes?.data || []
+        };
+        return render(root);
+    }
+
+    // View: Donors
+    const q = new URLSearchParams(Object.entries({
+        abo_group: state.abo_group,
+        rh_factor: state.rh_factor,
+        eligibility_status: state.eligibility_status,
+        q: state.q
+    }).filter(([, v]) => v));
+
     const [donorsRes, statsRes] = await Promise.all([
         api(`/blood-bank/donors?${q}`).catch(() => null),
         api(`/blood-bank/donors/stats`).catch(() => null)
@@ -38,62 +82,102 @@ async function load(quiet = false) {
 }
 
 function render(root) {
+    const isInv = state.view === "inventory";
+    const isCold = state.view === "cold_chain";
+    const isDonors = state.view === "donors";
+
     const s = data.stats || {};
-    const donors = data.donors || [];
+    const tab = (v, l) => `<button type="button" class="bb-tab-btn ${state.view === v ? "active" : ""}" data-bb-view="${v}">${l}</button>`;
 
     root.innerHTML = `
         <div class="bb-head">
             <div>
-                <h1>Blood Bank Management & Donor Registry</h1>
-                <div class="bb-sub">National blood safety standards, donor eligibility tracking, and mandatory infectious disease (TTI) screening.</div>
+                <h1>Blood Bank Management & Cold-Chain Tracking</h1>
+                <div class="bb-sub">Unit inventory (PRBC 1–6°C, FFP ≤-18°C, Platelets 20–24°C agitated), cold-chain preservation, and donor registry.</div>
             </div>
-            <div>
-                <button type="button" class="bb-btn blue" id="bbRegisterDonorBtn">+ Register Blood Donor</button>
+            <div style="display:flex;gap:8px;">
+                ${isInv ? `<button type="button" class="bb-btn blue" id="bbAddUnitBtn">+ Receive Blood Unit</button>` : ""}
+                ${isCold ? `<button type="button" class="bb-btn blue" id="bbLogTempBtn">🌡️ Log Temperature Check</button>` : ""}
+                ${isDonors ? `<button type="button" class="bb-btn blue" id="bbRegisterDonorBtn">+ Register Blood Donor</button>` : ""}
             </div>
         </div>
 
-        <div class="bb-counts">
-            <div><b>${s.total_registered || 0}</b>Total Donors</div>
-            <div class="good"><b>${s.eligible_donors || 0}</b>Eligible Donors</div>
-            <div class="${s.temporary_deferred ? "warn" : ""}"><b>${s.temporary_deferred || 0}</b>Temporarily Deferred</div>
-            <div class="${s.permanently_deferred ? "bad" : ""}"><b>${s.permanently_deferred || 0}</b>Permanently Deferred</div>
-            <div><b>${s.pending_screening || 0}</b>Pending Screening</div>
+        <div class="bb-nav-tabs">
+            ${tab("inventory", "Blood Inventory Units")}
+            ${tab("cold_chain", "Cold-Chain & Storage Units")}
+            ${tab("donors", "Blood Donor Registry")}
         </div>
+
+        ${isInv ? renderInventoryKpi(s) : isCold ? renderColdChainKpi(data.locations) : renderDonorsKpi(s)}
 
         <div class="bb-tools">
-            <select id="bbFilterAbo">
-                <option value="">All ABO Groups</option>
-                <option value="A" ${state.abo_group === "A" ? "selected" : ""}>Group A</option>
-                <option value="B" ${state.abo_group === "B" ? "selected" : ""}>Group B</option>
-                <option value="AB" ${state.abo_group === "AB" ? "selected" : ""}>Group AB</option>
-                <option value="O" ${state.abo_group === "O" ? "selected" : ""}>Group O</option>
-            </select>
+            ${isInv ? `
+                <select id="bbFilterComp">
+                    <option value="">All Components</option>
+                    <option value="prbc" ${state.component_type === "prbc" ? "selected" : ""}>PRBC (1–6°C)</option>
+                    <option value="ffp" ${state.component_type === "ffp" ? "selected" : ""}>FFP (≤-18°C)</option>
+                    <option value="platelets" ${state.component_type === "platelets" ? "selected" : ""}>Platelets (20–24°C Agitated)</option>
+                    <option value="cryoprecipitate" ${state.component_type === "cryoprecipitate" ? "selected" : ""}>Cryoprecipitate</option>
+                    <option value="whole_blood" ${state.component_type === "whole_blood" ? "selected" : ""}>Whole Blood</option>
+                </select>
+                <select id="bbFilterUnitStatus">
+                    <option value="">All Statuses</option>
+                    <option value="available" ${state.status === "available" ? "selected" : ""}>Available</option>
+                    <option value="crossmatched_reserved" ${state.status === "crossmatched_reserved" ? "selected" : ""}>Reserved</option>
+                    <option value="quarantined" ${state.status === "quarantined" ? "selected" : ""}>Quarantined</option>
+                    <option value="expired" ${state.status === "expired" ? "selected" : ""}>Expired</option>
+                </select>
+            ` : ""}
 
-            <select id="bbFilterRh">
-                <option value="">All Rh Types</option>
-                <option value="positive" ${state.rh_factor === "positive" ? "selected" : ""}>Rh Positive (+)</option>
-                <option value="negative" ${state.rh_factor === "negative" ? "selected" : ""}>Rh Negative (-)</option>
-            </select>
+            ${!isCold ? `
+                <select id="bbFilterAbo">
+                    <option value="">All ABO Groups</option>
+                    <option value="A" ${state.abo_group === "A" ? "selected" : ""}>Group A</option>
+                    <option value="B" ${state.abo_group === "B" ? "selected" : ""}>Group B</option>
+                    <option value="AB" ${state.abo_group === "AB" ? "selected" : ""}>Group AB</option>
+                    <option value="O" ${state.abo_group === "O" ? "selected" : ""}>Group O</option>
+                </select>
 
-            <select id="bbFilterStatus">
-                <option value="">All Eligibility Statuses</option>
-                <option value="eligible" ${state.eligibility_status === "eligible" ? "selected" : ""}>Eligible to Donate</option>
-                <option value="temporary_deferred" ${state.eligibility_status === "temporary_deferred" ? "selected" : ""}>Temporarily Deferred</option>
-                <option value="permanently_deferred" ${state.eligibility_status === "permanently_deferred" ? "selected" : ""}>Permanently Deferred</option>
-                <option value="pending_screening" ${state.eligibility_status === "pending_screening" ? "selected" : ""}>Pending Screening</option>
-            </select>
+                <select id="bbFilterRh">
+                    <option value="">All Rh Types</option>
+                    <option value="positive" ${state.rh_factor === "positive" ? "selected" : ""}>Rh Positive (+)</option>
+                    <option value="negative" ${state.rh_factor === "negative" ? "selected" : ""}>Rh Negative (-)</option>
+                </select>
+            ` : ""}
 
-            <input type="search" id="bbSearch" value="${esc(state.q)}" placeholder="Search donor number, name, phone, or ID...">
+            ${isDonors ? `
+                <select id="bbFilterDonorStatus">
+                    <option value="">All Eligibility Statuses</option>
+                    <option value="eligible" ${state.eligibility_status === "eligible" ? "selected" : ""}>Eligible to Donate</option>
+                    <option value="temporary_deferred" ${state.eligibility_status === "temporary_deferred" ? "selected" : ""}>Temporarily Deferred</option>
+                    <option value="permanently_deferred" ${state.eligibility_status === "permanently_deferred" ? "selected" : ""}>Permanently Deferred</option>
+                    <option value="pending_screening" ${state.eligibility_status === "pending_screening" ? "selected" : ""}>Pending Screening</option>
+                </select>
+            ` : ""}
+
+            <input type="search" id="bbSearch" value="${esc(state.q)}" placeholder="${isInv ? "Search unit DIN, shelf, donor, or patient..." : isCold ? "Search storage unit..." : "Search donor number, name, or phone..."}">
         </div>
 
-        ${donors.length ? `<div class="bb-list">${donors.map(donorCard).join("")}</div>`
-            : `<div class="bb-empty">No blood donors match the active filters.</div>`}
+        ${isInv ? renderInventoryList(data.units) : isCold ? renderColdChainList(data.locations) : renderDonorsList(data.donors)}
     `;
 
-    root.querySelector("#bbRegisterDonorBtn").onclick = () => openDonorModal();
-    root.querySelector("#bbFilterAbo").onchange = (e) => { state.abo_group = e.target.value; load(); };
-    root.querySelector("#bbFilterRh").onchange = (e) => { state.rh_factor = e.target.value; load(); };
-    root.querySelector("#bbFilterStatus").onchange = (e) => { state.eligibility_status = e.target.value; load(); };
+    // Tab bindings
+    root.querySelectorAll("[data-bb-view]").forEach(btn => {
+        btn.onclick = () => {
+            state.view = btn.dataset.bbView;
+            load();
+        };
+    });
+
+    if (root.querySelector("#bbAddUnitBtn")) root.querySelector("#bbAddUnitBtn").onclick = () => openAddUnitModal(data.locations);
+    if (root.querySelector("#bbLogTempBtn")) root.querySelector("#bbLogTempBtn").onclick = () => openLogTempModal(data.locations);
+    if (root.querySelector("#bbRegisterDonorBtn")) root.querySelector("#bbRegisterDonorBtn").onclick = () => openDonorModal();
+
+    if (root.querySelector("#bbFilterComp")) root.querySelector("#bbFilterComp").onchange = (e) => { state.component_type = e.target.value; load(); };
+    if (root.querySelector("#bbFilterUnitStatus")) root.querySelector("#bbFilterUnitStatus").onchange = (e) => { state.status = e.target.value; load(); };
+    if (root.querySelector("#bbFilterAbo")) root.querySelector("#bbFilterAbo").onchange = (e) => { state.abo_group = e.target.value; load(); };
+    if (root.querySelector("#bbFilterRh")) root.querySelector("#bbFilterRh").onchange = (e) => { state.rh_factor = e.target.value; load(); };
+    if (root.querySelector("#bbFilterDonorStatus")) root.querySelector("#bbFilterDonorStatus").onchange = (e) => { state.eligibility_status = e.target.value; load(); };
 
     let t = null;
     root.querySelector("#bbSearch").oninput = (e) => {
@@ -104,13 +188,169 @@ function render(root) {
         }, 300);
     };
 
-    root.onclick = (e) => {
-        const editBtn = e.target.closest("[data-edit-donor]");
-        if (editBtn) {
-            const id = Number(editBtn.dataset.editDonor);
+    root.onclick = async (e) => {
+        const qBtn = e.target.closest("[data-quarantine-unit]");
+        if (qBtn) {
+            const id = Number(qBtn.dataset.quarantineUnit);
+            const reason = prompt("Enter clinical reason for quarantining this unit:");
+            if (reason) {
+                await api("/blood-bank/inventory/status", {
+                    method: "POST",
+                    body: JSON.stringify({ id, status: "quarantined", reason })
+                });
+                showToast("Unit placed under quarantine.", "success");
+                load();
+            }
+            return;
+        }
+
+        const unqBtn = e.target.closest("[data-unquarantine-unit]");
+        if (unqBtn) {
+            const id = Number(unqBtn.dataset.unquarantineUnit);
+            if (confirm("Release this unit back to available stock?")) {
+                await api("/blood-bank/inventory/status", {
+                    method: "POST",
+                    body: JSON.stringify({ id, status: "available" })
+                });
+                showToast("Unit released to available stock.", "success");
+                load();
+            }
+            return;
+        }
+
+        const editDonorBtn = e.target.closest("[data-edit-donor]");
+        if (editDonorBtn) {
+            const id = Number(editDonorBtn.dataset.editDonor);
             openDonorModal(id);
         }
     };
+}
+
+function renderInventoryKpi(s) {
+    return `
+        <div class="bb-counts">
+            <div class="good"><b>${s.total_available || 0}</b>Units Available</div>
+            <div class="${s.total_quarantined ? "bad" : ""}"><b>${s.total_quarantined || 0}</b>Quarantined Units</div>
+            <div><b>${s.total_reserved || 0}</b>Reserved Units</div>
+            <div class="${s.near_expiry_3days ? "warn" : ""}"><b>${s.near_expiry_3days || 0}</b>Near Expiry (&lt;3 Days)</div>
+        </div>
+    `;
+}
+
+function renderColdChainKpi(locs) {
+    return `
+        <div class="bb-counts">
+            <div><b>${locs.length}</b>Active Storage Units</div>
+            <div class="good"><b>4°C</b>PRBC Fridge Standard</div>
+            <div class="good"><b>-30°C</b>Plasma Freezer Standard</div>
+            <div class="good"><b>22°C</b>Platelet Agitator Standard</div>
+        </div>
+    `;
+}
+
+function renderDonorsKpi(s) {
+    return `
+        <div class="bb-counts">
+            <div><b>${s.total_registered || 0}</b>Total Donors</div>
+            <div class="good"><b>${s.eligible_donors || 0}</b>Eligible Donors</div>
+            <div class="${s.temporary_deferred ? "warn" : ""}"><b>${s.temporary_deferred || 0}</b>Temporarily Deferred</div>
+            <div class="${s.permanently_deferred ? "bad" : ""}"><b>${s.permanently_deferred || 0}</b>Permanently Deferred</div>
+            <div><b>${s.pending_screening || 0}</b>Pending Screening</div>
+        </div>
+    `;
+}
+
+function renderInventoryList(units) {
+    if (!units.length) {
+        return `<div class="bb-empty">No blood units match the active inventory filters.</div>`;
+    }
+    return `<div class="bb-list">${units.map(unitCard).join("")}</div>`;
+}
+
+function unitCard(u) {
+    const isAvail = u.status === "available";
+    const isQuar = u.status === "quarantined";
+    const isRes = u.status === "crossmatched_reserved";
+
+    const badgeClass = isAvail ? "bb-badge good" : isQuar ? "bb-badge bad" : isRes ? "bb-badge warn" : "bb-badge";
+    const daysLeft = Number(u.days_until_expiry);
+    const expiryClass = daysLeft < 0 ? "bad" : daysLeft <= 3 ? "warn" : "good";
+
+    return `
+        <div class="bb-card ${isQuar ? "bad" : ""}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <span class="${badgeClass}">${esc(u.status_label)}</span>
+                    <b style="font-family:monospace;font-size:15px;color:#2563eb;margin-left:6px;">${esc(u.unit_number)}</b>
+                    <h3 style="margin:4px 0 2px;font-size:16px;color:#991b1b;">${esc(u.component_name)} · ${u.volume_ml} mL</h3>
+                    <div class="bb-muted">Storage: <b>${esc(u.storage_location_name || "Unassigned")}</b> ${u.shelf_slot ? `(${esc(u.shelf_slot)})` : ""} · Current Temp: <b>${u.current_temp_c !== null ? `${u.current_temp_c}°C` : "N/A"}</b></div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:22px;font-weight:800;color:#dc2626;">🩸 ${esc(u.blood_type_formatted)}</div>
+                    <div style="font-size:12px;margin-top:2px;">Expires: <b>${esc(u.expiration_date)}</b> (<span class="${expiryClass}" style="font-weight:700;">${daysLeft < 0 ? "Expired" : `${daysLeft}d remaining`}</span>)</div>
+                </div>
+            </div>
+
+            <div style="background:var(--bg-muted, #f8fafc);padding:8px 10px;border-radius:6px;font-size:12px;margin:8px 0;display:flex;justify-content:space-between;">
+                <div>
+                    <span>Required Cold-Chain: <b>${esc(u.temp_spec_label)}</b></span>
+                    ${u.requires_continuous_agitation ? `<span style="color:#d97706;font-weight:700;margin-left:6px;">⚡ Continuous Agitation Required</span>` : ""}
+                </div>
+                <div>
+                    Collected: <b>${esc(u.collection_date)}</b>${u.donor_number ? ` · Donor: <a href="#" data-edit-donor="${u.donor_id}">${esc(u.donor_number)}</a>` : ""}
+                </div>
+            </div>
+
+            ${u.quarantine_reason ? `<div style="color:#dc2626;font-weight:600;font-size:12px;margin-bottom:6px;">🔒 Quarantine Lock: ${esc(u.quarantine_reason)}</div>` : ""}
+            ${u.reserved_patient_name ? `<div style="color:#2563eb;font-weight:600;font-size:12px;margin-bottom:6px;">👤 Crossmatched for: ${esc(u.reserved_patient_name)} (${esc(u.reserved_patient_no)})</div>` : ""}
+
+            <div style="display:flex;justify-content:flex-end;gap:6px;">
+                ${isAvail ? `<button type="button" class="bb-btn sm" data-quarantine-unit="${u.id}">Quarantine Unit…</button>` : ""}
+                ${isQuar ? `<button type="button" class="bb-btn sm" data-unquarantine-unit="${u.id}">Release Quarantine</button>` : ""}
+            </div>
+        </div>
+    `;
+}
+
+function renderColdChainList(locs) {
+    if (!locs.length) return `<div class="bb-empty">No cold-chain storage equipment configured.</div>`;
+
+    return `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:12px;">
+            ${locs.map(loc => {
+                const cur = Number(loc.current_temp_c);
+                const min = Number(loc.min_temp_c);
+                const max = Number(loc.max_temp_c);
+                const inRange = cur >= min && cur <= max;
+
+                return `
+                    <div class="bb-card ${inRange ? "" : "bad"}">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div>
+                                <h4 style="margin:0 0 2px 0;font-size:15px;">${esc(loc.name)}</h4>
+                                <div class="bb-muted" style="font-size:12px;">${esc(loc.location_description || "Blood Bank Suite")}</div>
+                            </div>
+                            <span class="bb-badge ${inRange ? "good" : "bad"}">${inRange ? "NORMAL" : "ALARM"}</span>
+                        </div>
+
+                        <div style="text-align:center;padding:16px 0;">
+                            <div style="font-size:32px;font-weight:800;color:${inRange ? "#059669" : "#dc2626"};">${cur.toFixed(1)}°C</div>
+                            <div class="bb-muted" style="font-size:12px;">Target Range: <b>${min}°C to ${max}°C</b></div>
+                        </div>
+
+                        <div class="bb-muted" style="font-size:11px;border-top:1px solid var(--border-color);padding-top:6px;">
+                            Last Checked: <b>${esc(loc.last_temp_check_at || "Never")}</b>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+function renderDonorsList(donors) {
+    if (!donors.length) return `<div class="bb-empty">No blood donors match the active filters.</div>`;
+    return `<div class="bb-list">${donors.map(donorCard).join("")}</div>`;
 }
 
 function donorCard(d) {
@@ -153,6 +393,181 @@ function donorCard(d) {
             </div>
         </div>
     `;
+}
+
+function openAddUnitModal(locations) {
+    const html = `
+        <div class="bb-modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <label>Blood Component Type *</label>
+                    <select id="uComp" required>
+                        <option value="prbc">Packed Red Blood Cells (PRBC: 1–6°C, 42d)</option>
+                        <option value="ffp">Fresh Frozen Plasma (FFP: ≤-18°C, 365d)</option>
+                        <option value="platelets">Platelets (20–24°C Agitated, 5d)</option>
+                        <option value="cryoprecipitate">Cryoprecipitate (≤-18°C, 365d)</option>
+                        <option value="whole_blood">Whole Blood (WB: 1–6°C, 35d)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Volume (mL) *</label>
+                    <input type="number" id="uVol" value="300" required>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                <div>
+                    <label>ABO Group *</label>
+                    <select id="uAbo" required>
+                        <option value="O">Group O</option>
+                        <option value="A">Group A</option>
+                        <option value="B">Group B</option>
+                        <option value="AB">Group AB</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Rh Factor *</label>
+                    <select id="uRh" required>
+                        <option value="positive">Rh Positive (+)</option>
+                        <option value="negative">Rh Negative (-)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                <div>
+                    <label>Collection Date *</label>
+                    <input type="date" id="uCdate" value="${new Date().toISOString().slice(0, 10)}" required>
+                </div>
+                <div>
+                    <label>Unit DIN / Barcode (blank = auto)</label>
+                    <input type="text" id="uDin" placeholder="e.g. W26-2026-XXXXX">
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                <div>
+                    <label>Cold-Chain Storage Location *</label>
+                    <select id="uLoc" required>
+                        <option value="">Select Refrigerator / Freezer...</option>
+                        ${locations.map(l => `<option value="${l.id}">${esc(l.name)} (${l.min_temp_c}°C to ${l.max_temp_c}°C)</option>`).join("")}
+                    </select>
+                </div>
+                <div>
+                    <label>Shelf / Slot Assignment</label>
+                    <input type="text" id="uShelf" placeholder="e.g. Shelf A - Rack 2">
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+                <button type="button" class="bb-btn" id="uCancel">Cancel</button>
+                <button type="button" class="bb-btn blue" id="uSave">Receive Blood Unit</button>
+            </div>
+        </div>
+    `;
+
+    const ov = document.createElement("div");
+    ov.className = "bb-modal-ov";
+    ov.innerHTML = `
+        <div class="bb-modal">
+            <div class="bb-modal-head">
+                <h3>Receive Blood Product Unit</h3>
+                <button type="button" class="bb-close" id="uClose">&times;</button>
+            </div>
+            ${html}
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#uClose").onclick = close;
+    ov.querySelector("#uCancel").onclick = close;
+
+    ov.querySelector("#uSave").onclick = async () => {
+        const payload = {
+            component_type: ov.querySelector("#uComp").value,
+            volume_ml: Number(ov.querySelector("#uVol").value),
+            abo_group: ov.querySelector("#uAbo").value,
+            rh_factor: ov.querySelector("#uRh").value,
+            collection_date: ov.querySelector("#uCdate").value,
+            unit_number: ov.querySelector("#uDin").value.trim(),
+            storage_location_id: Number(ov.querySelector("#uLoc").value),
+            shelf_slot: ov.querySelector("#uShelf").value.trim()
+        };
+
+        const res = await api("/blood-bank/inventory/add", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        }).catch(() => null);
+
+        if (!res?.success) return showToast(res?.message || "Failed to receive unit", "error");
+        showToast(res.message, "success", 7000);
+        close();
+        load();
+    };
+}
+
+function openLogTempModal(locations) {
+    const html = `
+        <div class="bb-modal-body">
+            <div>
+                <label>Storage Equipment Unit *</label>
+                <select id="tLoc" required>
+                    ${locations.map(l => `<option value="${l.id}">${esc(l.name)} (Standard: ${l.min_temp_c}°C to ${l.max_temp_c}°C)</option>`).join("")}
+                </select>
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>Recorded Temperature (°C) *</label>
+                <input type="number" step="0.1" id="tVal" required placeholder="e.g. 4.0 or -22.5">
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>Verification Notes</label>
+                <input type="text" id="tNotes" placeholder="e.g. Morning shift calibration check">
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+                <button type="button" class="bb-btn" id="tCancel">Cancel</button>
+                <button type="button" class="bb-btn blue" id="tSave">Log & Verify Temperature</button>
+            </div>
+        </div>
+    `;
+
+    const ov = document.createElement("div");
+    ov.className = "bb-modal-ov";
+    ov.innerHTML = `
+        <div class="bb-modal">
+            <div class="bb-modal-head">
+                <h3>Log Cold-Chain Temperature Check</h3>
+                <button type="button" class="bb-close" id="tClose">&times;</button>
+            </div>
+            ${html}
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#tClose").onclick = close;
+    ov.querySelector("#tCancel").onclick = close;
+
+    ov.querySelector("#tSave").onclick = async () => {
+        const payload = {
+            storage_location_id: Number(ov.querySelector("#tLoc").value),
+            recorded_temp_c: Number(ov.querySelector("#tVal").value),
+            notes: ov.querySelector("#tNotes").value.trim()
+        };
+
+        const res = await api("/blood-bank/cold-chain/log-temp", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        }).catch(() => null);
+
+        if (!res?.success) return showToast(res?.message || "Failed to log temperature", "error");
+        showToast(res.message, res.is_in_range ? "success" : "error", 8000);
+        close();
+        load();
+    };
 }
 
 async function openDonorModal(id = 0) {
@@ -397,6 +812,9 @@ function ensureCss() {
         .bb-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
         .bb-head h1 { margin: 0; font-size: 22px; font-weight: 700; }
         .bb-sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+        .bb-nav-tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--border-color); margin-bottom: 14px; }
+        .bb-tab-btn { border: none; background: none; padding: 8px 16px; font: inherit; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .bb-tab-btn.active { color: #b91c1c; border-bottom-color: #b91c1c; }
         .bb-btn { border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); border-radius: 8px; padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
         .bb-btn.blue { background: #b91c1c; border-color: #b91c1c; color: #fff; }
         .bb-btn.sm { padding: 4px 10px; font-size: 12px; }
