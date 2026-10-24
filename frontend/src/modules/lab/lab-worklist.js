@@ -5,6 +5,7 @@ import { esc, dtl, when, waited, ensureCss, tube, modal, labelPreview, printLabe
 import { loadResults, resultsHtml, onResultsClick } from "./lab-results.js?v=7";
 import { loadCharges, chargesHtml, onChargesClick } from "./lab-charges.js?v=4";
 import { loadPhlebotomy, phlebotomyHtml, onPhlebotomyClick } from "./lis-phlebotomy.js";
+import { loadPathologistVerifications, pathologistHtml, onPathologistClick } from "./lis-pathologist.js";
 
 /*
  * Lab worklist (module 14, Phase 1; tab "lab_worklist"): lab requests from the clinic, the ER, the wards and the ICU
@@ -44,6 +45,15 @@ async function load(quiet = false) {
     if (!root) return;
     if (state.view === "phlebotomy") {
         const d = await loadPhlebotomy(root, state, load);
+        if (d.error) {
+            if (!quiet) root.innerHTML = `<div class="lab-empty">${esc(d.error)}</div>`;
+            return;
+        }
+        data = d;
+        return render(root);
+    }
+    if (state.view === "pathologist") {
+        const d = await loadPathologistVerifications(root, state, load);
         if (d.error) {
             if (!quiet) root.innerHTML = `<div class="lab-empty">${esc(d.error)}</div>`;
             return;
@@ -107,6 +117,7 @@ function render(root) {
     const c = data.counts || {};
     const focus = document.activeElement?.id;
     const isPhleb = state.view === "phlebotomy";
+    const isPath = state.view === "pathologist";
     const results = RESULT_VIEWS.includes(state.view);
     const charges = state.view === "charges";
     const lab = LAB_ROLES.includes(getUser()?.role);
@@ -114,14 +125,15 @@ function render(root) {
     const tab = (v, l) => `<button type="button" data-view="${v}" aria-pressed="${state.view === v}">${l}</button>`;
     const peso = (v) => `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     root.innerHTML = `
-        <div class="lab-head"><div><h1>Lab worklist</h1><div class="lab-sub">${isPhleb ? "Phlebotomy specimen collection & barcode tube labeling. Tracks bedside draw time, tube colors (Lavender EDTA, SST Gold, Light Blue Citrate, Red), and life-cycle draw statuses."
+        <div class="lab-head"><div><h1>Lab worklist</h1><div class="lab-sub">${isPath ? "Pathologist Clinical Sign-off & Amendment Ledger. Two-step analytical (MedTech) & clinical validation with immutable amendment audit trails."
+            : isPhleb ? "Phlebotomy specimen collection & barcode tube labeling. Tracks bedside draw time, tube colors (Lavender EDTA, SST Gold, Light Blue Citrate, Red), and life-cycle draw statuses."
             : charges ? "What the lab work cost each patient: a test is charged to the patient's ledger when its result is released, at the price on the catalog."
             : results ? "Results: typed by the lab, verified and released by a medical technologist. Released results reach the chart, the critical value alerts and the results inbox."
             : "Lab requests from the clinic, the ER, the wards and the ICU. STAT first, then by the time they're due."}${charges ? "" : " Refreshes every 30 seconds."}</div></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">${charges && admin ? `<button type="button" class="lab-b" data-prices>Test prices…</button>` : ""}
             ${results && data.is_admin ? `<button type="button" class="lab-b" data-staff>Lab staff…</button>` : ""}
             ${lab ? `<button type="button" class="lab-b" data-report>Lab report</button>` : ""}</div></div>
-        ${!isPhleb ? `<div class="lab-counts" role="list">${charges ? `
+        ${!isPhleb && !isPath ? `<div class="lab-counts" role="list">${charges ? `
             <div role="listitem"><b>${data.counts.charges_today}</b>charges today</div>
             <div role="listitem"><b>${esc(peso(data.counts.amount_today))}</b>charged today</div>
             <div role="listitem" class="${data.counts.to_charge ? "bad" : ""}"><b>${data.counts.to_charge}</b>released but not charged</div>
@@ -138,13 +150,13 @@ function render(root) {
             <div role="listitem"><b>${c.collected_today}</b>specimens collected today</div>`}
         </div>` : ''}
         <div class="lab-tools">
-            <span class="lab-tabs" role="group" aria-label="Show">${tab("collect", "To collect")}${tab("phlebotomy", "Phlebotomy & Barcode Tubes")}${tab("collected", "Collected (last 24 h)")}${lab ? tab("enter", "To result") + tab("verify", "To verify") + tab("released", "Released") + tab("charges", "Charges") : ""}</span>
-            ${isPhleb ? "" : charges ? `<label class="lbx-chk" style="margin:0"><input type="checkbox" id="labOnly" ${state.only ? "checked" : ""}> Not charged yet only</label>`
+            <span class="lab-tabs" role="group" aria-label="Show">${tab("collect", "To collect")}${tab("phlebotomy", "Phlebotomy & Barcode Tubes")}${tab("collected", "Collected (last 24 h)")}${lab ? tab("enter", "To result") + tab("verify", "To verify") + tab("released", "Released") + tab("pathologist", "Pathologist Sign-off") + tab("charges", "Charges") : ""}</span>
+            ${isPhleb || isPath ? "" : charges ? `<label class="lbx-chk" style="margin:0"><input type="checkbox" id="labOnly" ${state.only ? "checked" : ""}> Not charged yet only</label>`
                 : results ? `<select id="labSec" aria-label="Lab section"><option value="">All sections</option>${Object.entries(data.sections || {}).map(([k, l]) => `<option value="${k}" ${state.section === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`
                 : `<select id="labSrc" aria-label="From where"><option value="">From everywhere</option>${Object.entries(data.options?.sources || {}).map(([k, l]) => `<option value="${k}" ${state.source === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`}
-            <input type="search" id="labQ" value="${esc(state.q)}" placeholder="${isPhleb ? "Search barcode, patient, MRN, or test..." : charges ? "Patient, MRN, test or accession no." : "Patient, MRN, request or accession no."}" aria-label="Search">
+            <input type="search" id="labQ" value="${esc(state.q)}" placeholder="${isPath ? "Search patient, MRN, test, or license..." : isPhleb ? "Search barcode, patient, MRN, or test..." : charges ? "Patient, MRN, test or accession no." : "Patient, MRN, request or accession no."}" aria-label="Search">
         </div>
-        ${isPhleb ? phlebotomyHtml(data) : charges ? chargesHtml(data) : results ? resultsHtml(data) : data.requests?.length ? `<div class="lab-list">${data.requests.map(row).join("")}</div>`
+        ${isPath ? pathologistHtml(data) : isPhleb ? phlebotomyHtml(data) : charges ? chargesHtml(data) : results ? resultsHtml(data) : data.requests?.length ? `<div class="lab-list">${data.requests.map(row).join("")}</div>`
             : `<div class="lab-empty">${data.view === "collect" ? "Nothing to collect." : "No specimens collected in the last 24 hours."}</div>`}`;
     if (focus === "labQ") {
         const q = root.querySelector("#labQ");
@@ -192,6 +204,9 @@ async function onClick(e) {
     if (e.target.closest("[data-report]")) return window.__openDashboardTab?.("lab_report", "Lab Report");
     if (state.view === "phlebotomy") {
         if (await onPhlebotomyClick(e, load)) return;
+    }
+    if (state.view === "pathologist") {
+        if (await onPathologistClick(e, load)) return;
     }
     if (state.view === "charges") {
         if (await onChargesClick(e)) return;

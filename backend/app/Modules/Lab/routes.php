@@ -2,6 +2,7 @@
 
 use App\Modules\Lab\Controllers\LabController;
 use App\Modules\Lab\Controllers\LisSpecimenCollectionController;
+use App\Modules\Lab\Controllers\LisResultVerificationController;
 use App\Modules\Lab\Services\LabChargeService;
 use App\Modules\Lab\Services\LabReportService;
 use App\Modules\Lab\Services\LabResultService;
@@ -44,6 +45,15 @@ $router->get('/lab/results/form', [LabController::class, 'resultForm'], $labResu
 $router->post('/lab/results/save', [LabController::class, 'resultSave'], $labResults);
 $router->post('/lab/results/verify', [LabController::class, 'resultVerify'], $labResults);
 $router->post('/lab/results/return', [LabController::class, 'resultReturn'], $labResults);
+
+// Pathologist Clinical Verification & Amendment Log (lis_result_verifications)
+$router->get('/lab/verifications', [LisResultVerificationController::class, 'index'], $labView);
+$router->get('/lab/verifications/detail', [LisResultVerificationController::class, 'detail'], $labView);
+$router->get('/lab/verifications/stats', [LisResultVerificationController::class, 'stats'], $labView);
+$router->post('/lab/verifications/preliminary', [LisResultVerificationController::class, 'preliminary'], $labResults);
+$router->post('/lab/verifications/pathologist-signoff', [LisResultVerificationController::class, 'pathologistSignOff'], $labOrder);
+$router->post('/lab/verifications/pathologist-return', [LisResultVerificationController::class, 'pathologistReturn'], $labOrder);
+$router->post('/lab/verifications/amend', [LisResultVerificationController::class, 'amend'], $labOrder);
 $router->get('/lab/staff', [LabController::class, 'staff'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
 $router->post('/lab/staff', [LabController::class, 'staffSave'], [AuthMiddleware::class, [RoleMiddleware::class, ['admin']]]);
 // Phase 3: turnaround & workload report; lab charges to the patient ledger (prices and posting: admin).
