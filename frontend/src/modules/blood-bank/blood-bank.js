@@ -4,12 +4,13 @@ import { showToast } from "../../core/toast.js";
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let state = {
-    view: "inventory", // "inventory" | "donors" | "cold_chain"
+    view: "inventory", // "inventory" | "crossmatches" | "cold_chain" | "donors"
     component_type: "",
     abo_group: "",
     rh_factor: "",
     status: "",
     eligibility_status: "",
+    reservation_status: "",
     q: ""
 };
 
@@ -27,6 +28,31 @@ export async function initBloodBank() {
 async function load(quiet = false) {
     const root = document.getElementById("bloodBankRoot");
     if (!root) return;
+
+    if (state.view === "crossmatches") {
+        const q = new URLSearchParams(Object.entries({
+            reservation_status: state.reservation_status,
+            q: state.q
+        }).filter(([, v]) => v));
+
+        const [xmRes, statsRes, availUnitsRes] = await Promise.all([
+            api(`/blood-bank/crossmatches?${q}`).catch(() => null),
+            api(`/blood-bank/crossmatches/stats`).catch(() => null),
+            api(`/blood-bank/inventory?status=available`).catch(() => null)
+        ]);
+
+        if (!xmRes?.success) {
+            if (!quiet) root.innerHTML = `<div class="bb-empty">${esc(xmRes?.message || "Failed to load crossmatches.")}</div>`;
+            return;
+        }
+
+        data = {
+            crossmatches: xmRes.data || [],
+            stats: statsRes?.data || {},
+            availableUnits: availUnitsRes?.data || []
+        };
+        return render(root);
+    }
 
     if (state.view === "inventory" || state.view === "cold_chain") {
         const q = new URLSearchParams(Object.entries({
@@ -83,6 +109,7 @@ async function load(quiet = false) {
 
 function render(root) {
     const isInv = state.view === "inventory";
+    const isXm = state.view === "crossmatches";
     const isCold = state.view === "cold_chain";
     const isDonors = state.view === "donors";
 
@@ -92,11 +119,12 @@ function render(root) {
     root.innerHTML = `
         <div class="bb-head">
             <div>
-                <h1>Blood Bank Management & Cold-Chain Tracking</h1>
-                <div class="bb-sub">Unit inventory (PRBC 1–6°C, FFP ≤-18°C, Platelets 20–24°C agitated), cold-chain preservation, and donor registry.</div>
+                <h1>Blood Bank Management & Transfusion Services</h1>
+                <div class="bb-sub">Inventory units, Major/Minor crossmatch testing with 48-hour reservation holds, cold-chain preservation, and donor registry.</div>
             </div>
             <div style="display:flex;gap:8px;">
                 ${isInv ? `<button type="button" class="bb-btn blue" id="bbAddUnitBtn">+ Receive Blood Unit</button>` : ""}
+                ${isXm ? `<button type="button" class="bb-btn blue" id="bbNewCrossmatchBtn">🔬 Crossmatch & 48h Hold</button>` : ""}
                 ${isCold ? `<button type="button" class="bb-btn blue" id="bbLogTempBtn">🌡️ Log Temperature Check</button>` : ""}
                 ${isDonors ? `<button type="button" class="bb-btn blue" id="bbRegisterDonorBtn">+ Register Blood Donor</button>` : ""}
             </div>
@@ -104,11 +132,12 @@ function render(root) {
 
         <div class="bb-nav-tabs">
             ${tab("inventory", "Blood Inventory Units")}
+            ${tab("crossmatches", "Crossmatch & 48h Holds")}
             ${tab("cold_chain", "Cold-Chain & Storage Units")}
             ${tab("donors", "Blood Donor Registry")}
         </div>
 
-        ${isInv ? renderInventoryKpi(s) : isCold ? renderColdChainKpi(data.locations) : renderDonorsKpi(s)}
+        ${isInv ? renderInventoryKpi(s) : isXm ? renderCrossmatchKpi(s) : isCold ? renderColdChainKpi(data.locations) : renderDonorsKpi(s)}
 
         <div class="bb-tools">
             ${isInv ? `
@@ -129,7 +158,18 @@ function render(root) {
                 </select>
             ` : ""}
 
-            ${!isCold ? `
+            ${isXm ? `
+                <select id="bbFilterXmStatus">
+                    <option value="">All Reservation Statuses</option>
+                    <option value="active_hold" ${state.reservation_status === "active_hold" ? "selected" : ""}>Active 48h Holds</option>
+                    <option value="issued" ${state.reservation_status === "issued" ? "selected" : ""}>Issued to Ward/OR</option>
+                    <option value="transfused" ${state.reservation_status === "transfused" ? "selected" : ""}>Transfused</option>
+                    <option value="hold_expired" ${state.reservation_status === "hold_expired" ? "selected" : ""}>Hold Expired</option>
+                    <option value="cancelled_released" ${state.reservation_status === "cancelled_released" ? "selected" : ""}>Cancelled / Released</option>
+                </select>
+            ` : ""}
+
+            ${!isCold && !isXm ? `
                 <select id="bbFilterAbo">
                     <option value="">All ABO Groups</option>
                     <option value="A" ${state.abo_group === "A" ? "selected" : ""}>Group A</option>
@@ -155,13 +195,13 @@ function render(root) {
                 </select>
             ` : ""}
 
-            <input type="search" id="bbSearch" value="${esc(state.q)}" placeholder="${isInv ? "Search unit DIN, shelf, donor, or patient..." : isCold ? "Search storage unit..." : "Search donor number, name, or phone..."}">
+            <input type="search" id="bbSearch" value="${esc(state.q)}" placeholder="${isInv ? "Search unit DIN, shelf, donor, or patient..." : isXm ? "Search crossmatch XM#, unit, or patient..." : isCold ? "Search storage unit..." : "Search donor number, name, or phone..."}">
         </div>
 
-        ${isInv ? renderInventoryList(data.units) : isCold ? renderColdChainList(data.locations) : renderDonorsList(data.donors)}
+        ${isInv ? renderInventoryList(data.units) : isXm ? renderCrossmatchesList(data.crossmatches) : isCold ? renderColdChainList(data.locations) : renderDonorsList(data.donors)}
     `;
 
-    // Tab bindings
+    // Tab buttons
     root.querySelectorAll("[data-bb-view]").forEach(btn => {
         btn.onclick = () => {
             state.view = btn.dataset.bbView;
@@ -170,11 +210,13 @@ function render(root) {
     });
 
     if (root.querySelector("#bbAddUnitBtn")) root.querySelector("#bbAddUnitBtn").onclick = () => openAddUnitModal(data.locations);
+    if (root.querySelector("#bbNewCrossmatchBtn")) root.querySelector("#bbNewCrossmatchBtn").onclick = () => openNewCrossmatchModal(data.availableUnits);
     if (root.querySelector("#bbLogTempBtn")) root.querySelector("#bbLogTempBtn").onclick = () => openLogTempModal(data.locations);
     if (root.querySelector("#bbRegisterDonorBtn")) root.querySelector("#bbRegisterDonorBtn").onclick = () => openDonorModal();
 
     if (root.querySelector("#bbFilterComp")) root.querySelector("#bbFilterComp").onchange = (e) => { state.component_type = e.target.value; load(); };
     if (root.querySelector("#bbFilterUnitStatus")) root.querySelector("#bbFilterUnitStatus").onchange = (e) => { state.status = e.target.value; load(); };
+    if (root.querySelector("#bbFilterXmStatus")) root.querySelector("#bbFilterXmStatus").onchange = (e) => { state.reservation_status = e.target.value; load(); };
     if (root.querySelector("#bbFilterAbo")) root.querySelector("#bbFilterAbo").onchange = (e) => { state.abo_group = e.target.value; load(); };
     if (root.querySelector("#bbFilterRh")) root.querySelector("#bbFilterRh").onchange = (e) => { state.rh_factor = e.target.value; load(); };
     if (root.querySelector("#bbFilterDonorStatus")) root.querySelector("#bbFilterDonorStatus").onchange = (e) => { state.eligibility_status = e.target.value; load(); };
@@ -189,6 +231,25 @@ function render(root) {
     };
 
     root.onclick = async (e) => {
+        const releaseBtn = e.target.closest("[data-release-xm]");
+        if (releaseBtn) {
+            const id = Number(releaseBtn.dataset.releaseXm);
+            const reason = prompt("Enter clinical reason for releasing this reservation hold early:");
+            if (reason) {
+                const res = await api("/blood-bank/crossmatches/release", {
+                    method: "POST",
+                    body: JSON.stringify({ id, reason })
+                });
+                if (res?.success) {
+                    showToast(res.message, "success");
+                    load();
+                } else {
+                    showToast(res?.message || "Failed to release reservation", "error");
+                }
+            }
+            return;
+        }
+
         const qBtn = e.target.closest("[data-quarantine-unit]");
         if (qBtn) {
             const id = Number(qBtn.dataset.quarantineUnit);
@@ -237,6 +298,16 @@ function renderInventoryKpi(s) {
     `;
 }
 
+function renderCrossmatchKpi(s) {
+    return `
+        <div class="bb-counts">
+            <div class="good"><b>${s.active_reservation_holds || 0}</b>Active 48h Holds</div>
+            <div class="${s.expiring_within_12h ? "warn" : ""}"><b>${s.expiring_within_12h || 0}</b>Expiring &lt;12 Hours</div>
+            <div><b>${s.issued_today || 0}</b>Units Issued Today</div>
+        </div>
+    `;
+}
+
 function renderColdChainKpi(locs) {
     return `
         <div class="bb-counts">
@@ -265,6 +336,59 @@ function renderInventoryList(units) {
         return `<div class="bb-empty">No blood units match the active inventory filters.</div>`;
     }
     return `<div class="bb-list">${units.map(unitCard).join("")}</div>`;
+}
+
+function renderCrossmatchesList(list) {
+    if (!list.length) {
+        return `<div class="bb-empty">No crossmatch records found.</div>`;
+    }
+    return `<div class="bb-list">${list.map(crossmatchCard).join("")}</div>`;
+}
+
+function crossmatchCard(xm) {
+    const isActive = xm.reservation_status === "active_hold";
+    const isCompat = xm.overall_compatibility === "compatible";
+    const hoursLeft = Number(xm.hours_until_expiration);
+    const holdBadgeClass = isActive ? (hoursLeft <= 12 ? "bb-badge warn" : "bb-badge good") : "bb-badge";
+
+    return `
+        <div class="bb-card ${isCompat ? "" : "bad"}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <span class="${holdBadgeClass}">${esc(xm.reservation_status.replace("_", " ").toUpperCase())}</span>
+                    <b style="font-family:monospace;font-size:14px;color:#2563eb;margin-left:6px;">${esc(xm.crossmatch_number)}</b>
+                    <h3 style="margin:4px 0 2px;font-size:16px;">Patient: ${esc(xm.patient_name)} (${esc(xm.patient_no)}) · Blood Type: <b style="color:#dc2626;">${esc(xm.patient_blood_type)}</b></h3>
+                    <div class="bb-muted">Indication: <b>${esc(xm.clinical_indication || "Transfusion support")}</b>${xm.scheduled_surgery_date ? ` · Surgery: <b>${esc(xm.scheduled_surgery_date)}</b>` : ""}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:14px;font-weight:700;color:${isCompat ? "#059669" : "#dc2626"};">
+                        ${isCompat ? "✓ COMPATIBLE" : "⚠️ " + esc(xm.overall_compatibility.toUpperCase())}
+                    </div>
+                    <div style="font-size:12px;margin-top:2px;">Hold Expires: <b>${esc(xm.reservation_expires_at)}</b></div>
+                    ${isActive ? `<div style="font-size:11.5px;font-weight:700;color:${hoursLeft <= 12 ? "#d97706" : "#059669"};">${hoursLeft > 0 ? `${hoursLeft} hours remaining on hold` : "Hold Expired"}</div>` : ""}
+                </div>
+            </div>
+
+            <div style="background:var(--bg-muted, #f8fafc);padding:8px 10px;border-radius:6px;font-size:12px;margin:8px 0;">
+                <div style="display:flex;justify-content:space-between;">
+                    <div>
+                        <b>Reserved Unit:</b> <span style="font-family:monospace;font-weight:700;color:#991b1b;">${esc(xm.donor_unit_number)}</span> (${esc(xm.component_type.toUpperCase())} · Donor Type: <b>${esc(xm.donor_blood_type)}</b>)
+                    </div>
+                    <div>
+                        <b>Serology Phases:</b> Immediate Spin: <b>${esc(xm.immediate_spin_major)}</b> · 37°C: <b>${esc(xm.thermo_phase_37c_major)}</b> · AHG/Coombs: <b>${esc(xm.ahg_phase_major)}</b>
+                    </div>
+                </div>
+                ${xm.compatibility_notes ? `<div style="margin-top:4px;color:var(--text-muted);"><b>Notes:</b> ${esc(xm.compatibility_notes)}</div>` : ""}
+                <div class="bb-muted" style="font-size:11px;margin-top:4px;">Tested by: ${esc(xm.performed_by_username || "MedTech")} (PRC: ${esc(xm.medtech_license_no || "N/A")}) on ${esc(xm.reserved_at)}</div>
+            </div>
+
+            ${isActive ? `
+                <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    <button type="button" class="bb-btn sm" data-release-xm="${xm.id}">Release 48h Hold Early…</button>
+                </div>
+            ` : ""}
+        </div>
+    `;
 }
 
 function unitCard(u) {
@@ -502,6 +626,148 @@ function openAddUnitModal(locations) {
 
         if (!res?.success) return showToast(res?.message || "Failed to receive unit", "error");
         showToast(res.message, "success", 7000);
+        close();
+        load();
+    };
+}
+
+function openNewCrossmatchModal(availableUnits) {
+    const html = `
+        <div class="bb-modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <label>Patient ID (Numeric) *</label>
+                    <input type="number" id="xmPid" value="1" required placeholder="Enter Patient ID">
+                </div>
+                <div>
+                    <label>Recipient ABO / Rh Blood Type *</label>
+                    <select id="xmPatBt" required>
+                        <option value="O+">O Positive (O+)</option>
+                        <option value="O-">O Negative (O-)</option>
+                        <option value="A+">A Positive (A+)</option>
+                        <option value="A-">A Negative (A-)</option>
+                        <option value="B+">B Positive (B+)</option>
+                        <option value="B-">B Negative (B-)</option>
+                        <option value="AB+">AB Positive (AB+)</option>
+                        <option value="AB-">AB Negative (AB-)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>Select Available Blood Unit for Crossmatch *</label>
+                <select id="xmUnitId" required style="width:100%;">
+                    <option value="">Choose Unit in Stock...</option>
+                    ${availableUnits.map(u => `
+                        <option value="${u.id}">${esc(u.unit_number)} — ${esc(u.component_short)} ${esc(u.blood_type_formatted)} (${u.volume_ml}mL, exp ${u.expiration_date})</option>
+                    `).join("")}
+                </select>
+                ${!availableUnits.length ? `<div style="color:#b91c1c;font-size:12px;margin-top:2px;">No available blood units in stock. Receive units first.</div>` : ""}
+            </div>
+
+            <fieldset>
+                <legend>Serological Compatibility Phases (Major & Minor)</legend>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div>
+                        <label>Major: Immediate Spin (IS)</label>
+                        <select id="xmSpin">
+                            <option value="compatible">Compatible (No agglutination)</option>
+                            <option value="incompatible">INCOMPATIBLE (Agglutination)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Major: 37°C Thermo Incubation</label>
+                        <select id="xmThermo">
+                            <option value="compatible">Compatible</option>
+                            <option value="incompatible">INCOMPATIBLE</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                    <div>
+                        <label>Major: AHG Phase (Indirect Coombs)</label>
+                        <select id="xmAhg">
+                            <option value="compatible">Compatible (0 / Negative)</option>
+                            <option value="incompatible">INCOMPATIBLE (+1 to +4)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Minor Crossmatch</label>
+                        <select id="xmMinor">
+                            <option value="compatible">Compatible</option>
+                            <option value="incompatible">INCOMPATIBLE</option>
+                        </select>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                <div>
+                    <label>Clinical Indication / Procedure *</label>
+                    <input type="text" id="xmInd" value="Elective Surgical Transfusion Hold" placeholder="e.g. CABG, Cesarean Section">
+                </div>
+                <div>
+                    <label>Scheduled Surgery Date (Optional)</label>
+                    <input type="datetime-local" id="xmSurgDate">
+                </div>
+            </div>
+
+            <div style="margin-top:6px;">
+                <label>Medical Technologist PRC License No. *</label>
+                <input type="text" id="xmMtLic" value="PRC-MT-089123" required placeholder="PRC License">
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+                <button type="button" class="bb-btn" id="xmCancel">Cancel</button>
+                <button type="button" class="bb-btn blue" id="xmSave">Lock 48-Hour Reservation Hold</button>
+            </div>
+        </div>
+    `;
+
+    const ov = document.createElement("div");
+    ov.className = "bb-modal-ov";
+    ov.innerHTML = `
+        <div class="bb-modal">
+            <div class="bb-modal-head">
+                <h3>Crossmatch Testing & 48-Hour Reservation Hold</h3>
+                <button type="button" class="bb-close" id="xmClose">&times;</button>
+            </div>
+            ${html}
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#xmClose").onclick = close;
+    ov.querySelector("#xmCancel").onclick = close;
+
+    ov.querySelector("#xmSave").onclick = async () => {
+        const unitId = Number(ov.querySelector("#xmUnitId").value);
+        if (!unitId) return showToast("Please select a blood unit.", "error");
+
+        const payload = {
+            patient_id: Number(ov.querySelector("#xmPid").value),
+            patient_blood_type: ov.querySelector("#xmPatBt").value,
+            blood_unit_id: unitId,
+            immediate_spin_major: ov.querySelector("#xmSpin").value,
+            thermo_phase_37c_major: ov.querySelector("#xmThermo").value,
+            ahg_phase_major: ov.querySelector("#xmAhg").value,
+            minor_crossmatch_result: ov.querySelector("#xmMinor").value,
+            clinical_indication: ov.querySelector("#xmInd").value.trim(),
+            scheduled_surgery_date: ov.querySelector("#xmSurgDate").value ? ov.querySelector("#xmSurgDate").value.replace("T", " ") : null,
+            medtech_license_no: ov.querySelector("#xmMtLic").value.trim()
+        };
+
+        const res = await api("/blood-bank/crossmatches/perform", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        }).catch(() => null);
+
+        if (!res?.success) {
+            return showToast(res?.message || "Crossmatch failed.", "error", 8000);
+        }
+
+        showToast(res.message, "success", 8000);
         close();
         load();
     };
@@ -842,7 +1108,7 @@ function ensureCss() {
         .bb-modal-head h3 { margin: 0; font-size: 17px; }
         .bb-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); }
         .bb-modal-body label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 2px; }
-        .bb-modal-body input[type=text], .bb-modal-body input[type=date], .bb-modal-body input[type=number], .bb-modal-body select { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
+        .bb-modal-body input[type=text], .bb-modal-body input[type=date], .bb-modal-body input[type=number], .bb-modal-body input[type=datetime-local], .bb-modal-body select { width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
         .bb-modal-body fieldset { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-top: 8px; }
         .bb-modal-body legend { font-weight: 700; font-size: 12.5px; padding: 0 4px; }
     `;

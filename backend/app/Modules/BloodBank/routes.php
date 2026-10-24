@@ -2,6 +2,7 @@
 
 use App\Modules\BloodBank\Controllers\BloodDonorController;
 use App\Modules\BloodBank\Controllers\BloodInventoryController;
+use App\Modules\BloodBank\Controllers\BloodCrossmatchController;
 
 /** @var \App\Core\Router $router */
 
@@ -21,3 +22,9 @@ $router->get('/blood-bank/inventory/storage-locations', [BloodInventoryControlle
 $router->post('/blood-bank/inventory/add', [BloodInventoryController::class, 'add'], $bbManage);
 $router->post('/blood-bank/inventory/status', [BloodInventoryController::class, 'updateStatus'], $bbManage);
 $router->post('/blood-bank/cold-chain/log-temp', [BloodInventoryController::class, 'logTemp'], $bbManage);
+
+// Blood Cross-matching & 48-Hour Reservation Hold Routes
+$router->get('/blood-bank/crossmatches', [BloodCrossmatchController::class, 'index'], $bbView);
+$router->get('/blood-bank/crossmatches/stats', [BloodCrossmatchController::class, 'stats'], $bbView);
+$router->post('/blood-bank/crossmatches/perform', [BloodCrossmatchController::class, 'perform'], $bbManage);
+$router->post('/blood-bank/crossmatches/release', [BloodCrossmatchController::class, 'release'], $bbManage);
