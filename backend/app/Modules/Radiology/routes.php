@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Radiology\Controllers\RadiologyController;
+use App\Modules\Radiology\Controllers\RisImagingOrderController;
 use App\Modules\Radiology\Services\RadiologyService;
 use App\Modules\Radiology\Services\RadChargeService;
 use App\Modules\Radiology\Services\RadReportService;
@@ -57,3 +58,13 @@ $router->post('/radiology/charges/void', [RadiologyController::class, 'chargeVoi
 $router->post('/radiology/charges/discount', [RadiologyController::class, 'chargeDiscount'], $radBill);
 $router->get('/radiology/prices', [RadiologyController::class, 'prices'], $radCharges);
 $router->post('/radiology/prices', [RadiologyController::class, 'pricesSave'], $radBill);
+
+// ---------------------------------------------------------------
+// RIS (Radiology Information System): Modality Scheduling & Safety Clearance
+// ---------------------------------------------------------------
+$router->get('/radiology/ris/orders', [RisImagingOrderController::class, 'index'], $radView);
+$router->get('/radiology/ris/detail', [RisImagingOrderController::class, 'detail'], $radView);
+$router->get('/radiology/ris/stats', [RisImagingOrderController::class, 'stats'], $radView);
+$router->post('/radiology/ris/orders', [RisImagingOrderController::class, 'create'], $radSchedule);
+$router->post('/radiology/ris/safety-clearance', [RisImagingOrderController::class, 'updateSafety'], $radSchedule);
+$router->post('/radiology/ris/schedule-room', [RisImagingOrderController::class, 'scheduleRoom'], $radSchedule);

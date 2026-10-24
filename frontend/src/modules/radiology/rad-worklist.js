@@ -5,6 +5,7 @@ import { getUser } from "../../core/session.js?v=5";
 import { esc, hm, when, dayLabel, waited, ensureCss, modal, modalityTag, prepHtml, printPrep } from "./rad-ui.js?v=6";
 import { loadReports, reportsHtml, onReportsClick, openPerform, openImages, openViewer } from "./rad-report.js?v=6";
 import { loadCharges, chargesHtml, onChargesClick } from "./rad-charges.js?v=5";
+import { loadRisOrders, risHtml, onRisClick } from "./ris-orders.js";
 
 /*
  * Radiology worklist (module 15, Phase 1; tab "rad_worklist"): the imaging requests waiting to be scheduled -- STAT
@@ -45,6 +46,15 @@ export function initRadWorklist() {
 async function load(quiet = false) {
     const root = document.getElementById("radRoot");
     if (!root) return;
+    if (state.view === "ris") {
+        const d = await loadRisOrders(root, state, load);
+        if (d.error) {
+            if (!quiet) root.innerHTML = `<div class="rad-empty">${esc(d.error)}</div>`;
+            return;
+        }
+        data = { ...d, view: "ris", options: data?.options || { modalities: {}, priorities: {} } };
+        return render(root);
+    }
     if (REPORT_VIEWS.includes(state.view) || state.view === "charges") {
         const d = state.view === "charges" ? await loadCharges(root, state, load) : await loadReports(root, state, load);
         if (d.error) {
@@ -129,6 +139,7 @@ function bookingRow(b) {
 function render(root) {
     const c = data.counts;
     const focus = document.activeElement?.id;
+    const isRis = state.view === "ris";
     const booked = data.view === "booked";
     const reports = REPORT_VIEWS.includes(data.view);
     const charges = state.view === "charges";
@@ -141,6 +152,7 @@ function render(root) {
         <div class="rad-head"><div><h1>Radiology worklist</h1><div class="rad-sub">${charges
             ? "What the imaging cost each patient: a study is charged to the patient's ledger when its report is signed, at the price on the catalog."
             : reports ? "Studies done, waiting for the radiologist. A signed report goes to the chart and the results inbox, and a critical finding alerts the doctor at once."
+            : isRis ? "RIS Imaging Orders & Safety Screening Console. Tracks accession numbering (RAD-YYYY-XXXXX), IV contrast allergy screening, and renal function clearance (eGFR/creatinine)."
             : booked ? "The day on each machine. Book a study into a free slot, mark the patient as arrived, record it as done, move it or cancel it."
             : "Imaging requests from the clinic, the ER, the wards and the ICU, waiting to be scheduled. STAT first, then by when they are needed."}${charges ? "" : " Refreshes every 30 seconds."}</div></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">${charges && admin ? `<button type="button" class="rad-b" data-prices>Study prices…</button>` : ""}
@@ -165,14 +177,14 @@ function render(root) {
             <div role="listitem"><b>${c.waiting_in_department}</b>in the department</div>`}
         </div>
         <div class="rad-tools">
-            <span class="rad-tabs" role="group" aria-label="Show">${tab("schedule", "To schedule")}${tab("booked", "Day per machine")}${canReport ? tab("read", "To report") + tab("reported", "Reported") : ""}${canCharge ? tab("charges", "Charges") : ""}</span>
+            <span class="rad-tabs" role="group" aria-label="Show">${tab("schedule", "To schedule")}${tab("ris", "RIS & Safety Clearance")}${tab("booked", "Day per machine")}${canReport ? tab("read", "To report") + tab("reported", "Reported") : ""}${canCharge ? tab("charges", "Charges") : ""}</span>
             ${charges ? `<label class="rbx-chk" style="margin:0"><input type="checkbox" id="radOnly" ${state.only ? "checked" : ""}> Not charged yet only</label>` : ""}
             ${booked ? `<input type="date" id="radDate" value="${esc(data.date)}" aria-label="Day">
                 <select id="radRoom" aria-label="Machine"><option value="">All machines</option>${data.rooms.map((r) => `<option value="${r.id}" ${Number(state.room_id) === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}
             ${charges ? "" : `<select id="radMod" aria-label="Modality"><option value="">All imaging</option>${Object.entries(data.options.modalities || {}).map(([k, l]) => `<option value="${k}" ${state.modality === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`}
             <input type="search" id="radQ" value="${esc(state.q)}" placeholder="Patient, MRN, request no. or study" aria-label="Search">
         </div>
-        ${charges ? chargesHtml(data) : reports ? reportsHtml(data) : booked ? dayHtml() : data.requests.length ? `<div class="rad-list">${data.requests.map(requestRow).join("")}</div>`
+        ${isRis ? risHtml(data) : charges ? chargesHtml(data) : reports ? reportsHtml(data) : booked ? dayHtml() : data.requests.length ? `<div class="rad-list">${data.requests.map(requestRow).join("")}</div>`
             : `<div class="rad-empty">Nothing waiting to be scheduled.</div>`}`;
     if (focus === "radQ") {
         const q = root.querySelector("#radQ");
