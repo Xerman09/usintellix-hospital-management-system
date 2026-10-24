@@ -681,6 +681,8 @@ class DietaryService
         $deliveredToday = (int)$pdo->query("SELECT COUNT(*) FROM dietary_meal_trays WHERE meal_date = '{$today}' AND status = 'delivered'")->fetchColumn();
         $pendingPrep = (int)$pdo->query("SELECT COUNT(*) FROM dietary_meal_trays WHERE meal_date = '{$today}' AND status IN ('scheduled', 'prep_in_kitchen')")->fetchColumn();
 
+        $ordersToday = (int)$pdo->query("SELECT COUNT(*) FROM patient_meal_orders WHERE meal_date = '{$today}'")->fetchColumn();
+
         return [
             'active_prescriptions' => $activePrescriptions,
             'npo_fasting_patients' => $npoCount,
@@ -690,7 +692,485 @@ class DietaryService
             'trays_today' => $traysToday,
             'trays_with_food_allergies' => $allergiesToday,
             'trays_delivered_today' => $deliveredToday,
-            'trays_pending_prep' => $pendingPrep
+            'trays_pending_prep' => $pendingPrep,
+            'meal_orders_today' => $ordersToday
         ];
+    }
+
+    /**
+     * Atomically generates sequential Meal Order Number: MO-YYYY-XXXXX
+     */
+    public static function nextMealOrderNumber(PDO $pdo, ?int $year = null): string
+    {
+        $year = $year ?: (int)date('Y');
+        $stmt = $pdo->prepare("SELECT last_seq FROM dietary_meal_order_counters WHERE prefix_year = ? FOR UPDATE");
+        $stmt->execute([$year]);
+        $seq = $stmt->fetchColumn();
+
+        if ($seq === false) {
+            $seq = 1;
+            $ins = $pdo->prepare("INSERT INTO dietary_meal_order_counters (prefix_year, last_seq) VALUES (?, ?)");
+            $ins->execute([$year, $seq]);
+        } else {
+            $seq = (int)$seq + 1;
+            $upd = $pdo->prepare("UPDATE dietary_meal_order_counters SET last_seq = ? WHERE prefix_year = ?");
+            $upd->execute([$seq, $year]);
+        }
+
+        return sprintf("MO-%04d-%05d", $year, $seq);
+    }
+
+    /**
+     * Get Hospital Menu with Automatic Lockout Evaluation for a Patient
+     */
+    public function getPatientMenuWithLockouts(int $patientId, ?string $mealType = null): array
+    {
+        $pdo = Database::connection();
+
+        // 1. Fetch active prescription
+        $rxStmt = $pdo->prepare("
+            SELECT * FROM patient_diet_prescriptions
+            WHERE patient_id = ? AND status = 'active'
+            ORDER BY id DESC LIMIT 1
+        ");
+        $rxStmt->execute([$patientId]);
+        $activeRx = $rxStmt->fetch(PDO::FETCH_ASSOC);
+
+        $dietCategory = $activeRx['diet_category'] ?? 'regular';
+
+        // 2. Fetch documented food allergies
+        $allergyInfo = $this->getPatientFoodAllergies($patientId);
+        $allergies = $allergyInfo['food_allergies'];
+
+        // 3. Fetch menu items
+        $sql = "SELECT * FROM dietary_menu_items WHERE is_active = 1";
+        $params = [];
+        if ($mealType && in_array($mealType, ['breakfast', 'lunch', 'dinner', 'snack_am', 'snack_pm', 'snack_hs'], true)) {
+            $sql .= " AND (meal_availability = 'all' OR meal_availability LIKE ?)";
+            $params[] = '%' . $mealType . '%';
+        }
+        $sql .= " ORDER BY category ASC, name ASC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Evaluate lockout for each item
+        $evaluatedItems = [];
+        foreach ($items as $item) {
+            $lockout = $this->evaluateItemLockout($item, $dietCategory, $activeRx, $allergies);
+            $item['is_locked'] = $lockout['is_locked'];
+            $item['lockout_reason'] = $lockout['reason'];
+            $evaluatedItems[] = $item;
+        }
+
+        return [
+            'patient_id' => $patientId,
+            'diet_prescription' => $activeRx,
+            'diet_category' => $dietCategory,
+            'is_npo' => ($dietCategory === 'npo'),
+            'food_allergies' => $allergyInfo,
+            'menu_items' => $evaluatedItems
+        ];
+    }
+
+    /**
+     * Helper to evaluate diet plan compliance and allergen safety for a menu item
+     */
+    public function evaluateItemLockout(array $item, string $dietCategory, ?array $activeRx, array $foodAllergies): array
+    {
+        // 1. Hard safety block: NPO (Fasting)
+        if ($dietCategory === 'npo') {
+            return [
+                'is_locked' => true,
+                'reason' => 'LOCKED OUT: Patient has strict NPO (Nil Per Os) fasting order. All food & liquids prohibited.'
+            ];
+        }
+
+        // 2. Allergen Lockouts
+        foreach ($foodAllergies as $a) {
+            $nameLower = strtolower($a['allergen_name']);
+
+            if ((str_contains($nameLower, 'peanut')) && !empty($item['contains_peanuts'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Peanuts (Patient has documented {$a['severity']} allergy)"];
+            }
+            if ((str_contains($nameLower, 'tree nut') || str_contains($nameLower, 'nut')) && !empty($item['contains_tree_nuts'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Tree Nuts (Patient has documented allergy)"];
+            }
+            if ((str_contains($nameLower, 'shellfish') || str_contains($nameLower, 'shrimp') || str_contains($nameLower, 'crab')) && !empty($item['contains_shellfish'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Shellfish (Patient has documented allergy)"];
+            }
+            if (str_contains($nameLower, 'fish') && !empty($item['contains_fish'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Fish (Patient has documented allergy)"];
+            }
+            if (str_contains($nameLower, 'egg') && !empty($item['contains_eggs'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Eggs (Patient has documented allergy)"];
+            }
+            if ((str_contains($nameLower, 'milk') || str_contains($nameLower, 'dairy') || str_contains($nameLower, 'lactose')) && !empty($item['contains_milk'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Milk / Dairy (Patient has documented allergy)"];
+            }
+            if ((str_contains($nameLower, 'wheat') || str_contains($nameLower, 'gluten')) && !empty($item['contains_wheat_gluten'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Wheat / Gluten (Patient has documented allergy)"];
+            }
+            if (str_contains($nameLower, 'soy') && !empty($item['contains_soy'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Soy (Patient has documented allergy)"];
+            }
+            if (str_contains($nameLower, 'sesame') && !empty($item['contains_sesame'])) {
+                return ['is_locked' => true, 'reason' => "ALLERGY LOCKOUT: Contains Sesame (Patient has documented allergy)"];
+            }
+        }
+
+        // 3. Clinical Diet Category Lockouts
+        if ($dietCategory === 'clear_liquid' && empty($item['allowed_clear_liquid'])) {
+            return ['is_locked' => true, 'reason' => 'LOCKED OUT: Solid food or non-clear liquid prohibited on Clear Liquid Diet.'];
+        }
+
+        if ($dietCategory === 'full_liquid' && empty($item['allowed_full_liquid'])) {
+            return ['is_locked' => true, 'reason' => 'LOCKED OUT: Solid food prohibited on Full Liquid Diet.'];
+        }
+
+        if ($dietCategory === 'pureed_soft' && empty($item['allowed_pureed_soft'])) {
+            return ['is_locked' => true, 'reason' => 'LOCKED OUT: Texture prohibited on Dysphagia Pureed / Soft Diet.'];
+        }
+
+        if ($dietCategory === 'renal') {
+            if (empty($item['allowed_renal']) || (int)$item['potassium_mg'] > 400 || (int)$item['phosphorus_mg'] > 300) {
+                return [
+                    'is_locked' => true,
+                    'reason' => 'LOCKED OUT: High potassium (' . $item['potassium_mg'] . 'mg) or phosphorus (' . $item['phosphorus_mg'] . 'mg) strictly prohibited on Renal Diet.'
+                ];
+            }
+        }
+
+        if ($dietCategory === 'low_sodium') {
+            if (empty($item['allowed_low_sodium']) || (int)$item['sodium_mg'] > 400) {
+                return [
+                    'is_locked' => true,
+                    'reason' => 'LOCKED OUT: High sodium (' . $item['sodium_mg'] . 'mg > 400mg) prohibited on Cardiac / Low Sodium Diet.'
+                ];
+            }
+        }
+
+        if ($dietCategory === 'diabetic') {
+            if (empty($item['allowed_diabetic']) || (float)$item['sugar_g'] > 12.0) {
+                return [
+                    'is_locked' => true,
+                    'reason' => 'LOCKED OUT: High sugar content (' . $item['sugar_g'] . 'g) prohibited on Diabetic / Consistent Carb Plan.'
+                ];
+            }
+        }
+
+        if ($dietCategory === 'low_fat') {
+            if (empty($item['allowed_low_fat']) || (float)$item['fat_g'] > 10.0) {
+                return [
+                    'is_locked' => true,
+                    'reason' => 'LOCKED OUT: High fat content (' . $item['fat_g'] . 'g) prohibited on Low Fat / Gallbladder Diet.'
+                ];
+            }
+        }
+
+        return ['is_locked' => false, 'reason' => null];
+    }
+
+    /**
+     * Place a Patient Meal Order with Strict Diet Compliance & Lockout Enforcement
+     */
+    public function placeMealOrder(array $data, ?int $userId = null): array
+    {
+        $pdo = Database::connection();
+        $patientId = (int)($data['patient_id'] ?? 0);
+        $mealDate = !empty($data['meal_date']) ? $data['meal_date'] : date('Y-m-d');
+        $mealType = trim($data['meal_type'] ?? 'lunch');
+        $items = $data['items'] ?? [];
+
+        if ($patientId <= 0) {
+            throw new RuntimeException("Patient ID is required.");
+        }
+
+        if (empty($items) || !is_array($items)) {
+            throw new RuntimeException("Please select at least one menu item for the meal order.");
+        }
+
+        // Fetch active prescription
+        $rxStmt = $pdo->prepare("
+            SELECT * FROM patient_diet_prescriptions
+            WHERE patient_id = ? AND status = 'active'
+            ORDER BY id DESC LIMIT 1
+        ");
+        $rxStmt->execute([$patientId]);
+        $activeRx = $rxStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$activeRx) {
+            throw new RuntimeException("No active clinical diet prescription found for patient. A clinical diet must be prescribed before ordering meals.");
+        }
+
+        if ($activeRx['diet_category'] === 'npo') {
+            throw new RuntimeException("SAFETY BLOCK: Patient is on active NPO (Nil Per Os) fasting status. Meal ordering is locked out by order of {$activeRx['prescribing_doctor_name']}.");
+        }
+
+        $allergyInfo = $this->getPatientFoodAllergies($patientId);
+        $foodAllergies = $allergyInfo['food_allergies'];
+
+        // Validate items and verify lockouts
+        $totalCalories = 0;
+        $totalSodium = 0;
+        $totalCarbs = 0.0;
+        $totalProtein = 0.0;
+        $totalPotassium = 0;
+
+        $validatedItems = [];
+        foreach ($items as $req) {
+            $itemId = (int)($req['menu_item_id'] ?? $req['id'] ?? 0);
+            $qty = max(1, (int)($req['quantity'] ?? 1));
+
+            $itemStmt = $pdo->prepare("SELECT * FROM dietary_menu_items WHERE id = ? AND is_active = 1");
+            $itemStmt->execute([$itemId]);
+            $menuItem = $itemStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$menuItem) {
+                throw new RuntimeException("Menu item ID {$itemId} not found.");
+            }
+
+            $lockout = $this->evaluateItemLockout($menuItem, $activeRx['diet_category'], $activeRx, $foodAllergies);
+
+            if ($lockout['is_locked']) {
+                throw new RuntimeException("ORDER BLOCKED: '{$menuItem['name']}' is prohibited for this patient. {$lockout['reason']}");
+            }
+
+            $totalCalories += (int)$menuItem['calories'] * $qty;
+            $totalSodium += (int)$menuItem['sodium_mg'] * $qty;
+            $totalCarbs += (float)$menuItem['carbs_g'] * $qty;
+            $totalProtein += (float)$menuItem['protein_g'] * $qty;
+            $totalPotassium += (int)$menuItem['potassium_mg'] * $qty;
+
+            $validatedItems[] = [
+                'menu_item_id' => $itemId,
+                'quantity' => $qty,
+                'item_name' => $menuItem['name'],
+                'item_category' => $menuItem['category'],
+                'calories' => (int)$menuItem['calories'],
+                'sodium_mg' => (int)$menuItem['sodium_mg'],
+                'carbs_g' => (float)$menuItem['carbs_g'],
+                'is_diet_compliant' => 1,
+                'is_allergen_safe' => 1,
+                'lockout_reason' => null
+            ];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $orderNo = self::nextMealOrderNumber($pdo);
+
+            $insOrder = $pdo->prepare("
+                INSERT INTO patient_meal_orders (
+                    order_number, patient_id, prescription_id, meal_date, meal_type,
+                    ordered_by_type, ordered_by_user_id, ordered_by_name,
+                    total_calories, total_sodium_mg, total_carbs_g, total_protein_g, total_potassium_mg,
+                    status, diet_compliance_status, special_requests,
+                    created_at, updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    'submitted', 'compliant', ?,
+                    NOW(), NOW()
+                )
+            ");
+
+            $orderedByType = $data['ordered_by_type'] ?? 'patient_bedside';
+            $orderedByName = $data['ordered_by_name'] ?? 'Bedside Patient';
+
+            $insOrder->execute([
+                $orderNo,
+                $patientId,
+                $activeRx['id'],
+                $mealDate,
+                $mealType,
+                $orderedByType,
+                $userId,
+                $orderedByName,
+                $totalCalories,
+                $totalSodium,
+                $totalCarbs,
+                $totalProtein,
+                $totalPotassium,
+                $data['special_requests'] ?? null
+            ]);
+
+            $orderId = (int)$pdo->lastInsertId();
+
+            $insLine = $pdo->prepare("
+                INSERT INTO patient_meal_order_items (
+                    meal_order_id, menu_item_id, quantity, item_name, item_category,
+                    calories, sodium_mg, carbs_g, is_diet_compliant, is_allergen_safe,
+                    lockout_reason, created_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, 1, 1,
+                    NULL, NOW()
+                )
+            ");
+
+            foreach ($validatedItems as $line) {
+                $insLine->execute([
+                    $orderId,
+                    $line['menu_item_id'],
+                    $line['quantity'],
+                    $line['item_name'],
+                    $line['item_category'],
+                    $line['calories'],
+                    $line['sodium_mg'],
+                    $line['carbs_g']
+                ]);
+            }
+
+            // Sync with dietary_meal_trays for today/this meal
+            $updTray = $pdo->prepare("
+                UPDATE dietary_meal_trays
+                SET status = 'prep_in_kitchen',
+                    kitchen_prep_notes = CONCAT(COALESCE(kitchen_prep_notes, ''), ' [Meal Order Placed: ', ?, ']'),
+                    updated_at = NOW()
+                WHERE prescription_id = ? AND meal_date = ? AND meal_type = ?
+            ");
+            $updTray->execute([$orderNo, $activeRx['id'], $mealDate, $mealType]);
+
+            $pdo->commit();
+
+            return $this->getMealOrderDetail($orderId);
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Get Meal Order Detail with items
+     */
+    public function getMealOrderDetail(int $orderId): ?array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("
+            SELECT pmo.*,
+                   CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
+                   p.patient_no AS patient_mrn,
+                   p.birthdate AS patient_dob,
+                   pdp.prescription_number,
+                   pdp.diet_category,
+                   pdp.ward_room_bed
+            FROM patient_meal_orders pmo
+            JOIN patients p ON pmo.patient_id = p.id
+            JOIN patient_diet_prescriptions pdp ON pmo.prescription_id = pdp.id
+            WHERE pmo.id = ?
+        ");
+        $stmt->execute([$orderId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return null;
+        }
+
+        $itemsStmt = $pdo->prepare("
+            SELECT pmoi.*, dmi.item_code, dmi.texture_level, dmi.liquid_level
+            FROM patient_meal_order_items pmoi
+            LEFT JOIN dietary_menu_items dmi ON pmoi.menu_item_id = dmi.id
+            WHERE pmoi.meal_order_id = ?
+        ");
+        $itemsStmt->execute([$orderId]);
+        $row['items'] = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $row;
+    }
+
+    /**
+     * List Patient Meal Orders with search & filters
+     */
+    public function listMealOrders(array $filters = [], int $page = 1, int $perPage = 20): array
+    {
+        $pdo = Database::connection();
+        $where = [];
+        $params = [];
+
+        if (!empty($filters['meal_date'])) {
+            $where[] = "pmo.meal_date = ?";
+            $params[] = $filters['meal_date'];
+        }
+
+        if (!empty($filters['meal_type'])) {
+            $where[] = "pmo.meal_type = ?";
+            $params[] = $filters['meal_type'];
+        }
+
+        if (!empty($filters['patient_id'])) {
+            $where[] = "pmo.patient_id = ?";
+            $params[] = (int)$filters['patient_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $where[] = "pmo.status = ?";
+            $params[] = $filters['status'];
+        }
+
+        if (!empty($filters['search'])) {
+            $term = '%' . trim($filters['search']) . '%';
+            $where[] = "(pmo.order_number LIKE ? OR p.first_name LIKE ? OR p.last_name LIKE ? OR p.patient_no LIKE ? OR pdp.ward_room_bed LIKE ?)";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
+        $whereClause = count($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $countSql = "
+            SELECT COUNT(*)
+            FROM patient_meal_orders pmo
+            JOIN patients p ON pmo.patient_id = p.id
+            JOIN patient_diet_prescriptions pdp ON pmo.prescription_id = pdp.id
+            {$whereClause}
+        ";
+        $cStmt = $pdo->prepare($countSql);
+        $cStmt->execute($params);
+        $total = (int)$cStmt->fetchColumn();
+
+        $offset = max(0, ($page - 1) * $perPage);
+        $sql = "
+            SELECT pmo.*,
+                   CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
+                   p.patient_no AS patient_mrn,
+                   pdp.prescription_number,
+                   pdp.diet_category,
+                   pdp.ward_room_bed,
+                   (SELECT COUNT(*) FROM patient_meal_order_items WHERE meal_order_id = pmo.id) AS items_count
+            FROM patient_meal_orders pmo
+            JOIN patients p ON pmo.patient_id = p.id
+            JOIN patient_diet_prescriptions pdp ON pmo.prescription_id = pdp.id
+            {$whereClause}
+            ORDER BY pmo.id DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'last_page' => (int)ceil($total / max(1, $perPage))
+        ];
+    }
+
+    /**
+     * Update Meal Order Status
+     */
+    public function updateMealOrderStatus(int $orderId, string $status): array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("UPDATE patient_meal_orders SET status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$status, $orderId]);
+        return $this->getMealOrderDetail($orderId);
     }
 }

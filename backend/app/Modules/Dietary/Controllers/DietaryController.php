@@ -180,4 +180,99 @@ class DietaryController
             return Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
+
+    public function patientMenu(Request $request): Response
+    {
+        try {
+            $patientId = (int)($request->query('patient_id') ?? 0);
+            $mealType = $request->query('meal_type');
+
+            if ($patientId <= 0) {
+                return Response::json(['success' => false, 'message' => 'Patient ID is required.'], 400);
+            }
+
+            $menu = $this->service->getPatientMenuWithLockouts($patientId, $mealType);
+            return Response::json(['success' => true, 'data' => $menu]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function placeMealOrder(Request $request): Response
+    {
+        try {
+            $actor = $request->user();
+            $data = $request->json();
+
+            $order = $this->service->placeMealOrder($data, $actor['id'] ?? null);
+            return Response::json([
+                'success' => true,
+                'message' => 'Meal order placed successfully. All items verified compliant with clinical diet plan.',
+                'data' => $order
+            ], 201);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function listMealOrders(Request $request): Response
+    {
+        try {
+            $filters = [
+                'meal_date' => $request->query('meal_date'),
+                'meal_type' => $request->query('meal_type'),
+                'patient_id' => $request->query('patient_id'),
+                'status' => $request->query('status'),
+                'search' => $request->query('q') ?? $request->query('search')
+            ];
+            $page = max(1, (int)($request->query('page') ?? 1));
+            $perPage = min(100, max(1, (int)($request->query('per_page') ?? 20)));
+
+            $data = $this->service->listMealOrders($filters, $page, $perPage);
+            return Response::json(['success' => true, 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function mealOrderDetail(Request $request): Response
+    {
+        try {
+            $id = (int)($request->query('id') ?? 0);
+            if ($id <= 0) {
+                return Response::json(['success' => false, 'message' => 'Meal order ID is required.'], 400);
+            }
+
+            $detail = $this->service->getMealOrderDetail($id);
+            if (!$detail) {
+                return Response::json(['success' => false, 'message' => 'Meal order not found.'], 404);
+            }
+
+            return Response::json(['success' => true, 'data' => $detail]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateMealOrderStatus(Request $request): Response
+    {
+        try {
+            $data = $request->json();
+            $id = (int)($data['order_id'] ?? $data['id'] ?? 0);
+            $status = trim($data['status'] ?? '');
+
+            if ($id <= 0 || empty($status)) {
+                return Response::json(['success' => false, 'message' => 'Order ID and Status are required.'], 400);
+            }
+
+            $detail = $this->service->updateMealOrderStatus($id, $status);
+            return Response::json([
+                'success' => true,
+                'message' => 'Meal order status updated.',
+                'data' => $detail
+            ]);
+        } catch (Throwable $e) {
+            return Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
 }

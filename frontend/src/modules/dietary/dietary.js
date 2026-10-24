@@ -4,7 +4,7 @@ import { showToast } from "../../core/toast.js";
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let state = {
-    view: "prescriptions", // "prescriptions" | "kitchen" | "npo_watchlist" | "guidelines"
+    view: "prescriptions", // "prescriptions" | "orders" | "kitchen" | "npo_watchlist" | "guidelines"
     diet_category: "",
     status: "active",
     meal_date: new Date().toISOString().slice(0, 10),
@@ -27,6 +27,32 @@ export async function initDietary() {
 async function load(quiet = false) {
     const root = document.getElementById("dietaryRoot");
     if (!root) return;
+
+    if (state.view === "orders") {
+        const q = new URLSearchParams(Object.entries({
+            meal_date: state.meal_date,
+            meal_type: state.meal_type,
+            q: state.q
+        }).filter(([, v]) => v));
+
+        const [ordersRes, statsRes, patientsRes] = await Promise.all([
+            api(`/dietary/meal-orders?${q}`).catch(() => null),
+            api(`/dietary/stats`).catch(() => null),
+            api(`/patients?limit=50`).catch(() => null)
+        ]);
+
+        if (!ordersRes?.success) {
+            if (!quiet) root.innerHTML = `<div class="diet-empty">${esc(ordersRes?.message || "Failed to load meal orders.")}</div>`;
+            return;
+        }
+
+        data = {
+            orders: ordersRes.data?.items || [],
+            stats: statsRes?.data || {},
+            patients: patientsRes?.data?.data || patientsRes?.data || []
+        };
+        return render(root);
+    }
 
     if (state.view === "kitchen") {
         const q = new URLSearchParams(Object.entries({
@@ -81,6 +107,7 @@ async function load(quiet = false) {
 
 function render(root) {
     const isRx = state.view === "prescriptions";
+    const isOrders = state.view === "orders";
     const isKitchen = state.view === "kitchen";
     const isNpo = state.view === "npo_watchlist";
     const isGuides = state.view === "guidelines";
@@ -92,15 +119,17 @@ function render(root) {
         <div class="diet-head">
             <div>
                 <h1>Dietary &amp; Nutrition Services</h1>
-                <div class="diet-sub">Clinical diet prescriptions (Diabetic, Renal, Low Sodium, Dysphagia, NPO), kitchen meal tray assembly, and automated food allergy safety alerts.</div>
+                <div class="diet-sub">Clinical diet prescriptions, daily breakfast/lunch/dinner ordering with automated prohibited food lockouts, and kitchen tray allergy safety alerts.</div>
             </div>
             <div style="display:flex;gap:8px;">
-                <button type="button" class="diet-btn blue" id="dietPrescribeBtn">+ Prescribe Clinical Diet</button>
+                ${isOrders ? `<button type="button" class="diet-btn blue" id="dietOrderMealBtn">🍽️ Place Bedside Meal Order (Auto Lockouts)</button>` : ""}
+                ${!isOrders ? `<button type="button" class="diet-btn blue" id="dietPrescribeBtn">+ Prescribe Clinical Diet</button>` : ""}
             </div>
         </div>
 
         <div class="diet-nav-tabs">
             ${tab("prescriptions", "Clinical Diet Orders")}
+            ${tab("orders", "Patient Meal Ordering & Lockouts")}
             ${tab("kitchen", "Kitchen Tray Assembly & Allergies")}
             ${tab("npo_watchlist", `NPO Fasting Watchlist ${s.npo_fasting_patients ? `(${s.npo_fasting_patients})` : ""}`)}
             ${tab("guidelines", "Diet & Dysphagia Guidelines")}
@@ -132,6 +161,18 @@ function render(root) {
                     </select>
                 ` : ""}
 
+                ${isOrders ? `
+                    <label style="font-size:12.5px;font-weight:700;">Date:</label>
+                    <input type="date" id="dietMealDate" value="${esc(state.meal_date)}">
+                    
+                    <select id="dietMealType">
+                        <option value="">All Meals (B/L/D)</option>
+                        <option value="breakfast" ${state.meal_type === "breakfast" ? "selected" : ""}>Breakfast</option>
+                        <option value="lunch" ${state.meal_type === "lunch" ? "selected" : ""}>Lunch</option>
+                        <option value="dinner" ${state.meal_type === "dinner" ? "selected" : ""}>Dinner</option>
+                    </select>
+                ` : ""}
+
                 ${isKitchen ? `
                     <label style="font-size:12.5px;font-weight:700;">Date:</label>
                     <input type="date" id="dietMealDate" value="${esc(state.meal_date)}">
@@ -149,11 +190,11 @@ function render(root) {
                     </select>
                 ` : ""}
 
-                <input type="search" id="dietSearch" value="${esc(state.q)}" placeholder="${isKitchen ? "Search tray #, patient, room/bed..." : "Search prescription #, patient name, room..."}">
+                <input type="search" id="dietSearch" value="${esc(state.q)}" placeholder="${isOrders ? "Search order #, patient name, bed..." : isKitchen ? "Search tray #, patient, room/bed..." : "Search prescription #, patient name, room..."}">
             </div>
         ` : ""}
 
-        ${isRx ? renderPrescriptionsList(data.prescriptions) : isKitchen ? renderKitchenTraysList(data.trays) : isNpo ? renderNpoWatchlist(data.prescriptions) : renderGuidelinesView()}
+        ${isRx ? renderPrescriptionsList(data.prescriptions) : isOrders ? renderMealOrdersList(data.orders) : isKitchen ? renderKitchenTraysList(data.trays) : isNpo ? renderNpoWatchlist(data.prescriptions) : renderGuidelinesView()}
     `;
 
     // Tab buttons
@@ -165,6 +206,7 @@ function render(root) {
     });
 
     if (root.querySelector("#dietPrescribeBtn")) root.querySelector("#dietPrescribeBtn").onclick = () => openPrescribeDietModal(data.patients);
+    if (root.querySelector("#dietOrderMealBtn")) root.querySelector("#dietOrderMealBtn").onclick = () => openPlaceMealOrderModal(data.patients);
 
     if (root.querySelector("#dietFilterCat")) root.querySelector("#dietFilterCat").onchange = (e) => { state.diet_category = e.target.value; load(); };
     if (root.querySelector("#dietFilterStatus")) root.querySelector("#dietFilterStatus").onchange = (e) => { state.status = e.target.value; load(); };
@@ -188,6 +230,12 @@ function render(root) {
         const viewRxBtn = e.target.closest("[data-view-rx]");
         if (viewRxBtn) {
             openDietDetailModal(Number(viewRxBtn.dataset.viewRx));
+            return;
+        }
+
+        const viewOrderBtn = e.target.closest("[data-view-order]");
+        if (viewOrderBtn) {
+            openMealOrderDetailModal(Number(viewOrderBtn.dataset.viewOrder));
             return;
         }
 
@@ -249,7 +297,8 @@ function renderKpi(s) {
     return `
         <div class="diet-counts">
             <div class="good"><b>${s.active_prescriptions || 0}</b>Active Diet Orders</div>
-            <div class="${s.npo_fasting_patients ? "bad" : ""}"><b>${s.npo_fasting_patients || 0}</b>NPO Fasting (Tray Lock)</div>
+            <div class="${s.npo_fasting_patients ? "bad" : ""}"><b>${s.npo_fasting_patients || 0}</b>NPO Fasting (Locked)</div>
+            <div><b>${s.meal_orders_today || 0}</b>Meal Orders Placed Today</div>
             <div><b>${s.diabetic_patients || 0}</b>Diabetic / Low Carb</div>
             <div><b>${s.renal_patients || 0}</b>Renal Patients</div>
             <div><b>${s.cardiac_patients || 0}</b>Cardiac (Low Sodium)</div>
@@ -262,6 +311,11 @@ function renderKpi(s) {
 function renderPrescriptionsList(rxs) {
     if (!rxs.length) return `<div class="diet-empty">No clinical diet prescriptions found.</div>`;
     return `<div class="diet-list">${rxs.map(prescriptionCard).join("")}</div>`;
+}
+
+function renderMealOrdersList(orders) {
+    if (!orders.length) return `<div class="diet-empty">No patient meal orders placed for this date. Click "🍽️ Place Bedside Meal Order" to select compliant meals.</div>`;
+    return `<div class="diet-list">${orders.map(mealOrderCard).join("")}</div>`;
 }
 
 function renderKitchenTraysList(trays) {
@@ -284,6 +338,48 @@ function renderNpoWatchlist(rxs) {
             <b>⚠️ CRITICAL SURGICAL / PROCEDURAL FASTING SAFETY:</b> The following patients have active NPO orders. All kitchen food trays are automatically blocked. Nursing staff must verify nil per os compliance prior to sedation or surgery.
         </div>
         <div class="diet-list">${npoList.map(prescriptionCard).join("")}</div>
+    `;
+}
+
+function mealOrderCard(order) {
+    return `
+        <div class="diet-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+                <div>
+                    <span class="diet-badge good">✓ 100% DIET COMPLIANT</span>
+                    <b style="font-family:monospace;font-size:14px;color:#2563eb;margin-left:6px;">${esc(order.order_number)}</b>
+                    <span style="font-weight:700;font-size:12px;margin-left:6px;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#b45309;">
+                        🍽️ ${esc(order.meal_type.toUpperCase())}
+                    </span>
+                    <h3 style="margin:4px 0 2px;font-size:16px;">
+                        Patient: <b>${esc(order.patient_name)}</b> (${esc(order.patient_mrn)}) · Bed: <b style="color:#2563eb;">${esc(order.ward_room_bed || "Ward")}</b>
+                    </h3>
+                    <div class="diet-muted">
+                        Prescription: <b style="color:#b45309;">${esc(order.diet_category.toUpperCase())}</b> (${esc(order.prescription_number)}) · Ordered by: <b>${esc(order.ordered_by_name || "Bedside")}</b> on ${esc(order.created_at)}
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:13px;font-weight:700;color:#059669;">${order.items_count} Menu Items Selected</div>
+                    <div style="font-size:12px;margin-top:2px;" class="diet-muted">Meal Date: <b>${esc(order.meal_date)}</b></div>
+                </div>
+            </div>
+
+            <div style="background:var(--bg-muted, #f8fafc);padding:8px 10px;border-radius:6px;font-size:12px;margin:8px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <div>
+                    <b>Nutritional Totals:</b>
+                    · Calories: <b style="color:#1d4ed8;">${order.total_calories} kcal</b>
+                    · Sodium: <b>${order.total_sodium_mg} mg</b>
+                    · Carbs: <b>${order.total_carbs_g} g</b>
+                    · Protein: <b>${order.total_protein_g} g</b>
+                    · Potassium: <b>${order.total_potassium_mg} mg</b>
+                </div>
+                ${order.special_requests ? `<div><b>Requests:</b> ${esc(order.special_requests)}</div>` : ""}
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:6px;">
+                <button type="button" class="diet-btn sm" data-view-order="${order.id}">👁️ View Ordered Items &amp; Nutrients</button>
+            </div>
+        </div>
     `;
 }
 
@@ -453,6 +549,335 @@ function renderGuidelinesView() {
             </div>
         </div>
     `;
+}
+
+/**
+ * Place Bedside Meal Order Modal with Automatic Prohibited Food Lockouts
+ */
+function openPlaceMealOrderModal(patients = []) {
+    let currentSelectedItems = {}; // { itemId: quantity }
+    let currentMenuData = null;
+
+    const html = `
+        <div class="diet-modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <div>
+                    <label>Patient ID (Numeric) *</label>
+                    <input type="number" id="moPid" value="1" required placeholder="Patient ID">
+                </div>
+                <div>
+                    <label>Meal Date *</label>
+                    <input type="date" id="moDate" value="${new Date().toISOString().slice(0, 10)}" required>
+                </div>
+                <div>
+                    <label>Meal Type *</label>
+                    <select id="moType" required>
+                        <option value="lunch">Lunch</option>
+                        <option value="breakfast">Breakfast</option>
+                        <option value="dinner">Dinner</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="moPrescriptionBanner" style="margin-top:8px;">
+                <div class="diet-muted">Checking patient diet plan and active lockouts…</div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <h4 style="margin:0 0 6px;font-size:14px;">Select Hospital Menu Items (Prohibited Foods Auto-Locked):</h4>
+                <div id="moMenuContainer" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:8px;max-height:360px;overflow-y:auto;padding:4px;">
+                    <div class="diet-empty">Loading menu items…</div>
+                </div>
+            </div>
+
+            <div id="moCartSummary" style="background:#f8fafc;border:1px solid var(--border-color);padding:10px;border-radius:8px;margin-top:10px;font-size:12.5px;">
+                <div style="display:flex;justify-content:space-between;font-weight:700;">
+                    <span>Selected Tray Items: <span id="moCartCount">0</span></span>
+                    <span>Total Nutrients: <span id="moCartCals">0</span> kcal · <span id="moCartNa">0</span> mg Na · <span id="moCartCarbs">0</span>g Carbs</span>
+                </div>
+                <div id="moCartList" style="margin-top:4px;font-size:12px;color:var(--text-muted);">No items selected yet.</div>
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>Special Requests / Prep Notes</label>
+                <input type="text" id="moNotes" placeholder="e.g. Extra napkin, warm broth first">
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+                <button type="button" class="diet-btn" id="moCancel">Cancel</button>
+                <button type="button" class="diet-btn blue" id="moSubmit">Submit Compliant Meal Order to Kitchen</button>
+            </div>
+        </div>
+    `;
+
+    const ov = document.createElement("div");
+    ov.className = "diet-modal-ov";
+    ov.innerHTML = `
+        <div class="diet-modal" style="max-width:880px;">
+            <div class="diet-modal-head">
+                <h3>Bedside Patient Meal Ordering &amp; Menu Lockouts</h3>
+                <button type="button" class="diet-close" id="moClose">&times;</button>
+            </div>
+            ${html}
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#moClose").onclick = close;
+    ov.querySelector("#moCancel").onclick = close;
+
+    const pidInput = ov.querySelector("#moPid");
+    const typeSelect = ov.querySelector("#moType");
+    const bannerBox = ov.querySelector("#moPrescriptionBanner");
+    const menuContainer = ov.querySelector("#moMenuContainer");
+    const submitBtn = ov.querySelector("#moSubmit");
+
+    const updateCartDisplay = () => {
+        if (!currentMenuData) return;
+        const selectedIds = Object.keys(currentSelectedItems).filter(id => currentSelectedItems[id] > 0);
+        let count = 0;
+        let cals = 0;
+        let na = 0;
+        let carbs = 0;
+        let names = [];
+
+        selectedIds.forEach(id => {
+            const item = currentMenuData.menu_items.find(m => String(m.id) === String(id));
+            if (item) {
+                const qty = currentSelectedItems[id];
+                count += qty;
+                cals += item.calories * qty;
+                na += item.sodium_mg * qty;
+                carbs += Number(item.carbs_g) * qty;
+                names.push(`${item.name} (${qty})`);
+            }
+        });
+
+        ov.querySelector("#moCartCount").textContent = count;
+        ov.querySelector("#moCartCals").textContent = cals;
+        ov.querySelector("#moCartNa").textContent = na;
+        ov.querySelector("#moCartCarbs").textContent = carbs.toFixed(1);
+        ov.querySelector("#moCartList").textContent = names.length ? names.join(", ") : "No items selected yet.";
+    };
+
+    const loadMenu = async () => {
+        const pid = Number(pidInput.value);
+        const mtype = typeSelect.value;
+        currentSelectedItems = {};
+        updateCartDisplay();
+
+        if (pid <= 0) return;
+
+        menuContainer.innerHTML = `<div class="diet-empty">Loading compliant menu…</div>`;
+        const res = await api(`/dietary/patient-menu?patient_id=${pid}&meal_type=${mtype}`).catch(() => null);
+
+        if (!res?.success) {
+            bannerBox.innerHTML = `<div style="color:#b91c1c;font-size:12px;">Failed to load patient diet plan.</div>`;
+            menuContainer.innerHTML = `<div class="diet-empty">Could not load menu.</div>`;
+            return;
+        }
+
+        currentMenuData = res.data;
+        const { diet_prescription, diet_category, is_npo, food_allergies, menu_items } = res.data;
+
+        if (is_npo) {
+            bannerBox.innerHTML = `
+                <div style="background:#fee2e2;border:2px solid #ef4444;padding:10px 14px;border-radius:8px;color:#991b1b;font-weight:700;font-size:13px;">
+                    🚨 PATIENT IS STRICTLY NPO (NOTHING BY MOUTH): Meal ordering is automatically locked out for upcoming procedure / surgery.
+                </div>
+            `;
+            menuContainer.innerHTML = `<div class="diet-empty" style="color:#b91c1c;font-weight:700;">All foods are locked out while patient is on NPO status.</div>`;
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = "0.5";
+            submitBtn.style.cursor = "not-allowed";
+            return;
+        }
+
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = "1";
+        submitBtn.style.cursor = "pointer";
+
+        const allergyStr = food_allergies.has_food_allergies ? `<span style="color:#dc2626;font-weight:700;">🚨 Documented Allergies: ${esc(food_allergies.alert_string)}</span>` : `<span style="color:#059669;">No documented food allergies</span>`;
+
+        bannerBox.innerHTML = `
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:8px 12px;border-radius:6px;font-size:12.5px;color:#1e40af;">
+                <div>Active Diet Order: <b style="color:#1d4ed8;">${esc(diet_category.toUpperCase())}</b> · Prescribed by: <b>${esc(diet_prescription?.prescribing_doctor_name || "Doctor")}</b></div>
+                <div style="margin-top:2px;">${allergyStr}</div>
+            </div>
+        `;
+
+        if (!menu_items.length) {
+            menuContainer.innerHTML = `<div class="diet-empty">No menu items available for this meal type.</div>`;
+            return;
+        }
+
+        menuContainer.innerHTML = menu_items.map(item => {
+            const isLocked = item.is_locked;
+            const cardBg = isLocked ? "#f8fafc" : "#ffffff";
+            const borderCol = isLocked ? "#fca5a5" : "var(--border-color)";
+
+            return `
+                <div class="diet-card" style="background:${cardBg};border-color:${borderCol};padding:10px;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <span style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:#334155;">${esc(item.category.toUpperCase())}</span>
+                            <span style="font-size:12px;font-weight:700;color:#1d4ed8;">${item.calories} kcal</span>
+                        </div>
+                        <h4 style="margin:4px 0 2px;font-size:14px;color:${isLocked ? "#64748b" : "inherit"};">${esc(item.name)}</h4>
+                        <div style="font-size:11.5px;color:var(--text-muted);">${esc(item.description || "")}</div>
+                        
+                        <div style="font-size:11px;margin-top:4px;" class="diet-muted">
+                            Na: <b>${item.sodium_mg}mg</b> · Carbs: <b>${item.carbs_g}g</b> · K: <b>${item.potassium_mg}mg</b>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:8px;">
+                        ${isLocked ? `
+                            <div style="background:#fee2e2;color:#991b1b;border:1px solid #f87171;padding:4px 6px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px;">
+                                ⛔ ${esc(item.lockout_reason)}
+                            </div>
+                            <button type="button" class="diet-btn sm" disabled style="width:100%;opacity:0.4;cursor:not-allowed;background:#e2e8f0;">Prohibited on Diet Plan</button>
+                        ` : `
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-size:11px;color:#059669;font-weight:700;">✓ Compliant</span>
+                                <div style="display:flex;gap:4px;align-items:center;">
+                                    <button type="button" class="diet-btn sm" data-add-item="${item.id}">+ Add</button>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        menuContainer.querySelectorAll("[data-add-item]").forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.dataset.addItem;
+                currentSelectedItems[id] = (currentSelectedItems[id] || 0) + 1;
+                btn.textContent = `+ Add (${currentSelectedItems[id]})`;
+                btn.style.background = "#dcfce7";
+                btn.style.color = "#15803d";
+                updateCartDisplay();
+            };
+        });
+    };
+
+    pidInput.onchange = loadMenu;
+    typeSelect.onchange = loadMenu;
+    loadMenu();
+
+    submitBtn.onclick = async () => {
+        const selectedIds = Object.keys(currentSelectedItems).filter(id => currentSelectedItems[id] > 0);
+        if (!selectedIds.length) return showToast("Please select at least one compliant menu item.", "error");
+
+        const items = selectedIds.map(id => ({
+            menu_item_id: Number(id),
+            quantity: currentSelectedItems[id]
+        }));
+
+        const payload = {
+            patient_id: Number(pidInput.value),
+            meal_date: ov.querySelector("#moDate").value,
+            meal_type: typeSelect.value,
+            ordered_by_type: "patient_bedside",
+            ordered_by_name: "Bedside Tablet",
+            special_requests: ov.querySelector("#moNotes").value.trim(),
+            items: items
+        };
+
+        const res = await api("/dietary/meal-orders", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        }).catch(() => null);
+
+        if (!res?.success) return showToast(res?.message || "Failed to place meal order.", "error", 8000);
+        showToast(res.message, "success", 7000);
+        close();
+        load();
+    };
+}
+
+/**
+ * View Placed Meal Order Details Modal
+ */
+async function openMealOrderDetailModal(orderId) {
+    const res = await api(`/dietary/meal-orders/detail?id=${orderId}`).catch(() => null);
+    if (!res?.success) return showToast("Could not load meal order details.", "error");
+
+    const o = res.data;
+    const items = o.items || [];
+
+    const html = `
+        <div class="diet-modal-body">
+            <div style="background:var(--bg-muted, #f8fafc);padding:10px;border-radius:8px;font-size:12.5px;">
+                <div style="display:flex;justify-content:space-between;">
+                    <div><b>Patient:</b> ${esc(o.patient_name)} (${esc(o.patient_mrn)}) · Bed: <b>${esc(o.ward_room_bed)}</b></div>
+                    <div><b>Order #:</b> <span style="font-family:monospace;color:#2563eb;font-weight:700;">${esc(o.order_number)}</span></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                    <div>Meal: <b>${esc(o.meal_type.toUpperCase())}</b> (${esc(o.meal_date)}) · Prescribed: <b style="color:#b45309;">${esc(o.diet_category.toUpperCase())}</b></div>
+                    <div>Compliance: <span class="diet-badge good">${esc(o.diet_compliance_status.toUpperCase())}</span></div>
+                </div>
+            </div>
+
+            <h4 style="margin:12px 0 6px;font-size:14px;">Ordered Menu Items:</h4>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                    <tr style="background:var(--bg-muted, #f1f5f9);text-align:left;border-bottom:1px solid var(--border-color);">
+                        <th style="padding:6px;">Item Code</th>
+                        <th style="padding:6px;">Menu Item</th>
+                        <th style="padding:6px;">Category</th>
+                        <th style="padding:6px;">Qty</th>
+                        <th style="padding:6px;">Calories</th>
+                        <th style="padding:6px;">Sodium</th>
+                        <th style="padding:6px;">Carbs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.map(it => `
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <td style="padding:6px;font-family:monospace;">${esc(it.item_code || "—")}</td>
+                            <td style="padding:6px;font-weight:600;">${esc(it.item_name)}</td>
+                            <td style="padding:6px;"><span class="diet-badge">${esc(it.item_category)}</span></td>
+                            <td style="padding:6px;">${it.quantity}</td>
+                            <td style="padding:6px;font-weight:700;color:#1d4ed8;">${it.calories * it.quantity} kcal</td>
+                            <td style="padding:6px;">${it.sodium_mg * it.quantity} mg</td>
+                            <td style="padding:6px;">${(Number(it.carbs_g) * it.quantity).toFixed(1)} g</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+
+            <div style="background:#eff6ff;padding:8px 10px;border-radius:6px;font-size:12px;margin-top:10px;display:flex;justify-content:space-between;font-weight:700;color:#1e40af;">
+                <span>Total Tray Energy: ${o.total_calories} kcal</span>
+                <span>Sodium: ${o.total_sodium_mg} mg · Carbs: ${o.total_carbs_g} g · Protein: ${o.total_protein_g} g · Potassium: ${o.total_potassium_mg} mg</span>
+            </div>
+
+            ${o.special_requests ? `<div style="font-size:12px;margin-top:8px;"><b>Special Requests:</b> ${esc(o.special_requests)}</div>` : ""}
+
+            <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                <button type="button" class="diet-btn" id="modCloseBtn">Close</button>
+            </div>
+        </div>
+    `;
+
+    const ov = document.createElement("div");
+    ov.className = "diet-modal-ov";
+    ov.innerHTML = `
+        <div class="diet-modal" style="max-width:760px;">
+            <div class="diet-modal-head">
+                <h3>Meal Order Details &amp; Nutritional Summary</h3>
+                <button type="button" class="diet-close" id="modClose">&times;</button>
+            </div>
+            ${html}
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.querySelector("#modClose").onclick = close;
+    ov.querySelector("#modCloseBtn").onclick = close;
 }
 
 /**
