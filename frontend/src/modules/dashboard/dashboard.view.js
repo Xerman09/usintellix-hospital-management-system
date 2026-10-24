@@ -85,6 +85,7 @@ function staffNavLinks(role)
                 <a data-tab="icu">ICU Flowsheet</a>
                 ${["admin", "doctor", "clinician", "charge_nurse"].includes(role) ? `<a data-tab="icu_report">ICU Report</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="lab_worklist">Lab Worklist</a>` : ""}
+                ${["admin", "doctor", "clinician", "nurse", "lab_technician"].includes(role) ? `<a data-tab="blood_bank">Blood Bank & Donors</a>` : ""}
                 ${role === "admin" ? `<a data-tab="lab_report">Lab Report</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_worklist">Radiology Worklist</a>` : ""}
                 ${["admin", "clinician"].includes(role) ? `<a data-tab="rad_report">Radiology Report</a>` : ""}

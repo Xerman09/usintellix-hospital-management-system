@@ -1707,6 +1707,11 @@ export function Dashboard()
                 setTimeout(initIcu, 0);
                 return IcuView();
             }, activate);
+        } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
+            tabManager.openTab(tabId, 'Blood Bank & Donors', () => {
+                setTimeout(initBloodBank, 0);
+                return BloodBankView();
+            }, activate);
         } else if (tabId === 'lab_worklist') {
             tabManager.openTab(tabId, 'Lab Worklist', () => {
                 setTimeout(initLabWorklist, 0);
