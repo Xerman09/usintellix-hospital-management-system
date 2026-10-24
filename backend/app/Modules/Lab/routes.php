@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Lab\Controllers\LabController;
+use App\Modules\Lab\Controllers\LisSpecimenCollectionController;
 use App\Modules\Lab\Services\LabChargeService;
 use App\Modules\Lab\Services\LabReportService;
 use App\Modules\Lab\Services\LabResultService;
@@ -24,6 +25,18 @@ $router->post('/lab/cancel-test', [LabController::class, 'cancelTest'], $labOrde
 $router->post('/lab/collect', [LabController::class, 'collect'], $labCollect);
 $router->post('/lab/specimen/void', [LabController::class, 'voidSpecimen'], $labCollect);
 $router->post('/lab/labels', [LabController::class, 'labels'], $labView);
+
+// Phlebotomy Collection & Barcode Tube Labeling (lis_specimen_collections)
+$router->get('/lab/specimen-collections', [LisSpecimenCollectionController::class, 'index'], $labView);
+$router->get('/lab/specimen-collections/detail', [LisSpecimenCollectionController::class, 'detail'], $labView);
+$router->get('/lab/specimen-collections/stats', [LisSpecimenCollectionController::class, 'stats'], $labView);
+$router->get('/lab/specimen-collections/tube-types', [LisSpecimenCollectionController::class, 'tubeTypes'], $labView);
+$router->get('/lab/specimen-collections/label', [LisSpecimenCollectionController::class, 'label'], $labView);
+$router->post('/lab/specimen-collections', [LisSpecimenCollectionController::class, 'store'], $labCollect);
+$router->post('/lab/specimen-collections/mark-collected', [LisSpecimenCollectionController::class, 'markCollected'], $labCollect);
+$router->post('/lab/specimen-collections/mark-in-transit', [LisSpecimenCollectionController::class, 'markInTransit'], $labCollect);
+$router->post('/lab/specimen-collections/mark-received', [LisSpecimenCollectionController::class, 'markReceived'], $labCollect);
+$router->post('/lab/specimen-collections/reject', [LisSpecimenCollectionController::class, 'reject'], $labCollect);
 // Phase 2: result entry (lab), verification and release (medical technologists), lab staff (admin).
 $labResults = [AuthMiddleware::class, [RoleMiddleware::class, LabResultService::ENTER_ROLES]];
 $router->get('/lab/results', [LabController::class, 'results'], $labResults);
