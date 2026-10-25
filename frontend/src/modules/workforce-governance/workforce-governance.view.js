@@ -479,6 +479,10 @@ export class WorkforceGovernanceView {
                         <i class="fa-solid fa-gavel"></i>
                         <span>Log Disciplinary Sanction</span>
                     </button>
+                    <a href="#/staff-credentials" class="wg-btn wg-btn-outline" style="text-decoration:none;">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Clinical Privileges</span>
+                    </a>
                     <a href="./api/workforce/export/trainings-csv" class="wg-btn wg-btn-outline" id="btnExportTrainingsCsv" target="_blank" download>
                         <i class="fa-solid fa-file-csv"></i>
                         <span>Trainings CSV</span>

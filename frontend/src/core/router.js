@@ -8,6 +8,7 @@ import { RefundAuthorizationView, initRefundAuthorization } from "../modules/ref
 import { ArAgingView, initArAging } from "../modules/ar-aging/ar-aging.js";
 import { TariffMasterView, initTariffMaster } from "../modules/tariff-master/tariff-master.js";
 import { DoctorCommissionsView, initDoctorCommissions } from "../modules/doctor-commissions/doctor-commissions.js";
+import { StaffCredentialsView, initStaffCredentials } from "../modules/staff-credentials/staff-credentials.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -293,6 +294,26 @@ const routes = {
     "/physician-payouts": {
         view: DoctorCommissionsView,
         afterRender: initDoctorCommissions
+    },
+    "/staff-credentials": {
+        view: StaffCredentialsView,
+        afterRender: initStaffCredentials
+    },
+    "/staff_credentials": {
+        view: StaffCredentialsView,
+        afterRender: initStaffCredentials
+    },
+    "/clinical-privileges": {
+        view: StaffCredentialsView,
+        afterRender: initStaffCredentials
+    },
+    "/clinical_privileges": {
+        view: StaffCredentialsView,
+        afterRender: initStaffCredentials
+    },
+    "/credentials-registry": {
+        view: StaffCredentialsView,
+        afterRender: initStaffCredentials
     }
 };
 

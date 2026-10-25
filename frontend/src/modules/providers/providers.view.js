@@ -300,10 +300,15 @@ export function ProvidersView()
                     <p class="form-subtitle">Providers listed here become available in the patient registration form.</p>
                 </div>
             </div>
-            <button type="button" class="prov-add-btn" id="openAddProviderModal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
-                Create Provider
-            </button>
+            <div style="display:flex; gap:8px;">
+                <a href="#/staff-credentials" class="prov-add-btn" style="text-decoration:none; background:#0f766e; color:#fff;">
+                    <i class="fas fa-award"></i> Clinical Privileges &amp; Credentials
+                </a>
+                <button type="button" class="prov-add-btn" id="openAddProviderModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                    Create Provider
+                </button>
+            </div>
         </div>
 
         <div id="listAlert"></div>
