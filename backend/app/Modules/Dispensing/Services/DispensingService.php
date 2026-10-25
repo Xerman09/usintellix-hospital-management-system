@@ -411,6 +411,24 @@ class DispensingService
         $warehouseId = (int) ($data['warehouse_id'] ?? 0);
         $userId = (int) $user['id'];
         $today = date('Y-m-d');
+
+        // Create any missing tables BEFORE the transaction opens.
+        //
+        // Both of these run CREATE TABLE IF NOT EXISTS, and MySQL implicitly
+        // COMMITs on DDL even when nothing changes. Called from inside the
+        // transaction below -- as the verification hold check and isLotRecalled()
+        // both do -- they committed it early, released the FOR UPDATE row locks,
+        // and dropped the savepoint. commit() then failed with "no active
+        // transaction" while the stock movements had already been written
+        // one by one in autocommit: a dispensing that reported a fatal error
+        // but had really happened, and could not be rolled back.
+        //
+        // Warming them up here makes those inner calls no-ops (each guards on a
+        // static flag), so the transaction stays intact and the dispensing is
+        // atomic again.
+        PrescriptionVerificationService::ensureTableExists($db);
+        PharmacyBatchRecallService::ensureTableExists($db);
+
         $owns = $this->begin($db);
 
         try {

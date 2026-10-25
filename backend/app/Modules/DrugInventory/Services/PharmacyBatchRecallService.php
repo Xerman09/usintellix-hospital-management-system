@@ -16,8 +16,24 @@ use PDO;
  */
 class PharmacyBatchRecallService
 {
+    /**
+     * CREATE TABLE is DDL, and MySQL implicitly COMMITs on DDL -- even when
+     * "IF NOT EXISTS" changes nothing. Running this inside a transaction
+     * therefore commits it early, releases its row locks and drops its
+     * savepoints. isLotRecalled() calls this once per candidate lot from
+     * inside DispensingService::dispense()'s transaction, so the guard below
+     * is what keeps that transaction alive (the same pattern
+     * PrescriptionVerificationService already uses).
+     */
+    private static bool $schemaChecked = false;
+
     public static function ensureTableExists(?PDO $db = null): void
     {
+        if (self::$schemaChecked) {
+            return;
+        }
+        self::$schemaChecked = true;
+
         $db = $db ?: Database::connection();
         $db->exec("
             CREATE TABLE IF NOT EXISTS `pharmacy_batch_recalls` (
