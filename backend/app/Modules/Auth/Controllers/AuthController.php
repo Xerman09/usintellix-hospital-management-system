@@ -206,9 +206,13 @@ class AuthController extends Controller
             return;
         }
 
+        // updateExpiredPassword() returns grantSession()'s shape, so the granted
+        // user is at data.user -- not at the top level.
+        $grantedUser = $result['data']['user'] ?? null;
+
         $this->success([
-            'user' => $result['user'],
-            'role' => $result['role']
+            'user' => $grantedUser,
+            'role' => $grantedUser['role'] ?? null
         ], 'Password successfully updated. You are now logged in.');
     }
 
@@ -247,9 +251,12 @@ class AuthController extends Controller
             return;
         }
 
+        // Same as updateExpiredPassword: the granted user is at data.user.
+        $grantedUser = $result['data']['user'] ?? null;
+
         $this->success([
-            'user' => $result['user'],
-            'role' => $result['role']
+            'user' => $grantedUser,
+            'role' => $grantedUser['role'] ?? null
         ], 'Compromised password successfully updated. You are now logged in.');
     }
 

@@ -349,6 +349,7 @@ import { initSalaryStructures, SalaryStructuresView } from "../salary-structures
 import { initPayroll, PayrollView } from "../payroll/payroll.js";
 import { initCME, CMEView } from "../cme/cme.js";
 import { initLifeSupport, LifeSupportView } from "../life-support/life-support.js";
+import { initPerformanceEvaluations, PerformanceEvaluationsView } from "../performance-evaluations/performance-evaluations.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1907,6 +1908,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Life Support Clinical Certifications', () => {
                 setTimeout(() => initLifeSupport(), 0);
                 return LifeSupportView();
+            }, activate);
+        } else if (tabId === 'performance_evaluations' || tabId === 'performance-evaluations' || tabId === 'staff_appraisals' || tabId === 'peer_reviews') {
+            tabManager.openTab(tabId, title || 'Performance Appraisals & Rubrics', () => {
+                setTimeout(() => initPerformanceEvaluations(), 0);
+                return PerformanceEvaluationsView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

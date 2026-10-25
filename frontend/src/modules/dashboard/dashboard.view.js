@@ -38,6 +38,7 @@ function staffNavLinks(role)
                 <a data-tab="payroll">Hospital Payroll &amp; Payslips</a>
                 <a data-tab="cme">CME / CPD Credit Ledger</a>
                 <a data-tab="life_support">Life Support Clinical Certifications</a>
+                <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -196,6 +197,7 @@ function staffNavLinks(role)
                 <a data-tab="payroll">Hospital Payroll &amp; Payslips</a>
                 <a data-tab="cme">CME / CPD Credit Ledger</a>
                 <a data-tab="life_support">Life Support Clinical Certifications</a>
+                <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
