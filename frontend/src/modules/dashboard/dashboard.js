@@ -352,6 +352,7 @@ import { initLifeSupport, LifeSupportView } from "../life-support/life-support.j
 import { initPerformanceEvaluations, PerformanceEvaluationsView } from "../performance-evaluations/performance-evaluations.js";
 import { initSupplyCatalog, SupplyCatalogView } from "../supply-catalog/supply-catalog.js";
 import { initGoodsReceipt, GoodsReceiptView } from "../goods-receipt/goods-receipt.js";
+import { initCSSD, CSSDView } from "../cssd/cssd.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1925,6 +1926,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Goods Receipt Notes (GRN)', () => {
                 setTimeout(() => initGoodsReceipt(), 0);
                 return GoodsReceiptView();
+            }, activate);
+        } else if (tabId === 'cssd' || tabId === 'cssd_instrument_sets' || tabId === 'cssd-instrument-sets' || tabId === 'sterile_supply' || tabId === 'surgical_trays' || tabId === 'instrument_manifest') {
+            tabManager.openTab(tabId, title || 'CSSD Instrument Sets & Trays', () => {
+                setTimeout(() => initCSSD(), 0);
+                return CSSDView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

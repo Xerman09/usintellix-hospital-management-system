@@ -19,6 +19,7 @@ import { LifeSupportView, initLifeSupport } from "../modules/life-support/life-s
 import { PerformanceEvaluationsView, initPerformanceEvaluations } from "../modules/performance-evaluations/performance-evaluations.js";
 import { SupplyCatalogView, initSupplyCatalog } from "../modules/supply-catalog/supply-catalog.js";
 import { GoodsReceiptView, initGoodsReceipt } from "../modules/goods-receipt/goods-receipt.js";
+import { CSSDView, initCSSD } from "../modules/cssd/cssd.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -532,6 +533,30 @@ const routes = {
     "/dock-inspection": {
         view: GoodsReceiptView,
         afterRender: initGoodsReceipt
+    },
+    "/cssd": {
+        view: CSSDView,
+        afterRender: initCSSD
+    },
+    "/cssd-instrument-sets": {
+        view: CSSDView,
+        afterRender: initCSSD
+    },
+    "/cssd_instrument_sets": {
+        view: CSSDView,
+        afterRender: initCSSD
+    },
+    "/sterile-supply": {
+        view: CSSDView,
+        afterRender: initCSSD
+    },
+    "/surgical-trays": {
+        view: CSSDView,
+        afterRender: initCSSD
+    },
+    "/instrument-manifest": {
+        view: CSSDView,
+        afterRender: initCSSD
     }
 };
 

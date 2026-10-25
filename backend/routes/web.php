@@ -218,5 +218,6 @@ require_once __DIR__ . '/../app/Modules/LifeSupport/routes.php';
 require_once __DIR__ . '/../app/Modules/PerformanceEvaluations/routes.php';
 require_once __DIR__ . '/../app/Modules/SupplyCatalog/routes.php';
 require_once __DIR__ . '/../app/Modules/GoodsReceipt/routes.php';
+require_once __DIR__ . '/../app/Modules/CSSD/routes.php';
 
 return $router;
