@@ -17,6 +17,7 @@ import { PayrollView, initPayroll } from "../modules/payroll/payroll.js";
 import { CMEView, initCME } from "../modules/cme/cme.js";
 import { LifeSupportView, initLifeSupport } from "../modules/life-support/life-support.js";
 import { PerformanceEvaluationsView, initPerformanceEvaluations } from "../modules/performance-evaluations/performance-evaluations.js";
+import { SupplyCatalogView, initSupplyCatalog } from "../modules/supply-catalog/supply-catalog.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -486,6 +487,26 @@ const routes = {
     "/peer-reviews": {
         view: PerformanceEvaluationsView,
         afterRender: initPerformanceEvaluations
+    },
+    "/supply-catalog": {
+        view: SupplyCatalogView,
+        afterRender: initSupplyCatalog
+    },
+    "/supply_catalog": {
+        view: SupplyCatalogView,
+        afterRender: initSupplyCatalog
+    },
+    "/non-pharma-supplies": {
+        view: SupplyCatalogView,
+        afterRender: initSupplyCatalog
+    },
+    "/hospital-supplies": {
+        view: SupplyCatalogView,
+        afterRender: initSupplyCatalog
+    },
+    "/medical-supplies": {
+        view: SupplyCatalogView,
+        afterRender: initSupplyCatalog
     }
 };
 

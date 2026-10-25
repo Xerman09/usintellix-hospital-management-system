@@ -350,6 +350,7 @@ import { initPayroll, PayrollView } from "../payroll/payroll.js";
 import { initCME, CMEView } from "../cme/cme.js";
 import { initLifeSupport, LifeSupportView } from "../life-support/life-support.js";
 import { initPerformanceEvaluations, PerformanceEvaluationsView } from "../performance-evaluations/performance-evaluations.js";
+import { initSupplyCatalog, SupplyCatalogView } from "../supply-catalog/supply-catalog.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1913,6 +1914,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Performance Appraisals & Rubrics', () => {
                 setTimeout(() => initPerformanceEvaluations(), 0);
                 return PerformanceEvaluationsView();
+            }, activate);
+        } else if (tabId === 'supply_catalog' || tabId === 'supply-catalog' || tabId === 'non_pharma_supplies' || tabId === 'hospital_supplies' || tabId === 'medical_supplies') {
+            tabManager.openTab(tabId, title || 'Non-Pharma Supply Catalog', () => {
+                setTimeout(() => initSupplyCatalog(), 0);
+                return SupplyCatalogView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

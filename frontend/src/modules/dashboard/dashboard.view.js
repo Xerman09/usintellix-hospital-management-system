@@ -39,6 +39,7 @@ function staffNavLinks(role)
                 <a data-tab="cme">CME / CPD Credit Ledger</a>
                 <a data-tab="life_support">Life Support Clinical Certifications</a>
                 <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
+                <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
                 <a data-tab="patient_dashboard" class="patient-dependent-nav">Dashboard</a>
                 <a data-tab="clinical_reminders" class="patient-dependent-nav">Clinical Reminders</a>
                 <div class="dropdown-submenu patient-dependent-nav">
@@ -125,6 +126,7 @@ function staffNavLinks(role)
                 ${["admin", "receptionist", "doctor"].includes(role) ? `<a data-tab="pharmacy_reports">Pharmacy Reports</a>` : ""}
                 <div class="dropdown-section-label">Medicines</div>
                 <a data-tab="inventory_management">Drug Catalog &amp; Stock</a>
+                <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
                 ${role === "admin" ? `<a data-tab="medication_management">Medication Management</a>` : ""}
                 <div class="dropdown-section-label">Stock</div>
                 <a data-tab="pharmacy_suppliers">Suppliers</a>
@@ -198,6 +200,7 @@ function staffNavLinks(role)
                 <a data-tab="cme">CME / CPD Credit Ledger</a>
                 <a data-tab="life_support">Life Support Clinical Certifications</a>
                 <a data-tab="performance_evaluations">Performance Appraisals &amp; Rubrics</a>
+                <a data-tab="supply_catalog">Non-Pharma Supply Catalog</a>
                         <a data-tab="admin_clinic_calendar">Calendar</a>
                         <a data-tab="admin_clinic_import_holidays">Import Holidays</a>
                     </div>
