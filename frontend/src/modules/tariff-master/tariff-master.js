@@ -83,6 +83,9 @@ function renderView(root) {
                     <p class="tm-subtitle">Centralized Price Book: Consultations, Bedside Procedures, Bundled Health Packages &amp; Automated Overage Calculation</p>
                 </div>
                 <div class="tm-header-actions">
+                    <a href="#/doctor-commissions" class="tm-btn tm-btn-secondary" style="text-decoration:none;">
+                        👨‍⚕️ Doctor PF Schedules
+                    </a>
                     <button class="tm-btn tm-btn-secondary" id="tmBtnSeedPackages" title="Seed realistic patient package enrollments with automated overages">
                         ⚡ Seed Package Enrollments Demo
                     </button>

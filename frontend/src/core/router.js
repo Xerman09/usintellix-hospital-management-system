@@ -7,6 +7,7 @@ import { PatientDepositsView, initPatientDeposits } from "../modules/patient-dep
 import { RefundAuthorizationView, initRefundAuthorization } from "../modules/refund-authorization/refund-authorization.js";
 import { ArAgingView, initArAging } from "../modules/ar-aging/ar-aging.js";
 import { TariffMasterView, initTariffMaster } from "../modules/tariff-master/tariff-master.js";
+import { DoctorCommissionsView, initDoctorCommissions } from "../modules/doctor-commissions/doctor-commissions.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -272,6 +273,26 @@ const routes = {
     "/service-packages": {
         view: TariffMasterView,
         afterRender: initTariffMaster
+    },
+    "/doctor-commissions": {
+        view: DoctorCommissionsView,
+        afterRender: initDoctorCommissions
+    },
+    "/doctor_commissions": {
+        view: DoctorCommissionsView,
+        afterRender: initDoctorCommissions
+    },
+    "/doctor-fees": {
+        view: DoctorCommissionsView,
+        afterRender: initDoctorCommissions
+    },
+    "/doctor_fees": {
+        view: DoctorCommissionsView,
+        afterRender: initDoctorCommissions
+    },
+    "/physician-payouts": {
+        view: DoctorCommissionsView,
+        afterRender: initDoctorCommissions
     }
 };
 

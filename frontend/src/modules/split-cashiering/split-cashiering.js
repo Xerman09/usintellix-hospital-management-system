@@ -158,6 +158,7 @@ function renderCheckoutView(root) {
                     <button class="sc-pill-btn active" id="scNavCheckout">💳 POS Terminal</button>
                     <button class="sc-pill-btn" id="scNavLedger">📋 Receipts Ledger</button>
                     <button class="sc-pill-btn" id="scNavShift">📊 Shift Balancing / Z-Read</button>
+                    <a href="#/doctor-commissions" class="sc-pill-btn" style="text-decoration:none;"><i class="fas fa-user-md"></i> Doctor PF Shares</a>
                 </div>
             </div>
 
@@ -455,6 +456,7 @@ function renderLedgerView(root) {
                     <button class="sc-pill-btn" id="scNavCheckout">💳 POS Terminal</button>
                     <button class="sc-pill-btn active" id="scNavLedger">📋 Receipts Ledger</button>
                     <button class="sc-pill-btn" id="scNavShift">📊 Shift Balancing / Z-Read</button>
+                    <a href="#/doctor-commissions" class="sc-pill-btn" style="text-decoration:none;"><i class="fas fa-user-md"></i> Doctor PF Shares</a>
                 </div>
             </div>
 
@@ -583,6 +585,7 @@ function renderShiftView(root) {
                     <button class="sc-pill-btn" id="scNavCheckout">💳 POS Terminal</button>
                     <button class="sc-pill-btn" id="scNavLedger">📋 Receipts Ledger</button>
                     <button class="sc-pill-btn active" id="scNavShift">📊 Shift Balancing / Z-Read</button>
+                    <a href="#/doctor-commissions" class="sc-pill-btn" style="text-decoration:none;"><i class="fas fa-user-md"></i> Doctor PF Shares</a>
                 </div>
             </div>
 

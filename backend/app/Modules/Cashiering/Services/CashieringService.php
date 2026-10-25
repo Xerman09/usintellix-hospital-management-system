@@ -292,6 +292,23 @@ class CashieringService
                 $totalApplied, $ledgerNote, $userId
             ]);
 
+            // -------------------------------------------------------------
+            // INTEGRATION: Doctor Professional Fee (PF) Commission Crediting
+            // Automatically credits doctor commission accounts upon bill settlement
+            // -------------------------------------------------------------
+            try {
+                $commissionService = new \App\Modules\DoctorCommissions\Services\DoctorCommissionService();
+                $commissionService->creditCommissionsForSettlement(
+                    $transactionId,
+                    $folioId,
+                    $patientId,
+                    $totalApplied,
+                    $pdo
+                );
+            } catch (\Throwable $pfErr) {
+                error_log("PF Commission auto-credit notice: " . $pfErr->getMessage());
+            }
+
             $pdo->commit();
 
             return $this->getTransactionDetail($transactionId);
