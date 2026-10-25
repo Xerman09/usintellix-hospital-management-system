@@ -14,6 +14,7 @@ import { AttendanceView, initAttendance } from "../modules/attendance/attendance
 import { LeaveManagementView, initLeaveManagement } from "../modules/leave-management/leave-management.js";
 import { SalaryStructuresView, initSalaryStructures } from "../modules/salary-structures/salary-structures.js";
 import { PayrollView, initPayroll } from "../modules/payroll/payroll.js";
+import { CMEView, initCME } from "../modules/cme/cme.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -427,6 +428,26 @@ const routes = {
     "/employee-payslips": {
         view: PayrollView,
         afterRender: initPayroll
+    },
+    "/cme": {
+        view: CMEView,
+        afterRender: initCME
+    },
+    "/cme-records": {
+        view: CMEView,
+        afterRender: initCME
+    },
+    "/cme_records": {
+        view: CMEView,
+        afterRender: initCME
+    },
+    "/cme-compliance": {
+        view: CMEView,
+        afterRender: initCME
+    },
+    "/cpd": {
+        view: CMEView,
+        afterRender: initCME
     }
 };
 

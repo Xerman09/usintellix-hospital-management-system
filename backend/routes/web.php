@@ -213,5 +213,6 @@ require_once __DIR__ . '/../app/Modules/DutyRosters/routes.php';
 require_once __DIR__ . '/../app/Modules/Attendance/routes.php';
 require_once __DIR__ . '/../app/Modules/LeaveManagement/routes.php';
 require_once __DIR__ . '/../app/Modules/Payroll/routes.php';
+require_once __DIR__ . '/../app/Modules/CME/routes.php';
 
 return $router;

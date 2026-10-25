@@ -347,6 +347,7 @@ import { initAttendance, AttendanceView } from "../attendance/attendance.js";
 import { initLeaveManagement, LeaveManagementView } from "../leave-management/leave-management.js";
 import { initSalaryStructures, SalaryStructuresView } from "../salary-structures/salary-structures.js";
 import { initPayroll, PayrollView } from "../payroll/payroll.js";
+import { initCME, CMEView } from "../cme/cme.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1895,6 +1896,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Hospital Payroll & Payslips', () => {
                 setTimeout(() => initPayroll(), 0);
                 return PayrollView();
+            }, activate);
+        } else if (tabId === 'cme' || tabId === 'cme_records' || tabId === 'cme-records' || tabId === 'cme_compliance' || tabId === 'cpd') {
+            tabManager.openTab(tabId, title || 'CME / CPD Credit Ledger', () => {
+                setTimeout(() => initCME(), 0);
+                return CMEView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {
