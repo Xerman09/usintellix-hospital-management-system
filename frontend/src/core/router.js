@@ -5,6 +5,7 @@ import { SplitCashieringView, initSplitCashiering } from "../modules/split-cashi
 import { ClaimDenialsView, initClaimDenials } from "../modules/claim-denials/claim-denials.js";
 import { PatientDepositsView, initPatientDeposits } from "../modules/patient-deposits/patient-deposits.js";
 import { RefundAuthorizationView, initRefundAuthorization } from "../modules/refund-authorization/refund-authorization.js";
+import { ArAgingView, initArAging } from "../modules/ar-aging/ar-aging.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -230,6 +231,26 @@ const routes = {
     "/refund-pipeline": {
         view: RefundAuthorizationView,
         afterRender: initRefundAuthorization
+    },
+    "/ar-aging": {
+        view: ArAgingView,
+        afterRender: initArAging
+    },
+    "/ar_aging": {
+        view: ArAgingView,
+        afterRender: initArAging
+    },
+    "/accounts-receivable": {
+        view: ArAgingView,
+        afterRender: initArAging
+    },
+    "/ar-dashboard": {
+        view: ArAgingView,
+        afterRender: initArAging
+    },
+    "/aging-matrix": {
+        view: ArAgingView,
+        afterRender: initArAging
     }
 };
 

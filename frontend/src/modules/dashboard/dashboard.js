@@ -469,6 +469,7 @@ import { SplitCashieringView, initSplitCashiering } from "../split-cashiering/sp
 import { ClaimDenialsView, initClaimDenials } from "../claim-denials/claim-denials.js";
 import { PatientDepositsView, initPatientDeposits } from "../patient-deposits/patient-deposits.js";
 import { RefundAuthorizationView, initRefundAuthorization } from "../refund-authorization/refund-authorization.js";
+import { ArAgingView, initArAging } from "../ar-aging/ar-aging.js";
 
 function renderPlaceholderTab(title) {
     return `
@@ -1743,6 +1744,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Refund Authorization Pipeline', () => {
                 setTimeout(initRefundAuthorization, 0);
                 return RefundAuthorizationView();
+            }, activate);
+        } else if (tabId === 'ar_aging' || tabId === 'ar_dashboard' || tabId === 'accounts_receivable' || tabId === 'aging_matrix') {
+            tabManager.openTab(tabId, 'AR Aging & Collections Engine', () => {
+                setTimeout(initArAging, 0);
+                return ArAgingView();
             }, activate);
         } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
             tabManager.openTab(tabId, 'Blood Bank & Donors', () => {
