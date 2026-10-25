@@ -15,6 +15,7 @@ import { LeaveManagementView, initLeaveManagement } from "../modules/leave-manag
 import { SalaryStructuresView, initSalaryStructures } from "../modules/salary-structures/salary-structures.js";
 import { PayrollView, initPayroll } from "../modules/payroll/payroll.js";
 import { CMEView, initCME } from "../modules/cme/cme.js";
+import { LifeSupportView, initLifeSupport } from "../modules/life-support/life-support.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -448,6 +449,26 @@ const routes = {
     "/cpd": {
         view: CMEView,
         afterRender: initCME
+    },
+    "/life-support": {
+        view: LifeSupportView,
+        afterRender: initLifeSupport
+    },
+    "/life-support-certifications": {
+        view: LifeSupportView,
+        afterRender: initLifeSupport
+    },
+    "/life_support_certifications": {
+        view: LifeSupportView,
+        afterRender: initLifeSupport
+    },
+    "/clinical-certifications": {
+        view: LifeSupportView,
+        afterRender: initLifeSupport
+    },
+    "/bls-acls": {
+        view: LifeSupportView,
+        afterRender: initLifeSupport
     }
 };
 
