@@ -466,6 +466,7 @@ import { BloodBankView, initBloodBank } from "../blood-bank/blood-bank.js";
 import { DietaryView, initDietary } from "../dietary/dietary.js";
 import { InpatientBillingView, initInpatientBilling } from "../inpatient-billing/inpatient-billing.js";
 import { SplitCashieringView, initSplitCashiering } from "../split-cashiering/split-cashiering.js";
+import { ClaimDenialsView, initClaimDenials } from "../claim-denials/claim-denials.js";
 
 function renderPlaceholderTab(title) {
     return `
@@ -1725,6 +1726,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Split-Tender Cashiering', () => {
                 setTimeout(initSplitCashiering, 0);
                 return SplitCashieringView();
+            }, activate);
+        } else if (tabId === 'claim_denials' || tabId === 'claim_appeals' || tabId === 'denial_management') {
+            tabManager.openTab(tabId, 'Claim Denial & Appeals', () => {
+                setTimeout(initClaimDenials, 0);
+                return ClaimDenialsView();
             }, activate);
         } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
             tabManager.openTab(tabId, 'Blood Bank & Donors', () => {

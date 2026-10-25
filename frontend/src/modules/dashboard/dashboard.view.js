@@ -65,6 +65,7 @@ function staffNavLinks(role)
                 <a data-tab="payment">Payment</a>
                 <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>
                 <a data-tab="billing_manager">Billing Manager</a>
+                <a data-tab="claim_denials">Claim Denial &amp; Appeals</a>
                 <a data-tab="portal_payments">Online Payments</a>
                 <a data-tab="batch_payments">Batch Payments</a>
                 <a data-tab="posting_payments">Posting Payments</a>
