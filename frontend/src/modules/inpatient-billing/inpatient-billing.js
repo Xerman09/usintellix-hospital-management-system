@@ -937,6 +937,11 @@ function openAddChargeModal(folio) {
     modalContainer.querySelector("#ibCloseModal")?.addEventListener("click", closeModal);
     modalContainer.querySelector("#ibCancelModal")?.addEventListener("click", closeModal);
 
+    modalContainer.querySelector("#ibBtnLaunchSplitTender")?.addEventListener("click", () => {
+        closeModal();
+        window.location.hash = "#/split-cashiering";
+    });
+
     modalContainer.querySelector("#ibSubmitAddCharge")?.addEventListener("click", async () => {
         const desc = modalContainer.querySelector("#ibAddDesc").value.trim();
         const price = parseFloat(modalContainer.querySelector("#ibAddPrice").value) || 0;
@@ -1054,6 +1059,11 @@ function openDiscountModal(folio) {
     modalContainer.querySelector("#ibCloseModal")?.addEventListener("click", closeModal);
     modalContainer.querySelector("#ibCancelModal")?.addEventListener("click", closeModal);
 
+    modalContainer.querySelector("#ibBtnLaunchSplitTender")?.addEventListener("click", () => {
+        closeModal();
+        window.location.hash = "#/split-cashiering";
+    });
+
     modalContainer.querySelector("#ibSubmitDiscount")?.addEventListener("click", async () => {
         const discType = discTypeSelect.value || modalContainer.querySelector("#ibDiscNotes").value;
         const discAmt = parseFloat(modalContainer.querySelector("#ibDiscAmount").value) || 0;
@@ -1161,6 +1171,9 @@ function openPaymentModal(folio) {
                     </div>
                 </div>
                 <div class="ib-modal-footer">
+                    <button class="ib-btn ib-btn-secondary" id="ibBtnLaunchSplitTender" style="margin-right: auto; background: #e0f2fe; color: #0369a1; border-color: #bae6fd;" title="Open Split-Tender POS to pay with Cash + Card + HMO Guarantee">
+                        ⚡ Multi-Tender Split POS
+                    </button>
                     <button class="ib-btn ib-btn-secondary" id="ibCancelModal">Cancel</button>
                     <button class="ib-btn ib-btn-payment" id="ibSubmitPayment">
                         Issue Official Receipt &amp; Settle
@@ -1177,6 +1190,11 @@ function openPaymentModal(folio) {
     const closeModal = () => { modalContainer.innerHTML = ""; };
     modalContainer.querySelector("#ibCloseModal")?.addEventListener("click", closeModal);
     modalContainer.querySelector("#ibCancelModal")?.addEventListener("click", closeModal);
+
+    modalContainer.querySelector("#ibBtnLaunchSplitTender")?.addEventListener("click", () => {
+        closeModal();
+        window.location.hash = "#/split-cashiering";
+    });
 
     modalContainer.querySelector("#ibSubmitPayment")?.addEventListener("click", async () => {
         const amount = parseFloat(modalContainer.querySelector("#ibPayAmount").value) || 0;
@@ -1276,6 +1294,11 @@ function openClearanceModal(folio) {
     const closeModal = () => { modalContainer.innerHTML = ""; };
     modalContainer.querySelector("#ibCloseModal")?.addEventListener("click", closeModal);
     modalContainer.querySelector("#ibCancelModal")?.addEventListener("click", closeModal);
+
+    modalContainer.querySelector("#ibBtnLaunchSplitTender")?.addEventListener("click", () => {
+        closeModal();
+        window.location.hash = "#/split-cashiering";
+    });
 
     modalContainer.querySelector("#ibSubmitClearance")?.addEventListener("click", async () => {
         const clearedBy = modalContainer.querySelector("#ibClearedBy").value.trim();
