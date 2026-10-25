@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\TariffMaster\Controllers\TariffMasterController;
+use App\Modules\TariffMaster\Controllers\PackageOverageController;
 
 /** @var \App\Core\Router $router */
 
@@ -18,3 +19,14 @@ $router->post('/tariffs', [TariffMasterController::class, 'create'], $billingAct
 $router->post('/tariffs/update', [TariffMasterController::class, 'update'], $billingAction);
 $router->post('/tariffs/calculate', [TariffMasterController::class, 'calculate'], $billingView);
 $router->post('/tariffs/seed-demo', [TariffMasterController::class, 'seedDemo'], $billingAction);
+
+// Bundled Packages Patient Enrollments & Automated Overage Engine
+$router->get('/package-enrollments', [PackageOverageController::class, 'index'], $billingView);
+$router->get('/package-enrollments/summary', [PackageOverageController::class, 'summary'], $billingView);
+$router->get('/package-enrollments/detail', [PackageOverageController::class, 'detail'], $billingView);
+
+$router->post('/package-enrollments', [PackageOverageController::class, 'enroll'], $billingAction);
+$router->post('/package-enrollments/calculate-overages', [PackageOverageController::class, 'calculate'], $billingAction);
+$router->post('/package-enrollments/sync', [PackageOverageController::class, 'sync'], $billingAction);
+$router->post('/package-enrollments/post-to-folio', [PackageOverageController::class, 'postToFolio'], $billingAction);
+$router->post('/package-enrollments/seed-demo', [PackageOverageController::class, 'seedDemo'], $billingAction);

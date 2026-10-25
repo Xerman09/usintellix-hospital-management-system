@@ -5,7 +5,7 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const cur = (v) => "$" + Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 let state = {
-    view: "tariffs", // "tariffs" | "packages" | "calculator"
+    view: "tariffs", // "tariffs" | "packages" | "enrollments" | "calculator"
     categoryFilter: "all",
     searchQuery: "",
     page: 1,
@@ -25,11 +25,13 @@ let cache = {
     tariffsData: null,
     summary: null,
     packagesList: null,
-    departments: []
+    enrollmentsData: null,
+    enrollmentMetrics: null,
+    patientsList: []
 };
 
 export function TariffMasterView() {
-    return `<div class="tm-root" id="tariffMasterRoot"><div class="tm-loading">Loading Hospital Master Tariff Book…</div></div>`;
+    return `<div class="tm-root" id="tariffMasterRoot"><div class="tm-loading">Loading Hospital Master Tariff Book &amp; Packages…</div></div>`;
 }
 
 export async function initTariffMaster() {
@@ -42,15 +44,19 @@ async function loadData() {
     if (!root) return;
 
     try {
-        const [sumRes, tarRes, pkgRes] = await Promise.all([
+        const [sumRes, tarRes, pkgRes, enrRes, enrMetRes] = await Promise.all([
             api("/tariffs/summary").catch(() => null),
             api(`/tariffs?page=${state.page}&per_page=${state.perPage}&category=${state.categoryFilter}&q=${encodeURIComponent(state.searchQuery)}`).catch(() => null),
-            api("/tariffs/packages").catch(() => null)
+            api("/tariffs/packages").catch(() => null),
+            api("/package-enrollments").catch(() => null),
+            api("/package-enrollments/summary").catch(() => null)
         ]);
 
         cache.summary = sumRes?.data || {};
         cache.tariffsData = tarRes?.data || { data: [], total: 0 };
         cache.packagesList = pkgRes?.data || [];
+        cache.enrollmentsData = enrRes?.data || { data: [], total: 0 };
+        cache.enrollmentMetrics = enrMetRes?.data || {};
 
         renderView(root);
     } catch (e) {
@@ -65,6 +71,8 @@ function renderView(root) {
     const totalTariffs = cache.tariffsData?.total || 0;
     const totalPages = cache.tariffsData?.total_pages || 1;
     const packages = cache.packagesList || [];
+    const enrollments = cache.enrollmentsData?.data || [];
+    const enrM = cache.enrollmentMetrics || {};
 
     root.innerHTML = `
         <div class="tm-container">
@@ -72,22 +80,24 @@ function renderView(root) {
             <div class="tm-header">
                 <div>
                     <h1 class="tm-title">Hospital Master Tariff Book &amp; Packages</h1>
-                    <p class="tm-subtitle">Centralized Price Book: Consultations, Routine Nursing, Bedside Procedures, Emergency/Night Surcharges &amp; Bundled Packages</p>
+                    <p class="tm-subtitle">Centralized Price Book: Consultations, Bedside Procedures, Bundled Health Packages &amp; Automated Overage Calculation</p>
                 </div>
                 <div class="tm-header-actions">
-                    <button class="tm-btn tm-btn-secondary" id="tmBtnSeedDemo" title="Populate realistic institutional procedures and service packages">
-                        ⚡ Seed Master Catalog
+                    <button class="tm-btn tm-btn-secondary" id="tmBtnSeedPackages" title="Seed realistic patient package enrollments with automated overages">
+                        ⚡ Seed Package Enrollments Demo
                     </button>
-                    <button class="tm-btn tm-btn-secondary" id="tmBtnOpenCalc">
-                        🧮 Surcharge &amp; Tax Calculator
+                    <button class="tm-btn tm-btn-secondary" id="tmBtnSeedTariffs" title="Populate standard hospital procedures and services">
+                        Seed Tariff Book
                     </button>
                     <button class="tm-btn tm-btn-secondary" id="tmBtnRefresh">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                         Refresh
                     </button>
-                    <button class="tm-btn tm-btn-primary" id="tmBtnNewTariff">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        + New Tariff Service
+                    <button class="tm-btn tm-btn-primary" id="tmBtnEnrollPatient">
+                        + Enroll Patient in Package
+                    </button>
+                    <button class="tm-btn tm-btn-secondary" id="tmBtnNewTariff">
+                        + New Tariff Item
                     </button>
                 </div>
             </div>
@@ -95,27 +105,27 @@ function renderView(root) {
             <!-- Executive KPI Ribbon -->
             <div class="tm-kpi-ribbon">
                 <div class="tm-kpi-card">
-                    <div class="tm-kpi-label">Catalogued Services</div>
+                    <div class="tm-kpi-label">Master Tariff Catalog</div>
                     <div class="tm-kpi-val text-primary">${s.total_tariffs || 0}</div>
-                    <div class="tm-kpi-sub">${s.count_active || 0} active in price book</div>
+                    <div class="tm-kpi-sub">${s.count_active || 0} active in hospital price book</div>
                 </div>
 
                 <div class="tm-kpi-card">
-                    <div class="tm-kpi-label">Average Standard Price</div>
-                    <div class="tm-kpi-val text-emerald">${cur(s.avg_standard_price)}</div>
-                    <div class="tm-kpi-sub">Across all clinical departments</div>
+                    <div class="tm-kpi-label">Bundled Package Profiles</div>
+                    <div class="tm-kpi-val text-purple">${packages.length || 0}</div>
+                    <div class="tm-kpi-sub">Maternity, Surgical &amp; Health Bundles</div>
                 </div>
 
                 <div class="tm-kpi-card">
-                    <div class="tm-kpi-label">HMO / Insurance Covered</div>
-                    <div class="tm-kpi-val text-blue">${s.count_hmo_covered || 0}</div>
-                    <div class="tm-kpi-sub">Eligible for PhilHealth &amp; HMO claims</div>
+                    <div class="tm-kpi-label">Patient Package Enrollments</div>
+                    <div class="tm-kpi-val text-emerald">${enrM.total_enrollments || enrollments.length || 0}</div>
+                    <div class="tm-kpi-sub">${enrM.count_active || 0} currently active in care</div>
                 </div>
 
                 <div class="tm-kpi-card">
-                    <div class="tm-kpi-label">Bundled Service Packages</div>
-                    <div class="tm-kpi-val text-purple">${s.count_packages || packages.length || 0}</div>
-                    <div class="tm-kpi-sub">Maternity, Surgical &amp; Wellness</div>
+                    <div class="tm-kpi-label">Total Package Revenue</div>
+                    <div class="tm-kpi-val font-bold text-primary">${cur(enrM.total_package_revenue)}</div>
+                    <div class="tm-kpi-sub">Base: ${cur(enrM.total_base_revenue)} &bull; Overage: <strong class="text-danger">+${cur(enrM.total_overage_revenue)}</strong></div>
                 </div>
             </div>
 
@@ -125,10 +135,13 @@ function renderView(root) {
                     📋 Master Tariff Price Book (${s.total_tariffs || 0})
                 </button>
                 <button class="tm-tab-nav-btn ${state.view === 'packages' ? 'active' : ''}" data-view="packages">
-                    📦 Bundled Service Packages (${packages.length})
+                    📦 Bundled Packages Catalog (${packages.length})
+                </button>
+                <button class="tm-tab-nav-btn ${state.view === 'enrollments' ? 'active' : ''}" data-view="enrollments">
+                    🏥 Patient Enrollments &amp; Overages (${enrollments.length})
                 </button>
                 <button class="tm-tab-nav-btn ${state.view === 'calculator' ? 'active' : ''}" data-view="calculator">
-                    🧮 Interactive Surcharge Calculator
+                    🧮 Surcharge &amp; Tax Estimator
                 </button>
             </div>
 
@@ -138,7 +151,10 @@ function renderView(root) {
             <!-- VIEW 2: PACKAGES DIRECTORY -->
             ${state.view === 'packages' ? renderPackagesView(packages) : ''}
 
-            <!-- VIEW 3: INTERACTIVE SURCHARGE CALCULATOR -->
+            <!-- VIEW 3: PATIENT PACKAGE ENROLLMENTS & OVERAGES -->
+            ${state.view === 'enrollments' ? renderEnrollmentsView(enrollments, enrM) : ''}
+
+            <!-- VIEW 4: INTERACTIVE SURCHARGE CALCULATOR -->
             ${state.view === 'calculator' ? renderCalculatorView() : ''}
         </div>
 
@@ -147,6 +163,134 @@ function renderView(root) {
     `;
 
     bindEvents(root);
+}
+
+// -------------------------------------------------------------
+// RENDER: PATIENT PACKAGE ENROLLMENTS & OVERAGE VIEW
+// -------------------------------------------------------------
+function renderEnrollmentsView(enrollments, enrM) {
+    return `
+        <div class="tm-card">
+            <div class="tm-enrollment-banner">
+                <div>
+                    <h3>Patient Package Enrollments &amp; Automated Overage Ledger</h3>
+                    <p>Automated reconciliation of hospital stays, OR minutes, and formulary medicines against fixed-price package limits.</p>
+                </div>
+                <div class="tm-enrollment-stats">
+                    <div class="tm-stat-pill">
+                        <span class="label">Overage Incident Rate:</span>
+                        <strong>${enrM.overage_incident_rate || 0}% of cases</strong>
+                    </div>
+                    <div class="tm-stat-pill">
+                        <span class="label">Total Overages Captured:</span>
+                        <strong class="text-danger">${cur(enrM.total_overage_revenue)}</strong>
+                    </div>
+                </div>
+            </div>
+
+            ${enrollments.length === 0 ? `
+                <div class="tm-empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                    <h3>No Patient Package Enrollments Recorded</h3>
+                    <p>Click "+ Enroll Patient in Package" or "Seed Package Enrollments Demo" to view automated overage calculations.</p>
+                </div>
+            ` : `
+                <div class="tm-table-responsive">
+                    <table class="tm-table">
+                        <thead>
+                            <tr>
+                                <th>Enrollment #</th>
+                                <th>Patient &amp; MRN</th>
+                                <th>Package Profile</th>
+                                <th class="text-right">Base Package Fee</th>
+                                <th class="text-center">Bed Days (Act / Inc)</th>
+                                <th class="text-center">OR Mins (Act / Inc)</th>
+                                <th class="text-right">Meds (Act / Inc)</th>
+                                <th class="text-right">Overage Charges</th>
+                                <th class="text-right">Final Package Bill</th>
+                                <th>Billing Status</th>
+                                <th class="text-center">Overage Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${enrollments.map(enr => {
+                                const hasBedOverage = (parseInt(enr.overage_bed_days, 10) || 0) > 0;
+                                const hasOrOverage = (parseInt(enr.overage_or_minutes, 10) || 0) > 0;
+                                const hasMedsOverage = (parseFloat(enr.overage_meds_amount) || 0) > 0;
+                                const hasTotalOverage = (parseFloat(enr.total_overage_amount) || 0) > 0;
+
+                                return `
+                                    <tr>
+                                        <td>
+                                            <a href="javascript:void(0)" class="tm-enr-link tmBtnViewStatement" data-id="${enr.id}">
+                                                <strong>${esc(enr.enrollment_number)}</strong>
+                                            </a>
+                                            <div class="tm-sub-date">${esc(enr.enrolled_date ? enr.enrolled_date.substring(0, 10) : '')}</div>
+                                        </td>
+                                        <td>
+                                            <div class="tm-pat-name">${esc(enr.patient_name || 'Patient #' + enr.patient_id)}</div>
+                                            <div class="tm-pat-mrn">MRN: ${esc(enr.patient_no || 'N/A')}</div>
+                                        </td>
+                                        <td>
+                                            <div class="tm-pkg-name">${esc(enr.package_name)}</div>
+                                            <span class="tm-tag-cat">${formatPackageType(enr.package_type)}</span>
+                                        </td>
+                                        <td class="text-right font-semibold">
+                                            ${cur(enr.base_package_price)}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="tm-usage-pill ${hasBedOverage ? 'overage' : 'normal'}">
+                                                ${enr.actual_bed_days} / ${enr.included_bed_days} d
+                                            </span>
+                                            ${hasBedOverage ? `<div class="tm-ovg-sub">+${enr.overage_bed_days}d overage</div>` : ''}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="tm-usage-pill ${hasOrOverage ? 'overage' : 'normal'}">
+                                                ${enr.actual_or_minutes} / ${enr.included_or_minutes} m
+                                            </span>
+                                            ${hasOrOverage ? `<div class="tm-ovg-sub">+${enr.overage_or_minutes}m overage</div>` : ''}
+                                        </td>
+                                        <td class="text-right">
+                                            <div>${cur(enr.actual_meds_charges)}</div>
+                                            <div class="tm-sub-allowance">Limit: ${cur(enr.included_meds_allowance)}</div>
+                                        </td>
+                                        <td class="text-right font-bold ${hasTotalOverage ? 'text-danger' : 'text-muted'}">
+                                            ${hasTotalOverage ? '+ ' + cur(enr.total_overage_amount) : '$0.00'}
+                                        </td>
+                                        <td class="text-right font-bold text-lg text-primary">
+                                            ${cur(enr.final_total_package_bill)}
+                                        </td>
+                                        <td>
+                                            ${enr.settlement_status === 'billed_to_folio' ? `
+                                                <span class="tm-badge-hmo covered">✓ In Master Folio</span>
+                                            ` : `
+                                                <span class="tm-badge-tax taxable">Unbilled Draft</span>
+                                            `}
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="tm-action-group">
+                                                <button class="tm-btn-action tm-btn-calc tmBtnRecalcOverage" data-id="${enr.id}" title="Recalculate or Adjust Actual Usage">
+                                                    ⚡ Overage
+                                                </button>
+                                                <button class="tm-btn-action tm-btn-edit tmBtnViewStatement" data-id="${enr.id}" title="View Itemized Overage Statement">
+                                                    📋 Statement
+                                                </button>
+                                                ${enr.settlement_status !== 'billed_to_folio' ? `
+                                                    <button class="tm-btn-action tm-btn-post tmBtnPostToFolio" data-id="${enr.id}" title="Post Base Fee + Overages to Master Folio">
+                                                        📥 Post Folio
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `}
+        </div>
+    `;
 }
 
 // -------------------------------------------------------------
@@ -180,7 +324,7 @@ function renderTariffsTableView(tariffs, totalTariffs, totalPages) {
                 <div class="tm-empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                     <h3>No Master Tariff Entries Found</h3>
-                    <p>Click "Seed Master Catalog" above to load standard institutional procedures and pricing.</p>
+                    <p>Click "Seed Tariff Book" above to load standard institutional procedures and pricing.</p>
                 </div>
             ` : `
                 <div class="tm-table-responsive">
@@ -293,8 +437,10 @@ function renderPackagesView(packages) {
     return `
         <div class="tm-packages-container">
             <div class="tm-packages-intro">
-                <h3>Standard Hospital Bundled Service Packages</h3>
-                <p>Bundled procedural packages covering operating rooms, attending physician fees, accommodation bed days, routine drugs, and specialized nursing.</p>
+                <div>
+                    <h3>Standard Hospital Bundled Service Packages</h3>
+                    <p>Fixed-price procedure bundles covering operating room suites, surgeons, nursing, included bed stay, and medications with automated overage threshold rules.</p>
+                </div>
             </div>
 
             <div class="tm-packages-grid">
@@ -322,27 +468,25 @@ function renderPackagesView(packages) {
                             <div class="tm-pkg-features">
                                 <div class="tm-pkg-feat">
                                     <span class="tm-feat-icon">🛏️</span>
-                                    <span>${pkg.included_bed_days} Days Bed Stay (${esc(pkg.included_room_type || 'Ward')})</span>
+                                    <span>Included: <strong>${pkg.included_bed_days} Bed Days</strong> (Overage: ${cur(pkg.overage_room_daily_rate)}/day)</span>
                                 </div>
                                 <div class="tm-pkg-feat">
-                                    <span class="tm-feat-icon">🏥</span>
-                                    <span>Department: ${esc(pkg.department_name || 'Multi-Specialty')}</span>
+                                    <span class="tm-feat-icon">⏱️</span>
+                                    <span>Included: <strong>${pkg.included_or_minutes} OR Mins</strong> (Overage: ${cur(pkg.overage_or_hourly_rate)}/hr)</span>
                                 </div>
                                 <div class="tm-pkg-feat">
-                                    <span class="tm-feat-icon">📋</span>
-                                    <span>${pkg.item_count || 0} Bundled Inclusions</span>
+                                    <span class="tm-feat-icon">💊</span>
+                                    <span>Included Meds: <strong>${cur(pkg.included_meds_allowance)}</strong> allowance</span>
+                                </div>
+                                <div class="tm-pkg-feat">
+                                    <span class="tm-feat-icon">🔬</span>
+                                    <span>Included Labs: <strong>${cur(pkg.included_lab_allowance)}</strong> allowance</span>
                                 </div>
                             </div>
 
-                            ${pkg.inclusions_summary ? `
-                                <div class="tm-pkg-inc">
-                                    <strong>Inclusions:</strong> ${esc(pkg.inclusions_summary)}
-                                </div>
-                            ` : ''}
-
                             <div class="tm-pkg-footer">
                                 <button class="tm-btn tm-btn-secondary tm-btn-full tmBtnViewPackageItems" data-id="${pkg.id}">
-                                    View Component Items &rarr;
+                                    View Component Items &amp; Thresholds &rarr;
                                 </button>
                             </div>
                         </div>
@@ -500,18 +644,17 @@ function bindEvents(root) {
         });
     });
 
-    root.querySelector("#tmBtnOpenCalc")?.addEventListener("click", () => {
-        state.view = "calculator";
-        renderView(root);
-    });
-
     root.querySelector("#tmBtnNewTariff")?.addEventListener("click", () => {
         openTariffModal();
     });
 
-    // Seed Demo
-    root.querySelector("#tmBtnSeedDemo")?.addEventListener("click", async () => {
-        const btn = root.querySelector("#tmBtnSeedDemo");
+    root.querySelector("#tmBtnEnrollPatient")?.addEventListener("click", () => {
+        openEnrollPatientModal();
+    });
+
+    // Seed Demo Tariffs
+    root.querySelector("#tmBtnSeedTariffs")?.addEventListener("click", async () => {
+        const btn = root.querySelector("#tmBtnSeedTariffs");
         btn.disabled = true;
         btn.innerText = "Seeding Catalog...";
         try {
@@ -526,7 +669,29 @@ function bindEvents(root) {
             showToast(e.message || "Error seeding catalog", "error");
         } finally {
             btn.disabled = false;
-            btn.innerText = "⚡ Seed Master Catalog";
+            btn.innerText = "Seed Tariff Book";
+        }
+    });
+
+    // Seed Demo Package Enrollments
+    root.querySelector("#tmBtnSeedPackages")?.addEventListener("click", async () => {
+        const btn = root.querySelector("#tmBtnSeedPackages");
+        btn.disabled = true;
+        btn.innerText = "Seeding Enrollments...";
+        try {
+            const res = await api("/package-enrollments/seed-demo", { method: "POST" });
+            if (res && res.success) {
+                showToast(res.message || "Package enrollments seeded successfully!", "success");
+                state.view = "enrollments";
+                await loadData();
+            } else {
+                showToast(res?.message || "Failed to seed package enrollments", "error");
+            }
+        } catch (e) {
+            showToast(e.message || "Error seeding enrollments", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "⚡ Seed Package Enrollments Demo";
         }
     });
 
@@ -585,6 +750,50 @@ function bindEvents(root) {
         });
     });
 
+    // Enrollment Actions
+    root.querySelectorAll(".tmBtnRecalcOverage").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = parseInt(btn.getAttribute("data-id"), 10);
+            openRecalculateOverageModal(id);
+        });
+    });
+
+    root.querySelectorAll(".tmBtnViewStatement").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = parseInt(btn.getAttribute("data-id"), 10);
+            openOverageStatementModal(id);
+        });
+    });
+
+    root.querySelectorAll(".tmBtnPostToFolio").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const id = parseInt(btn.getAttribute("data-id"), 10);
+            if (!confirm("Post this package base price and itemized overage charges directly to the patient's Master Inpatient Folio?")) {
+                return;
+            }
+            btn.disabled = true;
+            btn.innerText = "Posting...";
+            try {
+                const res = await api("/package-enrollments/post-to-folio", {
+                    method: "POST",
+                    body: JSON.stringify({ enrollment_id: id })
+                });
+                if (res && res.success) {
+                    showToast("Package charges posted to Master Folio successfully!", "success");
+                    await loadData();
+                } else {
+                    showToast(res?.message || "Failed to post to folio", "error");
+                    btn.disabled = false;
+                    btn.innerText = "📥 Post Folio";
+                }
+            } catch (err) {
+                showToast(err.message || "Network error", "error");
+                btn.disabled = false;
+                btn.innerText = "📥 Post Folio";
+            }
+        });
+    });
+
     // Calculator Form
     root.querySelector("#tmFormCalc")?.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -638,7 +847,495 @@ async function triggerCalculation() {
 // MODALS
 // -------------------------------------------------------------
 
-// Add / Edit Tariff Modal
+// 1. Enroll Patient in Package Modal
+async function openEnrollPatientModal() {
+    const container = document.getElementById("tmModalContainer");
+    if (!container) return;
+
+    let candidatePatients = [];
+    try {
+        const cRes = await api("/refund-requests/candidates");
+        candidatePatients = cRes?.data?.patients || [];
+    } catch (e) {}
+
+    const packages = cache.packagesList || [];
+
+    container.innerHTML = `
+        <div class="tm-modal-backdrop" id="tmEnrollBackdrop">
+            <div class="tm-modal-box">
+                <div class="tm-modal-header">
+                    <div class="tm-modal-title">
+                        <h3>Enroll Patient in Bundled Package</h3>
+                        <p>Assign fixed-price procedure bundle with automated overage threshold rules</p>
+                    </div>
+                    <button class="tm-modal-close" id="tmBtnCloseEnroll">&times;</button>
+                </div>
+
+                <form id="tmFormEnroll" class="tm-form">
+                    <div class="tm-form-grid">
+                        <div class="tm-field full">
+                            <label>Select Patient <span class="text-danger">*</span></label>
+                            <select name="patient_id" class="tm-select" required>
+                                <option value="">-- Choose Patient --</option>
+                                ${candidatePatients.map(p => `
+                                    <option value="${p.id}">${esc(p.patient_name)} (${esc(p.patient_no || 'MRN-' + p.id)})</option>
+                                `).join("")}
+                            </select>
+                        </div>
+
+                        <div class="tm-field full">
+                            <label>Select Bundled Package <span class="text-danger">*</span></label>
+                            <select name="package_id" class="tm-select" id="tmSelectPackage" required>
+                                <option value="">-- Choose Package --</option>
+                                ${packages.map(p => `
+                                    <option value="${p.id}">
+                                        ${esc(p.package_code)}: ${esc(p.package_name)} (${cur(p.discounted_price)} - ${p.included_bed_days}d Bed / ${p.included_or_minutes}m OR)
+                                    </option>
+                                `).join("")}
+                            </select>
+                        </div>
+
+                        <div class="tm-field full">
+                            <label>Admission / Master Folio ID (Optional)</label>
+                            <input type="number" name="admission_id" class="tm-input" placeholder="e.g. 1">
+                        </div>
+
+                        <div class="tm-field full">
+                            <label>Clinical Intake / Package Terms Notes</label>
+                            <textarea name="notes" class="tm-textarea" rows="2" placeholder="e.g. Patient agreed to 2-day maternity package; explained overage room daily rates."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="tm-modal-footer">
+                        <button type="button" class="tm-btn tm-btn-secondary" id="tmBtnCancelEnroll">Cancel</button>
+                        <button type="submit" class="tm-btn tm-btn-primary" id="tmBtnSubmitEnroll">
+                            Confirm Package Enrollment &rarr;
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    const close = () => { container.innerHTML = ""; };
+    container.querySelector("#tmBtnCloseEnroll")?.addEventListener("click", close);
+    container.querySelector("#tmBtnCancelEnroll")?.addEventListener("click", close);
+
+    const form = container.querySelector("#tmFormEnroll");
+    form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = form.querySelector("#tmBtnSubmitEnroll");
+        btn.disabled = true;
+        btn.innerText = "Enrolling...";
+
+        try {
+            const formData = new FormData(form);
+            const payload = Object.fromEntries(formData.entries());
+
+            const res = await api("/package-enrollments", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+
+            if (res && res.success) {
+                showToast("Patient enrolled in bundled package successfully!", "success");
+                close();
+                state.view = "enrollments";
+                await loadData();
+            } else {
+                showToast(res?.message || "Failed to enroll patient", "error");
+                btn.disabled = false;
+                btn.innerText = "Confirm Package Enrollment →";
+            }
+        } catch (err) {
+            showToast(err.message || "Network error", "error");
+            btn.disabled = false;
+            btn.innerText = "Confirm Package Enrollment →";
+        }
+    });
+}
+
+// 2. Recalculate & Adjust Package Overages Modal
+async function openRecalculateOverageModal(enrollmentId) {
+    const container = document.getElementById("tmModalContainer");
+    if (!container) return;
+
+    let enr = null;
+    try {
+        const res = await api(`/package-enrollments/detail?id=${enrollmentId}`);
+        enr = res?.data;
+    } catch (e) {
+        showToast("Error loading enrollment details", "error");
+        return;
+    }
+
+    if (!enr) return;
+
+    container.innerHTML = `
+        <div class="tm-modal-backdrop" id="tmOverageBackdrop">
+            <div class="tm-modal-box tm-modal-lg">
+                <div class="tm-modal-header">
+                    <div class="tm-modal-title">
+                        <h3>Automated Overage Engine &bull; ${esc(enr.enrollment_number)}</h3>
+                        <p>Patient: <strong>${esc(enr.patient_name)}</strong> &bull; Package: <strong>${esc(enr.package_name)}</strong></p>
+                    </div>
+                    <button class="tm-modal-close" id="tmBtnCloseOverage">&times;</button>
+                </div>
+
+                <div class="tm-ovg-rules-banner">
+                    <div class="tm-rule-box">
+                        <span class="label">Included Bed Days:</span>
+                        <strong>${enr.included_bed_days} Days</strong>
+                        <div class="sub">Overage: ${cur(enr.overage_room_daily_rate)}/day room + ${cur(enr.overage_nursing_daily_rate)}/day nurse</div>
+                    </div>
+                    <div class="tm-rule-box">
+                        <span class="label">Included OR Time:</span>
+                        <strong>${enr.included_or_minutes} Minutes</strong>
+                        <div class="sub">Overage: ${cur(enr.overage_or_hourly_rate)}/hour</div>
+                    </div>
+                    <div class="tm-rule-box">
+                        <span class="label">Included Meds Allowance:</span>
+                        <strong>${cur(enr.included_meds_allowance)}</strong>
+                        <div class="sub">100% of excess billed to patient</div>
+                    </div>
+                    <div class="tm-rule-box">
+                        <span class="label">Included Lab Allowance:</span>
+                        <strong>${cur(enr.included_labs_allowance)}</strong>
+                        <div class="sub">100% of excess billed to patient</div>
+                    </div>
+                </div>
+
+                <form id="tmFormOverage" class="tm-form">
+                    <input type="hidden" name="enrollment_id" value="${enr.id}">
+
+                    <div class="tm-form-grid">
+                        <div class="tm-field">
+                            <label>Actual Total Inpatient Bed Days <span class="text-danger">*</span></label>
+                            <input type="number" name="actual_bed_days" class="tm-input font-bold" min="1" value="${enr.actual_bed_days || 1}" required>
+                            <span class="tm-input-help">Package includes ${enr.included_bed_days} days</span>
+                        </div>
+
+                        <div class="tm-field">
+                            <label>Actual Operating Room Minutes <span class="text-danger">*</span></label>
+                            <input type="number" name="actual_or_minutes" class="tm-input font-bold" min="0" value="${enr.actual_or_minutes || 0}" required>
+                            <span class="tm-input-help">Package includes ${enr.included_or_minutes} mins</span>
+                        </div>
+
+                        <div class="tm-field">
+                            <label>Actual Pharmacy Medications Dispensed ($)</label>
+                            <input type="number" step="0.01" min="0" name="actual_meds_charges" class="tm-input" value="${enr.actual_meds_charges || '0.00'}">
+                            <span class="tm-input-help">Package allowance: ${cur(enr.included_meds_allowance)}</span>
+                        </div>
+
+                        <div class="tm-field">
+                            <label>Actual Diagnostic Lab Charges ($)</label>
+                            <input type="number" step="0.01" min="0" name="actual_labs_charges" class="tm-input" value="${enr.actual_labs_charges || '0.00'}">
+                            <span class="tm-input-help">Package allowance: ${cur(enr.included_labs_allowance)}</span>
+                        </div>
+
+                        <div class="tm-field full">
+                            <label>Additional Unbundled Add-ons / Complications ($)</label>
+                            <input type="number" step="0.01" min="0" name="other_addons_amount" class="tm-input" value="${enr.other_addons_amount || '0.00'}" placeholder="0.00">
+                            <span class="tm-input-help">Specialist consultations, unexpected minor procedures not covered in package</span>
+                        </div>
+                    </div>
+
+                    <div class="tm-modal-footer">
+                        <button type="button" class="tm-btn tm-btn-secondary" id="tmBtnCancelOverage">Cancel</button>
+                        <button type="button" class="tm-btn tm-btn-secondary" id="tmBtnAutoSyncAdmission">
+                            🔄 Auto-Sync Stay from Inpatient Admission
+                        </button>
+                        <button type="submit" class="tm-btn tm-btn-primary" id="tmBtnSaveOverage">
+                            ⚡ Recalculate &amp; Lock Overages &rarr;
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    const close = () => { container.innerHTML = ""; };
+    container.querySelector("#tmBtnCloseOverage")?.addEventListener("click", close);
+    container.querySelector("#tmBtnCancelOverage")?.addEventListener("click", close);
+
+    // Auto sync from admission
+    container.querySelector("#tmBtnAutoSyncAdmission")?.addEventListener("click", async () => {
+        const btn = container.querySelector("#tmBtnAutoSyncAdmission");
+        btn.disabled = true;
+        btn.innerText = "Syncing Stay...";
+        try {
+            const res = await api("/package-enrollments/sync", {
+                method: "POST",
+                body: JSON.stringify({ enrollment_id: enr.id })
+            });
+            if (res && res.success) {
+                showToast("Synced actual stay and recalculated overages!", "success");
+                close();
+                await loadData();
+            } else {
+                showToast(res?.message || "Sync failed", "error");
+                btn.disabled = false;
+                btn.innerText = "🔄 Auto-Sync Stay from Inpatient Admission";
+            }
+        } catch (err) {
+            showToast(err.message || "Network error", "error");
+            btn.disabled = false;
+            btn.innerText = "🔄 Auto-Sync Stay from Inpatient Admission";
+        }
+    });
+
+    const form = container.querySelector("#tmFormOverage");
+    form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = form.querySelector("#tmBtnSaveOverage");
+        btn.disabled = true;
+        btn.innerText = "Recalculating...";
+
+        try {
+            const formData = new FormData(form);
+            const payload = Object.fromEntries(formData.entries());
+
+            const res = await api("/package-enrollments/calculate-overages", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+
+            if (res && res.success) {
+                showToast("Package overages updated successfully!", "success");
+                close();
+                await loadData();
+            } else {
+                showToast(res?.message || "Recalculation failed", "error");
+                btn.disabled = false;
+                btn.innerText = "⚡ Recalculate & Lock Overages →";
+            }
+        } catch (err) {
+            showToast(err.message || "Network error", "error");
+            btn.disabled = false;
+            btn.innerText = "⚡ Recalculate & Lock Overages →";
+        }
+    });
+}
+
+// 3. Itemized Overage Statement Modal & Printable Patient Slip
+async function openOverageStatementModal(enrollmentId) {
+    const container = document.getElementById("tmModalContainer");
+    if (!container) return;
+
+    let enr = null;
+    try {
+        const res = await api(`/package-enrollments/detail?id=${enrollmentId}`);
+        enr = res?.data;
+    } catch (e) {
+        showToast("Error loading enrollment", "error");
+        return;
+    }
+
+    if (!enr) return;
+
+    const items = enr.overage_items || [];
+
+    container.innerHTML = `
+        <div class="tm-modal-backdrop" id="tmStmtBackdrop">
+            <div class="tm-modal-box tm-modal-lg">
+                <div class="tm-modal-header">
+                    <div class="tm-modal-title">
+                        <h3>Package Billing &amp; Itemized Overage Statement</h3>
+                        <p>Enrollment: <strong>${esc(enr.enrollment_number)}</strong> &bull; Patient: <strong>${esc(enr.patient_name)}</strong> (MRN: ${esc(enr.patient_no || 'N/A')})</p>
+                    </div>
+                    <button class="tm-modal-close" id="tmBtnCloseStmt">&times;</button>
+                </div>
+
+                <div class="tm-stmt-hero">
+                    <div class="tm-stmt-grid">
+                        <div class="tm-stmt-box">
+                            <span class="label">BASE PACKAGE PRICE</span>
+                            <div class="val">${cur(enr.base_package_price)}</div>
+                            <span class="sub">${esc(enr.package_name)}</span>
+                        </div>
+                        <div class="tm-stmt-box overage">
+                            <span class="label">+ TOTAL OVERAGE CHARGES</span>
+                            <div class="val text-danger">+ ${cur(enr.total_overage_amount)}</div>
+                            <span class="sub">${items.length} overage line item(s)</span>
+                        </div>
+                        <div class="tm-stmt-box final">
+                            <span class="label">= FINAL RECONCILED BILL</span>
+                            <div class="val text-emerald">${cur(enr.final_total_package_bill)}</div>
+                            <span class="sub">${enr.settlement_status === 'billed_to_folio' ? '✓ Posted to Master Folio' : 'Unbilled Package Draft'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tm-stmt-breakdown">
+                    <h4>Itemized Package Overage Charges Breakdown</h4>
+                    ${items.length === 0 ? `
+                        <div class="tm-empty-overage">
+                            <span class="text-emerald font-bold">✓ ZERO OVERAGE CHARGES</span>
+                            <p>Patient stay and consumption remained strictly within package inclusions (${enr.included_bed_days} days, ${enr.included_or_minutes} OR mins, ${cur(enr.included_meds_allowance)} meds allowance).</p>
+                        </div>
+                    ` : `
+                        <table class="tm-table">
+                            <thead>
+                                <tr>
+                                    <th>Overage Category</th>
+                                    <th>Item Description</th>
+                                    <th>Package Limit</th>
+                                    <th>Actual Usage</th>
+                                    <th class="text-center">Excess Units</th>
+                                    <th class="text-right">Unit Rate</th>
+                                    <th class="text-right">Total Overage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(it => `
+                                    <tr>
+                                        <td><span class="tm-tag-cat">${esc(it.overage_type)}</span></td>
+                                        <td>
+                                            <strong>${esc(it.item_description)}</strong>
+                                            ${it.notes ? `<div class="tm-sub-meta">${esc(it.notes)}</div>` : ''}
+                                        </td>
+                                        <td>${esc(it.included_limit || '—')}</td>
+                                        <td>${esc(it.actual_usage || '—')}</td>
+                                        <td class="text-center font-bold text-danger">+${it.excess_units}</td>
+                                        <td class="text-right">${cur(it.unit_rate)}</td>
+                                        <td class="text-right font-bold text-danger text-lg">${cur(it.total_overage_charge)}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    `}
+                </div>
+
+                <div class="tm-modal-footer">
+                    <button type="button" class="tm-btn tm-btn-secondary" id="tmBtnCloseStmtFooter">Close</button>
+                    <button type="button" class="tm-btn tm-btn-primary" id="tmBtnPrintPkgStatement">
+                        🖨 Print Official Package Statement Slip
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const close = () => { container.innerHTML = ""; };
+    container.querySelector("#tmBtnCloseStmt")?.addEventListener("click", close);
+    container.querySelector("#tmBtnCloseStmtFooter")?.addEventListener("click", close);
+
+    container.querySelector("#tmBtnPrintPkgStatement")?.addEventListener("click", () => {
+        printPackageStatementSlip(enr, items);
+    });
+}
+
+function printPackageStatementSlip(enr, items) {
+    const w = window.open("", "_blank", "width=850,height=750");
+    w.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Package Statement - ${esc(enr.enrollment_number)}</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 35px; color: #1e293b; }
+                .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
+                .header h1 { margin: 0; font-size: 22px; }
+                .header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
+                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; font-size: 13px; }
+                .box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; }
+                .box label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px; }
+                .summary-card { background: #f8fafc; border: 2px solid #0f172a; border-radius: 8px; padding: 15px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; }
+                .summary-card .val { font-size: 22px; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+                th, td { border: 1px solid #cbd5e1; padding: 8px 10px; }
+                th { background: #f8fafc; text-align: left; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; text-align: center; font-size: 12px; }
+                .sig-line { border-top: 1px solid #0f172a; padding-top: 6px; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>HOSPITAL BUNDLED SERVICE PACKAGE STATEMENT</h1>
+                <p>USIntellix Healthcare System &bull; Patient Accounting &amp; Revenue Services</p>
+                <p>Enrollment: <strong>${esc(enr.enrollment_number)}</strong> &bull; Date: ${esc(enr.enrolled_date ? enr.enrolled_date.substring(0, 10) : '')}</p>
+            </div>
+
+            <div class="grid">
+                <div class="box">
+                    <label>Patient Information</label>
+                    <div><strong>${esc(enr.patient_name)}</strong></div>
+                    <div>MRN: ${esc(enr.patient_no || 'N/A')}</div>
+                </div>
+                <div class="box">
+                    <label>Package Assigned</label>
+                    <div><strong>${esc(enr.package_name)}</strong> (${esc(enr.package_code)})</div>
+                    <div>Included Stay: ${enr.included_bed_days} Days (${esc(enr.included_room_type || 'Ward')})</div>
+                </div>
+            </div>
+
+            <div class="summary-card">
+                <div>
+                    <div>Base Package Price</div>
+                    <div class="val">${cur(enr.base_package_price)}</div>
+                </div>
+                <div>
+                    <div>Total Overage Charges</div>
+                    <div class="val" style="color: #dc2626;">+ ${cur(enr.total_overage_amount)}</div>
+                </div>
+                <div>
+                    <div>Final Total Bill</div>
+                    <div class="val" style="color: #059669;">${cur(enr.final_total_package_bill)}</div>
+                </div>
+            </div>
+
+            <h3>Itemized Overage Charges Breakdown</h3>
+            ${items.length === 0 ? `
+                <p><em>No overages incurred. Patient stayed and consumed strictly within package limits.</em></p>
+            ` : `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Package Limit</th>
+                            <th>Actual Usage</th>
+                            <th class="text-center">Excess Units</th>
+                            <th class="text-right">Unit Rate</th>
+                            <th class="text-right">Total Overage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(it => `
+                            <tr>
+                                <td><strong>${esc(it.item_description)}</strong></td>
+                                <td>${esc(it.included_limit || '—')}</td>
+                                <td>${esc(it.actual_usage || '—')}</td>
+                                <td class="text-center">+${it.excess_units}</td>
+                                <td class="text-right">${cur(it.unit_rate)}</td>
+                                <td class="text-right" style="color: #dc2626; font-weight: bold;">${cur(it.total_overage_charge)}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `}
+
+            <div class="signatures">
+                <div>
+                    <div style="height: 35px;"></div>
+                    <div class="sig-line">${esc(enr.enrolled_by_name || 'Billing Officer')}</div>
+                    <div>Hospital Billing Specialist</div>
+                </div>
+                <div>
+                    <div style="height: 35px;"></div>
+                    <div class="sig-line">${esc(enr.patient_name)}</div>
+                    <div>Patient / Guarantor Acknowledgment</div>
+                </div>
+            </div>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `);
+    w.document.close();
+}
+
+// 4. Add / Edit Tariff Modal
 async function openTariffModal(tariffId = null) {
     const container = document.getElementById("tmModalContainer");
     if (!container) return;
@@ -803,7 +1500,7 @@ async function openTariffModal(tariffId = null) {
     });
 }
 
-// Package Detail Modal with items breakdown
+// 5. Package Detail Modal
 async function openPackageDetailModal(packageId) {
     const container = document.getElementById("tmModalContainer");
     if (!container) return;
@@ -871,18 +1568,16 @@ async function openPackageDetailModal(packageId) {
                     </table>
                 </div>
 
-                ${pkg.inclusions_summary || pkg.exclusions_summary ? `
-                    <div class="tm-pkg-terms-grid">
-                        <div class="tm-terms-box inc">
-                            <strong>Official Inclusions:</strong>
-                            <p>${esc(pkg.inclusions_summary || 'All listed items')}</p>
-                        </div>
-                        <div class="tm-terms-box exc">
-                            <strong>Package Exclusions (Billed Separately):</strong>
-                            <p>${esc(pkg.exclusions_summary || 'Complications, blood products, ICU stay')}</p>
-                        </div>
+                <div class="tm-pkg-terms-grid">
+                    <div class="tm-terms-box inc">
+                        <strong>Official Inclusions:</strong>
+                        <p>${esc(pkg.inclusions_summary || 'All listed items')}</p>
                     </div>
-                ` : ''}
+                    <div class="tm-terms-box exc">
+                        <strong>Package Exclusions (Billed as Overage):</strong>
+                        <p>${esc(pkg.exclusions_summary || 'Extra bed days, extended OR time, medications beyond allowance')}</p>
+                    </div>
+                </div>
 
                 <div class="tm-modal-footer">
                     <button type="button" class="tm-btn tm-btn-secondary" id="tmBtnClosePkgFooter">Close</button>
@@ -973,12 +1668,33 @@ function ensureCss() {
         .tm-kpi-sub { font-size: 12px; color: #64748b; }
 
         /* View Navigation Tabs */
-        .tm-tabs-nav { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-        .tm-tab-nav-btn { background: none; border: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; }
+        .tm-tabs-nav { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; overflow-x: auto; }
+        .tm-tab-nav-btn { background: none; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #64748b; cursor: pointer; white-space: nowrap; }
         .tm-tab-nav-btn:hover { background: #f1f5f9; color: #0f172a; }
         .tm-tab-nav-btn.active { background: #0f172a; color: #fff; }
 
         .tm-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); overflow: hidden; }
+
+        /* Enrollment Banner */
+        .tm-enrollment-banner { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; flex-wrap: wrap; gap: 12px; }
+        .tm-enrollment-banner h3 { margin: 0 0 2px; font-size: 16px; color: #0f172a; }
+        .tm-enrollment-banner p { margin: 0; font-size: 12px; color: #64748b; }
+        .tm-enrollment-stats { display: flex; gap: 12px; }
+        .tm-stat-pill { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 12px; }
+        .tm-stat-pill .label { color: #64748b; margin-right: 4px; }
+
+        .tm-enr-link { color: #2563eb; text-decoration: none; font-size: 13px; }
+        .tm-enr-link:hover { text-decoration: underline; }
+        .tm-sub-date { font-size: 10px; color: #94a3b8; }
+        .tm-pat-name { font-weight: 600; color: #0f172a; }
+        .tm-pat-mrn { font-size: 11px; color: #64748b; }
+        .tm-pkg-name { font-weight: 600; color: #0f172a; font-size: 12px; }
+        .tm-sub-allowance { font-size: 10px; color: #64748b; }
+
+        .tm-usage-pill { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .tm-usage-pill.normal { background: #f1f5f9; color: #475569; }
+        .tm-usage-pill.overage { background: #fee2e2; color: #991b1b; }
+        .tm-ovg-sub { font-size: 10px; color: #dc2626; font-weight: 600; }
 
         /* Filters */
         .tm-filter-bar { padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 12px; flex-wrap: wrap; }
@@ -1025,6 +1741,8 @@ function ensureCss() {
         .tm-btn-calc { border-color: #3b82f6; color: #2563eb; background: #eff6ff; }
         .tm-btn-calc:hover { background: #dbeafe; }
         .tm-btn-edit:hover { background: #f1f5f9; }
+        .tm-btn-post { border-color: #10b981; color: #065f46; background: #ecfdf5; }
+        .tm-btn-post:hover { background: #d1fae5; }
 
         .tm-pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; }
         .tm-page-controls { display: flex; gap: 8px; }
@@ -1047,8 +1765,6 @@ function ensureCss() {
 
         .tm-pkg-features { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 12px; color: #334155; }
         .tm-pkg-feat { display: flex; align-items: center; gap: 8px; }
-
-        .tm-pkg-inc { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 10px; font-size: 11px; color: #166534; margin-bottom: 16px; }
 
         /* Calculator View */
         .tm-calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; }
@@ -1078,7 +1794,7 @@ function ensureCss() {
         /* Modal */
         .tm-modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; box-sizing: border-box; }
         .tm-modal-box { background: #fff; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
-        .tm-modal-lg { max-width: 840px; }
+        .tm-modal-lg { max-width: 860px; }
         .tm-modal-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; }
         .tm-modal-title h3 { margin: 0; font-size: 18px; color: #0f172a; }
         .tm-modal-title p { margin: 4px 0 0; font-size: 13px; color: #64748b; }
@@ -1089,7 +1805,29 @@ function ensureCss() {
         .tm-field { display: flex; flex-direction: column; gap: 6px; }
         .tm-field.full { grid-column: 1 / -1; }
         .tm-field label { font-size: 12px; font-weight: 600; color: #334155; }
+        .tm-input-help { font-size: 11px; color: #64748b; }
         .tm-modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+
+        /* Overage Rules Banner */
+        .tm-ovg-rules-banner { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 14px 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .tm-rule-box { border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; padding: 10px; }
+        .tm-rule-box .label { font-size: 11px; color: #64748b; display: block; margin-bottom: 2px; }
+        .tm-rule-box strong { font-size: 14px; color: #0f172a; display: block; }
+        .tm-rule-box .sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+        /* Statement Hero */
+        .tm-stmt-hero { padding: 16px 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .tm-stmt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; text-align: center; }
+        .tm-stmt-box { border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 14px; }
+        .tm-stmt-box.overage { border-color: #fca5a5; background: #fffdfd; }
+        .tm-stmt-box.final { border-color: #6ee7b7; background: #f0fdf4; }
+        .tm-stmt-box .label { font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px; }
+        .tm-stmt-box .val { font-size: 24px; font-weight: 800; }
+        .tm-stmt-box .sub { font-size: 11px; color: #64748b; }
+
+        .tm-stmt-breakdown { padding: 18px 24px; }
+        .tm-stmt-breakdown h4 { margin: 0 0 12px; font-size: 15px; color: #0f172a; }
+        .tm-empty-overage { text-align: center; padding: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; color: #166534; }
 
         /* Package Detail Banner */
         .tm-pkg-detail-banner { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 24px; margin: 18px 24px 0; display: flex; justify-content: space-between; align-items: center; }
@@ -1121,6 +1859,7 @@ function ensureCss() {
         .text-danger { color: #dc2626; }
         .text-muted { color: #94a3b8; }
         .text-xl { font-size: 18px; }
+        .text-lg { font-size: 15px; }
     `;
     document.head.appendChild(style);
 }
