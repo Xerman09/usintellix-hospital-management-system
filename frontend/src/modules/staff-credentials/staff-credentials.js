@@ -2,7 +2,7 @@ import { api } from "../../core/api.js?v=10";
 
 // State
 let state = {
-    activeTab: "credentials", // "credentials" | "privileges" | "checker"
+    activeTab: "credentials", // "credentials" | "privileges" | "countdown" | "checker"
     credPage: 1,
     credPerPage: 15,
     credTypeFilter: "",
@@ -25,6 +25,7 @@ let cache = {
     metrics: null,
     credentialsData: null,
     privilegesData: null,
+    scannerData: null,
     doctorsList: []
 };
 
@@ -42,15 +43,17 @@ async function loadInitialData() {
     if (!root) return;
 
     try {
-        const [metRes, credRes, privRes] = await Promise.all([
+        const [metRes, credRes, privRes, scanRes] = await Promise.all([
             api("/staff-credentials/metrics").catch(() => null),
             api(`/staff-credentials?page=${state.credPage}&per_page=${state.credPerPage}&credential_type=${state.credTypeFilter}&verification_status=${state.credStatusFilter}&expiring_soon=${state.credExpiringFilter ? '1' : ''}&q=${encodeURIComponent(state.credSearch)}`).catch(() => null),
-            api(`/clinical-privileges?page=${state.privPage}&per_page=${state.privPerPage}&tier=${state.privTierFilter}&status=${state.privStatusFilter}&q=${encodeURIComponent(state.privSearch)}`).catch(() => null)
+            api(`/clinical-privileges?page=${state.privPage}&per_page=${state.privPerPage}&tier=${state.privTierFilter}&status=${state.privStatusFilter}&q=${encodeURIComponent(state.privSearch)}`).catch(() => null),
+            api("/staff-credentials/expiration-scanner").catch(() => null)
         ]);
 
         cache.metrics = metRes?.data || {};
         cache.credentialsData = credRes?.data || { total: 0, records: [] };
         cache.privilegesData = privRes?.data || { total: 0, records: [] };
+        cache.scannerData = scanRes?.data || { summary: {}, lapsed: [], critical_7d: [], urgent_30d: [], warning_60d: [], active_holds: [] };
 
         // Build doctors list
         const docMap = new Map();
@@ -96,11 +99,17 @@ function renderRoot() {
     const m = cache.metrics || {};
     const totalCreds = m.total_credentials || 0;
     const verifiedCreds = m.verified_credentials || 0;
-    const expiringSoon = m.expiring_soon_60d || 0;
     const totalGrants = m.total_privilege_grants || 0;
     const fullTier = m.full_privilege_count || 0;
     const provTier = m.provisional_privilege_count || 0;
     const totalProcs = m.total_authorized_procedures || 0;
+    const activeHolds = m.active_holds_count || 0;
+
+    const scan = cache.scannerData?.summary || {};
+    const lapsed = scan.lapsed_count || 0;
+    const crit7 = scan.critical_7d_count || 0;
+    const urg30 = scan.urgent_30d_count || 0;
+    const warn60 = scan.warning_60d_count || 0;
 
     root.innerHTML = `
         <div class="sc-container">
@@ -111,10 +120,11 @@ function renderRoot() {
                         <span class="sc-badge-tag"><i class="fas fa-user-shield"></i> Medical Governance &amp; Credentialing</span>
                         <h1>Hospital Clinical Privileges &amp; Credentials Registry</h1>
                     </div>
-                    <p class="sc-sub">Medical/Nursing Licensure, Specialty Board Certifications, Clinical Privilege Tiers, and Real-Time Procedural Scope Verification.</p>
+                    <p class="sc-sub">Automated License Expiration Countdown (60d/30d/7d), Prescribing Holds, Medical Licensure, and Procedural Privilege Scopes.</p>
                 </div>
                 <div class="sc-actions">
-                    <button class="btn btn-outline" id="btnScSeedDemo"><i class="fas fa-magic"></i> Seed Realistic Registry Data</button>
+                    <button class="btn btn-outline" id="btnScRunScanner"><i class="fas fa-radar"></i> Run Expiration Scanner</button>
+                    <button class="btn btn-outline" id="btnScSeedDemo"><i class="fas fa-magic"></i> Seed Demo Data</button>
                     <button class="btn btn-outline" id="btnScCheckerNav"><i class="fas fa-check-double"></i> Procedure Safety Check</button>
                     <button class="btn btn-primary" id="btnScNewPrivilege"><i class="fas fa-award"></i> Grant Clinical Privileges</button>
                     <button class="btn btn-outline" id="btnScNewCred"><i class="fas fa-plus"></i> Register Credential</button>
@@ -128,37 +138,40 @@ function renderRoot() {
                     <span class="sc-kpi-val">${totalCreds}</span>
                     <span class="sc-kpi-sub">${verifiedCreds} Primary Source Verified</span>
                 </div>
-                <div class="sc-kpi-card ${expiringSoon > 0 ? 'warning' : ''}">
-                    <span class="sc-kpi-label"><i class="fas fa-hourglass-half"></i> Expiring Soon (&lt;60 Days)</span>
-                    <span class="sc-kpi-val ${expiringSoon > 0 ? 'text-amber' : ''}">${expiringSoon}</span>
-                    <span class="sc-kpi-sub">Requires Re-Credentialing</span>
+                <div class="sc-kpi-card ${lapsed > 0 ? 'danger-pulse' : (crit7 > 0 ? 'warning' : '')}">
+                    <span class="sc-kpi-label"><i class="fas fa-lock"></i> Active Prescribing Holds</span>
+                    <span class="sc-kpi-val ${activeHolds > 0 || lapsed > 0 ? 'text-rose' : 'text-emerald'}">${activeHolds || lapsed}</span>
+                    <span class="sc-kpi-sub">${activeHolds > 0 ? 'Prescriptions Suspended' : 'No Active Holds'}</span>
+                </div>
+                <div class="sc-kpi-card ${crit7 > 0 ? 'warning' : ''}">
+                    <span class="sc-kpi-label"><i class="fas fa-exclamation-triangle"></i> Critical Alerts (&le;7 Days)</span>
+                    <span class="sc-kpi-val ${crit7 > 0 ? 'text-rose' : ''}">${crit7}</span>
+                    <span class="sc-kpi-sub">Imminent License Lapse</span>
+                </div>
+                <div class="sc-kpi-card ${urg30 > 0 ? 'warning' : ''}">
+                    <span class="sc-kpi-label"><i class="fas fa-hourglass-half"></i> Urgent Notice (8&ndash;30 Days)</span>
+                    <span class="sc-kpi-val ${urg30 > 0 ? 'text-amber' : ''}">${urg30}</span>
+                    <span class="sc-kpi-sub">Renewal Deadline Approaching</span>
                 </div>
                 <div class="sc-kpi-card">
-                    <span class="sc-kpi-label"><i class="fas fa-hospital-user"></i> Active Privilege Grants</span>
-                    <span class="sc-kpi-val text-blue">${totalGrants}</span>
-                    <span class="sc-kpi-sub">Across Medical Departments</span>
+                    <span class="sc-kpi-label"><i class="fas fa-bell"></i> Warning Notice (31&ndash;60 Days)</span>
+                    <span class="sc-kpi-val text-blue">${warn60}</span>
+                    <span class="sc-kpi-sub">Advance HR Notification Window</span>
                 </div>
                 <div class="sc-kpi-card highlight">
-                    <span class="sc-kpi-label"><i class="fas fa-user-check"></i> Full Independent Privileges</span>
-                    <span class="sc-kpi-val text-emerald">${fullTier}</span>
-                    <span class="sc-kpi-sub">Unrestricted Attending Staff</span>
-                </div>
-                <div class="sc-kpi-card">
-                    <span class="sc-kpi-label"><i class="fas fa-user-clock"></i> Provisional / Proctored</span>
-                    <span class="sc-kpi-val text-purple">${provTier}</span>
-                    <span class="sc-kpi-sub">Supervised Practice Tier</span>
-                </div>
-                <div class="sc-kpi-card">
-                    <span class="sc-kpi-label"><i class="fas fa-procedures"></i> Authorized Procedural Scopes</span>
-                    <span class="sc-kpi-val text-indigo">${totalProcs}</span>
-                    <span class="sc-kpi-sub">Active Surgical &amp; Bedside Privileges</span>
+                    <span class="sc-kpi-label"><i class="fas fa-user-check"></i> Privileged Physicians</span>
+                    <span class="sc-kpi-val text-emerald">${fullTier + provTier}</span>
+                    <span class="sc-kpi-sub">${fullTier} Full &bull; ${provTier} Provisional</span>
                 </div>
             </div>
 
             <!-- Tabs Navigation -->
             <div class="sc-nav-tabs">
                 <button class="sc-tab-btn ${state.activeTab === 'credentials' ? 'active' : ''}" data-tab="credentials">
-                    <i class="fas fa-certificate"></i> Professional Credentials Directory (${totalCreds})
+                    <i class="fas fa-certificate"></i> Credentials Directory (${totalCreds})
+                </button>
+                <button class="sc-tab-btn ${state.activeTab === 'countdown' ? 'active' : ''}" data-tab="countdown">
+                    <i class="fas fa-stopwatch"></i> Expiration Countdown &amp; Holds (${lapsed + crit7 + urg30 + warn60})
                 </button>
                 <button class="sc-tab-btn ${state.activeTab === 'privileges' ? 'active' : ''}" data-tab="privileges">
                     <i class="fas fa-hospital"></i> Clinical Privileges Registry (${totalGrants})
@@ -182,6 +195,8 @@ function renderCurrentTab() {
     switch (state.activeTab) {
         case "credentials":
             return renderCredentialsTab();
+        case "countdown":
+            return renderCountdownTab();
         case "privileges":
             return renderPrivilegesTab();
         case "checker":
@@ -270,9 +285,13 @@ function renderCredentialRow(c) {
 
     if (days !== null) {
         if (days < 0) {
-            expiryHtml += ` <span class="sc-pill sc-pill-rose">Expired</span>`;
+            expiryHtml += ` <span class="sc-pill sc-pill-rose">Expired (${Math.abs(days)}d ago)</span>`;
+        } else if (days <= 7) {
+            expiryHtml += ` <span class="sc-pill sc-pill-rose font-weight-bold"><i class="fas fa-exclamation-triangle"></i> ${days}d left</span>`;
+        } else if (days <= 30) {
+            expiryHtml += ` <span class="sc-pill sc-pill-amber font-weight-bold"><i class="fas fa-clock"></i> ${days}d left</span>`;
         } else if (days <= 60) {
-            expiryHtml += ` <span class="sc-pill sc-pill-amber" title="${days} days remaining"><i class="fas fa-clock"></i> ${days}d left</span>`;
+            expiryHtml += ` <span class="sc-pill sc-pill-blue"><i class="fas fa-bell"></i> ${days}d left</span>`;
         }
     }
 
@@ -310,7 +329,196 @@ function renderCredentialRow(c) {
 }
 
 // -------------------------------------------------------------
-// TAB 2: CLINICAL PRIVILEGES REGISTRY
+// TAB 2: EXPIRATION COUNTDOWN & PRESCRIBING HOLDS
+// -------------------------------------------------------------
+function renderCountdownTab() {
+    const scan = cache.scannerData || { summary: {}, lapsed: [], critical_7d: [], urgent_30d: [], warning_60d: [], active_holds: [] };
+    const holds = scan.active_holds || [];
+    const allAlerts = [
+        ...scan.lapsed,
+        ...scan.critical_7d,
+        ...scan.urgent_30d,
+        ...scan.warning_60d
+    ];
+
+    return `
+        <div class="sc-panel">
+            <div class="sc-panel-header">
+                <div>
+                    <h3><i class="fas fa-stopwatch"></i> Automated License Expiration Countdown &amp; Prescribing Holds</h3>
+                    <p class="text-muted">60-Day, 30-Day, and 7-Day regulatory risk brackets with automated prescribing locks for lapsed medical/S2 licenses.</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" id="btnScRescanNow"><i class="fas fa-sync-alt"></i> Run Scanner Now</button>
+                </div>
+            </div>
+
+            <!-- Active Prescribing Holds Warning Banner -->
+            ${holds.length > 0 ? `
+                <div class="sc-alert-box alert-rose" style="margin-bottom:20px; border-width:2px; font-size:13.5px;">
+                    <i class="fas fa-lock fa-2x" style="margin-top:2px;"></i>
+                    <div style="flex:1;">
+                        <h4 style="margin:0 0 4px 0; color:#9f1239; font-size:15px;">CRITICAL GOVERNANCE ALERT: ${holds.length} ACTIVE PRESCRIBING HOLD(S) ENFORCED</h4>
+                        <p style="margin:0 0 10px 0;">The system has automatically locked prescribing privileges for physicians with lapsed regulatory licenses. Prescriptions will be rejected by the validation engine.</p>
+                        <div class="sc-table-wrapper" style="background:#fff; border-radius:6px; padding:4px;">
+                            <table class="sc-table" style="font-size:12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Physician &amp; Department</th>
+                                        <th>Hold Scope</th>
+                                        <th>Trigger Regulatory Reason</th>
+                                        <th>Enforced Since</th>
+                                        <th class="text-center">Governance Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${holds.map(h => `
+                                        <tr>
+                                            <td><strong>${escapeHtml(h.doctor_name)}</strong> <small class="text-muted">(${escapeHtml(h.department_name || 'Staff')})</small></td>
+                                            <td><span class="sc-pill sc-pill-rose">${escapeHtml(h.hold_type)}</span></td>
+                                            <td class="font-mono text-xs">${escapeHtml(h.trigger_reason)}</td>
+                                            <td>${formatDateTime(h.hold_started_at)}</td>
+                                            <td class="text-center">
+                                                <button class="btn btn-xs btn-outline btn-grant-override" data-hold-id="${h.id}" data-doc-name="${escapeHtml(h.doctor_name)}">
+                                                    <i class="fas fa-user-shield"></i> 30d Grace Override
+                                                </button>
+                                                <button class="btn btn-xs btn-primary btn-lift-hold" data-hold-id="${h.id}" data-doc-name="${escapeHtml(h.doctor_name)}">
+                                                    <i class="fas fa-unlock"></i> Lift Hold
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div class="sc-alert-box alert-emerald" style="margin-bottom:20px;">
+                    <i class="fas fa-shield-alt fa-2x"></i>
+                    <div>
+                        <strong>Prescribing Clearance Intact:</strong> No active prescribing holds enforced across medical staff. All active prescribers possess valid, current licenses.
+                    </div>
+                </div>
+            `}
+
+            <!-- Countdown Alert Buckets -->
+            <div class="sc-countdown-buckets">
+                <div class="sc-bucket-card bucket-lapsed">
+                    <div class="sc-bucket-header">
+                        <span class="sc-bucket-title"><i class="fas fa-ban"></i> Lapsed / Expired</span>
+                        <span class="sc-bucket-badge red">${scan.lapsed.length}</span>
+                    </div>
+                    <div class="sc-bucket-body">
+                        <div class="sc-bucket-num">${scan.lapsed.length}</div>
+                        <p class="sc-bucket-sub">Immediate Prescribing Hold Locked</p>
+                    </div>
+                </div>
+
+                <div class="sc-bucket-card bucket-crit7">
+                    <div class="sc-bucket-header">
+                        <span class="sc-bucket-title"><i class="fas fa-exclamation-triangle"></i> &le; 7-Day Critical</span>
+                        <span class="sc-bucket-badge rose">${scan.critical_7d.length}</span>
+                    </div>
+                    <div class="sc-bucket-body">
+                        <div class="sc-bucket-num">${scan.critical_7d.length}</div>
+                        <p class="sc-bucket-sub">Urgent Renewal Notice Issued</p>
+                    </div>
+                </div>
+
+                <div class="sc-bucket-card bucket-urg30">
+                    <div class="sc-bucket-header">
+                        <span class="sc-bucket-title"><i class="fas fa-hourglass-half"></i> 8&ndash;30 Day Urgent</span>
+                        <span class="sc-bucket-badge amber">${scan.urgent_30d.length}</span>
+                    </div>
+                    <div class="sc-bucket-body">
+                        <div class="sc-bucket-num">${scan.urgent_30d.length}</div>
+                        <p class="sc-bucket-sub">Renewal Documents In Progress</p>
+                    </div>
+                </div>
+
+                <div class="sc-bucket-card bucket-warn60">
+                    <div class="sc-bucket-header">
+                        <span class="sc-bucket-title"><i class="fas fa-bell"></i> 31&ndash;60 Day Notice</span>
+                        <span class="sc-bucket-badge blue">${scan.warning_60d.length}</span>
+                    </div>
+                    <div class="sc-bucket-body">
+                        <div class="sc-bucket-num">${scan.warning_60d.length}</div>
+                        <p class="sc-bucket-sub">Advance HR Notification Window</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Countdown Schedule Table -->
+            <h4 style="margin:20px 0 10px 0;"><i class="fas fa-list-ol"></i> Monitored Credential Countdown Schedule</h4>
+            <div class="sc-table-wrapper">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th>Physician &amp; Department</th>
+                            <th>Credential Title &amp; Category</th>
+                            <th>License / Certificate #</th>
+                            <th>Expiration Date</th>
+                            <th class="text-center">Days Remaining Countdown</th>
+                            <th class="text-center">Regulatory Prescribing Status</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${allAlerts.length === 0 ? `
+                            <tr><td colspan="7" class="sc-empty-row"><i class="fas fa-check-circle text-emerald"></i> All monitored physician licenses and certifications have &gt;60 days validity.</td></tr>
+                        ` : allAlerts.map(a => renderCountdownRow(a)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderCountdownRow(a) {
+    const days = parseInt(a.days_remaining, 10);
+    let badge = "";
+    let statusPill = "";
+
+    if (days < 0) {
+        badge = `<span class="sc-countdown-pill cd-red"><i class="fas fa-ban"></i> Lapsed (${Math.abs(days)}d ago)</span>`;
+        statusPill = `<span class="sc-pill sc-pill-rose"><i class="fas fa-lock"></i> PRESCRIBING HOLD</span>`;
+    } else if (days <= 7) {
+        badge = `<span class="sc-countdown-pill cd-rose"><i class="fas fa-exclamation-triangle"></i> ${days} Days Remaining</span>`;
+        statusPill = `<span class="sc-pill sc-pill-rose">7-Day Critical</span>`;
+    } else if (days <= 30) {
+        badge = `<span class="sc-countdown-pill cd-amber"><i class="fas fa-clock"></i> ${days} Days Remaining</span>`;
+        statusPill = `<span class="sc-pill sc-pill-amber">30-Day Urgent</span>`;
+    } else if (days <= 60) {
+        badge = `<span class="sc-countdown-pill cd-blue"><i class="fas fa-bell"></i> ${days} Days Remaining</span>`;
+        statusPill = `<span class="sc-pill sc-pill-blue">60-Day Notice</span>`;
+    }
+
+    return `
+        <tr>
+            <td>
+                <div class="sc-staff-name"><i class="fas fa-user-md text-blue"></i> <strong>${escapeHtml(a.staff_full_name)}</strong></div>
+                <small class="text-muted">${escapeHtml(a.department_name || 'Medical Staff')}</small>
+            </td>
+            <td>
+                <div class="font-weight-bold">${escapeHtml(a.credential_title)}</div>
+                <div class="sc-cat-badge">${formatCredentialTypeBadge(a.credential_type)}</div>
+            </td>
+            <td class="font-mono font-weight-bold">${escapeHtml(a.certificate_number)}</td>
+            <td><strong>${formatDate(a.expiry_date)}</strong></td>
+            <td class="text-center">${badge}</td>
+            <td class="text-center">${statusPill}</td>
+            <td class="text-center">
+                <button class="btn btn-xs btn-outline btn-edit-cred" data-id="${a.id}">
+                    <i class="fas fa-sync-alt"></i> Renew / Update
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
+// -------------------------------------------------------------
+// TAB 3: CLINICAL PRIVILEGES REGISTRY
 // -------------------------------------------------------------
 function renderPrivilegesTab() {
     const data = cache.privilegesData || { total: 0, records: [] };
@@ -395,7 +603,7 @@ function renderPrivilegeRow(p) {
 }
 
 // -------------------------------------------------------------
-// TAB 3: REAL-TIME PROCEDURE SAFETY CHECKER
+// TAB 4: REAL-TIME PROCEDURE SAFETY CHECKER
 // -------------------------------------------------------------
 function renderCheckerTab() {
     const chk = state.checker;
@@ -548,6 +756,27 @@ function bindRootEvents() {
     });
 
     // Top actions
+    document.getElementById("btnScRunScanner")?.addEventListener("click", async () => {
+        try {
+            const res = await api("/staff-credentials/expiration-scanner");
+            cache.scannerData = res?.data || cache.scannerData;
+            state.activeTab = "countdown";
+            renderRoot();
+        } catch (err) {
+            alert("Scan failed: " + err.message);
+        }
+    });
+
+    document.getElementById("btnScRescanNow")?.addEventListener("click", async () => {
+        try {
+            const res = await api("/staff-credentials/expiration-scanner");
+            cache.scannerData = res?.data || cache.scannerData;
+            renderRoot();
+        } catch (err) {
+            alert("Scan failed: " + err.message);
+        }
+    });
+
     document.getElementById("btnScSeedDemo")?.addEventListener("click", handleSeedDemo);
     document.getElementById("btnScCheckerNav")?.addEventListener("click", () => {
         state.activeTab = "checker";
@@ -628,6 +857,35 @@ function bindRootEvents() {
         });
     });
 
+    // Prescribing Holds Actions: Grant Override
+    document.querySelectorAll(".btn-grant-override").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const holdId = parseInt(btn.getAttribute("data-hold-id"), 10);
+            const docName = btn.getAttribute("data-doc-name");
+            openGrantOverrideModal(holdId, docName);
+        });
+    });
+
+    // Prescribing Holds Actions: Lift Hold
+    document.querySelectorAll(".btn-lift-hold").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const holdId = parseInt(btn.getAttribute("data-hold-id"), 10);
+            const docName = btn.getAttribute("data-doc-name");
+            if (!confirm(`Lift prescribing hold for ${docName}? Confirm that updated license credentials are on file.`)) return;
+
+            try {
+                await api("/staff-credentials/prescribing-holds/lift", {
+                    method: "POST",
+                    body: { hold_id: holdId }
+                });
+                alert(`Prescribing hold lifted for ${docName}!`);
+                await initStaffCredentials();
+            } catch (err) {
+                alert("Failed: " + err.message);
+            }
+        });
+    });
+
     // Checker Form
     document.getElementById("btnExecuteCheck")?.addEventListener("click", handleRunChecker);
 
@@ -690,6 +948,71 @@ async function handleRunChecker() {
 // -------------------------------------------------------------
 // MODALS
 // -------------------------------------------------------------
+function openGrantOverrideModal(holdId, docName) {
+    const modalId = "scOverrideModal";
+    removeModal(modalId);
+
+    const defaultExp = new Date();
+    defaultExp.setDate(defaultExp.getDate() + 30);
+    const defaultExpStr = defaultExp.toISOString().split("T")[0];
+
+    const modalHtml = `
+        <div class="sc-modal-overlay" id="${modalId}">
+            <div class="sc-modal-card">
+                <div class="sc-modal-header">
+                    <h4><i class="fas fa-user-shield"></i> Grant Temporary Prescribing Grace Override</h4>
+                    <button class="sc-modal-close" onclick="document.getElementById('${modalId}').remove()">&times;</button>
+                </div>
+                <div class="sc-modal-body">
+                    <div class="sc-alert-box alert-amber">
+                        <i class="fas fa-info-circle"></i>
+                        <div>
+                            <strong>Physician:</strong> ${escapeHtml(docName)}
+                            <div>Temporary administrative exception allows prescribing while renewal receipt or official PRB proof is in transit.</div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top:14px;">
+                        <label>Override / Grace Period Expiration Date:</label>
+                        <input type="date" id="ovExpiry" class="form-control" value="${defaultExpStr}">
+                    </div>
+                    <div class="form-group">
+                        <label>Regulatory Justification &amp; CMO Approval Notes:</label>
+                        <textarea id="ovReason" class="form-control" rows="3">PRC renewal claim voucher presented. Temporary 30-day grace exception granted by Chief Medical Officer.</textarea>
+                    </div>
+                </div>
+                <div class="sc-modal-footer">
+                    <button class="btn btn-outline" onclick="document.getElementById('${modalId}').remove()">Cancel</button>
+                    <button class="btn btn-primary" id="btnConfirmOverrideSubmit"><i class="fas fa-check-circle"></i> Authorize Grace Extension</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    document.getElementById("btnConfirmOverrideSubmit")?.addEventListener("click", async () => {
+        const reason = document.getElementById("ovReason")?.value.trim();
+        const exp = document.getElementById("ovExpiry")?.value;
+        if (!reason || !exp) return alert("Please specify justification and expiration date.");
+
+        try {
+            await api("/staff-credentials/prescribing-holds/override", {
+                method: "POST",
+                body: {
+                    hold_id: holdId,
+                    reason: reason,
+                    override_expires_at: exp
+                }
+            });
+            alert("Administrative grace extension granted!");
+            document.getElementById(modalId)?.remove();
+            await initStaffCredentials();
+        } catch (err) {
+            alert("Failed: " + err.message);
+        }
+    });
+}
+
 function openCredentialModal(cred = null) {
     const isEdit = !!cred;
     const modalId = "scCredModal";
@@ -1090,6 +1413,13 @@ function formatDate(dStr) {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatDateTime(dt) {
+    if (!dt) return "N/A";
+    const d = new Date(dt.replace(" ", "T"));
+    if (isNaN(d.getTime())) return dt;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 function formatCredentialTypeBadge(type) {
     switch (type) {
         case "medical_license": return `<span class="sc-cat-pill cat-blue"><i class="fas fa-user-md"></i> Medical License (PRC)</span>`;
@@ -1141,6 +1471,8 @@ function ensureCss() {
         .sc-kpi-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
         .sc-kpi-card.highlight { border-color: #10b981; background: #f0fdf4; }
         .sc-kpi-card.warning { border-color: #f59e0b; background: #fffbeb; }
+        .sc-kpi-card.danger-pulse { border-color: #e11d48; background: #fff1f2; animation: pulseRed 2s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(225,29,72,0.4); } 70% { box-shadow: 0 0 0 6px rgba(225,29,72,0); } 100% { box-shadow: 0 0 0 0 rgba(225,29,72,0); } }
         .sc-kpi-label { font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
         .sc-kpi-val { font-size: 24px; font-weight: 700; font-family: monospace; color: #0f172a; }
         .sc-kpi-sub { font-size: 12px; color: #94a3b8; }
@@ -1155,6 +1487,29 @@ function ensureCss() {
         .sc-panel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; }
         .sc-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .sc-panel-header h3 { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; color: #0f172a; }
+
+        /* Countdown Buckets */
+        .sc-countdown-buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .sc-bucket-card { border-radius: 8px; padding: 16px; border: 1px solid #e2e8f0; }
+        .sc-bucket-card.bucket-lapsed { background: #fef2f2; border-color: #fca5a5; }
+        .sc-bucket-card.bucket-crit7 { background: #fff1f2; border-color: #fecdd3; }
+        .sc-bucket-card.bucket-urg30 { background: #fffbeb; border-color: #fde68a; }
+        .sc-bucket-card.bucket-warn60 { background: #eff6ff; border-color: #bfdbfe; }
+        .sc-bucket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .sc-bucket-title { font-size: 13px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px; }
+        .sc-bucket-badge { font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 12px; color: #fff; }
+        .sc-bucket-badge.red { background: #dc2626; }
+        .sc-bucket-badge.rose { background: #e11d48; }
+        .sc-bucket-badge.amber { background: #d97706; }
+        .sc-bucket-badge.blue { background: #2563eb; }
+        .sc-bucket-num { font-size: 28px; font-weight: 800; font-family: monospace; color: #0f172a; }
+        .sc-bucket-sub { font-size: 12px; color: #64748b; margin: 4px 0 0 0; }
+
+        .sc-countdown-pill { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; font-family: monospace; }
+        .cd-red { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .cd-rose { background: #ffe4e6; color: #be123c; border: 1px solid #fda4af; }
+        .cd-amber { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .cd-blue { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
 
         /* Toolbar */
         .sc-toolbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -1179,6 +1534,7 @@ function ensureCss() {
         .sc-pill-amber { background: #fef3c7; color: #b45309; }
         .sc-pill-rose { background: #ffe4e6; color: #be123c; }
         .sc-pill-purple { background: #f3e8ff; color: #7e22ce; }
+        .sc-pill-blue { background: #eff6ff; color: #1e40af; }
         .sc-pill-gray { background: #f1f5f9; color: #64748b; }
 
         .sc-cat-pill { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
@@ -1217,10 +1573,10 @@ function ensureCss() {
         .sc-dec-header h4 { margin: 0 0 2px 0; font-size: 16px; }
         .sc-dec-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; }
 
-        .sc-alert-box { display: flex; gap: 10px; padding: 10px 12px; border-radius: 6px; font-size: 12.5px; line-height: 1.4; }
-        .alert-rose { background: #ffe4e6; color: #9f1239; }
-        .alert-amber { background: #fef3c7; color: #92400e; }
-        .alert-emerald { background: #dcfce7; color: #166534; }
+        .sc-alert-box { display: flex; gap: 12px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+        .alert-rose { background: #ffe4e6; color: #9f1239; border: 1px solid #fda4af; }
+        .alert-amber { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .alert-emerald { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
 
         /* Modal */
         .sc-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }

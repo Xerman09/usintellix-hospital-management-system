@@ -665,6 +665,23 @@ class PrescriptionService
             }
         }
 
+        // -------------------------------------------------------------
+        // AUTOMATED LICENSE EXPIRATION & PRESCRIBING HOLD VERIFICATION
+        // Enforce automatic lock if physician license or S2 narcotics permit has lapsed
+        // -------------------------------------------------------------
+        if ($header['prescriber_user_id'] && !isset($errors['prescriber_user_id'])) {
+            try {
+                $credService = new \App\Modules\StaffCredentials\Services\StaffCredentialService();
+                $hasDangerousDrugs = !empty($dangerous);
+                $eligibility = $credService->checkPrescribingEligibility((int)$header['prescriber_user_id'], $hasDangerousDrugs);
+                if (!$eligibility['can_prescribe']) {
+                    $errors['prescriber_user_id'] = "AUTOMATIC PRESCRIBING HOLD: {$eligibility['reason']} Prescribing is locked under medical governance regulations.";
+                }
+            } catch (\Throwable $e) {
+                error_log("Prescribing hold check notice: " . $e->getMessage());
+            }
+        }
+
         return [$header, $lines, $errors];
     }
 

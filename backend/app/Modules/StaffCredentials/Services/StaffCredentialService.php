@@ -41,8 +41,10 @@ class StaffCredentialService
                 COUNT(*) AS total_credentials,
                 SUM(CASE WHEN verification_status = 'verified' THEN 1 ELSE 0 END) AS verified_credentials,
                 SUM(CASE WHEN verification_status = 'pending_verification' THEN 1 ELSE 0 END) AS pending_credentials,
-                SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) AND expiry_date >= CURDATE() THEN 1 ELSE 0 END) AS expiring_soon_60d,
-                SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 1 ELSE 0 END) AS expired_credentials
+                SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) AND expiry_date > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS warning_60d_count,
+                SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND expiry_date > DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS urgent_30d_count,
+                SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND expiry_date >= CURDATE() THEN 1 ELSE 0 END) AS critical_7d_count,
+                SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 1 ELSE 0 END) AS lapsed_count
             FROM hr_staff_credentials
         ");
         $c = $stmtCred->fetch(PDO::FETCH_ASSOC);
@@ -64,8 +66,13 @@ class StaffCredentialService
         // 3. Procedures count
         $procCount = (int)$pdo->query("SELECT COUNT(*) FROM hr_staff_privilege_procedures WHERE is_authorized = 1")->fetchColumn();
 
+        // 4. Active prescribing holds
+        $holdsCount = (int)$pdo->query("SELECT COUNT(*) FROM hr_prescribing_holds WHERE is_active = 1")->fetchColumn();
+
         return array_merge($c ?: [], $p ?: [], [
-            'total_authorized_procedures' => $procCount
+            'total_authorized_procedures' => $procCount,
+            'active_holds_count' => $holdsCount,
+            'expiring_soon_60d' => (int)($c['warning_60d_count'] ?? 0) + (int)($c['urgent_30d_count'] ?? 0) + (int)($c['critical_7d_count'] ?? 0)
         ]);
     }
 
@@ -858,5 +865,297 @@ class StaffCredentialService
             'privileges_seeded' => 4,
             'procedures_seeded' => count($rostovaProcedures) + count($hayesProcedures) + count($sterlingProcedures) + count($provisionalProcedures)
         ];
+    }
+
+    /**
+     * Automated License Expiration Scanner & Prescribing Hold Engine
+     * Categorizes credentials into 60-day, 30-day, 7-day, and Lapsed/Expired countdowns.
+     * Automatically applies prescribing holds in providers and records audit entries.
+     */
+    public function scanLicenseExpirations(): array
+    {
+        $pdo = Database::connection();
+
+        $sql = "
+            SELECT 
+                c.id, c.employee_id, c.provider_id, c.credential_type, c.credential_title,
+                c.issuing_body, c.certificate_number, c.issue_date, c.expiry_date,
+                c.verification_status,
+                DATEDIFF(c.expiry_date, CURDATE()) AS days_remaining,
+                CONCAT('Dr. ', e.first_name, ' ', e.last_name) AS staff_full_name,
+                e.email, e.phone,
+                d.name AS department_name,
+                p.id AS prov_id,
+                p.prescribing_hold,
+                p.prescribing_hold_reason,
+                p.prescribing_hold_at
+            FROM hr_staff_credentials c
+            JOIN employees e ON c.employee_id = e.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            LEFT JOIN providers p ON p.employee_id = e.id
+            WHERE c.expiry_date IS NOT NULL
+            ORDER BY days_remaining ASC
+        ";
+        $stmt = $pdo->query($sql);
+        $allCreds = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $lapsed = [];
+        $critical7d = [];
+        $urgent30d = [];
+        $warning60d = [];
+        $compliant = [];
+
+        foreach ($allCreds as $c) {
+            $days = (int)$c['days_remaining'];
+            if ($days < 0) {
+                $c['countdown_category'] = 'lapsed';
+                $c['alert_level'] = 'CRITICAL_HOLD';
+                $lapsed[] = $c;
+
+                // Automatic Prescribing Hold Enforcement for Medical and S2 Licenses
+                if (in_array($c['credential_type'], ['medical_license', 'dea_narcotics_permit'])) {
+                    $this->enforcePrescribingHoldForCredential($pdo, $c);
+                }
+            } elseif ($days <= 7) {
+                $c['countdown_category'] = 'critical_7d';
+                $c['alert_level'] = '7_DAY_ALERT';
+                $critical7d[] = $c;
+            } elseif ($days <= 30) {
+                $c['countdown_category'] = 'urgent_30d';
+                $c['alert_level'] = '30_DAY_ALERT';
+                $urgent30d[] = $c;
+            } elseif ($days <= 60) {
+                $c['countdown_category'] = 'warning_60d';
+                $c['alert_level'] = '60_DAY_NOTICE';
+                $warning60d[] = $c;
+            } else {
+                $c['countdown_category'] = 'compliant';
+                $c['alert_level'] = 'COMPLIANT';
+                $compliant[] = $c;
+            }
+        }
+
+        // Fetch active holds
+        $holdStmt = $pdo->query("
+            SELECT h.*,
+                   CONCAT('Dr. ', e.first_name, ' ', e.last_name) AS doctor_name,
+                   d.name AS department_name
+            FROM hr_prescribing_holds h
+            JOIN employees e ON h.employee_id = e.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            WHERE h.is_active = 1
+            ORDER BY h.hold_started_at DESC
+        ");
+        $activeHolds = $holdStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'scanned_at' => date('Y-m-d H:i:s'),
+            'summary' => [
+                'total_monitored' => count($allCreds),
+                'lapsed_count' => count($lapsed),
+                'critical_7d_count' => count($critical7d),
+                'urgent_30d_count' => count($urgent30d),
+                'warning_60d_count' => count($warning60d),
+                'compliant_count' => count($compliant),
+                'active_holds_count' => count($activeHolds)
+            ],
+            'lapsed' => $lapsed,
+            'critical_7d' => $critical7d,
+            'urgent_30d' => $urgent30d,
+            'warning_60d' => $warning60d,
+            'active_holds' => $activeHolds
+        ];
+    }
+
+    /**
+     * Enforce automated prescribing lock upon license lapse
+     */
+    public function enforcePrescribingHoldForCredential(PDO $pdo, array $cred): void
+    {
+        $empId = (int)$cred['employee_id'];
+        $provId = !empty($cred['prov_id']) ? (int)$cred['prov_id'] : null;
+        $docName = $cred['staff_full_name'];
+        $dept = $cred['department_name'];
+        $credId = (int)$cred['id'];
+
+        $holdType = $cred['credential_type'] === 'medical_license' 
+            ? 'all_prescriptions' 
+            : 'controlled_dangerous_drugs_only';
+
+        $reason = "AUTOMATED HOLD: {$cred['credential_title']} ({$cred['certificate_number']}) lapsed on {$cred['expiry_date']}.";
+
+        // 1. Mark credential as expired in hr_staff_credentials
+        $pdo->prepare("UPDATE hr_staff_credentials SET verification_status = 'expired' WHERE id = ?")->execute([$credId]);
+
+        // 2. Set hold on providers table if exists
+        if ($provId) {
+            $pdo->prepare("
+                UPDATE providers 
+                SET prescribing_hold = 1,
+                    prescribing_hold_reason = ?,
+                    prescribing_hold_at = NOW()
+                WHERE id = ?
+            ")->execute([$reason, $provId]);
+        }
+
+        // 3. Insert or keep active record in hr_prescribing_holds
+        $chk = $pdo->prepare("SELECT id FROM hr_prescribing_holds WHERE employee_id = ? AND trigger_credential_id = ? AND is_active = 1");
+        $chk->execute([$empId, $credId]);
+        if (!$chk->fetchColumn()) {
+            $ins = $pdo->prepare("
+                INSERT INTO hr_prescribing_holds (
+                    employee_id, provider_id, doctor_name, department_name,
+                    hold_type, trigger_reason, trigger_credential_id, is_active,
+                    hold_started_at, created_at, updated_at
+                ) VALUES (
+                    ?, ?, ?, ?,
+                    ?, ?, ?, 1,
+                    NOW(), NOW(), NOW()
+                )
+            ");
+            $ins->execute([$empId, $provId, $docName, $dept, $holdType, $reason, $credId]);
+        }
+    }
+
+    /**
+     * Prescribing Eligibility Verification Check (Used by Prescription Module)
+     */
+    public function checkPrescribingEligibility(int $userId, bool $isDangerousDrug = false): array
+    {
+        $pdo = Database::connection();
+
+        $stmt = $pdo->prepare("
+            SELECT e.id AS employee_id, p.id AS provider_id,
+                   CONCAT('Dr. ', e.first_name, ' ', e.last_name) AS doctor_name,
+                   p.prescribing_hold, p.prescribing_hold_reason,
+                   p.license_number, p.license_expiry_date,
+                   p.s2_number, p.s2_expiry_date
+            FROM employees e
+            LEFT JOIN users u ON e.user_id = u.id
+            LEFT JOIN providers p ON p.employee_id = e.id
+            WHERE u.id = ? OR e.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$userId, $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return ['can_prescribe' => true];
+        }
+
+        // Check active holds in hr_prescribing_holds
+        $hStmt = $pdo->prepare("
+            SELECT * FROM hr_prescribing_holds
+            WHERE employee_id = ? AND is_active = 1
+            ORDER BY id DESC
+        ");
+        $hStmt->execute([$row['employee_id']]);
+        $holds = $hStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($holds as $h) {
+            // Check active valid CMO override
+            if ((int)$h['override_granted'] === 1 && !empty($h['override_expires_at']) && $h['override_expires_at'] >= date('Y-m-d')) {
+                continue;
+            }
+
+            if ($h['hold_type'] === 'all_prescriptions') {
+                return [
+                    'can_prescribe' => false,
+                    'doctor_name' => $row['doctor_name'],
+                    'hold_type' => 'all_prescriptions',
+                    'reason' => $h['trigger_reason']
+                ];
+            }
+
+            if ($isDangerousDrug && $h['hold_type'] === 'controlled_dangerous_drugs_only') {
+                return [
+                    'can_prescribe' => false,
+                    'doctor_name' => $row['doctor_name'],
+                    'hold_type' => 'controlled_dangerous_drugs_only',
+                    'reason' => $h['trigger_reason']
+                ];
+            }
+        }
+
+        // Check provider table hold flag
+        if ((int)($row['prescribing_hold'] ?? 0) === 1) {
+            return [
+                'can_prescribe' => false,
+                'doctor_name' => $row['doctor_name'],
+                'hold_type' => 'all_prescriptions',
+                'reason' => $row['prescribing_hold_reason'] ?: 'Prescribing privileges on hold due to regulatory credential lapse.'
+            ];
+        }
+
+        return ['can_prescribe' => true];
+    }
+
+    /**
+     * Grant Administrative Grace Extension / Override
+     */
+    public function applyAdministrativeOverride(int $holdId, string $reason, string $grantedBy, string $expiryDate): array
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("
+            UPDATE hr_prescribing_holds SET
+                override_granted = 1,
+                override_reason = ?,
+                override_by = ?,
+                override_expires_at = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$reason, $grantedBy, $expiryDate, $holdId]);
+
+        return ['status' => 'success', 'hold_id' => $holdId, 'override_until' => $expiryDate];
+    }
+
+    /**
+     * Lift Prescribing Hold upon license renewal
+     */
+    public function liftPrescribingHold(int $holdId, string $resolvedBy): array
+    {
+        $pdo = Database::connection();
+
+        $hStmt = $pdo->prepare("SELECT * FROM hr_prescribing_holds WHERE id = ?");
+        $hStmt->execute([$holdId]);
+        $hold = $hStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$hold) {
+            throw new RuntimeException("Prescribing hold record not found.");
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare("
+                UPDATE hr_prescribing_holds SET
+                    is_active = 0,
+                    resolved_at = NOW(),
+                    resolved_by = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ")->execute([$resolvedBy, $holdId]);
+
+            // Check if physician has any remaining active holds
+            $chk = $pdo->prepare("SELECT COUNT(*) FROM hr_prescribing_holds WHERE employee_id = ? AND is_active = 1");
+            $chk->execute([$hold['employee_id']]);
+            $remaining = (int)$chk->fetchColumn();
+
+            if ($remaining === 0 && !empty($hold['provider_id'])) {
+                $pdo->prepare("
+                    UPDATE providers SET
+                        prescribing_hold = 0,
+                        prescribing_hold_reason = NULL,
+                        prescribing_hold_at = NULL
+                    WHERE id = ?
+                ")->execute([$hold['provider_id']]);
+            }
+
+            $pdo->commit();
+            return ['status' => 'success', 'lifted' => true];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
 }

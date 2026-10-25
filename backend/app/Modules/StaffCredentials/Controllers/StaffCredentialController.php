@@ -172,4 +172,61 @@ class StaffCredentialController extends Controller
             return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * GET /staff-credentials/expiration-scanner
+     */
+    public function expirationScanner(Request $request): Response
+    {
+        try {
+            $data = $this->service->scanLicenseExpirations();
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /staff-credentials/prescribing-holds/override
+     */
+    public function holdOverride(Request $request): Response
+    {
+        try {
+            $payload = $request->body();
+            $holdId = (int)($payload['hold_id'] ?? 0);
+            $reason = trim($payload['reason'] ?? 'CMO Authorized grace period');
+            $expiry = trim($payload['override_expires_at'] ?? date('Y-m-d', strtotime('+30 days')));
+            $user = $request->user()['name'] ?? ($request->user()['username'] ?? 'Chief Medical Officer');
+
+            if ($holdId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Hold ID required'], 422);
+            }
+
+            $res = $this->service->applyAdministrativeOverride($holdId, $reason, $user, $expiry);
+            return Response::json(['status' => 'success', 'data' => $res]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * POST /staff-credentials/prescribing-holds/lift
+     */
+    public function holdLift(Request $request): Response
+    {
+        try {
+            $payload = $request->body();
+            $holdId = (int)($payload['hold_id'] ?? 0);
+            $user = $request->user()['name'] ?? ($request->user()['username'] ?? 'Medical Credentials Officer');
+
+            if ($holdId <= 0) {
+                return Response::json(['status' => 'error', 'message' => 'Hold ID required'], 422);
+            }
+
+            $res = $this->service->liftPrescribingHold($holdId, $user);
+            return Response::json(['status' => 'success', 'data' => $res]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
+    }
 }

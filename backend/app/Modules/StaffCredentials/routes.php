@@ -19,3 +19,8 @@ $router->post('/clinical-privileges', [StaffCredentialController::class, 'privil
 $router->post('/clinical-privileges/check-procedure', [StaffCredentialController::class, 'checkProcedure'], $hrView);
 
 $router->post('/staff-credentials/seed-demo', [StaffCredentialController::class, 'seedDemo'], $hrAction);
+
+// Automated License Expiration Scanner & Prescribing Holds
+$router->get('/staff-credentials/expiration-scanner', [StaffCredentialController::class, 'expirationScanner'], $hrView);
+$router->post('/staff-credentials/prescribing-holds/override', [StaffCredentialController::class, 'holdOverride'], $hrAction);
+$router->post('/staff-credentials/prescribing-holds/lift', [StaffCredentialController::class, 'holdLift'], $hrAction);
