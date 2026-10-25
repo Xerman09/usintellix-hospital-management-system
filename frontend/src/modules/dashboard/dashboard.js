@@ -344,6 +344,7 @@ import { initClinicSchedules } from "../clinic-schedules/clinic-schedules.js";
 import { ClinicSchedulesView } from "../clinic-schedules/clinic-schedules.view.js";
 import { initDutyRosters, DutyRostersView } from "../duty-rosters/duty-rosters.js";
 import { initAttendance, AttendanceView } from "../attendance/attendance.js";
+import { initLeaveManagement, LeaveManagementView } from "../leave-management/leave-management.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1877,6 +1878,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Staff Attendance Time Clock', () => {
                 setTimeout(() => initAttendance(), 0);
                 return AttendanceView();
+            }, activate);
+        } else if (tabId === 'leave_management' || tabId === 'leave_requests' || tabId === 'leave_balances' || tabId === 'leaves') {
+            tabManager.openTab(tabId, title || 'Leave Management & Coverage', () => {
+                setTimeout(() => initLeaveManagement(), 0);
+                return LeaveManagementView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

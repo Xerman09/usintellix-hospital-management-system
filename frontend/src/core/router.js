@@ -11,6 +11,7 @@ import { DoctorCommissionsView, initDoctorCommissions } from "../modules/doctor-
 import { StaffCredentialsView, initStaffCredentials } from "../modules/staff-credentials/staff-credentials.js";
 import { DutyRostersView, initDutyRosters } from "../modules/duty-rosters/duty-rosters.js";
 import { AttendanceView, initAttendance } from "../modules/attendance/attendance.js";
+import { LeaveManagementView, initLeaveManagement } from "../modules/leave-management/leave-management.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -364,6 +365,26 @@ const routes = {
     "/dtr": {
         view: AttendanceView,
         afterRender: initAttendance
+    },
+    "/leave-management": {
+        view: LeaveManagementView,
+        afterRender: initLeaveManagement
+    },
+    "/leave_management": {
+        view: LeaveManagementView,
+        afterRender: initLeaveManagement
+    },
+    "/leave-requests": {
+        view: LeaveManagementView,
+        afterRender: initLeaveManagement
+    },
+    "/leave_requests": {
+        view: LeaveManagementView,
+        afterRender: initLeaveManagement
+    },
+    "/leave-balances": {
+        view: LeaveManagementView,
+        afterRender: initLeaveManagement
     }
 };
 
