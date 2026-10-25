@@ -12,6 +12,7 @@ import { StaffCredentialsView, initStaffCredentials } from "../modules/staff-cre
 import { DutyRostersView, initDutyRosters } from "../modules/duty-rosters/duty-rosters.js";
 import { AttendanceView, initAttendance } from "../modules/attendance/attendance.js";
 import { LeaveManagementView, initLeaveManagement } from "../modules/leave-management/leave-management.js";
+import { SalaryStructuresView, initSalaryStructures } from "../modules/salary-structures/salary-structures.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -385,6 +386,22 @@ const routes = {
     "/leave-balances": {
         view: LeaveManagementView,
         afterRender: initLeaveManagement
+    },
+    "/salary-structures": {
+        view: SalaryStructuresView,
+        afterRender: initSalaryStructures
+    },
+    "/salary_structures": {
+        view: SalaryStructuresView,
+        afterRender: initSalaryStructures
+    },
+    "/payroll-structures": {
+        view: SalaryStructuresView,
+        afterRender: initSalaryStructures
+    },
+    "/compensation": {
+        view: SalaryStructuresView,
+        afterRender: initSalaryStructures
     }
 };
 
