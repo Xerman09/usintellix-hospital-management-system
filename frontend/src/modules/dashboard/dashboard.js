@@ -343,6 +343,7 @@ import { EquipmentAssetsView } from "../equipment-assets/equipment-assets.view.j
 import { initClinicSchedules } from "../clinic-schedules/clinic-schedules.js";
 import { ClinicSchedulesView } from "../clinic-schedules/clinic-schedules.view.js";
 import { initDutyRosters, DutyRostersView } from "../duty-rosters/duty-rosters.js";
+import { initAttendance, AttendanceView } from "../attendance/attendance.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1871,6 +1872,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Doctor On-Call & Duty Rosters', () => {
                 setTimeout(() => initDutyRosters(), 0);
                 return DutyRostersView();
+            }, activate);
+        } else if (tabId === 'attendance' || tabId === 'time_clock' || tabId === 'staff_attendance' || tabId === 'dtr') {
+            tabManager.openTab(tabId, title || 'Staff Attendance Time Clock', () => {
+                setTimeout(() => initAttendance(), 0);
+                return AttendanceView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

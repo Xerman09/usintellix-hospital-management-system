@@ -10,6 +10,7 @@ import { TariffMasterView, initTariffMaster } from "../modules/tariff-master/tar
 import { DoctorCommissionsView, initDoctorCommissions } from "../modules/doctor-commissions/doctor-commissions.js";
 import { StaffCredentialsView, initStaffCredentials } from "../modules/staff-credentials/staff-credentials.js";
 import { DutyRostersView, initDutyRosters } from "../modules/duty-rosters/duty-rosters.js";
+import { AttendanceView, initAttendance } from "../modules/attendance/attendance.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -339,6 +340,30 @@ const routes = {
     "/physician-rosters": {
         view: DutyRostersView,
         afterRender: initDutyRosters
+    },
+    "/attendance": {
+        view: AttendanceView,
+        afterRender: initAttendance
+    },
+    "/time-clock": {
+        view: AttendanceView,
+        afterRender: initAttendance
+    },
+    "/time_clock": {
+        view: AttendanceView,
+        afterRender: initAttendance
+    },
+    "/staff-attendance": {
+        view: AttendanceView,
+        afterRender: initAttendance
+    },
+    "/staff_attendance": {
+        view: AttendanceView,
+        afterRender: initAttendance
+    },
+    "/dtr": {
+        view: AttendanceView,
+        afterRender: initAttendance
     }
 };
 
