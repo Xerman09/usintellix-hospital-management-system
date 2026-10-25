@@ -467,6 +467,7 @@ import { DietaryView, initDietary } from "../dietary/dietary.js";
 import { InpatientBillingView, initInpatientBilling } from "../inpatient-billing/inpatient-billing.js";
 import { SplitCashieringView, initSplitCashiering } from "../split-cashiering/split-cashiering.js";
 import { ClaimDenialsView, initClaimDenials } from "../claim-denials/claim-denials.js";
+import { PatientDepositsView, initPatientDeposits } from "../patient-deposits/patient-deposits.js";
 
 function renderPlaceholderTab(title) {
     return `
@@ -1731,6 +1732,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'Claim Denial & Appeals', () => {
                 setTimeout(initClaimDenials, 0);
                 return ClaimDenialsView();
+            }, activate);
+        } else if (tabId === 'patient_deposits' || tabId === 'advance_deposits' || tabId === 'deposits_ledger' || tabId === 'deposit_refunds') {
+            tabManager.openTab(tabId, 'Advance Deposits & Refunds', () => {
+                setTimeout(initPatientDeposits, 0);
+                return PatientDepositsView();
             }, activate);
         } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
             tabManager.openTab(tabId, 'Blood Bank & Donors', () => {

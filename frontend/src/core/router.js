@@ -3,6 +3,7 @@ import { DietaryView, initDietary } from "../modules/dietary/dietary.js";
 import { InpatientBillingView, initInpatientBilling } from "../modules/inpatient-billing/inpatient-billing.js";
 import { SplitCashieringView, initSplitCashiering } from "../modules/split-cashiering/split-cashiering.js";
 import { ClaimDenialsView, initClaimDenials } from "../modules/claim-denials/claim-denials.js";
+import { PatientDepositsView, initPatientDeposits } from "../modules/patient-deposits/patient-deposits.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -188,6 +189,26 @@ const routes = {
     "/appeals-workflow": {
         view: ClaimDenialsView,
         afterRender: initClaimDenials
+    },
+    "/patient-deposits": {
+        view: PatientDepositsView,
+        afterRender: initPatientDeposits
+    },
+    "/patient_deposits": {
+        view: PatientDepositsView,
+        afterRender: initPatientDeposits
+    },
+    "/advance-deposits": {
+        view: PatientDepositsView,
+        afterRender: initPatientDeposits
+    },
+    "/deposits-ledger": {
+        view: PatientDepositsView,
+        afterRender: initPatientDeposits
+    },
+    "/deposit-refunds": {
+        view: PatientDepositsView,
+        afterRender: initPatientDeposits
     }
 };
 

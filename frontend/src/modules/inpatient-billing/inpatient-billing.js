@@ -375,6 +375,10 @@ function renderDetailView(root) {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
                         💰 Record Cashier Payment / Deposit
                     </button>
+                    <button class="ib-btn ib-btn-secondary" id="ibBtnViewDeposits" title="Open Patient Advance Deposit Ledger &amp; Drawdowns">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 18V6"></path></svg>
+                        Advance Deposits &amp; Drawdowns
+                    </button>
                     <button class="ib-btn ib-btn-secondary" id="ibBtnSeedDemo" title="Inject realistic sample clinical charges across OR, Lab, Rad, e-MAR for demonstration">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                         Demo: Populate Multi-Dept Charges
@@ -788,6 +792,11 @@ function bindDetailEvents(root, folio) {
     // Record Payment Modal
     root.querySelector("#ibBtnRecordPayment")?.addEventListener("click", () => {
         openPaymentModal(folio);
+    });
+
+    // Advance Deposits & Drawdowns
+    root.querySelector("#ibBtnViewDeposits")?.addEventListener("click", () => {
+        window.location.hash = "#/patient-deposits";
     });
 
     // Issue Billing Clearance
