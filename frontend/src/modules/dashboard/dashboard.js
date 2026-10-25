@@ -346,6 +346,7 @@ import { initDutyRosters, DutyRostersView } from "../duty-rosters/duty-rosters.j
 import { initAttendance, AttendanceView } from "../attendance/attendance.js";
 import { initLeaveManagement, LeaveManagementView } from "../leave-management/leave-management.js";
 import { initSalaryStructures, SalaryStructuresView } from "../salary-structures/salary-structures.js";
+import { initPayroll, PayrollView } from "../payroll/payroll.js";
 import { initDepartmentOrg } from "../department-org/department-org.js";
 import { DepartmentOrgView } from "../department-org/department-org.view.js";
 import { initVisitorManagement } from "../visitor-management/visitor-management.js";
@@ -1889,6 +1890,11 @@ export function Dashboard()
             tabManager.openTab(tabId, title || 'Staff Salary Structures', () => {
                 setTimeout(() => initSalaryStructures(), 0);
                 return SalaryStructuresView();
+            }, activate);
+        } else if (tabId === 'payroll' || tabId === 'payroll_runs' || tabId === 'payslips' || tabId === 'my_payslips') {
+            tabManager.openTab(tabId, title || 'Hospital Payroll & Payslips', () => {
+                setTimeout(() => initPayroll(), 0);
+                return PayrollView();
             }, activate);
         } else if (tabId === 'clinic_schedules' || tabId === 'clinic_operating_schedules') {
             tabManager.openTab(tabId, title || 'Clinic Operating Schedules', () => {

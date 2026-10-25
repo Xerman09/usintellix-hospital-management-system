@@ -13,6 +13,7 @@ import { DutyRostersView, initDutyRosters } from "../modules/duty-rosters/duty-r
 import { AttendanceView, initAttendance } from "../modules/attendance/attendance.js";
 import { LeaveManagementView, initLeaveManagement } from "../modules/leave-management/leave-management.js";
 import { SalaryStructuresView, initSalaryStructures } from "../modules/salary-structures/salary-structures.js";
+import { PayrollView, initPayroll } from "../modules/payroll/payroll.js";
 import { LoginView } from "../modules/auth/login.view.js?v=110";
 import { DashboardView } from "../modules/dashboard/dashboard.view.js?v=193";
 import { Dashboard } from "../modules/dashboard/dashboard.js?v=326";
@@ -402,6 +403,30 @@ const routes = {
     "/compensation": {
         view: SalaryStructuresView,
         afterRender: initSalaryStructures
+    },
+    "/payroll": {
+        view: PayrollView,
+        afterRender: initPayroll
+    },
+    "/payroll-runs": {
+        view: PayrollView,
+        afterRender: initPayroll
+    },
+    "/payroll_runs": {
+        view: PayrollView,
+        afterRender: initPayroll
+    },
+    "/payslips": {
+        view: PayrollView,
+        afterRender: initPayroll
+    },
+    "/my-payslips": {
+        view: PayrollView,
+        afterRender: initPayroll
+    },
+    "/employee-payslips": {
+        view: PayrollView,
+        afterRender: initPayroll
     }
 };
 
