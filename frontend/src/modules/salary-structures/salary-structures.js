@@ -7,7 +7,7 @@ import { api } from "../../core/api.js?v=10";
 
 // Module State
 let state = {
-    activeTab: "registry", // 'registry' | 'simulator'
+    activeTab: "registry", // 'registry' | 'simulator' | 'commissions'
     departmentId: 0,
     employeeId: 0,
     employmentTypeFilter: "",
@@ -17,13 +17,23 @@ let state = {
     perPage: 25,
     selectedStructure: null,
     simulator: {
-        employeeId: 101,
+        employeeId: 102,
         regularHours: 80,
-        otHours: 12,
-        ndHours: 16,
-        onCallShifts: 4,
-        caseCommissions: 1850.00,
+        otHours: 10,
+        ndHours: 12,
+        onCallShifts: 2,
+        caseCommissions: 0.00,
+        pulledBillingSummary: null,
         result: null
+    },
+    commissions: {
+        selectedDoctorId: 102, // Dr. Elena Rostova
+        startDate: "2026-10-01",
+        endDate: "2026-10-31",
+        statusFilter: "",
+        activeCategoryFilter: "all",
+        data: null,
+        loading: false
     }
 };
 
@@ -59,8 +69,12 @@ async function loadInitialData() {
         cache.metadata = metaRes?.data || { departments: [], staff: [] };
         cache.structuresData = listRes?.data || { total: 0, records: [], metrics: {} };
 
-        // Run default simulation
-        await runSimulation();
+        // Pre-load default physician commissions & simulation
+        await Promise.all([
+            loadCommissionsData(),
+            runSimulation(false)
+        ]);
+
         renderModule();
     } catch (err) {
         console.error("Failed to load salary structures:", err);
@@ -68,20 +82,44 @@ async function loadInitialData() {
     }
 }
 
-async function runSimulation() {
+async function loadCommissionsData() {
+    state.commissions.loading = true;
     try {
+        const docId = state.commissions.selectedDoctorId;
+        const start = state.commissions.startDate;
+        const end = state.commissions.endDate;
+        const status = state.commissions.statusFilter;
+        const res = await api(`/payroll/doctor-commissions/pull?doctor_id=${docId}&start_date=${start}&end_date=${end}&status=${status}`).catch(() => null);
+        state.commissions.data = res?.data || null;
+    } catch (err) {
+        console.error("Failed to load doctor commissions:", err);
+    } finally {
+        state.commissions.loading = false;
+    }
+}
+
+async function runSimulation(pullFromBilling = false) {
+    try {
+        const payload = {
+            employee_id: state.simulator.employeeId,
+            regular_hours: state.simulator.regularHours,
+            overtime_hours: state.simulator.otHours,
+            night_diff_hours: state.simulator.ndHours,
+            on_call_shifts: state.simulator.onCallShifts,
+            case_commissions: state.simulator.caseCommissions,
+            pull_from_billing: pullFromBilling,
+            start_date: state.commissions.startDate,
+            end_date: state.commissions.endDate
+        };
         const simRes = await api(`/payroll/simulate-gross`, {
             method: "POST",
-            body: {
-                employee_id: state.simulator.employeeId,
-                regular_hours: state.simulator.regularHours,
-                overtime_hours: state.simulator.otHours,
-                night_diff_hours: state.simulator.ndHours,
-                on_call_shifts: state.simulator.onCallShifts,
-                case_commissions: state.simulator.caseCommissions
-            }
+            body: payload
         });
         state.simulator.result = simRes?.data || null;
+        if (pullFromBilling && simRes?.data?.doctor_procedure_commissions !== undefined) {
+            state.simulator.caseCommissions = simRes.data.doctor_procedure_commissions;
+            state.simulator.pulledBillingSummary = simRes.data.pulled_billing_commissions || null;
+        }
     } catch (err) {
         console.error("Simulation error:", err);
     }
@@ -171,6 +209,9 @@ function renderModule() {
                 <button class="ss-tab-btn ${state.activeTab === 'simulator' ? 'active' : ''}" data-tab="simulator">
                     <i class="fas fa-sliders-h"></i> Gross Compensation Simulator (OT + Night Diff + Stipends + Commissions)
                 </button>
+                <button class="ss-tab-btn ${state.activeTab === 'commissions' ? 'active' : ''}" data-tab="commissions">
+                    <i class="fas fa-stethoscope"></i> Doctor PF Shares &amp; Case Commission Engine (Subsystem 6)
+                </button>
             </div>
 
             <!-- Tab 1: Registry -->
@@ -181,6 +222,11 @@ function renderModule() {
             <!-- Tab 2: Simulator -->
             <div id="ssTabSimulator" class="ss-panel ${state.activeTab === 'simulator' ? 'active' : ''}">
                 ${renderSimulatorPanel()}
+            </div>
+
+            <!-- Tab 3: Commissions -->
+            <div id="ssTabCommissions" class="ss-panel ${state.activeTab === 'commissions' ? 'active' : ''}">
+                ${renderCommissionsPanel()}
             </div>
         </div>
 
@@ -344,6 +390,20 @@ function renderModule() {
                 <div class="ss-printable-content" id="ssPrintableContent"></div>
             </div>
         </div>
+
+        <!-- Printable Doctor Professional Fee Statement Modal -->
+        <div id="ssModalCommissionPrint" class="ss-modal-backdrop" style="display: none;">
+            <div class="ss-modal-box ss-modal-lg">
+                <div class="ss-modal-header">
+                    <h3><i class="fas fa-stethoscope"></i> Doctor Professional Fee &amp; Commission Settlement Statement</h3>
+                    <div>
+                        <button class="ss-btn ss-btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Print Statement</button>
+                        <button class="ss-modal-close" id="ssBtnCloseCommPrintModal">&times;</button>
+                    </div>
+                </div>
+                <div class="ss-printable-content" id="ssPrintableCommContent"></div>
+            </div>
+        </div>
     `;
 
     attachEventHandlers();
@@ -501,8 +561,21 @@ function renderSimulatorPanel() {
                 </div>
 
                 <div class="ss-form-group" style="margin-top: 14px;">
-                    <label>Doctor Procedure Commission Shares ($ credited from billing):</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label style="margin: 0;">Doctor Procedure Commission Shares ($ credited from billing):</label>
+                        <button type="button" class="ss-btn ss-btn-xs ss-btn-outline" id="ssBtnPullBillingCommissions" title="Pull settled doctor shares from Billing (Subsystem 6)">
+                            <i class="fas fa-cloud-download-alt"></i> Pull Settled from Billing
+                        </button>
+                    </div>
                     <input type="number" id="ssSimCommissions" class="ss-input" step="0.01" min="0" value="${sim.caseCommissions}">
+                    ${sim.pulledBillingSummary ? `
+                        <div style="margin-top: 6px; padding: 6px 10px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 6px; font-size: 0.75rem; color: #0369a1;">
+                            <i class="fas fa-check-circle"></i> Settled from Billing (${sim.pulledBillingSummary.total_cases} cases): 
+                            Consultations: <strong>$${parseFloat(sim.pulledBillingSummary.consultations_net).toFixed(2)}</strong> &bull;
+                            Ward Rounds: <strong>$${parseFloat(sim.pulledBillingSummary.ward_rounds_net).toFixed(2)}</strong> &bull;
+                            Surgeries: <strong>$${parseFloat(sim.pulledBillingSummary.surgical_net).toFixed(2)}</strong>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <button class="ss-btn ss-btn-primary" id="ssBtnRecalculateSim" style="width: 100%; margin-top: 20px; padding: 12px; justify-content: center;">
@@ -573,6 +646,402 @@ function renderSimulatorPanel() {
             </div>
         </div>
     `;
+}
+
+/**
+ * Render Doctor PF Shares & Case Commission Engine Panel (Subsystem 6 Integration)
+ */
+function renderCommissionsPanel() {
+    const com = state.commissions;
+    const data = com.data;
+    const isSingleDoc = com.selectedDoctorId > 0 && data?.doctor;
+
+    return `
+        <div class="ss-comm-container">
+            <!-- Filter & Action Toolbar -->
+            <div class="ss-comm-toolbar">
+                <div class="ss-comm-filter-group">
+                    <label><i class="fas fa-user-md"></i> Physician:</label>
+                    <select id="ssCommDocSelect" class="ss-select" style="min-width: 240px;">
+                        <option value="0" ${com.selectedDoctorId == 0 ? 'selected' : ''}>-- All Hospital Physicians (Overview) --</option>
+                        ${cache.metadata.staff.filter(s => s.specialty || s.department_name?.includes('Surg') || s.department_name?.includes('Card') || s.department_name?.includes('Med') || s.department_name?.includes('Emerg') || s.department_name?.includes('Anesth') || s.department_name?.includes('Ped') || s.department_name?.includes('Obstet')).map(s => `
+                            <option value="${s.id}" ${com.selectedDoctorId == s.id ? 'selected' : ''}>
+                                ${escapeHtml(s.full_name)} (${escapeHtml(s.specialty || s.department_name)})
+                            </option>
+                        `).join("")}
+                    </select>
+                </div>
+
+                <div class="ss-comm-filter-group">
+                    <label><i class="fas fa-calendar-alt"></i> Billing Period:</label>
+                    <input type="date" id="ssCommStartDate" class="ss-input" value="${com.startDate}">
+                    <span style="color: #64748b; font-size: 0.8125rem;">to</span>
+                    <input type="date" id="ssCommEndDate" class="ss-input" value="${com.endDate}">
+                </div>
+
+                <div class="ss-comm-filter-group">
+                    <label><i class="fas fa-filter"></i> Status:</label>
+                    <select id="ssCommStatusSelect" class="ss-select">
+                        <option value="" ${com.statusFilter === '' ? 'selected' : ''}>All Settled Cases</option>
+                        <option value="earned" ${com.statusFilter === 'earned' ? 'selected' : ''}>Earned (Payable)</option>
+                        <option value="approved_for_payout" ${com.statusFilter === 'approved_for_payout' ? 'selected' : ''}>Approved for Payroll</option>
+                        <option value="disbursed" ${com.statusFilter === 'disbursed' ? 'selected' : ''}>Disbursed</option>
+                    </select>
+                </div>
+
+                <div class="ss-comm-actions">
+                    ${isSingleDoc ? `
+                        <button class="ss-btn ss-btn-primary" id="ssBtnSyncToSimulator" title="Apply pulled doctor commissions to compensation simulator">
+                            <i class="fas fa-bolt"></i> Sync to Simulator
+                        </button>
+                        <button class="ss-btn ss-btn-secondary" id="ssBtnApproveForPayroll" title="Lock and approve earned shares for payroll cycle">
+                            <i class="fas fa-lock"></i> Lock for Payroll
+                        </button>
+                        <button class="ss-btn ss-btn-outline" id="ssBtnPrintCommissionStmt" title="Print doctor professional fee statement">
+                            <i class="fas fa-print"></i> Print Statement
+                        </button>
+                    ` : `
+                        <button class="ss-btn ss-btn-secondary" id="ssBtnRefreshComms">
+                            <i class="fas fa-sync-alt"></i> Refresh Ledger
+                        </button>
+                    `}
+                </div>
+            </div>
+
+            ${com.loading ? `
+                <div style="padding: 40px; text-align: center; color: #64748b;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #0284c7;"></i>
+                    <div style="margin-top: 10px; font-weight: 600;">Pulling settled doctor professional fees from Subsystem 6 Billing...</div>
+                </div>
+            ` : !data ? `
+                <div style="padding: 40px; text-align: center; color: #64748b;">
+                    No settled commission records found for this selection.
+                </div>
+            ` : isSingleDoc ? renderSingleDoctorCommissions(data) : renderAllDoctorsCommissionsSummary(data)}
+        </div>
+    `;
+}
+
+/**
+ * Render Single Doctor Settled Shares categorized by Consultations, Ward Rounds & Surgeries
+ */
+function renderSingleDoctorCommissions(data) {
+    const doc = data.doctor || {};
+    const cats = data.categories || {};
+    const gt = data.grand_total || {};
+    const filter = state.commissions.activeCategoryFilter || "all";
+
+    const allRecords = data.records || [];
+    const displayedRecords = filter === "all" ? allRecords : allRecords.filter(r => {
+        const cat = (r.service_category || "").toLowerCase();
+        const src = (r.source_type || "").toLowerCase();
+        if (filter === "consultations") return cat === "consultation" || src === "ambulatory_encounter";
+        if (filter === "ward_rounds") return cat === "daily_ward_round";
+        if (filter === "surgical_procedures") return ["surgical_lead", "surgical_assistant", "anesthesiology"].includes(cat) || src === "or_surgery";
+        if (filter === "other_services") return !["consultation", "daily_ward_round", "surgical_lead", "surgical_assistant", "anesthesiology"].includes(cat) && !["ambulatory_encounter", "or_surgery"].includes(src);
+        return true;
+    });
+
+    return `
+        <!-- Doctor Profile Sub-Header -->
+        <div class="ss-comm-doc-card">
+            <div class="ss-comm-doc-info">
+                <div class="ss-comm-doc-avatar"><i class="fas fa-user-md"></i></div>
+                <div>
+                    <div class="ss-comm-doc-name">${escapeHtml(doc.full_name || 'Physician')}</div>
+                    <div class="ss-comm-doc-meta">
+                        <span><strong>Specialty:</strong> ${escapeHtml(doc.specialty || 'Clinical Specialist')}</span> &bull;
+                        <span><strong>Department:</strong> ${escapeHtml(doc.department_name || 'Medical Staff')}</span> &bull;
+                        <span><strong>Base Salary:</strong> $${parseFloat(doc.base_salary || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}/mo</span>
+                    </div>
+                </div>
+            </div>
+            <div class="ss-comm-doc-total-badge">
+                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Net Commission Due</div>
+                <div style="font-size: 1.625rem; font-weight: 800;">$${parseFloat(gt.total_net_commission || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div style="font-size: 0.75rem; opacity: 0.9;">${gt.total_cases || 0} Total Settled Encounters</div>
+            </div>
+        </div>
+
+        <!-- Category Metric Cards (Consultations, Ward Rounds, Surgery, Total) -->
+        <div class="ss-comm-cards-grid">
+            <!-- 1. Consultations -->
+            <div class="ss-comm-cat-card ss-cc-cyan">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-stethoscope"></i> Outpatient Consultations</span>
+                    <span class="ss-cc-badge">${cats.consultations?.count || 0} cases</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(cats.consultations?.net_commission || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">
+                    <div>Gross Billed: <strong>$${parseFloat(cats.consultations?.gross_pf || 0).toFixed(2)}</strong></div>
+                    <div>Hosp Share: <strong>$${parseFloat(cats.consultations?.hospital_share || 0).toFixed(2)}</strong></div>
+                </div>
+            </div>
+
+            <!-- 2. Inpatient Ward Rounds -->
+            <div class="ss-comm-cat-card ss-cc-indigo">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-bed"></i> Inpatient Ward Rounds</span>
+                    <span class="ss-cc-badge">${cats.ward_rounds?.count || 0} rounds</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(cats.ward_rounds?.net_commission || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">
+                    <div>Gross Billed: <strong>$${parseFloat(cats.ward_rounds?.gross_pf || 0).toFixed(2)}</strong></div>
+                    <div>Hosp Share: <strong>$${parseFloat(cats.ward_rounds?.hospital_share || 0).toFixed(2)}</strong></div>
+                </div>
+            </div>
+
+            <!-- 3. Surgical Procedures & Anesthesia -->
+            <div class="ss-comm-cat-card ss-cc-rose">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-scalpel"></i> Surgical &amp; Anesthesia</span>
+                    <span class="ss-cc-badge">${cats.surgical_procedures?.count || 0} procedures</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(cats.surgical_procedures?.net_commission || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">
+                    <div>Gross Billed: <strong>$${parseFloat(cats.surgical_procedures?.gross_pf || 0).toFixed(2)}</strong></div>
+                    <div>Hosp Share: <strong>$${parseFloat(cats.surgical_procedures?.hospital_share || 0).toFixed(2)}</strong></div>
+                </div>
+            </div>
+
+            <!-- 4. Diagnostics & Emergency Calls -->
+            <div class="ss-comm-cat-card ss-cc-amber">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-bolt"></i> ER &amp; Diagnostics</span>
+                    <span class="ss-cc-badge">${cats.other_services?.count || 0} encounters</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(cats.other_services?.net_commission || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">
+                    <div>Gross Billed: <strong>$${parseFloat(cats.other_services?.gross_pf || 0).toFixed(2)}</strong></div>
+                    <div>Hosp Share: <strong>$${parseFloat(cats.other_services?.hospital_share || 0).toFixed(2)}</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Filter Tabs -->
+        <div class="ss-comm-pills">
+            <button class="ss-comm-pill ${filter === 'all' ? 'active' : ''}" data-cat="all">
+                All Settled Cases (${allRecords.length})
+            </button>
+            <button class="ss-comm-pill ${filter === 'consultations' ? 'active' : ''}" data-cat="consultations">
+                <i class="fas fa-stethoscope"></i> Consultations (${cats.consultations?.count || 0})
+            </button>
+            <button class="ss-comm-pill ${filter === 'ward_rounds' ? 'active' : ''}" data-cat="ward_rounds">
+                <i class="fas fa-bed"></i> Ward Rounds (${cats.ward_rounds?.count || 0})
+            </button>
+            <button class="ss-comm-pill ${filter === 'surgical_procedures' ? 'active' : ''}" data-cat="surgical_procedures">
+                <i class="fas fa-scalpel"></i> Surgical &amp; Anesthesia (${cats.surgical_procedures?.count || 0})
+            </button>
+            <button class="ss-comm-pill ${filter === 'other_services' ? 'active' : ''}" data-cat="other_services">
+                <i class="fas fa-bolt"></i> ER / Diagnostics (${cats.other_services?.count || 0})
+            </button>
+        </div>
+
+        <!-- Ledger Table -->
+        <div class="ss-table-container" style="margin-top: 14px;">
+            <table class="ss-table">
+                <thead>
+                    <tr>
+                        <th>Voucher #</th>
+                        <th>Settled Date</th>
+                        <th>Patient Name</th>
+                        <th>Source Reference</th>
+                        <th>Service Description</th>
+                        <th>Category</th>
+                        <th style="text-align: right;">Gross PF</th>
+                        <th style="text-align: center;">Split %</th>
+                        <th style="text-align: right;">Hosp Share</th>
+                        <th style="text-align: right;">Withholding Tax</th>
+                        <th style="text-align: right;">Net Doctor Share</th>
+                        <th style="text-align: center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${displayedRecords.length === 0 ? `
+                        <tr>
+                            <td colspan="12" style="text-align: center; color: #64748b; padding: 30px;">
+                                No settled commission items found matching category filter "${filter}".
+                            </td>
+                        </tr>
+                    ` : displayedRecords.map(r => `
+                        <tr>
+                            <td><span class="ss-code-badge">${escapeHtml(r.voucher_number)}</span></td>
+                            <td style="white-space: nowrap; font-size: 0.75rem; color: #475569;">
+                                ${r.settlement_date ? r.settlement_date.substring(0, 10) : 'N/A'}
+                            </td>
+                            <td><strong>${escapeHtml(r.patient_name || 'Patient')}</strong></td>
+                            <td><span style="font-family: monospace; font-size: 0.75rem; color: #64748b;">${escapeHtml(r.source_reference || r.source_type)}</span></td>
+                            <td>
+                                <div style="font-weight: 600; color: #0f172a; max-width: 260px; line-height: 1.3;">${escapeHtml(r.service_description)}</div>
+                                <div style="font-size: 0.6875rem; color: #94a3b8; font-family: monospace;">${escapeHtml(r.item_code || 'CODE-STD')}</div>
+                            </td>
+                            <td>${formatServiceCategoryBadge(r.service_category)}</td>
+                            <td style="text-align: right; font-weight: 600;">$${parseFloat(r.gross_pf_amount).toFixed(2)}</td>
+                            <td style="text-align: center; font-size: 0.75rem; color: #475569;">
+                                ${parseFloat(r.split_doctor_percent).toFixed(0)}% / ${parseFloat(r.split_hospital_percent).toFixed(0)}%
+                            </td>
+                            <td style="text-align: right; color: #64748b;">$${parseFloat(r.hospital_share_amount).toFixed(2)}</td>
+                            <td style="text-align: right; color: #dc2626;">-$${parseFloat(r.withholding_tax_amount).toFixed(2)}</td>
+                            <td style="text-align: right; font-weight: 700; color: #166534; font-size: 0.875rem;">
+                                $${parseFloat(r.net_commission_payable).toFixed(2)}
+                            </td>
+                            <td style="text-align: center;">${formatSettlementStatusBadge(r.settlement_status)}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
+ * Render All Hospital Physicians Settled Shares Summary Table
+ */
+function renderAllDoctorsCommissionsSummary(data) {
+    const m = data.metrics || {};
+    const physicians = data.physicians || [];
+
+    return `
+        <!-- KPI Metrics Banner -->
+        <div class="ss-comm-cards-grid">
+            <div class="ss-comm-cat-card ss-cc-cyan">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-file-invoice-dollar"></i> Settled Gross PF Billed</span>
+                    <span class="ss-cc-badge">${m.total_cases || 0} cases</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(m.total_gross_pf || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">Billed across Subsystem 6 Cashiering</div>
+            </div>
+
+            <div class="ss-comm-cat-card ss-cc-indigo">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-hospital"></i> Hospital Retained Share</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(m.total_hospital_retained || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">Retained revenue share (20–30%)</div>
+            </div>
+
+            <div class="ss-comm-cat-card ss-cc-rose">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-user-md"></i> Total Net Doctor Payable</span>
+                    <span class="ss-cc-badge">${m.total_physicians || 0} doctors</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(m.total_net_commission || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">Pending/Earned: <strong>$${parseFloat(m.total_payable_unpaid || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong></div>
+            </div>
+
+            <div class="ss-comm-cat-card ss-cc-amber">
+                <div class="ss-cc-header">
+                    <span class="ss-cc-title"><i class="fas fa-receipt"></i> Total Tax Withheld (EWT)</span>
+                </div>
+                <div class="ss-cc-net">$${parseFloat(m.total_tax_withheld || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                <div class="ss-cc-sub">10% statutory doctor professional tax</div>
+            </div>
+        </div>
+
+        <!-- Consolidated Table -->
+        <div class="ss-table-container" style="margin-top: 16px;">
+            <table class="ss-table">
+                <thead>
+                    <tr>
+                        <th>Doctor / Physician</th>
+                        <th>Specialty / Department</th>
+                        <th style="text-align: right;"><i class="fas fa-stethoscope"></i> Consultations Net</th>
+                        <th style="text-align: right;"><i class="fas fa-bed"></i> Ward Rounds Net</th>
+                        <th style="text-align: right;"><i class="fas fa-scalpel"></i> Surgical Net</th>
+                        <th style="text-align: right;"><i class="fas fa-bolt"></i> Other Net</th>
+                        <th style="text-align: right;">Grand Total Net</th>
+                        <th style="text-align: right;">Payable Balance</th>
+                        <th style="text-align: center;">Total Cases</th>
+                        <th style="text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${physicians.length === 0 ? `
+                        <tr>
+                            <td colspan="10" style="text-align: center; color: #64748b; padding: 30px;">
+                                No doctor settled commission records found in Billing for the selected period.
+                            </td>
+                        </tr>
+                    ` : physicians.map(doc => `
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #0f172a;">${escapeHtml(doc.doctor_name)}</div>
+                                <div style="font-size: 0.6875rem; color: #64748b; font-family: monospace;">ID: DOC-${doc.doctor_id}</div>
+                            </td>
+                            <td>
+                                <div><strong>${escapeHtml(doc.doctor_specialty || 'Specialist')}</strong></div>
+                                <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(doc.department_name || 'Medical Services')}</div>
+                            </td>
+                            <td style="text-align: right; color: #0369a1; font-weight: 600;">
+                                $${parseFloat(doc.consult_net).toFixed(2)}
+                                <div style="font-size: 0.6875rem; color: #64748b;">${doc.consult_count} visits</div>
+                            </td>
+                            <td style="text-align: right; color: #4338ca; font-weight: 600;">
+                                $${parseFloat(doc.ward_net).toFixed(2)}
+                                <div style="font-size: 0.6875rem; color: #64748b;">${doc.ward_count} rounds</div>
+                            </td>
+                            <td style="text-align: right; color: #b91c1c; font-weight: 600;">
+                                $${parseFloat(doc.surgical_net).toFixed(2)}
+                                <div style="font-size: 0.6875rem; color: #64748b;">${doc.surgical_count} cases</div>
+                            </td>
+                            <td style="text-align: right; color: #d97706; font-weight: 600;">
+                                $${parseFloat(doc.other_net).toFixed(2)}
+                            </td>
+                            <td style="text-align: right; font-weight: 800; color: #0f172a; font-size: 0.9375rem;">
+                                $${parseFloat(doc.total_net_commission).toFixed(2)}
+                            </td>
+                            <td style="text-align: right; font-weight: 700; color: #166534;">
+                                $${parseFloat(doc.payable_unpaid_net).toFixed(2)}
+                            </td>
+                            <td style="text-align: center; font-weight: 600;">${doc.total_cases}</td>
+                            <td style="text-align: center;">
+                                <button class="ss-btn ss-btn-xs ss-btn-outline ss-btn-view-doc-comm" data-id="${doc.doctor_id}" title="View detailed case breakdown">
+                                    <i class="fas fa-search-plus"></i> View Cases
+                                </button>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function formatServiceCategoryBadge(cat) {
+    switch (cat) {
+        case "consultation":
+            return `<span class="ss-badge ss-b-doc"><i class="fas fa-stethoscope"></i> Consultation</span>`;
+        case "daily_ward_round":
+            return `<span class="ss-badge ss-b-res"><i class="fas fa-bed"></i> Inpatient Ward Round</span>`;
+        case "surgical_lead":
+            return `<span class="ss-badge" style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;"><i class="fas fa-scalpel"></i> Lead Surgeon</span>`;
+        case "surgical_assistant":
+            return `<span class="ss-badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;"><i class="fas fa-hand-holding-medical"></i> Assistant Surgeon</span>`;
+        case "anesthesiology":
+            return `<span class="ss-badge" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;"><i class="fas fa-syringe"></i> Anesthesiology</span>`;
+        case "emergency_call":
+            return `<span class="ss-badge" style="background:#fef2f2;color:#dc2626;"><i class="fas fa-ambulance"></i> ER On-Call</span>`;
+        case "diagnostic_reading":
+            return `<span class="ss-badge" style="background:#f0fdf4;color:#15803d;"><i class="fas fa-x-ray"></i> Diagnostic Reading</span>`;
+        default:
+            return `<span class="ss-badge">${cat}</span>`;
+    }
+}
+
+function formatSettlementStatusBadge(status) {
+    switch (status) {
+        case "earned":
+            return `<span class="ss-badge ss-b-doc"><i class="fas fa-clock"></i> Earned (Payable)</span>`;
+        case "approved_for_payout":
+            return `<span class="ss-badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;"><i class="fas fa-check-double"></i> Approved for Payroll</span>`;
+        case "disbursed":
+            return `<span class="ss-badge ss-b-full"><i class="fas fa-check-circle"></i> Disbursed</span>`;
+        case "voided":
+            return `<span class="ss-badge" style="background:#fee2e2;color:#991b1b;">Voided</span>`;
+        default:
+            return `<span class="ss-badge">${status}</span>`;
+    }
 }
 
 function formatEmpTypeBadge(type) {
@@ -666,6 +1135,16 @@ function attachEventHandlers() {
         renderModule();
     });
 
+    document.getElementById("ssBtnPullBillingCommissions")?.addEventListener("click", async () => {
+        state.simulator.regularHours = parseFloat(document.getElementById("ssSimRegHours").value) || 0;
+        state.simulator.otHours = parseFloat(document.getElementById("ssSimOtHours").value) || 0;
+        state.simulator.ndHours = parseFloat(document.getElementById("ssSimNdHours").value) || 0;
+        state.simulator.onCallShifts = parseInt(document.getElementById("ssSimOnCallShifts").value, 10) || 0;
+
+        await runSimulation(true);
+        renderModule();
+    });
+
     document.getElementById("ssBtnRecalculateSim")?.addEventListener("click", async () => {
         state.simulator.regularHours = parseFloat(document.getElementById("ssSimRegHours").value) || 0;
         state.simulator.otHours = parseFloat(document.getElementById("ssSimOtHours").value) || 0;
@@ -673,8 +1152,117 @@ function attachEventHandlers() {
         state.simulator.onCallShifts = parseInt(document.getElementById("ssSimOnCallShifts").value, 10) || 0;
         state.simulator.caseCommissions = parseFloat(document.getElementById("ssSimCommissions").value) || 0;
 
-        await runSimulation();
+        await runSimulation(false);
         renderModule();
+    });
+
+    // --- DOCTOR COMMISSIONS EVENT HANDLERS ---
+    document.getElementById("ssCommDocSelect")?.addEventListener("change", async (e) => {
+        state.commissions.selectedDoctorId = parseInt(e.target.value, 10);
+        await loadCommissionsData();
+        renderModule();
+    });
+
+    document.getElementById("ssCommStartDate")?.addEventListener("change", async (e) => {
+        state.commissions.startDate = e.target.value;
+        await loadCommissionsData();
+        renderModule();
+    });
+
+    document.getElementById("ssCommEndDate")?.addEventListener("change", async (e) => {
+        state.commissions.endDate = e.target.value;
+        await loadCommissionsData();
+        renderModule();
+    });
+
+    document.getElementById("ssCommStatusSelect")?.addEventListener("change", async (e) => {
+        state.commissions.statusFilter = e.target.value;
+        await loadCommissionsData();
+        renderModule();
+    });
+
+    document.getElementById("ssBtnRefreshComms")?.addEventListener("click", async () => {
+        await loadCommissionsData();
+        renderModule();
+    });
+
+    // Category filter pills
+    document.querySelectorAll(".ss-comm-pill").forEach(pill => {
+        pill.addEventListener("click", () => {
+            state.commissions.activeCategoryFilter = pill.dataset.cat;
+            renderModule();
+        });
+    });
+
+    // View specific doctor from All Doctors overview
+    document.querySelectorAll(".ss-btn-view-doc-comm").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const docId = parseInt(btn.dataset.id, 10);
+            state.commissions.selectedDoctorId = docId;
+            state.commissions.activeCategoryFilter = "all";
+            await loadCommissionsData();
+            renderModule();
+        });
+    });
+
+    // Sync to simulator button
+    document.getElementById("ssBtnSyncToSimulator")?.addEventListener("click", async () => {
+        const comData = state.commissions.data;
+        if (!comData || !comData.doctor) return;
+
+        state.simulator.employeeId = state.commissions.selectedDoctorId;
+        state.simulator.caseCommissions = parseFloat(comData.grand_total?.total_net_commission || 0);
+        state.simulator.pulledBillingSummary = {
+            total_cases: comData.grand_total?.total_cases || 0,
+            consultations_net: comData.categories?.consultations?.net_commission || 0,
+            ward_rounds_net: comData.categories?.ward_rounds?.net_commission || 0,
+            surgical_net: comData.categories?.surgical_procedures?.net_commission || 0,
+            other_net: comData.categories?.other_services?.net_commission || 0
+        };
+
+        state.activeTab = "simulator";
+        await runSimulation(false);
+        renderModule();
+    });
+
+    // Approve for payroll button
+    document.getElementById("ssBtnApproveForPayroll")?.addEventListener("click", async () => {
+        const comData = state.commissions.data;
+        if (!comData || !comData.records) return;
+
+        const earnedRecords = comData.records.filter(r => r.settlement_status === "earned");
+        if (earnedRecords.length === 0) {
+            alert("No pending 'earned' commission vouchers found to lock for payroll.");
+            return;
+        }
+
+        const confirmLock = confirm(`Approve and lock ${earnedRecords.length} settled commission vouchers for Payroll disbursement?`);
+        if (!confirmLock) return;
+
+        try {
+            const vouchers = earnedRecords.map(r => r.voucher_number);
+            const res = await api(`/payroll/doctor-commissions/approve`, {
+                method: "POST",
+                body: {
+                    doctor_id: state.commissions.selectedDoctorId,
+                    vouchers: vouchers,
+                    payroll_reference: `PAYROLL-${state.commissions.startDate.replace(/-/g, '')}-${state.commissions.endDate.replace(/-/g, '')}`
+                }
+            });
+
+            alert(`Success: ${res.data?.affected_count || earnedRecords.length} commission vouchers approved and locked for Payroll ($${parseFloat(res.data?.approved_amount || 0).toFixed(2)})!`);
+            await loadCommissionsData();
+            renderModule();
+        } catch (err) {
+            alert(`Approval failed: ${err.message || err}`);
+        }
+    });
+
+    // Print Commission Statement
+    document.getElementById("ssBtnPrintCommissionStmt")?.addEventListener("click", openCommissionPrintModal);
+    document.getElementById("ssBtnCloseCommPrintModal")?.addEventListener("click", () => {
+        const m = document.getElementById("ssModalCommissionPrint");
+        if (m) m.style.display = "none";
     });
 
     // Print Agreement Modal
@@ -838,6 +1426,154 @@ function openPrintModal() {
                 <div class="ss-sig-line">
                     <div class="ss-line"></div>
                     <div>Hospital Chief Executive Officer (CEO)</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = "flex";
+}
+
+function openCommissionPrintModal() {
+    const modal = document.getElementById("ssModalCommissionPrint");
+    const container = document.getElementById("ssPrintableCommContent");
+    if (!modal || !container) return;
+
+    const data = state.commissions.data;
+    if (!data || !data.doctor) return;
+
+    const doc = data.doctor;
+    const cats = data.categories || {};
+    const gt = data.grand_total || {};
+    const records = data.records || [];
+
+    container.innerHTML = `
+        <div class="ss-print-sheet">
+            <div class="ss-print-header">
+                <h2>USINTELLIX HEALTHCARE SYSTEM</h2>
+                <div class="ss-print-sub">PHYSICIAN PROFESSIONAL FEE (PF) &amp; CASE COMMISSION STATEMENT</div>
+                <div style="font-size: 0.8125rem; color: #64748b; margin-top: 4px;">
+                    Subsystem 6 (Billing &amp; Tariff Master) &bull; Subsystem 7 (HR &amp; Payroll Compensation Engine)
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #000; padding-bottom: 12px; margin-bottom: 16px; font-size: 0.8125rem;">
+                <div>
+                    <div><strong>Physician:</strong> ${escapeHtml(doc.full_name)}</div>
+                    <div><strong>Specialty:</strong> ${escapeHtml(doc.specialty || 'Attending Specialist')}</div>
+                    <div><strong>Department:</strong> ${escapeHtml(doc.department_name || 'Medical Staff')}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div><strong>Billing Period:</strong> ${state.commissions.startDate} to ${state.commissions.endDate}</div>
+                    <div><strong>Generated Date:</strong> ${new Date().toLocaleString()}</div>
+                    <div><strong>Settlement Status:</strong> Approved for Payroll</div>
+                </div>
+            </div>
+
+            <!-- Summary Table -->
+            <div style="font-weight: 700; font-size: 0.875rem; margin-bottom: 6px;">I. EXECUTIVE CATEGORY SUMMARY</div>
+            <table class="ss-print-table" style="margin-bottom: 16px;">
+                <thead>
+                    <tr>
+                        <th>Clinical Classification</th>
+                        <th style="text-align: center;">Case Count</th>
+                        <th style="text-align: right;">Gross Billed PF</th>
+                        <th style="text-align: right;">Hospital Retained</th>
+                        <th style="text-align: right;">Statutory Tax (10%)</th>
+                        <th style="text-align: right;">Net Payable to Doctor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Outpatient Consultations &amp; Ambulatory</strong></td>
+                        <td style="text-align: center;">${cats.consultations?.count || 0}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.consultations?.gross_pf || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.consultations?.hospital_share || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.consultations?.tax_withheld || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: 700;">$${parseFloat(cats.consultations?.net_commission || 0).toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Inpatient Daily Ward &amp; Bedside Rounds</strong></td>
+                        <td style="text-align: center;">${cats.ward_rounds?.count || 0}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.ward_rounds?.gross_pf || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.ward_rounds?.hospital_share || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.ward_rounds?.tax_withheld || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: 700;">$${parseFloat(cats.ward_rounds?.net_commission || 0).toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Surgical Procedures, Lead/Assistant &amp; Anesthesia</strong></td>
+                        <td style="text-align: center;">${cats.surgical_procedures?.count || 0}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.surgical_procedures?.gross_pf || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.surgical_procedures?.hospital_share || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.surgical_procedures?.tax_withheld || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: 700;">$${parseFloat(cats.surgical_procedures?.net_commission || 0).toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Diagnostics &amp; STAT Emergency Calls</strong></td>
+                        <td style="text-align: center;">${cats.other_services?.count || 0}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.other_services?.gross_pf || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.other_services?.hospital_share || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(cats.other_services?.tax_withheld || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: 700;">$${parseFloat(cats.other_services?.net_commission || 0).toFixed(2)}</td>
+                    </tr>
+                    <tr style="background: #f8fafc; font-weight: 800;">
+                        <td>TOTAL PERIOD SETTLED REVENUE SHARE</td>
+                        <td style="text-align: center;">${gt.total_cases || 0}</td>
+                        <td style="text-align: right;">$${parseFloat(gt.total_gross_pf || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(gt.total_hospital_share || 0).toFixed(2)}</td>
+                        <td style="text-align: right;">$${parseFloat(gt.total_tax_withheld || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-size: 0.875rem; color: #166534;">$${parseFloat(gt.total_net_commission || 0).toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Itemized Cases -->
+            <div style="font-weight: 700; font-size: 0.875rem; margin-bottom: 6px;">II. ITEMIZED CLINICAL VOUCHER LEDGER</div>
+            <table class="ss-print-table">
+                <thead>
+                    <tr>
+                        <th>Voucher #</th>
+                        <th>Settled Date</th>
+                        <th>Patient Name</th>
+                        <th>Procedure / Service</th>
+                        <th>Category</th>
+                        <th style="text-align: right;">Gross PF</th>
+                        <th style="text-align: center;">Split</th>
+                        <th style="text-align: right;">Hosp Share</th>
+                        <th style="text-align: right;">Tax (10%)</th>
+                        <th style="text-align: right;">Net Payable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${records.map(r => `
+                        <tr>
+                            <td><strong>${escapeHtml(r.voucher_number)}</strong></td>
+                            <td>${r.settlement_date ? r.settlement_date.substring(0, 10) : 'N/A'}</td>
+                            <td>${escapeHtml(r.patient_name)}</td>
+                            <td>${escapeHtml(r.service_description)}</td>
+                            <td>${r.service_category}</td>
+                            <td style="text-align: right;">$${parseFloat(r.gross_pf_amount).toFixed(2)}</td>
+                            <td style="text-align: center;">${parseFloat(r.split_doctor_percent).toFixed(0)}/${parseFloat(r.split_hospital_percent).toFixed(0)}</td>
+                            <td style="text-align: right;">$${parseFloat(r.hospital_share_amount).toFixed(2)}</td>
+                            <td style="text-align: right;">$${parseFloat(r.withholding_tax_amount).toFixed(2)}</td>
+                            <td style="text-align: right; font-weight: 700;">$${parseFloat(r.net_commission_payable).toFixed(2)}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+
+            <div class="ss-print-signatures">
+                <div class="ss-sig-line">
+                    <div class="ss-line"></div>
+                    <div>Attending Physician Signature</div>
+                </div>
+                <div class="ss-sig-line">
+                    <div class="ss-line"></div>
+                    <div>Hospital Billing &amp; Cashiering Officer</div>
+                </div>
+                <div class="ss-sig-line">
+                    <div class="ss-line"></div>
+                    <div>Payroll &amp; Financial Controller</div>
                 </div>
             </div>
         </div>
@@ -1177,10 +1913,92 @@ function ensureCss() {
         .ss-sig-line { text-align: center; font-size: 0.75rem; font-weight: 600; width: 220px; }
         .ss-line { border-bottom: 1px solid #000000; margin-bottom: 6px; }
 
+        /* Commissions Panel */
+        .ss-comm-container { display: flex; flex-direction: column; gap: 16px; }
+        .ss-comm-toolbar {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .ss-comm-filter-group { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: #475569; }
+        .ss-comm-actions { display: flex; gap: 8px; align-items: center; }
+
+        .ss-comm-doc-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .ss-comm-doc-info { display: flex; align-items: center; gap: 14px; }
+        .ss-comm-doc-avatar {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: #e0f2fe; color: #0284c7;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+        }
+        .ss-comm-doc-name { font-size: 1.25rem; font-weight: 800; color: #0f172a; }
+        .ss-comm-doc-meta { font-size: 0.8125rem; color: #64748b; margin-top: 2px; }
+        .ss-comm-doc-total-badge {
+            background: #ecfdf5; border: 1px solid #a7f3d0;
+            color: #065f46; border-radius: 10px;
+            padding: 10px 20px; text-align: right;
+        }
+
+        .ss-comm-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+        }
+        .ss-comm-cat-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            border-left: 4px solid #cbd5e1;
+        }
+        .ss-cc-cyan { border-left-color: #0284c7; }
+        .ss-cc-indigo { border-left-color: #6366f1; }
+        .ss-cc-rose { border-left-color: #e11d48; }
+        .ss-cc-amber { border-left-color: #d97706; }
+
+        .ss-cc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .ss-cc-title { font-size: 0.8125rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px; }
+        .ss-cc-badge { font-size: 0.6875rem; font-weight: 700; background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 999px; }
+        .ss-cc-net { font-size: 1.375rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+        .ss-cc-sub { font-size: 0.75rem; color: #64748b; display: flex; flex-direction: column; gap: 2px; }
+
+        .ss-comm-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .ss-comm-pill {
+            background: #ffffff; border: 1px solid #cbd5e1;
+            color: #475569; border-radius: 999px;
+            padding: 6px 14px; font-size: 0.8125rem; font-weight: 600;
+            cursor: pointer; transition: all 0.15s ease;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .ss-comm-pill:hover { background: #f8fafc; border-color: #94a3b8; }
+        .ss-comm-pill.active {
+            background: #0284c7; border-color: #0284c7;
+            color: #ffffff;
+        }
+
         @media print {
             body * { visibility: hidden; }
-            #ssModalPrint, #ssModalPrint * { visibility: visible; }
-            #ssModalPrint { position: absolute; left: 0; top: 0; width: 100%; background: #ffffff; }
+            #ssModalPrint, #ssModalPrint *, #ssModalCommissionPrint, #ssModalCommissionPrint * { visibility: visible; }
+            #ssModalPrint, #ssModalCommissionPrint { position: absolute; left: 0; top: 0; width: 100%; background: #ffffff; }
             .ss-modal-header { display: none; }
         }
     `;

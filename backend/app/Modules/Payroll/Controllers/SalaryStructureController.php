@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Modules\Payroll\Services\SalaryStructureService;
+use App\Modules\Payroll\Services\DoctorCommissionPullService;
 use Throwable;
 
 class SalaryStructureController extends Controller
@@ -132,8 +133,69 @@ class SalaryStructureController extends Controller
             $ndHrs = (float)($request->input('night_diff_hours') ?? 0.0);
             $onCallShifts = (int)($request->input('on_call_shifts') ?? 0);
             $commissions = (float)($request->input('case_commissions') ?? 0.0);
+            $pullFromBilling = (bool)($request->input('pull_from_billing') ?? false);
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
 
-            $result = $this->service->calculateGrossCompensationSimulation($empId, $regHrs, $otHrs, $ndHrs, $onCallShifts, $commissions);
+            $result = $this->service->calculateGrossCompensationSimulation(
+                $empId,
+                $regHrs,
+                $otHrs,
+                $ndHrs,
+                $onCallShifts,
+                $commissions,
+                $pullFromBilling,
+                $startDate,
+                $endDate
+            );
+            return Response::json(['status' => 'success', 'data' => $result]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * GET /payroll/doctor-commissions/pull
+     * Pulls settled doctor shares from Billing (Subsystem 6) across consultations, ward rounds & surgery.
+     */
+    public function pullDoctorCommissions(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $doctorId = (int)($request->input('doctor_id') ?? 0);
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+            $statusFilter = $request->input('status');
+
+            $pullSvc = new DoctorCommissionPullService();
+            if ($doctorId > 0) {
+                $data = $pullSvc->pullDoctorSettledShares($doctorId, $startDate, $endDate, $statusFilter);
+            } else {
+                $data = $pullSvc->pullAllPhysiciansCommissionSummary($startDate, $endDate, $statusFilter);
+            }
+
+            return Response::json(['status' => 'success', 'data' => $data]);
+        } catch (Throwable $e) {
+            return Response::json(['status' => 'error', 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * POST /payroll/doctor-commissions/approve
+     * Approves settled shares to be locked for payroll disbursement.
+     */
+    public function approveDoctorCommissions(?Request $request = null): Response
+    {
+        try {
+            $request = $request ?? new Request();
+            $doctorId = (int)$request->input('doctor_id');
+            $vouchers = (array)($request->input('vouchers') ?? []);
+            $cycleRef = (string)($request->input('payroll_reference') ?? 'PR-CYCLE-' . date('Ym'));
+            $userId = Session::get('user_id');
+
+            $pullSvc = new DoctorCommissionPullService();
+            $result = $pullSvc->approveSharesForPayroll($doctorId, $vouchers, $cycleRef, $userId);
+
             return Response::json(['status' => 'success', 'data' => $result]);
         } catch (Throwable $e) {
             return Response::json(['status' => 'error', 'message' => $e->getMessage()], 400);

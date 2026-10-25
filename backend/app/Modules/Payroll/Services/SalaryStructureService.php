@@ -373,6 +373,7 @@ class SalaryStructureService
     /**
      * Real-time Gross Compensation Calculation Simulator
      * Seamlessly demonstrates base pay + OT (1.25x) + Night Diff (1.30x) + On-Call Stipends + Doctor PF Shares
+     * Optionally pulls settled doctor shares from Billing (Subsystem 6) across consultations, ward rounds & surgery.
      */
     public function calculateGrossCompensationSimulation(
         int $employeeId,
@@ -380,11 +381,21 @@ class SalaryStructureService
         float $otHours = 0.0,
         float $ndHours = 0.0,
         int $onCallShifts = 0,
-        float $caseCommissions = 0.0
+        float $caseCommissions = 0.0,
+        bool $pullFromBilling = false,
+        ?string $startDate = null,
+        ?string $endDate = null
     ): array {
         $structure = $this->getEmployeeSalaryStructure($employeeId);
         if (!$structure) {
             throw new RuntimeException("No active salary structure found for Employee ID {$employeeId}.");
+        }
+
+        $pulledData = null;
+        if ($pullFromBilling) {
+            $pullSvc = new DoctorCommissionPullService();
+            $pulledData = $pullSvc->pullDoctorSettledShares($employeeId, $startDate, $endDate, 'earned,approved_for_payout');
+            $caseCommissions = (float)$pulledData['grand_total']['total_net_commission'];
         }
 
         $hourly = (float)$structure['hourly_rate'];
@@ -402,7 +413,7 @@ class SalaryStructureService
         $taxEstimate = round($grossTotal * 0.10, 2);
         $netPayEstimate = round($grossTotal - $taxEstimate, 2);
 
-        return [
+        $result = [
             'employee_id' => $employeeId,
             'staff_name' => $structure['staff_name'],
             'employment_type' => $structure['employment_type'],
@@ -429,6 +440,23 @@ class SalaryStructureService
             'estimated_withholding_tax' => $taxEstimate,
             'net_pay_estimate' => $netPayEstimate
         ];
+
+        if ($pulledData !== null) {
+            $result['pulled_billing_commissions'] = [
+                'total_settled_net' => $pulledData['grand_total']['total_net_commission'],
+                'total_cases' => $pulledData['grand_total']['total_cases'],
+                'consultations_net' => $pulledData['categories']['consultations']['net_commission'],
+                'consultations_count' => $pulledData['categories']['consultations']['count'],
+                'ward_rounds_net' => $pulledData['categories']['ward_rounds']['net_commission'],
+                'ward_rounds_count' => $pulledData['categories']['ward_rounds']['count'],
+                'surgical_net' => $pulledData['categories']['surgical_procedures']['net_commission'],
+                'surgical_count' => $pulledData['categories']['surgical_procedures']['count'],
+                'other_net' => $pulledData['categories']['other_services']['net_commission'],
+                'other_count' => $pulledData['categories']['other_services']['count']
+            ];
+        }
+
+        return $result;
     }
 
     /**

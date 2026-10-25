@@ -14,6 +14,8 @@ $router->get('/payroll/salary-structures', [SalaryStructureController::class, 'i
 $router->get('/payroll/salary-structures/detail', [SalaryStructureController::class, 'detail'], $payrollView);
 $router->get('/payroll/metadata', [SalaryStructureController::class, 'metadata'], $payrollView);
 $router->post('/payroll/simulate-gross', [SalaryStructureController::class, 'simulateGross'], $payrollView);
+$router->get('/payroll/doctor-commissions/pull', [SalaryStructureController::class, 'pullDoctorCommissions'], $payrollView);
+$router->post('/payroll/doctor-commissions/approve', [SalaryStructureController::class, 'approveDoctorCommissions'], $payrollAdmin);
 
 $router->post('/payroll/salary-structures', [SalaryStructureController::class, 'store'], $payrollAdmin);
 $router->post('/payroll/salary-structures/update', [SalaryStructureController::class, 'update'], $payrollAdmin);
