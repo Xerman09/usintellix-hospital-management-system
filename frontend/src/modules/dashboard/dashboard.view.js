@@ -64,6 +64,7 @@ function staffNavLinks(role)
                 <a data-tab="patient_deposits">Advance Deposits &amp; Drawdowns</a>
                 <a data-tab="refund_authorization">Refund Authorization Pipeline</a>
                 <a data-tab="ar_aging">AR Aging &amp; Collections Engine</a>
+                <a data-tab="tariff_master">Master Tariff Book &amp; Packages</a>
                 <a data-tab="fee_sheet" class="patient-dependent-nav">Fee Sheet</a>
                 <a data-tab="payment">Payment</a>
                 <a data-tab="checkout" class="patient-dependent-nav">Checkout</a>

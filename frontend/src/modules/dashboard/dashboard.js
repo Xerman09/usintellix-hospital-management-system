@@ -470,6 +470,7 @@ import { ClaimDenialsView, initClaimDenials } from "../claim-denials/claim-denia
 import { PatientDepositsView, initPatientDeposits } from "../patient-deposits/patient-deposits.js";
 import { RefundAuthorizationView, initRefundAuthorization } from "../refund-authorization/refund-authorization.js";
 import { ArAgingView, initArAging } from "../ar-aging/ar-aging.js";
+import { TariffMasterView, initTariffMaster } from "../tariff-master/tariff-master.js";
 
 function renderPlaceholderTab(title) {
     return `
@@ -1749,6 +1750,11 @@ export function Dashboard()
             tabManager.openTab(tabId, 'AR Aging & Collections Engine', () => {
                 setTimeout(initArAging, 0);
                 return ArAgingView();
+            }, activate);
+        } else if (tabId === 'tariff_master' || tabId === 'tariffs' || tabId === 'price_book' || tabId === 'service_packages') {
+            tabManager.openTab(tabId, 'Master Tariff Book & Packages', () => {
+                setTimeout(initTariffMaster, 0);
+                return TariffMasterView();
             }, activate);
         } else if (tabId === 'blood_bank' || tabId === 'blood_donors') {
             tabManager.openTab(tabId, 'Blood Bank & Donors', () => {

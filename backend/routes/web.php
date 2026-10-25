@@ -206,5 +206,6 @@ require_once __DIR__ . '/../app/Modules/ClaimDenials/routes.php';
 require_once __DIR__ . '/../app/Modules/Deposits/routes.php';
 require_once __DIR__ . '/../app/Modules/RefundRequests/routes.php';
 require_once __DIR__ . '/../app/Modules/ArAging/routes.php';
+require_once __DIR__ . '/../app/Modules/TariffMaster/routes.php';
 
 return $router;
